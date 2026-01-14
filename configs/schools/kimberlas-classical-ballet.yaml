@@ -1,0 +1,107 @@
+schema_version: "1.0"
+
+school:
+  slug: "kimberlas-classical-ballet"
+  display_name: "Kimberlas Classical Ballet"
+  website_url: "https://sites.google.com/site/kimberlasclassicalballet/"
+  source_url: "https://sites.google.com/site/kimberlasclassicalballet/ballet-class-registration-forms?authuser=0"
+
+form:
+  title: "Ballet Class Registration"
+  description: "Register for classes. This replaces the download/email PDF flow."
+  submit_button_text: "Submit Registration"
+
+  sections:
+    - key: "student_info"
+      title: "Student Information"
+      fields:
+        - key: "student_first_name"
+          label: "Student First Name"
+          type: "text"
+          required: true
+
+        - key: "student_last_name"
+          label: "Student Last Name"
+          type: "text"
+          required: true
+
+        - key: "date_of_birth"
+          label: "Date of Birth"
+          type: "date"
+          required: true
+
+        - key: "age"
+          label: "Age"
+          type: "number"
+          required: true
+          validation: { min_value: 0, max_value: 120 }
+
+        - key: "dance_experience"
+          label: "Previous Dance Experience (optional)"
+          type: "textarea"
+          required: false
+
+    - key: "parent_guardian"
+      title: "Parent / Guardian"
+      fields:
+        - key: "guardian_name"
+          label: "Parent/Guardian Full Name"
+          type: "text"
+          required: true
+
+        - key: "guardian_email"
+          label: "Email Address"
+          type: "email"
+          required: true
+
+        - key: "guardian_phone"
+          label: "Phone Number"
+          type: "phone"
+          required: true
+
+    - key: "class_selection"
+      title: "Class Selection"
+      fields:
+        - key: "class_name"
+          label: "Class"
+          type: "select"
+          required: true
+          options:
+            - { value: "preschool_ballet", label: "Preschool Ballet" }
+            - { value: "ballet_1", label: "Ballet I" }
+            - { value: "ballet_2", label: "Ballet II" }
+            - { value: "ballet_3", label: "Ballet III" }
+            - { value: "pre_pointe", label: "Pre-Pointe / Pointe Strengthening" }
+            - { value: "adult_ballet", label: "Adult Ballet" }
+
+        - key: "preferred_schedule"
+          label: "Preferred Schedule (optional)"
+          type: "text"
+          required: false
+
+    - key: "emergency_medical"
+      title: "Emergency & Medical"
+      fields:
+        - key: "emergency_contact_name"
+          label: "Emergency Contact Name"
+          type: "text"
+          required: true
+
+        - key: "emergency_contact_phone"
+          label: "Emergency Contact Phone"
+          type: "phone"
+          required: true
+
+        - key: "medical_conditions"
+          label: "Medical Conditions / Notes (optional)"
+          type: "textarea"
+          required: false
+
+    - key: "agreements"
+      title: "Agreements"
+      fields:
+        - key: "liability_ack"
+          label: "I acknowledge the liability waiver / policies."
+          type: "checkbox"
+          required: true
+          

@@ -1,0 +1,131 @@
+schema_version: "1.0"
+
+school:
+  slug: "dancemaker-studio"
+  display_name: "Dancemaker Studio"
+  website_url: "https://www.dancemarkstudio.com/about/"
+  source_url: "https://www.dancemarkstudio.com/about/"
+
+form:
+  title: "Dance Class Registration"
+  description: "Register your student for classes."
+  submit_button_text: "Submit Registration"
+
+  sections:
+    - key: "student"
+      title: "Student Information"
+      fields:
+        - key: "student_first_name"
+          label: "Student First Name"
+          type: "text"
+          required: true
+
+        - key: "student_last_name"
+          label: "Student Last Name"
+          type: "text"
+          required: true
+
+        - key: "date_of_birth"
+          label: "Date of Birth"
+          type: "date"
+          required: true
+
+        - key: "age"
+          label: "Age"
+          type: "number"
+          required: true
+          validation: { min_value: 0, max_value: 120 }
+
+    - key: "guardian"
+      title: "Parent / Guardian"
+      fields:
+        - key: "guardian_name"
+          label: "Parent/Guardian Full Name"
+          type: "text"
+          required: true
+
+        - key: "guardian_email"
+          label: "Email Address"
+          type: "email"
+          required: true
+
+        - key: "guardian_phone"
+          label: "Phone Number"
+          type: "phone"
+          required: true
+
+    - key: "class"
+      title: "Class Selection"
+      fields:
+        - key: "dance_style"
+          label: "Dance Style"
+          type: "select"
+          required: true
+          options:
+            - { value: "ballet", label: "Ballet" }
+            - { value: "jazz", label: "Jazz" }
+            - { value: "hip_hop", label: "Hip-Hop" }
+            - { value: "contemporary", label: "Contemporary" }
+            - { value: "tap", label: "Tap" }
+
+        - key: "skill_level"
+          label: "Skill Level"
+          type: "select"
+          required: true
+          options:
+            - { value: "beginner", label: "Beginner" }
+            - { value: "intermediate", label: "Intermediate" }
+            - { value: "advanced", label: "Advanced" }
+
+        - key: "preferred_days"
+          label: "Preferred Days (optional)"
+          type: "multiselect"
+          required: false
+          options:
+            - { value: "mon", label: "Mon" }
+            - { value: "tue", label: "Tue" }
+            - { value: "wed", label: "Wed" }
+            - { value: "thu", label: "Thu" }
+            - { value: "fri", label: "Fri" }
+            - { value: "sat", label: "Sat" }
+
+        - key: "preferred_time"
+          label: "Preferred Time (optional)"
+          type: "select"
+          required: false
+          options:
+            - { value: "afternoon", label: "Afternoon" }
+            - { value: "evening", label: "Evening" }
+            - { value: "weekend", label: "Weekend" }
+
+    - key: "emergency"
+      title: "Emergency & Medical"
+      fields:
+        - key: "allergies_medical_notes"
+          label: "Allergies / Medical Notes (optional)"
+          type: "textarea"
+          required: false
+
+        - key: "emergency_contact_name"
+          label: "Emergency Contact Name"
+          type: "text"
+          required: true
+
+        - key: "emergency_contact_phone"
+          label: "Emergency Contact Phone"
+          type: "phone"
+          required: true
+
+    - key: "agreements"
+      title: "Agreements"
+      fields:
+        - key: "liability_waiver"
+          label: "I agree to the studio liability waiver."
+          type: "checkbox"
+          required: true
+
+        - key: "media_release"
+          label: "I consent to photo/video use (optional)."
+          type: "checkbox"
+          required: false
+          

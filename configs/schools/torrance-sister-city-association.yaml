@@ -1,0 +1,189 @@
+schema_version: "1.0"
+
+school:
+  slug: "torrance-sister-city-association"
+  display_name: "Torrance Sister City Association"
+  website_url: "https://www.torrancesistercity.org/"
+  source_url: "https://www.torrancesistercity.org/programs_exchange.html"
+
+form:
+  title: "Student Cultural Exchange Program Application"
+  description: "Complete this application online. File uploads may be enabled in a later phase."
+  submit_button_text: "Submit Application"
+
+  sections:
+    - key: "applicant_info"
+      title: "Applicant Information"
+      fields:
+        - key: "applicant_name"
+          label: "Applicant’s Name"
+          type: "text"
+          required: true
+
+        - key: "grade"
+          label: "Grade"
+          type: "text"
+          required: true
+
+        - key: "address"
+          label: "Address"
+          type: "text"
+          required: true
+
+        - key: "city"
+          label: "City"
+          type: "text"
+          required: true
+
+        - key: "zip"
+          label: "Zip"
+          type: "text"
+          required: true
+
+        - key: "age"
+          label: "Age"
+          type: "number"
+          required: true
+          validation: { min_value: 0, max_value: 120 }
+
+        - key: "date_of_birth"
+          label: "Date of Birth"
+          type: "date"
+          required: true
+
+        - key: "home_phone"
+          label: "Home Phone (optional)"
+          type: "phone"
+          required: false
+
+        - key: "cell_phone"
+          label: "Cell Phone"
+          type: "phone"
+          required: true
+
+        - key: "school"
+          label: "School"
+          type: "text"
+          required: true
+
+        - key: "email"
+          label: "Email (you check regularly)"
+          type: "email"
+          required: true
+
+        - key: "passport_expiration_date"
+          label: "Passport Expiration Date (optional)"
+          type: "date"
+          required: false
+
+        - key: "pets_in_home"
+          label: "Pets in home (optional)"
+          type: "text"
+          required: false
+
+    - key: "family_household"
+      title: "Family & Household"
+      fields:
+        - key: "parents_guardians_names"
+          label: "Parents or Guardians Names"
+          type: "text"
+          required: true
+
+        - key: "parent_email"
+          label: "Parent Email"
+          type: "email"
+          required: true
+
+        - key: "parent_cell"
+          label: "Parent Cell"
+          type: "phone"
+          required: true
+
+        - key: "siblings_names_ages"
+          label: "Brothers/Sisters Names and Age(s) (optional)"
+          type: "textarea"
+          required: false
+
+        - key: "others_living_in_home"
+          label: "Others living in home (optional)"
+          type: "textarea"
+          required: false
+
+        - key: "pre_existing_health_condition"
+          label: "Pre-existing health condition (optional)"
+          type: "textarea"
+          required: false
+
+    - key: "recommenders"
+      title: "Recommenders"
+      description: "TSCA requires two recommenders (teacher and community member)."
+      fields:
+        - key: "recommender_1_name"
+          label: "Recommender #1 Name"
+          type: "text"
+          required: true
+
+        - key: "recommender_2_name"
+          label: "Recommender #2 Name"
+          type: "text"
+          required: true
+
+    - key: "activities_goals"
+      title: "Activities & Goals"
+      fields:
+        - key: "school_activities"
+          label: "School activities (clubs, sports, leadership) — include current"
+          type: "textarea"
+          required: true
+
+        - key: "community_activities"
+          label: "Community activities (church, sports, volunteer work) — include current"
+          type: "textarea"
+          required: true
+
+        - key: "educational_career_goals"
+          label: "Educational/Career Goals"
+          type: "textarea"
+          required: true
+
+        - key: "honors_awards_other_info"
+          label: "Other information / Honors & Awards (optional)"
+          type: "textarea"
+          required: false
+
+    - key: "attachments"
+      title: "Attachments (future upload support)"
+      description: "Uploads will be enabled later. For MVP, these are placeholders."
+      fields:
+        - key: "student_letter_pdf"
+          label: "Student letter (PDF)"
+          type: "file"
+          required: false
+          file:
+            accept: ["application/pdf"]
+            max_size_mb: 10
+
+        - key: "parent_letter_pdf"
+          label: "Parent letter (PDF)"
+          type: "file"
+          required: false
+          file:
+            accept: ["application/pdf"]
+            max_size_mb: 10
+
+        - key: "wallet_photo"
+          label: "Wallet-size photo (image)"
+          type: "file"
+          required: false
+          file:
+            accept: ["image/*"]
+            max_size_mb: 10
+
+    - key: "agreements"
+      title: "Agreement"
+      fields:
+        - key: "confirm_email_submission"
+          label: "I understand TSCA accepts the application by email per the program instructions."
+          type: "checkbox"
+          required: true
+          
