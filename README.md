@@ -237,6 +237,47 @@ What NOT to Touch
 
 ⸻
 
+Admin (Phase 7): School-Scoped Access, Search, and Export
+
+School Admin Accounts (Per-School)
+
+This project supports per-school admin users so each school only sees their own data.
+	•	Platform owner (superuser) can see all schools and submissions.
+	•	A school admin can only see:
+	•	Their own school record
+	•	Submissions for their school
+	•	CSV exports for their school
+
+How to Create a School Admin
+	1.	Go to /admin/ → Users → Add user
+	2.	Create a normal user (not a superuser)
+	3.	Go to /admin/ → School admin memberships
+	4.	Create a membership mapping that user → school
+
+Admin Submissions List Improvements
+
+The Submissions list shows:
+	•	Student/Applicant name (best-effort from JSON form data)
+	•	Program (best-effort from JSON form data)
+
+Search supports partial matches for:
+	•	Student/Applicant
+	•	Program
+	•	School name/slug
+
+Export CSV (Per-School)
+
+In /admin/ → Submissions:
+	•	Select rows
+	•	Action → Export selected submissions to CSV
+
+Export includes:
+	•	created_at
+	•	student/applicant name
+	•	all JSON keys discovered in selected rows
+
+⸻
+
 MVP Limitations (Planned Improvements)
 
 License

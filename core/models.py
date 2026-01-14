@@ -1,4 +1,6 @@
 from django.db import models
+from django.contrib.auth.models import User
+from core.services.form_utils import resolve_label
 
 
 class School(models.Model):
@@ -22,6 +24,14 @@ class School(models.Model):
         return self.display_name or self.slug
 
 
+class SchoolAdminMembership(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="school_membership")
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="admin_memberships")
+
+    def __str__(self) -> str:
+        return f"{self.user.username} -> {self.school.slug}"
+
+
 class Submission(models.Model):
     """
     Stores a single application submission for a given school.
@@ -36,4 +46,55 @@ class Submission(models.Model):
 
     def __str__(self) -> str:
         return f"{self.school.slug} submission #{self.id}"
+    
+    def student_display_name(self) -> str:
+        """
+        Best-effort extraction of a student/applicant name from dynamic JSON.
+        Works across our current YAMLs and is easy to extend later.
+        """
+        data = self.data or {}
+
+        # Common patterns in our configs
+        first = data.get("student_first_name") or data.get("first_name")
+        last = data.get("student_last_name") or data.get("last_name")
+
+        if first or last:
+            return f"{first or ''} {last or ''}".strip()
+
+        # TSCA
+        applicant = data.get("applicant_name")
+        if applicant:
+            return str(applicant).strip()
+
+        return ""
+
+    def program_display_name(self, label_map: dict | None = None) -> str:
+        data = self.data or {}
+        label_map = label_map or {}
+
+        # Kimberlas: class_name
+        if data.get("class_name"):
+            raw = data.get("class_name")
+            # Try to convert value -> label using YAML option map
+            return resolve_label("class_name", raw, label_map) or str(raw)
+
+        # Dancemaker: dance_style (+ skill_level)
+        if data.get("dance_style") and data.get("skill_level"):
+            dance = data.get("dance_style")
+            level = data.get("skill_level")
+
+            dance_label = resolve_label("dance_style", dance, label_map) or str(dance)
+            level_label = resolve_label("skill_level", level, label_map) or str(level)
+
+            return f"{dance_label} ({level_label})"
+
+        if data.get("dance_style"):
+            raw = data.get("dance_style")
+            return resolve_label("dance_style", raw, label_map) or str(raw)
+
+        # TSCA
+        if self.school.slug == "torrance-sister-city-association":
+            return "Student Exchange"
+
+        return ""
     
