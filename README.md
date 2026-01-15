@@ -278,6 +278,53 @@ Export includes:
 
 ⸻
 
+Important: Schools in Admin vs YAML Configs
+
+This system separates form configuration from active schools:
+	•	YAML files (configs/schools/*.yaml) define:
+	•	form fields
+	•	validation
+	•	branding defaults
+	•	School records in Admin define:
+	•	which schools are live
+	•	which schools appear in admin
+	•	which schools can have admin users
+
+Adding a YAML file does not automatically create a School record.
+
+How to Add a School in Production
+
+After deployment:
+	1.	Go to:
+        /admin/
+
+    2. Navigate to:
+        Core → Schools → Add
+
+    3. Fill In:
+        •	Slug (must match YAML filename)
+	    •	Display name
+	    •	Website URL (optional)
+    
+    4. Save
+        The application form will immediately be available at:
+        /schools/<school_slug>/apply
+    
+    No redeply required.
+
+    Why This Design Is Intentional
+
+    This separation allows:
+        •	safe staging of new schools
+        •	control over which schools are active
+        •	clean onboarding of real customers
+        •	no accidental exposure of draft forms
+
+
+Troubleshooting
+    •	Browser caching: When you change static/forms.css, you may not see updates right away. Do a hard refresh: Cmd+Shift+R (Mac).
+	•	DOB → Age behavior: Age is client-calculated from date_of_birth on blur/change. If DOB is incomplete or unrealistic, age stays blank (MVP choice; can tighten validation later).
+
 MVP Limitations (Planned Improvements)
 
 License
