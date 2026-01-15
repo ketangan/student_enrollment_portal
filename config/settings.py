@@ -36,6 +36,7 @@ ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",") if os.getenv("ALLOWED_
 # Application definition
 
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -127,3 +128,59 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+JAZZMIN_SETTINGS = {
+    "site_title": "Student Enrollment Portal",
+    "site_header": "Student Enrollment Portal",
+    "site_brand": "Enrollment Admin",
+    "welcome_sign": "Welcome",
+    "copyright": "Student Enrollment Portal",
+
+    # Top menu links
+    "topmenu_links": [
+        {"name": "View Site", "url": "/", "new_window": True},
+    ],
+
+    # UI tweaks to feel like “Admin C”
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    "hide_apps": [],
+    "hide_models": [],
+
+    # Icons (optional but makes it feel modern)
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "auth.group": "fas fa-users",
+        "core.school": "fas fa-school",
+        "core.submission": "fas fa-file-alt",
+        "core.schooladminmembership": "fas fa-user-shield",
+    },
+
+    # Order
+    "order_with_respect_to": [
+        "core",
+        "core.school",
+        "core.submission",
+        "core.schooladminmembership",
+        "auth",
+        "auth.user",
+        "auth.group",
+    ],
+}
+
+# Dark-ish + modern sidebar feel
+JAZZMIN_UI_TWEAKS = {
+    "theme": "darkly",
+    "dark_mode_theme": "darkly",
+    "navbar": "navbar-dark",
+    "no_navbar_border": True,
+    "sidebar": "sidebar-dark-primary",
+    "sidebar_nav_child_indent": True,
+    "sidebar_fixed": True,
+    "navbar_fixed": True,
+    "footer_fixed": False,
+    "body_small_text": False,
+    "brand_small_text": False,
+    "sidebar_small_text": False,
+}
