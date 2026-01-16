@@ -7,6 +7,24 @@
     <title>{{ school.display_name|default:school.slug }} - Apply</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="{% static 'forms.css' %}">
+
+    <!-- Phase 9: YAML-driven theme variables (no if-else) -->
+    <style>
+      :root{
+        --primary: {{ branding.theme.accent_color }};
+        --bg: {{ branding.theme.background }};
+        --card: {{ branding.theme.card }};
+        --text: {{ branding.theme.text }};
+        --muted: {{ branding.theme.muted }};
+        --border: {{ branding.theme.border }};
+        --radius: {{ branding.theme.radius }};
+      }
+    </style>
+
+    <!-- Phase 9: optional per-school CSS override -->
+    {% if branding.custom_css %}
+      <link rel="stylesheet" href="{% static branding.custom_css %}">
+    {% endif %}
   </head>
 
   <body>
@@ -303,5 +321,9 @@
             maybeUpdateAge();
         })();
     </script>
+
+    {% if branding.custom_js %}
+      <script defer src="{% static branding.custom_js %}"></script>
+    {% endif %}
   </body>
 </html>

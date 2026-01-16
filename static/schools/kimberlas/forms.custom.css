@@ -1,0 +1,17 @@
+/* Kimberlas per-school overrides (Phase 9 test) */
+
+/* Make the header slightly more “brand-y” */
+.header {
+  padding-bottom: 6px;
+}
+
+/* Add a subtle top border accent to each card */
+.card {
+  border-top: 4px solid var(--primary);
+}
+
+/* Slightly tighten checklist spacing */
+.checklist {
+  padding: 10px;
+  gap: 8px 14px;
+}

@@ -6,13 +6,30 @@ school:
   website_url: "https://sites.google.com/site/kimberlasclassicalballet/"
   source_url: "https://sites.google.com/site/kimberlasclassicalballet/ballet-class-registration-forms?authuser=0"
 
-# Optional: store links for display on the page (not form fields)
+branding:
+  logo_url: ""
+
+  theme:
+    primary_color: "#111827"
+    accent_color: "#7c3aed"   # purple
+
+    background: "#f7f7fb"
+    card: "#ffffff"
+    text: "#111827"
+    muted: "#6b7280"
+    border: "#e5e7eb"
+    radius: "16px"
+
+  # IMPORTANT: this should be a static-relative path (no leading /static)
+  custom_css: "schools/kimberlas/forms.custom.css"
+  custom_js: "schools/kimberlas/forms.custom.js"
+
 links:
-  medical_waiver_url: ""  # paste the waiver PDF link if you have it
+  medical_waiver_url: ""
 
 form:
   title: "Registration Information"
-  description: "Online version of the Registration Information PDF. Please complete all required fields."
+  # description: "Online version of the Registration Information PDF. Please complete all required fields."
   submit_button_text: "Submit Registration"
 
   sections:
@@ -35,7 +52,7 @@ form:
           type: "number"
           required: false
           validation: { min_value: 0, max_value: 120 }
-          
+
         - key: "student_cell_number"
           label: "Cell Number"
           type: "phone"
@@ -154,3 +171,13 @@ form:
           label: "Phone"
           type: "phone"
           required: true
+
+    - key: "waiver_ack"
+      title: "Medical & Liability Waiver"
+      fields:
+        - key: "medical_waiver_ack"
+          label: "I acknowledge that I will be required to complete a Medical & Liability Waiver before enrollment is finalized."
+          type: "checkbox"
+          required: true
+          full_width: true
+          
