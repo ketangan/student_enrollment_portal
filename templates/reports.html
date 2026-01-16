@@ -1,0 +1,183 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ school.display_name|default:school.slug }} - Reports</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <link rel="stylesheet" href="{% static 'forms.css' %}">
+    <link rel="stylesheet" href="{% static 'admin/reports.css' %}">
+  </head>
+
+  <body>
+    <div class="reports-page">
+      <div class="reports-topbar">
+        <div>
+          <h1 class="reports-title">Reports</h1>
+          <div class="reports-subtitle">{{ school.display_name|default:school.slug }}</div>
+        </div>
+
+        <div class="reports-muted">
+          <span class="reports-pill">Program = Admin “Program” column</span>
+        </div>
+      </div>
+
+      <!-- Filters row -->
+      <div class="reports-card" style="margin-top: 12px;">
+        <div class="reports-filterbar">
+          <div class="reports-k">Filters</div>
+
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <!-- Date range -->
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <span class="reports-muted" style="font-size:12px;">Date range:</span>
+
+              <a
+                class="reports-chip {% if range_days == 7 %}reports-chip--active{% endif %}"
+                href="?range=7{% if selected_program %}&program={{ selected_program|urlencode }}{% endif %}"
+              >
+                Last 7
+              </a>
+
+              <a
+                class="reports-chip {% if range_days == 30 %}reports-chip--active{% endif %}"
+                href="?range=30{% if selected_program %}&program={{ selected_program|urlencode }}{% endif %}"
+              >
+                Last 30
+              </a>
+
+              <a
+                class="reports-chip {% if range_days == 90 %}reports-chip--active{% endif %}"
+                href="?range=90{% if selected_program %}&program={{ selected_program|urlencode }}{% endif %}"
+              >
+                Last 90
+              </a>
+            </div>
+
+            <!-- Export -->
+            <a
+              class="reports-clearbtn"
+              href="?range={{ range_days }}{% if selected_program %}&program={{ selected_program|urlencode }}{% endif %}&export=1"
+            >
+              Export CSV
+            </a>
+
+            <!-- Clear -->
+            {% if selected_program %}
+              <a class="reports-clearbtn" href="?range={{ range_days }}">Clear Program</a>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if selected_program %}
+          <div class="reports-muted" style="margin-top:10px;">
+            Showing only
+            <span class="reports-pill">
+              {% if selected_program == "(none)" %}
+                No program selected
+              {% else %}
+                {{ selected_program }}
+              {% endif %}
+            </span>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="reports-cards">
+        <div class="reports-card">
+          <div class="reports-k">Total submissions</div>
+          <div class="reports-v">{{ total }}</div>
+          <div class="reports-muted" style="margin-top:6px;">Last {{ range_days }} days</div>
+        </div>
+
+        <div class="reports-card">
+          <div class="reports-k">Latest submission</div>
+          <div class="reports-v">
+            {% if latest %}
+              {{ latest|date:"M j, Y, g:i A" }}
+            {% else %}
+              <span class="reports-muted">None yet</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Program breakdown -->
+      <div class="reports-card">
+        <div class="reports-filterbar">
+          <div class="reports-k">Program breakdown</div>
+        </div>
+
+        {% if program_rows %}
+          <!-- Program chips (filter) -->
+          <div class="reports-chiprow">
+            {% for row in program_rows %}
+              <a
+                class="reports-chip {% if selected_program == row.raw %}reports-chip--active{% endif %}"
+                href="?range={{ range_days }}&program={{ row.raw|urlencode }}"
+              >
+                <span>{{ row.label }}</span>
+                <span class="reports-chipCount">{{ row.count }}</span>
+              </a>
+            {% endfor %}
+          </div>
+
+          <table class="reports-table">
+            <thead>
+              <tr>
+                <th>Program</th>
+                <th style="width:140px;">Count</th>
+                <th style="width:140px;">Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in program_rows %}
+                <tr>
+                  <td>
+                    {% if selected_program == row.raw %}
+                      <span class="reports-pill">{{ row.label }}</span>
+                    {% else %}
+                      {{ row.label }}
+                    {% endif %}
+                  </td>
+                  <td>{{ row.count }}</td>
+                  <td class="reports-muted">{{ row.pct }}%</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="reports-muted">No data yet for the selected range.</div>
+        {% endif %}
+      </div>
+
+      <!-- Recent submissions -->
+      <div class="reports-card" style="margin-top: 12px;">
+        <div class="reports-k" style="margin-bottom:10px;">Recent submissions</div>
+        {% if recent %}
+          <table class="reports-table">
+            <thead>
+              <tr>
+                <th style="width:180px;">Created</th>
+                <th>Student / Applicant</th>
+                <th>Program</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in recent %}
+                <tr>
+                  <td class="reports-muted">{{ r.created_at|date:"M j, Y, g:i A" }}</td>
+                  <td>{{ r.student|default:"" }}</td>
+                  <td class="reports-muted">{{ r.program|default:"" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="reports-muted">No submissions yet for the selected filters.</div>
+        {% endif %}
+      </div>
+    </div>
+  </body>
+</html>

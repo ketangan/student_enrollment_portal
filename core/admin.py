@@ -6,9 +6,13 @@ from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.models import Group
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
 from django.utils import timezone
 from django.utils.formats import date_format
+from django.urls import reverse, path
+from django.utils.html import format_html
+from django.shortcuts import redirect, render
+from django.template.response import TemplateResponse
 
 from .models import School, Submission, SchoolAdminMembership
 from core.services.config_loader import load_school_config
@@ -133,13 +137,11 @@ class UserSuperuserForm(forms.ModelForm):
         user = super().save(commit=commit)
         school = self.cleaned_data.get("school")
 
-        # If a school is chosen, ensure membership exists/updated
         if school:
             SchoolAdminMembership.objects.update_or_create(
                 user=user,
                 defaults={"school": school},
             )
-            # Ensure they can log into admin
             if not user.is_staff:
                 user.is_staff = True
                 user.save(update_fields=["is_staff"])
@@ -181,17 +183,6 @@ class UserSuperuserAddForm(forms.ModelForm):
 
 @admin.register(UserModel)
 class SchoolScopedUserAdmin(DjangoUserAdmin):
-    """
-    MVP-friendly Users admin:
-    - School admins only see users tied to their school via SchoolAdminMembership
-    - School admins do NOT see superusers
-    - No filters row (simpler)
-    - No bulk actions (safer)
-    - Delete only for superuser
-    - Default any newly created user to is_staff=True (so they can log in)
-    - Superuser gets a School dropdown to assign membership quickly (ADD + EDIT)
-    """
-
     actions = None
     list_filter = ()
     ordering = ("username",)
@@ -201,7 +192,6 @@ class SchoolScopedUserAdmin(DjangoUserAdmin):
     filter_horizontal = ()
     readonly_fields = ("last_login", "date_joined")
 
-    # ✅ FAST membership assignment on ADD page
     add_form = UserSuperuserAddForm
     add_fieldsets = (
         (None, {
@@ -229,7 +219,6 @@ class SchoolScopedUserAdmin(DjangoUserAdmin):
         )
 
     def get_form(self, request, obj=None, **kwargs):
-        # Superuser gets the special EDIT form with School picker
         if _is_superuser(request.user):
             kwargs["form"] = UserSuperuserForm
         return super().get_form(request, obj, **kwargs)
@@ -248,7 +237,6 @@ class SchoolScopedUserAdmin(DjangoUserAdmin):
         )
 
     def save_model(self, request, obj, form, change):
-        # Default: any created user becomes staff so they can log in
         if not change and not obj.is_staff:
             obj.is_staff = True
         super().save_model(request, obj, form, change)
@@ -271,11 +259,59 @@ class SchoolScopedUserAdmin(DjangoUserAdmin):
 
 
 # ----------------------------
-# School Admin
+# MVP-safe Admin "Reports Hub" view (NEW)
+# ----------------------------
+def admin_reports_hub_view(request):
+    """
+    /admin/reports/
+
+    - Superuser: choose a school -> jump to /schools/<slug>/admin/reports
+    - School admin: redirect to their school reports automatically
+    """
+    user = request.user
+    if not user or not user.is_authenticated or not user.is_staff:
+        raise Http404("Page not found")
+
+    if _is_superuser(user):
+        schools = School.objects.all().order_by("display_name", "slug")
+
+        context = admin.site.each_context(request)  # ✅ gives Jazzmin the sidebar/app list
+        context.update({"schools": schools})
+
+        return TemplateResponse(request, "admin/reports_hub.html", context)
+
+    school_id = _membership_school_id(user)
+    if not school_id:
+        raise Http404("Page not found")
+
+    school = School.objects.filter(id=school_id).first()
+    if not school:
+        raise Http404("Page not found")
+
+    return redirect(reverse("school_reports", kwargs={"school_slug": school.slug}))
+
+
+# Register the extra admin URL without touching config/urls.py
+_original_admin_get_urls = admin.site.get_urls
+
+
+def _admin_get_urls():
+    urls = _original_admin_get_urls()
+    custom = [
+        path("reports/", admin.site.admin_view(admin_reports_hub_view), name="reports_hub"),
+    ]
+    return custom + urls
+
+
+admin.site.get_urls = _admin_get_urls
+
+
+# ----------------------------
+# School Admin (Option B: Reports link)
 # ----------------------------
 @admin.register(School)
 class SchoolAdmin(admin.ModelAdmin):
-    list_display = ("slug", "display_name", "website_url", "created_at")
+    list_display = ("slug", "display_name", "website_url", "created_at", "reports_link")
     search_fields = ("slug", "display_name")
 
     def has_module_permission(self, request):
@@ -302,6 +338,34 @@ class SchoolAdmin(admin.ModelAdmin):
             return qs.none()
         return qs.filter(id=school_id)
 
+    def reports_link(self, obj: School):
+        if not obj or not obj.slug:
+            return ""
+
+        url = reverse("school_reports", kwargs={"school_slug": obj.slug})
+
+        return format_html(
+            """
+            <a href="{url}" target="_blank"
+            style="
+                display:inline-block;
+                padding:6px 12px;
+                border-radius:10px;
+                background:#2563eb;
+                color:#fff;
+                font-weight:600;
+                text-decoration:none;
+                border:1px solid rgba(255,255,255,0.15);
+            ">
+            Reports
+            </a>
+            """,
+            url=url,
+        )
+
+    reports_link.short_description = "Reports"
+    readonly_fields = ("reports_link",)
+
 
 # ----------------------------
 # Membership Admin (superuser only)
@@ -310,7 +374,7 @@ class SchoolAdmin(admin.ModelAdmin):
 class SchoolAdminMembershipAdmin(admin.ModelAdmin):
     list_display = ("user", "school")
     search_fields = ("user__username", "school__slug", "school__display_name")
-    actions = None  # remove bulk actions dropdown (and the "---------" UI)
+    actions = None
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -342,13 +406,12 @@ class SubmissionAdmin(admin.ModelAdmin):
     list_filter = ()
     actions = ["export_csv"]
 
-    # ✅ CHANGE #2: show school column ONLY for superuser
     def get_list_display(self, request):
         if _is_superuser(request.user):
             return ("id", "school_display", "student_name", "program_name", "created_at_pretty")
         return ("id", "student_name", "program_name", "created_at_pretty")
 
-    search_fields = ("school__slug", "school__display_name")  # plus JSON search below
+    search_fields = ("school__slug", "school__display_name")
 
     readonly_fields = ("school_display", "created_at_pretty")
     fields = ("school_display", "created_at_pretty", "data")
@@ -367,7 +430,6 @@ class SubmissionAdmin(admin.ModelAdmin):
         return _has_school_membership(request.user) and request.user.is_staff
 
     def has_add_permission(self, request):
-        # Don’t allow creating submissions in admin (too easy to break JSON)
         return _is_superuser(request.user)
 
     def has_delete_permission(self, request, obj=None):
@@ -468,4 +530,3 @@ class SubmissionAdmin(admin.ModelAdmin):
         return response
 
     export_csv.short_description = "Export selected submissions to CSV"
-    

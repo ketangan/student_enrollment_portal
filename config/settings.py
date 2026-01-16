@@ -156,6 +156,16 @@ JAZZMIN_SETTINGS = {
         "core.schooladminmembership": "fas fa-user-shield",
     },
 
+    "custom_links": {
+        "core": [
+            {
+                "name": "Reports",
+                "url": "admin:reports_hub",
+                "icon": "fas fa-chart-bar",
+            }
+        ]
+    },
+    
     # Order
     "order_with_respect_to": [
         "core",

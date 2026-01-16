@@ -1,0 +1,24 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+  <div style="max-width: 900px;">
+    <h1 style="margin-bottom: 6px;">Reports</h1>
+    <p class="help" style="margin-top: 0;">
+      Choose a school to open its reports page.
+    </p>
+
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin: 16px 0;">
+      {% for s in schools %}
+        <a class="button"
+           href="{% url 'school_reports' school_slug=s.slug %}"
+           target="_blank"
+           style="display:inline-flex; align-items:center; gap:8px; padding:8px 12px;">
+          {{ s.display_name|default:s.slug }}
+        </a>
+      {% empty %}
+        <p>No schools yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}

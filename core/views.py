@@ -1,10 +1,21 @@
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
+from django.utils import timezone
 
 from .models import School, Submission
 from .services.config_loader import load_school_config
 from .services.validation import validate_submission
+from collections import Counter
+
+from django.contrib.auth.decorators import login_required
+from django.http import Http404
+from django.shortcuts import render
+from .services.form_utils import build_option_label_map
+
+from datetime import timedelta
+from collections import Counter
+import csv
 
 
 # Phase 9: default branding (used when YAML has missing branding keys)
@@ -125,5 +136,165 @@ def apply_success_view(request, school_slug: str):
         {
             "school_slug": school_slug,
             "school_name": config.display_name,
+        },
+    )
+
+def _can_view_school_admin_page(request, school: School) -> bool:
+    """
+    School-admin-only access:
+    - superuser: always allowed
+    - otherwise: must be staff AND have SchoolAdminMembership for this school
+    """
+    user = request.user
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+
+    membership = getattr(user, "school_membership", None)
+    return bool(user.is_staff and membership and membership.school_id == school.id)
+
+
+@login_required
+def school_reports_view(request, school_slug: str):
+    """
+    Phase 10 Reports
+    URL: /schools/<slug>/admin/reports
+
+    Features:
+    - date range filter: last 7/30/90 days
+    - optional program filter (exact match on display string)
+    - export CSV of filtered rows
+    - Program "(none)" displayed explicitly as "No program selected"
+    """
+    # School must exist (membership assignment depends on this record)
+    try:
+        school = School.objects.get(slug=school_slug)
+    except School.DoesNotExist:
+        raise Http404("School not found")
+
+    if not _can_view_school_admin_page(request, school):
+        raise Http404("Page not found")
+
+    config = load_school_config(school_slug)
+    label_map = build_option_label_map(config.form) if config else {}
+
+    # ----------------------------
+    # Filters
+    # ----------------------------
+    # date range: 7 / 30 / 90 (defaults to 30)
+    range_raw = (request.GET.get("range") or "30").strip()
+    if range_raw not in {"7", "30", "90"}:
+        range_raw = "30"
+    range_days = int(range_raw)
+
+    since = timezone.now() - timedelta(days=range_days)
+
+    # optional program filter (exact match on display string)
+    selected_program = (request.GET.get("program") or "").strip()
+
+    # export flag
+    export = (request.GET.get("export") or "").strip().lower() in {"1", "true", "yes", "csv"}
+
+    # Base queryset
+    qs = Submission.objects.filter(school=school, created_at__gte=since).order_by("-created_at")
+
+    # ----------------------------
+    # Build reporting rows (MVP cap)
+    # ----------------------------
+    rows_for_reporting = list(qs[:5000])
+
+    # Compute display program strings (using the same logic as Admin list)
+    program_strings = []
+    for s in rows_for_reporting:
+        p = (s.program_display_name(label_map=label_map) or "").strip()
+        program_strings.append(p if p else "(none)")
+
+    # Apply optional program filter AFTER we have program strings
+    if selected_program:
+        filtered_rows = []
+        filtered_program_strings = []
+        for s, p in zip(rows_for_reporting, program_strings):
+            if p == selected_program:
+                filtered_rows.append(s)
+                filtered_program_strings.append(p)
+        rows_for_reporting = filtered_rows
+        program_strings = filtered_program_strings
+
+    # ----------------------------
+    # Export CSV (filtered rows)
+    # ----------------------------
+    if export:
+        # Union keys across selected rows (same idea as admin export)
+        all_keys = set()
+        for s in rows_for_reporting:
+            all_keys.update((s.data or {}).keys())
+
+        # Put common columns first
+        ordered_keys = ["created_at", "student_name", "program"] + sorted(all_keys)
+
+        resp = HttpResponse(content_type="text/csv")
+        resp["Content-Disposition"] = f'attachment; filename="{school.slug}-reports-last{range_days}d.csv"'
+
+        writer = csv.writer(resp)
+        writer.writerow(ordered_keys)
+
+        for s in rows_for_reporting:
+            data = s.data or {}
+            created = timezone.localtime(s.created_at).isoformat()
+            student = s.student_display_name()
+            program = (s.program_display_name(label_map=label_map) or "").strip() or "No program selected"
+
+            writer.writerow(
+                [created, student, program] + [data.get(k, "") for k in sorted(all_keys)]
+            )
+
+        return resp
+
+    # ----------------------------
+    # Metrics
+    # ----------------------------
+    total = len(rows_for_reporting)
+    latest = rows_for_reporting[0].created_at if total else None
+
+    # Program breakdown + nicer "(none)" label
+    NONE_LABEL = "No program selected"
+    counts = Counter(program_strings)
+
+    program_rows = []
+    for program_label, c in counts.most_common():
+        display_label = NONE_LABEL if program_label == "(none)" else program_label
+        pct = (c / total * 100.0) if total else 0.0
+        program_rows.append({"label": display_label, "raw": program_label, "count": c, "pct": round(pct, 1)})
+
+    # Program dropdown options should use RAW values so filtering still works
+    program_options = [program for (program, _count) in counts.most_common()]
+
+    # Recent submissions
+    recent = []
+    for s in rows_for_reporting[:25]:
+        program_label = (s.program_display_name(label_map=label_map) or "").strip() or NONE_LABEL
+        recent.append(
+            {
+                "id": s.id,
+                "created_at": timezone.localtime(s.created_at),
+                "student": s.student_display_name(),
+                "program": program_label,
+            }
+        )
+
+    return render(
+        request,
+        "reports.html",
+        {
+            "school": school,
+            "school_slug": school_slug,
+            "total": total,
+            "latest": timezone.localtime(latest) if latest else None,
+            "program_rows": program_rows,
+            "program_options": program_options,   # raw values for dropdown filter
+            "recent": recent,
+            "selected_program": selected_program,
+            "range_days": range_days,
         },
     )
