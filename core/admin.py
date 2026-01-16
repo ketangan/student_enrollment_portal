@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.utils.formats import date_format
 from django.urls import reverse, path
 from django.utils.html import format_html
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 
 from .models import School, Submission, SchoolAdminMembership
@@ -259,7 +259,7 @@ class SchoolScopedUserAdmin(DjangoUserAdmin):
 
 
 # ----------------------------
-# MVP-safe Admin "Reports Hub" view (NEW)
+# MVP-safe Admin "Reports Hub" view
 # ----------------------------
 def admin_reports_hub_view(request):
     """
@@ -275,7 +275,7 @@ def admin_reports_hub_view(request):
     if _is_superuser(user):
         schools = School.objects.all().order_by("display_name", "slug")
 
-        context = admin.site.each_context(request)  # ✅ gives Jazzmin the sidebar/app list
+        context = admin.site.each_context(request)  # Jazzmin sidebar + admin context
         context.update({"schools": schools})
 
         return TemplateResponse(request, "admin/reports_hub.html", context)
@@ -292,18 +292,20 @@ def admin_reports_hub_view(request):
 
 
 # Register the extra admin URL without touching config/urls.py
-_original_admin_get_urls = admin.site.get_urls
+# ✅ Guard so Django autoreload doesn't stack/duplicate the route
+if not getattr(admin.site, "_reports_hub_installed", False):
+    admin.site._reports_hub_installed = True
 
+    _original_admin_get_urls = admin.site.get_urls
 
-def _admin_get_urls():
-    urls = _original_admin_get_urls()
-    custom = [
-        path("reports/", admin.site.admin_view(admin_reports_hub_view), name="reports_hub"),
-    ]
-    return custom + urls
+    def _admin_get_urls():
+        urls = _original_admin_get_urls()
+        custom = [
+            path("reports/", admin.site.admin_view(admin_reports_hub_view), name="reports_hub"),
+        ]
+        return custom + urls
 
-
-admin.site.get_urls = _admin_get_urls
+    admin.site.get_urls = _admin_get_urls
 
 
 # ----------------------------
@@ -530,3 +532,4 @@ class SubmissionAdmin(admin.ModelAdmin):
         return response
 
     export_csv.short_description = "Export selected submissions to CSV"
+    

@@ -168,7 +168,13 @@
               {% for r in recent %}
                 <tr>
                   <td class="reports-muted">{{ r.created_at|date:"M j, Y, g:i A" }}</td>
-                  <td>{{ r.student|default:"" }}</td>
+                  <td>
+                    {% if r.admin_url %}
+                        <a href="{{ r.admin_url }}">{{ r.student|default:"" }}</a>
+                    {% else %}
+                        {{ r.student|default:"" }}
+                    {% endif %}
+                  </td>
                   <td class="reports-muted">{{ r.program|default:"" }}</td>
                 </tr>
               {% endfor %}
