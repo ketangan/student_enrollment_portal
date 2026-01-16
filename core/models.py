@@ -20,6 +20,10 @@ class School(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        verbose_name = "School"
+        verbose_name_plural = "School"  # singular on purpose
+
     def __str__(self) -> str:
         return self.display_name or self.slug
 
@@ -30,6 +34,7 @@ class SchoolAdminMembership(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user.username} -> {self.school.slug}"
+
 
 
 class Submission(models.Model):

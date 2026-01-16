@@ -11,7 +11,7 @@ branding:
 
   theme:
     primary_color: "#111827"
-    accent_color: "#7c3aed"   # purple
+    accent_color: "#ea580c"
 
     background: "#f7f7fb"
     card: "#ffffff"
@@ -181,3 +181,7 @@ form:
           required: true
           full_width: true
           
+reporting:
+  program_fields:
+    - "interested_in"
+    

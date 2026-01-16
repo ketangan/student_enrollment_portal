@@ -137,22 +137,20 @@ JAZZMIN_SETTINGS = {
     "welcome_sign": "Welcome",
     "copyright": "Student Enrollment Portal",
 
-    # Top menu links
-    "topmenu_links": [
-        {"name": "View Site", "url": "/", "new_window": True},
-    ],
+    "topmenu_links": [],
 
     # UI tweaks to feel like “Admin C”
     "show_sidebar": True,
     "navigation_expanded": True,
     "hide_apps": [],
     "hide_models": [],
+    "show_ui_builder": False,
+    "site_url": None,
 
     # Icons (optional but makes it feel modern)
     "icons": {
         "auth": "fas fa-users-cog",
         "auth.user": "fas fa-user",
-        "auth.group": "fas fa-users",
         "core.school": "fas fa-school",
         "core.submission": "fas fa-file-alt",
         "core.schooladminmembership": "fas fa-user-shield",
@@ -166,7 +164,6 @@ JAZZMIN_SETTINGS = {
         "core.schooladminmembership",
         "auth",
         "auth.user",
-        "auth.group",
     ],
 }
 

@@ -1,17 +1,23 @@
-Student Enrollment Portal (Multi‑School Application MVP)
+Yes — you should commit this stage. You just crossed a big “stable MVP milestone” (Phase 8 done + Phase 9 theming + Phase 10 admin improvements). A clean commit now makes it easy to roll back and keeps Render deploys predictable.
+
+Below is an updated README.md that keeps your existing tone/structure, adds what’s missing from a non-technical perspective, and updates a couple sections to reflect how the system actually works now (especially Admin user creation + branding/theme + custom css/js + reporting + troubleshooting).
+
+⸻
+
+Student Enrollment Portal (Multi-School Application MVP)
 
 Overview
 
-Student Enrollment Portal is a multi‑tenant web application that allows multiple real‑world schools/programs to collect applications online using YAML‑defined forms, while sharing a single backend, database, and codebase.
+Student Enrollment Portal is a multi-tenant web application that allows multiple real-world schools/programs to collect applications online using YAML-defined forms, while sharing a single backend, database, and codebase.
 
-This MVP is designed for small institutions (dance studios, cultural programs, academies, etc.) that currently rely on PDF or email‑based applications.
+This MVP is designed for small institutions (dance studios, cultural programs, academies, etc.) that currently rely on PDF or email-based applications.
 
 Key goals:
 	•	One backend, many schools
 	•	No custom code per school
 	•	Forms defined in YAML (easy to change)
 	•	Simple admin access per school
-	•	Production‑ready architecture
+	•	Production-ready architecture
 
 ⸻
 
@@ -19,7 +25,9 @@ How It Works (Mental Model)
 	1.	Each school is identified by a school_slug
 	2.	A YAML file at configs/schools/<school_slug>.yaml defines:
 	•	School metadata
+	•	Branding + theme
 	•	Form sections and fields
+	•	Optional reporting config (Phase 10)
 	3.	Visiting /schools/<school_slug>/apply:
 	•	Loads the YAML config
 	•	Dynamically renders the form
@@ -27,6 +35,8 @@ How It Works (Mental Model)
 	•	Data is validated
 	•	Stored as JSON in PostgreSQL
 	5.	Admins log in to view submissions for their school
+	•	Superuser sees all schools
+	•	School admins only see their own school data
 
 ⸻
 
@@ -34,14 +44,16 @@ Repository Structure
 
 student_enrollment_portal/
 ├── config/                # Django settings, URLs, WSGI
-├── core/                  # Main app (models, views, services)
-│   ├── services/          # YAML loading, validation
+├── core/                  # Main app (models, views, services, admin)
+│   ├── services/          # YAML loading, validation, helpers
 │   ├── templatetags/      # Template helpers
 │   └── migrations/
 ├── configs/
 │   └── schools/           # One YAML file per school
 ├── templates/             # Shared HTML templates
 ├── static/
+│   ├── forms.css          # Shared base styling
+│   ├── schools/           # Optional per-school CSS/JS overrides
 │   └── logos/             # Optional school logos
 ├── docs/                  # Discovery notes
 ├── requirements.txt
@@ -49,37 +61,35 @@ student_enrollment_portal/
 ├── .env.example
 └── README.md
 
-
 ⸻
 
-Local Setup (Step‑by‑Step)
+Local Setup (Step-by-Step)
 
 These steps assume macOS and no prior Django experience.
-
-1. Clone the repository
+	1.	Clone the repository
 
 git clone <your-repo-url>
 cd student_enrollment_portal
 
-2. Create and activate virtual environment
+	2.	Create and activate virtual environment
 
 python3 -m venv venv
 source venv/bin/activate
 
-3. Install dependencies
+	3.	Install dependencies
 
 pip install -r requirements.txt
 
-4. Install PostgreSQL (Homebrew)
+	4.	Install PostgreSQL (Homebrew)
 
 brew install postgresql@16
 brew services start postgresql@16
 
-5. Create database
+	5.	Create database
 
 createdb student_enrollment_portal
 
-6. Environment variables
+	6.	Environment variables
 
 Copy the example file:
 
@@ -92,17 +102,17 @@ DJANGO_DEBUG=True
 DATABASE_URL=postgres://<your-mac-username>@localhost:5432/student_enrollment_portal
 ALLOWED_HOSTS=localhost,127.0.0.1
 
-7. Run migrations
+	7.	Run migrations
 
-python manage.py migrate
+python3 manage.py migrate
 
-8. Create admin user
+	8.	Create admin user (platform owner)
 
-python manage.py createsuperuser
+python3 manage.py createsuperuser
 
-9. Start the server
+	9.	Start the server
 
-python manage.py runserver
+python3 manage.py runserver
 
 Visit:
 	•	App: http://127.0.0.1:8000/
@@ -114,12 +124,10 @@ Adding a New School (No Code Required)
 	1.	Copy an existing YAML file:
 
 configs/schools/example-school.yaml
-
 	2.	Rename it:
 
 configs/schools/my-new-school.yaml
-
-	3.	Edit:
+	3.	Update:
 
 school:
   slug: "my-new-school"
@@ -130,7 +138,6 @@ school:
 	6.	Visit:
 
 /schools/my-new-school/apply
-
 
 ⸻
 
@@ -153,8 +160,6 @@ Step 1: Show Their Branded Form (30 seconds)
 	•	Open:
 
 /schools/<school_slug>/apply
-
-
 	•	Explain:
 	•	“This replaces your PDF and email-based application.”
 	•	“Parents can submit from phone or laptop.”
@@ -168,8 +173,6 @@ Step 3: Show the Admin View (1 minute)
 	•	Open:
 
 /admin/
-
-
 	•	Log in as the school admin
 	•	Click Submissions
 	•	Open the newly submitted entry
@@ -178,7 +181,7 @@ Step 4: Explain the Value (2 minutes)
 	•	No PDFs
 	•	No email back-and-forth
 	•	One place for all applications
-	•	Easy exports (coming next)
+	•	Easy exports (CSV)
 
 Step 5: Close (30 seconds)
 	•	“We can customize fields in minutes.”
@@ -192,8 +195,6 @@ How to Add or Edit Form Fields
 	1.	Open:
 
 configs/schools/<school_slug>.yaml
-
-
 	2.	Edit labels, required fields, or options
 	3.	Save the file
 	4.	Restart the server
@@ -203,22 +204,59 @@ No database or code changes required.
 
 ⸻
 
-How to Add a New School
-	1.	Copy an existing YAML file
-	2.	Rename it to the new school slug
-	3.	Update:
+Branding + Theme (Phase 9)
 
-school:
-  slug: "new-school"
-  display_name: "New School"
+Each school can have its own theme using YAML only (no code changes).
 
+Theme variables
 
-	4.	Restart server
-	5.	Visit:
+In your school YAML:
 
-/schools/new-school/apply
+branding:
+  theme:
+    primary_color: "#111827"
+    accent_color: "#7c3aed"
+    background: "#f7f7fb"
+    card: "#ffffff"
+    text: "#111827"
+    muted: "#6b7280"
+    border: "#e5e7eb"
+    radius: "16px"
 
+The form template injects these as CSS variables so the UI updates instantly.
 
+Optional per-school custom CSS / JS
+
+If a school needs custom tweaks beyond theme colors:
+
+branding:
+  custom_css: "schools/<school_slug>/forms.custom.css"
+  custom_js: "schools/<school_slug>/forms.custom.js"
+
+Files live under:
+
+static/schools/<school_slug>/...
+
+Notes:
+	•	The YAML value must be static-relative (do not include /static/).
+	•	If custom_css / custom_js is blank, nothing is loaded.
+
+⸻
+
+Waiver Acknowledgement (Phase 8 MVP Choice)
+
+Some schools require a medical/liability waiver. For MVP, we support a simple acknowledgement checkbox on the registration form:
+
+Example field:
+
+- key: "medical_waiver_ack"
+  type: "checkbox"
+  required: true
+  label: "I acknowledge that I will be required to complete a Medical & Liability Waiver before enrollment is finalized."
+
+This approach:
+	•	avoids e-signature complexity in MVP
+	•	still captures agreement intent at submission time
 
 ⸻
 
@@ -226,7 +264,8 @@ How to View Applications
 	1.	Go to /admin/
 	2.	Log in
 	3.	Click Submissions
-	4.	Filter by school
+	4.	Use the search bar to find a student/application
+	•	Search is case-insensitive and supports partial matches
 
 ⸻
 
@@ -237,39 +276,72 @@ What NOT to Touch
 
 ⸻
 
-Admin (Phase 7): School-Scoped Access, Search, and Export
-
-School Admin Accounts (Per-School)
+Admin Access (Phase 10): School-Scoped Users + Submissions
 
 This project supports per-school admin users so each school only sees their own data.
-	•	Platform owner (superuser) can see all schools and submissions.
-	•	A school admin can only see:
-	•	Their own school record
-	•	Submissions for their school
-	•	CSV exports for their school
 
-How to Create a School Admin
+Roles
+	•	Superuser (platform owner)
+	•	sees all schools
+	•	sees all submissions
+	•	can create new users/admins
+	•	School admin (staff user + membership)
+	•	sees only their school’s submissions
+	•	can edit submission JSON if needed (MVP)
+
+How to Create a School Admin (Fast Flow)
 	1.	Go to /admin/ → Users → Add user
-	2.	Create a normal user (not a superuser)
-	3.	Go to /admin/ → School admin memberships
-	4.	Create a membership mapping that user → school
+	2.	Enter the basic user info
+	3.	Choose the School from the dropdown (superuser only)
+	4.	Save
 
-Admin Submissions List Improvements
+The system automatically:
+	•	sets is_staff = True so they can log in
+	•	creates a SchoolAdminMembership linking them to that school
 
-The Submissions list shows:
-	•	Student/Applicant name (best-effort from JSON form data)
-	•	Program (best-effort from JSON form data)
+Important:
+	•	The membership link is what scopes what they can see.
+	•	If a user can log in but sees no submissions, verify they have the correct membership.
 
-Search supports partial matches for:
+SchoolAdminMembership (Important)
+
+Users are scoped to a school via SchoolAdminMembership.
+
+If you ever need to fix a user’s school access:
+	1.	Go to /admin/ → School admin memberships
+	2.	Confirm the mapping is correct: user → school
+
+(Keep this in mind when updating the README next — we’ve agreed this must be documented.)
+
+⸻
+
+Submissions Admin (Phase 10 Improvements)
+
+List View
+	•	School admins:
+	•	see submissions for their school only
+	•	Superuser:
+	•	sees all submissions
+	•	sees an extra “School” column to differentiate across schools
+
+Search
+
+Search supports partial, case-insensitive matches for:
 	•	Student/Applicant
 	•	Program
-	•	School name/slug
+	•	(also supports school name/slug for superuser)
+
+Program Meaning
+
+In Phase 10, “Program” is treated as Interested In (where applicable).
+
+⸻
 
 Export CSV (Per-School)
 
 In /admin/ → Submissions:
-	•	Select rows
-	•	Action → Export selected submissions to CSV
+	1.	Select rows
+	2.	Action → Export selected submissions to CSV
 
 Export includes:
 	•	created_at
@@ -278,54 +350,65 @@ Export includes:
 
 ⸻
 
-Important: Schools in Admin vs YAML Configs
+Reporting (Phase 10)
 
-This system separates form configuration from active schools:
-	•	YAML files (configs/schools/*.yaml) define:
-	•	form fields
-	•	validation
-	•	branding defaults
-	•	School records in Admin define:
-	•	which schools are live
-	•	which schools appear in admin
-	•	which schools can have admin users
+Schools can have a basic “Reports” page accessible from the school admin dashboard:
 
-Adding a YAML file does not automatically create a School record.
+/schools/<slug>/admin/reports
 
-How to Add a School in Production
+MVP intent:
+	•	keep reporting simple for demo
+	•	expand later with more charts/filters
 
-After deployment:
-	1.	Go to:
-        /admin/
+(Reporting is school-scoped — admins only see their school data.)
 
-    2. Navigate to:
-        Core → Schools → Add
-
-    3. Fill In:
-        •	Slug (must match YAML filename)
-	    •	Display name
-	    •	Website URL (optional)
-    
-    4. Save
-        The application form will immediately be available at:
-        /schools/<school_slug>/apply
-    
-    No redeply required.
-
-    Why This Design Is Intentional
-
-    This separation allows:
-        •	safe staging of new schools
-        •	control over which schools are active
-        •	clean onboarding of real customers
-        •	no accidental exposure of draft forms
-
+⸻
 
 Troubleshooting
-    •	Browser caching: When you change static/forms.css, you may not see updates right away. Do a hard refresh: Cmd+Shift+R (Mac).
-	•	DOB → Age behavior: Age is client-calculated from date_of_birth on blur/change. If DOB is incomplete or unrealistic, age stays blank (MVP choice; can tighten validation later).
+	•	Python command not found (Mac):
+Use python3 instead of python.
+Example:
+
+python3 manage.py runserver
+python3 manage.py shell
+
+
+	•	Static/CSS changes not showing:
+Do a hard refresh: Cmd+Shift+R (Mac)
+	•	Custom CSS not loading:
+Verify the YAML branding.custom_css path is static-relative and the file exists:
+
+python3 manage.py findstatic schools/<slug>/forms.custom.css -v 2
+
+
+	•	DOB → Age behavior:
+Age is client-calculated from date_of_birth on blur/change.
+If DOB is incomplete or unrealistic, age stays blank (MVP choice; we can tighten validation later).
+	•	User can log in but sees no submissions:
+Ensure:
+	•	is_staff = True
+	•	A SchoolAdminMembership exists and points to the correct school
+
+⸻
 
 MVP Limitations (Planned Improvements)
+	•	More user-friendly submission editing
+Today submissions are stored as JSON; editing is possible but not ideal.
+We may later render a friendly “edit form” experience for admins.
+	•	Multi-form flows per school (future requirement)
+Some schools may want multiple steps/forms (demographics → education → health → waivers).
+Architecture should support multiple forms per school in later phases.
+	•	Legal e-signatures (future requirement)
+Add proper e-signatures for waivers/medical forms after MVP.
+	•	Admin Users UI improvements (future enhancement)
+	•	School-scoped user list (hide superuser from school admins)
+	•	remove extra filters
+	•	safer permissions (no delete for school admins)
+	•	cleaner user detail page (hide password hash, simplify buttons)
+	•	Reminder: revert temporary Kimberlas CSS tests
+If any test-only CSS tweaks were added (border/button), revert them before shipping.
+
+⸻
 
 License
 
