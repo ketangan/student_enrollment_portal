@@ -153,3 +153,25 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Charts layout */
+.reports-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+/* Fixed-height chart area so Chart.js can size properly */
+.reports-chartWrap {
+  height: 320px;
+}
+
+@media (max-width: 900px) {
+  .reports-charts {
+    grid-template-columns: 1fr;
+  }
+  .reports-chartWrap {
+    height: 280px;
+  }
+}

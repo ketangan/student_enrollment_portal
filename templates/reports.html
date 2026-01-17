@@ -152,6 +152,23 @@
         {% endif %}
       </div>
 
+      <!-- Charts -->
+    <div class="reports-charts">
+        <div class="reports-card">
+            <div class="reports-k" style="margin-bottom:10px;">Program popularity</div>
+            <div class="reports-chartWrap">
+            <canvas id="programBarChart"></canvas>
+            </div>
+        </div>
+
+        <div class="reports-card">
+            <div class="reports-k" style="margin-bottom:10px;">Program share</div>
+            <div class="reports-chartWrap">
+            <canvas id="programDonutChart"></canvas>
+            </div>
+        </div>
+    </div>
+
       <!-- Recent submissions -->
       <div class="reports-card" style="margin-top: 12px;">
         <div class="reports-k" style="margin-bottom:10px;">Recent submissions</div>
@@ -185,5 +202,70 @@
         {% endif %}
       </div>
     </div>
+    <script src="{% static 'vendor/chart.umd.min.js' %}"></script>
+    {{ program_rows|json_script:"program-rows-data" }}
+
+        <script>
+        (function () {
+            const el = document.getElementById("program-rows-data");
+            if (!el) return;
+
+            let rows = [];
+            try {
+            rows = JSON.parse(el.textContent || "[]");
+            } catch (e) {
+            return;
+            }
+
+            // rows look like: { label, raw, count, pct }
+            const labels = rows.map(r => r.label);
+            const counts = rows.map(r => Number(r.count || 0));
+
+            // Bar chart (horizontal)
+            const barCanvas = document.getElementById("programBarChart");
+            if (barCanvas && labels.length) {
+            new Chart(barCanvas, {
+                type: "bar",
+                data: {
+                labels,
+                datasets: [{ label: "Submissions", data: counts }]
+                },
+                options: {
+                indexAxis: "y",
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: true }
+                },
+                scales: {
+                    x: { beginAtZero: true }
+                }
+                }
+            });
+            }
+
+            // Donut chart
+            const donutCanvas = document.getElementById("programDonutChart");
+            if (donutCanvas && labels.length) {
+            new Chart(donutCanvas, {
+                type: "doughnut",
+                data: {
+                labels,
+                datasets: [{ data: counts }]
+                },
+                options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: "bottom" },
+                    tooltip: { enabled: true }
+                },
+                cutout: "60%"
+                }
+            });
+            }
+        })();
+        </script>
   </body>
 </html>
