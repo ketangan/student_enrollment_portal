@@ -6,6 +6,7 @@ from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.models import Group
+from django.contrib.auth.forms import UserCreationForm
 from django.http import HttpResponse, Http404
 from django.utils import timezone
 from django.utils.formats import date_format
@@ -23,10 +24,8 @@ from core.services.form_utils import build_option_label_map
 # Admin UI simplification
 # ----------------------------
 
-# Remove "View site" from the top header (Django default)
 admin.site.site_url = None
 
-# Remove Groups from the sidebar (you don't need it right now)
 try:
     admin.site.unregister(Group)
 except admin.sites.NotRegistered:
@@ -41,10 +40,6 @@ def _is_superuser(user) -> bool:
 
 
 def _membership_school_id(user):
-    """
-    MVP pattern: OneToOne membership on user.school_membership.
-    Returns school_id or None.
-    """
     m = getattr(user, "school_membership", None)
     return getattr(m, "school_id", None) if m else None
 
@@ -57,14 +52,9 @@ def _has_school_membership(user) -> bool:
 # Pretty JSON form/widget for Submission detail page
 # ----------------------------
 class PrettyJSONWidget(forms.Textarea):
-    """
-    Renders JSON nicely formatted in the admin textarea.
-    Still allows editing; Django will validate JSON on save.
-    """
     def format_value(self, value):
         if value in (None, "", {}):
             return ""
-
         try:
             if isinstance(value, str):
                 value = json.loads(value)
@@ -80,7 +70,7 @@ class SubmissionAdminForm(forms.ModelForm):
         widgets = {
             "data": PrettyJSONWidget(
                 attrs={
-                    "rows": 34,  # bigger box
+                    "rows": 34,
                     "style": (
                         "font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "
                         "'Liberation Mono', 'Courier New', monospace; white-space: pre;"
@@ -95,7 +85,6 @@ class SubmissionAdminForm(forms.ModelForm):
 # ----------------------------
 UserModel = get_user_model()
 
-# Unregister Django's default User admin (so we can register our own)
 try:
     admin.site.unregister(UserModel)
 except admin.sites.NotRegistered:
@@ -104,13 +93,14 @@ except admin.sites.NotRegistered:
 
 class UserSuperuserForm(forms.ModelForm):
     """
-    Superuser-only: lets you pick a School directly on the User page.
-    Saving auto creates/updates SchoolAdminMembership.
+    Superuser-only EDIT form:
+    - lets you pick a School directly on the User change page
+    - we DO NOT create membership here (done in admin.save_model to avoid unsaved-user issues)
     """
     school = forms.ModelChoiceField(
         queryset=School.objects.all().order_by("display_name", "slug"),
         required=False,
-        help_text="Links this user to a school for school-scoped admin access."
+        help_text="Links this user to a school for school-scoped admin access.",
     )
 
     class Meta:
@@ -128,56 +118,46 @@ class UserSuperuserForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        # make email required (MVP)
+        if "email" in self.fields:
+            self.fields["email"].required = True
+
         if self.instance and self.instance.pk:
             current_school_id = _membership_school_id(self.instance)
             if current_school_id:
                 self.fields["school"].initial = School.objects.filter(id=current_school_id).first()
 
-    def save(self, commit=True):
-        user = super().save(commit=commit)
-        school = self.cleaned_data.get("school")
 
-        if school:
-            SchoolAdminMembership.objects.update_or_create(
-                user=user,
-                defaults={"school": school},
-            )
-            if not user.is_staff:
-                user.is_staff = True
-                user.save(update_fields=["is_staff"])
-
-        return user
-
-
-class UserSuperuserAddForm(forms.ModelForm):
+class UserSuperuserAddForm(UserCreationForm):
     """
-    Superuser-only FAST CREATE:
-    - shows School dropdown on the *Add user* page
-    - defaults is_staff=True so they can log into admin
-    - auto-creates SchoolAdminMembership when school chosen
+    Superuser-only ADD form:
+    - includes password1/password2 (Django standard)
+    - includes School dropdown
+    - defaults is_staff=True
     """
     school = forms.ModelChoiceField(
         queryset=School.objects.all().order_by("display_name", "slug"),
         required=False,
-        help_text="Assign this user to a school (creates SchoolAdminMembership and sets is_staff=True)."
+        help_text="Assign this user to a school (creates SchoolAdminMembership and sets is_staff=True).",
     )
 
-    class Meta:
+    class Meta(UserCreationForm.Meta):
         model = UserModel
         fields = ("username", "first_name", "last_name", "email", "school")
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # make email required (MVP)
+        if "email" in self.fields:
+            self.fields["email"].required = True
+
     def save(self, commit=True):
         user = super().save(commit=False)
-        user.is_staff = True  # IMPORTANT: allow admin login by default
+        user.is_staff = True  # allow admin login by default
         if commit:
             user.save()
-
-        school = self.cleaned_data.get("school")
-        if school:
-            SchoolAdminMembership.objects.update_or_create(
-                user=user,
-                defaults={"school": school},
-            )
         return user
 
 
@@ -188,7 +168,6 @@ class SchoolScopedUserAdmin(DjangoUserAdmin):
     ordering = ("username",)
     search_fields = ("username", "first_name", "last_name", "email")
     list_display = ("username", "first_name", "last_name", "email", "is_active", "is_staff", "last_login")
-
     filter_horizontal = ()
     readonly_fields = ("last_login", "date_joined")
 
@@ -196,7 +175,7 @@ class SchoolScopedUserAdmin(DjangoUserAdmin):
     add_fieldsets = (
         (None, {
             "classes": ("wide",),
-            "fields": ("username", "first_name", "last_name", "email", "school"),
+            "fields": ("username", "first_name", "last_name", "email", "school", "password1", "password2"),
         }),
     )
 
@@ -219,27 +198,48 @@ class SchoolScopedUserAdmin(DjangoUserAdmin):
         )
 
     def get_form(self, request, obj=None, **kwargs):
-        if _is_superuser(request.user):
+        """
+        Critical fix:
+        - On ADD (obj is None), do NOT override the form (must use add_form)
+        - On CHANGE (obj is not None) and superuser, use our superuser edit form
+        """
+        if _is_superuser(request.user) and obj is not None:
             kwargs["form"] = UserSuperuserForm
         return super().get_form(request, obj, **kwargs)
 
     def get_fieldsets(self, request, obj=None):
-        if _is_superuser(request.user):
+        if _is_superuser(request.user) and obj is not None:
             return (
                 ("User", {"fields": ("username", "first_name", "last_name", "email")}),
                 ("Status", {"fields": ("is_active", "is_staff", "is_superuser")}),
                 ("School", {"fields": ("school",)}),
             )
 
-        return (
-            ("User", {"fields": ("username", "first_name", "last_name", "email")}),
-            ("Status", {"fields": ("is_active",)}),
-        )
+        # School admin: keep it simple
+        if not _is_superuser(request.user):
+            return (
+                ("User", {"fields": ("username", "first_name", "last_name", "email")}),
+                ("Status", {"fields": ("is_active",)}),
+            )
+
+        # Superuser on add page uses add_fieldsets above
+        return super().get_fieldsets(request, obj)
 
     def save_model(self, request, obj, form, change):
+        # Default: any created user becomes staff so they can log in
         if not change and not obj.is_staff:
             obj.is_staff = True
+
         super().save_model(request, obj, form, change)
+
+        # Superuser-only: create/update membership AFTER user is saved
+        if _is_superuser(request.user):
+            school = form.cleaned_data.get("school") if hasattr(form, "cleaned_data") else None
+            if school:
+                SchoolAdminMembership.objects.update_or_create(
+                    user=obj,
+                    defaults={"school": school},
+                )
 
     def has_delete_permission(self, request, obj=None):
         return _is_superuser(request.user)
@@ -262,22 +262,14 @@ class SchoolScopedUserAdmin(DjangoUserAdmin):
 # MVP-safe Admin "Reports Hub" view
 # ----------------------------
 def admin_reports_hub_view(request):
-    """
-    /admin/reports/
-
-    - Superuser: choose a school -> jump to /schools/<slug>/admin/reports
-    - School admin: redirect to their school reports automatically
-    """
     user = request.user
     if not user or not user.is_authenticated or not user.is_staff:
         raise Http404("Page not found")
 
     if _is_superuser(user):
         schools = School.objects.all().order_by("display_name", "slug")
-
-        context = admin.site.each_context(request)  # Jazzmin sidebar + admin context
+        context = admin.site.each_context(request)
         context.update({"schools": schools})
-
         return TemplateResponse(request, "admin/reports_hub.html", context)
 
     school_id = _membership_school_id(user)
@@ -291,25 +283,22 @@ def admin_reports_hub_view(request):
     return redirect(reverse("school_reports", kwargs={"school_slug": school.slug}))
 
 
-# Register the extra admin URL without touching config/urls.py
-# ✅ Guard so Django autoreload doesn't stack/duplicate the route
-if not getattr(admin.site, "_reports_hub_installed", False):
-    admin.site._reports_hub_installed = True
+_original_admin_get_urls = admin.site.get_urls
 
-    _original_admin_get_urls = admin.site.get_urls
 
-    def _admin_get_urls():
-        urls = _original_admin_get_urls()
-        custom = [
-            path("reports/", admin.site.admin_view(admin_reports_hub_view), name="reports_hub"),
-        ]
-        return custom + urls
+def _admin_get_urls():
+    urls = _original_admin_get_urls()
+    custom = [
+        path("reports/", admin.site.admin_view(admin_reports_hub_view), name="reports_hub"),
+    ]
+    return custom + urls
 
-    admin.site.get_urls = _admin_get_urls
+
+admin.site.get_urls = _admin_get_urls
 
 
 # ----------------------------
-# School Admin (Option B: Reports link)
+# School Admin (Reports link)
 # ----------------------------
 @admin.register(School)
 class SchoolAdmin(admin.ModelAdmin):
@@ -343,9 +332,7 @@ class SchoolAdmin(admin.ModelAdmin):
     def reports_link(self, obj: School):
         if not obj or not obj.slug:
             return ""
-
         url = reverse("school_reports", kwargs={"school_slug": obj.slug})
-
         return format_html(
             """
             <a href="{url}" target="_blank"
@@ -404,7 +391,6 @@ class SubmissionAdmin(admin.ModelAdmin):
         js = ("admin_actions.js",)
 
     form = SubmissionAdminForm
-
     list_filter = ()
     actions = ["export_csv"]
 
@@ -414,7 +400,6 @@ class SubmissionAdmin(admin.ModelAdmin):
         return ("id", "student_name", "program_name", "created_at_pretty")
 
     search_fields = ("school__slug", "school__display_name")
-
     readonly_fields = ("school_display", "created_at_pretty")
     fields = ("school_display", "created_at_pretty", "data")
 
