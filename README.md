@@ -84,6 +84,10 @@ source venv/bin/activate
 
 pip install -r requirements.txt
 
+Optional: install development/test dependencies
+
+pip install -r requirements-dev.txt
+
 4. Install PostgreSQL (Homebrew)
 
 brew install postgresql@16
