@@ -1,0 +1,9 @@
+school:
+  slug: valid-school
+  display_name: "Valid School"
+form:
+  sections: []
+branding:
+  logo_url: "/logo.png"
+  theme:
+    primary_color: "#123456"
