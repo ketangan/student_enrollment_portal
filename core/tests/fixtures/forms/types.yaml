@@ -1,0 +1,14 @@
+sections:
+  - fields:
+      - key: email
+        type: email
+        required: true
+      - key: dob
+        type: date
+        required: true
+      - key: amount
+        type: number
+        required: false
+      - key: agree
+        type: checkbox
+        required: false

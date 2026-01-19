@@ -1,0 +1,18 @@
+sections:
+  - fields:
+      - key: choice
+        type: select
+        required: false
+        options:
+          - value: a
+            label: Option A
+          - value: b
+            label: Option B
+      - key: picks
+        type: multiselect
+        required: false
+        options:
+          - value: 1
+            label: One
+          - value: 2
+            label: Two

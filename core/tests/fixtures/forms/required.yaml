@@ -1,0 +1,8 @@
+sections:
+  - fields:
+      - key: name
+        type: text
+        required: true
+      - key: opt_in
+        type: checkbox
+        required: false
