@@ -1,0 +1,31 @@
+{
+  "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^25.0.9",
+    "dotenv": "^17.2.3",
+    "typescript": "^5.9.3"
+  },
+  "name": "student_enrollment_portal",
+  "version": "1.0.0",
+  "description": "Student Enrollment Portal (Multi-School Application MVP)",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ketangan/student_enrollment_portal.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ketangan/student_enrollment_portal/issues"
+  },
+  "homepage": "https://github.com/ketangan/student_enrollment_portal#readme"
+}

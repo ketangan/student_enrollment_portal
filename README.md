@@ -334,3 +334,120 @@ Phase 14 – Leads & Lead Generation
 License
 
 Internal MVP / Demo Use
+
+⸻
+
+Testing
+
+This project includes a full test suite (unit, integration, and end-to-end) so you can verify behavior locally.
+The steps below are written for non-technical users — copy & paste commands into a macOS Terminal.
+
+Prerequisites
+- Python 3.10+ and pip (we use a virtual environment)
+- Node.js + npm (for Playwright E2E tests)
+- PostgreSQL (for local DB used by Django)
+
+Quick checklist before running tests
+1. Activate the virtual environment you already created in Local Setup.
+
+```bash
+source venv/bin/activate
+```
+
+2. Install Python test dependencies (only needed once):
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+3. Ensure the local database and migrations are in place:
+
+```bash
+createdb student_enrollment_portal || true
+python manage.py migrate
+```
+
+4. Create a superuser (used by some tests):
+
+```bash
+python manage.py createsuperuser
+```
+
+Unit & Integration tests (pytest)
+
+- Run the entire Python test suite (fast):
+
+```bash
+python -m pytest -q --disable-warnings --maxfail=1
+```
+
+- Run a single test file (example):
+
+```bash
+python -m pytest core/tests/test_services/test_form_utils.py -q
+```
+
+- Run with coverage for the `core` package and see missing lines:
+
+```bash
+python -m pytest --cov=core --cov-report=term-missing
+```
+
+Notes for non-technical users
+- If tests fail, read the terminal output: pytest shows failing test names and short tracebacks.
+- Common fixes: ensure `venv` is activated, `.env` contains DB connection, and Django migrations have run.
+
+End-to-End tests (Playwright)
+
+E2E tests run real browser flows. They require Node.js and Playwright browsers. These tests are optional but useful to validate the UI end-to-end.
+
+1. Install Playwright (only once):
+
+```bash
+# Initialize npm (if you don't have package.json yet)
+npm init -y
+npm i -D @playwright/test
+npx playwright install
+```
+
+2. Environment variables
+
+- Playwright tests read credentials from your shell environment. Export these before running tests:
+
+```bash
+export ADMIN_USER=your_admin_username
+export ADMIN_PASS=your_admin_password
+export SCHOOL_ADMIN_USER=your_school_admin_username   # optional
+export SCHOOL_ADMIN_PASS=your_school_admin_password   # optional
+export BASE_URL=http://127.0.0.1:8000                  # optional override
+```
+
+- Alternatively you may create a local `.env.e2e` file with the variables above. This file is ignored by git by default.
+
+3. Start the Django development server in a separate terminal (Playwright needs the app running):
+
+```bash
+python manage.py runserver
+```
+
+4. Run Playwright tests (examples):
+
+```bash
+# run all e2e tests
+npx playwright test
+
+# run a specific test
+npx playwright test tests/e2e/student_apply.spec.ts
+```
+
+Notes and troubleshooting
+- Playwright requires the web server to be reachable at `BASE_URL` (default `http://127.0.0.1:8000`).
+- If login fails, ensure the `ADMIN_USER` and `ADMIN_PASS` exist (create a superuser via `createsuperuser`).
+- To avoid storing secrets in files, prefer exporting credentials in your terminal instead of committing `.env.e2e`.
+
+CI and Coverage
+- The project includes a GitHub Actions workflow that installs dev dependencies, runs migrations, and runs the full test suite with coverage. Use the same commands locally to reproduce CI behavior.
+
+More help
+- If you get stuck, paste the failing pytest / Playwright output into a message and someone can help interpret the error.
+

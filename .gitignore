@@ -9,6 +9,7 @@ venv/
 
 # Env files
 .env
+.env.e2e
 
 # Django
 *.log
@@ -20,3 +21,11 @@ media/
 .DS_Store
 .vscode/
 .idea/
+
+# Node / Playwright
+node_modules/
+playwright-report/
+test-results/
+.npm/
+.pnpm-store/
+.pnpm-debug.log
