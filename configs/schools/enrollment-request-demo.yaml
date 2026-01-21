@@ -1,0 +1,155 @@
+school:
+  slug: "enrollment-request-demo"
+  display_name: "Enrollment Request"
+  website_url: ""
+  source_url: ""
+
+form:
+  title: "Start Enrollment"
+  description: >
+    Submit this form to begin the enrollment process.
+    We’ll review your information and follow up with next steps.
+
+  sections:
+    - title: "Student Information"
+      fields:
+        - key: student_first_name
+          label: "Student First Name"
+          type: text
+          required: true
+
+        - key: student_last_name
+          label: "Student Last Name"
+          type: text
+          required: true
+
+        - key: date_of_birth
+          label: "Date of Birth"
+          type: date
+          required: false
+
+        - key: age
+          label: "Age"
+          type: number
+          required: false
+          readonly: true
+
+    - title: "Program Interest"
+      fields:
+        - key: program_interest
+          label: "Program / Class of Interest"
+          type: select
+          required: true
+          options:
+            - label: "Beginner Program"
+              value: beginner
+            - label: "Intermediate Program"
+              value: intermediate
+            - label: "Advanced Program"
+              value: advanced
+            - label: "Not sure yet"
+              value: unsure
+
+        - key: enrollment_type
+          label: "Enrollment Type"
+          type: select
+          required: true
+          options:
+            - label: "Enroll now"
+              value: enroll_now
+            - label: "Request trial / evaluation"
+              value: trial
+            - label: "Returning student"
+              value: returning
+
+        - key: desired_start_date
+          label: "Desired Start Date"
+          type: select
+          required: false
+          options:
+            - label: "As soon as possible"
+              value: asap
+            - label: "Within the next 2 weeks"
+              value: two_weeks
+            - label: "Within the next month"
+              value: one_month
+            - label: "Not sure yet"
+              value: unsure
+
+    - title: "Schedule Preferences"
+      fields:
+        - key: preferred_days
+          label: "Preferred Days"
+          type: multiselect
+          required: false
+          options:
+            - label: "Monday"
+              value: mon
+            - label: "Tuesday"
+              value: tue
+            - label: "Wednesday"
+              value: wed
+            - label: "Thursday"
+              value: thu
+            - label: "Friday"
+              value: fri
+            - label: "Saturday"
+              value: sat
+            - label: "Sunday"
+              value: sun
+
+        - key: preferred_time
+          label: "Preferred Time of Day"
+          type: select
+          required: false
+          options:
+            - label: "Morning"
+              value: morning
+            - label: "Afternoon"
+              value: afternoon
+            - label: "Evening"
+              value: evening
+            - label: "Flexible"
+              value: flexible
+
+    - title: "Parent / Guardian Information (if applicable)"
+      fields:
+        - key: guardian_name
+          label: "Parent / Guardian Full Name"
+          type: text
+          required: false
+
+        - key: guardian_email
+          label: "Parent / Guardian Email"
+          type: email
+          required: false
+
+        - key: guardian_phone
+          label: "Parent / Guardian Phone Number"
+          type: tel
+          required: false
+
+    - title: "Contact Information"
+      fields:
+        - key: contact_email
+          label: "Primary Email Address"
+          type: email
+          required: true
+
+        - key: contact_phone
+          label: "Primary Phone Number"
+          type: tel
+          required: false
+
+    - title: "Additional Notes"
+      fields:
+        - key: notes
+          label: "Anything else we should know?"
+          type: textarea
+          required: false
+
+branding:
+  theme:
+    primary_color: "#111827"
+    accent_color: "#2563eb"
+    
