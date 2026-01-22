@@ -73,7 +73,7 @@ def apply_view(request, school_slug: str):
     )
 
     if request.method == "POST":
-        cleaned, errors = validate_submission(config.form, request.POST)
+        cleaned, errors = validate_submission(config.form, request.POST, request.FILES)
         if errors:
             return render(
                 request,

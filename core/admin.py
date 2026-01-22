@@ -15,7 +15,7 @@ from django.utils.html import format_html
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 
-from .models import School, Submission, SchoolAdminMembership
+from .models import School, Submission, SchoolAdminMembership, SubmissionFile
 from core.services.config_loader import load_school_config
 from core.services.form_utils import build_option_label_map
 
@@ -382,6 +382,12 @@ class SchoolAdminMembershipAdmin(admin.ModelAdmin):
         return _is_superuser(request.user)
 
 
+class SubmissionFileInline(admin.TabularInline):
+    model = SubmissionFile
+    extra = 0
+    fields = ("field_key", "file", "original_name", "content_type", "size_bytes", "created_at")
+    readonly_fields = ("created_at",)
+
 # ----------------------------
 # Submission Admin
 # ----------------------------
@@ -393,6 +399,7 @@ class SubmissionAdmin(admin.ModelAdmin):
     form = SubmissionAdminForm
     list_filter = ()
     actions = ["export_csv"]
+    inlines = [SubmissionFileInline]
 
     def get_list_display(self, request):
         if _is_superuser(request.user):
@@ -517,4 +524,3 @@ class SubmissionAdmin(admin.ModelAdmin):
         return response
 
     export_csv.short_description = "Export selected submissions to CSV"
-    

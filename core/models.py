@@ -1,4 +1,6 @@
 from django.db import models
+import os
+import uuid
 from django.contrib.auth.models import User
 from core.services.form_utils import resolve_label
 
@@ -102,4 +104,35 @@ class Submission(models.Model):
             return "Student Exchange"
 
         return ""
+
+
+def submission_upload_path(instance, filename: str) -> str:
+    """
+    Keep uploads organized by school + submission id.
+    Example: uploads/dancemaker-studio/12345/<uuid>__waiver.pdf
+    """
+    safe_name = os.path.basename(filename or "upload")
+    return f"uploads/{instance.submission.school.slug}/{instance.submission_id}/{uuid.uuid4().hex}__{safe_name}"
+
+
+class SubmissionFile(models.Model):
+    submission = models.ForeignKey(
+        "Submission",
+        on_delete=models.CASCADE,
+        related_name="files",
+    )
+
+    # Matches the YAML field key (ex: "proof_of_residency")
+    field_key = models.CharField(max_length=120)
+
+    file = models.FileField(upload_to=submission_upload_path)
+
+    original_name = models.CharField(max_length=255, blank=True, default="")
+    content_type = models.CharField(max_length=120, blank=True, default="")
+    size_bytes = models.BigIntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return f"{self.submission.school.slug} #{self.submission_id} {self.field_key}"
     

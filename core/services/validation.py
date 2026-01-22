@@ -14,21 +14,62 @@ def _is_empty(value: Any) -> bool:
     return False
 
 
-def validate_submission(form: Dict[str, Any], post_data: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, str]]:
+def validate_submission(
+    form: Dict[str, Any],
+    post_data: Any,
+    files_data: Any | None = None,
+) -> Tuple[Dict[str, Any], Dict[str, str]]:
     """
     Returns: (cleaned_data, errors)
-    - cleaned_data is JSON-serializable
+    - cleaned_data is JSON-serializable (for files we store metadata only)
     - errors maps field_key -> error message
     """
+    files_data = files_data or {}
     cleaned: Dict[str, Any] = {}
     errors: Dict[str, str] = {}
 
     for section in form.get("sections", []):
         for field in section.get("fields", []):
             key = field["key"]
-            ftype = field["type"]
+            ftype = (field.get("type") or "text").strip().lower()
             required = bool(field.get("required", False))
 
+            # ----------------------------
+            # FILE
+            # ----------------------------
+            if ftype == "file":
+                uploaded = files_data.get(key)
+
+                if required and not uploaded:
+                    errors[key] = "This file is required."
+                    continue
+
+                if uploaded:
+                    # Optional max size (MB) in YAML: max_mb: 5
+                    max_mb = field.get("max_mb")
+                    if max_mb:
+                        try:
+                            max_bytes = int(max_mb) * 1024 * 1024
+                            if uploaded.size > max_bytes:
+                                errors[key] = f"File too large. Max {max_mb} MB."
+                                continue
+                        except Exception:
+                            pass
+
+                    # Store metadata only (actual file saving happens later)
+                    cleaned[key] = {
+                        "original_name": getattr(uploaded, "name", ""),
+                        "content_type": getattr(uploaded, "content_type", ""),
+                        "size_bytes": getattr(uploaded, "size", 0),
+                    }
+                else:
+                    cleaned[key] = None
+
+                continue
+
+            # ----------------------------
+            # NON-FILE
+            # ----------------------------
             raw_val = post_data.get(key)
 
             # multiselect comes as list
@@ -43,7 +84,6 @@ def validate_submission(form: Dict[str, Any], post_data: Dict[str, Any]) -> Tupl
                 cleaned[key] = raw_val if ftype == "multiselect" else ""
                 continue
 
-            # basic type validations
             if ftype == "email":
                 if "@" not in str(raw_val):
                     errors[key] = "Enter a valid email address."
@@ -51,7 +91,6 @@ def validate_submission(form: Dict[str, Any], post_data: Dict[str, Any]) -> Tupl
 
             if ftype == "date":
                 try:
-                    # HTML date input posts YYYY-MM-DD
                     datetime.strptime(str(raw_val), "%Y-%m-%d")
                 except Exception:
                     errors[key] = "Enter a valid date (YYYY-MM-DD)."
@@ -59,19 +98,15 @@ def validate_submission(form: Dict[str, Any], post_data: Dict[str, Any]) -> Tupl
 
             if ftype == "number":
                 try:
-                    cleaned_number = float(str(raw_val))
+                    cleaned[key] = float(str(raw_val))
                 except Exception:
                     errors[key] = "Enter a valid number."
-                    continue
-                cleaned[key] = cleaned_number
                 continue
 
             if ftype == "checkbox":
-                # checkbox posts "on" if checked, missing if unchecked
                 cleaned[key] = True if raw_val in ("on", "true", "True", True) else False
                 continue
 
-            # default texty types
             cleaned[key] = raw_val
 
     return cleaned, errors

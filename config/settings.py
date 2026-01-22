@@ -130,6 +130,9 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 JAZZMIN_SETTINGS = {
     "site_title": "Student Enrollment Portal",
     "site_header": "Student Enrollment Portal",
@@ -165,7 +168,7 @@ JAZZMIN_SETTINGS = {
             }
         ]
     },
-    
+
     # Order
     "order_with_respect_to": [
         "core",

@@ -141,6 +141,16 @@ form:
           type: tel
           required: false
 
+    - title: "File Uploads"
+      fields:
+        - key: id_document
+          label: "ID Document"
+          type: file
+          required: false
+          accept: ".pdf,.jpg,.jpeg,.png"
+          max_mb: 10
+          help_text: "Upload a PDF or image (max 10MB)."
+
     - title: "Additional Notes"
       fields:
         - key: notes

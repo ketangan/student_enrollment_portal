@@ -51,7 +51,7 @@
           <div class="notice">{{ form.description }}</div>
         {% endif %}
 
-        <form method="post" novalidate>
+        <form method="post" enctype="multipart/form-data" novalidate>
           {% csrf_token %}
 
           {% for section in form.sections %}
@@ -214,7 +214,14 @@
 
                     {# --- FILE placeholder (Phase 4-ready) --- #}
                     {% elif field.type == "file" %}
-                      <div class="help">File upload will be enabled in a later phase.</div>
+                      <input
+                        class="input"
+                        id="{{ field.key }}"
+                        name="{{ field.key }}"
+                        type="file"
+                        {% if field.accept %} accept="{{ field.accept }}" {% endif %}
+                        {% if field.required %} required {% endif %}
+                      />
 
                     {# --- DEFAULT TEXT --- #}
                     {% else %}
