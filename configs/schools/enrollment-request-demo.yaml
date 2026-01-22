@@ -152,4 +152,17 @@ branding:
   theme:
     primary_color: "#111827"
     accent_color: "#2563eb"
-    
+
+success:
+  title: "Submitted!"
+  message: "Thanks — we received your enrollment request. We’ll follow up with next steps."
+  response_time: "1–2 business days"
+  next_steps:
+    - "We’ll review your details and confirm program fit."
+    - "If needed, we’ll schedule a quick call or trial class."
+    - "We’ll send final enrollment + payment instructions."
+  contact:
+    name: "Front Desk"
+    email: "info@example.com"
+    phone: "(555) 123-4567"
+  hours: "Mon–Fri, 9am–5pm"

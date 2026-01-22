@@ -108,10 +108,44 @@ def apply_success_view(request, school_slug: str):
     if config is None:
         raise Http404("School config not found")
 
+    # Branding defaults (same as apply_view)
+    branding = merge_branding(getattr(config, "branding", None))
+
+    # Pull success config from YAML (safe defaults)
+    success_cfg = (getattr(config, "raw", None) or {}).get("success", {}) or {}
+
+    title = success_cfg.get("title") or "Submitted!"
+    message = success_cfg.get("message") or f"Thanks — your application for {config.display_name} has been received."
+
+    next_steps = success_cfg.get("next_steps") or []
+    if isinstance(next_steps, str):
+        next_steps = [next_steps]
+    next_steps = [s for s in next_steps if isinstance(s, str) and s.strip()]
+
+    contact = success_cfg.get("contact") or {}
+    contact_name = contact.get("name") or ""
+    contact_email = contact.get("email") or ""
+    contact_phone = contact.get("phone") or ""
+
+    hours = success_cfg.get("hours") or ""
+    response_time = success_cfg.get("response_time") or ""
+
     return render(
         request,
         "apply_success.html",
-        {"school_slug": school_slug, "school_name": config.display_name},
+        {
+            "school_slug": school_slug,
+            "school_name": config.display_name,
+            "branding": branding,
+            "success_title": title,
+            "success_message": message,
+            "next_steps": next_steps,
+            "contact_name": contact_name,
+            "contact_email": contact_email,
+            "contact_phone": contact_phone,
+            "hours": hours,
+            "response_time": response_time,
+        },
     )
 
 
@@ -221,7 +255,7 @@ def school_reports_view(request, school_slug: str):
     for s in rows_for_reporting[:25]:
         program_label = (s.program_display_name(label_map=label_map) or "").strip() or NONE_LABEL
         admin_url = reverse("admin:core_submission_change", args=[s.id])
-        
+
         recent.append(
             {
                 "id": s.id,

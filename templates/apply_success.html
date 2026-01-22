@@ -1,22 +1,117 @@
+{% load static %}
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Submitted - {{ school_name }}</title>
+    <title>{{ school_name }} - Submitted</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="{% static 'forms.css' %}">
     <style>
-      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background:#f6f7fb; margin:0; }
-      .container { max-width: 700px; margin: 0 auto; padding: 40px 20px; }
-      .card { background:white; border:1px solid #e5e7eb; border-radius:12px; padding:20px; }
-      a { color: #2563EB; }
+      :root{
+        --primary: {{ branding.theme.primary_color|default:"#111827" }};
+        --accent: {{ branding.theme.accent_color|default:"#ea580c" }};
+        --bg: {{ branding.theme.background|default:"#f7f7fb" }};
+        --card: {{ branding.theme.card|default:"#ffffff" }};
+        --text: {{ branding.theme.text|default:"#111827" }};
+        --muted: {{ branding.theme.muted|default:"#6b7280" }};
+        --border: {{ branding.theme.border|default:"#e5e7eb" }};
+        --radius: {{ branding.theme.radius|default:"16px" }};
+      }
+      body { background: var(--bg); color: var(--text); }
+      .wrap { max-width: 900px; margin: 0 auto; padding: 24px; }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px;
+      }
+      h1 { margin: 0 0 6px; font-size: 26px; }
+      .muted { color: var(--muted); }
+      .pill {
+        display:inline-block; padding:2px 8px; border:1px solid var(--border);
+        border-radius:999px; font-size:12px; color: var(--muted);
+      }
+      .grid { display:grid; grid-template-columns: 1.2fr 0.8fr; gap: 12px; margin-top: 12px; }
+      @media (max-width: 900px){ .grid { grid-template-columns: 1fr; } }
+      ul { margin: 10px 0 0; padding-left: 18px; }
+      a { color: var(--accent); }
+      .cta { margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+      .btn {
+        display:inline-flex; align-items:center; gap:8px;
+        padding: 10px 12px; border-radius: 12px;
+        border: 1px solid var(--border);
+        text-decoration:none; color: var(--text);
+        background: rgba(255,255,255,0.02);
+      }
+      .btn:hover { opacity: 0.92; }
     </style>
   </head>
+
   <body>
-    <div class="container">
+    <div class="wrap">
       <div class="card">
-        <h1>✅ Submitted!</h1>
-        <p>Thanks — your application for <strong>{{ school_name }}</strong> has been received.</p>
-        <p><a href="/schools/{{ school_slug }}/apply">Submit another response</a></p>
+        <h1>{{ success_title|default:"Submitted!" }}</h1>
+        <div class="muted" style="margin-top:6px;">
+          {{ success_message }}
+        </div>
+
+        <div class="grid">
+          <div class="card" style="padding:14px;">
+            <div class="muted" style="font-size:12px; text-transform:uppercase; letter-spacing:0.06em;">
+              Next steps
+            </div>
+
+            {% if next_steps %}
+              <ul>
+                {% for step in next_steps %}
+                  <li>{{ step }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="muted" style="margin-top:8px;">
+                We’ll review your submission and follow up with next steps.
+              </div>
+            {% endif %}
+
+            {% if response_time %}
+              <div class="muted" style="margin-top:10px;">
+                Typical response time: <strong>{{ response_time }}</strong>
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="card" style="padding:14px;">
+            <div class="muted" style="font-size:12px; text-transform:uppercase; letter-spacing:0.06em;">
+              Contact
+            </div>
+
+            {% if contact_name %}
+              <div style="margin-top:8px;"><strong>{{ contact_name }}</strong></div>
+            {% endif %}
+
+            {% if contact_email %}
+              <div style="margin-top:8px;">
+                Email: <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>
+              </div>
+            {% endif %}
+
+            {% if contact_phone %}
+              <div style="margin-top:8px;">
+                Phone: <a href="tel:{{ contact_phone }}">{{ contact_phone }}</a>
+              </div>
+            {% endif %}
+
+            {% if hours %}
+              <div class="muted" style="margin-top:10px;">
+                Hours: {{ hours }}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="cta">
+          <a class="btn" href="{% url 'apply' school_slug=school_slug %}">Submit another response</a>
+        </div>
       </div>
     </div>
   </body>
