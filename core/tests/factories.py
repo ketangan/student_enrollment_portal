@@ -1,6 +1,9 @@
 import factory
 from factory import django
 from faker import Faker
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+from core.models import SubmissionFile
 
 fake = Faker()
 
@@ -59,3 +62,19 @@ class SubmissionFactory(django.DjangoModelFactory):
         "dance_style": fake.word(ext_word_list=["ballet", "jazz", "hiphop", "contemporary"]) ,
         "skill_level": fake.random_element(elements=("beginner", "intermediate", "advanced")),
     })
+
+
+class SubmissionFileFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = SubmissionFile
+
+    submission = factory.SubFactory(SubmissionFactory)
+    field_key = "id_document"
+
+    # Use a small in-memory file
+    file = SimpleUploadedFile("odometer.jpg", b"fake-jpg-bytes", content_type="image/jpeg")
+
+    # optional metadata (don’t assume your code populates these automatically)
+    original_name = "odometer.jpg"
+    content_type = "image/jpeg"
+    size_bytes = 0

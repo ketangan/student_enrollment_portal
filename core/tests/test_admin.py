@@ -4,6 +4,9 @@ from django.contrib import admin
 from django.test import RequestFactory
 from django.http import Http404
 from django.contrib.auth import get_user_model
+from django.contrib.admin.sites import site as admin_site
+from django.core.files.uploadedfile import SimpleUploadedFile
+
 import pytest
 
 from core.admin import (
@@ -14,6 +17,7 @@ from core.admin import (
     PrettyJSONWidget,
     SchoolScopedUserAdmin,
     SchoolAdminMembershipAdmin,
+    SubmissionAdmin,
 )
 from core import admin as core_admin
 from core.tests.factories import (
@@ -22,7 +26,7 @@ from core.tests.factories import (
     SchoolAdminMembershipFactory,
     SubmissionFactory,
 )
-from core.models import Submission
+from core.models import Submission, SubmissionFile
 
 
 def test_admin_reports_hub_superuser_sees_schools(db):
@@ -168,3 +172,22 @@ def test_useradmin_get_form_and_membership_queryset(db):
     mam = SchoolAdminMembershipAdmin(SchoolAdminMembershipFactory._meta.model, admin.site)
     qs = mam.get_queryset(req)
     assert qs is not None
+
+@pytest.mark.django_db
+def test_submission_admin_attachments_renders_link():
+    submission = SubmissionFactory()
+
+    SubmissionFile.objects.create(
+        submission=submission,
+        field_key="id_document",
+        file=SimpleUploadedFile("odometer.jpg", b"abc" * 1000, content_type="image/jpeg"),
+        original_name="odometer.jpg",
+        content_type="image/jpeg",
+        size_bytes=3000,
+    )
+
+    ma = SubmissionAdmin(submission.__class__, admin_site)
+    html = ma.attachments(submission)
+
+    assert "href=" in str(html)
+    assert ">View<" in str(html)

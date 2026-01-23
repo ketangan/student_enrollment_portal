@@ -1,6 +1,10 @@
 import pytest
 
 from core.tests.factories import SchoolFactory, SubmissionFactory
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+from core.models import SubmissionFile
+
 
 
 @pytest.mark.django_db
@@ -55,3 +59,31 @@ def test_program_display_name_tsca_and_empty_cases():
     other = SchoolFactory(slug="some-other-school")
     sub2 = SubmissionFactory(school=other, data={})
     assert sub2.program_display_name() == ""
+
+@pytest.mark.django_db
+def test_submissionfile_str_includes_school_slug_submission_and_field_key():
+    sub = SubmissionFactory()
+    f = SubmissionFile.objects.create(
+        submission=sub,
+        field_key="id_document",
+        file=SimpleUploadedFile("odometer.jpg", b"abc", content_type="image/jpeg"),
+    )
+
+    s = str(f)
+    assert sub.school.slug in s
+    assert str(sub.id) in s
+    assert "id_document" in s
+
+
+@pytest.mark.django_db
+def test_submissionfile_upload_path_contains_school_slug_and_submission_id():
+    sub = SubmissionFactory()
+    f = SubmissionFile.objects.create(
+        submission=sub,
+        field_key="id_document",
+        file=SimpleUploadedFile("odometer.jpg", b"abc", content_type="image/jpeg"),
+    )
+
+    # stored path includes uploads/<school_slug>/<submission_id>/
+    assert f.file.name.startswith(f"uploads/{sub.school.slug}/{sub.id}/")
+    
