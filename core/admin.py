@@ -554,7 +554,7 @@ class SubmissionAdmin(admin.ModelAdmin):
             size = _bytes_to_mb(f.size_bytes or (getattr(f.file, "size", 0) or 0))
 
             try:
-                view_url = f.file.url if f.file else ""
+                view_url = reverse("admin_download_submission_file", args=[f.id]) if f.file else ""
             except Exception:
                 view_url = ""
 

@@ -3,7 +3,9 @@ from datetime import timedelta
 import csv
 
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, FileResponse
+from django.shortcuts import get_object_or_404
+from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -176,6 +178,25 @@ def _can_view_school_admin_page(request, school: School) -> bool:
     membership = getattr(user, "school_membership", None)
     return bool(user.is_staff and membership and membership.school_id == school.id)
 
+@staff_member_required
+def admin_download_submission_file(request, file_id: int):
+    sf = get_object_or_404(SubmissionFile, id=file_id)
+
+    # Superuser OK, otherwise enforce same-school access
+    user = request.user
+    if not user.is_superuser:
+        membership = getattr(user, "school_membership", None)
+        if not (membership and membership.school_id == sf.submission.school_id):
+            raise Http404("Not found")
+
+    if not sf.file:
+        raise Http404("Not found")
+
+    # streams from storage (works for local disk now, S3 later)
+    stored = (sf.file.name or "").split("/")[-1]
+    download_name = sf.original_name or (stored.split("__", 1)[-1] if "__" in stored else stored)
+
+    return FileResponse(sf.file.open("rb"), as_attachment=False, filename=download_name)
 
 @login_required
 def school_reports_view(request, school_slug: str):
