@@ -1,243 +1,441 @@
-	•	README.md → Sales / Demo / Product overview
-	•	OPERATIONS.md → Internal + operator runbook
+This file is what new users, school admins, or partners will read first. I’ve kept it very clear, non-technical, and structured so someone without Django experience can follow it.
 
-(Internal / Admin / Technical Runbook)
+# Student Enrollment Portal
 
-# Student Enrollment Portal  
-## Operations & Administration Guide
+Student Enrollment Portal is a multi-tenant web application that lets schools/programs collect enrollment or registration submissions online using **configurable YAML forms** — no coding required per school.
+
+This MVP is ideal for small organizations (dance studios, arts schools, academies, summer programs, etc.) that currently collect applications via email or PDF.
+
+---
+
+## 🚀 What It Does
+
+- One backend, many schools
+- Each school has a **YAML form** that defines:  
+  • fields and sections  
+  • validation rules  
+  • branding and theme  
+  • optional file upload fields
+- Applicants submit via a public form
+- Data is stored in PostgreSQL
+- School admins review applications in the admin UI
+- Attachments can be downloaded
+- Admins can export CSVs and view reports
+
+---
+
+## 🧠 How It Works (High-Level)
+
+1. Each school has a **slug** (e.g., `my-dance-school`)
+2. There is a YAML config file at `configs/schools/<school_slug>.yaml`
+3. Visiting `/schools/<slug>/apply`:
+   - loads the config
+   - dynamically renders the application form
+4. On POST:
+   - data is validated
+   - stored in the database
+   - files are saved to disk
+5. Admins use `/admin/` to review submissions and files
+
+---
+
+## 📦 Repo Structure
+
+student_enrollment_portal/
+├── config/                 # Django settings, URLs
+├── core/                   # Models, views, admin
+│   ├── services/           # YAML loading & helpers
+│   ├── templates/          # Shared HTML templates
+│   └── tests/              # Unit & integration tests
+├── configs/
+│   └── schools/            # YAML per school
+├── static/                 # Static files (CSS, custom brand assets)
+├── media/                  # Uploaded files
+├── .env.example
+├── README.md
+├── OPERATIONS.md
+└── manage.py
+
+---
+
+## 🛠 Local Setup (Step-by-Step)
+
+1. Clone the repository:
+   ```bash
+   git clone <repo_url>
+   cd student_enrollment_portal
+
+	2.	Create & activate a virtual environment:
+
+python3 -m venv venv
+source venv/bin/activate
+
+
+	3.	Install dependencies:
+
+pip install -r requirements.txt
+
+
+	4.	Configure your environment variables:
+
+cp .env.example .env
+
+Edit .env and add:
+
+DJANGO_SECRET_KEY=<your-secret-key>
+DJANGO_DEBUG=True
+DATABASE_URL=postgres://<user>@localhost:5432/student_enrollment_portal
+ALLOWED_HOSTS=localhost,127.0.0.1
+
+
+	5.	Start Postgres (e.g., via Homebrew on macOS):
+
+brew install postgresql@16
+brew services start postgresql@16
+createdb student_enrollment_portal
+
+
+	6.	Run migrations:
+
+python manage.py migrate
+
+
+	7.	Create a superuser:
+
+python manage.py createsuperuser
+
+
+	8.	Start the server:
+
+python manage.py runserver
+
+
+	9.	Visit:
+	•	Public app: http://127.0.0.1:8000/
+	•	Admin UI: http://127.0.0.1:8000/admin/
+
+⸻
+
+➕ Adding a New School (No Code)
+	1.	Copy an existing YAML file:
+
+configs/schools/example-school.yaml
+
+
+	2.	Rename it to match the slug:
+
+my-new-school.yaml
+
+
+	3.	Edit the YAML:
+
+school:
+  slug: "my-new-school"
+  display_name: "My New School"
+
+
+	4.	Restart the server
+	5.	Your form is now live at:
+
+/schools/my-new-school/apply
+
+
+
+⸻
+
+⚙ Branding + Theme
+
+Each YAML may include optional branding:
+
+branding:
+  logo_url: "/static/logos/mylogo.png"
+  theme:
+    primary_color: "#111827"
+    accent_color: "#2563EB"
+
+You may also include custom CSS/JS overrides via static file references.
+
+⸻
+
+📄 File Uploads (MVP)
+
+If the YAML has fields with type: file, applicants can upload documents/images.
+
+Uploaded files are stored under:
+
+media/uploads/<school_slug>/<submission_id>/
+
+School admins can download attachments from the admin UI.
+By default files are served by a download route that restricts access to logged-in admins.
+
+⸻
+
+📊 Admin Features
+
+✔ View submissions per school
+✔ Download attachments
+✔ Export CSV (selected rows)
+✔ School-scoped admin users
+✔ Per-school reporting with filters
+
+⸻
+
+👤 Admin Users
+
+There are two roles:
+
+Superuser
+	•	sees all schools & all data
+	•	manages users and memberships
+
+School Admin
+	•	limited to one school
+	•	sees only that school’s submissions
+	•	cannot see other schools’ data
+
+To create a school admin:
+	1.	Go to /admin/ → Users → Add
+	2.	Fill in user info
+	3.	Choose the School (superuser only)
+	4.	Save
+
+The system automatically:
+	•	sets is_staff = True
+	•	creates a membership linking the user to the school
+
+⸻
+
+🧪 Testing
+
+Run all unit and integration tests:
+
+python -m pytest -q
+
+Coverage target: ≥ 90%
+
+If you use Playwright for E2E tests:
+
+npx playwright test
+
+
+⸻
+
+🧩 Future Improvement Ideas
+	•	Admin-friendly submission detail view (no JSON blob)
+	•	Multi-step forms
+	•	E-signature for waivers
+	•	Per-school custom domain options
+	•	Email invites / password reset via SMTP
+
+⸻
+
+❗ MVP Tips & Gotchas
+	•	If custom CSS doesn’t load, verify the static path in the YAML
+	•	If uploads disappear on deploy (non-persistent host), switch to S3 or attach a persistent disk
+	•	School slug must match the YAML filename
+
+---
+
+## ✅ Updated **OPERATIONS.md**
+
+> This doc is for internal operators, maintainers, or support engineers — the runbook for running, onboarding, and troubleshooting.
+
+```markdown
+# Student Enrollment Portal — Operations & Administration Guide
 
 This document is for:
 - Platform operators
+- Support engineers
 - Developers
-- Admin users onboarding schools
-- Internal maintainers
+- Admin/operations staff onboarding schools
 
 ---
 
-## Core Concepts
+## 🔑 Core Concepts
 
 ### Schools Are Defined in Two Places
 
-This is intentional.
-
-#### YAML Config
+#### YAML config (configs/schools)
 Defines:
-- Form structure
-- Validation rules
-- Branding
+- form structure
+- validation rules
+- branding & theme
+- file upload behavior
 
-Location:
-
-configs/schools/<school_slug>.yaml
-
-#### Admin (Database)
+#### Database (Admin UI)
 Defines:
-- Which schools are active
-- Which schools appear in admin
-- Which schools can have admins
+- which schools are active
+- admin user memberships
+- scoped access
 
-A YAML file alone does **not** activate a school.
+A YAML alone does not activate a school — it must be added in the Admin UI.
 
 ---
 
-## Activating a New School
+## 🆕 Activating a New School
 
-### Step 1: Add YAML
-1. Copy an existing YAML file
-2. Rename to match the school slug
-3. Update:
+1. Add YAML:
+   - Copy `example-school.yaml`
+   - Rename to `<slug>.yaml`
+   - Edit content
 
-```yaml
-school:
-  slug: "my-school"
-  display_name: "My School"
+2. Activate in Admin:
+   - Go to `/admin/`
+   - Core → Schools → Add
+   - Enter:
+     - Slug (matches YAML filename)
+     - Display name
+   - Save
 
-Step 2: Activate in Admin
-	1.	Go to /admin/
-	2.	Core → Schools → Add
-	3.	Enter:
-	•	Slug (must match YAML filename)
-	•	Display name
-	4.	Save
+The form is now live at:
 
-The form becomes live immediately at:
+/schools//apply
 
-/schools/my-school/apply
+---
 
+## 👤 Admin Roles & Permissions
 
-⸻
+**Superuser**
+- full access
+- sees all schools
+- manages users/memberships
 
-Admin Roles
+**School Admin**
+- scoped to one school
+- sees only that school’s submissions & reports
+- cannot access other schools’ data
 
-Superuser
-	•	Access to all schools
-	•	Manage users and memberships
-	•	View all submissions and reports
+To create a school admin:
+1. `/admin/ → Users → Add`
+2. Fill in basic info
+3. Select School (only superuser can do this)
+4. Save
+   - System sets `is_staff = True`
+   - Creates a SchoolAdminMembership
 
-School Admin
-	•	Access limited to one school
-	•	View submissions and reports
-	•	Cannot see other schools
+If a user is logged in but sees no data:
+- Ensure `is_staff = True`
+- Confirm SchoolAdminMembership links user to the correct school
 
-⸻
+---
 
-Creating School Admin Users
-	1.	/admin/ → Users → Add user
-	2.	Fill in:
-	•	Username
-	•	Email (recommended)
-	3.	Select School (superuser only)
-	4.	Save
+## 📩 Submissions Admin
 
-System automatically:
-	•	Sets is_staff = True
-	•	Creates SchoolAdminMembership
-	•	Scopes access to that school
+What is displayed:
+- Student / Applicant name
+- Program / Class name
+- Timestamp
+- School (for superusers)
 
-Password Setup (Current MVP)
-	•	Admin can log in
-	•	User sets or changes password via:
-	•	Admin → Change password
+Features:
+- Search by name, program, or school (if superuser)
+- Export selected submissions to CSV
+- View attachments from file uploads
 
-Email-based invites are planned post-MVP.
+---
 
-⸻
+## 📊 Reporting Access
 
-Submissions Admin
+Accessible from the admin sidebar:
 
-What You See
-	•	Student / applicant name (derived from JSON)
-	•	Program (derived from form config)
-	•	Timestamp
-	•	School column (superuser only)
+/schools//admin/reports
 
-Search
-	•	Student name
-	•	Program
-	•	School (superuser)
+Features:
+- filter by date range
+- program breakdown
+- recent submissions
 
-CSV Export
-	•	Select rows
-	•	Action → Export selected submissions
+School admins may only view their own school reports.
 
-Includes:
-	•	created_at
-	•	student_name
-	•	all JSON fields
+---
 
-⸻
+## 🗃 File Upload Handling
 
-Reporting
+Uploaded files are stored on disk under:
 
-Access
-	•	Admin sidebar → Reports
-	•	Or:
+media/uploads/<school_slug>/<submission_id>/
 
-/schools/<school_slug>/admin/reports
+Files uploaded via form are available for secure admin download:
 
-Features
-	•	Date range filter (7 / 30 / 90 days)
-	•	Program breakdown with charts
-	•	Recent submissions list
-	•	CSV export (filtered)
+/admin/uploads/<file_id>/
 
-Permissions
-	•	School admins → own school only
-	•	Superusers → any school
+This route:
+- requires staff login
+- enforces school-scoped access
+- streams files (works with local or remote storage)
 
-⸻
+**Important (Production):**  
+Local disk storage is ephemeral on many hosts (e.g., Render without a persistent disk). Attach a persistent disk or use S3/remote storage if you need uploads to persist.
 
-Branding
+---
 
-Branding lives in YAML and is optional.
+## 🧪 Testing
 
-branding:
-  logo_url: /static/logos/example.png
-  theme:
-    primary_color: "#111827"
-    accent_color: "#ea580c"
+To run tests locally:
 
-Defaults are applied automatically if missing.
-
-⸻
-
-Testing
-
-Unit & Integration Tests
-
+```bash
 python -m pytest -q
 
 With coverage:
 
 python -m pytest --cov=core --cov-report=term-missing
 
-Target coverage: ≥ 90%
+CI:
+GitHub Actions runs:
+	•	dependency install
+	•	migrations
+	•	test suite
+
+Deploy environments do not automatically run tests — CI protects the main branch.
 
 ⸻
 
-End-to-End (Playwright)
-
-Requirements:
-	•	Node.js + npm
-	•	Django server running locally
-
-npx playwright test
-
-Credentials are supplied via environment variables (recommended) or .env.e2e.
-
-⸻
-
-CI
-	•	GitHub Actions runs:
-	•	Dependency install
-	•	Migrations
-	•	pytest test suite
-
-Render deployments do not run tests automatically — CI protects main.
-
-⸻
-
-Known MVP Limitations
-	•	No email backend (password reset, invites)
+⚠️ Known MVP Limitations
+	•	No email backend (SMTP) configured
 	•	Single form per school
-	•	No lead capture
-	•	No file uploads
+	•	Submission detail is stored as JSON
+	•	No custom domain per school yet
+	•	File preview only via download (no inline preview)
 
 ⸻
 
-Planned Enhancements
+🧠 Troubleshooting Checklist
 
-Phase 13 – Testing & Quality
-	•	Harden UI tests
-	•	Permission regression coverage
+Upload fails / admin shows 404:
+	•	Confirm the upload route exists: /admin/uploads/<file_id>/
+	•	Confirm MEDIA_ROOT and storage are reachable
+	•	Confirm file exists in media/
 
-Phase 14 – Leads
-	•	Lead capture forms
-	•	Conversion tracking
-	•	Lead reporting
+User logs in but sees no data:
+	•	Check SchoolAdminMembership exists
+	•	User must have is_staff = True
 
-Post-MVP
-	•	SMTP/email integration
-	•	Admin invites
-	•	E-signatures
-	•	Multi-form schools
+Form fields not saving:
+	•	Confirm YAML field keys are unique and required fields are present
+	•	Restart server after YAML save
 
 ⸻
 
-Support
+🧾 Deployment Notes (Non-Technical)
 
-If something breaks:
-	1.	Check logs
-	2.	Verify school slug matches YAML
-	3.	Confirm SchoolAdminMembership
-	4.	Run tests locally
+Avoid losing uploads:
+	•	Attach a persistent disk on your host OR
+	•	Move to remote storage backend (S3) when ready
 
-This document should stay updated as the platform evolves.
+Static vs Media Files
+	•	static: shipped with app
+	•	media: uploaded by users
+Settings control where these reside (STATIC_ROOT, MEDIA_ROOT, MEDIA_URL)
+
+⸻
+
+🛠 End-of-Day Checklist
+
+Before handing off to schools:
+	•	Confirm branding loads
+	•	Submit a test application
+	•	Verify attachment download
+	•	Verify CSV export
+	•	Verify school admin scoping
 
 ---
-
-If you want next, we can:
-- Add **screenshots placeholders** to README  
-- Create a **pitch-deck version** of README  
-- Add **“School Owner Quick Start”** (1-page doc)  
-- Add diagrams (data flow, permissions)
