@@ -34,9 +34,7 @@ def validate_submission(
             ftype = (field.get("type") or "text").strip().lower()
             required = bool(field.get("required", False))
 
-            # ----------------------------
-            # FILE
-            # ----------------------------
+            # ✅ FILE: validate from FILES, not POST
             if ftype == "file":
                 uploaded = files_data.get(key)
 
@@ -45,7 +43,6 @@ def validate_submission(
                     continue
 
                 if uploaded:
-                    # Optional max size (MB) in YAML: max_mb: 5
                     max_mb = field.get("max_mb")
                     if max_mb:
                         try:
@@ -56,7 +53,6 @@ def validate_submission(
                         except Exception:
                             pass
 
-                    # Store metadata only (actual file saving happens later)
                     cleaned[key] = {
                         "original_name": getattr(uploaded, "name", ""),
                         "content_type": getattr(uploaded, "content_type", ""),
@@ -67,12 +63,9 @@ def validate_submission(
 
                 continue
 
-            # ----------------------------
-            # NON-FILE
-            # ----------------------------
+            # --- non-file fields (existing logic) ---
             raw_val = post_data.get(key)
 
-            # multiselect comes as list
             if ftype == "multiselect":
                 raw_val = post_data.getlist(key)  # type: ignore[attr-defined]
 

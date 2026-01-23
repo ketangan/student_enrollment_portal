@@ -11,9 +11,10 @@ from django.http import HttpResponse, Http404
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.urls import reverse, path
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
+from django.utils.safestring import mark_safe
 
 from .models import School, Submission, SchoolAdminMembership, SubmissionFile
 from core.services.config_loader import load_school_config
@@ -47,6 +48,38 @@ def _membership_school_id(user):
 def _has_school_membership(user) -> bool:
     return _membership_school_id(user) is not None
 
+def _bytes_to_mb(size: int) -> str:
+    try:
+        b = int(size or 0)
+    except Exception:
+        b = 0
+
+    if b <= 0:
+        return ""
+
+    kb = b / 1024
+    if kb < 1024:
+        return f"{kb:.0f} KB"
+
+    mb = kb / 1024
+    if mb < 1024:
+        return f"{mb:.1f} MB"
+
+    gb = mb / 1024
+    return f"{gb:.1f} GB"
+
+def _build_field_label_map(school_slug: str) -> dict[str, str]:
+    cfg = load_school_config(school_slug)
+    if not cfg:
+        return {}
+    label_map: dict[str, str] = {}
+    for section in cfg.form.get("sections", []):
+        for field in section.get("fields", []):
+            key = field.get("key")
+            label = field.get("label")
+            if key and label:
+                label_map[str(key)] = str(label)
+    return label_map
 
 # ----------------------------
 # Pretty JSON form/widget for Submission detail page
@@ -407,8 +440,11 @@ class SubmissionAdmin(admin.ModelAdmin):
         return ("id", "student_name", "program_name", "created_at_pretty")
 
     search_fields = ("school__slug", "school__display_name")
-    readonly_fields = ("school_display", "created_at_pretty")
-    fields = ("school_display", "created_at_pretty", "data")
+    readonly_fields = ("school_display", "created_at_pretty", "attachments")
+    fieldsets = (
+        ("General", {"fields": ("school_display", "created_at_pretty", "data")}),
+        ("Attachments", {"fields": ("attachments",)}),
+    )
 
     def has_module_permission(self, request):
         return _is_superuser(request.user) or (_has_school_membership(request.user) and request.user.is_staff)
@@ -499,6 +535,52 @@ class SubmissionAdmin(admin.ModelAdmin):
         all_ids = default_ids.union(matched_ids)
 
         return base_qs.filter(id__in=all_ids), use_distinct
+    
+    def attachments(self, obj):
+        qs = obj.files.all().order_by("field_key", "id")
+        if not qs.exists():
+            return "—"
+
+        label_map = _build_field_label_map(obj.school.slug)
+
+        rows = []
+        for f in qs:
+            label = label_map.get(f.field_key, f.field_key.replace("_", " ").title())
+            if f.original_name:
+                name = f.original_name
+            else:
+                stored = (getattr(f.file, "name", "") or "").split("/")[-1]
+                name = stored.split("__", 1)[-1] if "__" in stored else stored
+            size = _bytes_to_mb(f.size_bytes or (getattr(f.file, "size", 0) or 0))
+
+            try:
+                view_url = f.file.url if f.file else ""
+            except Exception:
+                view_url = ""
+
+            rows.append((label, name, size, view_url))
+
+        return format_html(
+            "<div style='margin-top:6px'>{}</div>",
+            format_html_join(
+                "",
+                "<div style='margin:4px 0;'>"
+                "<strong>{}</strong> — {}{}{}{}"
+                "</div>",
+                (
+                    (
+                        label,
+                        filename,
+                        f" ({size})" if size else "",
+                        mark_safe(" — ") if url else "",
+                        format_html("<a href='{}' target='_blank'>View</a>", url) if url else "",
+                    )
+                    for (label, filename, size, url) in rows
+                ),
+            ),
+        )
+
+    attachments.short_description = "Attachments"
 
     def export_csv(self, request, queryset):
         queryset = self.get_queryset(request).filter(id__in=queryset.values_list("id", flat=True))

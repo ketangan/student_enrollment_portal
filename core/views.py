@@ -8,7 +8,7 @@ from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import School, Submission
+from .models import School, Submission, SubmissionFile
 from .services.config_loader import load_school_config
 from .services.form_utils import build_option_label_map
 from .services.validation import validate_submission
@@ -87,7 +87,24 @@ def apply_view(request, school_slug: str):
                 },
             )
 
-        Submission.objects.create(school=school, data=cleaned)
+        submission = Submission.objects.create(school=school, data=cleaned)
+
+        # ✅ Create SubmissionFile rows for any uploaded files
+        for section in config.form.get("sections", []):
+            for field in section.get("fields", []):
+                if (field.get("type") or "").strip().lower() == "file":
+                    key = field["key"]
+                    uploaded = request.FILES.get(key)
+                    if uploaded:
+                        SubmissionFile.objects.create(
+                            submission=submission,
+                            field_key=key,
+                            file=uploaded,
+                            original_name=getattr(uploaded, "name", "") or "",
+                            content_type=getattr(uploaded, "content_type", "") or "",
+                            size_bytes=getattr(uploaded, "size", 0) or 0,
+                        )
+
         return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
     return render(
