@@ -1,0 +1,59 @@
+{% if yaml_sections %}
+  <div class="yaml-form-wrap">
+    <h2 class="yaml-form-title">Enrollment Form</h2>
+
+    {% for section in yaml_sections %}
+      <div class="yaml-section">
+        <div class="yaml-section-title">{{ section.title }}</div>
+
+        {% for f in section.fields %}
+          <div class="yaml-form-row">
+            <label class="yaml-label">
+              {{ f.label }}{% if f.required %}<span class="yaml-required">*</span>{% endif %}
+            </label>
+
+            {% if f.type == "textarea" %}
+              <textarea class="yaml-textarea" name="dyn__{{ f.key }}" rows="3">{{ f.value }}</textarea>
+
+            {% elif f.type == "select" %}
+              <select class="yaml-select" name="dyn__{{ f.key }}">
+                <option value="">— Select —</option>
+                {% for opt in f.options %}
+                  <option value="{{ opt.value }}"
+                    {% if opt.value|stringformat:"s" == f.value|stringformat:"s" %}selected{% endif %}>
+                    {{ opt.label }}
+                  </option>
+                {% endfor %}
+              </select>
+
+            {% elif f.type == "multiselect" %}
+              <select class="yaml-multiselect" name="dyn__{{ f.key }}" multiple>
+                {% for opt in f.options %}
+                  <option value="{{ opt.value }}"
+                    {% if f.value and opt.value in f.value %}selected{% endif %}>
+                    {{ opt.label }}
+                  </option>
+                {% endfor %}
+              </select>
+
+            {% elif f.type == "checkbox" %}
+              <label class="yaml-checkbox">
+                <input type="checkbox" name="dyn__{{ f.key }}" value="on" {% if f.value %}checked{% endif %} />
+                <span>Yes</span>
+              </label>
+
+            {% elif f.type == "date" %}
+              <input class="yaml-input" type="date" name="dyn__{{ f.key }}" value="{{ f.value }}" />
+
+            {% elif f.type == "number" %}
+              <input class="yaml-input" type="number" step="any" name="dyn__{{ f.key }}" value="{{ f.value }}" />
+
+            {% else %}
+              <input class="yaml-input" type="text" name="dyn__{{ f.key }}" value="{{ f.value }}" />
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}

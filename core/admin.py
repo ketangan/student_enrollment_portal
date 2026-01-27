@@ -1,8 +1,9 @@
+import datetime
 import json
 import csv
 
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.models import Group
@@ -14,6 +15,7 @@ from django.urls import reverse, path
 from django.utils.html import format_html, format_html_join
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
+from django.template.loader import render_to_string
 from django.utils.safestring import mark_safe
 
 from .models import School, Submission, SchoolAdminMembership, SubmissionFile
@@ -81,6 +83,58 @@ def _build_field_label_map(school_slug: str) -> dict[str, str]:
                 label_map[str(key)] = str(label)
     return label_map
 
+DYN_PREFIX = "dyn__"
+
+def _dyn_key(key: str) -> str:
+    return f"{DYN_PREFIX}{key}"
+
+def _orig_key(dyn_key: str) -> str:
+    return dyn_key[len(DYN_PREFIX):] if dyn_key.startswith(DYN_PREFIX) else dyn_key
+
+
+def _field_to_django_form_field(field: dict):
+    """
+    Convert YAML field dict -> Django Form Field.
+    Keep it MVP: support text/textarea/email/phone/tel/date/number/select/multiselect/checkbox.
+    Skip file here (attachments handled separately).
+    """
+    ftype = (field.get("type") or "text").strip().lower()
+    required = bool(field.get("required", False))
+    label = field.get("label") or field.get("key") or "Field"
+    help_text = field.get("help_text") or ""
+
+    if ftype == "textarea":
+        return forms.CharField(label=label, required=required, help_text=help_text, widget=forms.Textarea(attrs={"rows": 3}))
+    if ftype in ("email",):
+        return forms.EmailField(label=label, required=required, help_text=help_text)
+    if ftype in ("phone", "tel"):
+        return forms.CharField(label=label, required=required, help_text=help_text)
+    if ftype == "date":
+        # store as YYYY-MM-DD string in JSON (consistent with your apply flow)
+        return forms.DateField(label=label, required=required, help_text=help_text, widget=forms.DateInput(attrs={"type": "date"}), input_formats=["%Y-%m-%d"])
+    if ftype == "number":
+        return forms.FloatField(label=label, required=required, help_text=help_text)
+    if ftype == "checkbox":
+        return forms.BooleanField(label=label, required=False, help_text=help_text)  # required handled by validation rules typically
+    if ftype == "select":
+        choices = [("", "Select…")]
+        for opt in (field.get("options") or []):
+            choices.append((str(opt.get("value", "")), str(opt.get("label", ""))))
+        return forms.ChoiceField(label=label, required=required, help_text=help_text, choices=choices)
+
+    if ftype == "multiselect":
+        # admin-friendly: multi-select box
+        choices = []
+        for opt in (field.get("options") or []):
+            choices.append((str(opt.get("value", "")), str(opt.get("label", ""))))
+        return forms.MultipleChoiceField(label=label, required=required, help_text=help_text, choices=choices)
+
+    if ftype == "file":
+        return None  # editable uploads later if you want; for now use Attachments tab
+
+    # default text
+    return forms.CharField(label=label, required=required, help_text=help_text)
+
 # ----------------------------
 # Pretty JSON form/widget for Submission detail page
 # ----------------------------
@@ -97,13 +151,19 @@ class PrettyJSONWidget(forms.Textarea):
 
 
 class SubmissionAdminForm(forms.ModelForm):
+    """
+    Admin edit form:
+    - renders YAML-defined fields as editable form fields
+    - saves them back into Submission.data JSON
+    """
+
     class Meta:
         model = Submission
         fields = "__all__"
         widgets = {
             "data": PrettyJSONWidget(
                 attrs={
-                    "rows": 34,
+                    "rows": 18,
                     "style": (
                         "font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "
                         "'Liberation Mono', 'Courier New', monospace; white-space: pre;"
@@ -112,6 +172,52 @@ class SubmissionAdminForm(forms.ModelForm):
             )
         }
 
+    def clean(self):
+        cleaned = super().clean()
+
+        obj = self.instance
+        if not obj or not obj.school_id:
+            return cleaned
+
+        cfg = load_school_config(obj.school.slug)
+        if not cfg:
+            return cleaned
+
+        qd = self.data  # QueryDict; supports getlist()
+        errors = []
+
+        for section in cfg.form.get("sections", []):
+            for f in section.get("fields", []):
+                ftype = (f.get("type") or "text").strip().lower()
+                if ftype == "file":
+                    continue
+
+                key = f.get("key")
+                if not key:
+                    continue
+
+                if not bool(f.get("required", False)):
+                    continue
+
+                name = f"{DYN_PREFIX}{key}"
+                label = f.get("label") or key.replace("_", " ").title()
+
+                if ftype == "multiselect":
+                    if not qd.getlist(name):
+                        errors.append(f"{label} is required.")
+                elif ftype == "checkbox":
+                    if name not in qd:
+                        errors.append(f"{label} is required.")
+                else:
+                    if not (qd.get(name, "") or "").strip():
+                        errors.append(f"{label} is required.")
+
+        # Put errors on the form (prevents redirect + success message)
+        for e in errors:
+            self.add_error(None, e)
+
+        return cleaned
+    
 
 # ----------------------------
 # Users Admin (school-scoped, MVP-friendly)
@@ -427,24 +533,131 @@ class SubmissionFileInline(admin.TabularInline):
 @admin.register(Submission)
 class SubmissionAdmin(admin.ModelAdmin):
     class Media:
+        css = {"all": ("admin/submission_yaml_form.css",)}
         js = ("admin_actions.js",)
 
     form = SubmissionAdminForm
-    list_filter = ()
-    actions = ["export_csv"]
     inlines = [SubmissionFileInline]
+    actions = ["export_csv"]
 
+    readonly_fields = ("school_display", "created_at_pretty", "yaml_form", "data", "attachments")
+    search_fields = ("school__slug", "school__display_name")
+
+    
     def get_list_display(self, request):
         if _is_superuser(request.user):
             return ("id", "school_display", "student_name", "program_name", "created_at_pretty")
         return ("id", "student_name", "program_name", "created_at_pretty")
+    
+    def _build_yaml_sections(self, obj, post_data=None):
+        if not obj or not obj.school_id:
+            return []
 
-    search_fields = ("school__slug", "school__display_name")
-    readonly_fields = ("school_display", "created_at_pretty", "attachments")
-    fieldsets = (
-        ("General", {"fields": ("school_display", "created_at_pretty", "data")}),
-        ("Attachments", {"fields": ("attachments",)}),
-    )
+        cfg = load_school_config(obj.school.slug)
+        if not cfg:
+            return []
+
+        existing = obj.data or {}
+        yaml_sections = []
+
+        for section in cfg.form.get("sections", []):
+            section_title = section.get("title") or "Form"
+            fields = []
+
+            for f in section.get("fields", []):
+                ftype = (f.get("type") or "text").strip().lower()
+                if ftype == "file":
+                    continue
+
+                key = f.get("key")
+                if not key:
+                    continue
+
+                label = f.get("label") or key.replace("_", " ").title()
+                required = bool(f.get("required", False))
+                options = f.get("options") or []
+
+                if post_data is not None:
+                    name = f"{DYN_PREFIX}{key}"
+                    if ftype == "multiselect":
+                        value = post_data.getlist(name)
+                    elif ftype == "checkbox":
+                        value = name in post_data
+                    else:
+                        value = post_data.get(name, "")
+                else:
+                    value = existing.get(key, "")
+
+                fields.append(
+                    {
+                        "key": key,
+                        "label": label,
+                        "type": ftype,
+                        "required": required,
+                        "options": options,
+                        "value": value,
+                    }
+                )
+
+            if fields:
+                yaml_sections.append({"title": section_title, "fields": fields})
+
+        return yaml_sections
+    
+    def get_fieldsets(self, request, obj=None):
+        return (
+            ("General", {"fields": ("school_display", "created_at_pretty", "yaml_form")}),
+            ("Raw Data (advanced)", {"fields": ("data",), "classes": ("collapse",)}),
+            ("Attachments", {"fields": ("attachments",)}),
+        )
+    
+    def rendered_submission(self, obj):
+        if not obj or not obj.school_id:
+            return "—"
+
+        cfg = load_school_config(obj.school.slug)
+        if not cfg:
+            return "No config found for this school."
+
+        data = obj.data or {}
+
+        sections_html = []
+        for section in cfg.form.get("sections", []):
+            title = section.get("title") or "Form"
+            rows = []
+
+            for f in section.get("fields", []):
+                if (f.get("type") or "").strip().lower() == "file":
+                    continue
+                key = f.get("key")
+                if not key:
+                    continue
+                label = f.get("label") or key.replace("_", " ").title()
+                val = data.get(key, "—")
+                if isinstance(val, list):
+                    val = ", ".join(str(v) for v in val) if val else "—"
+                elif val in ("", None):
+                    val = "—"
+                rows.append((label, str(val)))
+
+            if rows:
+                table = format_html(
+                    "<table style='width:100%; border-collapse:collapse;'>"
+                    "<tbody>{}</tbody></table>",
+                    format_html_join(
+                        "",
+                        "<tr>"
+                        "<th style='text-align:left; padding:6px 8px; width:240px; border-bottom:1px solid #eee;'>{}</th>"
+                        "<td style='padding:6px 8px; border-bottom:1px solid #eee;'>{}</td>"
+                        "</tr>",
+                        rows,
+                    ),
+                )
+                sections_html.append(format_html("<h3 style='margin:14px 0 6px'>{}</h3>{}", title, table))
+
+        return format_html("<div>{}</div>", format_html_join("", "{}", ((s,) for s in sections_html)))
+
+    rendered_submission.short_description = "Submission"
 
     def has_module_permission(self, request):
         return _is_superuser(request.user) or (_has_school_membership(request.user) and request.user.is_staff)
@@ -472,6 +685,29 @@ class SubmissionAdmin(admin.ModelAdmin):
 
     school_display.short_description = "School"
 
+    def yaml_form(self, obj):
+        if not obj or not obj.school_id:
+            return "—"
+
+        yaml_sections = self._build_yaml_sections(obj)
+        html = render_to_string(
+            "admin/core/submission/_yaml_form.html",
+            {"yaml_sections": yaml_sections},
+        )
+        return mark_safe(html)
+
+    yaml_form.short_description = ""
+    
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        obj = self.get_object(request, object_id) if object_id else None
+
+        if obj and obj.school_id:
+            post_data = request.POST if request.method == "POST" else None
+            extra_context["yaml_sections"] = self._build_yaml_sections(obj, post_data=post_data)
+
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         if _is_superuser(request.user):
@@ -481,18 +717,6 @@ class SubmissionAdmin(admin.ModelAdmin):
             return qs.none()
         return qs.filter(school_id=school_id)
 
-    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
-        extra_context = extra_context or {}
-        extra_context.update(
-            {
-                "show_save_and_add_another": False,
-                "show_save_and_continue": False,
-                "show_save_as_new": False,
-            }
-        )
-        if not _is_superuser(request.user):
-            extra_context["show_delete"] = False
-        return super().changeform_view(request, object_id, form_url, extra_context)
 
     def student_name(self, obj: Submission) -> str:
         return obj.student_display_name()
@@ -507,6 +731,71 @@ class SubmissionAdmin(admin.ModelAdmin):
         return obj.program_display_name(label_map=label_map)
 
     program_name.short_description = "Program"
+
+    def save_model(self, request, obj, form, change):
+        if not obj or not obj.school_id:
+            super().save_model(request, obj, form, change)
+            return
+
+        cfg = load_school_config(obj.school.slug)
+        if not cfg:
+            super().save_model(request, obj, form, change)
+            return
+
+        # errors = []
+
+        # # 🔴 VALIDATION FIRST
+        # for section in cfg.form.get("sections", []):
+        #     for f in section.get("fields", []):
+        #         if (f.get("type") or "").lower() == "file":
+        #             continue
+
+        #         key = f.get("key")
+        #         if not key or not f.get("required"):
+        #             continue
+
+        #         name = f"{DYN_PREFIX}{key}"
+        #         ftype = (f.get("type") or "text").lower()
+
+        #         if ftype == "multiselect":
+        #             if not request.POST.getlist(name):
+        #                 errors.append(f"{f.get('label') or key} is required.")
+        #         elif ftype == "checkbox":
+        #             if name not in request.POST:
+        #                 errors.append(f"{f.get('label') or key} is required.")
+        #         else:
+        #             if not (request.POST.get(name, "") or "").strip():
+        #                 errors.append(f"{f.get('label') or key} is required.")
+
+        # if errors:
+        #     for e in errors:
+        #         messages.error(request, e)
+        #     return  # ⛔ STOP — no save, no success message
+
+        # ✅ ONLY NOW do we save
+        super().save_model(request, obj, form, change)
+
+        # Persist YAML fields
+        data = dict(obj.data or {})
+        for section in cfg.form.get("sections", []):
+            for f in section.get("fields", []):
+                if (f.get("type") or "").lower() == "file":
+                    continue
+                key = f.get("key")
+                if not key:
+                    continue
+
+                name = f"{DYN_PREFIX}{key}"
+                ftype = (f.get("type") or "text").lower()
+
+                if ftype == "multiselect":
+                    data[key] = request.POST.getlist(name)
+                elif ftype == "checkbox":
+                    data[key] = name in request.POST
+                else:
+                    data[key] = request.POST.get(name, "")
+
+        Submission.objects.filter(pk=obj.pk).update(data=data)
 
     def created_at_pretty(self, obj: Submission) -> str:
         dt = timezone.localtime(obj.created_at)
