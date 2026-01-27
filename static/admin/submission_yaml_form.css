@@ -1,22 +1,230 @@
-.yaml-form-wrap{ max-width:980px; margin-top:18px; }
-.yaml-form-title{ font-size:22px; font-weight:700; margin: 6px 0 14px; }
+/* =========================================
+   YAML Admin Form – Stable Baseline Version
+   + Django Admin wrapper overrides (fix squish)
+   ========================================= */
 
-.yaml-section{ padding:14px 16px; border-radius:14px; border:1px solid rgba(255,255,255,0.08); margin-bottom:14px; }
-.yaml-section-title{ font-weight:700; font-size:14px; margin-bottom:10px; opacity:.95; }
-
-.yaml-form-row{ margin:0 0 14px; }
-.yaml-label{ display:block; font-weight:600; margin-bottom:6px; }
-.yaml-required{ color:#ef4444; margin-left:4px; font-weight:700; }
-
-.yaml-input, .yaml-select, .yaml-textarea, .yaml-multiselect{
-  width:min(820px,100%);
-  box-sizing:border-box;
-  padding:8px 10px;
-  border-radius:8px;
+/* Jazzmin/Bootstrap: make yaml_form value column full width */
+.form-group.field-yaml_form > .row > .col-sm-7.field-yaml_form{
+  flex: 0 0 100% !important;
+  max-width: 100% !important;
 }
 
-.yaml-textarea{ min-height:90px; }
-.yaml-select{ height:38px; }
-.yaml-multiselect{ height:160px; padding:6px; }
+/* Optional: also hide/stack the label column so it doesn't reserve space */
+.form-group.field-yaml_form > .row > label.col-sm-3{
+  flex: 0 0 100% !important;
+  max-width: 100% !important;
+  margin-bottom: 10px;
+}
 
-.yaml-checkbox{ display:flex; align-items:center; gap:8px; }
+/* Scope to avoid admin collisions */
+.field-yaml_form .yaml-form-wrap,
+.field-yaml_form .yaml-form-wrap * {
+  box-sizing: border-box;
+}
+
+/* --- Django admin wrapper fixes (THIS is the real fix) --- */
+/* Make the yaml_form "row" behave like a full-width block */
+.form-row.field-yaml_form,
+.form-row.field-yaml_form > div {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+/* Kill the default admin "label column" layout for this row */
+.form-row.field-yaml_form > div > label {
+  float: none !important;
+  width: auto !important;
+  display: block !important;
+  margin: 0 0 10px 0 !important;
+}
+
+/* The readonly container is what usually clamps the width */
+.form-row.field-yaml_form .readonly {
+  display: block !important;
+  float: none !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Safety: allow contents to expand */
+.form-row.field-yaml_form .readonly * {
+  max-width: none !important;
+}
+
+/* --- Your YAML card/layout --- */
+.yaml-form-wrap {
+  width: 100%;
+  max-width: none;
+  margin: 18px 0 0;
+  padding: 0 8px;
+}
+
+/* Card */
+.yaml-card {
+  width: 100%;
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+}
+
+/* Header */
+.yaml-card-header {
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.yaml-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.yaml-subtitle {
+  margin: 6px 0 0;
+  opacity: 0.75;
+}
+
+/* Sections */
+.yaml-section {
+  margin: 22px 0;
+}
+
+.yaml-section-title {
+  font-size: 15px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  margin-top: 12px;
+  opacity: 0.95;
+  letter-spacing: 0.2px;
+}
+
+/* Section bubble */
+.yaml-section {
+  margin: 26px 0;
+  padding: 18px 18px 8px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* Section header */
+.yaml-section-title {
+  font-size: 15px;
+  font-weight: 800;
+  margin-bottom: 14px;
+  opacity: 0.95;
+}
+
+/* Divider under section title */
+.yaml-section-title::after {
+  content: "";
+  display: block;
+  height: 1px;
+  margin-top: 10px;
+  background: rgba(255,255,255,0.12);
+}
+
+/* Rows (stacked, simple) */
+.yaml-row {
+  margin-bottom: 14px;
+}
+
+/* Labels */
+.yaml-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+.yaml-required {
+  color: #ef4444;
+  margin-left: 4px;
+  font-weight: 800;
+}
+
+/* Inputs */
+.yaml-input,
+.yaml-select,
+.yaml-textarea,
+.yaml-multiselect {
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+  background: rgba(0,0,0,0.18) !important;
+  color: inherit;
+}
+
+.yaml-input,
+.yaml-select {
+  height: 42px;
+}
+
+.yaml-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.yaml-multiselect {
+  height: 160px;
+}
+
+/* Focus */
+.yaml-input:focus,
+.yaml-select:focus,
+.yaml-textarea:focus,
+.yaml-multiselect:focus {
+  border-color: rgba(59,130,246,0.85) !important;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.18);
+  outline: none;
+}
+
+/* Checkbox */
+.yaml-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.yaml-check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+/* Kill admin spacing quirks */
+.field-yaml_form .yaml-form-wrap input,
+.field-yaml_form .yaml-form-wrap select,
+.field-yaml_form .yaml-form-wrap textarea {
+  margin: 0 !important;
+}
+
+/* Make editable inputs look clearly editable */
+.yaml-input,
+.yaml-select,
+.yaml-textarea,
+.yaml-multiselect {
+  background: rgba(0, 0, 0, 0.22) !important;
+  color: #ffffff !important;          /* ← key fix */
+  opacity: 1 !important;              /* ← key fix */
+}
+
+/* Placeholder text slightly muted (optional, but nice) */
+.yaml-input::placeholder,
+.yaml-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+  opacity: 1;
+}
+
+.yaml-select,
+.yaml-multiselect {
+  background: rgba(0, 0, 0, 0.22) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255,255,255,0.18) !important;
+}

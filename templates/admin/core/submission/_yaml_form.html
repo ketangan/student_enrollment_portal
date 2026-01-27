@@ -1,59 +1,112 @@
+{% comment %}
+Renders YAML-driven fields inside the Submission change form.
+Expects: yaml_sections = [{title, fields:[{key,label,type,required,options,value}]}]
+{% endcomment %}
+
 {% if yaml_sections %}
   <div class="yaml-form-wrap">
-    <h2 class="yaml-form-title">Enrollment Form</h2>
-
-    {% for section in yaml_sections %}
-      <div class="yaml-section">
-        <div class="yaml-section-title">{{ section.title }}</div>
-
-        {% for f in section.fields %}
-          <div class="yaml-form-row">
-            <label class="yaml-label">
-              {{ f.label }}{% if f.required %}<span class="yaml-required">*</span>{% endif %}
-            </label>
-
-            {% if f.type == "textarea" %}
-              <textarea class="yaml-textarea" name="dyn__{{ f.key }}" rows="3">{{ f.value }}</textarea>
-
-            {% elif f.type == "select" %}
-              <select class="yaml-select" name="dyn__{{ f.key }}">
-                <option value="">— Select —</option>
-                {% for opt in f.options %}
-                  <option value="{{ opt.value }}"
-                    {% if opt.value|stringformat:"s" == f.value|stringformat:"s" %}selected{% endif %}>
-                    {{ opt.label }}
-                  </option>
-                {% endfor %}
-              </select>
-
-            {% elif f.type == "multiselect" %}
-              <select class="yaml-multiselect" name="dyn__{{ f.key }}" multiple>
-                {% for opt in f.options %}
-                  <option value="{{ opt.value }}"
-                    {% if f.value and opt.value in f.value %}selected{% endif %}>
-                    {{ opt.label }}
-                  </option>
-                {% endfor %}
-              </select>
-
-            {% elif f.type == "checkbox" %}
-              <label class="yaml-checkbox">
-                <input type="checkbox" name="dyn__{{ f.key }}" value="on" {% if f.value %}checked{% endif %} />
-                <span>Yes</span>
-              </label>
-
-            {% elif f.type == "date" %}
-              <input class="yaml-input" type="date" name="dyn__{{ f.key }}" value="{{ f.value }}" />
-
-            {% elif f.type == "number" %}
-              <input class="yaml-input" type="number" step="any" name="dyn__{{ f.key }}" value="{{ f.value }}" />
-
-            {% else %}
-              <input class="yaml-input" type="text" name="dyn__{{ f.key }}" value="{{ f.value }}" />
-            {% endif %}
-          </div>
-        {% endfor %}
+    <div class="yaml-card">
+      <div class="yaml-card-header">
+        <h2 class="yaml-title">Enrollment Form</h2>
+        <p class="yaml-subtitle">Edit the submission fields below.</p>
       </div>
-    {% endfor %}
+
+      {% for section in yaml_sections %}
+        <section class="yaml-section">
+          <div class="yaml-section-head">
+            <h3 class="yaml-section-title">{{ section.title }}</h3>
+            <div class="yaml-divider"></div>
+          </div>
+
+          <div class="yaml-grid">
+            {% for f in section.fields %}
+              <div class="yaml-row">
+                <label class="yaml-label" for="id_dyn__{{ f.key }}">
+                  {{ f.label }}
+                  {% if f.required %}<span class="yaml-required">*</span>{% endif %}
+                </label>
+
+                <div class="yaml-control">
+                  {% if f.type == "textarea" %}
+                    <textarea
+                      id="id_dyn__{{ f.key }}"
+                      class="yaml-textarea"
+                      name="dyn__{{ f.key }}"
+                    >{{ f.value }}</textarea>
+
+                  {% elif f.type == "select" %}
+                    <select
+                      id="id_dyn__{{ f.key }}"
+                      class="yaml-select"
+                      name="dyn__{{ f.key }}"
+                    >
+                      <option value="">— Select —</option>
+                      {% for opt in f.options %}
+                        <option value="{{ opt.value }}"
+                          {% if opt.value|stringformat:"s" == f.value|stringformat:"s" %}selected{% endif %}
+                        >{{ opt.label }}</option>
+                      {% endfor %}
+                    </select>
+
+                  {% elif f.type == "multiselect" %}
+                    <select
+                      id="id_dyn__{{ f.key }}"
+                      class="yaml-multiselect"
+                      name="dyn__{{ f.key }}"
+                      multiple
+                    >
+                      {% for opt in f.options %}
+                        <option value="{{ opt.value }}"
+                          {% if f.value and opt.value in f.value %}selected{% endif %}
+                        >{{ opt.label }}</option>
+                      {% endfor %}
+                    </select>
+
+                  {% elif f.type == "checkbox" %}
+                    <label class="yaml-check">
+                      <input
+                        id="id_dyn__{{ f.key }}"
+                        type="checkbox"
+                        name="dyn__{{ f.key }}"
+                        {% if f.value %}checked{% endif %}
+                      />
+                      <span class="yaml-check-text">Yes</span>
+                    </label>
+
+                  {% elif f.type == "date" %}
+                    <input
+                      id="id_dyn__{{ f.key }}"
+                      class="yaml-input"
+                      type="date"
+                      name="dyn__{{ f.key }}"
+                      value="{{ f.value }}"
+                    />
+
+                  {% elif f.type == "number" %}
+                    <input
+                      id="id_dyn__{{ f.key }}"
+                      class="yaml-input"
+                      type="number"
+                      step="any"
+                      name="dyn__{{ f.key }}"
+                      value="{{ f.value }}"
+                    />
+
+                  {% else %}
+                    <input
+                      id="id_dyn__{{ f.key }}"
+                      class="yaml-input"
+                      type="text"
+                      name="dyn__{{ f.key }}"
+                      value="{{ f.value }}"
+                    />
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </section>
+      {% endfor %}
+    </div>
   </div>
 {% endif %}
