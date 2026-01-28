@@ -219,6 +219,48 @@ class SubmissionAdmin(admin.ModelAdmin):
         data = apply_post_to_submission_data(cfg, request.POST, existing_data=dict(obj.data or {}))
         Submission.objects.filter(pk=obj.pk).update(data=data)
 
+    def get_search_results(self, request, queryset, search_term):
+        base_qs = queryset
+        default_qs, use_distinct = super().get_search_results(request, queryset, search_term)
+
+        term = (search_term or "").strip().lower()
+        if not term:
+            return default_qs, use_distinct
+
+        def _data_matches(data: dict, term: str) -> bool:
+            if not isinstance(data, dict):
+                return False
+
+            # 🔥 explicit common keys first (keeps behavior stable with tests)
+            for k in ("first_name", "last_name", "email", "phone", "program", "class_name"):
+                v = data.get(k)
+                if isinstance(v, str) and term in v.lower():
+                    return True
+
+            # generic scan of any string/list values in the JSON
+            for v in data.values():
+                if isinstance(v, str) and term in v.lower():
+                    return True
+                if isinstance(v, list):
+                    for item in v:
+                        if isinstance(item, str) and term in item.lower():
+                            return True
+            return False
+
+        candidates = list(base_qs.order_by("-created_at")[:5000])
+        matched_ids = [
+            s.id
+            for s in candidates
+            if term in (s.student_display_name() or "").lower()
+            or term in (s.program_display_name() or "").lower()
+            or _data_matches(s.data or {}, term)
+        ]
+
+        default_ids = set(default_qs.values_list("id", flat=True))
+        all_ids = default_ids.union(matched_ids)
+
+        return base_qs.filter(id__in=all_ids), use_distinct
+    
     # ----------------------------
     # Attachments + Export
     # ----------------------------

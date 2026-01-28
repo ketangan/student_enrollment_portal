@@ -194,4 +194,6 @@ JAZZMIN_UI_TWEAKS = {
     "body_small_text": False,
     "brand_small_text": False,
     "sidebar_small_text": False,
+    "brand_logo": None,
+    "brand_logo_small": None,
 }
