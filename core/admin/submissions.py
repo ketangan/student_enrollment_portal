@@ -5,6 +5,7 @@ import csv
 import json
 
 from django import forms
+from django.core.exceptions import PermissionDenied
 from django.contrib import admin, messages
 from django.http import HttpResponse
 from django.shortcuts import redirect
@@ -100,14 +101,23 @@ class SubmissionAdmin(admin.ModelAdmin):
         return _is_superuser(request.user) or (_has_school_membership(request.user) and request.user.is_staff)
 
     def has_view_permission(self, request, obj=None):
+        # LIST VIEW
+        if obj is None:
+            return (
+                _is_superuser(request.user)
+                or (_has_school_membership(request.user) and request.user.is_staff)
+            )
+
+        # OBJECT VIEW
         if _is_superuser(request.user):
             return True
-        return _has_school_membership(request.user) and request.user.is_staff
+
+        school_id = getattr(request.user.school_membership, "school_id", None)
+        return obj.school_id == school_id
+
 
     def has_change_permission(self, request, obj=None):
-        if _is_superuser(request.user):
-            return True
-        return _has_school_membership(request.user) and request.user.is_staff
+        return self.has_view_permission(request, obj)
 
     def has_add_permission(self, request):
         return _is_superuser(request.user)
@@ -123,6 +133,20 @@ class SubmissionAdmin(admin.ModelAdmin):
         if not school_id:
             return qs.none()
         return qs.filter(school_id=school_id)
+    
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        obj = self.get_object(request, object_id)
+
+        if obj is None:
+            # Django will turn this into a 404
+            raise PermissionDenied
+
+        if not _is_superuser(request.user):
+            school_id = _membership_school_id(request.user)
+            if obj.school_id != school_id:
+                raise PermissionDenied
+
+        return super().change_view(request, object_id, form_url, extra_context)
 
     # ----------------------------
     # Display helpers

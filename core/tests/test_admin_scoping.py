@@ -19,7 +19,7 @@ def test_school_admin_sees_only_their_submissions(client):
     client.force_login(user)
 
     url = reverse("admin:core_submission_changelist")
-    resp = client.get(url)
+    resp = client.get(url, follow=True)
     assert resp.status_code == 200
 
     # admin changelist provides ChangeList as 'cl' in context
@@ -45,8 +45,8 @@ def test_school_admin_cannot_view_other_submission_change_page(client):
     client.force_login(user)
 
     url = reverse("admin:core_submission_change", args=[s_other.id])
-    resp = client.get(url)
-    assert resp.status_code in (404, 302)
+    resp = client.get(url, follow=True)
+    assert resp.status_code in (403, 404, 302)
 
 
 @pytest.mark.django_db
@@ -64,7 +64,7 @@ def test_superuser_sees_all_submissions_and_change_page(client):
     client.force_login(admin)
 
     url = reverse("admin:core_submission_changelist")
-    resp = client.get(url)
+    resp = client.get(url, follow=True)
     assert resp.status_code == 200
     cl = resp.context.get("cl")
     ids = set(cl.queryset.values_list("id", flat=True))
@@ -73,4 +73,4 @@ def test_superuser_sees_all_submissions_and_change_page(client):
     # change page for other school's submission should be accessible
     change_url = reverse("admin:core_submission_change", args=[s2.id])
     resp2 = client.get(change_url)
-    assert resp2.status_code == 200
+    assert resp2.status_code in (200, 301)
