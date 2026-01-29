@@ -20,9 +20,11 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 from core.views import admin_download_submission_file
+from core.views_health import healthz
 
 
 urlpatterns = [
+    path("healthz", healthz, name="healthz"),
     path("admin/uploads/<int:file_id>/", admin_download_submission_file, name="admin_download_submission_file"),
     path("admin/", admin.site.urls),
     path("", include("core.urls")),
