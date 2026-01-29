@@ -31,7 +31,12 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-default-secret")
 DEBUG = os.getenv("DJANGO_DEBUG", "False") == "True"
 
 DJANGO_ENV = os.getenv("DJANGO_ENV", "local").lower()
+IS_PROD = DJANGO_ENV == "production"
+
 IS_PROD = DJANGO_ENV in ("prod", "production")
+
+if IS_PROD and (not os.getenv("DJANGO_SECRET_KEY")):
+    raise RuntimeError("DJANGO_SECRET_KEY must be set in production")
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",") if os.getenv("ALLOWED_HOSTS") else []
 
@@ -47,7 +52,7 @@ CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if os.ge
 # ------------------------------
 SESSION_COOKIE_SECURE = IS_PROD
 CSRF_COOKIE_SECURE = IS_PROD
-SECURE_SSL_REDIRECT = IS_PROD
+SECURE_SSL_REDIRECT = IS_PROD and (os.getenv("SECURE_SSL_REDIRECT", "True") == "True")
 
 # Keep this (Render is behind a proxy and sets X-Forwarded-Proto)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
