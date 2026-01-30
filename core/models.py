@@ -3,6 +3,8 @@ import os
 import uuid
 from django.contrib.auth.models import User
 from core.services.form_utils import resolve_label
+from django.conf import settings
+from django.db import models
 
 
 class School(models.Model):
@@ -135,4 +137,52 @@ class SubmissionFile(models.Model):
 
     def __str__(self) -> str:
         return f"{self.submission.school.slug} #{self.submission_id} {self.field_key}"
+    
+
+class AdminAuditLog(models.Model):
+    ACTION_ADD = "add"
+    ACTION_CHANGE = "change"
+    ACTION_DELETE = "delete"
+    ACTION_ACTION = "action"  # e.g. export_csv
+
+    ACTION_CHOICES = (
+        (ACTION_ADD, "Add"),
+        (ACTION_CHANGE, "Change"),
+        (ACTION_DELETE, "Delete"),
+        (ACTION_ACTION, "Action"),
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="admin_audit_logs",
+    )
+
+    action = models.CharField(max_length=16, choices=ACTION_CHOICES)
+
+    # What object was affected
+    model_label = models.CharField(max_length=128)  # e.g. "core.Submission"
+    object_id = models.CharField(max_length=64, blank=True, default="")
+    object_repr = models.TextField(blank=True, default="")
+
+    # What changed
+    changes = models.JSONField(default=dict, blank=True)  # {"field": {"from": x, "to": y}}
+
+    # Request context
+    path = models.TextField(blank=True, default="")
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True, default="")
+
+    # Any extra metadata (counts, filters, etc.)
+    extra = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"{self.created_at} {self.action} {self.model_label}#{self.object_id}"
     

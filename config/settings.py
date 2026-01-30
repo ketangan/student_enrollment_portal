@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
@@ -38,21 +39,23 @@ IS_PROD = DJANGO_ENV in ("prod", "production")
 if IS_PROD and (not os.getenv("DJANGO_SECRET_KEY")):
     raise RuntimeError("DJANGO_SECRET_KEY must be set in production")
 
+IS_TESTING = ("pytest" in sys.modules) or (os.getenv("PYTEST_RUNNING") == "1")
+
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",") if os.getenv("ALLOWED_HOSTS") else []
 
 # --------------
 # Production Safety
 # --------------
-
+# 620dd2990c68f1aa7ea396929d9b5588
 # Must-have trusted origins (with https://)
 CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if os.getenv("CSRF_TRUSTED_ORIGINS") else []
 
 # ------------------------------
 # Production-only security
 # ------------------------------
-SESSION_COOKIE_SECURE = IS_PROD
-CSRF_COOKIE_SECURE = IS_PROD
-SECURE_SSL_REDIRECT = IS_PROD and (os.getenv("SECURE_SSL_REDIRECT", "True") == "True")
+SESSION_COOKIE_SECURE = IS_PROD and (not IS_TESTING)
+CSRF_COOKIE_SECURE = IS_PROD and (not IS_TESTING)
+SECURE_SSL_REDIRECT = IS_PROD and (os.getenv("SECURE_SSL_REDIRECT", "True") == "True") and (not IS_TESTING)
 
 # Keep this (Render is behind a proxy and sets X-Forwarded-Proto)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

@@ -13,6 +13,8 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.safestring import mark_safe
+from core.admin.audit import log_admin_audit
+from copy import deepcopy
 
 from core.admin.common import (
     DYN_PREFIX,
@@ -77,6 +79,7 @@ class SubmissionAdmin(admin.ModelAdmin):
     form = SubmissionAdminForm
     inlines = [SubmissionFileInline]
     actions = ["export_csv"]
+    object_history_template = "admin/core/submission/object_history.html"
 
     # yaml_form is rendered HTML (readonly method), data is readonly (still shown collapsed)
     readonly_fields = ("school_display", "created_at_pretty", "yaml_form", "data", "attachments")
@@ -93,6 +96,30 @@ class SubmissionAdmin(admin.ModelAdmin):
             ("Raw Data (advanced)", {"fields": ("data",), "classes": ("collapse",)}),
             ("Attachments", {"fields": ("attachments",)}),
         )
+
+    def log_change(self, request, obj, message):
+        old = getattr(request, "_old_submission_data", None)
+        new = getattr(obj, "data", None) or {}
+
+        # If we captured a snapshot, summarize the JSON-level changes nicely
+        if old is not None:
+            changed_keys = []
+            for k in set(old.keys()) | set(new.keys()):
+                if old.get(k) != new.get(k):
+                    changed_keys.append(k)
+
+            if changed_keys:
+                label_map = (
+                    _build_field_label_map(obj.school.slug)
+                    if getattr(obj, "school_id", None)
+                    else {}
+                )
+                pretty = [label_map.get(k, k.replace("_", " ").title()) for k in sorted(changed_keys)]
+                message = "Updated: " + ", ".join(pretty)
+            else:
+                return  # No changes to log
+
+        return super().log_change(request, obj, message)
 
     # ----------------------------
     # Permissions
@@ -206,6 +233,11 @@ class SubmissionAdmin(admin.ModelAdmin):
     # The save pipeline (fix success message issues)
     # ----------------------------
     def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        # Snapshot existing JSON before the POST mutates it
+        if request.method == "POST" and object_id:
+            obj_for_snapshot = self.get_object(request, object_id)
+            request._old_submission_data = deepcopy(getattr(obj_for_snapshot, "data", None) or {})
+
         extra_context = extra_context or {}
         extra_context.update(
             {
@@ -224,8 +256,6 @@ class SubmissionAdmin(admin.ModelAdmin):
                 if errors:
                     for e in errors:
                         messages.error(request, e)
-
-                    # IMPORTANT: do NOT call super() — that is what triggers saving + success message
                     return redirect(request.path)
 
         return super().changeform_view(request, object_id, form_url, extra_context)
@@ -240,8 +270,26 @@ class SubmissionAdmin(admin.ModelAdmin):
         if not cfg:
             return
 
+        old_data = dict(obj.data or {})
+
         data = apply_post_to_submission_data(cfg, request.POST, existing_data=dict(obj.data or {}))
         Submission.objects.filter(pk=obj.pk).update(data=data)
+        obj.data = data
+
+        new_data = dict(data or {})
+        changed = {}
+
+        # Only log keys that actually changed (simple but useful)
+        for k in set(old_data.keys()) | set(new_data.keys()):
+            if old_data.get(k) != new_data.get(k):
+                changed[k] = {"from": old_data.get(k), "to": new_data.get(k)}
+
+        log_admin_audit(
+            request=request,
+            action="change" if change else "add",
+            obj=obj,
+            changes=changed,
+        )
 
     def get_search_results(self, request, queryset, search_term):
         base_qs = queryset
@@ -341,6 +389,14 @@ class SubmissionAdmin(admin.ModelAdmin):
 
     def export_csv(self, request, queryset):
         queryset = self.get_queryset(request).filter(id__in=queryset.values_list("id", flat=True))
+
+        log_admin_audit(
+            request=request,
+            action="action",
+            obj=None,
+            changes={},
+            extra={"action": "export_csv", "model": "core.submission", "count": queryset.count()},
+        )
 
         rows = list(queryset.order_by("-created_at")[:5000])
         all_keys = set()

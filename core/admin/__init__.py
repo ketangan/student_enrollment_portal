@@ -7,6 +7,8 @@ from django.contrib import admin as admin  # so tests can do core_admin.admin.si
 # Export helpers that tests import from core.admin
 from .common import _is_superuser, _membership_school_id, _has_school_membership  # adjust names if needed
 
+from .audit import log_admin_audit  # noqa: F401 (ensures AdminAuditLog admin registers)
+
 # Existing exports you already added
 from .reports import admin_reports_hub_view
 from .submissions import SubmissionAdmin, PrettyJSONWidget

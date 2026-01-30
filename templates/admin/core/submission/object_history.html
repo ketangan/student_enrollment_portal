@@ -1,0 +1,39 @@
+{% extends "admin/object_history.html" %}
+
+{% block content %}
+  <div id="content-main">
+    <h3 style="margin-bottom: 4px;">
+        Submission Change History
+    </h3>
+    <p class="help">
+        {{ object.school.display_name }} · {{ object.student_display_name }}
+    </p>
+
+    {% if action_list %}
+      <table class="table" id="change-history">
+        <thead>
+            <tr>
+            <th scope="col">When</th>
+            <th scope="col">Who</th>
+            <th scope="col">What</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in action_list %}
+            {% with msg=entry.get_change_message %}
+                {% if msg != "No fields changed." and msg != "Saved (no enrollment field changes)" %}
+                <tr>
+                    <td>{{ entry.action_time|date:"M j, Y, P" }}</td>
+                    <td>{{ entry.user|default:"(unknown)" }}</td>
+                    <td>{{ msg }}</td>
+                </tr>
+                {% endif %}
+            {% endwith %}
+            {% endfor %}
+        </tbody>
+        </table>
+    {% else %}
+      <p>No history available.</p>
+    {% endif %}
+  </div>
+{% endblock %}
