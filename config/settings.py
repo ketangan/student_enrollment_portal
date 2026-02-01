@@ -15,6 +15,9 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 import dj_database_url
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -64,6 +67,17 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
+
+SENTRY_DSN = os.getenv("SENTRY_DSN", "").strip()
+
+if IS_PROD and SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        send_default_pii=False,
+        traces_sample_rate=0.0,  # keep 0 for MVP
+        environment=os.getenv("SENTRY_ENVIRONMENT", "prod"),
+    )
 
 # Application definition
 
