@@ -34,10 +34,6 @@ def prettify_school_name_from_slug(slug: str) -> str:
     # "kimberlas-classical-ballet" -> "Kimberlas Classical Ballet"
     return " ".join([p.capitalize() for p in slug.replace("_", "-").split("-") if p])
 
-# def get_forms(cfg):
-#     if hasattr(cfg, "forms") and cfg.forms:
-#         return cfg.forms
-#     return {"default": {"title": "Enrollment", "form": cfg.form}}
 
 def get_forms(config) -> dict:
     """
@@ -115,8 +111,24 @@ class SchoolConfig:
         }
 
     @property
-    def form(self) -> Dict[str, Any]:
-        return self.raw["form"]
+    def form(self) -> dict:
+        raw = self.raw or {}
+
+        # legacy single-form yaml
+        if isinstance(raw.get("form"), dict):
+            return raw["form"]
+
+        # multi-form yaml: return the first form as a safe default
+        forms = raw.get("forms") or {}
+        if isinstance(forms, dict) and forms:
+            # prefer "default" if present, else first key in YAML order
+            if "default" in forms and isinstance(forms["default"], dict):
+                return (forms["default"].get("form") or {}) if isinstance(forms["default"].get("form"), dict) else {}
+            first_key = next(iter(forms.keys()))
+            first = forms.get(first_key) or {}
+            return (first.get("form") or {}) if isinstance(first.get("form"), dict) else {}
+
+        return {}
 
 
 def load_school_config(school_slug: str) -> Optional[SchoolConfig]:

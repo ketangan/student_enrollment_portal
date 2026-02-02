@@ -51,7 +51,10 @@
           <div class="notice">{{ form.description }}</div>
         {% endif %}
 
-        <form method="post" enctype="multipart/form-data" novalidate>
+        <form method="post"
+            enctype="multipart/form-data"
+            novalidate
+            action="{% if is_multi %}{% url 'apply_form' school_slug=school.slug form_key=form_key %}{% else %}{% url 'apply' school_slug=school.slug %}{% endif %}">
           {% csrf_token %}
 
           {% for section in form.sections %}
@@ -251,7 +254,7 @@
           <!-- Submit (not its own card) -->
           <div class="actions">
             <button class="btn btn-primary" type="submit">
-              {{ form.submit_button_text|default:"Submit" }}
+              {% if next_key %}Next{% else %}{{ form.submit_button_text|default:"Submit" }}{% endif %}
             </button>
           </div>
         </form>
