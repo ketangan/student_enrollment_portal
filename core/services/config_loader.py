@@ -34,6 +34,37 @@ def prettify_school_name_from_slug(slug: str) -> str:
     # "kimberlas-classical-ballet" -> "Kimberlas Classical Ballet"
     return " ".join([p.capitalize() for p in slug.replace("_", "-").split("-") if p])
 
+# def get_forms(cfg):
+#     if hasattr(cfg, "forms") and cfg.forms:
+#         return cfg.forms
+#     return {"default": {"title": "Enrollment", "form": cfg.form}}
+
+def get_forms(config) -> dict:
+    """
+    Returns a dict like:
+    {
+      "enrollment": {"title": "...", "description": "...", "form": {...}},
+      ...
+    }
+    """
+    raw = getattr(config, "raw", None) or {}
+    forms = raw.get("forms")
+    if isinstance(forms, dict) and forms:
+        return forms
+
+    # Back-compat: single-form YAML
+    single_form = getattr(config, "form", None)
+    if single_form:
+        return {
+            "default": {
+                "title": "Default",
+                "description": "",
+                "form": single_form,
+            }
+        }
+
+    return {}
+
 
 @dataclass(frozen=True)
 class SchoolConfig:

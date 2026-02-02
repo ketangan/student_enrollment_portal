@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import School, Submission, SubmissionFile
-from .services.config_loader import load_school_config
+from .services.config_loader import get_forms, load_school_config
 from .services.form_utils import build_option_label_map
 from .services.validation import validate_submission
 
@@ -55,10 +55,16 @@ def merge_branding(branding_in: dict | None) -> dict:
     return merged
 
 
-def apply_view(request, school_slug: str):
+def apply_view(request, school_slug: str, form_key: str = "default"):
     config = load_school_config(school_slug)
     if config is None:
         raise Http404("School config not found")
+
+    forms = get_forms(config)
+    if form_key not in forms:
+        raise Http404("Form not found")
+
+    form_cfg = forms[form_key]["form"]
 
     branding = merge_branding(getattr(config, "branding", None))
 
@@ -75,7 +81,7 @@ def apply_view(request, school_slug: str):
     )
 
     if request.method == "POST":
-        cleaned, errors = validate_submission(config.form, request.POST, request.FILES)
+        cleaned, errors = validate_submission(form_cfg, request.POST, request.FILES)
         if errors:
             return render(
                 request,
@@ -83,16 +89,16 @@ def apply_view(request, school_slug: str):
                 {
                     "school": school,
                     "branding": branding,
-                    "form": config.form,
+                    "form": form_cfg,
                     "errors": errors,
                     "values": request.POST,
                 },
             )
 
-        submission = Submission.objects.create(school=school, data=cleaned)
+        submission = Submission.objects.create(school=school, form_key=form_key, data=cleaned)
 
         # ✅ Create SubmissionFile rows for any uploaded files
-        for section in config.form.get("sections", []):
+        for section in form_cfg.get("sections", []):
             for field in section.get("fields", []):
                 if (field.get("type") or "").strip().lower() == "file":
                     key = field["key"]
@@ -115,7 +121,7 @@ def apply_view(request, school_slug: str):
         {
             "school": school,
             "branding": branding,
-            "form": config.form,
+            "form": form_cfg,
             "errors": {},
             "values": {},
         },

@@ -7,6 +7,7 @@ from . import views
 
 urlpatterns = [
     path("schools/<slug:school_slug>/apply", apply_view, name="apply"),
+    path("schools/<slug:school_slug>/apply/<slug:form_key>/", views.apply_view, name="apply_form"),
     path("schools/<slug:school_slug>/apply/success", apply_success_view, name="apply_success"),
 
     # Reports (school-admin-only)

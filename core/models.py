@@ -48,6 +48,8 @@ class Submission(models.Model):
     """
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="submissions")
 
+    form_key = models.CharField(max_length=64, default="default", db_index=True, help_text="Identifies which form was used, in case the school has multiple forms.")
+
     # JSONB on Postgres automatically; Django uses JSONField
     data = models.JSONField(default=dict)
 

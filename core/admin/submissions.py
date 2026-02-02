@@ -30,7 +30,7 @@ from core.services.admin_submission_yaml import (
     build_yaml_sections,
     validate_required_fields,
 )
-from core.services.config_loader import load_school_config
+from core.services.config_loader import get_forms, load_school_config
 from core.services.form_utils import build_option_label_map
 
 
@@ -217,9 +217,13 @@ class SubmissionAdmin(admin.ModelAdmin):
         if not cfg:
             return "No config found for this school."
 
+        forms = get_forms(cfg)
+        form_key = getattr(obj, "form_key", "default")
+        form_cfg = (forms.get(form_key) or forms.get("default") or {}).get("form") or {}
+
         # If the user attempted to save and validation failed, re-render with POST values.
         post_data = getattr(self, "_yaml_post_data", None)
-        yaml_sections = build_yaml_sections(cfg, obj.data or {}, post_data=post_data)
+        yaml_sections = build_yaml_sections(cfg, obj.data or {}, post_data=post_data, form=form_cfg)
 
         html = render_to_string(
             "admin/core/submission/_yaml_form.html",

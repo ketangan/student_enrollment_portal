@@ -6,7 +6,7 @@ from typing import Any
 from core.admin.common import DYN_PREFIX
 
 
-def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=None) -> list[dict]:
+def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=None, form: dict | None = None) -> list[dict]:
     """
     Returns:
       yaml_sections = [
@@ -17,10 +17,11 @@ def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=Non
       ]
     post_data: if provided (request.POST), its values win so page re-renders with user edits.
     """
+    form = form or getattr(cfg, "form", None) or {}
     existing = existing_data or {}
     yaml_sections: list[dict] = []
 
-    for section in (cfg.form.get("sections", []) if cfg else []):
+    for section in (form.get("sections", []) if cfg else []):
         section_title = section.get("title") or "Form"
         fields: list[dict] = []
 
@@ -65,7 +66,7 @@ def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=Non
     return yaml_sections
 
 
-def validate_required_fields(cfg, post_data) -> list[str]:
+def validate_required_fields(cfg, post_data, form: dict | None = None) -> list[str]:
     """
     Validates required fields from YAML against request.POST.
     Returns a list of human-friendly error strings.
@@ -74,7 +75,8 @@ def validate_required_fields(cfg, post_data) -> list[str]:
     if not cfg:
         return errors
 
-    for section in cfg.form.get("sections", []):
+    form = form or getattr(cfg, "form", None) or {}
+    for section in form.get("sections", []):
         for f in section.get("fields", []):
             ftype = (f.get("type") or "text").strip().lower()
             if ftype == "file":
@@ -100,7 +102,7 @@ def validate_required_fields(cfg, post_data) -> list[str]:
     return errors
 
 
-def apply_post_to_submission_data(cfg, post_data, existing_data: dict) -> dict:
+def apply_post_to_submission_data(cfg, post_data, existing_data: dict, form: dict | None = None) -> dict:
     """
     Applies POST dyn__ fields into a copy of existing_data and returns the new dict.
     Keeps date as string (YYYY-MM-DD), multiselect as list, checkbox as bool.
@@ -110,7 +112,8 @@ def apply_post_to_submission_data(cfg, post_data, existing_data: dict) -> dict:
     if not cfg:
         return data
 
-    for section in cfg.form.get("sections", []):
+    form = form or getattr(cfg, "form", None) or {}
+    for section in form.get("sections", []):
         for f in section.get("fields", []):
             ftype = (f.get("type") or "text").strip().lower()
             if ftype == "file":

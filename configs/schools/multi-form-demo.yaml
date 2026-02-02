@@ -1,0 +1,163 @@
+school:
+  display_name: "MultiForm Demo Studio"
+  website_url: "https://example.com"
+  source_url: "https://example.com"
+
+branding:
+  theme:
+    primary_color: "#3B82F6"
+    accent_color: "#22C55E"
+
+# NEW: multiple forms per school
+forms:
+  enrollment:
+    title: "Enrollment"
+    description: "Primary enrollment form."
+    form:
+      sections:
+        - title: "Student Information"
+          fields:
+            - key: first_name
+              label: "First Name"
+              type: text
+              required: true
+            - key: last_name
+              label: "Last Name"
+              type: text
+              required: true
+            - key: dob
+              label: "Date of Birth"
+              type: date
+              required: false
+            - key: email
+              label: "Email"
+              type: text
+              required: true
+            - key: phone
+              label: "Phone"
+              type: text
+              required: false
+
+        - title: "Program Interest"
+          fields:
+            - key: program
+              label: "Program"
+              type: select
+              required: true
+              options:
+                - value: ballet
+                  label: "Ballet"
+                - value: hip_hop
+                  label: "Hip Hop"
+                - value: contemporary
+                  label: "Contemporary"
+            - key: experience_level
+              label: "Experience Level"
+              type: select
+              required: false
+              options:
+                - value: beginner
+                  label: "Beginner"
+                - value: intermediate
+                  label: "Intermediate"
+                - value: advanced
+                  label: "Advanced"
+
+  address:
+    title: "Address"
+    description: "Address + emergency contact."
+    form:
+      sections:
+        - title: "Address"
+          fields:
+            - key: street
+              label: "Street Address"
+              type: text
+              required: true
+            - key: city
+              label: "City"
+              type: text
+              required: true
+            - key: state
+              label: "State"
+              type: text
+              required: true
+            - key: zip
+              label: "ZIP Code"
+              type: text
+              required: true
+
+        - title: "Emergency Contact"
+          fields:
+            - key: emergency_name
+              label: "Emergency Contact Name"
+              type: text
+              required: true
+            - key: emergency_phone
+              label: "Emergency Contact Phone"
+              type: text
+              required: true
+
+  waiver:
+    title: "Waiver"
+    description: "Waiver + signatures."
+    form:
+      sections:
+        - title: "Waiver Acknowledgment"
+          fields:
+            - key: waiver_ack
+              label: "I agree to the waiver terms"
+              type: checkbox
+              required: true
+            - key: guardian_name
+              label: "Guardian Name (if minor)"
+              type: text
+              required: false
+            - key: guardian_signature
+              label: "Guardian Signature (type full name)"
+              type: text
+              required: false
+
+  medical:
+    title: "Medical"
+    description: "Medical info for safety."
+    form:
+      sections:
+        - title: "Medical Information"
+          fields:
+            - key: allergies
+              label: "Allergies"
+              type: textarea
+              required: false
+            - key: medications
+              label: "Medications"
+              type: textarea
+              required: false
+            - key: medical_notes
+              label: "Other medical notes"
+              type: textarea
+              required: false
+
+  payment:
+    title: "Payment"
+    description: "Payment preference (demo, not processing)."
+    form:
+      sections:
+        - title: "Payment"
+          fields:
+            - key: pay_method
+              label: "Preferred Payment Method"
+              type: select
+              required: true
+              options:
+                - value: card
+                  label: "Credit/Debit Card"
+                - value: ach
+                  label: "Bank Transfer (ACH)"
+                - value: cash
+                  label: "Cash"
+            - key: pay_notes
+              label: "Payment Notes"
+              type: textarea
+              required: false
+              
