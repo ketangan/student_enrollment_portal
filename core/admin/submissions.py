@@ -121,6 +121,76 @@ class SubmissionAdmin(admin.ModelAdmin):
 
         return super().log_change(request, obj, message)
 
+    def _form_cfg_for_admin(self, cfg, submission: Submission) -> dict:
+        """
+        Returns the form config dict that admin should render.
+
+        Rules:
+        - Single-form school => cfg.form
+        - Multi-form school:
+            - submission.form_key matches a real form key => render that form
+            - submission.form_key == "multi" => render ALL forms combined
+            - otherwise => render first configured form
+        """
+        forms = get_forms(cfg) or {}  # {key: {"form": {...}}, ...}
+
+        # Legacy / single-form
+        if not forms or (len(forms) == 1 and "default" in forms):
+            return cfg.form or {}
+
+        # Multi-form: render a specific real form key if present
+        fk = (getattr(submission, "form_key", "") or "").strip()
+        if fk and fk in forms and isinstance(forms[fk], dict):
+            return forms[fk].get("form") or {}
+
+        # Multi-form: "multi" means render all sections together
+        if fk == "multi":
+            combined_sections = []
+            for k, meta in forms.items():
+                form = (meta or {}).get("form") or {}
+                sections = form.get("sections") or []
+                combined_sections.extend(sections)
+
+            return {
+                "title": "All Forms",
+                "description": "Combined view of all steps",
+                "sections": combined_sections,
+            }
+
+        # Fallback: first configured form
+        first_key = next(iter(forms.keys()))
+        return (forms[first_key] or {}).get("form") or {}
+    
+    def _get_form_cfg(self, cfg, submission: Submission) -> dict:
+        """
+        Form config to use when APPLYING POSTed admin edits back into obj.data.
+        - single-form => cfg.form
+        - multi-form:
+            - form_key matches real YAML key => that form
+            - form_key == "multi" => combined sections of all forms
+            - fallback => first form
+        """
+        forms = get_forms(cfg) or {}
+
+        # single-form / legacy
+        if not forms or (len(forms) == 1 and "default" in forms):
+            return cfg.form or {}
+
+        fk = (getattr(submission, "form_key", "") or "").strip()
+
+        if fk and fk in forms:
+            return (forms[fk] or {}).get("form") or {}
+
+        if fk == "multi":
+            combined_sections = []
+            for _k, meta in forms.items():
+                form = (meta or {}).get("form") or {}
+                combined_sections.extend(form.get("sections") or [])
+            return {"title": "All Forms", "sections": combined_sections}
+
+        first_key = next(iter(forms.keys()))
+        return (forms[first_key] or {}).get("form") or {}
+    
     # ----------------------------
     # Permissions
     # ----------------------------
@@ -217,9 +287,10 @@ class SubmissionAdmin(admin.ModelAdmin):
         if not cfg:
             return "No config found for this school."
 
-        form_cfg = self._get_form_cfg(cfg, obj.form_key)
+        form_cfg = self._form_cfg_for_admin(cfg, obj)
+        if not form_cfg:
+            return "No form config found."
 
-        # If the user attempted to save and validation failed, re-render with POST values.
         post_data = getattr(self, "_yaml_post_data", None)
         yaml_sections = build_yaml_sections(cfg, obj.data or {}, post_data=post_data, form=form_cfg)
 
@@ -228,8 +299,6 @@ class SubmissionAdmin(admin.ModelAdmin):
             {"yaml_sections": yaml_sections, "DYN_PREFIX": DYN_PREFIX},
         )
         return mark_safe(html)
-
-    yaml_form.short_description = ""
 
     # ----------------------------
     # The save pipeline (fix success message issues)
@@ -273,7 +342,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         if not cfg:
             return
 
-        form_cfg = self._get_form_cfg(cfg, obj.form_key)
+        form_cfg = self._get_form_cfg(cfg, obj)
 
         old_data = dict(obj.data or {})
 
