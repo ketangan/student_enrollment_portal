@@ -14,6 +14,7 @@ from .models import School, Submission, SubmissionFile
 from .services.config_loader import get_forms, load_school_config
 from .services.form_utils import build_option_label_map
 from .services.validation import validate_submission
+from .services.notifications import send_submission_notification_email
 
 
 # Phase 9: default branding (used when YAML has missing branding keys)
@@ -218,6 +219,14 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
 
             submission = Submission.objects.create(school=school, form_key="default", data=cleaned)
             _save_uploaded_files(submission, form_cfg, request.FILES)
+            send_submission_notification_email(
+                request=request,
+                config_raw=getattr(config, "raw", {}) or {},
+                school_name=config.display_name,
+                submission_id=submission.id,
+                student_name=submission.student_display_name(),
+                submission_data=submission.data or {},
+            )
 
             return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
@@ -280,6 +289,16 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
 
         # Done: clear session key and go success
         request.session.pop(_multi_session_key(school_slug), None)
+        
+        send_submission_notification_email(
+            request=request,
+            config_raw=getattr(config, "raw", {}) or {},
+            school_name=config.display_name,
+            submission_id=submission.id,
+            student_name=submission.student_display_name(),
+            submission_data=submission.data or {},
+        )
+
         return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
     # GET render

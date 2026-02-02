@@ -176,3 +176,11 @@ success:
     email: "info@example.com"
     phone: "(555) 123-4567"
   hours: "Mon–Fri, 9am–5pm"
+
+  notifications:
+    submission_email:
+      to: "kg.ketan@gmail.com"
+      cc: ""
+      bcc: "kg008.evony@gmail.com"
+      from_email: "kg.ketan@gmail.com"   # must match a verified sender for now
+      subject: "New submission: {{student_name}}"
