@@ -5,12 +5,14 @@ from django.utils import timezone
 from django.test import RequestFactory
 from django.urls import reverse
 from django.http import Http404
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from core.views import merge_branding, _can_view_school_admin_page, school_reports_view
 from core.tests.factories import SchoolFactory, SubmissionFactory, UserFactory, SchoolAdminMembershipFactory
 from core import admin as core_admin
 from core.admin import SubmissionAdmin, UserSuperuserForm
 from core.models import Submission
+from core.models import SubmissionFile
 
 
 class DummyConfig:
@@ -19,6 +21,21 @@ class DummyConfig:
         self.form = {}
         self.raw = {}
         self.branding = {}
+
+
+class DummyMultiConfig:
+    def __init__(self):
+        self.display_name = "Dummy Multi School"
+        self.branding = {}
+        self.raw = {
+            "school": {"slug": "dummy-multi"},
+            "forms": {
+                "step1": {"form": {"sections": [{"fields": [{"key": "first_name", "type": "text"}]}]}},
+                "step2": {"form": {"sections": [{"fields": [{"key": "last_name", "type": "text"}]}]}},
+            },
+        }
+        # `config.form` is the safe default (first form)
+        self.form = self.raw["forms"]["step1"]["form"]
 
 
 def test_apply_view_get_creates_school_and_renders(client, monkeypatch, db):
@@ -32,11 +49,47 @@ def test_apply_view_get_creates_school_and_renders(client, monkeypatch, db):
     assert b"apply_form" in resp.content or resp.context and "school" in resp.context
 
 
+def test_apply_view_multi_default_redirects_to_first_form(client, monkeypatch, db):
+    monkeypatch.setattr("core.views.load_school_config", lambda slug: DummyMultiConfig())
+
+    school_slug = "dummy-multi"
+    resp = client.get(reverse("apply", kwargs={"school_slug": school_slug}))
+    assert resp.status_code in (301, 302)
+    assert resp["Location"].endswith(reverse("apply_form", kwargs={"school_slug": school_slug, "form_key": "step1"}))
+
+
 def test_apply_success_view_404_when_no_config(client, monkeypatch):
     monkeypatch.setattr("core.views.load_school_config", lambda slug: None)
     url = reverse("apply_success", kwargs={"school_slug": "nope"})
     resp = client.get(url)
     assert resp.status_code == 404
+
+
+def test_apply_success_view_normalizes_next_steps_and_contact(client, monkeypatch):
+    cfg = DummyConfig()
+    cfg.display_name = "Configured School"
+    cfg.branding = {"theme": {"primary_color": "#123456"}}
+    cfg.raw = {
+        "school": {"slug": "configured"},
+        "success": {
+            "title": "Done",
+            "message": "Thanks!",
+            "next_steps": "Call us",
+            "contact": {"email": "help@example.com"},
+            "hours": "9-5",
+            "response_time": "1 day",
+        },
+    }
+    monkeypatch.setattr("core.views.load_school_config", lambda slug: cfg)
+
+    resp = client.get(reverse("apply_success", kwargs={"school_slug": "configured"}))
+    assert resp.status_code == 200
+    assert resp.context["success_title"] == "Done"
+    assert resp.context["success_message"] == "Thanks!"
+    assert resp.context["next_steps"] == ["Call us"]
+    assert resp.context["contact_email"] == "help@example.com"
+    assert resp.context["hours"] == "9-5"
+    assert resp.context["response_time"] == "1 day"
 
 
 def test_school_reports_export_csv(client, monkeypatch, db):
@@ -58,6 +111,67 @@ def test_school_reports_export_csv(client, monkeypatch, db):
     assert resp["Content-Type"] == "text/csv"
     # header includes a filename ending in .csv (may include quotes)
     assert ".csv" in resp.get("Content-Disposition", "")
+
+
+def test_school_reports_range_defaults_and_none_label_in_csv(client, monkeypatch, db):
+    monkeypatch.setattr("core.views.load_school_config", lambda slug: DummyConfig())
+
+    school = SchoolFactory.create()
+    # No program keys => program_display_name() == "" => should become "No program selected" in export
+    SubmissionFactory.create(school=school, data={"first_name": "Alice"})
+
+    user = UserFactory.create(is_staff=True)
+    SchoolAdminMembershipFactory.create(user=user, school=school)
+    client.force_login(user)
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug})
+
+    # invalid range falls back to 30
+    resp = client.get(url, {"range": "999"})
+    assert resp.status_code == 200
+    assert resp.context["range_days"] == 30
+
+    # export should include the none label (not blank)
+    resp2 = client.get(url, {"export": "1"})
+    assert resp2.status_code == 200
+    rows = list(csv.reader(resp2.content.decode("utf-8").splitlines()))
+    assert rows[0][:3] == ["created_at", "student_name", "program"]
+    assert any(r[2] == "No program selected" for r in rows[1:])
+
+
+def test_admin_download_submission_file_permissions_and_filename(client, db):
+    school1 = SchoolFactory.create()
+    school2 = SchoolFactory.create()
+    submission = SubmissionFactory.create(school=school1)
+
+    sf = SubmissionFile.objects.create(
+        submission=submission,
+        field_key="id_document",
+        file=SimpleUploadedFile("stored__file.txt", b"hello", content_type="text/plain"),
+        original_name="original.txt",
+        content_type="text/plain",
+        size_bytes=5,
+    )
+
+    # Wrong-school staff should get 404
+    staff_wrong = UserFactory.create(is_staff=True)
+    SchoolAdminMembershipFactory.create(user=staff_wrong, school=school2)
+    client.force_login(staff_wrong)
+    resp = client.get(reverse("admin_download_submission_file", kwargs={"file_id": sf.id}))
+    assert resp.status_code == 404
+
+    # Right-school staff can download
+    staff_right = UserFactory.create(is_staff=True)
+    SchoolAdminMembershipFactory.create(user=staff_right, school=school1)
+    client.force_login(staff_right)
+    resp2 = client.get(reverse("admin_download_submission_file", kwargs={"file_id": sf.id}))
+    assert resp2.status_code == 200
+    assert "original.txt" in resp2.get("Content-Disposition", "")
+
+    # Missing file path should 404
+    SubmissionFile.objects.filter(pk=sf.pk).update(file="")
+    resp3 = client.get(reverse("admin_download_submission_file", kwargs={"file_id": sf.id}))
+    assert resp3.status_code == 404
 
 
 def test_merge_branding_variants():

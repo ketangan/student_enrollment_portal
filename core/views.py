@@ -153,6 +153,30 @@ def _get_multi_form_context(config, form_key: str):
     return form_cfg, ordered_keys, next_key
 
 
+def _apply_form_context(
+    *,
+    school: School,
+    branding: dict,
+    form: dict,
+    is_multi: bool,
+    form_key: str,
+    next_key: str | None,
+    errors: dict,
+    values,
+) -> dict:
+    # Keep context keys stable across branches (tests + templates rely on these).
+    return {
+        "school": school,
+        "branding": branding,
+        "form": form,
+        "is_multi": is_multi,
+        "form_key": form_key,
+        "next_key": next_key,
+        "errors": errors,
+        "values": values,
+    }
+
+
 # -----------------------------
 # Apply view (dispatcher)
 # -----------------------------
@@ -180,16 +204,16 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 return render(
                     request,
                     "apply_form.html",
-                    {
-                        "school": school,
-                        "branding": branding,
-                        "form": form_cfg,
-                        "is_multi": False,
-                        "form_key": "default",
-                        "next_key": None,
-                        "errors": errors,
-                        "values": request.POST,
-                    },
+                    _apply_form_context(
+                        school=school,
+                        branding=branding,
+                        form=form_cfg,
+                        is_multi=False,
+                        form_key="default",
+                        next_key=None,
+                        errors=errors,
+                        values=request.POST,
+                    ),
                 )
 
             submission = Submission.objects.create(school=school, form_key="default", data=cleaned)
@@ -200,16 +224,16 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
         return render(
             request,
             "apply_form.html",
-            {
-                "school": school,
-                "branding": branding,
-                "form": form_cfg,
-                "is_multi": False,
-                "form_key": "default",
-                "next_key": None,
-                "errors": {},
-                "values": {},
-            },
+            _apply_form_context(
+                school=school,
+                branding=branding,
+                form=form_cfg,
+                is_multi=False,
+                form_key="default",
+                next_key=None,
+                errors={},
+                values={},
+            ),
         )
 
     # ----------------------------
@@ -232,16 +256,16 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
             return render(
                 request,
                 "apply_form.html",
-                {
-                    "school": school,
-                    "branding": branding,
-                    "form": form_cfg,
-                    "next_key": next_key,
-                    "errors": errors,
-                    "is_multi": True,
-                    "form_key": form_key,
-                    "values": request.POST,
-                },
+                _apply_form_context(
+                    school=school,
+                    branding=branding,
+                    form=form_cfg,
+                    is_multi=True,
+                    form_key=form_key,
+                    next_key=next_key,
+                    errors=errors,
+                    values=request.POST,
+                ),
             )
 
         # Create or reuse ONE submission for the whole flow
@@ -262,16 +286,16 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
     return render(
         request,
         "apply_form.html",
-        {
-            "school": school,
-            "branding": branding,
-            "form": form_cfg,
-            "next_key": next_key,
-            "is_multi": True,
-            "form_key": form_key,
-            "errors": {},
-            "values": submission.data if submission else {},
-        },
+        _apply_form_context(
+            school=school,
+            branding=branding,
+            form=form_cfg,
+            is_multi=True,
+            form_key=form_key,
+            next_key=next_key,
+            errors={},
+            values=submission.data if submission else {},
+        ),
     )
 
 

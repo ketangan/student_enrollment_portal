@@ -18,11 +18,11 @@ from copy import deepcopy
 
 from core.admin.common import (
     DYN_PREFIX,
-    _build_field_label_map,
     _bytes_to_mb,
     _has_school_membership,
     _is_superuser,
     _membership_school_id,
+    _resolve_submission_form_cfg_and_labels,
 )
 from core.models import Submission, SubmissionFile
 from core.services.admin_submission_yaml import (
@@ -109,11 +109,11 @@ class SubmissionAdmin(admin.ModelAdmin):
                     changed_keys.append(k)
 
             if changed_keys:
-                label_map = (
-                    _build_field_label_map(obj.school.slug)
-                    if getattr(obj, "school_id", None)
-                    else {}
-                )
+                label_map = {}
+                if getattr(obj, "school_id", None):
+                    cfg = load_school_config(obj.school.slug)
+                    if cfg:
+                        _, label_map = _resolve_submission_form_cfg_and_labels(cfg, getattr(obj, "form_key", None))
                 pretty = [label_map.get(k, k.replace("_", " ").title()) for k in sorted(changed_keys)]
                 message = "Updated: " + ", ".join(pretty)
             # else:
@@ -121,75 +121,6 @@ class SubmissionAdmin(admin.ModelAdmin):
 
         return super().log_change(request, obj, message)
 
-    def _form_cfg_for_admin(self, cfg, submission: Submission) -> dict:
-        """
-        Returns the form config dict that admin should render.
-
-        Rules:
-        - Single-form school => cfg.form
-        - Multi-form school:
-            - submission.form_key matches a real form key => render that form
-            - submission.form_key == "multi" => render ALL forms combined
-            - otherwise => render first configured form
-        """
-        forms = get_forms(cfg) or {}  # {key: {"form": {...}}, ...}
-
-        # Legacy / single-form
-        if not forms or (len(forms) == 1 and "default" in forms):
-            return cfg.form or {}
-
-        # Multi-form: render a specific real form key if present
-        fk = (getattr(submission, "form_key", "") or "").strip()
-        if fk and fk in forms and isinstance(forms[fk], dict):
-            return forms[fk].get("form") or {}
-
-        # Multi-form: "multi" means render all sections together
-        if fk == "multi":
-            combined_sections = []
-            for k, meta in forms.items():
-                form = (meta or {}).get("form") or {}
-                sections = form.get("sections") or []
-                combined_sections.extend(sections)
-
-            return {
-                "title": "All Forms",
-                "description": "Combined view of all steps",
-                "sections": combined_sections,
-            }
-
-        # Fallback: first configured form
-        first_key = next(iter(forms.keys()))
-        return (forms[first_key] or {}).get("form") or {}
-    
-    def _get_form_cfg(self, cfg, submission: Submission) -> dict:
-        """
-        Form config to use when APPLYING POSTed admin edits back into obj.data.
-        - single-form => cfg.form
-        - multi-form:
-            - form_key matches real YAML key => that form
-            - form_key == "multi" => combined sections of all forms
-            - fallback => first form
-        """
-        forms = get_forms(cfg) or {}
-
-        # single-form / legacy
-        if not forms or (len(forms) == 1 and "default" in forms):
-            return cfg.form or {}
-
-        fk = (getattr(submission, "form_key", "") or "").strip()
-
-        if fk and fk in forms:
-            return (forms[fk] or {}).get("form") or {}
-
-        if fk == "multi":
-            combined_sections = []
-            for _k, meta in forms.items():
-                form = (meta or {}).get("form") or {}
-                combined_sections.extend(form.get("sections") or [])
-            return {"title": "All Forms", "sections": combined_sections}
-
-        first_key = next(iter(forms.keys()))
-        return (forms[first_key] or {}).get("form") or {}
     
     # ----------------------------
     # Permissions
@@ -287,7 +218,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         if not cfg:
             return "No config found for this school."
 
-        form_cfg = self._form_cfg_for_admin(cfg, obj)
+        form_cfg, _ = _resolve_submission_form_cfg_and_labels(cfg, getattr(obj, "form_key", None))
         if not form_cfg:
             return "No form config found."
 
@@ -323,7 +254,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         if request.method == "POST" and obj and obj.school_id:
             cfg = load_school_config(obj.school.slug)
             if cfg:
-                form_cfg = self._get_form_cfg(cfg, obj.form_key)
+                form_cfg, _ = _resolve_submission_form_cfg_and_labels(cfg, getattr(obj, "form_key", None))
                 errors = validate_required_fields(cfg, request.POST, form=form_cfg)
                 if errors:
                     for e in errors:
@@ -342,7 +273,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         if not cfg:
             return
 
-        form_cfg = self._get_form_cfg(cfg, obj)
+        form_cfg, _ = _resolve_submission_form_cfg_and_labels(cfg, getattr(obj, "form_key", None))
 
         old_data = dict(obj.data or {})
 
@@ -415,7 +346,10 @@ class SubmissionAdmin(admin.ModelAdmin):
         if not qs.exists():
             return "—"
 
-        label_map = _build_field_label_map(obj.school.slug)
+        label_map = {}
+        cfg = load_school_config(obj.school.slug)
+        if cfg:
+            _, label_map = _resolve_submission_form_cfg_and_labels(cfg, getattr(obj, "form_key", None))
 
         rows = []
         for f in qs:
