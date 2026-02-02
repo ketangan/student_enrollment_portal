@@ -256,7 +256,10 @@ class SubmissionAdmin(admin.ModelAdmin):
         if request.method == "POST" and obj and obj.school_id:
             cfg = load_school_config(obj.school.slug)
             if cfg:
-                errors = validate_required_fields(cfg, request.POST)
+                forms = get_forms(cfg)
+                form_key = getattr(obj, "form_key", "default")
+                form_cfg = (forms.get(form_key) or forms.get("default") or {}).get("form") or {}
+                errors = validate_required_fields(cfg, request.POST, form=form_cfg)
                 if errors:
                     for e in errors:
                         messages.error(request, e)
@@ -274,9 +277,13 @@ class SubmissionAdmin(admin.ModelAdmin):
         if not cfg:
             return
 
+        forms = get_forms(cfg)
+        form_key = getattr(obj, "form_key", "default")
+        form_cfg = (forms.get(form_key) or forms.get("default") or {}).get("form") or {}
+
         old_data = dict(obj.data or {})
 
-        data = apply_post_to_submission_data(cfg, request.POST, existing_data=dict(obj.data or {}))
+        data = apply_post_to_submission_data(cfg, request.POST, existing_data=dict(obj.data or {}), form=form_cfg)
         Submission.objects.filter(pk=obj.pk).update(data=data)
         obj.data = data
 
