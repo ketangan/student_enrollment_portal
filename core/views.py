@@ -61,10 +61,14 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
         raise Http404("School config not found")
 
     forms = get_forms(config)
-    if form_key not in forms:
-        raise Http404("Form not found")
-
-    form_cfg = forms[form_key]["form"]
+    # Backward-compatible fallback: if no multi-form config, treat as single-form
+    if not forms:
+        form_key = "default"
+        form_cfg = config.form
+    else:
+        if form_key not in forms:
+            raise Http404("Form not found")
+        form_cfg = forms[form_key]["form"]
 
     branding = merge_branding(getattr(config, "branding", None))
 

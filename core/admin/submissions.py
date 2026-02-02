@@ -116,8 +116,8 @@ class SubmissionAdmin(admin.ModelAdmin):
                 )
                 pretty = [label_map.get(k, k.replace("_", " ").title()) for k in sorted(changed_keys)]
                 message = "Updated: " + ", ".join(pretty)
-            else:
-                return  # No changes to log
+            # else:
+            #     return  # No changes to log
 
         return super().log_change(request, obj, message)
 
@@ -217,9 +217,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         if not cfg:
             return "No config found for this school."
 
-        forms = get_forms(cfg)
-        form_key = getattr(obj, "form_key", "default")
-        form_cfg = (forms.get(form_key) or forms.get("default") or {}).get("form") or {}
+        form_cfg = self._get_form_cfg(cfg, obj.form_key)
 
         # If the user attempted to save and validation failed, re-render with POST values.
         post_data = getattr(self, "_yaml_post_data", None)
@@ -256,9 +254,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         if request.method == "POST" and obj and obj.school_id:
             cfg = load_school_config(obj.school.slug)
             if cfg:
-                forms = get_forms(cfg)
-                form_key = getattr(obj, "form_key", "default")
-                form_cfg = (forms.get(form_key) or forms.get("default") or {}).get("form") or {}
+                form_cfg = self._get_form_cfg(cfg, obj.form_key)
                 errors = validate_required_fields(cfg, request.POST, form=form_cfg)
                 if errors:
                     for e in errors:
@@ -277,9 +273,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         if not cfg:
             return
 
-        forms = get_forms(cfg)
-        form_key = getattr(obj, "form_key", "default")
-        form_cfg = (forms.get(form_key) or forms.get("default") or {}).get("form") or {}
+        form_cfg = self._get_form_cfg(cfg, obj.form_key)
 
         old_data = dict(obj.data or {})
 

@@ -78,3 +78,8 @@ def _dyn_key(key: str) -> str:
 
 def _orig_key(dyn_key: str) -> str:
     return dyn_key[len(DYN_PREFIX):] if dyn_key.startswith(DYN_PREFIX) else dyn_key
+
+def _get_form_cfg(self, cfg, form_key: str) -> dict:
+    forms = (cfg.raw or {}).get("forms", {}) if cfg else {}
+    entry = forms.get(form_key) or forms.get("default") or {}
+    return entry.get("form") or cfg.form or {}

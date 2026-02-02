@@ -24,7 +24,7 @@ from core.views_health import healthz
 
 
 urlpatterns = [
-    path("healthz", healthz, name="healthz"),
+    path("healthz/", healthz, name="healthz"),
     path("admin/uploads/<int:file_id>/", admin_download_submission_file, name="admin_download_submission_file"),
     path("admin/", admin.site.urls),
     path("", include("core.urls")),
