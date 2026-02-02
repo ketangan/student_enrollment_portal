@@ -1,16 +1,3 @@
-Perfect idea 👍
-This is exactly how real products do it.
-
-Below are two clean, copy-paste–ready files:
-	•	README.md → Sales / Demo / Product overview
-	•	OPERATIONS.md → Internal + operator runbook
-
-They’re intentionally different in tone and audience.
-
-⸻
-
-📄 README.md
-
 (Sales / Demo / Product Overview)
 
 # Student Enrollment Portal  
