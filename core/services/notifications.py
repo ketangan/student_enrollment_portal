@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import logging
 
 from django.conf import settings
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMessage, get_connection
 from django.http import HttpRequest
 from django.urls import reverse
 
@@ -171,6 +171,8 @@ def send_submission_notification_email(
     body = "\n".join(body_lines)
 
     try:
+        conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))
+
         msg = EmailMessage(
             subject=subject,
             body=body,
@@ -178,6 +180,7 @@ def send_submission_notification_email(
             to=cfg.to,
             cc=cfg.cc,
             bcc=cfg.bcc,
+            connection=conn,
         )
         msg.send(fail_silently=False)
         return True
