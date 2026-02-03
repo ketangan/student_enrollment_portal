@@ -1,3 +1,4 @@
+from asyncio.log import logger
 from collections import Counter
 from datetime import timedelta
 import csv
@@ -219,14 +220,17 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
 
             submission = Submission.objects.create(school=school, form_key="default", data=cleaned)
             _save_uploaded_files(submission, form_cfg, request.FILES)
-            send_submission_notification_email(
-                request=request,
-                config_raw=getattr(config, "raw", {}) or {},
-                school_name=config.display_name,
-                submission_id=submission.id,
-                student_name=submission.student_display_name(),
-                submission_data=submission.data or {},
-            )
+            try:
+                send_submission_notification_email(
+                    request=request,
+                    config_raw=getattr(config, "raw", {}) or {},
+                    school_name=config.display_name,
+                    submission_id=submission.id,
+                    student_name=submission.student_display_name(),
+                    submission_data=submission.data or {},
+                )
+            except Exception:
+                logger.exception("Failed to send submission notification email")
 
             return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
@@ -289,15 +293,17 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
 
         # Done: clear session key and go success
         request.session.pop(_multi_session_key(school_slug), None)
-        
-        send_submission_notification_email(
-            request=request,
-            config_raw=getattr(config, "raw", {}) or {},
-            school_name=config.display_name,
-            submission_id=submission.id,
-            student_name=submission.student_display_name(),
-            submission_data=submission.data or {},
-        )
+        try:
+            send_submission_notification_email(
+                request=request,
+                config_raw=getattr(config, "raw", {}) or {},
+                school_name=config.display_name,
+                submission_id=submission.id,
+                student_name=submission.student_display_name(),
+                submission_data=submission.data or {},
+            )
+        except Exception:
+            logger.exception("Failed to send submission notification email")
 
         return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
