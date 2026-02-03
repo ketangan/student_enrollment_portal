@@ -9,6 +9,8 @@ import logging
 from django.conf import settings
 from django.core.mail import EmailMessage, get_connection
 from django.http import HttpRequest
+from django.core.mail import EmailMultiAlternatives
+from django.utils.html import escape
 from django.urls import reverse
 
 logger = logging.getLogger(__name__)
@@ -70,6 +72,66 @@ def _build_admin_submission_url(*, request, submission_id: int | str) -> str:
     path = reverse("admin:core_submission_change", args=[submission_id])
     return request.build_absolute_uri(path)
 
+def _admin_url_for_submission(
+    *, request: Optional[HttpRequest], submission_id: int | str
+) -> str:
+    if request is None:
+        return f"/admin/core/submission/{submission_id}/change/"
+    return _build_admin_submission_url(request=request, submission_id=submission_id)
+
+
+def _build_submission_email_subject(*, student_name: str, program: str) -> str:
+    return f"New submission: {student_name}" + (f" ({program})" if program else "")
+
+
+def _build_submission_email_bodies(
+    *,
+    student_name: str,
+    program: str,
+    admin_url: str,
+) -> Tuple[str, str]:
+    # Plain text (fallback)
+    text_body = "\n".join([
+        "New submission received",
+        f"Student: {student_name}",
+        f"Program: {program}" if program else "",
+        "",
+        f"View in admin: {admin_url}",
+        "",
+        "— student_enrollment_portal",
+    ])
+
+    # HTML (nice link)
+    html_body = f"""
+    <p><strong>New submission received</strong></p>
+
+    <p>
+      <strong>Student:</strong> {escape(student_name)}<br/>
+      {f"<strong>Program:</strong> {escape(program)}<br/>" if program else ""}
+    </p>
+
+    <p>
+      <a href="{admin_url}"
+         target="_blank"
+         style="
+           display:inline-block;
+           padding:10px 14px;
+           background:#2563eb;
+           color:#ffffff;
+           text-decoration:none;
+           border-radius:6px;
+           font-weight:600;
+         ">
+        View submission in admin
+      </a>
+    </p>
+
+    <hr/>
+    <p style="color:#666;font-size:12px;">
+      student_enrollment_portal
+    </p>
+    """
+    return text_body, html_body
 
 def _pick_program_label(submission_data: dict) -> str:
     # For now: keep it simple and stable
@@ -147,43 +209,30 @@ def send_submission_notification_email(
         return False
 
     program = _pick_program_label(submission_data)
-
-    # If request is missing (eg management command), build a relative link
-    if request is None:
-        admin_url = f"/admin/core/submission/{submission_id}/change/"
-    else:
-        admin_url = _build_admin_submission_url(request=request, submission_id=submission_id)
-
-    subject = f"New submission: {student_name}" + (f" ({program})" if program else "")
-
-    body_lines = [
-        "New submission received",
-        f"Student: {student_name}",
-    ]
-    if program:
-        body_lines.append(f"Program: {program}")
-    body_lines += [
-        "",
-        f"View in admin: {admin_url}",
-        "",
-        "— student_enrollment_portal",
-    ]
-    body = "\n".join(body_lines)
+    admin_url = _admin_url_for_submission(request=request, submission_id=submission_id)
+    subject = _build_submission_email_subject(student_name=student_name, program=program)
+    text_body, html_body = _build_submission_email_bodies(
+        student_name=student_name,
+        program=program,
+        admin_url=admin_url,
+    )
 
     try:
         conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))
 
-        msg = EmailMessage(
+        msg = EmailMultiAlternatives(
             subject=subject,
-            body=body,
+            body=text_body,
             from_email=cfg.from_email,
             to=cfg.to,
             cc=cfg.cc,
             bcc=cfg.bcc,
             connection=conn,
         )
+        msg.attach_alternative(html_body, "text/html")
         msg.send(fail_silently=False)
         return True
+
     except Exception:
         logger.exception("Failed to send submission notification email")
         return False
