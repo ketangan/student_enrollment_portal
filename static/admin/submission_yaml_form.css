@@ -48,9 +48,9 @@
   padding: 0 !important;
 }
 
-/* Safety: allow contents to expand */
+/* Safety: keep contents constrained to the row width */
 .form-row.field-yaml_form .readonly * {
-  max-width: none !important;
+  max-width: 100% !important;
 }
 
 /* --- Your YAML card/layout --- */
@@ -64,10 +64,49 @@
 /* Card */
 .yaml-card {
   width: 100%;
+  max-width: 100%;
   border-radius: 16px;
   padding: 20px;
   border: 1px solid rgba(255,255,255,0.10);
   background: rgba(255,255,255,0.04);
+  overflow-x: hidden;
+}
+
+/* If the admin theme upgrades <select> to Select2, force it to respect the card width */
+.field-yaml_form .select2-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+.field-yaml_form .select2-container .selection,
+.field-yaml_form .select2-container .select2-selection {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box;
+}
+
+/* Prevent long labels from expanding the widget */
+.field-yaml_form .select2-container .select2-selection__rendered {
+  max-width: 100% !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.field-yaml_form .select2-container input,
+.field-yaml_form .select2-container textarea {
+  max-width: 100% !important;
+}
+
+/* Grid wrapper used by the template (ensure it actually constrains children) */
+.yaml-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
 }
 
 /* Header */
@@ -130,7 +169,14 @@
 
 /* Rows (stacked, simple) */
 .yaml-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   margin-bottom: 14px;
+  min-width: 0;
+}
+
+.yaml-control {
+  min-width: 0;
 }
 
 /* Labels */
@@ -154,11 +200,63 @@
 .yaml-multiselect {
   width: 100% !important;
   max-width: 100% !important;
+  min-width: 0 !important;
+  display: block;
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.18) !important;
   background: rgba(0,0,0,0.18) !important;
   color: inherit;
+}
+
+/* Prevent long option text from forcing layout wider */
+.yaml-select,
+.yaml-multiselect {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Mobile tweaks */
+@media (max-width: 640px) {
+  .yaml-form-wrap {
+    padding: 0;
+    margin-top: 12px;
+  }
+
+  .yaml-card {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .yaml-title {
+    font-size: 18px;
+  }
+
+  .yaml-section {
+    margin: 16px 0;
+    padding: 12px 12px 6px;
+  }
+
+  /* Jazzmin/Django admin often enhances <select> into Select2.
+     Ensure the widget width is constrained to the YAML card. */
+  .field-yaml_form .select2-container,
+  .field-yaml_form .select2-container * {
+    max-width: 100% !important;
+  }
+
+  .field-yaml_form .select2-container {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .field-yaml_form .select2-selection,
+  .field-yaml_form .select2-selection--single,
+  .field-yaml_form .select2-selection--multiple {
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+  }
 }
 
 .yaml-input,
