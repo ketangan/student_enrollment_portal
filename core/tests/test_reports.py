@@ -112,3 +112,4 @@ def test_range_filter_counts_and_export_csv(client):
     rows = list(reader)
     # header + one matching row expected
     assert len(rows) >= 1
+    assert rows[0][:4] == ["application_id", "created_at", "student_name", "program"]

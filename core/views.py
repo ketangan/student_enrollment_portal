@@ -226,6 +226,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                     config_raw=getattr(config, "raw", {}) or {},
                     school_name=config.display_name,
                     submission_id=submission.id,
+                    submission_public_id=submission.public_id,
                     student_name=submission.student_display_name(),
                     submission_data=submission.data or {},
                 )
@@ -299,6 +300,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 config_raw=getattr(config, "raw", {}) or {},
                 school_name=config.display_name,
                 submission_id=submission.id,
+                submission_public_id=submission.public_id,
                 student_name=submission.student_display_name(),
                 submission_data=submission.data or {},
             )
@@ -462,12 +464,13 @@ def school_reports_view(request, school_slug: str):
         for s in rows_for_reporting:
             all_keys.update((s.data or {}).keys())
 
-        ordered_keys = ["created_at", "student_name", "program"] + sorted(all_keys)
+        ordered_keys = ["application_id", "created_at", "student_name", "program"] + sorted(all_keys)
 
         resp = HttpResponse(content_type="text/csv")
         resp["Content-Disposition"] = f'attachment; filename="{school.slug}-reports-last{range_days}d.csv"'
 
         writer = csv.writer(resp)
+        header = ["application_id", "created_at", "student_name", "program"] + sorted(all_keys)
         writer.writerow(ordered_keys)
 
         for s in rows_for_reporting:
@@ -476,7 +479,7 @@ def school_reports_view(request, school_slug: str):
             student = s.student_display_name()
             program = (s.program_display_name(label_map=label_map) or "").strip() or NONE_LABEL
 
-            writer.writerow([created, student, program] + [data.get(k, "") for k in sorted(all_keys)])
+            writer.writerow([s.public_id, created, student, program] + [data.get(k, "") for k in sorted(all_keys)])
 
         return resp
 

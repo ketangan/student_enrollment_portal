@@ -86,6 +86,7 @@ def _build_submission_email_subject(*, student_name: str, program: str) -> str:
 
 def _build_submission_email_bodies(
     *,
+    submission_public_id: str,
     student_name: str,
     program: str,
     admin_url: str,
@@ -93,6 +94,7 @@ def _build_submission_email_bodies(
     # Plain text (fallback)
     text_body = "\n".join([
         "New submission received",
+        f"Application ID: {submission_public_id}",
         f"Student: {student_name}",
         f"Program: {program}" if program else "",
         "",
@@ -106,6 +108,7 @@ def _build_submission_email_bodies(
     <p><strong>New submission received</strong></p>
 
     <p>
+            <strong>Application ID:</strong> {escape(submission_public_id)}<br/>
       <strong>Student:</strong> {escape(student_name)}<br/>
       {f"<strong>Program:</strong> {escape(program)}<br/>" if program else ""}
     </p>
@@ -197,6 +200,7 @@ def send_submission_notification_email(
     config_raw: Dict[str, Any],
     school_name: str,
     submission_id: int | str,
+    submission_public_id: str,
     student_name: str,
     submission_data: Dict[str, Any],
 ) -> bool:
@@ -212,6 +216,7 @@ def send_submission_notification_email(
     admin_url = _admin_url_for_submission(request=request, submission_id=submission_id)
     subject = _build_submission_email_subject(student_name=student_name, program=program)
     text_body, html_body = _build_submission_email_bodies(
+        submission_public_id=submission_public_id,
         student_name=student_name,
         program=program,
         admin_url=admin_url,

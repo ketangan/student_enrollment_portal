@@ -1,6 +1,8 @@
 from django.db import models
 import os
 import uuid
+import base64
+import secrets
 from django.contrib.auth.models import User
 from core.services.form_utils import resolve_label
 from django.conf import settings
@@ -41,12 +43,34 @@ class SchoolAdminMembership(models.Model):
 
 
 
+def generate_public_id() -> str:
+    """Short, URL-safe identifier for sharing with school admins.
+
+    10 random bytes -> 14 chars base64url (no padding). ~80 bits entropy.
+    """
+
+    return base64.urlsafe_b64encode(secrets.token_bytes(10)).decode("ascii").rstrip("=")
+
+
+
 class Submission(models.Model):
     """
     Stores a single application submission for a given school.
     The payload is dynamic and will match the YAML-configured fields later (Phase 2+).
     """
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="submissions")
+
+    # Public-facing identifier (safe to share; does not reveal sequential DB ids)
+    public_id = models.CharField(
+        verbose_name="Application ID",
+        max_length=16,
+        unique=True,
+        db_index=True,
+        editable=False,
+        blank=True,
+        null=False,
+        default=generate_public_id,
+    )
 
     form_key = models.CharField(max_length=64, default="default", db_index=True, help_text="Identifies which form was used, in case the school has multiple forms.")
 

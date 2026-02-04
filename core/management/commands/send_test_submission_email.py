@@ -1,5 +1,6 @@
 import logging
 from django.core.management.base import BaseCommand, CommandError
+from core.models import generate_public_id
 from core.services.config_loader import load_school_config
 from core.services.notifications import get_submission_email_config, send_submission_notification_email
 
@@ -13,12 +14,14 @@ class Command(BaseCommand):
         parser.add_argument("--student-name", required=True)
         parser.add_argument("--program", default="")
         parser.add_argument("--submission-id", default="999")
+        parser.add_argument("--public-id", default="")
 
     def handle(self, *args, **opts):
         school_slug = opts["school_slug"]
         student_name = opts["student_name"]
         program = opts["program"]
         submission_id = opts["submission_id"]
+        public_id = opts["public_id"] or generate_public_id()
 
         cfg_obj = load_school_config(school_slug)
         if not cfg_obj:
@@ -46,6 +49,7 @@ class Command(BaseCommand):
                 config_raw=config_raw,
                 school_name=getattr(cfg_obj, "display_name", school_slug),
                 submission_id=submission_id,
+                submission_public_id=public_id,
                 student_name=student_name,
                 submission_data=submission_data,
             )

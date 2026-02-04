@@ -1,5 +1,8 @@
 import pytest
 
+from django.db import connection
+from django.db.migrations.executor import MigrationExecutor
+
 from core.tests.factories import SchoolFactory, SubmissionFactory
 from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -86,4 +89,50 @@ def test_submissionfile_upload_path_contains_school_slug_and_submission_id():
 
     # stored path includes uploads/<school_slug>/<submission_id>/
     assert f.file.name.startswith(f"uploads/{sub.school.slug}/{sub.id}/")
+
+
+@pytest.mark.django_db
+def test_submission_public_id_is_unique_and_url_safe():
+    subs = SubmissionFactory.create_batch(25)
+    public_ids = [s.public_id for s in subs]
+
+    assert all(isinstance(pid, str) and pid for pid in public_ids)
+    assert len(set(public_ids)) == len(public_ids)
+
+    # urlsafe base64 chars without padding
+    for pid in public_ids:
+        assert "=" not in pid
+        assert len(pid) <= 16
+        assert pid.replace("-", "").replace("_", "").isalnum()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_migration_backfills_public_id_for_existing_rows():
+    executor = MigrationExecutor(connection)
+
+    # Step 1: migrate to state where public_id exists but is nullable
+    executor.migrate([("core", "0006_submission_public_id")])
+    state = executor.loader.project_state([("core", "0006_submission_public_id")])
+    School = state.apps.get_model("core", "School")
+    Submission = state.apps.get_model("core", "Submission")
+
+    school = School.objects.create(slug="migrate-test", display_name="Migrate Test")
+    sub = Submission.objects.create(school=school, form_key="default", data={}, public_id=None)
+    assert sub.public_id is None
+
+    # Step 2: migrate forward to backfill+non-null
+    # Re-instantiate to refresh applied migration state
+    executor = MigrationExecutor(connection)
+    executor.migrate([("core", "0007_backfill_submission_public_id")])
+
+    from core.models import Submission as NewSubmission
+
+    refreshed = NewSubmission.objects.get(id=sub.id)
+    assert refreshed.public_id
+    assert "=" not in refreshed.public_id
+    assert len(refreshed.public_id) <= 16
+
+    # Restore to latest for other tests
+    executor = MigrationExecutor(connection)
+    executor.migrate(executor.loader.graph.leaf_nodes())
     

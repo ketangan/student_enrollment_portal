@@ -144,13 +144,31 @@ def test_submission_admin_display_and_get_list_display(db):
     req = RequestFactory().get("/")
     req.user = su
     assert "school_display" in sub_admin.get_list_display(req)
+    assert "public_id" in sub_admin.get_list_display(req)
 
     req.user = non_su
     assert "school_display" not in sub_admin.get_list_display(req)
+    assert "public_id" in sub_admin.get_list_display(req)
 
     # school_display on a submission
     sub = SubmissionFactory.create(school=school)
     assert sub_admin.school_display(sub) == (school.display_name or school.slug)
+
+
+def test_submission_admin_search_finds_by_public_id(db):
+    school = SchoolFactory.create()
+    user = UserFactory.create(is_staff=True)
+    SchoolAdminMembershipFactory.create(user=user, school=school)
+
+    sub = SubmissionFactory.create(school=school)
+
+    ma = SubmissionAdmin(Submission, admin_site)
+    req = RequestFactory().get("/admin/core/submission/")
+    req.user = user
+
+    qs = ma.get_queryset(req)
+    out_qs, _distinct = ma.get_search_results(req, qs, sub.public_id)
+    assert out_qs.filter(id=sub.id).exists()
 
 
 def test_pretty_json_widget_formatting():

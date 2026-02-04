@@ -3,9 +3,11 @@ import os
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.core import mail
 
 from core.models import Submission, SubmissionFile
 from core.services.config_loader import load_school_config
+from core.services.notifications import send_submission_notification_email
 
 
 def _make_fake_upload(filename: str = "odometer.jpg") -> SimpleUploadedFile:
@@ -103,4 +105,40 @@ def test_apply_flow_creates_submission_and_redirects(client):
     expected_files = len(file_data)
     actual_files = SubmissionFile.objects.filter(submission=submission).count()
     assert actual_files == expected_files
+
+
+@pytest.mark.django_db
+def test_submission_notification_email_includes_application_id(settings):
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    mail.outbox.clear()
+
+    config_raw = {
+        "success": {
+            "notifications": {
+                "submission_email": {
+                    "to": "to@example.com",
+                    "from_email": "no-reply@example.com",
+                    "subject": "New submission: {{student_name}}",
+                }
+            }
+        }
+    }
+
+    ok = send_submission_notification_email(
+        request=None,
+        config_raw=config_raw,
+        school_name="Test School",
+        submission_id="123",
+        submission_public_id="PUB_ABC123",
+        student_name="Alice Example",
+        submission_data={},
+    )
+
+    assert ok is True
+    assert len(mail.outbox) == 1
+    msg = mail.outbox[0]
+    assert "Application ID: PUB_ABC123" in (msg.body or "")
+
+    # HTML alternative also includes it
+    assert any("PUB_ABC123" in (alt_body or "") for alt_body, _mime in getattr(msg, "alternatives", []))
     

@@ -82,17 +82,17 @@ class SubmissionAdmin(admin.ModelAdmin):
     object_history_template = "admin/core/submission/object_history.html"
 
     # yaml_form is rendered HTML (readonly method), data is readonly (still shown collapsed)
-    readonly_fields = ("school_display", "created_at_pretty", "yaml_form", "data", "attachments")
-    search_fields = ("school__slug", "school__display_name")
+    readonly_fields = ("public_id", "school_display", "created_at_pretty", "yaml_form", "data", "attachments")
+    search_fields = ("public_id", "school__slug", "school__display_name")
 
     def get_list_display(self, request):
         if _is_superuser(request.user):
-            return ("id", "school_display", "student_name", "program_name", "created_at_pretty")
-        return ("id", "student_name", "program_name", "created_at_pretty")
+            return ("id", "public_id", "school_display", "student_name", "program_name", "created_at_pretty")
+        return ("public_id", "student_name", "program_name", "created_at_pretty")
 
     def get_fieldsets(self, request, obj=None):
         return (
-            ("General", {"fields": ("school_display", "created_at_pretty", "yaml_form")}),
+            ("General", {"fields": ("public_id", "school_display", "created_at_pretty", "yaml_form")}),
             ("Raw Data (advanced)", {"fields": ("data",), "classes": ("collapse",)}),
             ("Attachments", {"fields": ("attachments",)}),
         )
