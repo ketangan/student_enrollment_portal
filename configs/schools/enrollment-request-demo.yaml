@@ -36,19 +36,15 @@ form:
 
     - title: "Program Interest"
       fields:
-        - key: program_interest
+        - key: interested_in
           label: "Program / Class of Interest"
           type: select
           required: true
           options:
-            - label: "Beginner Program"
-              value: beginner
-            - label: "Intermediate Program"
-              value: intermediate
-            - label: "Advanced Program"
-              value: advanced
-            - label: "Not sure yet"
-              value: unsure
+            - { value: "beginner", label: "Beginner Program" }
+            - { value: "intermediate", label: "Intermediate Program" }
+            - { value: "advanced", label: "Advanced Program" }
+            - { value: "unsure", label: "Not sure yet" }
 
         - key: enrollment_type
           label: "Enrollment Type"

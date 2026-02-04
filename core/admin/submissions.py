@@ -230,7 +230,7 @@ class SubmissionAdmin(admin.ModelAdmin):
             {"yaml_sections": yaml_sections, "DYN_PREFIX": DYN_PREFIX},
         )
         return mark_safe(html)
-
+    yaml_form.short_description = ""
     # ----------------------------
     # The save pipeline (fix success message issues)
     # ----------------------------

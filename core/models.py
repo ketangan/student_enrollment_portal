@@ -130,7 +130,29 @@ class Submission(models.Model):
         # TSCA
         if self.school.slug == "torrance-sister-city-association":
             return "Student Exchange"
+        
+        # Enrollment Request Demo (and any other simple “single select program” YAML)
+        if data.get("interested_in"):
+            raw = data.get("interested_in")
+            return resolve_label("interested_in", raw, label_map) or str(raw)
 
+        # Backward-compat if any configs used this older key
+        if data.get("program_interest"):
+            raw = data.get("program_interest")
+            return resolve_label("program_interest", raw, label_map) or str(raw)
+
+        # Multi-form demo (program + optional experience level)
+        if data.get("program"):
+            program_raw = data.get("program")
+            program_label = resolve_label("program", program_raw, label_map) or str(program_raw)
+
+            level_raw = (data.get("experience_level") or "").strip()
+            if level_raw:
+                level_label = resolve_label("experience_level", level_raw, label_map) or str(level_raw)
+                return f"{program_label} ({level_label})"
+
+            return program_label
+        
         return ""
 
 
