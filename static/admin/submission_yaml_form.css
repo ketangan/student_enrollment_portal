@@ -202,11 +202,19 @@
   max-width: 100% !important;
   min-width: 0 !important;
   display: block;
-  padding: 10px 12px;
-  border-radius: 10px;
+  font-size: 15px !important;
+  line-height: 22.5px !important;
+  padding: 10px 12px !important;
+  border-radius: 10px !important;
   border: 1px solid rgba(255,255,255,0.18) !important;
   background: rgba(0,0,0,0.18) !important;
   color: inherit;
+}
+
+/* Admin themes often set a fixed height on text/number inputs but not on date.
+   Normalize date inputs so the DOB row matches surrounding fields. */
+.field-yaml_form input.yaml-input[type="date"] {
+  height: 38px !important;
 }
 
 /* Prevent long option text from forcing layout wider */
