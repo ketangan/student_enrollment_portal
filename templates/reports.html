@@ -178,6 +178,7 @@
               <tr>
                 <th style="width:180px;">Created</th>
                 <th>Student / Applicant</th>
+                <th style="width:160px;">Status</th>
                 <th>Program</th>
               </tr>
             </thead>
@@ -187,11 +188,12 @@
                   <td class="reports-muted">{{ r.created_at|date:"M j, Y, g:i A" }}</td>
                   <td>
                     {% if r.admin_url %}
-                        <a href="{{ r.admin_url }}">{{ r.student|default:"" }}</a>
+                      <a href="{{ r.admin_url }}">{{ r.student|default:"" }}</a>
                     {% else %}
-                        {{ r.student|default:"" }}
+                      {{ r.student|default:"" }}
                     {% endif %}
                   </td>
+                  <td class="reports-muted">{{ r.status|default:"New" }}</td>
                   <td class="reports-muted">{{ r.program|default:"" }}</td>
                 </tr>
               {% endfor %}

@@ -151,3 +151,25 @@ def apply_post_to_submission_data(cfg, post_data, existing_data: dict, form: dic
             data[key] = raw
 
     return data
+
+def get_submission_status_choices(config_raw: dict) -> tuple[list[str], str]:
+    default_statuses = ["New", "In Review", "Contacted", "Archived"]
+    default_default = "New"
+
+    admin_block = (config_raw or {}).get("admin") if isinstance(config_raw, dict) else None
+    if not isinstance(admin_block, dict):
+        return default_statuses, default_default
+
+    statuses = admin_block.get("submission_statuses")
+    if isinstance(statuses, list):
+        statuses = [str(s).strip() for s in statuses if str(s).strip()]
+    else:
+        statuses = None
+
+    default_status = admin_block.get("default_submission_status")
+    default_status = str(default_status).strip() if default_status else ""
+
+    final_statuses = statuses or default_statuses
+    final_default = default_status if default_status in final_statuses else (final_statuses[0] if final_statuses else default_default)
+
+    return final_statuses, final_default

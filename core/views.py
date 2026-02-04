@@ -464,13 +464,12 @@ def school_reports_view(request, school_slug: str):
         for s in rows_for_reporting:
             all_keys.update((s.data or {}).keys())
 
-        ordered_keys = ["application_id", "created_at", "student_name", "program"] + sorted(all_keys)
+        ordered_keys = ["application_id", "created_at", "status", "student_name", "program"] + sorted(all_keys)
 
         resp = HttpResponse(content_type="text/csv")
         resp["Content-Disposition"] = f'attachment; filename="{school.slug}-reports-last{range_days}d.csv"'
 
         writer = csv.writer(resp)
-        header = ["application_id", "created_at", "student_name", "program"] + sorted(all_keys)
         writer.writerow(ordered_keys)
 
         for s in rows_for_reporting:
@@ -479,8 +478,10 @@ def school_reports_view(request, school_slug: str):
             student = s.student_display_name()
             program = (s.program_display_name(label_map=label_map) or "").strip() or NONE_LABEL
 
-            writer.writerow([s.public_id, created, student, program] + [data.get(k, "") for k in sorted(all_keys)])
-
+            writer.writerow(
+                [s.public_id, created, (s.status or ""), student, program]
+                + [data.get(k, "") for k in sorted(all_keys)]
+            )
         return resp
 
     # Metrics
@@ -506,6 +507,7 @@ def school_reports_view(request, school_slug: str):
                 "created_at": timezone.localtime(s.created_at),
                 "student": s.student_display_name(),
                 "program": program_label,
+                "status": (s.status or "New"),
             }
         )
 

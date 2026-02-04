@@ -106,6 +106,12 @@ def test_submission_public_id_is_unique_and_url_safe():
         assert pid.replace("-", "").replace("_", "").isalnum()
 
 
+@pytest.mark.django_db
+def test_submission_status_defaults_to_new():
+    sub = SubmissionFactory()
+    assert sub.status == "New"
+
+
 @pytest.mark.django_db(transaction=True)
 def test_migration_backfills_public_id_for_existing_rows():
     executor = MigrationExecutor(connection)
@@ -125,9 +131,9 @@ def test_migration_backfills_public_id_for_existing_rows():
     executor = MigrationExecutor(connection)
     executor.migrate([("core", "0007_backfill_submission_public_id")])
 
-    from core.models import Submission as NewSubmission
-
-    refreshed = NewSubmission.objects.get(id=sub.id)
+    state2 = executor.loader.project_state([("core", "0007_backfill_submission_public_id")])
+    Submission2 = state2.apps.get_model("core", "Submission")
+    refreshed = Submission2.objects.get(id=sub.id)
     assert refreshed.public_id
     assert "=" not in refreshed.public_id
     assert len(refreshed.public_id) <= 16

@@ -135,8 +135,9 @@ def test_school_reports_range_defaults_and_none_label_in_csv(client, monkeypatch
     resp2 = client.get(url, {"export": "1"})
     assert resp2.status_code == 200
     rows = list(csv.reader(resp2.content.decode("utf-8").splitlines()))
-    assert rows[0][:4] == ["application_id", "created_at", "student_name", "program"]
-    assert any(r[3] == "No program selected" for r in rows[1:])
+    assert rows[0][:5] == ["application_id", "created_at", "status", "student_name", "program"]
+    assert any(r[2] == "New" for r in rows[1:])
+    assert any(r[4] == "No program selected" for r in rows[1:])
 
 
 def test_admin_download_submission_file_permissions_and_filename(client, db):

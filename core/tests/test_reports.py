@@ -63,6 +63,7 @@ def test_range_filter_counts_and_export_csv(client):
     # create submissions at various ages: 2 days ago, 10 days ago, 40 days ago
     s_recent = SubmissionFactory(school=school, data={"dance_style": "ballet", "skill_level": "beginner"})
     s_recent.created_at = now - timedelta(days=2)
+    s_recent.status = "Contacted"
     s_recent.save()
 
     s_mid = SubmissionFactory(school=school, data={"dance_style": "jazz", "skill_level": "beginner"})
@@ -86,6 +87,11 @@ def test_range_filter_counts_and_export_csv(client):
     resp30 = client.get(url30)
     assert resp30.status_code == 200
     assert resp30.context["total"] == 2
+
+    # recent submissions include status (new feature)
+    recent_rows = resp30.context.get("recent") or []
+    assert any(r.get("status") == "Contacted" for r in recent_rows)
+    assert any(r.get("status") == "New" for r in recent_rows)
 
     # range=90 includes all three
     url90 = reverse("school_reports", kwargs={"school_slug": slug}) + "?range=90"
@@ -112,4 +118,7 @@ def test_range_filter_counts_and_export_csv(client):
     rows = list(reader)
     # header + one matching row expected
     assert len(rows) >= 1
-    assert rows[0][:4] == ["application_id", "created_at", "student_name", "program"]
+    assert rows[0][:5] == ["application_id", "created_at", "status", "student_name", "program"]
+
+    # The single returned row should match the contacted status
+    assert any(r[2] == "Contacted" for r in rows[1:])

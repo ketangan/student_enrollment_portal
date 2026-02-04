@@ -180,3 +180,15 @@ success:
       bcc: "kg008.evony@gmail.com"
       from_email: "kg.ketan@gmail.com"   # must match a verified sender for now
       subject: "New submission: {{student_name}}"
+
+admin:
+  submission_statuses:
+    - New
+    - In Review
+    - Contacted
+    - Needs Follow Up
+    - Archived
+    - Enrolled
+    - Closed
+  default_submission_status: 
+    - New

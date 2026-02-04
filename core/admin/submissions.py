@@ -28,6 +28,7 @@ from core.models import Submission, SubmissionFile
 from core.services.admin_submission_yaml import (
     apply_post_to_submission_data,
     build_yaml_sections,
+    get_submission_status_choices,
     validate_required_fields,
 )
 from core.services.config_loader import get_forms, load_school_config
@@ -84,15 +85,16 @@ class SubmissionAdmin(admin.ModelAdmin):
     # yaml_form is rendered HTML (readonly method), data is readonly (still shown collapsed)
     readonly_fields = ("public_id", "school_display", "created_at_pretty", "yaml_form", "data", "attachments")
     search_fields = ("public_id", "school__slug", "school__display_name")
+    list_filter = ("status", "school")
 
     def get_list_display(self, request):
         if _is_superuser(request.user):
-            return ("id", "public_id", "school_display", "student_name", "program_name", "created_at_pretty")
-        return ("public_id", "student_name", "program_name", "created_at_pretty")
+            return ("id", "public_id", "status", "school_display", "student_name", "program_name", "created_at_pretty")
+        return ("public_id", "status", "student_name", "program_name", "created_at_pretty")
 
     def get_fieldsets(self, request, obj=None):
         return (
-            ("General", {"fields": ("public_id", "school_display", "created_at_pretty", "yaml_form")}),
+            ("General", {"fields": ("public_id", "status", "school_display", "created_at_pretty", "yaml_form")}),
             ("Raw Data (advanced)", {"fields": ("data",), "classes": ("collapse",)}),
             ("Attachments", {"fields": ("attachments",)}),
         )
@@ -121,7 +123,32 @@ class SubmissionAdmin(admin.ModelAdmin):
 
         return super().log_change(request, obj, message)
 
-    
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+
+        if "status" not in form.base_fields:
+            return form
+
+        statuses = None
+        default_status = None
+        if obj and obj.school:
+            cfg = load_school_config(obj.school.slug)
+            raw = getattr(cfg, "raw", {}) or {}
+            statuses, default_status = get_submission_status_choices(raw)
+
+        statuses = statuses or ["New", "In Review", "Contacted", "Archived"]
+        default_status = default_status or "New"
+
+        choices = [(s, s) for s in statuses]
+
+        field = form.base_fields["status"]
+        field.choices = choices
+        field.widget = forms.Select(choices=choices)   # ✅ force dropdown
+
+        if not obj or not getattr(obj, "status", ""):
+            field.initial = default_status
+
+        return form
     # ----------------------------
     # Permissions
     # ----------------------------
