@@ -82,6 +82,7 @@ if IS_PROD and SENTRY_DSN:
 # Application definition
 
 INSTALLED_APPS = [
+    'core',
     'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -89,7 +90,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'core',
 ]
 
 MIDDLEWARE = [
@@ -111,6 +111,12 @@ TEMPLATES = [
         'DIRS': [BASE_DIR / "templates"],
         'APP_DIRS': True,
         'OPTIONS': {
+            # Ensure we load our patched Jazzmin tag library implementation.
+            # Upstream Jazzmin calls format_html(html_str) with no args, which
+            # raises TypeError on Django 6+.
+            'libraries': {
+                'jazzmin': 'core.templatetags.jazzmin',
+            },
             'context_processors': [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
@@ -158,7 +164,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Los_Angeles'
 
 USE_I18N = True
 
