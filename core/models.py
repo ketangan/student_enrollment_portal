@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from django.db import models
 import os
 import uuid
@@ -6,18 +7,67 @@ import secrets
 from django.contrib.auth.models import User
 from core.services.form_utils import resolve_label
 from django.conf import settings
-from django.db import models
 
 
+@dataclass
+class SchoolFeatures:
+    school: "School"
+
+    def _flags(self) -> dict[str, bool]:
+        from core.services.feature_flags import merge_flags
+        return merge_flags(plan=self.school.plan, overrides=self.school.feature_flags)
+
+    @property
+    def reports_enabled(self) -> bool:
+        return bool(self._flags().get("reports_enabled", False))
+
+    @property
+    def status_enabled(self) -> bool:
+        return bool(self._flags().get("status_enabled", True))
+
+    @property
+    def csv_export_enabled(self) -> bool:
+        return bool(self._flags().get("csv_export_enabled", True))
+
+    @property
+    def audit_log_enabled(self) -> bool:
+        return bool(self._flags().get("audit_log_enabled", True))
+    
+    
 class School(models.Model):
     """
     Multi-tenant anchor. We use ONLY school_slug (Phase 0).
     Branding may be missing; Phase 5 defaults will handle that later.
     """
+
+    
     slug = models.SlugField(unique=True)
     display_name = models.CharField(max_length=255, blank=True, default="")
     website_url = models.URLField(blank=True, default="")
     source_url = models.URLField(blank=True, default="")
+
+    # Feature flags / tiering (school-scoped)
+    PLAN_TRIAL = "trial"
+    PLAN_STARTER = "starter"
+    PLAN_PRO = "pro"
+    PLAN_GROWTH = "growth"
+
+    PLAN_CHOICES = [
+        (PLAN_TRIAL, "Trial"),
+        (PLAN_STARTER, "Starter"),
+        (PLAN_PRO, "Pro"),
+        (PLAN_GROWTH, "Growth"),
+    ]
+
+    plan = models.CharField(
+        max_length=32,
+        choices=PLAN_CHOICES,
+        default=PLAN_TRIAL,
+        blank=True,
+        db_index=True,
+    )
+    # plan = models.CharField(max_length=32, blank=True, default="trial", db_index=True)
+    feature_flags = models.JSONField(default=dict, blank=True)
 
     # Optional branding fields (can be empty; Phase 5 default applies)
     logo_url = models.CharField(max_length=500, blank=True, default="")
@@ -25,6 +75,16 @@ class School(models.Model):
     theme_accent_color = models.CharField(max_length=20, blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def features(self) -> "SchoolFeatures":
+        return SchoolFeatures(self)
+
+    def save(self, *args, **kwargs):
+        from core.services.feature_flags import merge_flags
+        if self._state.adding and not (self.feature_flags or {}):
+            self.feature_flags = merge_flags(plan=self.plan, overrides={})
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "School"

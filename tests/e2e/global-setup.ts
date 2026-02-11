@@ -73,5 +73,16 @@ export default async function globalSetup() {
         "  School.objects.get_or_create(slug=slug, defaults={'display_name': slug, 'website_url': '', 'source_url': ''})",
       ].join('\n'),
     ]);
+
+    // Upgrade all E2E schools to 'starter' plan so reports (and other gated features) are enabled.
+    runPython([
+      'manage.py',
+      'shell',
+      '-c',
+      [
+        'from core.models import School',
+        "School.objects.filter(slug__in=['dancemaker-studio', 'kimberlas-classical-ballet', 'torrance-sister-city-association']).update(plan='starter')",
+      ].join('\n'),
+    ]);
   }
 }

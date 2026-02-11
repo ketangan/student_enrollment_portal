@@ -18,8 +18,8 @@ def test_unauthenticated_is_blocked(client):
 
 @pytest.mark.django_db
 def test_school_admin_access_and_cross_school_block(client):
-    school_a = SchoolFactory(slug="dancemaker-studio")
-    school_b = SchoolFactory(slug="kimberlas-classical-ballet")
+    school_a = SchoolFactory(slug="dancemaker-studio", plan="starter")
+    school_b = SchoolFactory(slug="kimberlas-classical-ballet", plan="starter")
 
     user = UserFactory()
     # make membership for school_a and staff
@@ -38,7 +38,7 @@ def test_school_admin_access_and_cross_school_block(client):
 
 @pytest.mark.django_db
 def test_superuser_can_access_any_school(client):
-    school = SchoolFactory(slug="dancemaker-studio")
+    school = SchoolFactory(slug="dancemaker-studio", plan="starter")
     admin = UserFactory()
     admin.is_superuser = True
     admin.is_staff = True
@@ -53,7 +53,7 @@ def test_superuser_can_access_any_school(client):
 @pytest.mark.django_db
 def test_range_filter_counts_and_export_csv(client):
     slug = "dancemaker-studio"
-    school = SchoolFactory(slug=slug)
+    school = SchoolFactory(slug=slug, plan="starter")
     admin_user = UserFactory()
     SchoolAdminMembershipFactory(user=admin_user, school=school)
     client.force_login(admin_user)
@@ -122,3 +122,94 @@ def test_range_filter_counts_and_export_csv(client):
 
     # The single returned row should match the contacted status
     assert any(r[2] == "Contacted" for r in rows[1:])
+
+
+# ---------------------------------------------------------------------------
+# Feature-flag gate on reports view
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_reports_blocked_when_reports_disabled_for_trial_school(client):
+    """Trial plan schools have reports_enabled=False by default → 403."""
+    school = SchoolFactory(slug="trial-school-test", plan="trial", feature_flags={"reports_enabled": False})
+    user = UserFactory()
+    SchoolAdminMembershipFactory(user=user, school=school)
+    client.force_login(user)
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug})
+    resp = client.get(url)
+    assert resp.status_code == 403
+    assert b"Reports" in resp.content
+    assert b"disabled" in resp.content
+
+
+@pytest.mark.django_db
+def test_reports_allowed_when_reports_enabled_via_plan(client):
+    """Starter plan schools have reports_enabled=True by default → 200."""
+    school = SchoolFactory(slug="starter-school-test", plan="starter")
+    user = UserFactory()
+    SchoolAdminMembershipFactory(user=user, school=school)
+    client.force_login(user)
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug})
+    resp = client.get(url)
+    assert resp.status_code == 200
+
+
+@pytest.mark.django_db
+def test_reports_allowed_when_trial_school_overrides_flag(client):
+    """Trial school with explicit override reports_enabled=True → 200."""
+    school = SchoolFactory(slug="override-trial-test", plan="trial", feature_flags={"reports_enabled": True})
+    user = UserFactory()
+    SchoolAdminMembershipFactory(user=user, school=school)
+    client.force_login(user)
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug})
+    resp = client.get(url)
+    assert resp.status_code == 200
+
+
+@pytest.mark.django_db
+def test_reports_blocked_when_starter_school_overrides_flag_to_false(client):
+    """Starter school with explicit override reports_enabled=False → 403."""
+    school = SchoolFactory(slug="override-starter-test", plan="starter", feature_flags={"reports_enabled": False})
+    user = UserFactory()
+    SchoolAdminMembershipFactory(user=user, school=school)
+    client.force_login(user)
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug})
+    resp = client.get(url)
+    assert resp.status_code == 403
+
+
+@pytest.mark.django_db
+def test_reports_feature_disabled_template_renders_correctly(client):
+    """The feature_disabled.html template should include school info and message."""
+    school = SchoolFactory(slug="tmpl-test", plan="trial", feature_flags={"reports_enabled": False})
+    user = UserFactory()
+    SchoolAdminMembershipFactory(user=user, school=school)
+    client.force_login(user)
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug})
+    resp = client.get(url)
+    assert resp.status_code == 403
+    content = resp.content.decode("utf-8")
+    assert "Reports" in content
+    assert "disabled" in content.lower()
+    assert "Back to Admin" in content
+
+
+@pytest.mark.django_db
+def test_superuser_also_blocked_when_reports_disabled(client):
+    """Even superusers should see the 403 when the flag is off."""
+    school = SchoolFactory(slug="su-flag-test", plan="trial", feature_flags={"reports_enabled": False})
+    su = UserFactory()
+    su.is_superuser = True
+    su.is_staff = True
+    su.save()
+    client.force_login(su)
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug})
+    resp = client.get(url)
+    assert resp.status_code == 403

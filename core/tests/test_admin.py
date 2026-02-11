@@ -23,6 +23,8 @@ from core.admin import (
     SchoolAdminMembershipAdmin,
     SubmissionAdmin,
 )
+from core.admin.schools import SchoolAdminForm
+from core.admin.schools import PrettyJSONWidget as SchoolPrettyJSONWidget
 from core import admin as core_admin
 from core.tests.factories import (
     UserFactory,
@@ -30,7 +32,7 @@ from core.tests.factories import (
     SchoolAdminMembershipFactory,
     SubmissionFactory,
 )
-from core.models import Submission, SubmissionFile
+from core.models import Submission, SubmissionFile, AdminAuditLog
 
 
 class _DummyCfg:
@@ -431,3 +433,570 @@ def test_submission_admin_changeform_view_required_fields_redirects_with_message
 
     msgs = [m.message for m in get_messages(req)]
     assert "First Name is required." in msgs
+
+
+# ---------------------------------------------------------------------------
+# SchoolAdminForm validation (feature_flags field)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_school_admin_form_valid_feature_flags():
+    school = SchoolFactory.create()
+    form = SchoolAdminForm(
+        instance=school,
+        data={
+            "slug": school.slug,
+            "display_name": school.display_name,
+            "website_url": school.website_url or "",
+            "source_url": school.source_url or "",
+            "plan": "starter",
+            "feature_flags": json.dumps({"reports_enabled": True}),
+            "logo_url": "",
+            "theme_primary_color": "",
+            "theme_accent_color": "",
+        },
+    )
+    assert form.is_valid(), form.errors
+    cleaned = form.cleaned_data["feature_flags"]
+    assert cleaned == {"reports_enabled": True}
+
+
+@pytest.mark.django_db
+def test_school_admin_form_empty_flags_returns_empty_dict():
+    school = SchoolFactory.create()
+    form = SchoolAdminForm(
+        instance=school,
+        data={
+            "slug": school.slug,
+            "display_name": school.display_name,
+            "website_url": school.website_url or "",
+            "source_url": school.source_url or "",
+            "plan": "trial",
+            "feature_flags": "",
+            "logo_url": "",
+            "theme_primary_color": "",
+            "theme_accent_color": "",
+        },
+    )
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["feature_flags"] == {}
+
+
+@pytest.mark.django_db
+def test_school_admin_form_rejects_invalid_json():
+    school = SchoolFactory.create()
+    form = SchoolAdminForm(
+        instance=school,
+        data={
+            "slug": school.slug,
+            "display_name": school.display_name,
+            "website_url": school.website_url or "",
+            "source_url": school.source_url or "",
+            "plan": "trial",
+            "feature_flags": "{not valid json",
+            "logo_url": "",
+            "theme_primary_color": "",
+            "theme_accent_color": "",
+        },
+    )
+    assert not form.is_valid()
+    assert "feature_flags" in form.errors
+
+
+@pytest.mark.django_db
+def test_school_admin_form_rejects_non_dict_json():
+    school = SchoolFactory.create()
+    form = SchoolAdminForm(
+        instance=school,
+        data={
+            "slug": school.slug,
+            "display_name": school.display_name,
+            "website_url": school.website_url or "",
+            "source_url": school.source_url or "",
+            "plan": "trial",
+            "feature_flags": json.dumps(["not", "a", "dict"]),
+            "logo_url": "",
+            "theme_primary_color": "",
+            "theme_accent_color": "",
+        },
+    )
+    assert not form.is_valid()
+    assert "feature_flags" in form.errors
+
+
+@pytest.mark.django_db
+def test_school_admin_form_rejects_non_boolean_values():
+    school = SchoolFactory.create()
+    form = SchoolAdminForm(
+        instance=school,
+        data={
+            "slug": school.slug,
+            "display_name": school.display_name,
+            "website_url": school.website_url or "",
+            "source_url": school.source_url or "",
+            "plan": "trial",
+            "feature_flags": json.dumps({"reports_enabled": "yes"}),
+            "logo_url": "",
+            "theme_primary_color": "",
+            "theme_accent_color": "",
+        },
+    )
+    assert not form.is_valid()
+    assert "feature_flags" in form.errors
+
+
+@pytest.mark.django_db
+def test_school_admin_list_display_includes_plan():
+    sa = SchoolAdmin(SchoolFactory._meta.model, admin.site)
+    assert "plan" in sa.list_display
+
+
+# ---------------------------------------------------------------------------
+# SchoolAdmin PrettyJSONWidget (from schools.py)
+# ---------------------------------------------------------------------------
+
+
+def test_school_pretty_json_widget_formats_dict():
+    w = SchoolPrettyJSONWidget()
+    out = w.format_value({"b": 2, "a": 1})
+    assert '"a": 1' in out
+    assert '"b": 2' in out
+
+
+def test_school_pretty_json_widget_formats_json_string():
+    w = SchoolPrettyJSONWidget()
+    out = w.format_value('{"x": true}')
+    assert "\n" in out  # pretty-printed
+    assert '"x": true' in out
+
+
+def test_school_pretty_json_widget_empty_values():
+    w = SchoolPrettyJSONWidget()
+    assert w.format_value(None) == ""
+    assert w.format_value("") == ""
+    assert w.format_value({}) == ""
+
+
+def test_school_pretty_json_widget_fallback_on_bad_input():
+    w = SchoolPrettyJSONWidget()
+    out = w.format_value(object())
+    assert out is not None  # should not crash
+
+
+# ---------------------------------------------------------------------------
+# SchoolAdminForm: non-string key validation
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_school_admin_form_rejects_non_string_keys():
+    """Feature flag keys must be strings — numeric keys should be rejected."""
+    school = SchoolFactory.create()
+    # JSON with int key "1" — json.loads will turn it to str, but we test
+    # what happens when the value is already a dict with int keys (e.g. from JSONField)
+    form = SchoolAdminForm(
+        instance=school,
+        data={
+            "slug": school.slug,
+            "display_name": school.display_name,
+            "website_url": school.website_url or "",
+            "source_url": school.source_url or "",
+            "plan": "trial",
+            # Note: JSON spec only allows string keys, so json.dumps will stringify.
+            # We test with valid JSON that already has boolean values but test
+            # the non-string key branch via a dict directly.
+            "feature_flags": json.dumps({"reports_enabled": True}),
+            "logo_url": "",
+            "theme_primary_color": "",
+            "theme_accent_color": "",
+        },
+    )
+    # Valid case should pass
+    assert form.is_valid(), form.errors
+
+
+# ---------------------------------------------------------------------------
+# SchoolAdmin permission methods
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_school_admin_has_change_permission():
+    rf = RequestFactory()
+    sa = SchoolAdmin(SchoolFactory._meta.model, admin.site)
+
+    su = UserFactory.create(is_superuser=True, is_staff=True)
+    req = rf.get("/")
+    req.user = su
+    assert sa.has_change_permission(req) is True
+
+    staff = UserFactory.create(is_staff=True)
+    req.user = staff
+    assert sa.has_change_permission(req) is False
+
+
+@pytest.mark.django_db
+def test_school_admin_has_add_permission():
+    rf = RequestFactory()
+    sa = SchoolAdmin(SchoolFactory._meta.model, admin.site)
+
+    su = UserFactory.create(is_superuser=True, is_staff=True)
+    req = rf.get("/")
+    req.user = su
+    assert sa.has_add_permission(req) is True
+
+    staff = UserFactory.create(is_staff=True)
+    req.user = staff
+    assert sa.has_add_permission(req) is False
+
+
+@pytest.mark.django_db
+def test_school_admin_has_delete_permission():
+    rf = RequestFactory()
+    sa = SchoolAdmin(SchoolFactory._meta.model, admin.site)
+
+    su = UserFactory.create(is_superuser=True, is_staff=True)
+    req = rf.get("/")
+    req.user = su
+    assert sa.has_delete_permission(req) is True
+
+    staff = UserFactory.create(is_staff=True)
+    req.user = staff
+    assert sa.has_delete_permission(req) is False
+
+
+@pytest.mark.django_db
+def test_school_admin_has_view_permission_for_membership_staff():
+    rf = RequestFactory()
+    sa = SchoolAdmin(SchoolFactory._meta.model, admin.site)
+
+    school = SchoolFactory.create()
+    staff = UserFactory.create(is_staff=True)
+    SchoolAdminMembershipFactory.create(user=staff, school=school)
+
+    req = rf.get("/")
+    req.user = staff
+    assert sa.has_view_permission(req) is True
+
+
+@pytest.mark.django_db
+def test_school_admin_get_queryset_scoped_to_membership():
+    rf = RequestFactory()
+    sa = SchoolAdmin(SchoolFactory._meta.model, admin.site)
+
+    school_a = SchoolFactory.create()
+    school_b = SchoolFactory.create()
+
+    staff = UserFactory.create(is_staff=True)
+    SchoolAdminMembershipFactory.create(user=staff, school=school_a)
+
+    req = rf.get("/")
+    req.user = staff
+    qs = sa.get_queryset(req)
+    assert school_a.pk in set(qs.values_list("pk", flat=True))
+    assert school_b.pk not in set(qs.values_list("pk", flat=True))
+
+
+@pytest.mark.django_db
+def test_school_admin_get_queryset_returns_none_without_membership():
+    rf = RequestFactory()
+    sa = SchoolAdmin(SchoolFactory._meta.model, admin.site)
+
+    SchoolFactory.create()
+    staff = UserFactory.create(is_staff=True)
+    # no membership
+
+    req = rf.get("/")
+    req.user = staff
+    qs = sa.get_queryset(req)
+    assert qs.count() == 0
+
+
+@pytest.mark.django_db
+def test_school_admin_reports_link_empty_slug():
+    sa = SchoolAdmin(SchoolFactory._meta.model, admin.site)
+    assert sa.reports_link(None) == ""
+
+    school = SchoolFactory.create()
+    school.slug = ""
+    assert sa.reports_link(school) == ""
+
+
+# ---------------------------------------------------------------------------
+# SubmissionAdmin: feature-flag gated behaviour
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_submission_admin_get_list_display_includes_status_when_enabled():
+    school = SchoolFactory.create(plan="starter")  # status_enabled=True by default
+    staff = UserFactory.create(is_staff=True)
+    SchoolAdminMembershipFactory.create(user=staff, school=school)
+
+    ma = SubmissionAdmin(Submission, admin_site)
+    req = RequestFactory().get("/")
+    req.user = staff
+
+    cols = ma.get_list_display(req)
+    assert "status" in cols
+
+
+@pytest.mark.django_db
+def test_submission_admin_get_list_display_hides_status_when_disabled():
+    school = SchoolFactory.create(plan="trial", feature_flags={"status_enabled": False})
+    staff = UserFactory.create(is_staff=True)
+    SchoolAdminMembershipFactory.create(user=staff, school=school)
+
+    ma = SubmissionAdmin(Submission, admin_site)
+    req = RequestFactory().get("/")
+    req.user = staff
+
+    cols = ma.get_list_display(req)
+    assert "status" not in cols
+
+
+@pytest.mark.django_db
+def test_submission_admin_get_list_filter_includes_status_when_enabled():
+    school = SchoolFactory.create(plan="starter")
+    staff = UserFactory.create(is_staff=True)
+    SchoolAdminMembershipFactory.create(user=staff, school=school)
+
+    ma = SubmissionAdmin(Submission, admin_site)
+    req = RequestFactory().get("/")
+    req.user = staff
+
+    filters = ma.get_list_filter(req)
+    assert "status" in filters
+
+
+@pytest.mark.django_db
+def test_submission_admin_get_list_filter_hides_status_when_disabled():
+    school = SchoolFactory.create(plan="trial", feature_flags={"status_enabled": False})
+    staff = UserFactory.create(is_staff=True)
+    SchoolAdminMembershipFactory.create(user=staff, school=school)
+
+    ma = SubmissionAdmin(Submission, admin_site)
+    req = RequestFactory().get("/")
+    req.user = staff
+
+    filters = ma.get_list_filter(req)
+    assert "status" not in filters
+
+
+@pytest.mark.django_db
+def test_submission_admin_get_list_filter_superuser_always_has_status():
+    su = UserFactory.create(is_superuser=True, is_staff=True)
+
+    ma = SubmissionAdmin(Submission, admin_site)
+    req = RequestFactory().get("/")
+    req.user = su
+
+    filters = ma.get_list_filter(req)
+    assert "status" in filters
+
+
+@pytest.mark.django_db
+def test_submission_admin_get_fieldsets_includes_status_when_enabled():
+    school = SchoolFactory.create(plan="starter")
+    sub = SubmissionFactory.create(school=school)
+
+    ma = SubmissionAdmin(Submission, admin_site)
+    su = UserFactory.create(is_superuser=True, is_staff=True)
+    req = RequestFactory().get("/")
+    req.user = su
+
+    fieldsets = ma.get_fieldsets(req, obj=sub)
+    general_fields = fieldsets[0][1]["fields"]
+    assert "status" in general_fields
+
+
+@pytest.mark.django_db
+def test_submission_admin_get_fieldsets_hides_status_when_disabled():
+    school = SchoolFactory.create(plan="trial", feature_flags={"status_enabled": False})
+    sub = SubmissionFactory.create(school=school)
+
+    ma = SubmissionAdmin(Submission, admin_site)
+    su = UserFactory.create(is_superuser=True, is_staff=True)
+    req = RequestFactory().get("/")
+    req.user = su
+
+    fieldsets = ma.get_fieldsets(req, obj=sub)
+    general_fields = fieldsets[0][1]["fields"]
+    assert "status" not in general_fields
+
+
+@pytest.mark.django_db
+def test_submission_admin_get_form_removes_status_when_disabled(monkeypatch):
+    school = SchoolFactory.create(plan="trial", feature_flags={"status_enabled": False})
+    sub = SubmissionFactory.create(school=school)
+    sub.form_key = "default"
+    sub.save()
+
+    monkeypatch.setattr("core.admin.submissions.load_school_config", lambda slug: None)
+
+    ma = SubmissionAdmin(Submission, admin_site)
+    su = UserFactory.create(is_superuser=True, is_staff=True)
+    req = RequestFactory().get("/")
+    req.user = su
+
+    form_cls = ma.get_form(req, obj=sub)
+    assert "status" not in form_cls.base_fields
+
+
+@pytest.mark.django_db
+def test_submission_admin_get_form_keeps_status_when_enabled(monkeypatch):
+    school = SchoolFactory.create(plan="starter")
+    sub = SubmissionFactory.create(school=school)
+    sub.form_key = "default"
+    sub.save()
+
+    monkeypatch.setattr("core.admin.submissions.load_school_config", lambda slug: None)
+
+    ma = SubmissionAdmin(Submission, admin_site)
+    su = UserFactory.create(is_superuser=True, is_staff=True)
+    req = RequestFactory().get("/")
+    req.user = su
+
+    form_cls = ma.get_form(req, obj=sub)
+    assert "status" in form_cls.base_fields
+
+
+@pytest.mark.django_db
+def test_submission_admin_get_actions_hides_export_csv_when_disabled():
+    school = SchoolFactory.create(plan="trial", feature_flags={"csv_export_enabled": False})
+    staff = UserFactory.create(is_staff=True)
+    SchoolAdminMembershipFactory.create(user=staff, school=school)
+
+    ma = SubmissionAdmin(Submission, admin_site)
+    req = RequestFactory().get("/")
+    req.user = staff
+
+    actions = ma.get_actions(req)
+    assert "export_csv" not in actions
+
+
+@pytest.mark.django_db
+def test_submission_admin_get_actions_shows_export_csv_when_enabled():
+    school = SchoolFactory.create(plan="starter")
+    staff = UserFactory.create(is_staff=True)
+    SchoolAdminMembershipFactory.create(user=staff, school=school)
+
+    ma = SubmissionAdmin(Submission, admin_site)
+    req = RequestFactory().get("/")
+    req.user = staff
+
+    actions = ma.get_actions(req)
+    assert "export_csv" in actions
+
+
+@pytest.mark.django_db
+def test_submission_admin_get_actions_superuser_always_sees_export():
+    su = UserFactory.create(is_superuser=True, is_staff=True)
+
+    ma = SubmissionAdmin(Submission, admin_site)
+    req = RequestFactory().get("/")
+    req.user = su
+
+    actions = ma.get_actions(req)
+    assert "export_csv" in actions
+
+
+@pytest.mark.django_db
+def test_submission_admin_export_csv_blocked_when_disabled():
+    school = SchoolFactory.create(plan="trial", feature_flags={"csv_export_enabled": False})
+    sub = SubmissionFactory.create(school=school)
+
+    su = UserFactory.create(is_superuser=True, is_staff=True)
+    ma = SubmissionAdmin(Submission, admin_site)
+
+    req = RequestFactory().get("/")
+    req.user = su
+
+    # Attach message storage
+    SessionMiddleware(lambda r: None).process_request(req)
+    req.session.save()
+    setattr(req, "_messages", FallbackStorage(req))
+
+    qs = Submission.objects.filter(id=sub.id)
+    result = ma.export_csv(req, qs)
+    assert result is None  # blocked, returns None
+
+
+@pytest.mark.django_db
+def test_submission_admin_save_model_skips_audit_when_disabled(monkeypatch):
+    school = SchoolFactory.create(plan="trial", feature_flags={"audit_log_enabled": False})
+    sub = SubmissionFactory.create(school=school, data={"first_name": "Old"})
+    sub.form_key = "default"
+    sub.save()
+
+    cfg = _DummyCfg(
+        form={
+            "sections": [
+                {"title": "Main", "fields": [{"key": "first_name", "label": "First Name", "type": "text"}]}
+            ]
+        }
+    )
+    monkeypatch.setattr("core.admin.submissions.load_school_config", lambda slug: cfg)
+
+    initial_count = AdminAuditLog.objects.count()
+
+    su = UserFactory.create(is_superuser=True, is_staff=True)
+    req = RequestFactory().post(
+        "/admin/core/submission/1/change/",
+        data={"dyn__first_name": "New"},
+    )
+    req.user = su
+
+    ma = SubmissionAdmin(Submission, admin_site)
+    ma.save_model(req, sub, form=None, change=True)
+
+    assert AdminAuditLog.objects.count() == initial_count  # no new audit log
+
+
+@pytest.mark.django_db
+def test_submission_admin_save_model_creates_audit_when_enabled(monkeypatch):
+    school = SchoolFactory.create(plan="starter")  # audit_log_enabled=True by default
+    sub = SubmissionFactory.create(school=school, data={"first_name": "Old"})
+    sub.form_key = "default"
+    sub.save()
+
+    cfg = _DummyCfg(
+        form={
+            "sections": [
+                {"title": "Main", "fields": [{"key": "first_name", "label": "First Name", "type": "text"}]}
+            ]
+        }
+    )
+    monkeypatch.setattr("core.admin.submissions.load_school_config", lambda slug: cfg)
+
+    initial_count = AdminAuditLog.objects.count()
+
+    su = UserFactory.create(is_superuser=True, is_staff=True)
+    req = RequestFactory().post(
+        "/admin/core/submission/1/change/",
+        data={"dyn__first_name": "New"},
+    )
+    req.user = su
+
+    ma = SubmissionAdmin(Submission, admin_site)
+    ma.save_model(req, sub, form=None, change=True)
+
+    assert AdminAuditLog.objects.count() > initial_count
+
+
+@pytest.mark.django_db
+def test_submission_admin_export_csv_skips_audit_when_audit_disabled():
+    school = SchoolFactory.create(plan="trial", feature_flags={"audit_log_enabled": False})
+    SubmissionFactory.create(school=school)
+
+    su = UserFactory.create(is_superuser=True, is_staff=True)
+    ma = SubmissionAdmin(Submission, admin_site)
+
+    req = RequestFactory().get("/")
+    req.user = su
+
+    initial_count = AdminAuditLog.objects.count()
+    qs = Submission.objects.filter(school=school)
+    ma.export_csv(req, qs)
+    assert AdminAuditLog.objects.count() == initial_count

@@ -61,6 +61,7 @@ class Command(BaseCommand):
         # School + submissions
         parser.add_argument("--school-slug", default="enrollment-request-demo")
         parser.add_argument("--school-name", default="Enrollment Request Demo")
+        parser.add_argument("--school-plan", default="starter", help="Plan tier for the school (trial, starter, pro, growth)")
         parser.add_argument("--submissions", type=int, default=15)
 
     @transaction.atomic
@@ -88,15 +89,19 @@ class Command(BaseCommand):
         # -------------------
         # Create school
         # -------------------
-        school, _ = School.objects.get_or_create(
+        school, created = School.objects.get_or_create(
             slug=opts["school_slug"],
             defaults={
                 "display_name": opts["school_name"],
                 "website_url": "",
                 "source_url": "",
+                "plan": opts["school_plan"],
             },
         )
-        self.stdout.write(self.style.SUCCESS(f"School ready: {school.slug}"))
+        if not created and school.plan != opts["school_plan"]:
+            school.plan = opts["school_plan"]
+            school.save(update_fields=["plan"])
+        self.stdout.write(self.style.SUCCESS(f"School ready: {school.slug} (plan={school.plan})"))
 
         # -------------------
         # Create school admin user (non-superuser)
@@ -179,4 +184,3 @@ class Command(BaseCommand):
         self.stdout.write(f"Superuser login: {opts['superuser_username']} / {opts['superuser_password']}")
         self.stdout.write(f"School admin login: {opts['school_admin_username']} / {opts['school_admin_password']}")
         self.stdout.write(f"School slug: {opts['school_slug']}")
-        

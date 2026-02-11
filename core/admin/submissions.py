@@ -85,16 +85,46 @@ class SubmissionAdmin(admin.ModelAdmin):
     # yaml_form is rendered HTML (readonly method), data is readonly (still shown collapsed)
     readonly_fields = ("public_id", "school_display", "created_at_pretty", "yaml_form", "data", "attachments")
     search_fields = ("public_id", "school__slug", "school__display_name")
-    list_filter = ("status", "school")
+    list_filter = ("school",)
+
+    def get_list_filter(self, request):
+        base = ["school"]
+        # for superuser: keep status filter
+        if _is_superuser(request.user):
+            return ("status", "school")
+
+        # for school-admin: infer school from membership and gate status
+        school_id = _membership_school_id(request.user)
+        if school_id:
+            from core.models import School
+            school = School.objects.filter(id=school_id).first()
+            if school and school.features.status_enabled:
+                base.insert(0, "status")
+        return tuple(base)
 
     def get_list_display(self, request):
         if _is_superuser(request.user):
             return ("id", "public_id", "status", "school_display", "student_name", "program_name", "created_at_pretty")
-        return ("public_id", "status", "student_name", "program_name", "created_at_pretty")
+
+        cols = ["public_id", "student_name", "program_name", "created_at_pretty"]
+
+        school_id = _membership_school_id(request.user)
+        if school_id:
+            from core.models import School
+            school = School.objects.filter(id=school_id).first()
+            if school and school.features.status_enabled:
+                cols.insert(1, "status")
+
+        return tuple(cols)
 
     def get_fieldsets(self, request, obj=None):
+        general_fields = ["public_id", "school_display", "created_at_pretty", "yaml_form"]
+
+        if obj and obj.school and obj.school.features.status_enabled:
+            general_fields.insert(1, "status")
+
         return (
-            ("General", {"fields": ("public_id", "status", "school_display", "created_at_pretty", "yaml_form")}),
+            ("General", {"fields": tuple(general_fields)}),
             ("Raw Data (advanced)", {"fields": ("data",), "classes": ("collapse",)}),
             ("Attachments", {"fields": ("attachments",)}),
         )
@@ -126,6 +156,12 @@ class SubmissionAdmin(admin.ModelAdmin):
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
 
+        # If status feature is off for this school, remove the field entirely.
+        if obj and obj.school and not obj.school.features.status_enabled:
+            form.base_fields.pop("status", None)
+            return form
+
+        # Guard: if status isn't on the form for any reason, don't crash
         if "status" not in form.base_fields:
             return form
 
@@ -143,12 +179,13 @@ class SubmissionAdmin(admin.ModelAdmin):
 
         field = form.base_fields["status"]
         field.choices = choices
-        field.widget = forms.Select(choices=choices)   # ✅ force dropdown
+        field.widget = forms.Select(choices=choices)
 
         if not obj or not getattr(obj, "status", ""):
             field.initial = default_status
 
         return form
+    
     # ----------------------------
     # Permissions
     # ----------------------------
@@ -316,12 +353,13 @@ class SubmissionAdmin(admin.ModelAdmin):
             if old_data.get(k) != new_data.get(k):
                 changed[k] = {"from": old_data.get(k), "to": new_data.get(k)}
 
-        log_admin_audit(
-            request=request,
-            action="change" if change else "add",
-            obj=obj,
-            changes=changed,
-        )
+        if obj.school.features.audit_log_enabled:
+            log_admin_audit(
+                request=request,
+                action="change" if change else "add",
+                obj=obj,
+                changes=changed,
+            )
 
     def get_search_results(self, request, queryset, search_term):
         base_qs = queryset
@@ -368,6 +406,20 @@ class SubmissionAdmin(admin.ModelAdmin):
     # ----------------------------
     # Attachments + Export
     # ----------------------------
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if _is_superuser(request.user):
+            return actions
+
+        school_id = _membership_school_id(request.user)
+        if school_id:
+            from core.models import School
+            school = School.objects.filter(id=school_id).first()
+            if school and not school.features.csv_export_enabled:
+                actions.pop("export_csv", None)
+
+        return actions
+
     def attachments(self, obj):
         qs = obj.files.all().order_by("field_key", "id")
         if not qs.exists():
@@ -424,14 +476,20 @@ class SubmissionAdmin(admin.ModelAdmin):
 
     def export_csv(self, request, queryset):
         queryset = self.get_queryset(request).filter(id__in=queryset.values_list("id", flat=True))
+        
+        first = queryset.first()
+        if first and not first.school.features.csv_export_enabled:
+            messages.error(request, "CSV export is not enabled for this school.")
+            return None
 
-        log_admin_audit(
-            request=request,
-            action="action",
-            obj=None,
-            changes={},
-            extra={"action": "export_csv", "model": "core.submission", "count": queryset.count()},
-        )
+        if first and first.school.features.audit_log_enabled:
+            log_admin_audit(
+                request=request,
+                action="action",
+                obj=None,
+                changes={},
+                extra={"action": "export_csv", "model": "core.submission", "count": queryset.count()},
+            )
 
         rows = list(queryset.order_by("-created_at")[:5000])
         all_keys = set()

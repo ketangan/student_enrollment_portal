@@ -15,6 +15,7 @@ from .models import School, Submission, SubmissionFile
 from .services.config_loader import get_forms, load_school_config
 from .services.form_utils import build_option_label_map
 from .services.validation import validate_submission
+from .services.feature_flags import is_enabled
 from .services.notifications import send_submission_notification_email
 
 
@@ -421,6 +422,19 @@ def school_reports_view(request, school_slug: str):
 
     if not _can_view_school_admin_page(request, school):
         raise Http404("Page not found")
+    
+    if not is_enabled(school, "reports_enabled", default=True):
+        return render(
+        request,
+        "feature_disabled.html",
+        {
+            "school": school,
+            "school_slug": school_slug,
+            "feature_name": "Reports",
+            "message": "Reports are currently disabled for this school.",
+        },
+        status=403,  # better than 404
+    )
 
     config = load_school_config(school_slug)
     label_map = build_option_label_map(config.form) if config else {}

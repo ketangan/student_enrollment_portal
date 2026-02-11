@@ -1,0 +1,19 @@
+{% load static %}
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ school.display_name|default:school.slug }} - {{ feature_name }} Disabled</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="{% static 'forms.css' %}">
+  </head>
+  <body>
+    <div class="page">
+      <div class="card" style="max-width: 720px;">
+        <h1 style="margin:0 0 8px 0;">{{ feature_name }} is disabled</h1>
+        <p style="margin:0 0 16px 0; color: #6b7280;">{{ message }}</p>
+        <a class="btn" href="/admin/">Back to Admin</a>
+      </div>
+    </div>
+  </body>
+</html>

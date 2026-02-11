@@ -45,7 +45,7 @@ def test_school_reports_metrics_and_filters(client, monkeypatch, db):
     now = timezone.now()
     monkeypatch.setattr(timezone, "now", lambda: now)
 
-    school = SchoolFactory.create()
+    school = SchoolFactory.create(plan="starter")
     # create submissions with different class_name values
     SubmissionFactory.create(school=school, data={"class_name": "A"})
     SubmissionFactory.create(school=school, data={"class_name": "B"})

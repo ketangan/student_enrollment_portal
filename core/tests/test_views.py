@@ -96,7 +96,7 @@ def test_school_reports_export_csv(client, monkeypatch, db):
     # Prepare config and data
     monkeypatch.setattr("core.views.load_school_config", lambda slug: DummyConfig())
 
-    school = SchoolFactory.create()
+    school = SchoolFactory.create(plan="starter")
     SubmissionFactory.create_batch(2, school=school)
 
     user = UserFactory.create(is_staff=True)
@@ -116,7 +116,7 @@ def test_school_reports_export_csv(client, monkeypatch, db):
 def test_school_reports_range_defaults_and_none_label_in_csv(client, monkeypatch, db):
     monkeypatch.setattr("core.views.load_school_config", lambda slug: DummyConfig())
 
-    school = SchoolFactory.create()
+    school = SchoolFactory.create(plan="starter")
     # No program keys => program_display_name() == "" => should become "No program selected" in export
     SubmissionFactory.create(school=school, data={"first_name": "Alice"})
 
@@ -208,7 +208,7 @@ def test_school_reports_metrics_and_filters(client, monkeypatch, db):
     now = timezone.now()
     monkeypatch.setattr(timezone, "now", lambda: now)
 
-    school = SchoolFactory.create()
+    school = SchoolFactory.create(plan="starter")
     # create submissions with different class_name values
     SubmissionFactory.create(school=school, data={"class_name": "A"})
     SubmissionFactory.create(school=school, data={"class_name": "B"})

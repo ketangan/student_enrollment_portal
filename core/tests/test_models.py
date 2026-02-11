@@ -6,7 +6,7 @@ from django.db.migrations.executor import MigrationExecutor
 from core.tests.factories import SchoolFactory, SubmissionFactory
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from core.models import SubmissionFile
+from core.models import School, SchoolFeatures, SubmissionFile
 
 
 
@@ -141,4 +141,127 @@ def test_migration_backfills_public_id_for_existing_rows():
     # Restore to latest for other tests
     executor = MigrationExecutor(connection)
     executor.migrate(executor.loader.graph.leaf_nodes())
-    
+
+
+# ---------------------------------------------------------------------------
+# School plan / feature flags / SchoolFeatures
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_school_plan_defaults_to_trial():
+    school = SchoolFactory()
+    assert school.plan == School.PLAN_TRIAL
+
+
+@pytest.mark.django_db
+def test_school_feature_flags_defaults_to_empty_dict_or_seeded():
+    """Creating a school with no explicit flags should seed plan defaults via save()."""
+    school = School.objects.create(slug="plan-seed-test", plan="trial")
+    # save() override seeds defaults when feature_flags is empty on creation
+    assert isinstance(school.feature_flags, dict)
+    assert "reports_enabled" in school.feature_flags
+
+
+@pytest.mark.django_db
+def test_school_save_does_not_overwrite_existing_flags():
+    """If feature_flags is explicitly set on creation, save() should not overwrite."""
+    flags = {"reports_enabled": True, "custom": True}
+    school = School.objects.create(slug="keep-flags-test", plan="trial", feature_flags=flags)
+    assert school.feature_flags == flags
+
+
+@pytest.mark.django_db
+def test_school_save_does_not_re_seed_on_update():
+    """Updating an existing school should not re-seed feature_flags."""
+    school = School.objects.create(slug="update-test", plan="trial")
+    # manually clear flags after creation
+    School.objects.filter(pk=school.pk).update(feature_flags={})
+    school.refresh_from_db()
+    assert school.feature_flags == {}
+
+    # update display_name (not adding) -> save should not re-seed
+    school.display_name = "Updated"
+    school.save()
+    school.refresh_from_db()
+    assert school.feature_flags == {}
+
+
+@pytest.mark.django_db
+def test_school_features_property_returns_school_features_dataclass():
+    school = SchoolFactory(plan="starter")
+    features = school.features
+    assert isinstance(features, SchoolFeatures)
+    assert features.school is school
+
+
+@pytest.mark.django_db
+def test_school_features_reports_enabled_follows_plan():
+    trial_school = SchoolFactory(plan="trial")
+    assert trial_school.features.reports_enabled is False
+
+    starter_school = SchoolFactory(plan="starter")
+    assert starter_school.features.reports_enabled is True
+
+
+@pytest.mark.django_db
+def test_school_features_reports_enabled_respects_override():
+    school = SchoolFactory(plan="trial", feature_flags={"reports_enabled": True})
+    assert school.features.reports_enabled is True
+
+    school2 = SchoolFactory(plan="pro", feature_flags={"reports_enabled": False})
+    assert school2.features.reports_enabled is False
+
+
+@pytest.mark.django_db
+def test_school_features_status_enabled_defaults_true():
+    school = SchoolFactory(plan="trial")
+    assert school.features.status_enabled is True
+
+
+@pytest.mark.django_db
+def test_school_features_status_enabled_respects_override():
+    school = SchoolFactory(plan="starter", feature_flags={"status_enabled": False})
+    assert school.features.status_enabled is False
+
+
+@pytest.mark.django_db
+def test_school_features_csv_export_enabled_defaults_true():
+    school = SchoolFactory(plan="trial")
+    assert school.features.csv_export_enabled is True
+
+
+@pytest.mark.django_db
+def test_school_features_csv_export_enabled_respects_override():
+    school = SchoolFactory(plan="pro", feature_flags={"csv_export_enabled": False})
+    assert school.features.csv_export_enabled is False
+
+
+@pytest.mark.django_db
+def test_school_features_audit_log_enabled_defaults_true():
+    school = SchoolFactory(plan="growth")
+    assert school.features.audit_log_enabled is True
+
+
+@pytest.mark.django_db
+def test_school_features_audit_log_enabled_respects_override():
+    school = SchoolFactory(plan="starter", feature_flags={"audit_log_enabled": False})
+    assert school.features.audit_log_enabled is False
+
+
+@pytest.mark.django_db
+def test_school_features_flags_helper_returns_merged_dict():
+    school = SchoolFactory(plan="trial", feature_flags={"reports_enabled": True})
+    flags = school.features._flags()
+    assert flags["reports_enabled"] is True
+    assert flags["status_enabled"] is True
+
+
+@pytest.mark.django_db
+def test_school_plan_choices():
+    """All PLAN_* constants are represented in PLAN_CHOICES."""
+    choice_values = {v for v, _ in School.PLAN_CHOICES}
+    assert School.PLAN_TRIAL in choice_values
+    assert School.PLAN_STARTER in choice_values
+    assert School.PLAN_PRO in choice_values
+    assert School.PLAN_GROWTH in choice_values
