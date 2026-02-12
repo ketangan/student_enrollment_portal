@@ -190,7 +190,7 @@ def test_reports_blocked_when_starter_school_overrides_flag_to_false(client):
 
 @pytest.mark.django_db
 def test_csv_export_blocked_when_flag_disabled(client):
-    """csv_export_enabled=False should suppress the export (returns HTML, not CSV)."""
+    """csv_export_enabled=False should suppress the export for school admins."""
     school = SchoolFactory(slug="no-csv-school", plan="starter", feature_flags={"csv_export_enabled": False})
     user = UserFactory()
     SchoolAdminMembershipFactory(user=user, school=school)
@@ -242,6 +242,40 @@ def test_csv_export_button_shown_when_flag_enabled(client):
     SchoolAdminMembershipFactory(user=user, school=school)
     SubmissionFactory(school=school)
     client.force_login(user)
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug})
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert b"Export CSV" in resp.content
+
+
+@pytest.mark.django_db
+def test_superuser_can_export_csv_even_when_flag_disabled(client):
+    """Superusers bypass csv_export_enabled — they always get the CSV."""
+    school = SchoolFactory(slug="su-csv-school", plan="starter", feature_flags={"csv_export_enabled": False})
+    su = UserFactory()
+    su.is_superuser = True
+    su.is_staff = True
+    su.save()
+    SubmissionFactory(school=school)
+    client.force_login(su)
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug}) + "?export=1"
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert "text/csv" in resp["Content-Type"]
+
+
+@pytest.mark.django_db
+def test_superuser_sees_export_button_even_when_flag_disabled(client):
+    """Superusers should see the Export CSV button regardless of the flag."""
+    school = SchoolFactory(slug="su-btn-school", plan="starter", feature_flags={"csv_export_enabled": False})
+    su = UserFactory()
+    su.is_superuser = True
+    su.is_staff = True
+    su.save()
+    SubmissionFactory(school=school)
+    client.force_login(su)
 
     url = reverse("school_reports", kwargs={"school_slug": school.slug})
     resp = client.get(url)

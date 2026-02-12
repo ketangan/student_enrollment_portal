@@ -484,7 +484,7 @@ def school_reports_view(request, school_slug: str):
     NONE_LABEL = "No program selected"
 
     # Export CSV
-    csv_enabled = is_enabled(school, "csv_export_enabled")
+    csv_enabled = is_enabled(school, "csv_export_enabled") or request.user.is_superuser
     if export and csv_enabled:
         all_keys = set()
         for s in rows_for_reporting:
