@@ -5,7 +5,6 @@ from typing import Any
 
 from django.contrib import admin
 from django.utils.html import format_html
-from django.db import models
 
 from core.admin.common import _is_superuser
 from core.models import AdminAuditLog

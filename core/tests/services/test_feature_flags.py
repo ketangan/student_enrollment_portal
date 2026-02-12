@@ -12,7 +12,6 @@ from core.services.feature_flags import (
     _FEATURE_MIN_PLAN,
     default_flags_for_plan,
     merge_flags,
-    is_enabled,
 )
 
 
@@ -192,79 +191,3 @@ def test_merge_flags_override_promotes_trial_to_pro_feature():
     result = merge_flags(plan=PLAN_TRIAL, overrides={"custom_branding_enabled": True})
     assert result["custom_branding_enabled"] is True
 
-
-# ---------------------------------------------------------------------------
-# is_enabled
-# ---------------------------------------------------------------------------
-
-class _FakeSchool:
-    """Minimal stand-in for School to test is_enabled without the DB."""
-    def __init__(self, plan="trial", feature_flags=None):
-        self.plan = plan
-        self.feature_flags = feature_flags or {}
-
-
-def test_is_enabled_trial_reports_disabled_by_default():
-    school = _FakeSchool(plan=PLAN_TRIAL)
-    assert is_enabled(school, "reports_enabled") is False
-
-
-def test_is_enabled_starter_reports_enabled_by_default():
-    school = _FakeSchool(plan=PLAN_STARTER)
-    assert is_enabled(school, "reports_enabled") is True
-
-
-def test_is_enabled_respects_override():
-    school = _FakeSchool(plan=PLAN_TRIAL, feature_flags={"reports_enabled": True})
-    assert is_enabled(school, "reports_enabled") is True
-
-
-def test_is_enabled_override_can_disable():
-    school = _FakeSchool(plan=PLAN_PRO, feature_flags={"reports_enabled": False})
-    assert is_enabled(school, "reports_enabled") is False
-
-
-def test_is_enabled_unknown_key_uses_default_false():
-    school = _FakeSchool(plan=PLAN_STARTER)
-    assert is_enabled(school, "nonexistent_flag") is False
-
-
-def test_is_enabled_unknown_key_uses_provided_default():
-    school = _FakeSchool(plan=PLAN_STARTER)
-    assert is_enabled(school, "nonexistent_flag", default=True) is True
-
-
-def test_is_enabled_handles_missing_plan_attr():
-    obj = type("Obj", (), {"feature_flags": {}})()
-    assert is_enabled(obj, "reports_enabled") is False
-
-
-def test_is_enabled_handles_missing_feature_flags_attr():
-    obj = type("Obj", (), {"plan": PLAN_STARTER})()
-    assert is_enabled(obj, "reports_enabled") is True
-
-
-# ---------------------------------------------------------------------------
-# is_enabled: parametrized across all flags and plans
-# ---------------------------------------------------------------------------
-
-@pytest.mark.parametrize("flag,min_plan", list(_FEATURE_MIN_PLAN.items()))
-def test_is_enabled_flag_matches_cumulative_tier(flag, min_plan):
-    """Each flag should be disabled below its min_plan and enabled at/above."""
-    min_rank = PLAN_RANK[min_plan]
-    for plan, rank in PLAN_RANK.items():
-        school = _FakeSchool(plan=plan)
-        expected = rank >= min_rank
-        assert is_enabled(school, flag) is expected, (
-            f"{flag} on {plan} (rank {rank}) should be {expected}"
-        )
-
-
-@pytest.mark.parametrize("flag", ALL_FLAGS)
-def test_is_enabled_override_can_flip_any_flag(flag):
-    """Per-school overrides can enable/disable any flag regardless of plan."""
-    school_on = _FakeSchool(plan=PLAN_TRIAL, feature_flags={flag: True})
-    assert is_enabled(school_on, flag) is True
-
-    school_off = _FakeSchool(plan=PLAN_GROWTH, feature_flags={flag: False})
-    assert is_enabled(school_off, flag) is False

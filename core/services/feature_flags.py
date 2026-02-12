@@ -69,11 +69,3 @@ def merge_flags(*, plan: str, overrides: dict[str, Any] | None) -> dict[str, boo
                 merged[k] = v
     return merged
 
-
-def is_enabled(school: Any, key: str, default: bool = False) -> bool:
-    """Check whether a feature flag is enabled for a school."""
-    flags = merge_flags(
-        plan=getattr(school, "plan", PLAN_TRIAL),
-        overrides=getattr(school, "feature_flags", None),
-    )
-    return bool(flags.get(key, default))
