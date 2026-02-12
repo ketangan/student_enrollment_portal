@@ -484,7 +484,8 @@ def school_reports_view(request, school_slug: str):
     NONE_LABEL = "No program selected"
 
     # Export CSV
-    if export:
+    csv_enabled = is_enabled(school, "csv_export_enabled")
+    if export and csv_enabled:
         all_keys = set()
         for s in rows_for_reporting:
             all_keys.update((s.data or {}).keys())
@@ -548,5 +549,6 @@ def school_reports_view(request, school_slug: str):
             "recent": recent,
             "selected_program": selected_program,
             "range_days": range_days,
+            "csv_export_enabled": csv_enabled,
         },
     )

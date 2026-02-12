@@ -183,6 +183,70 @@ def test_reports_blocked_when_starter_school_overrides_flag_to_false(client):
     assert resp.status_code == 403
 
 
+# ---------------------------------------------------------------------------
+# Feature-flag gate on CSV export from reports page
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_csv_export_blocked_when_flag_disabled(client):
+    """csv_export_enabled=False should suppress the export (returns HTML, not CSV)."""
+    school = SchoolFactory(slug="no-csv-school", plan="starter", feature_flags={"csv_export_enabled": False})
+    user = UserFactory()
+    SchoolAdminMembershipFactory(user=user, school=school)
+    SubmissionFactory(school=school)
+    client.force_login(user)
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug}) + "?export=1"
+    resp = client.get(url)
+    # Should get the normal reports HTML page, NOT a CSV download
+    assert resp.status_code == 200
+    assert "text/csv" not in resp.get("Content-Type", "")
+
+
+@pytest.mark.django_db
+def test_csv_export_allowed_when_flag_enabled(client):
+    """csv_export_enabled=True (default for starter) should return CSV."""
+    school = SchoolFactory(slug="csv-school", plan="starter")
+    user = UserFactory()
+    SchoolAdminMembershipFactory(user=user, school=school)
+    SubmissionFactory(school=school)
+    client.force_login(user)
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug}) + "?export=1"
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert "text/csv" in resp["Content-Type"]
+
+
+@pytest.mark.django_db
+def test_csv_export_button_hidden_when_flag_disabled(client):
+    """The 'Export CSV' link should not appear in the HTML when the flag is off."""
+    school = SchoolFactory(slug="hidden-btn-school", plan="starter", feature_flags={"csv_export_enabled": False})
+    user = UserFactory()
+    SchoolAdminMembershipFactory(user=user, school=school)
+    SubmissionFactory(school=school)
+    client.force_login(user)
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug})
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert b"Export CSV" not in resp.content
+
+
+@pytest.mark.django_db
+def test_csv_export_button_shown_when_flag_enabled(client):
+    """The 'Export CSV' link should appear when the flag is on."""
+    school = SchoolFactory(slug="show-btn-school", plan="starter")
+    user = UserFactory()
+    SchoolAdminMembershipFactory(user=user, school=school)
+    SubmissionFactory(school=school)
+    client.force_login(user)
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug})
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert b"Export CSV" in resp.content
 @pytest.mark.django_db
 def test_reports_feature_disabled_template_renders_correctly(client):
     """The feature_disabled.html template should include school info and message."""

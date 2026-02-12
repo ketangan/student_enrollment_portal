@@ -56,12 +56,14 @@
             </div>
 
             <!-- Export -->
+            {% if csv_export_enabled %}
             <a
               class="reports-clearbtn"
               href="?range={{ range_days }}{% if selected_program %}&program={{ selected_program|urlencode }}{% endif %}&export=1"
             >
               Export CSV
             </a>
+            {% endif %}
 
             <!-- Clear -->
             {% if selected_program %}
