@@ -6,6 +6,9 @@ import base64
 import secrets
 from django.contrib.auth.models import User
 from core.services.form_utils import resolve_label
+from core.services.feature_flags import (
+    PLAN_TRIAL, PLAN_STARTER, PLAN_PRO, PLAN_GROWTH, PLAN_CHOICES,
+)
 from django.conf import settings
 
 
@@ -14,8 +17,14 @@ class SchoolFeatures:
     school: "School"
 
     def _flags(self) -> dict[str, bool]:
+        # Cache per-instance to avoid recomputing on every property access.
+        cached = getattr(self, "_cached_flags", None)
+        if cached is not None:
+            return cached
         from core.services.feature_flags import merge_flags
-        return merge_flags(plan=self.school.plan, overrides=self.school.feature_flags)
+        flags = merge_flags(plan=self.school.plan, overrides=self.school.feature_flags)
+        object.__setattr__(self, "_cached_flags", flags)
+        return flags
 
     @property
     def reports_enabled(self) -> bool:
@@ -32,6 +41,26 @@ class SchoolFeatures:
     @property
     def audit_log_enabled(self) -> bool:
         return bool(self._flags().get("audit_log_enabled", True))
+
+    @property
+    def email_notifications_enabled(self) -> bool:
+        return bool(self._flags().get("email_notifications_enabled", False))
+
+    @property
+    def file_uploads_enabled(self) -> bool:
+        return bool(self._flags().get("file_uploads_enabled", False))
+
+    @property
+    def custom_branding_enabled(self) -> bool:
+        return bool(self._flags().get("custom_branding_enabled", False))
+
+    @property
+    def multi_form_enabled(self) -> bool:
+        return bool(self._flags().get("multi_form_enabled", False))
+
+    @property
+    def custom_statuses_enabled(self) -> bool:
+        return bool(self._flags().get("custom_statuses_enabled", False))
     
 
 class School(models.Model):
@@ -46,18 +75,13 @@ class School(models.Model):
     website_url = models.URLField(blank=True, default="")
     source_url = models.URLField(blank=True, default="")
 
-    # Feature flags / tiering (school-scoped)
-    PLAN_TRIAL = "trial"
-    PLAN_STARTER = "starter"
-    PLAN_PRO = "pro"
-    PLAN_GROWTH = "growth"
+    # Plan constants — imported from core.services.feature_flags (single source of truth)
+    PLAN_TRIAL = PLAN_TRIAL
+    PLAN_STARTER = PLAN_STARTER
+    PLAN_PRO = PLAN_PRO
+    PLAN_GROWTH = PLAN_GROWTH
 
-    PLAN_CHOICES = [
-        (PLAN_TRIAL, "Trial"),
-        (PLAN_STARTER, "Starter"),
-        (PLAN_PRO, "Pro"),
-        (PLAN_GROWTH, "Growth"),
-    ]
+    PLAN_CHOICES = PLAN_CHOICES
 
     plan = models.CharField(
         max_length=32,
@@ -78,12 +102,6 @@ class School(models.Model):
     @property
     def features(self) -> "SchoolFeatures":
         return SchoolFeatures(self)
-
-    def save(self, *args, **kwargs):
-        from core.services.feature_flags import merge_flags
-        if self._state.adding and not (self.feature_flags or {}):
-            self.feature_flags = merge_flags(plan=self.plan, overrides={})
-        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "School"
