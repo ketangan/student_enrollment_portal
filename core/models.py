@@ -6,9 +6,7 @@ import base64
 import secrets
 from django.contrib.auth.models import User
 from core.services.form_utils import resolve_label
-from core.services.feature_flags import (
-    PLAN_TRIAL, PLAN_STARTER, PLAN_PRO, PLAN_GROWTH, PLAN_CHOICES,
-)
+from core.services import feature_flags as ff
 from django.conf import settings
 
 
@@ -18,12 +16,12 @@ class SchoolFeatures:
 
     def _flags(self) -> dict[str, bool]:
         # Cache per-instance to avoid recomputing on every property access.
+        # Effective because School.features caches the SchoolFeatures instance.
         cached = getattr(self, "_cached_flags", None)
         if cached is not None:
             return cached
-        from core.services.feature_flags import merge_flags
-        flags = merge_flags(plan=self.school.plan, overrides=self.school.feature_flags)
-        object.__setattr__(self, "_cached_flags", flags)
+        flags = ff.merge_flags(plan=self.school.plan, overrides=self.school.feature_flags)
+        self._cached_flags = flags
         return flags
 
     @property
@@ -75,18 +73,10 @@ class School(models.Model):
     website_url = models.URLField(blank=True, default="")
     source_url = models.URLField(blank=True, default="")
 
-    # Plan constants — imported from core.services.feature_flags (single source of truth)
-    PLAN_TRIAL = PLAN_TRIAL
-    PLAN_STARTER = PLAN_STARTER
-    PLAN_PRO = PLAN_PRO
-    PLAN_GROWTH = PLAN_GROWTH
-
-    PLAN_CHOICES = PLAN_CHOICES
-
     plan = models.CharField(
         max_length=32,
-        choices=PLAN_CHOICES,
-        default=PLAN_TRIAL,
+        choices=ff.PLAN_CHOICES,
+        default=ff.PLAN_TRIAL,
         blank=True,
         db_index=True,
     )
@@ -101,7 +91,15 @@ class School(models.Model):
 
     @property
     def features(self) -> "SchoolFeatures":
-        return SchoolFeatures(self)
+        cached = getattr(self, "_features_cache", None)
+        if cached is None:
+            cached = SchoolFeatures(self)
+            self._features_cache = cached
+        return cached
+
+    def refresh_from_db(self, using=None, fields=None, from_queryset=None):
+        super().refresh_from_db(using=using, fields=fields, from_queryset=from_queryset)
+        self.__dict__.pop("_features_cache", None)
 
     class Meta:
         verbose_name = "School"

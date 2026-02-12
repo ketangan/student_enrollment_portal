@@ -7,6 +7,9 @@ from core.tests.factories import SchoolFactory, SubmissionFactory
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 from core.models import School, SchoolFeatures, SubmissionFile
+from core.services.feature_flags import (
+    PLAN_TRIAL, PLAN_STARTER, PLAN_PRO, PLAN_GROWTH, PLAN_CHOICES,
+)
 
 
 
@@ -151,7 +154,7 @@ def test_migration_backfills_public_id_for_existing_rows():
 @pytest.mark.django_db
 def test_school_plan_defaults_to_trial():
     school = SchoolFactory()
-    assert school.plan == School.PLAN_TRIAL
+    assert school.plan == PLAN_TRIAL
 
 
 @pytest.mark.django_db
@@ -252,11 +255,11 @@ def test_school_features_flags_helper_returns_merged_dict():
 @pytest.mark.django_db
 def test_school_plan_choices():
     """All PLAN_* constants are represented in PLAN_CHOICES."""
-    choice_values = {v for v, _ in School.PLAN_CHOICES}
-    assert School.PLAN_TRIAL in choice_values
-    assert School.PLAN_STARTER in choice_values
-    assert School.PLAN_PRO in choice_values
-    assert School.PLAN_GROWTH in choice_values
+    choice_values = {v for v, _ in PLAN_CHOICES}
+    assert PLAN_TRIAL in choice_values
+    assert PLAN_STARTER in choice_values
+    assert PLAN_PRO in choice_values
+    assert PLAN_GROWTH in choice_values
 
 
 # ---------------------------------------------------------------------------
@@ -330,15 +333,23 @@ def test_school_features_custom_statuses_respects_override():
 
 
 @pytest.mark.django_db
-def test_school_features_caching_does_not_leak_across_instances():
-    """Each SchoolFeatures is per-access; mutating one must not affect another."""
+def test_school_features_caching_is_effective():
+    """Repeated access to school.features returns the same cached instance."""
     school = SchoolFactory(plan="trial")
     f1 = school.features
+    f2 = school.features
+    assert f1 is f2
     assert f1.reports_enabled is False
 
-    # Simulate admin changing the plan on the model
-    school.plan = "pro"
-    f2 = school.features  # new dataclass instance
-    assert f2.reports_enabled is True
-    # Original still reflects the old cached state
-    assert f1.reports_enabled is False
+
+@pytest.mark.django_db
+def test_school_features_cache_invalidated_after_refresh():
+    """After refresh_from_db, a new SchoolFeatures is created with fresh data."""
+    school = SchoolFactory(plan="trial")
+    assert school.features.reports_enabled is False
+
+    # Simulate admin upgrading the plan via DB
+    School.objects.filter(pk=school.pk).update(plan="pro")
+    school.refresh_from_db()
+    # refresh_from_db clears Python-level attrs, so _features_cache is gone
+    assert school.features.reports_enabled is True
