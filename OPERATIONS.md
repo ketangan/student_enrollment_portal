@@ -364,7 +364,51 @@ Every school has a **plan** that controls which features are available. Plans ar
 | `custom_statuses_enabled`      | pro          | YAML-defined custom status choices in admin            |
 
 ---
+## 🔄 Plan Changes & Downgrades
 
+### Upgrade (e.g. Trial → Starter → Pro)
+
+Upgrades take effect **immediately**. Change the plan in `/admin/ → Schools`, save, and the school gains access to all features in the new tier. No migration or restart required.
+
+### Downgrade (e.g. Pro → Starter)
+
+Downgrades also take effect **immediately**. The system uses an **"immediate disable + data preservation"** policy:
+
+- **Features are gated at request time.** The moment a plan changes, the next page load respects the new tier.
+- **No data is ever deleted.** Submissions, files, audit logs, and custom statuses remain in the database regardless of plan.
+- **No grace period.** Because plan changes are manual (admin-only), the operator is expected to communicate with the school before downgrading.
+
+### Edge Cases on Downgrade
+
+| Scenario | What Happens | Recommended Action |
+|:---------|:-------------|:-------------------|
+| **Pro → Starter: school uses multi-form** | Multi-step routing disabled; form falls back to single-page `/apply/`. YAML step definitions are ignored but still valid if the school upgrades again. | Review the school's YAML before downgrading. If steps contain very different fields, the flat single-page form may be confusing to applicants. Consider pausing the form or simplifying the YAML first. |
+| **Pro → Starter: school uses custom statuses** | Admin dropdown reverts to default statuses (`new`, `reviewed`, `accepted`, `rejected`). Existing submissions keep their custom status *value* in the database, but it won't appear in the dropdown filter. | Export or bulk-update submissions with custom statuses to a default value before downgrading. |
+| **Pro → Starter: school uses custom branding** | Custom CSS/JS stops injecting. Form renders with the default theme. | No action needed — form remains fully functional, just unstyled. |
+| **Starter → Trial: school uses file uploads** | File upload fields from YAML still render, but the backend silently skips saving the file. Existing files remain on disk and downloadable. | Remove `type: file` fields from the school's YAML before downgrading, or the applicant will see a broken experience (upload appears to work but file is not saved). |
+| **Starter → Trial: school uses email notifications** | Confirmation emails silently stop sending. No error is shown to the applicant. | Inform the school that applicants will no longer receive confirmation emails. |
+| **Starter → Trial: school uses reports** | Reports page shows "Feature not available on your current plan." | No action needed — data is still in the DB and will reappear on upgrade. |
+
+### Override Exceptions
+
+If a school needs **one** Pro feature on a Starter plan (e.g., an early client who was promised multi-form), use the `feature_flags` JSON field to grant an override:
+
+```json
+{"multi_form_enabled": true}
+```
+
+This override is stored per-school and survives plan changes. To revoke it, remove the key or set it to `false`.
+
+### Operator Checklist: Before Downgrading a School
+
+1. **Check current feature usage** — open the school in admin, review plan and any `feature_flags` overrides
+2. **Review YAML config** — does it use `steps:` (multi-form), `type: file` (uploads), `branding:` (custom CSS/JS)?
+3. **Communicate with the school** — confirm they understand which features will be disabled
+4. **Clean up edge cases** — bulk-update custom statuses, remove file fields from YAML if needed
+5. **Change the plan** — save in admin; takes effect immediately
+6. **Verify** — visit the school's public form and admin to confirm expected behavior
+
+---
 ## �📩 Submissions Admin
 
 What is displayed:
