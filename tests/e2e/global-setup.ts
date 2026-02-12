@@ -68,7 +68,7 @@ export default async function globalSetup() {
       '-c',
       [
         'from core.models import School',
-        "schools = ['kimberlas-classical-ballet', 'torrance-sister-city-association', 'multi-form-demo']",
+        "schools = ['kimberlas-classical-ballet', 'torrance-sister-city-association', 'multi-form-demo', 'enrollment-request-demo']",
         'for slug in schools:',
         "  School.objects.get_or_create(slug=slug, defaults={'display_name': slug, 'website_url': '', 'source_url': ''})",
       ].join('\n'),
