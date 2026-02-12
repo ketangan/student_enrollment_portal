@@ -33,7 +33,7 @@ class SchoolFeatures:
     def audit_log_enabled(self) -> bool:
         return bool(self._flags().get("audit_log_enabled", True))
     
-    
+
 class School(models.Model):
     """
     Multi-tenant anchor. We use ONLY school_slug (Phase 0).
@@ -66,7 +66,6 @@ class School(models.Model):
         blank=True,
         db_index=True,
     )
-    # plan = models.CharField(max_length=32, blank=True, default="trial", db_index=True)
     feature_flags = models.JSONField(default=dict, blank=True)
 
     # Optional branding fields (can be empty; Phase 5 default applies)
@@ -88,7 +87,7 @@ class School(models.Model):
 
     class Meta:
         verbose_name = "School"
-        verbose_name_plural = "School"  # singular on purpose
+        verbose_name_plural = "Schools"
 
     def __str__(self) -> str:
         return self.display_name or self.slug

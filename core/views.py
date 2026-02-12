@@ -1,7 +1,9 @@
-from asyncio.log import logger
+import logging
 from collections import Counter
 from datetime import timedelta
 import csv
+
+logger = logging.getLogger(__name__)
 
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse, FileResponse
@@ -423,18 +425,18 @@ def school_reports_view(request, school_slug: str):
     if not _can_view_school_admin_page(request, school):
         raise Http404("Page not found")
     
-    if not is_enabled(school, "reports_enabled", default=True):
+    if not is_enabled(school, "reports_enabled"):
         return render(
-        request,
-        "feature_disabled.html",
-        {
-            "school": school,
-            "school_slug": school_slug,
-            "feature_name": "Reports",
-            "message": "Reports are currently disabled for this school.",
-        },
-        status=403,  # better than 404
-    )
+            request,
+            "feature_disabled.html",
+            {
+                "school": school,
+                "school_slug": school_slug,
+                "feature_name": "Reports",
+                "message": "Reports are currently disabled for this school.",
+            },
+            status=403,
+        )
 
     config = load_school_config(school_slug)
     label_map = build_option_label_map(config.form) if config else {}
