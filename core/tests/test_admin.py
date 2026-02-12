@@ -442,7 +442,9 @@ def test_submission_admin_changeform_view_required_fields_redirects_with_message
 
 @pytest.mark.django_db
 def test_school_admin_form_valid_feature_flags():
+    """Flags matching plan defaults are stripped; only overrides are stored."""
     school = SchoolFactory.create()
+    SchoolAdminForm.current_user_is_superuser = True
     form = SchoolAdminForm(
         instance=school,
         data={
@@ -458,13 +460,14 @@ def test_school_admin_form_valid_feature_flags():
         },
     )
     assert form.is_valid(), form.errors
-    cleaned = form.cleaned_data["feature_flags"]
-    assert cleaned == {"reports_enabled": True}
+    # reports_enabled=True IS the starter default → no override stored
+    assert form.cleaned_data["feature_flags"] == {}
 
 
 @pytest.mark.django_db
 def test_school_admin_form_empty_flags_returns_empty_dict():
     school = SchoolFactory.create()
+    SchoolAdminForm.current_user_is_superuser = True
     form = SchoolAdminForm(
         instance=school,
         data={
@@ -486,6 +489,7 @@ def test_school_admin_form_empty_flags_returns_empty_dict():
 @pytest.mark.django_db
 def test_school_admin_form_rejects_invalid_json():
     school = SchoolFactory.create()
+    SchoolAdminForm.current_user_is_superuser = True
     form = SchoolAdminForm(
         instance=school,
         data={
@@ -507,6 +511,7 @@ def test_school_admin_form_rejects_invalid_json():
 @pytest.mark.django_db
 def test_school_admin_form_rejects_non_dict_json():
     school = SchoolFactory.create()
+    SchoolAdminForm.current_user_is_superuser = True
     form = SchoolAdminForm(
         instance=school,
         data={
@@ -528,6 +533,7 @@ def test_school_admin_form_rejects_non_dict_json():
 @pytest.mark.django_db
 def test_school_admin_form_rejects_non_boolean_values():
     school = SchoolFactory.create()
+    SchoolAdminForm.current_user_is_superuser = True
     form = SchoolAdminForm(
         instance=school,
         data={
@@ -593,6 +599,7 @@ def test_school_pretty_json_widget_fallback_on_bad_input():
 def test_school_admin_form_rejects_non_string_keys():
     """Feature flag keys must be strings — numeric keys should be rejected."""
     school = SchoolFactory.create()
+    SchoolAdminForm.current_user_is_superuser = True
     # JSON with int key "1" — json.loads will turn it to str, but we test
     # what happens when the value is already a dict with int keys (e.g. from JSONField)
     form = SchoolAdminForm(
@@ -614,6 +621,131 @@ def test_school_admin_form_rejects_non_string_keys():
     )
     # Valid case should pass
     assert form.is_valid(), form.errors
+
+
+# ---------------------------------------------------------------------------
+# SchoolAdminForm __init__ behaviour (superuser vs school-admin)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_school_admin_form_hides_plan_and_flags_for_non_superuser():
+    """Non-superuser school admins should not see plan or feature_flags fields."""
+    school = SchoolFactory.create(plan="starter")
+    SchoolAdminForm.current_user_is_superuser = False
+    form = SchoolAdminForm(instance=school)
+    assert "plan" not in form.fields
+    assert "feature_flags" not in form.fields
+    # Other fields should still exist
+    assert "slug" in form.fields
+    assert "display_name" in form.fields
+
+
+@pytest.mark.django_db
+def test_school_admin_form_shows_plan_and_flags_for_superuser():
+    """Superusers should see plan and feature_flags fields."""
+    school = SchoolFactory.create(plan="starter")
+    SchoolAdminForm.current_user_is_superuser = True
+    form = SchoolAdminForm(instance=school)
+    assert "plan" in form.fields
+    assert "feature_flags" in form.fields
+
+
+@pytest.mark.django_db
+def test_school_admin_form_initial_shows_effective_flags():
+    """__init__ should populate initial feature_flags with merged effective flags."""
+    school = SchoolFactory.create(plan="trial", feature_flags={})
+    SchoolAdminForm.current_user_is_superuser = True
+    form = SchoolAdminForm(instance=school)
+    effective = form.initial["feature_flags"]
+    # trial plan: reports_enabled=False, others True
+    assert effective["reports_enabled"] is False
+    assert effective["status_enabled"] is True
+
+
+@pytest.mark.django_db
+def test_school_admin_form_initial_includes_overrides():
+    """Effective flags should reflect per-school overrides."""
+    school = SchoolFactory.create(
+        plan="trial", feature_flags={"reports_enabled": True}
+    )
+    SchoolAdminForm.current_user_is_superuser = True
+    form = SchoolAdminForm(instance=school)
+    assert form.initial["feature_flags"]["reports_enabled"] is True
+
+
+@pytest.mark.django_db
+def test_school_admin_form_clean_stores_overrides_only():
+    """clean_feature_flags should only store flags that differ from plan defaults."""
+    school = SchoolFactory.create(plan="trial")
+    SchoolAdminForm.current_user_is_superuser = True
+    # trial defaults: reports_enabled=False. Submit reports_enabled=True → override.
+    form = SchoolAdminForm(
+        instance=school,
+        data={
+            "slug": school.slug,
+            "display_name": school.display_name,
+            "website_url": school.website_url or "",
+            "source_url": school.source_url or "",
+            "plan": "trial",
+            "feature_flags": json.dumps({
+                "reports_enabled": True,   # differs from trial default (False)
+                "status_enabled": True,    # matches trial default → stripped
+            }),
+            "logo_url": "",
+            "theme_primary_color": "",
+            "theme_accent_color": "",
+        },
+    )
+    assert form.is_valid(), form.errors
+    overrides = form.cleaned_data["feature_flags"]
+    assert overrides == {"reports_enabled": True}
+
+
+@pytest.mark.django_db
+def test_school_admin_form_clean_all_defaults_returns_empty():
+    """If every submitted flag matches the plan default, overrides should be empty."""
+    school = SchoolFactory.create(plan="starter")
+    SchoolAdminForm.current_user_is_superuser = True
+    form = SchoolAdminForm(
+        instance=school,
+        data={
+            "slug": school.slug,
+            "display_name": school.display_name,
+            "website_url": school.website_url or "",
+            "source_url": school.source_url or "",
+            "plan": "starter",
+            "feature_flags": json.dumps({
+                "reports_enabled": True,
+                "status_enabled": True,
+                "csv_export_enabled": True,
+                "audit_log_enabled": True,
+            }),
+            "logo_url": "",
+            "theme_primary_color": "",
+            "theme_accent_color": "",
+        },
+    )
+    assert form.is_valid(), form.errors
+    assert form.cleaned_data["feature_flags"] == {}
+
+
+@pytest.mark.django_db
+def test_school_admin_get_form_injects_superuser_flag():
+    """SchoolAdmin.get_form() should set current_user_is_superuser on the form class."""
+    rf = RequestFactory()
+    sa = SchoolAdmin(SchoolFactory._meta.model, admin.site)
+
+    su = UserFactory.create(is_superuser=True, is_staff=True)
+    req = rf.get("/")
+    req.user = su
+    FormClass = sa.get_form(req)
+    assert FormClass.current_user_is_superuser is True
+
+    staff = UserFactory.create(is_staff=True)
+    req.user = staff
+    FormClass = sa.get_form(req)
+    assert FormClass.current_user_is_superuser is False
 
 
 # ---------------------------------------------------------------------------
