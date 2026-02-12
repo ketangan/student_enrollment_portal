@@ -167,7 +167,7 @@ class SubmissionAdmin(admin.ModelAdmin):
 
         statuses = None
         default_status = None
-        if obj and obj.school:
+        if obj and obj.school and obj.school.features.custom_statuses_enabled:
             cfg = load_school_config(obj.school.slug)
             raw = getattr(cfg, "raw", {}) or {}
             statuses, default_status = get_submission_status_choices(raw)
