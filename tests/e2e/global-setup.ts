@@ -68,7 +68,7 @@ export default async function globalSetup() {
       '-c',
       [
         'from core.models import School',
-        "schools = ['kimberlas-classical-ballet', 'torrance-sister-city-association']",
+        "schools = ['kimberlas-classical-ballet', 'torrance-sister-city-association', 'multi-form-demo']",
         'for slug in schools:',
         "  School.objects.get_or_create(slug=slug, defaults={'display_name': slug, 'website_url': '', 'source_url': ''})",
       ].join('\n'),
@@ -82,6 +82,17 @@ export default async function globalSetup() {
       [
         'from core.models import School',
         "School.objects.filter(slug__in=['dancemaker-studio', 'kimberlas-classical-ballet', 'torrance-sister-city-association']).update(plan='starter')",
+      ].join('\n'),
+    ]);
+
+    // multi-form-demo needs 'pro' plan for multi_form_enabled feature flag.
+    runPython([
+      'manage.py',
+      'shell',
+      '-c',
+      [
+        'from core.models import School',
+        "School.objects.filter(slug='multi-form-demo').update(plan='pro')",
       ].join('\n'),
     ]);
   }
