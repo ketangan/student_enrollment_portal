@@ -155,32 +155,24 @@ def test_school_plan_defaults_to_trial():
 
 
 @pytest.mark.django_db
-def test_school_feature_flags_defaults_to_empty_dict_or_seeded():
-    """Creating a school with no explicit flags should seed plan defaults via save()."""
+def test_school_feature_flags_defaults_to_empty_dict():
+    """Creating a school stores no flags — defaults come from the plan tier."""
     school = School.objects.create(slug="plan-seed-test", plan="trial")
-    # save() override seeds defaults when feature_flags is empty on creation
-    assert isinstance(school.feature_flags, dict)
-    assert "reports_enabled" in school.feature_flags
+    assert school.feature_flags == {}
 
 
 @pytest.mark.django_db
-def test_school_save_does_not_overwrite_existing_flags():
-    """If feature_flags is explicitly set on creation, save() should not overwrite."""
+def test_school_save_preserves_explicit_flags():
+    """Explicit feature_flags are persisted as-is (no seeding on save)."""
     flags = {"reports_enabled": True, "custom": True}
     school = School.objects.create(slug="keep-flags-test", plan="trial", feature_flags=flags)
     assert school.feature_flags == flags
 
 
 @pytest.mark.django_db
-def test_school_save_does_not_re_seed_on_update():
-    """Updating an existing school should not re-seed feature_flags."""
+def test_school_save_does_not_inject_flags_on_update():
+    """Updating a school should never inject plan-default flags."""
     school = School.objects.create(slug="update-test", plan="trial")
-    # manually clear flags after creation
-    School.objects.filter(pk=school.pk).update(feature_flags={})
-    school.refresh_from_db()
-    assert school.feature_flags == {}
-
-    # update display_name (not adding) -> save should not re-seed
     school.display_name = "Updated"
     school.save()
     school.refresh_from_db()
@@ -265,3 +257,88 @@ def test_school_plan_choices():
     assert School.PLAN_STARTER in choice_values
     assert School.PLAN_PRO in choice_values
     assert School.PLAN_GROWTH in choice_values
+
+
+# ---------------------------------------------------------------------------
+# SchoolFeatures — new flag properties (email, uploads, branding, multi, custom)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_school_features_email_notifications_follows_plan():
+    assert SchoolFactory(plan="trial").features.email_notifications_enabled is False
+    assert SchoolFactory(plan="starter").features.email_notifications_enabled is True
+    assert SchoolFactory(plan="pro").features.email_notifications_enabled is True
+
+
+@pytest.mark.django_db
+def test_school_features_email_notifications_respects_override():
+    school = SchoolFactory(plan="trial", feature_flags={"email_notifications_enabled": True})
+    assert school.features.email_notifications_enabled is True
+
+
+@pytest.mark.django_db
+def test_school_features_file_uploads_follows_plan():
+    assert SchoolFactory(plan="trial").features.file_uploads_enabled is False
+    assert SchoolFactory(plan="starter").features.file_uploads_enabled is True
+    assert SchoolFactory(plan="pro").features.file_uploads_enabled is True
+
+
+@pytest.mark.django_db
+def test_school_features_file_uploads_respects_override():
+    school = SchoolFactory(plan="starter", feature_flags={"file_uploads_enabled": False})
+    assert school.features.file_uploads_enabled is False
+
+
+@pytest.mark.django_db
+def test_school_features_custom_branding_follows_plan():
+    assert SchoolFactory(plan="trial").features.custom_branding_enabled is False
+    assert SchoolFactory(plan="starter").features.custom_branding_enabled is False
+    assert SchoolFactory(plan="pro").features.custom_branding_enabled is True
+
+
+@pytest.mark.django_db
+def test_school_features_custom_branding_respects_override():
+    school = SchoolFactory(plan="trial", feature_flags={"custom_branding_enabled": True})
+    assert school.features.custom_branding_enabled is True
+
+
+@pytest.mark.django_db
+def test_school_features_multi_form_follows_plan():
+    assert SchoolFactory(plan="trial").features.multi_form_enabled is False
+    assert SchoolFactory(plan="starter").features.multi_form_enabled is False
+    assert SchoolFactory(plan="pro").features.multi_form_enabled is True
+
+
+@pytest.mark.django_db
+def test_school_features_multi_form_respects_override():
+    school = SchoolFactory(plan="starter", feature_flags={"multi_form_enabled": True})
+    assert school.features.multi_form_enabled is True
+
+
+@pytest.mark.django_db
+def test_school_features_custom_statuses_follows_plan():
+    assert SchoolFactory(plan="trial").features.custom_statuses_enabled is False
+    assert SchoolFactory(plan="starter").features.custom_statuses_enabled is False
+    assert SchoolFactory(plan="pro").features.custom_statuses_enabled is True
+
+
+@pytest.mark.django_db
+def test_school_features_custom_statuses_respects_override():
+    school = SchoolFactory(plan="pro", feature_flags={"custom_statuses_enabled": False})
+    assert school.features.custom_statuses_enabled is False
+
+
+@pytest.mark.django_db
+def test_school_features_caching_does_not_leak_across_instances():
+    """Each SchoolFeatures is per-access; mutating one must not affect another."""
+    school = SchoolFactory(plan="trial")
+    f1 = school.features
+    assert f1.reports_enabled is False
+
+    # Simulate admin changing the plan on the model
+    school.plan = "pro"
+    f2 = school.features  # new dataclass instance
+    assert f2.reports_enabled is True
+    # Original still reflects the old cached state
+    assert f1.reports_enabled is False

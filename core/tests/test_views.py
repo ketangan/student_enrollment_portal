@@ -53,6 +53,9 @@ def test_apply_view_multi_default_redirects_to_first_form(client, monkeypatch, d
     monkeypatch.setattr("core.views.load_school_config", lambda slug: DummyMultiConfig())
 
     school_slug = "dummy-multi"
+    # Pre-create school on "pro" plan so multi_form_enabled is active.
+    SchoolFactory.create(slug=school_slug, plan="pro")
+
     resp = client.get(reverse("apply", kwargs={"school_slug": school_slug}))
     assert resp.status_code in (301, 302)
     assert resp["Location"].endswith(reverse("apply_form", kwargs={"school_slug": school_slug, "form_key": "step1"}))

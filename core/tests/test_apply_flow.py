@@ -86,6 +86,14 @@ def test_apply_flow_creates_submission_and_redirects(client):
     cfg = load_school_config(slug)
     assert cfg is not None, f"Missing config for {slug} (configs/schools/{slug}.yaml)"
 
+    # Pre-create the school on the "starter" plan so that file uploads and
+    # email notifications are enabled (they are gated behind feature flags).
+    from core.models import School
+    School.objects.get_or_create(
+        slug=slug,
+        defaults={"display_name": cfg.display_name, "plan": "starter"},
+    )
+
     url = reverse("apply", kwargs={"school_slug": slug})
 
     post_data = _build_valid_post_data(cfg.form)
