@@ -17,7 +17,6 @@ from .models import School, Submission, SubmissionFile
 from .services.config_loader import get_forms, load_school_config
 from .services.form_utils import build_option_label_map
 from .services.validation import validate_submission
-from .services.feature_flags import is_enabled
 from .services.notifications import send_submission_notification_email
 
 
@@ -195,12 +194,12 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
     school = _get_or_create_school_from_config(school_slug, config, branding)
 
     # Strip custom branding assets if the feature is not enabled for this school.
-    if not is_enabled(school, "custom_branding_enabled"):
+    if not school.features.custom_branding_enabled:
         branding["custom_css"] = None
         branding["custom_js"] = None
 
     forms = get_forms(config) or {}
-    is_multi = len(forms) > 1 and is_enabled(school, "multi_form_enabled")
+    is_multi = len(forms) > 1 and school.features.multi_form_enabled
 
     # ----------------------------
     # SINGLE-FORM SCHOOL (legacy)
@@ -227,9 +226,9 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 )
 
             submission = Submission.objects.create(school=school, form_key="default", data=cleaned)
-            if is_enabled(school, "file_uploads_enabled"):
+            if school.features.file_uploads_enabled:
                 _save_uploaded_files(submission, form_cfg, request.FILES)
-            if is_enabled(school, "email_notifications_enabled"):
+            if school.features.email_notifications_enabled:
                 try:
                     send_submission_notification_email(
                         request=request,
@@ -296,7 +295,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
         submission = _ensure_multi_submission(request, school, school_slug)
 
         _merge_submission_data(submission, cleaned)
-        if is_enabled(school, "file_uploads_enabled"):
+        if school.features.file_uploads_enabled:
             _save_uploaded_files(submission, form_cfg, request.FILES)
 
         # Next step or finish
@@ -305,7 +304,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
 
         # Done: clear session key and go success
         request.session.pop(_multi_session_key(school_slug), None)
-        if is_enabled(school, "email_notifications_enabled"):
+        if school.features.email_notifications_enabled:
             try:
                 send_submission_notification_email(
                     request=request,
@@ -434,7 +433,7 @@ def school_reports_view(request, school_slug: str):
     if not _can_view_school_admin_page(request, school):
         raise Http404("Page not found")
     
-    if not request.user.is_superuser and not is_enabled(school, "reports_enabled"):
+    if not request.user.is_superuser and not school.features.reports_enabled:
         return render(
             request,
             "feature_disabled.html",
@@ -484,7 +483,7 @@ def school_reports_view(request, school_slug: str):
     NONE_LABEL = "No program selected"
 
     # Export CSV
-    csv_enabled = is_enabled(school, "csv_export_enabled") or request.user.is_superuser
+    csv_enabled = school.features.csv_export_enabled or request.user.is_superuser
     if export and csv_enabled:
         all_keys = set()
         for s in rows_for_reporting:

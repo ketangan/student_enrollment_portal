@@ -24,21 +24,26 @@ class SchoolFeatures:
         self._cached_flags = flags
         return flags
 
+    # All defaults below are False (deny by default).  _flags() always
+    # contains every key from _FEATURE_MIN_PLAN, so the fallback never
+    # fires for known flags.  False ensures that an unregistered flag
+    # silently stays off rather than accidentally enabling a feature.
+
     @property
     def reports_enabled(self) -> bool:
         return bool(self._flags().get("reports_enabled", False))
 
     @property
     def status_enabled(self) -> bool:
-        return bool(self._flags().get("status_enabled", True))
+        return bool(self._flags().get("status_enabled", False))
 
     @property
     def csv_export_enabled(self) -> bool:
-        return bool(self._flags().get("csv_export_enabled", True))
+        return bool(self._flags().get("csv_export_enabled", False))
 
     @property
     def audit_log_enabled(self) -> bool:
-        return bool(self._flags().get("audit_log_enabled", True))
+        return bool(self._flags().get("audit_log_enabled", False))
 
     @property
     def email_notifications_enabled(self) -> bool:
