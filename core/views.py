@@ -434,7 +434,7 @@ def school_reports_view(request, school_slug: str):
     if not _can_view_school_admin_page(request, school):
         raise Http404("Page not found")
     
-    if not is_enabled(school, "reports_enabled"):
+    if not request.user.is_superuser and not is_enabled(school, "reports_enabled"):
         return render(
             request,
             "feature_disabled.html",

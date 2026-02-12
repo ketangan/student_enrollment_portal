@@ -299,8 +299,8 @@ def test_reports_feature_disabled_template_renders_correctly(client):
 
 
 @pytest.mark.django_db
-def test_superuser_also_blocked_when_reports_disabled(client):
-    """Even superusers should see the 403 when the flag is off."""
+def test_superuser_bypasses_reports_disabled_flag(client):
+    """Superusers should see reports even when the flag is off."""
     school = SchoolFactory(slug="su-flag-test", plan="trial", feature_flags={"reports_enabled": False})
     su = UserFactory()
     su.is_superuser = True
@@ -310,4 +310,4 @@ def test_superuser_also_blocked_when_reports_disabled(client):
 
     url = reverse("school_reports", kwargs={"school_slug": school.slug})
     resp = client.get(url)
-    assert resp.status_code == 403
+    assert resp.status_code == 200

@@ -949,9 +949,10 @@ def test_submission_admin_get_fieldsets_hides_status_when_disabled():
     sub = SubmissionFactory.create(school=school)
 
     ma = SubmissionAdmin(Submission, admin_site)
-    su = UserFactory.create(is_superuser=True, is_staff=True)
+    school_admin = UserFactory.create(is_staff=True)
+    SchoolAdminMembershipFactory.create(user=school_admin, school=school)
     req = RequestFactory().get("/")
-    req.user = su
+    req.user = school_admin
 
     fieldsets = ma.get_fieldsets(req, obj=sub)
     general_fields = fieldsets[0][1]["fields"]
@@ -968,9 +969,10 @@ def test_submission_admin_get_form_removes_status_when_disabled(monkeypatch):
     monkeypatch.setattr("core.admin.submissions.load_school_config", lambda slug: None)
 
     ma = SubmissionAdmin(Submission, admin_site)
-    su = UserFactory.create(is_superuser=True, is_staff=True)
+    school_admin = UserFactory.create(is_staff=True)
+    SchoolAdminMembershipFactory.create(user=school_admin, school=school)
     req = RequestFactory().get("/")
-    req.user = su
+    req.user = school_admin
 
     form_cls = ma.get_form(req, obj=sub)
     assert "status" not in form_cls.base_fields
@@ -1039,11 +1041,12 @@ def test_submission_admin_export_csv_blocked_when_disabled():
     school = SchoolFactory.create(plan="trial", feature_flags={"csv_export_enabled": False})
     sub = SubmissionFactory.create(school=school)
 
-    su = UserFactory.create(is_superuser=True, is_staff=True)
+    school_admin = UserFactory.create(is_staff=True)
+    SchoolAdminMembershipFactory.create(user=school_admin, school=school)
     ma = SubmissionAdmin(Submission, admin_site)
 
     req = RequestFactory().get("/")
-    req.user = su
+    req.user = school_admin
 
     # Attach message storage
     SessionMiddleware(lambda r: None).process_request(req)

@@ -120,7 +120,7 @@ class SubmissionAdmin(admin.ModelAdmin):
     def get_fieldsets(self, request, obj=None):
         general_fields = ["public_id", "school_display", "created_at_pretty", "yaml_form"]
 
-        if obj and obj.school and obj.school.features.status_enabled:
+        if _is_superuser(request.user) or (obj and obj.school and obj.school.features.status_enabled):
             general_fields.insert(1, "status")
 
         return (
@@ -157,7 +157,8 @@ class SubmissionAdmin(admin.ModelAdmin):
         form = super().get_form(request, obj, **kwargs)
 
         # If status feature is off for this school, remove the field entirely.
-        if obj and obj.school and not obj.school.features.status_enabled:
+        # Superusers always see the full form regardless of the school's plan.
+        if not _is_superuser(request.user) and obj and obj.school and not obj.school.features.status_enabled:
             form.base_fields.pop("status", None)
             return form
 
@@ -167,7 +168,7 @@ class SubmissionAdmin(admin.ModelAdmin):
 
         statuses = None
         default_status = None
-        if obj and obj.school and obj.school.features.custom_statuses_enabled:
+        if obj and obj.school and (_is_superuser(request.user) or obj.school.features.custom_statuses_enabled):
             cfg = load_school_config(obj.school.slug)
             raw = getattr(cfg, "raw", {}) or {}
             statuses, default_status = get_submission_status_choices(raw)
@@ -478,7 +479,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         queryset = self.get_queryset(request).filter(id__in=queryset.values_list("id", flat=True))
         
         first = queryset.first()
-        if first and not first.school.features.csv_export_enabled:
+        if not _is_superuser(request.user) and first and not first.school.features.csv_export_enabled:
             messages.error(request, "CSV export is not enabled for this school.")
             return None
 
