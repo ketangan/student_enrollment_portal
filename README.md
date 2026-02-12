@@ -58,7 +58,23 @@ It replaces PDFs, email, and paper forms with a modern, branded, and secure appl
 - Per-school colors, logos, and themes
 - Defaults provided if branding isn’t configured
 - No frontend code changes required
+### Plan-Based Feature Tiers
 
+Every school runs on a **plan** that unlocks features cumulatively:
+
+| Feature                  | Trial | Starter | Pro | Growth |
+|:-------------------------|:-----:|:-------:|:---:|:------:|
+| Submission Status        | ✅    | ✅     | ✅  | ✅     |
+| CSV Export               | ✅    | ✅     | ✅  | ✅     |
+| Audit Log                | ✅    | ✅     | ✅  | ✅     |
+| Reports & Charts         | ❌    | ✅     | ✅  | ✅     |
+| Email Notifications      | ❌    | ✅     | ✅  | ✅     |
+| File Uploads             | ❌    | ✅     | ✅  | ✅     |
+| Custom Branding (CSS/JS) | ❌    | ❌     | ✅  | ✅     |
+| Multi-Form Support       | ❌    | ❌     | ✅  | ✅     |
+| Custom Statuses          | ❌    | ❌     | ✅  | ✅     |
+
+Per-school overrides let you enable or disable any feature individually.
 ---
 
 ## How It Works (High Level)
@@ -116,7 +132,6 @@ Currently live-ready for:
 - Lead capture (pre-application)
 - Email invitations & password resets
 - Advanced analytics
-- Multi-form support per school
 - E-signatures and waivers
 
 ---

@@ -319,7 +319,53 @@ If a user is logged in but sees no data:
 
 ---
 
-## 📩 Submissions Admin
+## � Plans & Feature Flags
+
+Every school has a **plan** that controls which features are available. Plans are cumulative — each higher tier includes everything from the tiers below it.
+
+| Feature                  | Trial | Starter | Pro | Growth |
+|:-------------------------|:-----:|:-------:|:---:|:------:|
+| Submission Status        | ✅    | ✅     | ✅  | ✅     |
+| CSV Export               | ✅    | ✅     | ✅  | ✅     |
+| Audit Log                | ✅    | ✅     | ✅  | ✅     |
+| Reports & Charts         | ❌    | ✅     | ✅  | ✅     |
+| Email Notifications      | ❌    | ✅     | ✅  | ✅     |
+| File Uploads             | ❌    | ✅     | ✅  | ✅     |
+| Custom Branding (CSS/JS) | ❌    | ❌     | ✅  | ✅     |
+| Multi-Form Support       | ❌    | ❌     | ✅  | ✅     |
+| Custom Statuses          | ❌    | ❌     | ✅  | ✅     |
+
+### How It Works
+
+- Each school's `plan` field determines its baseline feature set.
+- The `feature_flags` JSON field stores **per-school overrides only** (not the full set).
+- At runtime, flags are computed: `plan defaults + overrides → effective flags`.
+- Overrides let you enable a Pro feature on a Starter school (e.g., for early clients), or disable a feature for a specific school.
+
+### Setting a School's Plan
+
+1. Go to `/admin/ → Schools → (select school)`
+2. Choose a **Plan** from the dropdown
+3. (Optional) Add overrides in the **Feature flags** JSON editor
+4. Save
+
+### Flag Reference
+
+| Flag Key                       | Minimum Plan | What It Gates                                         |
+|:-------------------------------|:-------------|:------------------------------------------------------|
+| `status_enabled`               | trial        | Status column in admin + status filter                 |
+| `csv_export_enabled`           | trial        | "Export CSV" admin action                              |
+| `audit_log_enabled`            | trial        | Admin audit log recording                              |
+| `reports_enabled`              | starter      | `/schools/<slug>/admin/reports` page                   |
+| `email_notifications_enabled`  | starter      | Submission confirmation email dispatch                 |
+| `file_uploads_enabled`         | starter      | Saving uploaded files from application forms           |
+| `custom_branding_enabled`      | pro          | Custom CSS/JS injection from YAML branding             |
+| `multi_form_enabled`           | pro          | Multi-step / multi-form routing per school             |
+| `custom_statuses_enabled`      | pro          | YAML-defined custom status choices in admin            |
+
+---
+
+## �📩 Submissions Admin
 
 What is displayed:
 - Student / Applicant name
@@ -391,8 +437,7 @@ Deploy environments do not automatically run tests — CI protects the main bran
 ⸻
 
 ⚠️ Known MVP Limitations
-	•	No email backend (SMTP) configured
-	•	Single form per school
+	•	No email backend (SMTP) configured by default
 	•	Submission detail is stored as JSON
 	•	No custom domain per school yet
 	•	File preview only via download (no inline preview)
