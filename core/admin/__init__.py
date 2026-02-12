@@ -15,6 +15,7 @@ from .submissions import SubmissionAdmin, PrettyJSONWidget
 from .users import SchoolScopedUserAdmin, UserSuperuserForm, UserSuperuserAddForm
 from .schools import SchoolAdmin
 from .memberships import SchoolAdminMembershipAdmin
+from .preferences import AdminPreferenceAdmin  # noqa: F401
 
 __all__ = [
     # django admin module shim

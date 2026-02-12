@@ -7,6 +7,7 @@ import secrets
 from django.contrib.auth.models import User
 from core.services.form_utils import resolve_label
 from core.services import feature_flags as ff
+from core.services.admin_themes import THEME_CHOICES, DEFAULT_THEME_KEY
 from django.conf import settings
 
 
@@ -319,4 +320,30 @@ class AdminAuditLog(models.Model):
 
     def __str__(self) -> str:
         return f"{self.created_at} {self.action} {self.model_label}#{self.object_id}"
-    
+
+
+class AdminPreference(models.Model):
+    """Per-user admin UI preferences (theme, etc.).
+
+    OneToOneField on User so it works for both school admins and superusers.
+    Adding a new preference field later = one migration + one line here.
+    """
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="admin_preference",
+    )
+    theme = models.CharField(
+        max_length=32,
+        choices=THEME_CHOICES,
+        default=DEFAULT_THEME_KEY,
+        db_index=True,
+    )
+
+    class Meta:
+        verbose_name = "Admin Preference"
+        verbose_name_plural = "Admin Preferences"
+
+    def __str__(self) -> str:
+        return f"{self.user.username} → {self.theme}"

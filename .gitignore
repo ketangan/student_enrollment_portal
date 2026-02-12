@@ -16,6 +16,7 @@ venv/
 local_settings.py
 db.sqlite3
 media/
+staticfiles/
 
 # OS / Editor
 .DS_Store

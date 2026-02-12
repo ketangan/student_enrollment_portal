@@ -9,6 +9,7 @@ from django.urls import path, reverse
 
 from core.admin.common import _is_superuser, _membership_school_id
 from core.models import School
+from core.views import admin_theme_api
 
 
 def admin_reports_hub_view(request):
@@ -40,6 +41,7 @@ def _admin_get_urls():
     urls = _original_admin_get_urls()
     custom = [
         path("reports/", admin.site.admin_view(admin_reports_hub_view), name="reports_hub"),
+        path("api/theme/", admin.site.admin_view(admin_theme_api), name="admin_theme_api"),
     ]
     return custom + urls
 

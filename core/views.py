@@ -1,3 +1,4 @@
+import json
 import logging
 from collections import Counter
 from datetime import timedelta
@@ -6,14 +7,20 @@ import csv
 logger = logging.getLogger(__name__)
 
 from django.contrib.auth.decorators import login_required
-from django.http import Http404, HttpResponse, FileResponse
+from django.http import Http404, HttpResponse, FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.http import require_http_methods
 
-from .models import School, Submission, SubmissionFile
+from .models import AdminPreference, School, Submission, SubmissionFile
+from .services.admin_themes import (
+    ADMIN_THEMES,
+    DEFAULT_THEME_KEY,
+    get_themes_for_api,
+)
 from .services.config_loader import get_forms, load_school_config
 from .services.form_utils import build_option_label_map
 from .services.validation import validate_submission
@@ -551,3 +558,43 @@ def school_reports_view(request, school_slug: str):
             "csv_export_enabled": csv_enabled,
         },
     )
+
+
+# ── Admin theme API ──────────────────────────────────────────────────────
+
+@require_http_methods(["GET", "POST"])
+def admin_theme_api(request):
+    """GET: available themes + current selection.  POST: save preference."""
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return JsonResponse({"error": "Not authorised"}, status=403)
+
+    if request.method == "GET":
+        current = DEFAULT_THEME_KEY
+        try:
+            current = request.user.admin_preference.theme
+        except Exception:
+            pass
+        return JsonResponse({
+            "themes": get_themes_for_api(),
+            "current": current,
+        })
+
+    # POST — save preference
+    try:
+        body = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    theme_key = body.get("theme", "").strip()
+    if theme_key not in ADMIN_THEMES:
+        return JsonResponse({"error": f"Unknown theme: {theme_key}"}, status=400)
+
+    pref, _created = AdminPreference.objects.get_or_create(
+        user=request.user,
+        defaults={"theme": theme_key},
+    )
+    if not _created:
+        pref.theme = theme_key
+        pref.save(update_fields=["theme"])
+
+    return JsonResponse({"ok": True, "theme": theme_key})

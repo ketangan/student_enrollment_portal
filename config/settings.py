@@ -209,9 +209,12 @@ JAZZMIN_SETTINGS = {
     "show_sidebar": True,
     "navigation_expanded": True,
     "hide_apps": [],
-    "hide_models": [],
+    "hide_models": ["core.adminpreference"],
     "show_ui_builder": False,
     "site_url": None,
+
+    # Theme picker (injected into user dropdown)
+    "custom_js": "admin/theme_picker.js",
 
     # Icons (optional but makes it feel modern)
     "icons": {
