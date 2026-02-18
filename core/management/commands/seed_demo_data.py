@@ -52,6 +52,7 @@ class Command(BaseCommand):
         parser.add_argument("--superuser-username", default="admin")
         parser.add_argument("--superuser-email", default="admin@example.com")
         parser.add_argument("--superuser-password", default="admin12345")
+        parser.add_argument("--skip-superuser", action="store_true", help="Skip creating the superuser")
 
         # School admin
         parser.add_argument("--school-admin-username", default="schooladmin")
@@ -71,20 +72,23 @@ class Command(BaseCommand):
         # -------------------
         # Create superuser
         # -------------------
-        su, su_created = User.objects.get_or_create(
-            username=opts["superuser_username"],
-            defaults={
-                "email": opts["superuser_email"],
-                "is_staff": True,
-                "is_superuser": True,
-            },
-        )
-        if su_created:
-            su.set_password(opts["superuser_password"])
-            su.save()
-            self.stdout.write(self.style.SUCCESS(f"Created superuser: {su.username}"))
+        if not opts["skip_superuser"]:
+            su, su_created = User.objects.get_or_create(
+                username=opts["superuser_username"],
+                defaults={
+                    "email": opts["superuser_email"],
+                    "is_staff": True,
+                    "is_superuser": True,
+                },
+            )
+            if su_created:
+                su.set_password(opts["superuser_password"])
+                su.save()
+                self.stdout.write(self.style.SUCCESS(f"Created superuser: {su.username}"))
+            else:
+                self.stdout.write(f"Superuser exists: {su.username}")
         else:
-            self.stdout.write(f"Superuser exists: {su.username}")
+            self.stdout.write("Skipping superuser creation (per --skip-superuser)")
 
         # -------------------
         # Create school

@@ -1,0 +1,255 @@
+school:
+  slug: "lessons-in-art"
+  display_name: "Lessons in Art"
+  website_url: "https://lessonsinart.com"
+  source_url: "https://lessonsinart.com/home"
+
+form:
+  title: "Start Registration"
+  description: >
+    Submit this form to request enrollment or book a program.
+    We’ll review your details and follow up with next steps.
+
+  sections:
+    - title: "Enrollment Type"
+      fields:
+        - key: request_type
+          label: "What are you looking for?"
+          type: select
+          required: true
+          options:
+            - { value: "weekly_classes", label: "Weekly Classes (Kids/Teens/Adults)" }
+            - { value: "homeschool", label: "Homeschool Program" }
+            - { value: "camp", label: "Art Camp" }
+            - { value: "party", label: "Party / Group Event" }
+            - { value: "portfolio_prep", label: "Portfolio Prep / Advanced Track" }
+            - { value: "unsure", label: "Not sure yet" }
+
+    - title: "Student / Participant"
+      fields:
+        - key: participant_first_name
+          label: "Participant First Name"
+          type: text
+          required: true
+
+        - key: participant_last_name
+          label: "Participant Last Name"
+          type: text
+          required: true
+
+        # - key: participant_is_adult
+        #   label: "Participant is 18+"
+        #   type: checkbox
+        #   required: false
+
+        - key: date_of_birth
+          label: "Date of Birth (if under 18)"
+          type: date
+          required: false
+
+        - key: age
+          label: "Age"
+          type: number
+          required: false
+          readonly: true
+
+    - title: "Parent / Guardian (if participant is under 18)"
+      fields:
+        - key: guardian_name
+          label: "Parent / Guardian Full Name"
+          type: text
+          required: false
+
+        - key: guardian_email
+          label: "Parent / Guardian Email"
+          type: email
+          required: false
+
+        - key: guardian_phone
+          label: "Parent / Guardian Phone"
+          type: tel
+          required: false
+
+    - title: "Contact Information"
+      fields:
+        - key: contact_email
+          label: "Primary Email"
+          type: email
+          required: true
+
+        - key: contact_phone
+          label: "Primary Phone"
+          type: tel
+          required: false
+
+        - key: preferred_contact_method
+          label: "Preferred Contact Method"
+          type: select
+          required: false
+          options:
+            - { value: "email", label: "Email" }
+            - { value: "phone", label: "Phone" }
+            - { value: "text", label: "Text" }
+
+    - title: "Program Details"
+      fields:
+        - key: program_track
+          label: "Program Track"
+          type: select
+          required: false
+          options:
+            - { value: "kids", label: "Kids" }
+            - { value: "teens", label: "Teens" }
+            - { value: "adults", label: "Adults" }
+            - { value: "mixed", label: "Not sure" }
+
+        - key: medium_interest
+          label: "What are you interested in?"
+          type: multiselect
+          required: false
+          options:
+            - { value: "drawing", label: "Drawing" }
+            - { value: "painting", label: "Painting" }
+            - { value: "digital", label: "Digital Art" }
+            - { value: "animation", label: "Animation / Storyboarding" }
+            - { value: "design", label: "Design / Illustration" }
+            - { value: "mixed_media", label: "Mixed Media" }
+            - { value: "unsure", label: "Not sure" }
+
+        - key: skill_level
+          label: "Skill Level"
+          type: select
+          required: false
+          options:
+            - { value: "beginner", label: "Beginner" }
+            - { value: "intermediate", label: "Intermediate" }
+            - { value: "advanced", label: "Advanced" }
+            - { value: "unsure", label: "Not sure" }
+
+    - title: "Schedule Preferences"
+      fields:
+        - key: format
+          label: "Format"
+          type: select
+          required: false
+          options:
+            - { value: "in_studio", label: "In-Studio" }
+            - { value: "online", label: "Online" }
+            - { value: "either", label: "Either is fine" }
+
+        - key: preferred_days
+          label: "Preferred Days"
+          type: multiselect
+          required: false
+          options:
+            - { label: "Monday", value: "mon" }
+            - { label: "Tuesday", value: "tue" }
+            - { label: "Wednesday", value: "wed" }
+            - { label: "Thursday", value: "thu" }
+            - { label: "Friday", value: "fri" }
+            - { label: "Saturday", value: "sat" }
+            - { label: "Sunday", value: "sun" }
+
+        - key: preferred_time
+          label: "Preferred Time"
+          type: select
+          required: false
+          options:
+            - { value: "morning", label: "Morning" }
+            - { value: "afternoon", label: "Afternoon" }
+            - { value: "evening", label: "Evening" }
+            - { value: "flexible", label: "Flexible" }
+
+        - key: desired_start
+          label: "Desired Start"
+          type: select
+          required: false
+          options:
+            - { value: "asap", label: "As soon as possible" }
+            - { value: "next_2_weeks", label: "Within 2 weeks" }
+            - { value: "next_month", label: "Within a month" }
+            - { value: "unsure", label: "Not sure yet" }
+
+    - title: "Camps / Events (if applicable)"
+      fields:
+        - key: camp_week
+          label: "Camp Week (if requesting camp)"
+          type: text
+          required: false
+          help_text: "Example: June 10–14"
+
+        - key: party_date
+          label: "Preferred Party Date (if requesting a party)"
+          type: date
+          required: false
+
+        - key: party_guest_count
+          label: "Estimated Guest Count"
+          type: number
+          required: false
+
+    - title: "Portfolio Prep (optional)"
+      fields:
+        - key: portfolio_goal
+          label: "What are you preparing for?"
+          type: select
+          required: false
+          options:
+            - { value: "art_school", label: "Art School Application" }
+            - { value: "animation", label: "Animation / Storyboarding Track" }
+            - { value: "college", label: "College Portfolio" }
+            - { value: "personal", label: "Personal Growth" }
+            - { value: "unsure", label: "Not sure" }
+
+        - key: portfolio_link
+          label: "Portfolio Link (optional)"
+          type: text
+          required: false
+          help_text: "Google Drive / website link"
+
+    - title: "Additional Notes"
+      fields:
+        - key: notes
+          label: "Anything else we should know?"
+          type: textarea
+          required: false
+
+branding:
+  logo_url: "https://student-enrollment-portal-tswx.onrender.com/static/logos/lessons-in-art/logo.png"
+  theme:
+    primary_color: "#111827"
+    accent_color: "#7c3aed"
+
+success:
+  title: "Submitted!"
+  message: "Thanks — we received your request. We’ll follow up with next steps."
+  response_time: "1–2 business days"
+  next_steps:
+    - "We’ll review your request and confirm the best class/program fit."
+    - "We may reach out with schedule options or to recommend a placement."
+    - "We’ll share enrollment and payment instructions."
+  contact:
+    name: "Lessons in Art"
+    email: "artist.center@icloud.com"
+    phone: ""
+  hours: "Mon–Fri"
+
+notifications:
+  submission_email:
+    to: "kg.ketan@gmail.com" 
+    cc: ""
+    bcc: ""
+    from_email: "kg.ketan@gmail.com"
+    subject: "New request: {{student_name}} ({{program}})"
+
+admin:
+  submission_statuses:
+    - New
+    - In Review
+    - Contacted
+    - Needs Follow Up
+    - Scheduled
+    - Enrolled
+    - Closed
+    - Archived
+  default_submission_status: "New"
