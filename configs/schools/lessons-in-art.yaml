@@ -25,22 +25,17 @@ form:
             - { value: "portfolio_prep", label: "Portfolio Prep / Advanced Track" }
             - { value: "unsure", label: "Not sure yet" }
 
-    - title: "Student / Participant"
+    - title: "Student"
       fields:
-        - key: participant_first_name
-          label: "Participant First Name"
+        - key: student_first_name
+          label: "First Name"
           type: text
           required: true
 
-        - key: participant_last_name
-          label: "Participant Last Name"
+        - key: student_last_name
+          label: "Last Name"
           type: text
           required: true
-
-        # - key: participant_is_adult
-        #   label: "Participant is 18+"
-        #   type: checkbox
-        #   required: false
 
         - key: date_of_birth
           label: "Date of Birth (if under 18)"
@@ -53,7 +48,7 @@ form:
           required: false
           readonly: true
 
-    - title: "Parent / Guardian (if participant is under 18)"
+    - title: "Parent / Guardian (if student is under 18)"
       fields:
         - key: guardian_name
           label: "Parent / Guardian Full Name"
