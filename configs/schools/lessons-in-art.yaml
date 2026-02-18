@@ -13,7 +13,7 @@ form:
   sections:
     - title: "Enrollment Type"
       fields:
-        - key: request_type
+        - key: interested_in
           label: "What are you looking for?"
           type: select
           required: true
