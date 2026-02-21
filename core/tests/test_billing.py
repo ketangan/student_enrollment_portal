@@ -287,9 +287,10 @@ class TestBillingCheckout:
         resp = client.post(self._url(), {"price_id": ""})
         assert resp.status_code == 302
 
+    @patch("core.views_billing.is_stripe_configured", return_value=True)
     @patch("core.views_billing.get_pricing_options")
     @patch("core.views_billing.create_checkout_session")
-    def test_post_with_price_redirects_to_stripe(self, mock_checkout, mock_pricing, client):
+    def test_post_with_price_redirects_to_stripe(self, mock_checkout, mock_pricing, mock_is_configured, client):
         mock_pricing.return_value = self._valid_pricing()
         mock_checkout.return_value = "https://checkout.stripe.com/test"
         school = SchoolFactory()
@@ -299,9 +300,10 @@ class TestBillingCheckout:
         assert resp.status_code == 302
         assert "checkout.stripe.com" in resp.url
 
+    @patch("core.views_billing.is_stripe_configured", return_value=True)
     @patch("core.views_billing.get_pricing_options")
     @patch("core.views_billing.create_checkout_session")
-    def test_post_stripe_error_redirects_back(self, mock_checkout, mock_pricing, client):
+    def test_post_stripe_error_redirects_back(self, mock_checkout, mock_pricing, mock_is_configured, client):
         mock_pricing.return_value = self._valid_pricing()
         mock_checkout.return_value = None
         school = SchoolFactory()
@@ -311,9 +313,10 @@ class TestBillingCheckout:
         assert resp.status_code == 302
         assert "billing" in resp.url
 
+    @patch("core.views_billing.is_stripe_configured", return_value=True)
     @patch("core.views_billing.get_pricing_options")
     @patch("core.views_billing.create_checkout_session")
-    def test_superuser_checkout_with_school_param(self, mock_checkout, mock_pricing, client):
+    def test_superuser_checkout_with_school_param(self, mock_checkout, mock_pricing, mock_is_configured, client):
         mock_pricing.return_value = self._valid_pricing()
         mock_checkout.return_value = "https://checkout.stripe.com/test"
         school = SchoolFactory()
@@ -346,9 +349,10 @@ class TestBillingCheckout:
         assert resp.status_code == 302
         assert "billing" in resp.url
 
+    @patch("core.views_billing.is_stripe_configured", return_value=True)
     @patch("core.views_billing.get_pricing_options")
     @patch("core.views_billing.create_checkout_session")
-    def test_valid_price_id_passes_validation(self, mock_checkout, mock_pricing, client):
+    def test_valid_price_id_passes_validation(self, mock_checkout, mock_pricing, mock_is_configured, client):
         """A known price_id passes validation and reaches Stripe."""
         mock_pricing.return_value = self._valid_pricing()
         mock_checkout.return_value = "https://checkout.stripe.com/ok"
