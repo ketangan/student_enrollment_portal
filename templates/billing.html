@@ -172,7 +172,8 @@
       {% endif %}
 
       {# ── Pricing options ── #}
-      {% if pricing and stripe_configured %}
+      {% if stripe_configured %}
+        {% if pricing %}
         <div class="billing-card">
           <h2>Upgrade Your Plan</h2>
           <p style="color: var(--muted); font-size: 14px; margin-bottom: 8px;">
@@ -196,13 +197,14 @@
             {% endfor %}
           </div>
         </div>
-      {% elif stripe_configured and not pricing %}
-        <div class="billing-card">
-          <h2>Pricing</h2>
-          <p style="color: var(--muted); font-size: 14px;">
-            No pricing options configured. Set <code>STRIPE_PRICE_STARTER_MONTHLY</code> and <code>STRIPE_PRICE_STARTER_ANNUAL</code> environment variables.
-          </p>
-        </div>
+        {% else %}
+          <div class="billing-card">
+            <h2>Pricing</h2>
+            <p style="color: var(--muted); font-size: 14px;">
+              No pricing options configured. Set <code>STRIPE_PRICE_STARTER_MONTHLY</code> and <code>STRIPE_PRICE_STARTER_ANNUAL</code> environment variables.
+            </p>
+          </div>
+        {% endif %}
       {% endif %}
     </div>
   </body>
