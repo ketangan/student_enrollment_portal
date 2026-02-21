@@ -1,6 +1,7 @@
 from django.urls import path
 from django.views.generic import RedirectView
 from . import views
+from .views_billing import stripe_webhook
 
 urlpatterns = [
     path("schools/<slug:school_slug>/apply/", views.apply_view, name="apply"),
@@ -12,4 +13,7 @@ urlpatterns = [
 
     path("schools/<slug:school_slug>/admin/reports", views.school_reports_view, name="school_reports"),
     path("schools/<slug:school_slug>/reports", RedirectView.as_view(pattern_name="school_reports", permanent=False)),
+
+    # Stripe webhook (outside admin — no CSRF, no admin auth)
+    path("stripe/webhook/", stripe_webhook, name="stripe_webhook"),
 ]

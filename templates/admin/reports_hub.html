@@ -20,5 +20,18 @@
         <p>No schools yet.</p>
       {% endfor %}
     </div>
+
+    {% if show_billing_link %}
+    <hr style="margin: 24px 0;">
+    <h2 style="margin-bottom: 6px;">Billing</h2>
+    <p class="help" style="margin-top: 0;">
+      View your current plan, features, and upgrade options.
+    </p>
+    <a class="button"
+       href="{{ billing_url }}"
+       style="display:inline-flex; align-items:center; gap:8px; padding:8px 12px;">
+      <i class="fas fa-credit-card"></i> Billing &amp; Plan
+    </a>
+    {% endif %}
   </div>
 {% endblock %}

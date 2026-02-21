@@ -66,7 +66,7 @@ def test_admin_reports_hub_nonstaff_404(db):
         admin_reports_hub_view(request)
 
 
-def test_admin_reports_hub_school_admin_redirects(db):
+def test_admin_reports_hub_school_admin_sees_hub(db):
     rf = RequestFactory()
     user = UserFactory.create(is_staff=True)
     school = SchoolFactory.create()
@@ -76,8 +76,8 @@ def test_admin_reports_hub_school_admin_redirects(db):
     request.user = user
 
     resp = admin_reports_hub_view(request)
-    # Should be a redirect (HttpResponseRedirect subclass)
-    assert resp.status_code in (301, 302)
+    # School admins now see the hub template with their school + billing link
+    assert resp.status_code == 200
 
 
 def test_user_superuser_add_form_sets_staff(db):
