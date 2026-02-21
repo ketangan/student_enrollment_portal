@@ -397,6 +397,52 @@ If a school needs **one** Pro feature on a Starter plan (e.g., an early client w
 {"multi_form_enabled": true}
 ```
 
+---
+
+# Stripe Billing — Operations (concise)
+
+Required environment variables
+- `STRIPE_SECRET_KEY` — Secret API key (Stripe Dashboard → Developers → API keys). Server-side only.
+- `STRIPE_PUBLISHABLE_KEY` — Publishable key (Stripe Dashboard → Developers → API keys). Client-side checkout.
+- `STRIPE_WEBHOOK_SECRET` — Webhook signing secret (Stripe Dashboard → Developers → Webhooks → click endpoint → Reveal signing secret).
+- `STRIPE_PRICE_STARTER_MONTHLY` — Price ID for monthly Starter plan (Stripe Dashboard → Products → [Product] → Prices → ID).
+- `STRIPE_PRICE_STARTER_ANNUAL` — Price ID for annual Starter plan (same location).
+
+What happens when vars are missing
+- Missing publishable/secret keys: billing page shows a warning and checkout/portal actions are blocked.
+- Missing webhook secret: incoming webhooks cannot be verified and will be ignored (logged).
+- Missing price IDs: UI shows “No pricing options configured.”
+
+Local testing with Stripe CLI (quick)
+- Install: https://stripe.com/docs/stripe-cli#install
+- Login: `stripe login`
+- Forward webhooks to local server (assumes `python manage.py runserver` on port 8000):
+	- `stripe listen --forward-to http://localhost:8000/stripe/webhook/`
+- Trigger common events:
+	- `stripe trigger checkout.session.completed`
+	- `stripe trigger customer.subscription.updated`
+	- `stripe trigger customer.subscription.deleted`
+- Verify in DB (school record updates): `stripe_customer_id`, `stripe_subscription_id`, `stripe_subscription_status`, `plan`.
+
+Production (Render) checklist
+- Add env vars in Render: `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_STARTER_MONTHLY`, `STRIPE_PRICE_STARTER_ANNUAL`.
+- Create a webhook endpoint in Stripe: `https://<your-render-host>/stripe/webhook/` and subscribe to the three events above.
+- Copy the endpoint signing secret into `STRIPE_WEBHOOK_SECRET`.
+- Deploy and verify webhook deliveries return HTTP 200 and logs show handler processing.
+- Note: the webhook path is intentionally outside admin and is CSRF-exempt.
+
+Manual smoke checklist
+- As superuser: visit `/admin/reports/` → confirm Billing link visible.
+- As school admin: visit `/admin/reports/` → confirm hub shows your school + Billing link.
+- Open Billing page: confirm current plan and pricing appear (if prices set).
+- Start checkout (test keys): complete checkout; verify webhook updated `School.plan` and `stripe_*` fields.
+- If `stripe_customer_id` exists: use Manage Billing → portal should open.
+
+Quick troubleshooting
+- Webhook signature errors: ensure `STRIPE_WEBHOOK_SECRET` matches the endpoint signing secret exactly.
+- No pricing shown: verify `STRIPE_PRICE_STARTER_*` values are set to Price IDs (not product IDs).
+
+
 This override is stored per-school and survives plan changes. To revoke it, remove the key or set it to `false`.
 
 ### Operator Checklist: Before Downgrading a School
