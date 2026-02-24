@@ -186,7 +186,7 @@
             <button type="submit" class="btn btn-outline btn-sm">Manage Billing →</button>
           </form>
         </div>
-      {% elif has_stripe_subscription and stripe_configured %}
+      {% elif has_stripe_subscription %}
         <div class="billing-card">
           <h2>Subscription</h2>
           <p style="color: var(--muted); font-size: 14px; margin-bottom: 8px;">
