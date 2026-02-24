@@ -157,6 +157,22 @@
           </div>
         {% endif %}
 
+        {# ── Features list for current plan ── #}
+        {% if features %}
+          <div class="features-grid">
+            {% for f in features %}
+              <div class="feature-item">
+                {% if f.enabled %}
+                  <span class="check">✓</span>
+                {% else %}
+                  <span class="cross">✕</span>
+                {% endif %}
+                <div>{{ f.name }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
           {# ── Scheduled cancellation banner ── #}
           {% if scheduled_cancel %}
             <div class="billing-banner billing-banner--info">
