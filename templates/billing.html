@@ -185,6 +185,9 @@
             {% endif %}
             <button type="submit" class="btn btn-outline btn-sm">Manage Billing →</button>
           </form>
+          <p style="color: var(--muted); font-size: 13px; margin-top: 8px;">
+            To change plans or billing cycles, use Manage Billing.
+          </p>
         </div>
       {% elif has_stripe_subscription %}
         <div class="billing-card">
@@ -196,7 +199,7 @@
       {% endif %}
 
       {# ── Pricing options ── #}
-      {% if stripe_configured %}
+      {% if stripe_configured and not has_subscription %}
         {% if pricing %}
         <div class="billing-card">
           <h2>Upgrade Your Plan</h2>

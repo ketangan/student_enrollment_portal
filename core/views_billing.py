@@ -89,8 +89,9 @@ def billing_view(request):
 
     # Determine Stripe subscription linkage/state
     has_stripe_subscription = bool(getattr(school, "has_stripe_subscription", False) and school.has_stripe_subscription())
+    subscription_active = bool(getattr(school, "stripe_subscription_is_active", False) and school.stripe_subscription_is_active())
     # has_subscription = linked AND active-like
-    has_subscription = bool(has_stripe_subscription and getattr(school, "stripe_subscription_is_active", False) and school.stripe_subscription_is_active())
+    has_subscription = bool(has_stripe_subscription and subscription_active)
 
     # All schools for superuser school-switcher
     schools = None
@@ -106,6 +107,7 @@ def billing_view(request):
         "has_stripe_subscription": has_stripe_subscription,
         "has_subscription": has_subscription,
         "has_active_subscription": has_subscription,
+        "subscription_active": subscription_active,
         "stripe_configured": stripe_configured,
         "subscription_status": school.stripe_subscription_status,
     }
