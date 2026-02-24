@@ -87,8 +87,9 @@ def billing_view(request):
     # Pricing options
     pricing = get_pricing_options() if stripe_configured else []
 
-    # Determine if school has an active Stripe subscription
-    has_active_subscription = bool(getattr(school, "has_active_stripe_subscription", False))
+    # Determine Stripe subscription linkage/state
+    has_stripe_subscription = bool(getattr(school, "has_stripe_subscription", False) and school.has_stripe_subscription())
+    has_active_subscription = bool(getattr(school, "has_active_stripe_subscription", False) and school.has_active_stripe_subscription())
 
     # All schools for superuser school-switcher
     schools = None
@@ -101,6 +102,7 @@ def billing_view(request):
         "plan_display": dict(ff.PLAN_CHOICES).get(school.plan, school.plan),
         "features": features,
         "pricing": pricing,
+        "has_stripe_subscription": has_stripe_subscription,
         "has_active_subscription": has_active_subscription,
         "stripe_configured": stripe_configured,
         "subscription_status": school.stripe_subscription_status,

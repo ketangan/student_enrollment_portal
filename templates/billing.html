@@ -115,9 +115,9 @@
       {% endif %}
 
       {# Warn if plan is set but no Stripe subscription is linked #}
-      {% if school.plan != "trial" and not school.has_active_stripe_subscription %}
+      {% if school.plan != "trial" and not has_stripe_subscription %}
         <div class="billing-banner billing-banner--warning">
-          ⚠️ Plan is set to {{ plan_display }} but no Stripe subscription is linked. This may be a manual override.
+          ⚠️ This school is set to {{ plan_display }} but has no Stripe subscription linked. This plan was likely set manually.
         </div>
       {% endif %}
 
@@ -172,7 +172,7 @@
       </div>
 
       {# ── Manage existing subscription ── #}
-      {% if has_active_subscription and stripe_configured %}
+      {% if has_stripe_subscription and stripe_configured %}
         <div class="billing-card">
           <h2>Manage Subscription</h2>
           <p style="color: var(--muted); font-size: 14px; margin-bottom: 16px;">
@@ -190,21 +190,7 @@
 
       {# ── Pricing options ── #}
       {% if stripe_configured %}
-        {% if has_active_subscription %}
-          <div class="billing-card">
-            <h2>You're subscribed</h2>
-            <p style="color: var(--muted); font-size: 14px; margin-bottom: 8px;">
-              You're subscribed. Manage your subscription in the billing portal below.
-            </p>
-            <form method="post" action="{% url 'admin:billing_portal' %}">
-              {% csrf_token %}
-              {% if schools %}
-                <input type="hidden" name="school" value="{{ school.slug }}">
-              {% endif %}
-              <button type="submit" class="btn btn-outline btn-sm">Manage Billing →</button>
-            </form>
-          </div>
-        {% elif pricing %}
+        {% if pricing %}
         <div class="billing-card">
           <h2>Upgrade Your Plan</h2>
           <p style="color: var(--muted); font-size: 14px; margin-bottom: 8px;">

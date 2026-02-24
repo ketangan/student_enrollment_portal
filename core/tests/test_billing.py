@@ -237,7 +237,7 @@ class TestBillingView:
         client.force_login(membership.user)
         resp = client.get(self._url())
         assert resp.status_code == 200
-        assert b"Plan is set to" in resp.content
+        assert b"has no Stripe subscription linked" in resp.content
 
     def test_superuser_sees_billing_with_school_switcher(self, client):
         school = SchoolFactory(plan="starter")
