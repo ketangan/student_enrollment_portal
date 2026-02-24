@@ -138,6 +138,10 @@ class School(models.Model):
         """Return True when a Stripe sub exists and its status is active/trialing/past_due."""
         return self.has_stripe_subscription() and (self.stripe_subscription_status in ("active", "trialing", "past_due"))
 
+    def stripe_subscription_is_active(self) -> bool:
+        """Alias-style helper: True when subscription status is considered active-like."""
+        return self.stripe_subscription_status in ("active", "trialing", "past_due")
+
 
 class SchoolAdminMembership(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="school_membership")
