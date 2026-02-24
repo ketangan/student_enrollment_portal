@@ -296,7 +296,7 @@ class TestBillingView:
         client.force_login(membership.user)
         resp = client.get(self._url())
         assert resp.status_code == 200
-        assert b"has no Stripe subscription linked" in resp.content
+        assert b"but no Stripe subscription is linked" in resp.content
 
     def test_canceled_subscription_but_still_active_shows_trial(self, client):
         """A school with canceled subscription but is_active=True falls back to trial state."""

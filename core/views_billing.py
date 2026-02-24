@@ -116,6 +116,7 @@ def billing_view(request):
         "features": features,
         "pricing": pricing,
         "billing_state": billing_state,
+        "has_subscription": has_subscription,
         "cancel_at": school.stripe_cancel_at,
         "current_period_end": school.stripe_current_period_end,
         "scheduled_cancel": scheduled_cancel,

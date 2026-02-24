@@ -115,9 +115,9 @@
       {% endif %}
 
       {# Warn if plan is set but no Stripe subscription is linked #}
-      {% if school.plan != "trial" and not has_stripe_subscription %}
-        <div class="billing-banner billing-banner--warning">
-          ⚠️ This school is set to {{ plan_display }} but has no Stripe subscription linked. This plan was likely set manually.
+      {% if school.plan != "trial" and not has_subscription %}
+        <div class="billing-banner billing-banner--info">
+          Note: This school's plan is {{ plan_display }}, but no Stripe subscription is linked. The plan may have been configured manually.
         </div>
       {% endif %}
 
