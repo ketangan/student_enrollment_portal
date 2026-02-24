@@ -104,6 +104,7 @@ def create_checkout_session(
     price_id: str,
     success_url: str,
     cancel_url: str,
+    customer_email: str | None = None,
 ) -> str | None:
     """Create a Stripe Checkout Session. Returns the session URL or None on error."""
     stripe = _get_stripe()
@@ -124,8 +125,10 @@ def create_checkout_session(
     # Re-use existing Stripe customer if the school already has one
     if school.stripe_customer_id:
         params["customer"] = school.stripe_customer_id
-    else:
-        params["customer_creation"] = "always"
+
+    # Set customer_email if provided
+    if customer_email:
+        params["customer_email"] = customer_email
 
     try:
         session = stripe.checkout.Session.create(**params)

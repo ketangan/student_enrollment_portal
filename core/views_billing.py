@@ -144,11 +144,14 @@ def billing_create_checkout(request):
     success_url = billing_url + ("&" if "?" in billing_url else "?") + "status=success"
     cancel_url = billing_url + ("&" if "?" in billing_url else "?") + "status=canceled"
 
+    # Pass user email if present and school has no Stripe customer
+    user_email = getattr(request.user, "email", None)
     checkout_url = create_checkout_session(
         school=school,
         price_id=price_id,
         success_url=success_url,
         cancel_url=cancel_url,
+        customer_email=user_email if user_email else None,
     )
 
     if not checkout_url:

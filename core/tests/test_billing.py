@@ -299,6 +299,10 @@ class TestBillingCheckout:
         resp = client.post(self._url(), {"price_id": "price_123"})
         assert resp.status_code == 302
         assert "checkout.stripe.com" in resp.url
+        # Should pass customer_email for school admin
+        args, kwargs = mock_checkout.call_args
+        assert kwargs.get("customer_email") == membership.user.email
+        assert "customer_creation" not in kwargs
 
     @patch("core.views_billing.is_stripe_configured", return_value=True)
     @patch("core.views_billing.get_pricing_options")
@@ -325,6 +329,10 @@ class TestBillingCheckout:
         resp = client.post(self._url(), {"price_id": "price_123", "school": school.slug})
         assert resp.status_code == 302
         assert "checkout.stripe.com" in resp.url
+        # Should pass customer_email for superuser
+        args, kwargs = mock_checkout.call_args
+        assert kwargs.get("customer_email") == user.email
+        assert "customer_creation" not in kwargs
 
     def test_invalid_price_id_redirects_with_error(self, client):
         """Submitting a price_id not in configured pricing returns an error."""
