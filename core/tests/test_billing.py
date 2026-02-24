@@ -239,13 +239,13 @@ class TestBillingView:
         assert resp.status_code == 200
         assert b"has no Stripe subscription linked" in resp.content
 
-    def test_linked_but_inactive_shows_subscription_info(self, client):
+    def test_linked_but_inactive_shows_manage(self, client):
         school = SchoolFactory(plan="starter", stripe_subscription_id="sub_1", stripe_customer_id="cus_1", stripe_subscription_status="canceled")
         membership = SchoolAdminMembershipFactory(school=school)
         client.force_login(membership.user)
         resp = client.get(self._url())
         assert resp.status_code == 200
-        assert b"Subscription status: canceled (manage in Stripe dashboard)" in resp.content
+        assert b"Manage Subscription" in resp.content
 
     def test_no_upgrade_when_already_subscribed_shows_manage(self, client):
         school = SchoolFactory(plan="starter", stripe_subscription_id="sub_2", stripe_customer_id="cus_2", stripe_subscription_status="active")

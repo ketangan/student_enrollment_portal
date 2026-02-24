@@ -87,25 +87,25 @@ def billing_view(request):
     # Pricing options
     pricing = get_pricing_options() if stripe_configured else []
 
-    # Determine Stripe subscription linkage/state
+    # Determine Stripe subscription linkage/state (simplified)
     has_stripe_subscription = bool(getattr(school, "has_stripe_subscription", False) and school.has_stripe_subscription())
-    subscription_active = bool(getattr(school, "stripe_subscription_is_active", False) and school.stripe_subscription_is_active())
-    # has_subscription = linked AND active-like
-    has_subscription = bool(has_stripe_subscription and subscription_active)
 
-    # Compute paid/subscription display semantics
-    has_subscription_simple = bool(school.stripe_customer_id and school.stripe_subscription_id)
-    # Treat as paid if plan != trial OR we have any subscription linkage
-    is_paid_plan = (school.plan != "trial") or has_subscription_simple
+    has_subscription = bool(school.stripe_customer_id and school.stripe_subscription_id)
 
-    # Show upgrade only when Stripe configured, school is trial, and no subscription linkage
-    show_upgrade_options = bool(stripe_configured and (not has_subscription_simple) and (school.plan == "trial"))
+    subscription_active = school.stripe_subscription_status in (
+        "active",
+        "trialing",
+        "past_due",
+    )
 
-    # Cancellation scheduling fields
+    scheduled_cancel = bool(school.stripe_cancel_at or school.stripe_cancel_at_period_end)
+
+    show_upgrade_options = bool(stripe_configured and not has_subscription)
+
+    # Cancellation scheduling fields (for template)
     cancel_at = school.stripe_cancel_at
     current_period_end = school.stripe_current_period_end
     cancel_at_period_end = bool(school.stripe_cancel_at_period_end)
-    scheduled_cancel = bool(cancel_at is not None or cancel_at_period_end)
 
     # All schools for superuser school-switcher
     schools = None
@@ -120,10 +120,8 @@ def billing_view(request):
         "pricing": pricing,
         "has_stripe_subscription": has_stripe_subscription,
         "has_subscription": has_subscription,
-        "has_active_subscription": has_subscription,
+        "has_active_subscription": subscription_active,
         "subscription_active": subscription_active,
-        "has_subscription_simple": has_subscription_simple,
-        "is_paid_plan": is_paid_plan,
         "show_upgrade_options": show_upgrade_options,
         "cancel_at": cancel_at,
         "current_period_end": current_period_end,
