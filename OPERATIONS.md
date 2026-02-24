@@ -442,6 +442,152 @@ Quick troubleshooting
 - Webhook signature errors: ensure `STRIPE_WEBHOOK_SECRET` matches the endpoint signing secret exactly.
 - No pricing shown: verify `STRIPE_PRICE_STARTER_*` values are set to Price IDs (not product IDs).
 
+---
+
+## Billing States
+
+The billing system implements **Option A**: after a paid subscription ends, the school becomes **inactive (locked)** and cannot revert to trial usage. Trial is onboarding-only. A locked school must re-subscribe to reactivate.
+
+### State Grid
+
+| State                | Conditions                                                                                     | School Access | Billing UI Behavior                                                                                  | Webhooks                                                                                                      |
+|:---------------------|:-----------------------------------------------------------------------------------------------|:-------------|:-----------------------------------------------------------------------------------------------------|:--------------------------------------------------------------------------------------------------------------|
+| **Trial**            | `stripe_subscription_id=""`, `plan="trial"`, `is_active=True`                                  | Active       | - Show "Upgrade Your Plan" pricing cards<br>- Hide "Manage Subscription" section                      | N/A                                                                                                           |
+| **Active**           | `stripe_subscription_status` in `["active", "trialing", "past_due", "unpaid"]`, subscription exists | Active       | - Show "Manage Subscription" (Portal button)<br>- Hide upgrade cards<br>- Show note: "To change plans or billing cycles, use Manage Billing." | `checkout.session.completed`: Sets `stripe_*` fields, `plan`, `is_active=True`, clears cancel fields<br>`customer.subscription.updated`: Syncs status, plan, cancel fields |
+| **Scheduled Cancel** | Subscription exists, `stripe_cancel_at` set OR `stripe_cancel_at_period_end=True`, status still active-ish | Active       | - Show "Manage Subscription" (Portal button)<br>- Show banner: "Your subscription will cancel on [date]"<br>- Hide upgrade cards | `customer.subscription.updated`: Sets `stripe_cancel_at`, `stripe_cancel_at_period_end`, `stripe_current_period_end` from Stripe data |
+| **Ended/Locked**     | `is_active=False` (set by webhook when subscription deleted or canceled with no active period)  | **Locked**   | - Show "Your subscription ended and this account is now inactive" banner<br>- Show upgrade cards with copy: "Re-subscribe to reactivate"<br>- Hide "Manage Subscription" | `customer.subscription.deleted`: Sets `is_active=False`, `stripe_subscription_status="canceled"`, `plan="trial"`, clears cancel fields |
+
+### Key Implementation Details
+
+#### Webhook Handlers
+
+**`handle_checkout_completed(session_data)`**
+- **Purpose:** Link Stripe customer + subscription to school on successful checkout
+- **Actions:**
+  - Set `stripe_customer_id`, `stripe_subscription_id`, `stripe_subscription_status`
+  - Determine `plan` from `price_id` (via `price_to_plan()`)
+  - **Set `is_active=True`** (reactivate locked schools)
+  - Clear cancel scheduling: `stripe_cancel_at=None`, `stripe_cancel_at_period_end=False`, `stripe_current_period_end=None`
+- **Idempotent:** Safe to receive multiple times for same session
+
+**`handle_subscription_updated(subscription_data)`**
+- **Purpose:** Sync subscription status + plan changes from Stripe
+- **Actions:**
+  - Update `stripe_subscription_status` (e.g., `active` → `past_due`)
+  - Update `plan` from subscription line items
+  - Sync cancel scheduling: `stripe_cancel_at`, `stripe_cancel_at_period_end`, `stripe_current_period_end`
+  - **If status is `canceled` AND no active period remains:** set `is_active=False`
+- **Does NOT deactivate** if subscription is scheduled to cancel (still has active period)
+
+**`handle_subscription_deleted(subscription_data)`**
+- **Purpose:** Definitive end of subscription
+- **Actions:**
+  - Set `stripe_subscription_status="canceled"`
+  - **Set `is_active=False`** (LOCK school)
+  - Revert `plan="trial"` (locked, not usable as trial)
+  - Clear all cancel scheduling fields
+
+#### School Access Gating
+
+Helper functions in `core/services/school_access.py`:
+
+```python
+is_school_active(school) -> bool
+# Returns True if school.is_active is True
+
+require_school_active(request, school)
+# Returns lockout page (403) if school is inactive
+# Returns None if school is active (view continues normally)
+```
+
+**Usage:**
+- Billing page allows access even when locked (so users can re-subscribe)
+- Other admin/school entrypoints should call `require_school_active()` to enforce lock
+
+### Test Checklist
+
+Use this checklist to verify billing state transitions work correctly:
+
+#### 1. Trial → Active (Upgrade)
+- [ ] Start with a school on `plan="trial"`, no Stripe subscription
+- [ ] Visit Billing page, verify upgrade cards are shown
+- [ ] Complete checkout (use Stripe test mode or `stripe trigger checkout.session.completed`)
+- [ ] Verify webhook received and school updated:
+  - `stripe_customer_id`, `stripe_subscription_id`, `stripe_subscription_status` set
+  - `plan` changed to `"starter"` (or appropriate paid plan)
+  - `is_active=True`
+  - Cancel fields cleared
+- [ ] Visit Billing page again, verify "Manage Subscription" shown, upgrade cards hidden
+
+#### 2. Active → Scheduled Cancel
+- [ ] Start with a school on active subscription
+- [ ] Use Stripe Portal or Dashboard to schedule cancellation (cancel at period end)
+- [ ] Trigger `customer.subscription.updated` event
+- [ ] Verify school updated:
+  - `stripe_cancel_at` or `stripe_cancel_at_period_end=True` set
+  - `stripe_current_period_end` set
+  - `is_active` still `True` (not locked yet)
+- [ ] Visit Billing page, verify banner shows "Your subscription will cancel on [date]"
+- [ ] Verify "Manage Subscription" still shown (can resume via Portal)
+
+#### 3. Scheduled Cancel → Ended/Locked
+- [ ] Wait for subscription period to end, or trigger `customer.subscription.deleted`
+- [ ] Verify school updated:
+  - `stripe_subscription_status="canceled"`
+  - `is_active=False` (LOCKED)
+  - `plan="trial"` (but locked, not usable)
+  - Cancel fields cleared
+- [ ] Visit Billing page, verify:
+  - "Your subscription ended and this account is now inactive" banner shown
+  - Upgrade cards shown
+  - "Manage Subscription" hidden
+- [ ] Attempt to access other admin pages (if gating implemented), verify lockout message
+
+#### 4. Ended/Locked → Active (Re-subscribe)
+- [ ] Start with a locked school (`is_active=False`)
+- [ ] Complete checkout again (trigger `checkout.session.completed`)
+- [ ] Verify school reactivated:
+  - `is_active=True`
+  - `stripe_subscription_id`, `stripe_customer_id`, `plan` updated
+  - Cancel fields cleared
+- [ ] Visit Billing page, verify back to "Active" state UI
+
+#### 5. Regression: Multi-School Isolation
+- [ ] Create two schools: School A (trial), School B (active subscription)
+- [ ] Upgrade School A
+- [ ] Verify School B unchanged (plan, status, IDs all intact)
+- [ ] Cancel School B's subscription
+- [ ] Verify School A unchanged
+
+#### 6. Edge Cases
+- [ ] Checkout completed webhook with missing `school_slug` metadata → logs warning, does not crash
+- [ ] Subscription updated webhook for unknown subscription ID → logs warning, does not crash
+- [ ] Subscription deleted webhook for unknown subscription ID → logs warning, does not crash
+- [ ] Superuser can view billing page for any school (via `?school=<slug>` param)
+- [ ] School admin can only view billing page for their own school (ignores `?school=` param)
+
+### Quick Commands for Testing Webhooks Locally
+
+```bash
+# 1. Start local server
+python manage.py runserver
+
+# 2. In another terminal, forward Stripe events
+stripe listen --forward-to http://localhost:8000/stripe/webhook/
+
+# 3. Trigger events
+stripe trigger checkout.session.completed
+stripe trigger customer.subscription.updated
+stripe trigger customer.subscription.deleted
+
+# 4. Check database
+python manage.py shell
+>>> from core.models import School
+>>> s = School.objects.get(slug="<your-test-school>")
+>>> s.is_active, s.stripe_subscription_status, s.plan
+```
+
+---
 
 This override is stored per-school and survives plan changes. To revoke it, remove the key or set it to `false`.
 

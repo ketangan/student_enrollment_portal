@@ -93,13 +93,15 @@ class School(models.Model):
     theme_primary_color = models.CharField(max_length=20, blank=True, default="")
     theme_accent_color = models.CharField(max_length=20, blank=True, default="")
 
+
     # Stripe billing
     stripe_customer_id = models.CharField(max_length=255, blank=True, default="")
     stripe_subscription_id = models.CharField(max_length=255, blank=True, default="")
     stripe_subscription_status = models.CharField(max_length=50, blank=True, default="")
+    is_active = models.BooleanField(default=True)
     stripe_cancel_at = models.DateTimeField(null=True, blank=True)
-    stripe_current_period_end = models.DateTimeField(null=True, blank=True)
     stripe_cancel_at_period_end = models.BooleanField(default=False)
+    stripe_current_period_end = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 

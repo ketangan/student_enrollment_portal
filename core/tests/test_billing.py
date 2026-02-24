@@ -151,10 +151,43 @@ class TestHandleCheckoutCompleted:
         assert school.stripe_customer_id == "cus_abc"
         assert school.stripe_subscription_id == "sub_xyz"
         assert school.plan == "starter"
+        assert school.is_active is True
+        assert school.stripe_cancel_at is None
+        assert school.stripe_cancel_at_period_end is False
+        assert school.stripe_current_period_end is None
 
     def test_ignores_missing_school_slug(self):
         """Should not crash when metadata is empty."""
         handle_checkout_completed({"metadata": {}, "customer": "cus_x"})
+
+    def test_reactivates_locked_school(self):
+        """checkout.session.completed should reactivate a locked (inactive) school."""
+        school = SchoolFactory(plan="trial", is_active=False, stripe_subscription_status="canceled")
+        session_data = {
+            "metadata": {"school_slug": school.slug},
+            "customer": "cus_reactivate",
+            "subscription": "sub_reactivate",
+            "line_items": {"data": []},
+        }
+        with patch("core.services.billing_stripe._get_stripe") as mock_stripe:
+            mock_sub = {
+                "items": {"data": [{"price": {"id": "price_starter"}}]},
+                "status": "active",
+            }
+            mock_stripe.return_value.Subscription.retrieve.return_value = mock_sub
+
+            from core.services import billing_stripe
+            original = billing_stripe.PRICE_STARTER_MONTHLY_ID
+            billing_stripe.PRICE_STARTER_MONTHLY_ID = "price_starter"
+            try:
+                handle_checkout_completed(session_data)
+            finally:
+                billing_stripe.PRICE_STARTER_MONTHLY_ID = original
+
+        school.refresh_from_db()
+        assert school.is_active is True
+        assert school.stripe_subscription_status == "active"
+        assert school.plan == "starter"
 
 
 @pytest.mark.django_db
@@ -177,6 +210,31 @@ class TestHandleSubscriptionUpdated:
         """Should not crash for unknown subscription."""
         handle_subscription_updated({"id": "sub_unknown", "status": "active", "items": {"data": []}})
 
+    def test_scheduled_cancel_does_not_lock(self):
+        """subscription.updated with cancel_at should NOT lock the school yet."""
+        from datetime import datetime, timedelta
+        from django.utils import timezone as djtz
+
+        future = int((datetime.utcnow() + timedelta(days=7)).timestamp())
+        school = SchoolFactory(
+            stripe_subscription_id="sub_sched",
+            stripe_subscription_status="active",
+            plan="starter",
+            is_active=True,
+        )
+        handle_subscription_updated({
+            "id": "sub_sched",
+            "status": "active",
+            "cancel_at": future,
+            "cancel_at_period_end": True,
+            "current_period_end": future,
+            "items": {"data": []},
+        })
+        school.refresh_from_db()
+        assert school.is_active is True
+        assert school.stripe_cancel_at is not None
+        assert school.stripe_cancel_at_period_end is True
+
 
 @pytest.mark.django_db
 class TestHandleSubscriptionDeleted:
@@ -190,6 +248,7 @@ class TestHandleSubscriptionDeleted:
         school.refresh_from_db()
         assert school.plan == "trial"
         assert school.stripe_subscription_status == "canceled"
+        assert school.is_active is False
 
 
 # ---------------------------------------------------------------------------
@@ -239,13 +298,22 @@ class TestBillingView:
         assert resp.status_code == 200
         assert b"has no Stripe subscription linked" in resp.content
 
-    def test_linked_but_inactive_shows_manage(self, client):
-        school = SchoolFactory(plan="starter", stripe_subscription_id="sub_1", stripe_customer_id="cus_1", stripe_subscription_status="canceled")
+    def test_canceled_subscription_but_still_active_shows_trial(self, client):
+        """A school with canceled subscription but is_active=True falls back to trial state."""
+        school = SchoolFactory(
+            plan="starter",
+            stripe_subscription_id="sub_1",
+            stripe_customer_id="cus_1",
+            stripe_subscription_status="canceled",
+            is_active=True  # Still active despite canceled subscription
+        )
         membership = SchoolAdminMembershipFactory(school=school)
         client.force_login(membership.user)
         resp = client.get(self._url())
         assert resp.status_code == 200
-        assert b"Manage Subscription" in resp.content
+        # Should show upgrade options, not Manage Subscription
+        assert b"Upgrade Your Plan" in resp.content or b"Pricing" in resp.content
+        assert b"Manage Subscription" not in resp.content
 
     def test_no_upgrade_when_already_subscribed_shows_manage(self, client):
         school = SchoolFactory(plan="starter", stripe_subscription_id="sub_2", stripe_customer_id="cus_2", stripe_subscription_status="active")
@@ -626,6 +694,126 @@ class TestStripeWebhook:
         assert school.stripe_cancel_at is None
         assert school.stripe_current_period_end is None
         assert school.stripe_cancel_at_period_end is False
+
+    def test_upgrading_one_school_does_not_affect_others(self):
+        """Regression: ensure webhook handlers only update the target school."""
+        school_a = SchoolFactory(
+            slug="school-a",
+            plan="trial",
+            is_active=True,
+            stripe_subscription_id="",
+        )
+        school_b = SchoolFactory(
+            slug="school-b",
+            plan="starter",
+            is_active=True,
+            stripe_subscription_id="sub_b",
+            stripe_customer_id="cus_b",
+            stripe_subscription_status="active",
+        )
+
+        # Upgrade school_a via checkout
+        session_data = {
+            "metadata": {"school_slug": "school-a"},
+            "customer": "cus_a",
+            "subscription": "sub_a",
+            "line_items": {"data": []},
+        }
+        event = MagicMock()
+        event.type = "checkout.session.completed"
+        event.data.object = session_data
+
+        with patch("core.views_billing.construct_webhook_event", return_value=event), \
+             patch("core.services.billing_stripe._get_stripe") as mock_stripe:
+            mock_sub = {
+                "items": {"data": [{"price": {"id": "price_starter"}}]},
+                "status": "active",
+            }
+            mock_stripe.return_value.Subscription.retrieve.return_value = mock_sub
+
+            from core.services import billing_stripe
+            original = billing_stripe.PRICE_STARTER_MONTHLY_ID
+            billing_stripe.PRICE_STARTER_MONTHLY_ID = "price_starter"
+            try:
+                from core.services.billing_stripe import handle_checkout_completed
+                handle_checkout_completed(session_data)
+            finally:
+                billing_stripe.PRICE_STARTER_MONTHLY_ID = original
+
+        # Verify school_a upgraded
+        school_a.refresh_from_db()
+        assert school_a.plan == "starter"
+        assert school_a.stripe_subscription_id == "sub_a"
+        assert school_a.is_active is True
+
+        # Verify school_b unchanged
+        school_b.refresh_from_db()
+        assert school_b.plan == "starter"
+        assert school_b.stripe_subscription_id == "sub_b"
+        assert school_b.stripe_customer_id == "cus_b"
+        assert school_b.stripe_subscription_status == "active"
+        assert school_b.is_active is True
+
+
+@pytest.mark.django_db
+class TestBillingStateViews:
+    """Test billing page UI for different billing states."""
+
+    def _url(self):
+        return reverse("admin:billing")
+
+    def test_billing_state_trial(self, client):
+        school = SchoolFactory(plan="trial", is_active=True, stripe_subscription_id="", stripe_customer_id="")
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        resp = client.get(self._url())
+        assert resp.status_code == 200
+        assert b"Current Plan" in resp.content
+        assert b"Manage Subscription" not in resp.content
+
+    def test_billing_state_active(self, client):
+        school = SchoolFactory(plan="starter", is_active=True, stripe_subscription_id="sub_1", stripe_customer_id="cus_1", stripe_subscription_status="active")
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        resp = client.get(self._url())
+        assert resp.status_code == 200
+        assert b"Manage Subscription" in resp.content
+
+    def test_billing_state_scheduled_cancel(self, client):
+        from datetime import timedelta
+        from django.utils import timezone as djtz
+        future = djtz.now() + timedelta(days=7)
+        school = SchoolFactory(
+            plan="starter",
+            is_active=True,
+            stripe_subscription_id="sub_2",
+            stripe_customer_id="cus_2",
+            stripe_subscription_status="active",
+            stripe_cancel_at=future,
+            stripe_cancel_at_period_end=True,
+            stripe_current_period_end=future
+        )
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        resp = client.get(self._url())
+        assert resp.status_code == 200
+        assert b"Manage Subscription" in resp.content
+        assert b"Your subscription will cancel on" in resp.content
+
+    def test_billing_state_ended_locked(self, client):
+        school = SchoolFactory(
+            plan="trial",
+            is_active=False,
+            stripe_subscription_id="",
+            stripe_customer_id="",
+            stripe_subscription_status="canceled"
+        )
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        resp = client.get(self._url())
+        assert resp.status_code == 200
+        assert b"Your subscription ended and this account is now inactive" in resp.content
+        assert b"Manage Subscription" not in resp.content
 
 
 # ---------------------------------------------------------------------------

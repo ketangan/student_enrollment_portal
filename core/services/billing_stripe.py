@@ -208,9 +208,6 @@ def handle_checkout_completed(session_data: dict) -> None:
     subscription_status = "active"
 
     # Determine plan from line items
-    # NOTE: Stripe does NOT include line_items in webhook payloads by default.
-    # This branch only fires if the event was expanded via API retrieval.
-    # The subscription-fetch fallback below is the primary path for webhooks.
     line_items = session_data.get("line_items", {}).get("data", [])
     if line_items:
         price_id = line_items[0].get("price", {}).get("id", "")
@@ -234,18 +231,25 @@ def handle_checkout_completed(session_data: dict) -> None:
             logger.exception("Failed to fetch subscription %s", subscription_id)
 
     school.stripe_subscription_status = subscription_status
+    school.is_active = True  # Reactivate on successful checkout
+    school.stripe_cancel_at = None
+    school.stripe_cancel_at_period_end = False
+    school.stripe_current_period_end = None
 
-    # Do not touch other schools — only save the target school.
     school.save(
         update_fields=[
             "stripe_customer_id",
             "stripe_subscription_id",
             "stripe_subscription_status",
             "plan",
+            "is_active",
+            "stripe_cancel_at",
+            "stripe_cancel_at_period_end",
+            "stripe_current_period_end",
         ]
     )
     logger.info(
-        "checkout.session.completed: school=%s customer=%s sub=%s plan=%s",
+        "checkout.session.completed: school=%s customer=%s sub=%s plan=%s reactivated",
         school.slug,
         customer_id,
         subscription_id,
@@ -286,7 +290,6 @@ def handle_subscription_updated(subscription_data: dict) -> None:
     # Cancellation scheduling
     cancel_at = subscription_data.get("cancel_at")
     cancel_at_period_end = subscription_data.get("cancel_at_period_end", False)
-    # current_period_end can be on the subscription or on the first item
     current_period_end = None
     try:
         current_period_end = (
@@ -299,7 +302,6 @@ def handle_subscription_updated(subscription_data: dict) -> None:
         if not value:
             return None
         try:
-            # Stripe gives unix seconds. Use timezone.UTC for tzinfo.
             return datetime.fromtimestamp(int(value), tz=timezone.UTC)
         except Exception:
             return None
@@ -308,12 +310,19 @@ def handle_subscription_updated(subscription_data: dict) -> None:
     school.stripe_cancel_at_period_end = bool(cancel_at_period_end)
     school.stripe_current_period_end = _to_dt(current_period_end)
 
-    school.save(update_fields=["stripe_subscription_status", "plan", "stripe_cancel_at", "stripe_cancel_at_period_end", "stripe_current_period_end"])
+    # If status is canceled and no active period remains, lock the school
+    if status == "canceled" and not (school.stripe_cancel_at or school.stripe_cancel_at_period_end):
+        school.is_active = False
+
+    school.save(update_fields=[
+        "stripe_subscription_status", "plan", "stripe_cancel_at", "stripe_cancel_at_period_end", "stripe_current_period_end", "is_active"
+    ])
     logger.info(
-        "subscription.updated: school=%s status=%s plan=%s",
+        "subscription.updated: school=%s status=%s plan=%s is_active=%s",
         school.slug,
         status,
         school.plan,
+        school.is_active,
     )
 
 
@@ -329,10 +338,12 @@ def handle_subscription_deleted(subscription_data: dict) -> None:
         return
 
     school.stripe_subscription_status = "canceled"
-    school.plan = "trial"
-    # Clear cancellation scheduling
+    school.is_active = False  # Lock the school
+    school.plan = "trial"  # Option A: trial is locked, not usable
     school.stripe_cancel_at = None
     school.stripe_cancel_at_period_end = False
     school.stripe_current_period_end = None
-    school.save(update_fields=["stripe_subscription_status", "plan", "stripe_cancel_at", "stripe_cancel_at_period_end", "stripe_current_period_end"])
-    logger.info("subscription.deleted: school=%s reverted to trial", school.slug)
+    school.save(update_fields=[
+        "stripe_subscription_status", "plan", "is_active", "stripe_cancel_at", "stripe_cancel_at_period_end", "stripe_current_period_end"
+    ])
+    logger.info("subscription.deleted: school=%s locked (inactive)", school.slug)

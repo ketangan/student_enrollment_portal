@@ -87,27 +87,24 @@ def billing_view(request):
     # Pricing options
     pricing = get_pricing_options() if stripe_configured else []
 
-    # Determine Stripe subscription linkage/state (simplified)
-    has_stripe_subscription = bool(getattr(school, "has_stripe_subscription", False) and school.has_stripe_subscription())
-
+    # Compute billing_state: trial / active / scheduled_cancel / ended_locked
     has_subscription = bool(school.stripe_customer_id and school.stripe_subscription_id)
-
-    subscription_active = school.stripe_subscription_status in (
-        "active",
-        "trialing",
-        "past_due",
-    )
-
+    status = school.stripe_subscription_status
     scheduled_cancel = bool(school.stripe_cancel_at or school.stripe_cancel_at_period_end)
+    is_locked = not school.is_active
 
-    show_upgrade_options = bool(stripe_configured and not has_subscription)
+    if is_locked:
+        billing_state = "ended_locked"
+    elif not has_subscription and school.plan == "trial" and school.is_active:
+        billing_state = "trial"
+    elif has_subscription and status in ("active", "trialing", "past_due", "unpaid"):
+        if scheduled_cancel:
+            billing_state = "scheduled_cancel"
+        else:
+            billing_state = "active"
+    else:
+        billing_state = "trial"  # fallback
 
-    # Cancellation scheduling fields (for template)
-    cancel_at = school.stripe_cancel_at
-    current_period_end = school.stripe_current_period_end
-    cancel_at_period_end = bool(school.stripe_cancel_at_period_end)
-
-    # All schools for superuser school-switcher
     schools = None
     if _is_superuser(user):
         schools = School.objects.all().order_by("display_name", "slug")
@@ -118,17 +115,12 @@ def billing_view(request):
         "plan_display": dict(ff.PLAN_CHOICES).get(school.plan, school.plan),
         "features": features,
         "pricing": pricing,
-        "has_stripe_subscription": has_stripe_subscription,
-        "has_subscription": has_subscription,
-        "has_active_subscription": subscription_active,
-        "subscription_active": subscription_active,
-        "show_upgrade_options": show_upgrade_options,
-        "cancel_at": cancel_at,
-        "current_period_end": current_period_end,
-        "cancel_at_period_end": cancel_at_period_end,
+        "billing_state": billing_state,
+        "cancel_at": school.stripe_cancel_at,
+        "current_period_end": school.stripe_current_period_end,
         "scheduled_cancel": scheduled_cancel,
         "stripe_configured": stripe_configured,
-        "subscription_status": school.stripe_subscription_status,
+        "subscription_status": status,
     }
     return render(request, "billing.html", context)
 

@@ -144,6 +144,7 @@
         </div>
       {% endif %}
 
+
       {# ── Current plan card ── #}
       <div class="billing-card">
         <h2>Current Plan</h2>
@@ -173,64 +174,67 @@
           </div>
         {% endif %}
 
-          {# ── Scheduled cancellation banner ── #}
-          {% if scheduled_cancel %}
-            <div class="billing-banner billing-banner--info">
-              ⚠️ Your subscription will cancel on {{ cancel_at|default:current_period_end|date:"F j, Y" }}. You will keep access until then.
-            </div>
-          {% endif %}
+        {# ── Billing state banners ── #}
+        {% if billing_state == "ended_locked" %}
+          <div class="billing-banner billing-banner--error" style="margin-top:16px;">
+            Your subscription ended and this account is now inactive. Re-subscribe to reactivate access.
+          </div>
+        {% elif billing_state == "scheduled_cancel" %}
+          <div class="billing-banner billing-banner--info" style="margin-top:16px;">
+            ⚠️ Your subscription will cancel on {{ cancel_at|default:current_period_end|date:"F j, Y" }}. You will keep access until then.
+          </div>
+        {% endif %}
+      </div>
 
-          {# ── Manage existing subscription ── #}
-          {% if has_subscription %}
-            <div class="billing-card">
-              <h2>Manage Subscription</h2>
-              <p style="color: var(--muted); font-size: 14px; margin-bottom: 16px;">
-                Update your payment method, view invoices, or cancel your subscription.
-              </p>
-              <form method="post" action="{% url 'admin:billing_portal' %}">
-                {% csrf_token %}
-                {% if schools %}
-                  <input type="hidden" name="school" value="{{ school.slug }}">
-                {% endif %}
-                <button type="submit" class="btn btn-outline btn-sm">Manage Billing →</button>
-              </form>
-              <p style="color: var(--muted); font-size: 13px; margin-top: 8px;">
-                To change plans or billing cycles, use Manage Billing.
-              </p>
-            </div>
-          {% elif has_stripe_subscription %}
-            <div class="billing-card">
-              <h2>Subscription</h2>
-              <p style="color: var(--muted); font-size: 14px; margin-bottom: 8px;">
-                Subscription status: {{ subscription_status }} (manage in Stripe dashboard)
-              </p>
-            </div>
-          {% endif %}
+      {# ── Manage Subscription (separate card) ── #}
+      {% if billing_state == "active" or billing_state == "scheduled_cancel" %}
+        <div class="billing-card">
+            <h2>Manage Subscription</h2>
+            <p style="color: var(--muted); font-size: 14px; margin-bottom: 16px;">
+              Update your payment method, view invoices, or cancel your subscription.
+            </p>
+            <form method="post" action="{% url 'admin:billing_portal' %}">
+              {% csrf_token %}
+              {% if schools %}
+                <input type="hidden" name="school" value="{{ school.slug }}">
+              {% endif %}
+              <button type="submit" class="btn btn-outline btn-sm">Manage Billing →</button>
+            </form>
+            <p style="color: var(--muted); font-size: 13px; margin-top: 8px;">
+              To change plans or billing cycles, use Manage Billing.
+            </p>
+        </div>
+      {% endif %}
 
-      {# ── Pricing options ── #}
-      {% if show_upgrade_options %}
+      {# ── Upgrade options (separate card, only for trial or ended_locked) ── #}
+      {% if billing_state == "trial" or billing_state == "ended_locked" %}
+        {% if billing_state == "ended_locked" %}
+          <div class="billing-banner billing-banner--warning" style="margin-bottom: 16px;">
+            Your subscription ended. Re-subscribe to reactivate.
+          </div>
+        {% endif %}
+
         {% if pricing %}
           <div class="billing-card">
-            <h2>Upgrade Your Plan</h2>
-            <p style="color: var(--muted); font-size: 14px; margin-bottom: 8px;">
-              Unlock more features with a paid plan. You can cancel anytime.
-            </p>
-
-            <div class="pricing-grid">
-              {% for option in pricing %}
-                <div class="pricing-option">
-                  <h3>{{ option.name }}</h3>
-                  <div class="pricing-amount">{{ option.amount }}</div>
-                  <form method="post" action="{% url 'admin:billing_create_checkout' %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="price_id" value="{{ option.price_id }}">
-                    {% if schools %}
-                      <input type="hidden" name="school" value="{{ school.slug }}">
-                    {% endif %}
-                    <button type="submit" class="btn btn-primary">Upgrade</button>
-                  </form>
-                </div>
-              {% endfor %}
+              <h2>Upgrade Your Plan</h2>
+              <p style="color: var(--muted); font-size: 14px; margin-bottom: 8px;">
+                Unlock more features with a paid plan. You can cancel anytime.
+              </p>
+              <div class="pricing-grid">
+                {% for option in pricing %}
+                  <div class="pricing-option">
+                    <h3>{{ option.name }}</h3>
+                    <div class="pricing-amount">{{ option.amount }}</div>
+                    <form method="post" action="{% url 'admin:billing_create_checkout' %}">
+                      {% csrf_token %}
+                      <input type="hidden" name="price_id" value="{{ option.price_id }}">
+                      {% if schools %}
+                        <input type="hidden" name="school" value="{{ school.slug }}">
+                      {% endif %}
+                      <button type="submit" class="btn btn-primary">Upgrade</button>
+                    </form>
+                  </div>
+                {% endfor %}
             </div>
           </div>
         {% else %}
