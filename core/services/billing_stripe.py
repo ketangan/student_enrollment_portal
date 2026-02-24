@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +117,7 @@ def create_checkout_session(
         "line_items": [{"price": price_id, "quantity": 1}],
         "success_url": success_url,
         "cancel_url": cancel_url,
+        "client_reference_id": str(school.id),  # For Stripe Dashboard lookup
         "metadata": {"school_slug": school.slug, "school_id": str(school.id)},
         "subscription_data": {
             "metadata": {"school_slug": school.slug, "school_id": str(school.id)},
@@ -189,7 +191,9 @@ def handle_checkout_completed(session_data: dict) -> None:
     metadata = session_data.get("metadata") or {}
     school_slug = metadata.get("school_slug")
     if not school_slug:
-        logger.warning("checkout.session.completed missing school_slug metadata")
+        logger.warning(
+            "Stripe webhook checkout.session.completed: missing school_slug in metadata"
+        )
         return
 
     customer_id = session_data.get("customer", "")
@@ -198,7 +202,10 @@ def handle_checkout_completed(session_data: dict) -> None:
     try:
         school = School.objects.get(slug=school_slug)
     except School.DoesNotExist:
-        logger.warning("checkout.session.completed: school %s not found", school_slug)
+        logger.warning(
+            "Stripe webhook checkout.session.completed: school %s not found",
+            school_slug
+        )
         return
 
     school.stripe_customer_id = customer_id or school.stripe_customer_id
@@ -249,7 +256,7 @@ def handle_checkout_completed(session_data: dict) -> None:
         ]
     )
     logger.info(
-        "checkout.session.completed: school=%s customer=%s sub=%s plan=%s reactivated",
+        "Stripe webhook checkout.session.completed: school=%s customer=%s subscription=%s plan=%s is_active=True",
         school.slug,
         customer_id,
         subscription_id,
@@ -260,8 +267,6 @@ def handle_checkout_completed(session_data: dict) -> None:
 def handle_subscription_updated(subscription_data: dict) -> None:
     """Handle customer.subscription.updated — sync status + plan."""
     from core.models import School
-    from django.utils import timezone
-    from datetime import datetime
 
     sub_id = subscription_data.get("id", "")
     status = subscription_data.get("status", "")
@@ -274,7 +279,10 @@ def handle_subscription_updated(subscription_data: dict) -> None:
             school = School.objects.filter(slug=meta_slug).first()
 
     if not school:
-        logger.warning("subscription.updated: no school for sub %s", sub_id)
+        logger.warning(
+            "Stripe webhook customer.subscription.updated: no school found for subscription %s",
+            sub_id
+        )
         return
 
     school.stripe_subscription_status = status
@@ -302,7 +310,7 @@ def handle_subscription_updated(subscription_data: dict) -> None:
         if not value:
             return None
         try:
-            return datetime.fromtimestamp(int(value), tz=timezone.UTC)
+            return datetime.fromtimestamp(int(value), tz=timezone.utc)
         except Exception:
             return None
 
@@ -318,7 +326,7 @@ def handle_subscription_updated(subscription_data: dict) -> None:
         "stripe_subscription_status", "plan", "stripe_cancel_at", "stripe_cancel_at_period_end", "stripe_current_period_end", "is_active"
     ])
     logger.info(
-        "subscription.updated: school=%s status=%s plan=%s is_active=%s",
+        "Stripe webhook customer.subscription.updated: school=%s status=%s plan=%s is_active=%s",
         school.slug,
         status,
         school.plan,
@@ -334,7 +342,10 @@ def handle_subscription_deleted(subscription_data: dict) -> None:
 
     school = School.objects.filter(stripe_subscription_id=sub_id).first()
     if not school:
-        logger.warning("subscription.deleted: no school for sub %s", sub_id)
+        logger.warning(
+            "Stripe webhook customer.subscription.deleted: no school found for subscription %s",
+            sub_id
+        )
         return
 
     school.stripe_subscription_status = "canceled"
@@ -346,4 +357,7 @@ def handle_subscription_deleted(subscription_data: dict) -> None:
     school.save(update_fields=[
         "stripe_subscription_status", "plan", "is_active", "stripe_cancel_at", "stripe_cancel_at_period_end", "stripe_current_period_end"
     ])
-    logger.info("subscription.deleted: school=%s locked (inactive)", school.slug)
+    logger.info(
+        "Stripe webhook customer.subscription.deleted: school=%s locked (is_active=False)",
+        school.slug
+    )

@@ -214,12 +214,9 @@ def stripe_webhook(request):
     if event is None:
         return HttpResponse("Webhook signature verification failed", status=400)
 
-    event_type = event.get("type", "") if isinstance(event, dict) else getattr(event, "type", "")
-    data_object = (
-        event.get("data", {}).get("object", {})
-        if isinstance(event, dict)
-        else getattr(getattr(event, "data", None), "object", {})
-    )
+    # Stripe Event object always has .type and .data.object attributes
+    event_type = event.type
+    data_object = event.data.object
 
     logger.info("Stripe webhook received: %s", event_type)
 
