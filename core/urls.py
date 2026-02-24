@@ -16,4 +16,5 @@ urlpatterns = [
 
     # Stripe webhook (outside admin — no CSRF, no admin auth)
     path("stripe/webhook/", stripe_webhook, name="stripe_webhook"),
+    path("stripe/webhook", stripe_webhook),
 ]

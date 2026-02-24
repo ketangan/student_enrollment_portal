@@ -87,10 +87,8 @@ def billing_view(request):
     # Pricing options
     pricing = get_pricing_options() if stripe_configured else []
 
-    # Determine if school has an active subscription
-    has_subscription = bool(
-        school.stripe_customer_id and school.stripe_subscription_id
-    )
+    # Determine if school has any subscription/customer record
+    has_subscription = bool(school.stripe_subscription_id) or bool(school.stripe_customer_id)
 
     # All schools for superuser school-switcher
     schools = None

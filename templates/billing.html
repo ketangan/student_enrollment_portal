@@ -95,9 +95,19 @@
       {% endif %}
 
       {% if request.GET.status == "success" %}
-        <div class="billing-banner billing-banner--success">
-          ✅ Payment successful! Your plan has been upgraded. It may take a few moments to reflect.
-        </div>
+        {% if school.plan == "trial" and not school.stripe_subscription_id %}
+          <div class="billing-banner billing-banner--warning">
+            ⚠️ Payment received. Waiting for subscription activation (webhook). Refresh in a moment.
+          </div>
+        {% elif school.plan != "trial" or subscription_status == "active" %}
+          <div class="billing-banner billing-banner--success">
+            ✅ Payment successful! Your plan has been upgraded. It may take a few moments to reflect.
+          </div>
+        {% else %}
+          <div class="billing-banner billing-banner--warning">
+            ⚠️ Payment received. Waiting for subscription activation (webhook). Refresh in a moment.
+          </div>
+        {% endif %}
       {% elif request.GET.status == "canceled" %}
         <div class="billing-banner billing-banner--warning">
           Checkout was canceled. No changes were made to your plan.
@@ -173,7 +183,21 @@
 
       {# ── Pricing options ── #}
       {% if stripe_configured %}
-        {% if pricing %}
+        {% if has_subscription %}
+          <div class="billing-card">
+            <h2>You're subscribed</h2>
+            <p style="color: var(--muted); font-size: 14px; margin-bottom: 8px;">
+              You're subscribed. Manage your subscription in the billing portal below.
+            </p>
+            <form method="post" action="{% url 'admin:billing_portal' %}">
+              {% csrf_token %}
+              {% if schools %}
+                <input type="hidden" name="school" value="{{ school.slug }}">
+              {% endif %}
+              <button type="submit" class="btn btn-outline btn-sm">Manage Billing →</button>
+            </form>
+          </div>
+        {% elif pricing %}
         <div class="billing-card">
           <h2>Upgrade Your Plan</h2>
           <p style="color: var(--muted); font-size: 14px; margin-bottom: 8px;">

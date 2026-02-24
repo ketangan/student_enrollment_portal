@@ -221,6 +221,16 @@ class TestBillingView:
         assert b"Billing" in resp.content
         assert school.display_name.encode() in resp.content or school.slug.encode() in resp.content
 
+    def test_success_status_shows_waiting_banner_when_plan_still_trial(self, client):
+        school = SchoolFactory(plan="trial", stripe_subscription_id="")
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        resp = client.get(self._url() + "?status=success")
+        assert resp.status_code == 200
+        # Should show waiting-for-webhook warning, not success message
+        assert b"Waiting for subscription activation" in resp.content
+        assert b"Payment successful" not in resp.content
+
     def test_superuser_sees_billing_with_school_switcher(self, client):
         school = SchoolFactory(plan="starter")
         user = UserFactory(is_staff=True, is_superuser=True)
@@ -457,6 +467,20 @@ class TestStripeWebhook:
         assert resp.status_code == 200
         school.refresh_from_db()
         assert school.stripe_customer_id == "cus_wh"
+
+    def test_webhook_path_without_trailing_slash_also_works(self, client):
+        # Reuse the same construct mock to ensure both paths accept posts
+        event = MagicMock()
+        event.type = "checkout.session.completed"
+        event.data.object = {"metadata": {"school_slug": SchoolFactory().slug}}
+        with patch("core.views_billing.construct_webhook_event", return_value=event):
+            resp = client.post(
+                "/stripe/webhook",
+                data=b'{}',
+                content_type="application/json",
+                HTTP_STRIPE_SIGNATURE="test_sig",
+            )
+        assert resp.status_code == 200
 
     @patch("core.views_billing.construct_webhook_event")
     def test_unhandled_event_returns_200(self, mock_construct, client):
