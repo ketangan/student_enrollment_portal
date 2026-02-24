@@ -247,6 +247,17 @@ class TestBillingView:
         assert resp.status_code == 200
         assert b"Subscription status: canceled (manage in Stripe dashboard)" in resp.content
 
+    def test_no_upgrade_when_already_subscribed_shows_manage(self, client):
+        school = SchoolFactory(plan="starter", stripe_subscription_id="sub_2", stripe_customer_id="cus_2", stripe_subscription_status="active")
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        # Ensure Stripe appears configured for the view
+        with patch("core.views_billing.is_stripe_configured", return_value=True):
+            resp = client.get(self._url())
+        assert resp.status_code == 200
+        assert b"Upgrade Your Plan" not in resp.content
+        assert b"Manage Subscription" in resp.content
+
     def test_superuser_sees_billing_with_school_switcher(self, client):
         school = SchoolFactory(plan="starter")
         user = UserFactory(is_staff=True, is_superuser=True)
@@ -561,6 +572,60 @@ class TestStripeWebhook:
         school.refresh_from_db()
         assert school.plan == "trial"
         assert school.stripe_subscription_status == "canceled"
+
+
+    def test_subscription_updated_saves_cancel_fields(self):
+        # Create a school without subscription initially
+        school = SchoolFactory(
+            stripe_subscription_id="sub_cancel",
+            stripe_subscription_status="active",
+            plan="starter",
+        )
+        # unix timestamps for now + 7 days
+        import time
+        from datetime import datetime, timedelta
+        from django.utils import timezone as djtz
+
+        later = int((datetime.utcnow() + timedelta(days=7)).timestamp())
+
+        subscription_data = {
+            "id": "sub_cancel",
+            "status": "active",
+            "cancel_at": later,
+            "cancel_at_period_end": True,
+            "current_period_end": later,
+            "items": {"data": []},
+        }
+
+        from core.services.billing_stripe import handle_subscription_updated
+        handle_subscription_updated(subscription_data)
+
+        school.refresh_from_db()
+        assert school.stripe_cancel_at is not None
+        assert school.stripe_current_period_end is not None
+        assert school.stripe_cancel_at_period_end is True
+
+    def test_deleted_clears_cancel_fields(self):
+        # Set cancel fields first
+        from datetime import datetime, timedelta
+        from django.utils import timezone as djtz
+        future = djtz.now() + timedelta(days=3)
+        school = SchoolFactory(
+            stripe_subscription_id="sub_to_delete",
+            stripe_subscription_status="active",
+            plan="starter",
+            stripe_cancel_at=future,
+            stripe_current_period_end=future,
+            stripe_cancel_at_period_end=True,
+        )
+
+        from core.services.billing_stripe import handle_subscription_deleted
+        handle_subscription_deleted({"id": "sub_to_delete"})
+
+        school.refresh_from_db()
+        assert school.stripe_cancel_at is None
+        assert school.stripe_current_period_end is None
+        assert school.stripe_cancel_at_period_end is False
 
 
 # ---------------------------------------------------------------------------

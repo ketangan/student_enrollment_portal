@@ -235,6 +235,7 @@ def handle_checkout_completed(session_data: dict) -> None:
 
     school.stripe_subscription_status = subscription_status
 
+    # Do not touch other schools — only save the target school.
     school.save(
         update_fields=[
             "stripe_customer_id",
@@ -255,11 +256,19 @@ def handle_checkout_completed(session_data: dict) -> None:
 def handle_subscription_updated(subscription_data: dict) -> None:
     """Handle customer.subscription.updated — sync status + plan."""
     from core.models import School
+    from django.utils import timezone
+    from datetime import datetime
 
     sub_id = subscription_data.get("id", "")
     status = subscription_data.get("status", "")
 
     school = School.objects.filter(stripe_subscription_id=sub_id).first()
+    # Fallback: sometimes early events include metadata.school_slug
+    if not school:
+        meta_slug = (subscription_data.get("metadata") or {}).get("school_slug")
+        if meta_slug:
+            school = School.objects.filter(slug=meta_slug).first()
+
     if not school:
         logger.warning("subscription.updated: no school for sub %s", sub_id)
         return
@@ -274,7 +283,32 @@ def handle_subscription_updated(subscription_data: dict) -> None:
         if plan:
             school.plan = plan
 
-    school.save(update_fields=["stripe_subscription_status", "plan"])
+    # Cancellation scheduling
+    cancel_at = subscription_data.get("cancel_at")
+    cancel_at_period_end = subscription_data.get("cancel_at_period_end", False)
+    # current_period_end can be on the subscription or on the first item
+    current_period_end = None
+    try:
+        current_period_end = (
+            items[0].get("current_period_end") if items and items[0].get("current_period_end") else subscription_data.get("current_period_end")
+        )
+    except Exception:
+        current_period_end = subscription_data.get("current_period_end")
+
+    def _to_dt(value):
+        if not value:
+            return None
+        try:
+            # Stripe gives unix seconds. Use timezone.UTC for tzinfo.
+            return datetime.fromtimestamp(int(value), tz=timezone.UTC)
+        except Exception:
+            return None
+
+    school.stripe_cancel_at = _to_dt(cancel_at)
+    school.stripe_cancel_at_period_end = bool(cancel_at_period_end)
+    school.stripe_current_period_end = _to_dt(current_period_end)
+
+    school.save(update_fields=["stripe_subscription_status", "plan", "stripe_cancel_at", "stripe_cancel_at_period_end", "stripe_current_period_end"])
     logger.info(
         "subscription.updated: school=%s status=%s plan=%s",
         school.slug,
@@ -296,5 +330,9 @@ def handle_subscription_deleted(subscription_data: dict) -> None:
 
     school.stripe_subscription_status = "canceled"
     school.plan = "trial"
-    school.save(update_fields=["stripe_subscription_status", "plan"])
+    # Clear cancellation scheduling
+    school.stripe_cancel_at = None
+    school.stripe_cancel_at_period_end = False
+    school.stripe_current_period_end = None
+    school.save(update_fields=["stripe_subscription_status", "plan", "stripe_cancel_at", "stripe_cancel_at_period_end", "stripe_current_period_end"])
     logger.info("subscription.deleted: school=%s reverted to trial", school.slug)

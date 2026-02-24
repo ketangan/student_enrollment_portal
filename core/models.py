@@ -97,6 +97,9 @@ class School(models.Model):
     stripe_customer_id = models.CharField(max_length=255, blank=True, default="")
     stripe_subscription_id = models.CharField(max_length=255, blank=True, default="")
     stripe_subscription_status = models.CharField(max_length=50, blank=True, default="")
+    stripe_cancel_at = models.DateTimeField(null=True, blank=True)
+    stripe_current_period_end = models.DateTimeField(null=True, blank=True)
+    stripe_cancel_at_period_end = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
