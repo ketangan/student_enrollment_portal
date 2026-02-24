@@ -231,6 +231,14 @@ class TestBillingView:
         assert b"Waiting for subscription activation" in resp.content
         assert b"Payment successful" not in resp.content
 
+    def test_plan_set_but_no_stripe_subscription_shows_warning(self, client):
+        school = SchoolFactory(plan="starter", stripe_subscription_id="", stripe_customer_id="", stripe_subscription_status="")
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        resp = client.get(self._url())
+        assert resp.status_code == 200
+        assert b"Plan is set to" in resp.content
+
     def test_superuser_sees_billing_with_school_switcher(self, client):
         school = SchoolFactory(plan="starter")
         user = UserFactory(is_staff=True, is_superuser=True)

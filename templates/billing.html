@@ -114,6 +114,13 @@
         </div>
       {% endif %}
 
+      {# Warn if plan is set but no Stripe subscription is linked #}
+      {% if school.plan != "trial" and not school.has_active_stripe_subscription %}
+        <div class="billing-banner billing-banner--warning">
+          ⚠️ Plan is set to {{ plan_display }} but no Stripe subscription is linked. This may be a manual override.
+        </div>
+      {% endif %}
+
       {# ── Stripe not configured warning ── #}
       {% if not stripe_configured %}
         <div class="billing-banner billing-banner--warning">
@@ -165,7 +172,7 @@
       </div>
 
       {# ── Manage existing subscription ── #}
-      {% if has_subscription and stripe_configured %}
+      {% if has_active_subscription and stripe_configured %}
         <div class="billing-card">
           <h2>Manage Subscription</h2>
           <p style="color: var(--muted); font-size: 14px; margin-bottom: 16px;">
@@ -183,7 +190,7 @@
 
       {# ── Pricing options ── #}
       {% if stripe_configured %}
-        {% if has_subscription %}
+        {% if has_active_subscription %}
           <div class="billing-card">
             <h2>You're subscribed</h2>
             <p style="color: var(--muted); font-size: 14px; margin-bottom: 8px;">

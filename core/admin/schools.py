@@ -89,9 +89,20 @@ class SchoolAdminForm(forms.ModelForm):
 @admin.register(School)
 class SchoolAdmin(admin.ModelAdmin):
     form = SchoolAdminForm
-    list_display = ("slug", "display_name", "plan", "website_url", "created_at", "reports_link")
+    list_display = (
+        "slug",
+        "display_name",
+        "plan",
+        "stripe_customer_id",
+        "stripe_subscription_id",
+        "stripe_subscription_status",
+        "website_url",
+        "created_at",
+        "reports_link",
+    )
     search_fields = ("slug", "display_name")
-    readonly_fields = ("reports_link",)
+    readonly_fields = ("reports_link", "stripe_customer_id", "stripe_subscription_id", "stripe_subscription_status")
+    list_filter = ("plan", "stripe_subscription_status")
 
     def get_form(self, request, obj=None, **kwargs):
         Form = super().get_form(request, obj, **kwargs)

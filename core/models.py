@@ -119,6 +119,17 @@ class School(models.Model):
     def __str__(self) -> str:
         return self.display_name or self.slug
 
+    @property
+    def has_active_stripe_subscription(self) -> bool:
+        """Return True when the school has a linked Stripe customer + subscription
+        and the subscription status indicates an active or recent billing state.
+        """
+        return bool(
+            self.stripe_customer_id
+            and self.stripe_subscription_id
+            and self.stripe_subscription_status in ("active", "trialing", "past_due")
+        )
+
 
 class SchoolAdminMembership(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="school_membership")
