@@ -1135,3 +1135,81 @@ def test_submission_admin_export_csv_skips_audit_when_audit_disabled():
     qs = Submission.objects.filter(school=school)
     ma.export_csv(req, qs)
     assert AdminAuditLog.objects.count() == initial_count
+
+
+# ---------------------------------------------------------------------------
+# SchoolAdmin: Stripe billing fields are read-only
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_school_admin_stripe_fields_are_readonly():
+    """Stripe billing fields should be in readonly_fields."""
+    sa = SchoolAdmin(SchoolFactory._meta.model, admin.site)
+    assert "stripe_customer_id" in sa.readonly_fields
+    assert "stripe_subscription_id" in sa.readonly_fields
+    assert "stripe_subscription_status" in sa.readonly_fields
+    assert "stripe_cancel_at" in sa.readonly_fields
+    assert "stripe_cancel_at_period_end" in sa.readonly_fields
+    assert "stripe_current_period_end" in sa.readonly_fields
+
+
+@pytest.mark.django_db
+def test_school_admin_cannot_change_stripe_fields_via_post(client):
+    """POSTing new values for Stripe fields should not update them (read-only protection)."""
+    from datetime import datetime, timedelta
+    from django.utils import timezone as djtz
+    from django.urls import reverse
+
+    # Create school with known Stripe values
+    future = djtz.now() + timedelta(days=30)
+    school = SchoolFactory.create(
+        plan="starter",
+        stripe_customer_id="cus_original",
+        stripe_subscription_id="sub_original",
+        stripe_subscription_status="active",
+        stripe_cancel_at=future,
+        stripe_cancel_at_period_end=True,
+        stripe_current_period_end=future,
+    )
+
+    # Create superuser (only superusers can edit schools)
+    su = UserFactory.create(is_superuser=True, is_staff=True)
+    client.force_login(su)
+
+    # POST to admin change URL attempting to modify Stripe fields
+    change_url = reverse("admin:core_school_change", args=[school.pk])
+    response = client.post(
+        change_url,
+        {
+            "slug": school.slug,
+            "display_name": school.display_name or "",
+            "website_url": school.website_url or "",
+            "source_url": school.source_url or "",
+            "plan": "starter",
+            # Attempt to change Stripe fields (should be ignored)
+            "stripe_customer_id": "cus_HACKED",
+            "stripe_subscription_id": "sub_HACKED",
+            "stripe_subscription_status": "canceled",
+            "stripe_cancel_at": "",
+            "stripe_cancel_at_period_end": False,
+            "stripe_current_period_end": "",
+            "logo_url": "",
+            "theme_primary_color": "",
+            "theme_accent_color": "",
+            "feature_flags": "{}",
+        },
+        follow=True,
+    )
+
+    # Verify the POST succeeded (redirect to changelist or change page)
+    assert response.status_code == 200
+
+    # Refresh from DB and verify Stripe fields unchanged
+    school.refresh_from_db()
+    assert school.stripe_customer_id == "cus_original"
+    assert school.stripe_subscription_id == "sub_original"
+    assert school.stripe_subscription_status == "active"
+    assert school.stripe_cancel_at == future
+    assert school.stripe_cancel_at_period_end is True
+    assert school.stripe_current_period_end == future

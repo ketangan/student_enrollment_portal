@@ -101,7 +101,15 @@ class SchoolAdmin(admin.ModelAdmin):
         "reports_link",
     )
     search_fields = ("slug", "display_name")
-    readonly_fields = ("reports_link", "stripe_customer_id", "stripe_subscription_id", "stripe_subscription_status")
+    readonly_fields = (
+        "reports_link",
+        "stripe_customer_id",
+        "stripe_subscription_id",
+        "stripe_subscription_status",
+        "stripe_cancel_at",
+        "stripe_cancel_at_period_end",
+        "stripe_current_period_end",
+    )
     list_filter = ("plan", "stripe_subscription_status")
 
     def get_form(self, request, obj=None, **kwargs):
