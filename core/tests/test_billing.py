@@ -237,6 +237,101 @@ class TestHandleSubscriptionUpdated:
 
 
 @pytest.mark.django_db
+class TestCreateCheckoutSession:
+    """Test create_checkout_session follows Stripe subscription mode rules."""
+
+    @patch("core.services.billing_stripe._get_stripe")
+    def test_existing_customer_uses_customer_param_only(self, mock_get_stripe):
+        """When school has stripe_customer_id, use customer param and exclude customer_email."""
+        from core.services.billing_stripe import create_checkout_session
+
+        mock_stripe = MagicMock()
+        mock_session = MagicMock()
+        mock_session.url = "https://checkout.stripe.com/session_123"
+        mock_stripe.checkout.Session.create.return_value = mock_session
+        mock_get_stripe.return_value = mock_stripe
+
+        school = SchoolFactory(slug="test-school", stripe_customer_id="cus_existing123")
+        url = create_checkout_session(
+            school=school,
+            price_id="price_test",
+            success_url="https://example.com/success",
+            cancel_url="https://example.com/cancel",
+            customer_email="user@example.com",  # Should be IGNORED
+        )
+
+        assert url == "https://checkout.stripe.com/session_123"
+
+        # Verify stripe.checkout.Session.create was called
+        mock_stripe.checkout.Session.create.assert_called_once()
+        kwargs = mock_stripe.checkout.Session.create.call_args[1]
+
+        # MUST have customer
+        assert kwargs["customer"] == "cus_existing123"
+        # MUST NOT have customer_email (Stripe rule: can't use both in subscription mode)
+        assert "customer_email" not in kwargs
+
+    @patch("core.services.billing_stripe._get_stripe")
+    def test_no_customer_with_email_uses_customer_email(self, mock_get_stripe):
+        """When school has no customer_id but email provided, use customer_email."""
+        from core.services.billing_stripe import create_checkout_session
+
+        mock_stripe = MagicMock()
+        mock_session = MagicMock()
+        mock_session.url = "https://checkout.stripe.com/session_456"
+        mock_stripe.checkout.Session.create.return_value = mock_session
+        mock_get_stripe.return_value = mock_stripe
+
+        school = SchoolFactory(slug="new-school", stripe_customer_id="")
+        url = create_checkout_session(
+            school=school,
+            price_id="price_test",
+            success_url="https://example.com/success",
+            cancel_url="https://example.com/cancel",
+            customer_email="newuser@example.com",
+        )
+
+        assert url == "https://checkout.stripe.com/session_456"
+
+        kwargs = mock_stripe.checkout.Session.create.call_args[1]
+
+        # MUST have customer_email
+        assert kwargs["customer_email"] == "newuser@example.com"
+        # MUST NOT have customer
+        assert "customer" not in kwargs
+
+    @patch("core.services.billing_stripe._get_stripe")
+    def test_no_customer_no_email_creates_session(self, mock_get_stripe):
+        """When school has no customer_id and no email, still creates session (Stripe creates customer)."""
+        from core.services.billing_stripe import create_checkout_session
+
+        mock_stripe = MagicMock()
+        mock_session = MagicMock()
+        mock_session.url = "https://checkout.stripe.com/session_789"
+        mock_stripe.checkout.Session.create.return_value = mock_session
+        mock_get_stripe.return_value = mock_stripe
+
+        school = SchoolFactory(slug="minimal-school", stripe_customer_id="")
+        url = create_checkout_session(
+            school=school,
+            price_id="price_test",
+            success_url="https://example.com/success",
+            cancel_url="https://example.com/cancel",
+            customer_email=None,
+        )
+
+        assert url == "https://checkout.stripe.com/session_789"
+
+        kwargs = mock_stripe.checkout.Session.create.call_args[1]
+
+        # MUST NOT have customer
+        assert "customer" not in kwargs
+        # MUST NOT have customer_email
+        assert "customer_email" not in kwargs
+        # Stripe will prompt for email in checkout form
+
+
+@pytest.mark.django_db
 class TestHandleSubscriptionDeleted:
     def test_locks_school_and_keeps_plan(self):
         """subscription.deleted should lock school but NOT revert plan to trial (Option A)."""

@@ -124,12 +124,13 @@ def create_checkout_session(
         },
     }
 
-    # Re-use existing Stripe customer if the school already has one
+    # CRITICAL: In subscription mode, never send both customer AND customer_email
+    # Stripe Checkout rules:
+    # - If customer exists: use customer (email will be pulled from customer record)
+    # - If no customer: optionally set customer_email (Stripe creates new customer)
     if school.stripe_customer_id:
         params["customer"] = school.stripe_customer_id
-
-    # Set customer_email if provided
-    if customer_email:
+    elif customer_email:
         params["customer_email"] = customer_email
 
     try:
