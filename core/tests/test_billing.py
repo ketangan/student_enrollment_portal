@@ -238,7 +238,8 @@ class TestHandleSubscriptionUpdated:
 
 @pytest.mark.django_db
 class TestHandleSubscriptionDeleted:
-    def test_reverts_to_trial(self):
+    def test_locks_school_and_keeps_plan(self):
+        """subscription.deleted should lock school but NOT revert plan to trial (Option A)."""
         school = SchoolFactory(
             stripe_subscription_id="sub_del",
             stripe_subscription_status="active",
@@ -246,9 +247,29 @@ class TestHandleSubscriptionDeleted:
         )
         handle_subscription_deleted({"id": "sub_del"})
         school.refresh_from_db()
-        assert school.plan == "trial"
+        assert school.plan == "starter"  # Plan unchanged (Option A)
         assert school.stripe_subscription_status == "canceled"
-        assert school.is_active is False
+        assert school.is_active is False  # Locked
+
+    def test_clears_cancel_scheduling_fields(self):
+        """subscription.deleted should clear cancel scheduling fields."""
+        from datetime import timedelta
+        from django.utils import timezone as djtz
+
+        future = djtz.now() + timedelta(days=7)
+        school = SchoolFactory(
+            stripe_subscription_id="sub_clear",
+            stripe_subscription_status="active",
+            plan="starter",
+            stripe_cancel_at=future,
+            stripe_cancel_at_period_end=True,
+            stripe_current_period_end=future,
+        )
+        handle_subscription_deleted({"id": "sub_clear"})
+        school.refresh_from_db()
+        assert school.stripe_cancel_at is None
+        assert school.stripe_cancel_at_period_end is False
+        assert school.stripe_current_period_end is None
 
 
 # ---------------------------------------------------------------------------
@@ -638,8 +659,9 @@ class TestStripeWebhook:
         )
         assert resp.status_code == 200
         school.refresh_from_db()
-        assert school.plan == "trial"
+        assert school.plan == "starter"  # Plan unchanged (Option A)
         assert school.stripe_subscription_status == "canceled"
+        assert school.is_active is False  # Locked
 
 
     def test_subscription_updated_saves_cancel_fields(self):
@@ -852,3 +874,119 @@ class TestReportsHubBillingLink:
     def test_anonymous_redirects(self, client):
         resp = client.get(self._url())
         assert resp.status_code == 302
+
+
+# ---------------------------------------------------------------------------
+# Billing cancel reminders (Option A lifecycle)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestBillingCancelReminders:
+    """Test management command that logs upcoming and overdue cancellations."""
+
+    def test_finds_schools_canceling_within_3_days(self):
+        from datetime import timedelta
+        from django.utils import timezone as djtz
+        from io import StringIO
+        from django.core.management import call_command
+
+        future_2d = djtz.now() + timedelta(days=2)
+        SchoolFactory(
+            slug="cancel-soon",
+            is_active=True,
+            stripe_cancel_at=future_2d,
+        )
+
+        out = StringIO()
+        call_command("billing_cancel_reminders", stdout=out)
+
+        output = out.getvalue()
+        assert "1 upcoming" in output
+
+    def test_flags_overdue_cancellations_as_error(self, caplog):
+        from datetime import timedelta
+        from django.utils import timezone as djtz
+        from django.core.management import call_command
+
+        past = djtz.now() - timedelta(days=1)
+        SchoolFactory(
+            slug="overdue-school",
+            display_name="Overdue School",
+            is_active=True,
+            stripe_cancel_at=past,
+        )
+
+        with caplog.at_level("ERROR"):
+            call_command("billing_cancel_reminders")
+
+        assert any("overdue-school" in record.message for record in caplog.records if record.levelname == "ERROR")
+        assert any("manual deactivation needed" in record.message for record in caplog.records if record.levelname == "ERROR")
+
+    def test_excludes_schools_beyond_3_days(self):
+        from datetime import timedelta
+        from django.utils import timezone as djtz
+        from io import StringIO
+        from django.core.management import call_command
+
+        far_future = djtz.now() + timedelta(days=5)
+        SchoolFactory(
+            is_active=True,
+            stripe_cancel_at=far_future,
+        )
+
+        out = StringIO()
+        call_command("billing_cancel_reminders", stdout=out)
+
+        output = out.getvalue()
+        assert "0 upcoming" in output
+
+
+@pytest.mark.django_db
+class TestBillingPageCancelBanners:
+    """Test billing page shows correct banners for scheduled/overdue cancellations."""
+
+    def _url(self):
+        return reverse("admin:billing")
+
+    def test_shows_warning_banner_for_future_cancel_date(self, client):
+        from datetime import timedelta
+        from django.utils import timezone as djtz
+
+        future = djtz.now() + timedelta(days=7)
+        school = SchoolFactory(
+            plan="starter",
+            is_active=True,
+            stripe_subscription_id="sub_future",
+            stripe_customer_id="cus_future",
+            stripe_subscription_status="active",
+            stripe_cancel_at=future,
+        )
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+
+        resp = client.get(self._url())
+        assert resp.status_code == 200
+        assert b"will cancel on" in resp.content
+        assert b"Access will be disabled then" in resp.content
+
+    def test_shows_error_banner_for_overdue_cancel_date(self, client):
+        from datetime import timedelta
+        from django.utils import timezone as djtz
+
+        past = djtz.now() - timedelta(days=1)
+        school = SchoolFactory(
+            plan="starter",
+            is_active=True,  # Still active despite past end date
+            stripe_subscription_id="sub_past",
+            stripe_customer_id="cus_past",
+            stripe_subscription_status="active",
+            stripe_cancel_at=past,
+        )
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+
+        resp = client.get(self._url())
+        assert resp.status_code == 200
+        assert b"ended on" in resp.content
+        assert b"Access will be disabled soon" in resp.content

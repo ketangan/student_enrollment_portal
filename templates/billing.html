@@ -180,9 +180,15 @@
             Your subscription ended and this account is now inactive. Re-subscribe to reactivate access.
           </div>
         {% elif billing_state == "scheduled_cancel" %}
-          <div class="billing-banner billing-banner--info" style="margin-top:16px;">
-            ⚠️ Your subscription will cancel on {{ cancel_at|default:current_period_end|date:"F j, Y" }}. You will keep access until then.
-          </div>
+          {% if cancel_overdue %}
+            <div class="billing-banner billing-banner--error" style="margin-top:16px;">
+              ⚠️ Your subscription ended on {{ cancel_at|default:current_period_end|date:"F j, Y" }}. Access will be disabled soon. Please contact support to reactivate or re-subscribe below.
+            </div>
+          {% else %}
+            <div class="billing-banner billing-banner--warning" style="margin-top:16px;">
+              ⚠️ Your subscription will cancel on {{ cancel_at|default:current_period_end|date:"F j, Y" }}. Access will be disabled then.
+            </div>
+          {% endif %}
         {% endif %}
       </div>
 

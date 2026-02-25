@@ -455,7 +455,8 @@ The billing system implements **Option A**: after a paid subscription ends, the 
 | **Trial**            | `stripe_subscription_id=""`, `plan="trial"`, `is_active=True`                                  | Active       | - Show "Upgrade Your Plan" pricing cards<br>- Hide "Manage Subscription" section                      | N/A                                                                                                           |
 | **Active**           | `stripe_subscription_status` in `["active", "trialing", "past_due", "unpaid"]`, subscription exists | Active       | - Show "Manage Subscription" (Portal button)<br>- Hide upgrade cards<br>- Show note: "To change plans or billing cycles, use Manage Billing." | `checkout.session.completed`: Sets `stripe_*` fields, `plan`, `is_active=True`, clears cancel fields<br>`customer.subscription.updated`: Syncs status, plan, cancel fields |
 | **Scheduled Cancel** | Subscription exists, `stripe_cancel_at` set OR `stripe_cancel_at_period_end=True`, status still active-ish | Active       | - Show "Manage Subscription" (Portal button)<br>- Show banner: "Your subscription will cancel on [date]"<br>- Hide upgrade cards | `customer.subscription.updated`: Sets `stripe_cancel_at`, `stripe_cancel_at_period_end`, `stripe_current_period_end` from Stripe data |
-| **Ended/Locked**     | `is_active=False` (set by webhook when subscription deleted or canceled with no active period)  | **Locked**   | - Show "Your subscription ended and this account is now inactive" banner<br>- Show upgrade cards with copy: "Re-subscribe to reactivate"<br>- Hide "Manage Subscription" | `customer.subscription.deleted`: Sets `is_active=False`, `stripe_subscription_status="canceled"`, `plan="trial"`, clears cancel fields |
+| **Ended/Locked**     | `is_active=False` (set by webhook when subscription deleted or canceled with no active period)  | **Locked**   | - Show "Your subscription ended and this account is now inactive" banner<br>- Show upgrade cards with copy: "Re-subscribe to reactivate"<br>- Hide "Manage Subscription" | `customer.subscription.deleted`: Sets `is_active=False`, `stripe_subscription_status="canceled"`, keeps `plan` unchanged, clears cancel fields |
+| **Scheduled Cancel (Overdue)** | Subscription scheduled to cancel, `stripe_cancel_at` or `stripe_current_period_end` in PAST, but `is_active=True` | Active (but should be locked) | - Show "Manage Subscription" (Portal button)<br>- Show ERROR banner: "Your subscription ended on [date]. Access will be disabled soon."<br>- Manual deactivation required | Same as Scheduled Cancel |
 
 ### Key Implementation Details
 
@@ -480,11 +481,11 @@ The billing system implements **Option A**: after a paid subscription ends, the 
 - **Does NOT deactivate** if subscription is scheduled to cancel (still has active period)
 
 **`handle_subscription_deleted(subscription_data)`**
-- **Purpose:** Definitive end of subscription
+- **Purpose:** Definitive end of subscription (Option A: no revert to trial)
 - **Actions:**
   - Set `stripe_subscription_status="canceled"`
   - **Set `is_active=False`** (LOCK school)
-  - Revert `plan="trial"` (locked, not usable as trial)
+  - **Keep `plan` unchanged** (preserves their subscription tier for records)
   - Clear all cancel scheduling fields
 
 #### School Access Gating
@@ -503,6 +504,29 @@ require_school_active(request, school)
 **Usage:**
 - Billing page allows access even when locked (so users can re-subscribe)
 - Other admin/school entrypoints should call `require_school_active()` to enforce lock
+
+#### Monitoring Cancellations (Sentry Reminders)
+
+The `billing_cancel_reminders` management command logs upcoming and overdue cancellations to Sentry for operator awareness.
+
+**Run manually or via cron:**
+```bash
+python manage.py billing_cancel_reminders
+```
+
+**What it does:**
+- Finds schools with cancellations scheduled within 3 days → logs WARNING to Sentry
+- Finds schools with overdue cancellations (end date passed, still `is_active=True`) → logs ERROR to Sentry
+- Operators should manually deactivate overdue schools in Django admin (set `is_active=False`)
+
+**Recommended schedule:** Daily via cron (e.g., 9am daily to catch issues before business hours)
+
+**Manual deactivation procedure:**
+1. Check Sentry ERROR logs for overdue schools
+2. Open school in Django admin
+3. Uncheck `is_active` field
+4. Save
+5. School will see lockout page + re-subscribe option on billing page
 
 ### Test Checklist
 

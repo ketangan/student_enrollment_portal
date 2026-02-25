@@ -93,6 +93,14 @@ def billing_view(request):
     scheduled_cancel = bool(school.stripe_cancel_at or school.stripe_cancel_at_period_end)
     is_locked = not school.is_active
 
+    # Check if cancellation is overdue (end date in past but school still active)
+    from django.utils import timezone as djtz
+    cancel_overdue = False
+    if school.is_active and scheduled_cancel:
+        end_date = school.stripe_cancel_at or school.stripe_current_period_end
+        if end_date and end_date < djtz.now():
+            cancel_overdue = True
+
     if is_locked:
         billing_state = "ended_locked"
     elif not has_subscription and school.plan == "trial" and school.is_active:
@@ -120,6 +128,7 @@ def billing_view(request):
         "cancel_at": school.stripe_cancel_at,
         "current_period_end": school.stripe_current_period_end,
         "scheduled_cancel": scheduled_cancel,
+        "cancel_overdue": cancel_overdue,
         "stripe_configured": stripe_configured,
         "subscription_status": status,
     }

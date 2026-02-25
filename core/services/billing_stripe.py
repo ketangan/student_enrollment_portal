@@ -335,7 +335,7 @@ def handle_subscription_updated(subscription_data: dict) -> None:
 
 
 def handle_subscription_deleted(subscription_data: dict) -> None:
-    """Handle customer.subscription.deleted — revert to trial."""
+    """Handle customer.subscription.deleted — lock school, keep plan."""
     from core.models import School
 
     sub_id = subscription_data.get("id", "")
@@ -349,15 +349,16 @@ def handle_subscription_deleted(subscription_data: dict) -> None:
         return
 
     school.stripe_subscription_status = "canceled"
-    school.is_active = False  # Lock the school
-    school.plan = "trial"  # Option A: trial is locked, not usable
+    school.is_active = False  # Lock the school (Option A: no revert to trial)
+    # Keep school.plan unchanged — preserves what they had
     school.stripe_cancel_at = None
     school.stripe_cancel_at_period_end = False
     school.stripe_current_period_end = None
     school.save(update_fields=[
-        "stripe_subscription_status", "plan", "is_active", "stripe_cancel_at", "stripe_cancel_at_period_end", "stripe_current_period_end"
+        "stripe_subscription_status", "is_active", "stripe_cancel_at", "stripe_cancel_at_period_end", "stripe_current_period_end"
     ])
     logger.info(
-        "Stripe webhook customer.subscription.deleted: school=%s locked (is_active=False)",
-        school.slug
+        "Stripe webhook customer.subscription.deleted: school=%s plan=%s locked (is_active=False)",
+        school.slug,
+        school.plan,
     )
