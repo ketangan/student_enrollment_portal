@@ -152,7 +152,7 @@
           {{ plan_display }}
         </span>
 
-        {% if subscription_status %}
+        {% if subscription_status and billing_state != "ended_locked" %}
           <div class="billing-status">
             Subscription status: <strong>{{ subscription_status }}</strong>
           </div>
@@ -214,12 +214,6 @@
 
       {# ── Upgrade options (separate card, only for trial or ended_locked) ── #}
       {% if billing_state == "trial" or billing_state == "ended_locked" %}
-        {% if billing_state == "ended_locked" %}
-          <div class="billing-banner billing-banner--warning" style="margin-bottom: 16px;">
-            Your subscription ended. Re-subscribe to reactivate.
-          </div>
-        {% endif %}
-
         {% if pricing %}
           <div class="billing-card">
               <h2>Upgrade Your Plan</h2>

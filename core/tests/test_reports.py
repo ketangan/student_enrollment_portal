@@ -311,3 +311,36 @@ def test_superuser_bypasses_reports_disabled_flag(client):
     url = reverse("school_reports", kwargs={"school_slug": school.slug})
     resp = client.get(url)
     assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Inactive school enforcement tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_school_reports_returns_404_for_inactive_school(client):
+    """School admin should get 404 when their school is inactive."""
+    school = SchoolFactory(slug="inactive-school", plan="starter", is_active=False)
+    user = UserFactory()
+    SchoolAdminMembershipFactory(user=user, school=school)
+
+    client.force_login(user)
+    url = reverse("school_reports", kwargs={"school_slug": school.slug})
+    resp = client.get(url)
+    assert resp.status_code == 404
+
+
+@pytest.mark.django_db
+def test_superuser_can_access_reports_for_inactive_school(client):
+    """Superusers should bypass inactive school checks."""
+    school = SchoolFactory(slug="inactive-school-su", plan="starter", is_active=False)
+    su = UserFactory()
+    su.is_superuser = True
+    su.is_staff = True
+    su.save()
+
+    client.force_login(su)
+    url = reverse("school_reports", kwargs={"school_slug": school.slug})
+    resp = client.get(url)
+    assert resp.status_code == 200

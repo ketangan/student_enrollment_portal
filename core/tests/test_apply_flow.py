@@ -149,4 +149,61 @@ def test_submission_notification_email_includes_application_id(settings):
 
     # HTML alternative also includes it
     assert any("PUB_ABC123" in (alt_body or "") for alt_body, _mime in getattr(msg, "alternatives", []))
+
+
+# ---------------------------------------------------------------------------
+# Inactive school enforcement tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_apply_view_returns_404_for_inactive_school_get(client):
+    """GET to apply form should return 404 if school is inactive."""
+    from core.models import School
+
+    slug = "enrollment-request-demo"
+    cfg = load_school_config(slug)
+    assert cfg is not None
+
+    # Create inactive school
+    School.objects.get_or_create(
+        slug=slug,
+        defaults={
+            "display_name": cfg.display_name,
+            "plan": "starter",
+            "is_active": False,  # INACTIVE
+        },
+    )
+
+    url = reverse("apply", kwargs={"school_slug": slug})
+    resp = client.get(url)
+    assert resp.status_code == 404
+
+
+@pytest.mark.django_db
+def test_apply_view_returns_404_for_inactive_school_post(client):
+    """POST to apply form should return 404 if school is inactive."""
+    from core.models import School
+
+    slug = "enrollment-request-demo"
+    cfg = load_school_config(slug)
+    assert cfg is not None
+
+    # Create inactive school
+    school = School.objects.create(
+        slug=slug,
+        display_name=cfg.display_name,
+        plan="starter",
+        is_active=False,  # INACTIVE
+    )
+
+    url = reverse("apply", kwargs={"school_slug": slug})
+    post_data = _build_valid_post_data(cfg.form)
+
+    resp = client.post(url, data=post_data, follow=False)
+    assert resp.status_code == 404
+
+    # Verify no submission was created
+    from core.models import Submission
+    assert not Submission.objects.filter(school=school).exists()
     

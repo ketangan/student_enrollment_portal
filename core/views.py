@@ -200,6 +200,10 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
     branding = merge_branding(getattr(config, "branding", None))
     school = _get_or_create_school_from_config(school_slug, config, branding)
 
+    # Block inactive schools from accepting applications
+    if not school.is_active:
+        raise Http404("School not found")
+
     # Strip custom branding assets if the feature is not enabled for this school.
     if not school.features.custom_branding_enabled:
         branding["custom_css"] = None
@@ -411,6 +415,10 @@ def admin_download_submission_file(request, file_id: int):
         if not (membership and membership.school_id == sf.submission.school_id):
             raise Http404("Not found")
 
+        # Block inactive schools from downloading files
+        if not sf.submission.school.is_active:
+            raise Http404("Not found")
+
     if not sf.file:
         raise Http404("Not found")
 
@@ -439,6 +447,10 @@ def school_reports_view(request, school_slug: str):
 
     if not _can_view_school_admin_page(request, school):
         raise Http404("Page not found")
+
+    # Block inactive schools (except for superusers)
+    if not school.is_active and not request.user.is_superuser:
+        raise Http404("School not found")
     
     if not request.user.is_superuser and not school.features.reports_enabled:
         return render(

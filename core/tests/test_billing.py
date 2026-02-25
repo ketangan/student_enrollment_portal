@@ -834,8 +834,12 @@ class TestBillingStateViews:
         client.force_login(membership.user)
         resp = client.get(self._url())
         assert resp.status_code == 200
+        # Should show the error banner
         assert b"Your subscription ended and this account is now inactive" in resp.content
+        # Should NOT show Manage Subscription
         assert b"Manage Subscription" not in resp.content
+        # Should NOT show subscription status when locked (prevents confusion from stale data)
+        assert b"Subscription status:" not in resp.content
 
 
 # ---------------------------------------------------------------------------
