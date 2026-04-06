@@ -39,6 +39,7 @@ _FEATURE_MIN_PLAN: dict[str, str] = {
     "reports_enabled": PLAN_STARTER,
     "email_notifications_enabled": PLAN_STARTER,
     "file_uploads_enabled": PLAN_STARTER,
+    "leads_enabled": PLAN_STARTER,
     # pro tier
     "custom_branding_enabled": PLAN_PRO,
     "multi_form_enabled": PLAN_PRO,

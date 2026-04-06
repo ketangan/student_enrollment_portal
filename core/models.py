@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from django.db import models
 import os
+import re
 import uuid
 import base64
 import secrets
@@ -65,7 +66,11 @@ class SchoolFeatures:
     @property
     def custom_statuses_enabled(self) -> bool:
         return bool(self._flags().get("custom_statuses_enabled", False))
-    
+
+    @property
+    def leads_enabled(self) -> bool:
+        return bool(self._flags().get("leads_enabled", False))
+
 
 class School(models.Model):
     """
@@ -306,6 +311,123 @@ class SubmissionFile(models.Model):
     def __str__(self) -> str:
         return f"{self.submission.school.slug} #{self.submission_id} {self.field_key}"
     
+
+# ---------------------------------------------------------------------------
+# Lead — pre-application interest capture
+# ---------------------------------------------------------------------------
+
+LEAD_STATUS_NEW = "new"
+LEAD_STATUS_CONTACTED = "contacted"
+LEAD_STATUS_TRIAL_SCHEDULED = "trial_scheduled"
+LEAD_STATUS_ENROLLED = "enrolled"
+LEAD_STATUS_LOST = "lost"
+
+LEAD_STATUS_CHOICES = [
+    (LEAD_STATUS_NEW, "New"),
+    (LEAD_STATUS_CONTACTED, "Contacted"),
+    (LEAD_STATUS_TRIAL_SCHEDULED, "Trial Scheduled"),
+    (LEAD_STATUS_ENROLLED, "Enrolled"),
+    (LEAD_STATUS_LOST, "Lost"),
+]
+
+LEAD_SOURCE_CHOICES = [
+    ("website", "Website"),
+    ("referral", "Referral"),
+    ("social", "Social Media"),
+    ("walk_in", "Walk-in"),
+    ("event", "Event"),
+    ("other", "Other"),
+]
+
+
+class Lead(models.Model):
+    """
+    Pre-application interest record. One Lead per school+email pair.
+
+    Deduplication key: school + normalized_email (full stop, no time window).
+    Tradeoff: a parent using one email for two children at the same school
+    appears as a single lead. Acceptable for now; a household model can
+    address this in a future iteration if needed.
+    """
+
+    # Identity
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="leads")
+    public_id = models.CharField(
+        max_length=16,
+        unique=True,
+        editable=False,
+        db_index=True,
+        blank=True,
+    )
+    name = models.CharField(max_length=200)
+    email = models.EmailField()
+    phone = models.CharField(max_length=50, blank=True, default="")
+
+    # Normalized for dedup + search
+    normalized_email = models.EmailField(db_index=True)
+    normalized_phone = models.CharField(max_length=50, blank=True, default="", db_index=True)
+
+    # Interest
+    interested_in_label = models.CharField(max_length=200, blank=True, default="")
+    interested_in_value = models.CharField(max_length=200, blank=True, default="")
+
+    # Attribution
+    source = models.CharField(
+        max_length=50,
+        choices=LEAD_SOURCE_CHOICES,
+        blank=True,
+        default="website",
+    )
+    utm_source = models.CharField(max_length=100, blank=True, default="")
+    utm_medium = models.CharField(max_length=100, blank=True, default="")
+    utm_campaign = models.CharField(max_length=100, blank=True, default="")
+
+    # Pipeline
+    status = models.CharField(
+        max_length=40,
+        choices=LEAD_STATUS_CHOICES,
+        default=LEAD_STATUS_NEW,
+        db_index=True,
+    )
+    notes = models.TextField(blank=True, default="")
+    last_contacted_at = models.DateTimeField(null=True, blank=True)
+    next_follow_up_at = models.DateTimeField(null=True, blank=True)
+    lost_reason = models.CharField(max_length=255, blank=True, default="")
+
+    # Conversion (Feature 6 will populate these)
+    converted_submission = models.ForeignKey(
+        "Submission",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="converted_leads",
+    )
+    converted_at = models.DateTimeField(null=True, blank=True)
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["school", "status"]),
+            models.Index(fields=["school", "normalized_email"]),
+            models.Index(fields=["school", "created_at"]),
+            models.Index(fields=["school", "next_follow_up_at"]),
+            models.Index(fields=["school", "status", "next_follow_up_at"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.public_id:
+            self.public_id = generate_public_id()
+        self.normalized_email = (self.email or "").lower().strip()
+        self.normalized_phone = re.sub(r"\D", "", self.phone or "")
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.name} <{self.email}> ({self.school.slug})"
+
 
 class AdminAuditLog(models.Model):
     ACTION_ADD = "add"
