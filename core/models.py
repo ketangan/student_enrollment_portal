@@ -71,6 +71,10 @@ class SchoolFeatures:
     def leads_enabled(self) -> bool:
         return bool(self._flags().get("leads_enabled", False))
 
+    @property
+    def leads_conversion_enabled(self) -> bool:
+        return bool(self._flags().get("leads_conversion_enabled", False))
+
 
 class School(models.Model):
     """

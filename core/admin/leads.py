@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from django.contrib import admin, messages
 from django.db.models import Case, IntegerField, Q, Value, When
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 
@@ -79,6 +80,7 @@ class LeadAdmin(admin.ModelAdmin):
         "status_badge",
         "status",
         "next_follow_up_display",
+        "converted_badge",
         "interested_in_label",
         "notes_preview",
         "source",
@@ -224,6 +226,20 @@ class LeadAdmin(admin.ModelAdmin):
         return obj.notes[:60] + ("…" if len(obj.notes) > 60 else "")
 
     notes_preview.short_description = "Notes"
+
+    def converted_badge(self, obj: Lead) -> str:
+        if not obj.converted_submission_id:
+            return "—"
+        url = reverse("admin:core_submission_change", args=[obj.converted_submission_id])
+        return format_html(
+            '<a href="{}" style="display:inline-block;padding:2px 8px;border-radius:999px;'
+            'background:#16a34a;color:#fff;font-size:12px;font-weight:600;text-decoration:none;">'
+            "Converted</a>",
+            url,
+        )
+
+    converted_badge.short_description = "Converted"
+    converted_badge.admin_order_field = "converted_at"
 
     # ------------------------------------------------------------------
     # Permissions

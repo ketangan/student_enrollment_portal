@@ -369,3 +369,19 @@ def test_leads_enabled_starter_plan():
 def test_leads_disabled_trial_plan():
     school = SchoolFactory(plan="trial")
     assert school.features.leads_enabled is False
+
+
+# ---------------------------------------------------------------------------
+# leads_conversion_enabled feature flag
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_leads_conversion_enabled_pro_plan():
+    school = SchoolFactory(plan="pro")
+    assert school.features.leads_conversion_enabled is True
+
+
+@pytest.mark.django_db
+def test_leads_conversion_disabled_starter_plan():
+    school = SchoolFactory(plan="starter")
+    assert school.features.leads_conversion_enabled is False
