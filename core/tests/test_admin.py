@@ -4,6 +4,7 @@ from django.contrib import admin
 from django.test import RequestFactory
 from django.http import Http404
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 from django.contrib.admin.sites import site as admin_site
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.exceptions import PermissionDenied
@@ -32,7 +33,7 @@ from core.tests.factories import (
     SchoolAdminMembershipFactory,
     SubmissionFactory,
 )
-from core.models import Submission, SubmissionFile, AdminAuditLog
+from core.models import School, Submission, SubmissionFile, AdminAuditLog
 
 
 class _DummyCfg:
@@ -1213,3 +1214,58 @@ def test_school_admin_cannot_change_stripe_fields_via_post(client):
     assert school.stripe_cancel_at == future
     assert school.stripe_cancel_at_period_end is True
     assert school.stripe_current_period_end == future
+
+
+# ---------------------------------------------------------------------------
+# SchoolAdmin — embed_snippet readonly field
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_embed_snippet_contains_apply_url_path():
+    """embed_snippet output must reference the school's apply URL path."""
+    school = SchoolFactory.create(slug="test-embed-school")
+    sa = SchoolAdmin(School, admin.site)
+    html = sa.embed_snippet(school)
+    assert "/schools/test-embed-school/apply/" in str(html)
+
+
+@pytest.mark.django_db
+def test_embed_snippet_contains_iframe_keyword():
+    """embed_snippet output must include the iframe tag."""
+    school = SchoolFactory.create(slug="my-dance-studio")
+    sa = SchoolAdmin(School, admin.site)
+    html = sa.embed_snippet(school)
+    assert "iframe" in str(html)
+
+
+@pytest.mark.django_db
+def test_embed_snippet_returns_dash_for_no_slug():
+    """embed_snippet must not crash and return '-' when object has no slug."""
+    sa = SchoolAdmin(School, admin.site)
+    assert str(sa.embed_snippet(None)) == "-"
+
+    empty = School()  # unsaved, no slug
+    assert str(sa.embed_snippet(empty)) == "-"
+
+
+@pytest.mark.django_db
+def test_embed_snippet_in_readonly_fields():
+    """embed_snippet must be registered as a readonly field on SchoolAdmin."""
+    sa = SchoolAdmin(School, admin.site)
+    assert "embed_snippet" in sa.readonly_fields
+
+
+@pytest.mark.django_db
+def test_embed_snippet_visible_in_school_change_view(client):
+    """School change page must render the embed snippet section."""
+    User = get_user_model()
+    superuser = User.objects.create_superuser(
+        username="embedsu", password="pass", email="embedsu@example.com"
+    )
+    client.force_login(superuser)
+    school = SchoolFactory.create(slug="embed-view-school")
+    url = reverse("admin:core_school_change", args=[school.pk])
+    response = client.get(url)
+    assert response.status_code == 200
+    assert b"/schools/embed-view-school/apply/" in response.content

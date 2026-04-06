@@ -13,6 +13,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.http import require_http_methods
 
 from .models import AdminPreference, School, Submission, SubmissionFile
@@ -192,6 +193,7 @@ def _apply_form_context(
 # Apply view (dispatcher)
 # -----------------------------
 
+@xframe_options_exempt
 def apply_view(request, school_slug: str, form_key: str = "default"):
     config = load_school_config(school_slug)
     if config is None:
@@ -368,6 +370,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
     )
 
 
+@xframe_options_exempt
 def apply_success_view(request, school_slug: str):
     config = load_school_config(school_slug)
     if config is None:

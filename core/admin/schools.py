@@ -6,7 +6,7 @@ import json
 from django import forms
 from django.contrib import admin
 from django.urls import reverse
-from django.utils.html import format_html
+from django.utils.html import format_html, mark_safe
 
 from core.admin.common import _has_school_membership, _is_superuser, _membership_school_id
 from core.models import School
@@ -103,6 +103,7 @@ class SchoolAdmin(admin.ModelAdmin):
     search_fields = ("slug", "display_name")
     readonly_fields = (
         "reports_link",
+        "embed_snippet",
         "stripe_customer_id",
         "stripe_subscription_id",
         "stripe_subscription_status",
@@ -149,4 +150,36 @@ class SchoolAdmin(admin.ModelAdmin):
         return format_html("<a href='{}' target='_blank'>Reports</a>", url)
 
     reports_link.short_description = "Reports"
+
+    def embed_snippet(self, obj: School):
+        if not obj or not obj.slug:
+            return mark_safe("-")
+        # slug is alphanumeric + hyphens (Django SlugField) — safe to interpolate
+        relative_url = f"/schools/{obj.slug}/apply/"
+        uid = obj.slug.replace("-", "_")
+        html = (
+            f'<div style="max-width:640px">'
+            f'<p style="margin-bottom:4px"><strong>Hosted link</strong> '
+            f'(share this directly):</p>'
+            f'<code id="sep-link-{uid}" style="word-break:break-all"></code>'
+            f'<p style="margin:12px 0 4px"><strong>Embed snippet</strong> '
+            f'(paste into your website HTML):</p>'
+            f'<textarea id="sep-embed-{uid}" readonly rows="3" '
+            f'style="width:100%;font-family:monospace;font-size:12px;'
+            f'padding:6px;box-sizing:border-box"></textarea>'
+            f'<script>'
+            f'(function(){{'
+            f'  var u = window.location.origin + "{relative_url}";'
+            f'  document.getElementById("sep-link-{uid}").textContent = u;'
+            f'  document.getElementById("sep-embed-{uid}").value ='
+            f'    \'<iframe src="\' + u + \'" width="100%" height="700" \''
+            f'    + \'frameborder="0" style="border:none;" \''
+            f'    + \'title="Application Form"></iframe>\';'
+            f'}})();'
+            f'</script>'
+            f'</div>'
+        )
+        return mark_safe(html)
+
+    embed_snippet.short_description = "Embed on your website"
     

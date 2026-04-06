@@ -288,3 +288,37 @@ def test_program_display_name_variants(monkeypatch, db):
     s2 = SubmissionFactory.create(school=school2, data={"dance_style": "b", "skill_level": "beg"})
     # program_display_name should use resolve_label -> "Ballet (Beginner)"
     assert "(" in s2.program_display_name(label_map={"dance_style": {"b": "Ballet"}, "skill_level": {"beg": "Beginner"}})
+
+
+# ---------------------------------------------------------------------------
+# X-Frame-Options — embed / iframe tests
+# ---------------------------------------------------------------------------
+
+
+def test_apply_view_omits_x_frame_options_header(client, monkeypatch, db):
+    """apply_view must NOT send X-Frame-Options so the form can be iframed."""
+    monkeypatch.setattr("core.views.load_school_config", lambda slug: DummyConfig())
+    school_slug = "iframe-test-school"
+    SchoolFactory.create(slug=school_slug, plan="starter")
+    url = reverse("apply", kwargs={"school_slug": school_slug})
+    response = client.get(url)
+    assert "X-Frame-Options" not in response, (
+        "apply_view must not set X-Frame-Options so schools can embed the form"
+    )
+
+
+def test_apply_success_view_omits_x_frame_options_header(client, monkeypatch):
+    """apply_success_view must not set X-Frame-Options (post-submit redirect lands here)."""
+    monkeypatch.setattr("core.views.load_school_config", lambda slug: DummyConfig())
+    school_slug = "iframe-success-school"
+    url = reverse("apply_success", kwargs={"school_slug": school_slug})
+    response = client.get(url)
+    assert "X-Frame-Options" not in response, (
+        "apply_success_view must not set X-Frame-Options"
+    )
+
+
+def test_admin_view_still_sends_x_frame_deny(client):
+    """Django admin must keep X-Frame-Options: DENY — only apply views are exempt."""
+    response = client.get("/admin/login/")
+    assert response.get("X-Frame-Options", "").upper() == "DENY"
