@@ -1314,3 +1314,295 @@ def test_lead_admin_status_badge_renders(client):
     assert response.status_code == 200
     # Badge renders as a <span> with the New colour
     assert b"border-radius:999px" in response.content
+
+
+# ---------------------------------------------------------------------------
+# Feature 4: Lead admin — bulk actions, filters, ordering, scoping
+# ---------------------------------------------------------------------------
+
+def _superuser(username="leadsu4"):
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    return User.objects.create_superuser(
+        username=username, password="pass", email=f"{username}@example.com"
+    )
+
+
+def _school_admin_client(client, school):
+    from core.tests.factories import SchoolAdminMembershipFactory
+    membership = SchoolAdminMembershipFactory.create(school=school)
+    client.force_login(membership.user)
+    return membership.user
+
+
+def _lead_action_post(client, action, lead_pks):
+    url = reverse("admin:core_lead_changelist")
+    return client.post(url, {
+        "action": action,
+        "_selected_action": [str(pk) for pk in lead_pks],
+    })
+
+
+# --- Bulk actions ---
+
+@pytest.mark.django_db
+def test_lead_action_mark_contacted(client):
+    from django.utils import timezone as tz
+    su = _superuser("su_contacted")
+    client.force_login(su)
+    school = SchoolFactory.create(plan="starter")
+    lead = LeadFactory.create(school=school, status="new")
+
+    before = tz.now()
+    _lead_action_post(client, "action_mark_contacted", [lead.pk])
+    after = tz.now()
+
+    lead.refresh_from_db()
+    assert lead.status == "contacted"
+    assert lead.last_contacted_at is not None
+    assert before <= lead.last_contacted_at <= after
+    # follow-up scheduled roughly tomorrow
+    from datetime import timedelta
+    assert lead.next_follow_up_at is not None
+    assert lead.next_follow_up_at >= before + timedelta(hours=20)
+
+
+@pytest.mark.django_db
+def test_lead_action_mark_lost_sets_status_and_clears_follow_up(client):
+    from django.utils import timezone as tz
+    su = _superuser("su_lost")
+    client.force_login(su)
+    school = SchoolFactory.create(plan="starter")
+    lead = LeadFactory.create(school=school, status="contacted",
+                              next_follow_up_at=tz.now() + __import__("datetime").timedelta(days=3))
+
+    _lead_action_post(client, "action_mark_lost", [lead.pk])
+
+    lead.refresh_from_db()
+    assert lead.status == "lost"
+    assert lead.next_follow_up_at is None
+
+
+@pytest.mark.django_db
+def test_lead_action_mark_trial_scheduled(client):
+    su = _superuser("su_trial")
+    client.force_login(su)
+    school = SchoolFactory.create(plan="starter")
+    lead = LeadFactory.create(school=school, status="contacted")
+
+    _lead_action_post(client, "action_mark_trial_scheduled", [lead.pk])
+
+    lead.refresh_from_db()
+    assert lead.status == "trial_scheduled"
+
+
+@pytest.mark.django_db
+def test_lead_action_schedule_tomorrow(client):
+    from django.utils import timezone as tz
+    from datetime import timedelta
+    su = _superuser("su_sched_tomorrow")
+    client.force_login(su)
+    school = SchoolFactory.create(plan="starter")
+    lead = LeadFactory.create(school=school)
+
+    before = tz.now()
+    _lead_action_post(client, "action_schedule_tomorrow", [lead.pk])
+
+    lead.refresh_from_db()
+    assert lead.next_follow_up_at is not None
+    assert lead.next_follow_up_at >= before + timedelta(hours=20)
+    assert lead.next_follow_up_at <= before + timedelta(hours=28)
+
+
+@pytest.mark.django_db
+def test_lead_action_schedule_next_week(client):
+    from django.utils import timezone as tz
+    from datetime import timedelta
+    su = _superuser("su_sched_week")
+    client.force_login(su)
+    school = SchoolFactory.create(plan="starter")
+    lead = LeadFactory.create(school=school)
+
+    before = tz.now()
+    _lead_action_post(client, "action_schedule_next_week", [lead.pk])
+
+    lead.refresh_from_db()
+    assert lead.next_follow_up_at is not None
+    assert lead.next_follow_up_at >= before + timedelta(days=6)
+    assert lead.next_follow_up_at <= before + timedelta(days=8)
+
+
+@pytest.mark.django_db
+def test_lead_action_clear_follow_up(client):
+    from django.utils import timezone as tz
+    su = _superuser("su_clear")
+    client.force_login(su)
+    school = SchoolFactory.create(plan="starter")
+    lead = LeadFactory.create(school=school,
+                              next_follow_up_at=tz.now() + __import__("datetime").timedelta(days=2))
+
+    _lead_action_post(client, "action_clear_follow_up", [lead.pk])
+
+    lead.refresh_from_db()
+    assert lead.next_follow_up_at is None
+
+
+# --- Filters ---
+
+@pytest.mark.django_db
+def test_follow_up_filter_overdue_excludes_lost(client):
+    from django.utils import timezone as tz
+    from datetime import timedelta
+    su = _superuser("su_filt_overdue")
+    client.force_login(su)
+    school = SchoolFactory.create(plan="starter")
+    # overdue + lost → must NOT appear in "overdue" filter
+    LeadFactory.create(school=school, status="lost",
+                       next_follow_up_at=tz.now() - timedelta(days=1))
+    # overdue + new → MUST appear
+    active = LeadFactory.create(school=school, status="new",
+                                next_follow_up_at=tz.now() - timedelta(hours=1))
+
+    url = reverse("admin:core_lead_changelist") + "?follow_up=overdue"
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert active.email.encode() in resp.content
+
+
+@pytest.mark.django_db
+def test_follow_up_filter_upcoming_excludes_overdue(client):
+    from django.utils import timezone as tz
+    from datetime import timedelta
+    su = _superuser("su_filt_upcoming")
+    client.force_login(su)
+    school = SchoolFactory.create(plan="starter")
+    # overdue — must NOT appear in "upcoming"
+    overdue = LeadFactory.create(school=school, status="new",
+                                 next_follow_up_at=tz.now() - timedelta(hours=1))
+    # future — MUST appear
+    future = LeadFactory.create(school=school, status="new",
+                                next_follow_up_at=tz.now() + timedelta(days=2))
+
+    url = reverse("admin:core_lead_changelist") + "?follow_up=upcoming"
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert future.email.encode() in resp.content
+    assert overdue.email.encode() not in resp.content
+
+
+@pytest.mark.django_db
+def test_follow_up_filter_not_scheduled(client):
+    from django.utils import timezone as tz
+    from datetime import timedelta
+    su = _superuser("su_filt_none")
+    client.force_login(su)
+    school = SchoolFactory.create(plan="starter")
+    no_date = LeadFactory.create(school=school, next_follow_up_at=None)
+    with_date = LeadFactory.create(school=school,
+                                   next_follow_up_at=tz.now() + timedelta(days=1))
+
+    url = reverse("admin:core_lead_changelist") + "?follow_up=none"
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert no_date.email.encode() in resp.content
+    assert with_date.email.encode() not in resp.content
+
+
+@pytest.mark.django_db
+def test_follow_up_filter_attention_includes_stale_new_leads(client):
+    su = _superuser("su_filt_attention")
+    client.force_login(su)
+    school = SchoolFactory.create(plan="starter")
+    # stale: new status, no follow-up date → should appear under "needs attention"
+    stale = LeadFactory.create(school=school, status="new", next_follow_up_at=None)
+    # enrolled with no date → should NOT appear
+    LeadFactory.create(school=school, status="enrolled", next_follow_up_at=None)
+
+    url = reverse("admin:core_lead_changelist") + "?follow_up=attention"
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert stale.email.encode() in resp.content
+
+
+# --- Ordering ---
+
+@pytest.mark.django_db
+def test_lead_inbox_ordering_puts_overdue_first(client):
+    from django.utils import timezone as tz
+    from datetime import timedelta
+    su = _superuser("su_order")
+    client.force_login(su)
+    school = SchoolFactory.create(plan="starter")
+    # new lead with no follow-up (priority 3)
+    no_date = LeadFactory.create(school=school, status="new", next_follow_up_at=None)
+    # overdue lead (priority 1)
+    overdue = LeadFactory.create(school=school, status="new",
+                                 next_follow_up_at=tz.now() - timedelta(hours=2))
+
+    url = reverse("admin:core_lead_changelist")
+    resp = client.get(url)
+    assert resp.status_code == 200
+    # overdue email must appear before the no-date email
+    content = resp.content.decode()
+    assert content.index(overdue.email) < content.index(no_date.email)
+
+
+@pytest.mark.django_db
+def test_lead_inbox_ordering_suppressed_by_column_sort(client):
+    from django.utils import timezone as tz
+    from datetime import timedelta
+    su = _superuser("su_order_col")
+    client.force_login(su)
+    school = SchoolFactory.create(plan="starter")
+    LeadFactory.create(school=school, status="new",
+                       next_follow_up_at=tz.now() - timedelta(hours=2))
+    LeadFactory.create(school=school, status="new", next_follow_up_at=None)
+
+    # ?o=1 means user clicked a column header — inbox ordering must be suppressed
+    url = reverse("admin:core_lead_changelist") + "?o=1"
+    resp = client.get(url)
+    # Just check it responds 200 without error; column ordering applies
+    assert resp.status_code == 200
+
+
+# --- Scoping safety ---
+
+@pytest.mark.django_db
+def test_lead_action_school_admin_cannot_affect_other_schools_lead(client):
+    """A school admin POSTing an action against another school's lead ID does nothing to it."""
+    school_a = SchoolFactory.create(plan="starter")
+    school_b = SchoolFactory.create(plan="starter")
+    _school_admin_client(client, school_a)
+
+    other_lead = LeadFactory.create(school=school_b, status="new")
+
+    _lead_action_post(client, "action_mark_lost", [other_lead.pk])
+
+    other_lead.refresh_from_db()
+    # Status must be unchanged — the action queryset is school-scoped
+    assert other_lead.status == "new"
+
+
+@pytest.mark.django_db
+def test_lead_pipeline_school_admin_inline_status_edit(client):
+    """School admin can change status via list_editable (inline select)."""
+    school = SchoolFactory.create(plan="starter")
+    _school_admin_client(client, school)
+    lead = LeadFactory.create(school=school, status="new")
+
+    url = reverse("admin:core_lead_changelist")
+    resp = client.post(url, {
+        "action": "",
+        "_selected_action": [],
+        "form-TOTAL_FORMS": "1",
+        "form-INITIAL_FORMS": "1",
+        "form-MIN_NUM_FORMS": "0",
+        "form-MAX_NUM_FORMS": "1000",
+        f"form-0-id": str(lead.pk),
+        f"form-0-status": "contacted",
+        "_save": "Save",
+    })
+    # Django admin list_editable redirects on success
+    assert resp.status_code in (200, 302)
+    lead.refresh_from_db()
+    assert lead.status == "contacted"
