@@ -193,6 +193,26 @@ def test_apply_view_triggers_conversion_on_submit(client, monkeypatch, settings)
 
 
 @pytest.mark.django_db
+def test_apply_view_submission_succeeds_even_if_conversion_raises(client, monkeypatch, settings):
+    """A conversion error must not surface as a 500 — submission still saves."""
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    school = SchoolFactory(plan="pro", slug="conv-test-exception")
+    monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school))
+    monkeypatch.setattr(
+        "core.views.try_convert_lead",
+        lambda **kw: (_ for _ in ()).throw(Exception("db exploded")),
+    )
+
+    response = client.post(
+        reverse("apply", kwargs={"school_slug": school.slug}),
+        data={"contact_email": "crash@example.com", "first_name": "Crash"},
+    )
+
+    assert response.status_code == 302
+    assert Submission.objects.filter(school=school).count() == 1
+
+
+@pytest.mark.django_db
 def test_apply_view_no_conversion_when_no_lead(client, monkeypatch, settings):
     """Pro school with no pre-existing lead: submission created, no error."""
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"

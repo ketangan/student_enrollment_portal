@@ -62,17 +62,21 @@ It replaces PDFs, email, and paper forms with a modern, branded, and secure appl
 
 Every school runs on a **plan** that unlocks features cumulatively:
 
-| Feature                  | Trial | Starter | Pro | Growth |
-|:-------------------------|:-----:|:-------:|:---:|:------:|
-| Submission Status        | ✅    | ✅     | ✅  | ✅     |
-| CSV Export               | ✅    | ✅     | ✅  | ✅     |
-| Audit Log                | ✅    | ✅     | ✅  | ✅     |
-| Reports & Charts         | ❌    | ✅     | ✅  | ✅     |
-| Email Notifications      | ❌    | ✅     | ✅  | ✅     |
-| File Uploads             | ❌    | ✅     | ✅  | ✅     |
-| Custom Branding (CSS/JS) | ❌    | ❌     | ✅  | ✅     |
-| Multi-Form Support       | ❌    | ❌     | ✅  | ✅     |
-| Custom Statuses          | ❌    | ❌     | ✅  | ✅     |
+| Feature                        | Trial | Starter | Pro | Growth |
+|:-------------------------------|:-----:|:-------:|:---:|:------:|
+| Submission Status              | ✅    | ✅     | ✅  | ✅     |
+| CSV Export                     | ✅    | ✅     | ✅  | ✅     |
+| Audit Log                      | ✅    | ✅     | ✅  | ✅     |
+| Reports & Charts               | ❌    | ✅     | ✅  | ✅     |
+| Email Notifications            | ❌    | ✅     | ✅  | ✅     |
+| File Uploads                   | ❌    | ✅     | ✅  | ✅     |
+| Lead Capture                   | ❌    | ✅     | ✅  | ✅     |
+| Lead Pipeline (Admin)          | ❌    | ✅     | ✅  | ✅     |
+| Scheduling Link Config         | ❌    | ✅     | ✅  | ✅     |
+| Custom Branding (CSS/JS)       | ❌    | ❌     | ✅  | ✅     |
+| Multi-Form Support             | ❌    | ❌     | ✅  | ✅     |
+| Custom Statuses                | ❌    | ❌     | ✅  | ✅     |
+| Lead → Submission Conversion   | ❌    | ❌     | ✅  | ✅     |
 
 Per-school overrides let you enable or disable any feature individually.
 ---
