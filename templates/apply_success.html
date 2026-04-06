@@ -111,6 +111,9 @@
 
         <div class="cta">
           <a class="btn" href="{% url 'apply' school_slug=school_slug %}">Submit another response</a>
+          {% if scheduling_url %}
+            <a class="btn" href="{{ scheduling_url }}" target="_blank" rel="noopener noreferrer">{{ scheduling_label }}</a>
+          {% endif %}
         </div>
       </div>
     </div>

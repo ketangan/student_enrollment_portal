@@ -94,6 +94,10 @@
         <h1>You're on our list!</h1>
         <p class="msg">{{ success_message }}</p>
         <a href="{{ apply_url }}" class="apply-link">Apply now</a>
+        {% if scheduling_url %}
+          <a href="{{ scheduling_url }}" class="apply-link" target="_blank" rel="noopener noreferrer"
+             style="margin-top:10px;display:inline-block;">{{ scheduling_label }}</a>
+        {% endif %}
       </div>
     </div>
   </body>

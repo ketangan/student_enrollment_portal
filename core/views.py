@@ -408,6 +408,10 @@ def apply_success_view(request, school_slug: str):
     hours = success_cfg.get("hours") or ""
     response_time = success_cfg.get("response_time") or ""
 
+    scheduling_cfg = (getattr(config, "raw", None) or {}).get("scheduling") or {}
+    scheduling_url = (scheduling_cfg.get("url") or "").strip()
+    scheduling_label = (scheduling_cfg.get("label") or "").strip() or "Book a time"
+
     return render(
         request,
         "apply_success.html",
@@ -423,6 +427,8 @@ def apply_success_view(request, school_slug: str):
             "contact_phone": contact_phone,
             "hours": hours,
             "response_time": response_time,
+            "scheduling_url": scheduling_url,
+            "scheduling_label": scheduling_label,
         },
     )
 
@@ -784,9 +790,15 @@ def lead_capture_success_view(request, school_slug):
     success_message = leads_cfg.get("success_message") or "Thanks for your interest! We'll be in touch soon."
     apply_url = reverse("apply", kwargs={"school_slug": school_slug})
 
+    scheduling_cfg = (config.raw or {}).get("scheduling") or {}
+    scheduling_url = (scheduling_cfg.get("url") or "").strip()
+    scheduling_label = (scheduling_cfg.get("label") or "").strip() or "Book a time"
+
     return render(request, "lead_success.html", {
         "school_name": config.display_name,
         "branding": branding,
         "success_message": success_message,
         "apply_url": apply_url,
+        "scheduling_url": scheduling_url,
+        "scheduling_label": scheduling_label,
     })

@@ -322,3 +322,78 @@ def test_admin_view_still_sends_x_frame_deny(client):
     """Django admin must keep X-Frame-Options: DENY — only apply views are exempt."""
     response = client.get("/admin/login/")
     assert response.get("X-Frame-Options", "").upper() == "DENY"
+
+
+# ---------------------------------------------------------------------------
+# Feature 5: Scheduling Link Config
+# ---------------------------------------------------------------------------
+
+
+def _cfg_with_scheduling(url="https://calendly.com/school/30min", label=None):
+    cfg = DummyConfig()
+    cfg.raw = {
+        "school": {"slug": "sched-school"},
+        "scheduling": {"url": url, **({"label": label} if label else {})},
+    }
+    return cfg
+
+
+def _cfg_without_scheduling():
+    cfg = DummyConfig()
+    cfg.raw = {"school": {"slug": "sched-school"}}
+    return cfg
+
+
+def test_apply_success_view_passes_scheduling_url_to_context(client, monkeypatch):
+    monkeypatch.setattr("core.views.load_school_config",
+                        lambda _: _cfg_with_scheduling(label="Book a trial"))
+    resp = client.get(reverse("apply_success", kwargs={"school_slug": "sched-school"}))
+    assert resp.status_code == 200
+    assert resp.context["scheduling_url"] == "https://calendly.com/school/30min"
+    assert resp.context["scheduling_label"] == "Book a trial"
+
+
+def test_apply_success_view_renders_scheduling_button(client, monkeypatch):
+    monkeypatch.setattr("core.views.load_school_config",
+                        lambda _: _cfg_with_scheduling())
+    resp = client.get(reverse("apply_success", kwargs={"school_slug": "sched-school"}))
+    assert b"calendly.com" in resp.content
+    assert b"Book a time" in resp.content
+
+
+def test_apply_success_view_no_scheduling_button_when_not_configured(client, monkeypatch):
+    monkeypatch.setattr("core.views.load_school_config",
+                        lambda _: _cfg_without_scheduling())
+    resp = client.get(reverse("apply_success", kwargs={"school_slug": "sched-school"}))
+    assert resp.status_code == 200
+    assert resp.context["scheduling_url"] == ""
+    assert b"calendly.com" not in resp.content
+
+
+@pytest.mark.django_db
+def test_lead_success_view_renders_scheduling_button(client, monkeypatch):
+    monkeypatch.setattr("core.views.load_school_config",
+                        lambda _: _cfg_with_scheduling(label="Book a class"))
+    url = reverse("lead_capture_success", kwargs={"school_slug": "sched-school"})
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert b"calendly.com" in resp.content
+    assert b"Book a class" in resp.content
+
+
+@pytest.mark.django_db
+def test_lead_success_view_no_scheduling_button_when_not_configured(client, monkeypatch):
+    monkeypatch.setattr("core.views.load_school_config",
+                        lambda _: _cfg_without_scheduling())
+    url = reverse("lead_capture_success", kwargs={"school_slug": "sched-school"})
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert b"calendly.com" not in resp.content
+
+
+def test_apply_success_view_scheduling_label_defaults_to_book_a_time(client, monkeypatch):
+    """When scheduling.label is absent, default label 'Book a time' is used."""
+    monkeypatch.setattr("core.views.load_school_config",
+                        lambda _: _cfg_with_scheduling())  # no label kwarg
+    resp = client.get(reverse("apply_success", kwargs={"school_slug": "sched-school"}))
+    assert resp.context["scheduling_label"] == "Book a time"

@@ -194,6 +194,8 @@ def _build_confirmation_email_bodies(
     submission_public_id: str,
     response_time: str,
     custom_message: str,
+    scheduling_url: str = "",
+    scheduling_label: str = "Book a time",
 ) -> Tuple[str, str]:
     """Builds plain text and HTML bodies for the applicant confirmation email."""
     default_message = (
@@ -212,6 +214,8 @@ def _build_confirmation_email_bodies(
     ]
     if response_time:
         lines.append(f"Expected response time: {response_time}")
+    if scheduling_url:
+        lines += ["", f"{scheduling_label}: {scheduling_url}"]
     lines += ["", f"— {school_name}"]
     text_body = "\n".join(lines)
 
@@ -222,6 +226,12 @@ def _build_confirmation_email_bodies(
         if response_time
         else ""
     )
+    scheduling_line = (
+        f'<p><a href="{escape(scheduling_url)}" style="color:#2563eb;font-weight:600;">'
+        f"{escape(scheduling_label)}</a></p>"
+        if scheduling_url
+        else ""
+    )
     html_body = f"""
     <div style="font-family:sans-serif;max-width:600px;width:100%;margin:0 auto;">
       <p>{greeting}</p>
@@ -230,6 +240,7 @@ def _build_confirmation_email_bodies(
         <strong>Application ID:</strong> {escape(submission_public_id)}
       </p>
       {response_line}
+      {scheduling_line}
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;"/>
       <p style="color:#666;font-size:12px;">{escape(school_name)}</p>
     </div>
@@ -304,6 +315,10 @@ def send_applicant_confirmation_email(
         _get_nested(config_raw, ["success", "response_time"], default="") or ""
     ).strip()
 
+    scheduling_cfg = (config_raw.get("scheduling") or {}) if isinstance(config_raw, dict) else {}
+    scheduling_url = (scheduling_cfg.get("url") or "").strip()
+    scheduling_label = (scheduling_cfg.get("label") or "").strip() or "Book a time"
+
     template_context = {
         "student_name": student_name,
         "school_name": school_name,
@@ -322,6 +337,8 @@ def send_applicant_confirmation_email(
         submission_public_id=submission_public_id,
         response_time=response_time,
         custom_message=custom_message,
+        scheduling_url=scheduling_url,
+        scheduling_label=scheduling_label,
     )
 
     try:
