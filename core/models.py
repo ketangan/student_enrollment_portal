@@ -410,6 +410,15 @@ class Lead(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [
+            # DB-level uniqueness prevents duplicate leads even under concurrent
+            # requests. The view relies on this to safely catch IntegrityError
+            # and fall back to updating the existing row.
+            models.UniqueConstraint(
+                fields=["school", "normalized_email"],
+                name="unique_lead_per_school_email",
+            ),
+        ]
         indexes = [
             models.Index(fields=["school", "status"]),
             models.Index(fields=["school", "normalized_email"]),

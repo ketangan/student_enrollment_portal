@@ -4,6 +4,7 @@ Tests for Feature 3: Lead Capture Form + Lead Model.
 from __future__ import annotations
 
 import pytest
+from django.db import IntegrityError
 from django.urls import reverse
 
 from core.models import Lead, LEAD_STATUS_CONTACTED, LEAD_STATUS_LOST, LEAD_STATUS_NEW
@@ -56,6 +57,15 @@ def test_lead_normalizes_phone_on_save():
 def test_lead_status_defaults_to_new():
     lead = LeadFactory()
     assert lead.status == LEAD_STATUS_NEW
+
+
+@pytest.mark.django_db
+def test_lead_unique_constraint_prevents_duplicate_email():
+    """DB-level constraint must reject a second lead with the same school+email."""
+    school = SchoolFactory(plan="starter")
+    LeadFactory(school=school, email="alice@example.com")
+    with pytest.raises(IntegrityError):
+        LeadFactory(school=school, email="ALICE@example.com")  # normalises to same
 
 
 # ---------------------------------------------------------------------------

@@ -7,6 +7,7 @@ import csv
 logger = logging.getLogger(__name__)
 
 from django.contrib.auth.decorators import login_required
+from django.db import IntegrityError, transaction
 from django.http import Http404, HttpResponse, FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
@@ -692,41 +693,64 @@ def lead_capture_view(request, school_slug):
         if not errors:
             normalized = email.lower().strip()
 
-            # Dedup by school + normalized_email (no time window).
-            # Tradeoff: a parent using one email for multiple children at the
-            # same school appears as a single lead. Acceptable for Feature 3.
-            existing = Lead.objects.filter(
-                school=school,
-                normalized_email=normalized,
-            ).order_by("-created_at").first()
-
-            if existing:
-                existing.name = name
+            # ── Race-condition-safe dedup ─────────────────────────────────
+            # Dedup key: school + normalized_email (no time window).
+            # Tradeoff: a parent using one email for two children appears as
+            # a single lead. Acceptable for Feature 3.
+            #
+            # Strategy:
+            #   1. Wrap in atomic() so select_for_update locks any found row,
+            #      preventing two concurrent UPDATES from racing.
+            #   2. If no row exists, attempt CREATE. The DB-level
+            #      UniqueConstraint on (school, normalized_email) guarantees
+            #      only one concurrent INSERT wins; the loser gets an
+            #      IntegrityError, which we catch and handle as an update.
+            def _apply_merge(lead):
+                lead.name = name
                 if phone:
-                    existing.phone = phone
+                    lead.phone = phone
                 if interested_in_label:
-                    existing.interested_in_label = interested_in_label
-                    existing.interested_in_value = interested_in_value
+                    lead.interested_in_label = interested_in_label
+                    lead.interested_in_value = interested_in_value
                 # UTM: latest-touch attribution (intentional overwrite)
-                existing.utm_source = utm_source or existing.utm_source
-                existing.utm_medium = utm_medium or existing.utm_medium
-                existing.utm_campaign = utm_campaign or existing.utm_campaign
-                if existing.status == LEAD_STATUS_LOST:
-                    existing.status = LEAD_STATUS_NEW
-                existing.save()
-            else:
-                Lead.objects.create(
-                    school=school,
-                    name=name,
-                    email=email,
-                    phone=phone,
-                    interested_in_label=interested_in_label,
-                    interested_in_value=interested_in_value,
-                    source=source,
-                    utm_source=utm_source,
-                    utm_medium=utm_medium,
-                    utm_campaign=utm_campaign,
-                )
+                lead.utm_source = utm_source or lead.utm_source
+                lead.utm_medium = utm_medium or lead.utm_medium
+                lead.utm_campaign = utm_campaign or lead.utm_campaign
+                if lead.status == LEAD_STATUS_LOST:
+                    lead.status = LEAD_STATUS_NEW
+                lead.save()
+
+            try:
+                with transaction.atomic():
+                    existing = Lead.objects.select_for_update().filter(
+                        school=school,
+                        normalized_email=normalized,
+                    ).order_by("-created_at").first()
+
+                    if existing:
+                        _apply_merge(existing)
+                    else:
+                        Lead.objects.create(
+                            school=school,
+                            name=name,
+                            email=email,
+                            phone=phone,
+                            interested_in_label=interested_in_label,
+                            interested_in_value=interested_in_value,
+                            source=source,
+                            utm_source=utm_source,
+                            utm_medium=utm_medium,
+                            utm_campaign=utm_campaign,
+                        )
+            except IntegrityError:
+                # Two concurrent requests both saw no existing row and both
+                # tried to INSERT. We lost the race — fetch the winner's row
+                # and apply our data on top of it.
+                existing = Lead.objects.filter(
+                    school=school, normalized_email=normalized
+                ).order_by("-created_at").first()
+                if existing:
+                    _apply_merge(existing)
 
             return redirect(reverse("lead_capture_success", kwargs={"school_slug": school_slug}))
 
