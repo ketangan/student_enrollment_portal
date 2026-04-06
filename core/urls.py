@@ -14,6 +14,9 @@ urlpatterns = [
     path("schools/<slug:school_slug>/admin/reports", views.school_reports_view, name="school_reports"),
     path("schools/<slug:school_slug>/reports", RedirectView.as_view(pattern_name="school_reports", permanent=False)),
 
+    path("schools/<slug:school_slug>/interest/", views.lead_capture_view, name="lead_capture"),
+    path("schools/<slug:school_slug>/interest/success/", views.lead_capture_success_view, name="lead_capture_success"),
+
     # Stripe webhook (outside admin — no CSRF, no admin auth)
     path("stripe/webhook/", stripe_webhook, name="stripe_webhook"),
     path("stripe/webhook", stripe_webhook),

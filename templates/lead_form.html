@@ -1,0 +1,222 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ school_name }} - Stay in Touch</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="{% static 'forms.css' %}">
+    <style>
+      :root {
+        --primary: {{ branding.theme.primary_color|default:"#111827" }};
+        --accent:  {{ branding.theme.accent_color|default:"#2563eb" }};
+        --bg:      {{ branding.theme.background|default:"#f7f7fb" }};
+        --card:    {{ branding.theme.card|default:"#ffffff" }};
+        --text:    {{ branding.theme.text|default:"#111827" }};
+        --muted:   {{ branding.theme.muted|default:"#6b7280" }};
+        --border:  {{ branding.theme.border|default:"#e5e7eb" }};
+        --radius:  {{ branding.theme.radius|default:"16px" }};
+      }
+      *, *::before, *::after { box-sizing: border-box; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, sans-serif;
+        margin: 0;
+        padding: 16px;
+      }
+      .wrap {
+        max-width: 480px;
+        margin: 24px auto;
+      }
+      .logo {
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      .logo img {
+        max-height: 56px;
+        width: auto;
+      }
+      .logo-text {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--primary);
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 28px 24px;
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--primary);
+      }
+      .subtitle {
+        color: var(--muted);
+        font-size: 14px;
+        margin: 0 0 24px;
+      }
+      .field {
+        margin-bottom: 18px;
+      }
+      label {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: var(--text);
+      }
+      label .req { color: var(--accent); margin-left: 2px; }
+      input[type="text"],
+      input[type="email"],
+      input[type="tel"],
+      select {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        font-size: 16px;  /* prevents iOS zoom */
+        color: var(--text);
+        background: var(--card);
+        appearance: none;
+        -webkit-appearance: none;
+        outline: none;
+        transition: border-color 0.15s;
+      }
+      input:focus, select:focus {
+        border-color: var(--accent);
+      }
+      .field-error input,
+      .field-error select {
+        border-color: #ef4444;
+      }
+      .error-msg {
+        color: #ef4444;
+        font-size: 13px;
+        margin-top: 4px;
+      }
+      .select-wrap {
+        position: relative;
+      }
+      .select-wrap::after {
+        content: "▾";
+        position: absolute;
+        right: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        pointer-events: none;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .btn-submit {
+        width: 100%;
+        padding: 14px;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 8px;
+        transition: opacity 0.15s;
+      }
+      .btn-submit:hover { opacity: 0.88; }
+      /* honeypot — visually hidden, keep out of layout */
+      .trap { display: none; }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrap">
+      <div class="logo">
+        {% if branding.logo_url %}
+          <img src="{{ branding.logo_url }}" alt="{{ school_name }}">
+        {% else %}
+          <span class="logo-text">{{ school_name }}</span>
+        {% endif %}
+      </div>
+
+      <div class="card">
+        <h1>Stay in Touch</h1>
+        <p class="subtitle">Leave your details and we'll follow up with information about our programs.</p>
+
+        <form method="post">
+          {% csrf_token %}
+
+          {# Honeypot — bots fill this, humans don't see it #}
+          <div class="trap" aria-hidden="true">
+            <input type="text" name="trap_field" tabindex="-1" autocomplete="off">
+          </div>
+
+          {# UTM pass-through #}
+          <input type="hidden" name="utm_source"   value="{{ utm_source }}">
+          <input type="hidden" name="utm_medium"   value="{{ utm_medium }}">
+          <input type="hidden" name="utm_campaign" value="{{ utm_campaign }}">
+
+          {# Name #}
+          <div class="field {% if errors.name %}field-error{% endif %}">
+            <label for="id_name">Name<span class="req">*</span></label>
+            <input type="text" id="id_name" name="name"
+                   value="{{ form_data.name|default:'' }}"
+                   placeholder="Your full name"
+                   autocomplete="name"
+                   required>
+            {% if errors.name %}
+              <div class="error-msg">{{ errors.name }}</div>
+            {% endif %}
+          </div>
+
+          {# Email #}
+          <div class="field {% if errors.email %}field-error{% endif %}">
+            <label for="id_email">Email<span class="req">*</span></label>
+            <input type="email" id="id_email" name="email"
+                   value="{{ form_data.email|default:'' }}"
+                   placeholder="you@example.com"
+                   autocomplete="email"
+                   required>
+            {% if errors.email %}
+              <div class="error-msg">{{ errors.email }}</div>
+            {% endif %}
+          </div>
+
+          {# Phone (optional) #}
+          <div class="field">
+            <label for="id_phone">Phone <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+            <input type="tel" id="id_phone" name="phone"
+                   value="{{ form_data.phone|default:'' }}"
+                   placeholder="(555) 000-0000"
+                   autocomplete="tel">
+          </div>
+
+          {# Program interest #}
+          {% if program_options %}
+          <div class="field">
+            <label for="id_interested_in">Program Interest <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+            <div class="select-wrap">
+              <select id="id_interested_in" name="interested_in_value"
+                      onchange="document.getElementById('id_interested_in_label').value = this.options[this.selectedIndex].text">
+                <option value="">— Select a program —</option>
+                {% for opt in program_options %}
+                  <option value="{{ opt.value }}"
+                    {% if form_data.interested_in_value == opt.value %}selected{% endif %}>
+                    {{ opt.label }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            {# Hidden label field so the view can store the display name #}
+            <input type="hidden" id="id_interested_in_label" name="interested_in_label"
+                   value="{{ form_data.interested_in_label|default:'' }}">
+          </div>
+          {% endif %}
+
+          <button type="submit" class="btn-submit">{{ cta_text }}</button>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>

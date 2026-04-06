@@ -16,13 +16,22 @@ from django.utils import timezone
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.http import require_http_methods
 
-from .models import AdminPreference, School, Submission, SubmissionFile
+from .models import (
+    AdminPreference,
+    Lead,
+    LEAD_STATUS_LOST,
+    LEAD_STATUS_NEW,
+    LEAD_SOURCE_CHOICES,
+    School,
+    Submission,
+    SubmissionFile,
+)
 from .services.admin_themes import (
     ADMIN_THEMES,
     DEFAULT_THEME_KEY,
     get_themes_for_api,
 )
-from .services.config_loader import get_forms, load_school_config
+from .services.config_loader import get_forms, get_program_options, load_school_config
 from .services.form_utils import build_option_label_map
 from .services.validation import validate_submission
 from .services.notifications import send_applicant_confirmation_email, send_submission_notification_email
@@ -633,3 +642,127 @@ def admin_theme_api(request):
         pref.save(update_fields=["theme"])
 
     return JsonResponse({"ok": True, "theme": theme_key})
+
+
+# ---------------------------------------------------------------------------
+# Lead capture
+# ---------------------------------------------------------------------------
+
+@xframe_options_exempt
+def lead_capture_view(request, school_slug):
+    config = load_school_config(school_slug)
+    if not config:
+        raise Http404
+
+    school = _get_or_create_school_from_config(school_slug, config, merge_branding(config.branding))
+    if not school.is_active:
+        raise Http404
+    if not school.features.leads_enabled:
+        raise Http404
+
+    branding = merge_branding(config.branding)
+    leads_cfg = config.raw.get("leads") or {}
+    program_options = get_program_options(config)
+
+    errors: dict[str, str] = {}
+
+    if request.method == "POST":
+        # ── Honeypot — silent reject ──────────────────────────────────────
+        if request.POST.get("trap_field"):
+            return redirect(reverse("lead_capture_success", kwargs={"school_slug": school_slug}))
+
+        name = request.POST.get("name", "").strip()
+        email = request.POST.get("email", "").strip()
+        phone = request.POST.get("phone", "").strip()
+        interested_in_value = request.POST.get("interested_in_value", "").strip()
+        interested_in_label = request.POST.get("interested_in_label", "").strip()
+        source = request.POST.get("source", "").strip() or "website"
+        utm_source = request.POST.get("utm_source", "").strip()
+        utm_medium = request.POST.get("utm_medium", "").strip()
+        utm_campaign = request.POST.get("utm_campaign", "").strip()
+
+        # ── Validation ────────────────────────────────────────────────────
+        if not name:
+            errors["name"] = "Name is required."
+        if not email:
+            errors["email"] = "Email is required."
+        elif "@" not in email or "." not in email.split("@")[-1]:
+            errors["email"] = "Enter a valid email address."
+
+        if not errors:
+            normalized = email.lower().strip()
+
+            # Dedup by school + normalized_email (no time window).
+            # Tradeoff: a parent using one email for multiple children at the
+            # same school appears as a single lead. Acceptable for Feature 3.
+            existing = Lead.objects.filter(
+                school=school,
+                normalized_email=normalized,
+            ).order_by("-created_at").first()
+
+            if existing:
+                existing.name = name
+                if phone:
+                    existing.phone = phone
+                if interested_in_label:
+                    existing.interested_in_label = interested_in_label
+                    existing.interested_in_value = interested_in_value
+                # UTM: latest-touch attribution (intentional overwrite)
+                existing.utm_source = utm_source or existing.utm_source
+                existing.utm_medium = utm_medium or existing.utm_medium
+                existing.utm_campaign = utm_campaign or existing.utm_campaign
+                if existing.status == LEAD_STATUS_LOST:
+                    existing.status = LEAD_STATUS_NEW
+                existing.save()
+            else:
+                Lead.objects.create(
+                    school=school,
+                    name=name,
+                    email=email,
+                    phone=phone,
+                    interested_in_label=interested_in_label,
+                    interested_in_value=interested_in_value,
+                    source=source,
+                    utm_source=utm_source,
+                    utm_medium=utm_medium,
+                    utm_campaign=utm_campaign,
+                )
+
+            return redirect(reverse("lead_capture_success", kwargs={"school_slug": school_slug}))
+
+    # GET (or POST with errors)
+    context = {
+        "school": school,
+        "school_name": config.display_name,
+        "branding": branding,
+        "program_options": program_options,
+        "source_choices": LEAD_SOURCE_CHOICES,
+        "cta_text": leads_cfg.get("cta_text") or "I'm interested",
+        "errors": errors,
+        # Preserve POST values on re-render
+        "form_data": request.POST if errors else {},
+        # UTM pass-through: GET params → hidden inputs
+        "utm_source": request.GET.get("utm_source", "") if request.method == "GET" else request.POST.get("utm_source", ""),
+        "utm_medium": request.GET.get("utm_medium", "") if request.method == "GET" else request.POST.get("utm_medium", ""),
+        "utm_campaign": request.GET.get("utm_campaign", "") if request.method == "GET" else request.POST.get("utm_campaign", ""),
+    }
+    return render(request, "lead_form.html", context)
+
+
+@xframe_options_exempt
+def lead_capture_success_view(request, school_slug):
+    config = load_school_config(school_slug)
+    if not config:
+        raise Http404
+
+    branding = merge_branding(config.branding)
+    leads_cfg = config.raw.get("leads") or {}
+    success_message = leads_cfg.get("success_message") or "Thanks for your interest! We'll be in touch soon."
+    apply_url = reverse("apply", kwargs={"school_slug": school_slug})
+
+    return render(request, "lead_success.html", {
+        "school_name": config.display_name,
+        "branding": branding,
+        "success_message": success_message,
+        "apply_url": apply_url,
+    })

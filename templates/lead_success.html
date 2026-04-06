@@ -1,0 +1,100 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ school_name }} - Thank You</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="{% static 'forms.css' %}">
+    <style>
+      :root {
+        --primary: {{ branding.theme.primary_color|default:"#111827" }};
+        --accent:  {{ branding.theme.accent_color|default:"#2563eb" }};
+        --bg:      {{ branding.theme.background|default:"#f7f7fb" }};
+        --card:    {{ branding.theme.card|default:"#ffffff" }};
+        --text:    {{ branding.theme.text|default:"#111827" }};
+        --muted:   {{ branding.theme.muted|default:"#6b7280" }};
+        --border:  {{ branding.theme.border|default:"#e5e7eb" }};
+        --radius:  {{ branding.theme.radius|default:"16px" }};
+      }
+      *, *::before, *::after { box-sizing: border-box; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, sans-serif;
+        margin: 0;
+        padding: 16px;
+      }
+      .wrap {
+        max-width: 480px;
+        margin: 48px auto;
+        text-align: center;
+      }
+      .logo {
+        margin-bottom: 24px;
+      }
+      .logo img {
+        max-height: 56px;
+        width: auto;
+      }
+      .logo-text {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--primary);
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 36px 28px;
+      }
+      .check {
+        font-size: 48px;
+        margin-bottom: 16px;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--primary);
+      }
+      .msg {
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.6;
+        margin: 0 0 24px;
+      }
+      .apply-link {
+        display: inline-block;
+        padding: 12px 24px;
+        background: var(--accent);
+        color: #fff;
+        border-radius: 10px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 15px;
+        transition: opacity 0.15s;
+      }
+      .apply-link:hover { opacity: 0.88; }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrap">
+      <div class="logo">
+        {% if branding.logo_url %}
+          <img src="{{ branding.logo_url }}" alt="{{ school_name }}">
+        {% else %}
+          <span class="logo-text">{{ school_name }}</span>
+        {% endif %}
+      </div>
+
+      <div class="card">
+        <div class="check">&#10003;</div>
+        <h1>You're on our list!</h1>
+        <p class="msg">{{ success_message }}</p>
+        <a href="{{ apply_url }}" class="apply-link">Apply now</a>
+      </div>
+    </div>
+  </body>
+</html>

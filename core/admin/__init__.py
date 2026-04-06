@@ -16,6 +16,7 @@ from .users import SchoolScopedUserAdmin, UserSuperuserForm, UserSuperuserAddFor
 from .schools import SchoolAdmin
 from .memberships import SchoolAdminMembershipAdmin
 from .preferences import AdminPreferenceAdmin  # noqa: F401
+from .leads import LeadAdmin  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Monkeypatch admin.site.has_permission to enforce School.is_active
@@ -90,4 +91,5 @@ __all__ = [
     "UserSuperuserAddForm",
     "SchoolAdmin",
     "SchoolAdminMembershipAdmin",
+    "LeadAdmin",
 ]

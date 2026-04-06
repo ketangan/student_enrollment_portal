@@ -32,8 +32,9 @@ from core.tests.factories import (
     SchoolFactory,
     SchoolAdminMembershipFactory,
     SubmissionFactory,
+    LeadFactory,
 )
-from core.models import School, Submission, SubmissionFile, AdminAuditLog
+from core.models import Lead, School, Submission, SubmissionFile, AdminAuditLog
 
 
 class _DummyCfg:
@@ -1269,3 +1270,47 @@ def test_embed_snippet_visible_in_school_change_view(client):
     response = client.get(url)
     assert response.status_code == 200
     assert b"/schools/embed-view-school/apply/" in response.content
+
+
+# ---------------------------------------------------------------------------
+# Lead admin tests
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_lead_admin_school_scoped(client):
+    """A school admin user sees only their own school's leads."""
+    User = get_user_model()
+    school_a = SchoolFactory.create(plan="starter")
+    school_b = SchoolFactory.create(plan="starter")
+
+    membership = SchoolAdminMembershipFactory.create(school=school_a)
+    user = membership.user
+    client.force_login(user)
+
+    LeadFactory.create(school=school_a, email="a@example.com")
+    LeadFactory.create(school=school_b, email="b@example.com")
+
+    url = reverse("admin:core_lead_changelist")
+    response = client.get(url)
+    assert response.status_code == 200
+    assert b"a@example.com" in response.content
+    assert b"b@example.com" not in response.content
+
+
+@pytest.mark.django_db
+def test_lead_admin_status_badge_renders(client):
+    """Superuser change-list must render the coloured status badge HTML."""
+    User = get_user_model()
+    superuser = User.objects.create_superuser(
+        username="leadsu", password="pass", email="leadsu@example.com"
+    )
+    client.force_login(superuser)
+
+    school = SchoolFactory.create(plan="starter")
+    LeadFactory.create(school=school, email="badge@example.com", status="new")
+
+    url = reverse("admin:core_lead_changelist")
+    response = client.get(url)
+    assert response.status_code == 200
+    # Badge renders as a <span> with the New colour
+    assert b"border-radius:999px" in response.content

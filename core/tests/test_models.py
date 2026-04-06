@@ -353,3 +353,19 @@ def test_school_features_cache_invalidated_after_refresh():
     school.refresh_from_db()
     # refresh_from_db clears Python-level attrs, so _features_cache is gone
     assert school.features.reports_enabled is True
+
+
+# ---------------------------------------------------------------------------
+# leads_enabled feature flag
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_leads_enabled_starter_plan():
+    school = SchoolFactory(plan="starter")
+    assert school.features.leads_enabled is True
+
+
+@pytest.mark.django_db
+def test_leads_disabled_trial_plan():
+    school = SchoolFactory(plan="trial")
+    assert school.features.leads_enabled is False

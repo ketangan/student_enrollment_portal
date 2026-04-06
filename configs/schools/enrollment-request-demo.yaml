@@ -198,3 +198,9 @@ admin:
     - Closed
   default_submission_status: 
     - New
+
+
+leads:
+  success_message: "Thanks for your interest! We'll follow up within 1–2 business days."
+  cta_text: "I'm interested"
+  # program_field_key: "interested_in"  # optional: explicit override for program field

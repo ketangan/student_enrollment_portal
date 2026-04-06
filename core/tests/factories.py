@@ -3,7 +3,7 @@ from factory import django
 from faker import Faker
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from core.models import SubmissionFile
+from core.models import Lead, LEAD_STATUS_NEW, SubmissionFile
 
 fake = Faker()
 
@@ -62,6 +62,20 @@ class SubmissionFactory(django.DjangoModelFactory):
         "dance_style": fake.word(ext_word_list=["ballet", "jazz", "hiphop", "contemporary"]) ,
         "skill_level": fake.random_element(elements=("beginner", "intermediate", "advanced")),
     })
+
+
+class LeadFactory(django.DjangoModelFactory):
+    class Meta:
+        model = Lead
+
+    school = factory.SubFactory(SchoolFactory)
+    name = factory.LazyFunction(lambda: fake.name())
+    email = factory.LazyFunction(lambda: fake.email())
+    phone = factory.LazyFunction(lambda: fake.numerify("(###) ###-####"))
+    interested_in_label = "Beginner Program"
+    interested_in_value = "beginner"
+    source = "website"
+    status = LEAD_STATUS_NEW
 
 
 class SubmissionFileFactory(factory.django.DjangoModelFactory):

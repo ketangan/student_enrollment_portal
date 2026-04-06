@@ -131,6 +131,55 @@ class SchoolConfig:
         return {}
 
 
+_PROGRAM_FIELD_KEYS = {"interested_in", "program", "program_interest", "dance_style"}
+
+
+def get_program_options(config: "SchoolConfig") -> list[dict]:
+    """
+    Returns [{label, value}, ...] for the first program-like select field
+    found in the school's form config.
+
+    Lookup order:
+    1. Explicit YAML override: leads.program_field_key
+    2. Heuristic: first type=select field whose key is in _PROGRAM_FIELD_KEYS
+
+    Returns [] if nothing found.
+    """
+    raw = getattr(config, "raw", None) or {}
+    explicit_key = raw.get("leads", {}).get("program_field_key")
+
+    # Gather all form sections across single-form and multi-form configs
+    sections: list[dict] = []
+    if isinstance(raw.get("form"), dict):
+        sections = raw["form"].get("sections") or []
+    elif isinstance(raw.get("forms"), dict):
+        for form_data in raw["forms"].values():
+            if isinstance(form_data, dict) and isinstance(form_data.get("form"), dict):
+                sections.extend(form_data["form"].get("sections") or [])
+
+    for section in sections:
+        for field in section.get("fields") or []:
+            ftype = (field.get("type") or "").strip().lower()
+            key = field.get("key", "")
+            if ftype != "select":
+                continue
+            if explicit_key and key != explicit_key:
+                continue
+            if not explicit_key and key not in _PROGRAM_FIELD_KEYS:
+                continue
+            options = field.get("options") or []
+            return [
+                {
+                    "label": opt.get("label", ""),
+                    "value": opt.get("value", opt.get("label", "")),
+                }
+                for opt in options
+                if isinstance(opt, dict)
+            ]
+
+    return []
+
+
 def load_school_config(school_slug: str) -> Optional[SchoolConfig]:
     """
     Loads configs/schools/<school_slug>.yaml.
