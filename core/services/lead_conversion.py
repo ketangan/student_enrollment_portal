@@ -14,12 +14,13 @@ logger = logging.getLogger(__name__)
 
 def try_convert_lead(*, school, submission, config_raw: dict) -> Lead | None:
     """
-    Links the most recent unconverted Lead to a Submission when an email match is found.
+    Links an unconverted Lead to a Submission when an email match is found.
 
     - Requires school.features.leads_conversion_enabled (Pro+)
     - Matches by normalized_email (case-insensitive, exact)
-    - When multiple unconverted leads exist for the same email, converts the most
-      recently created one (Option A: accept duplicates, pick most recent)
+    - The unique_lead_per_school_email constraint guarantees at most one lead per
+      school+email, so the filter returns 0 or 1 rows. The order_by is a no-op
+      in practice but kept as a defensive measure.
     - Idempotent: already-converted leads are never overwritten
     - Race-safe: uses select_for_update() inside transaction.atomic()
     - Returns the Lead if converted, else None
@@ -33,8 +34,6 @@ def try_convert_lead(*, school, submission, config_raw: dict) -> Lead | None:
         return None
 
     normalized = applicant_email.lower().strip()
-    if not normalized:
-        return None
 
     with transaction.atomic():
         lead = (

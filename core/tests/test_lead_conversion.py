@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import pytest
+from django.urls import reverse
+from django.utils import timezone
 
+from core.models import Submission
 from core.services.lead_conversion import try_convert_lead
 from core.tests.factories import LeadFactory, SchoolFactory, SubmissionFactory
-from django.utils import timezone
 
 
 # ---------------------------------------------------------------------------
@@ -21,22 +23,6 @@ def _config_with_email(key="contact_email", required=True):
                     "title": "Contact",
                     "fields": [
                         {"key": key, "label": "Email", "type": "email", "required": required},
-                    ],
-                }
-            ]
-        }
-    }
-
-
-def _config_no_email():
-    """Single-form YAML config with no email field."""
-    return {
-        "form": {
-            "sections": [
-                {
-                    "title": "Student",
-                    "fields": [
-                        {"key": "first_name", "label": "First Name", "type": "text", "required": True},
                     ],
                 }
             ]
@@ -193,8 +179,6 @@ def _make_apply_config(school, *, email_field=True):
 def test_apply_view_triggers_conversion_on_submit(client, monkeypatch, settings):
     """Single-form POST with a Pro school and matching lead converts the lead."""
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
-    from django.urls import reverse
-
     school = SchoolFactory(plan="pro", slug="conv-test-pro")
     lead = LeadFactory(school=school, email="apply@example.com")
     monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school))
@@ -212,9 +196,6 @@ def test_apply_view_triggers_conversion_on_submit(client, monkeypatch, settings)
 def test_apply_view_no_conversion_when_no_lead(client, monkeypatch, settings):
     """Pro school with no pre-existing lead: submission created, no error."""
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
-    from django.urls import reverse
-    from core.models import Submission
-
     school = SchoolFactory(plan="pro", slug="conv-test-no-lead")
     monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school))
 
@@ -230,8 +211,6 @@ def test_apply_view_no_conversion_when_no_lead(client, monkeypatch, settings):
 def test_apply_view_conversion_skipped_for_starter_plan(client, monkeypatch, settings):
     """Starter school: lead exists but conversion is skipped."""
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
-    from django.urls import reverse
-
     school = SchoolFactory(plan="starter", slug="conv-test-starter")
     lead = LeadFactory(school=school, email="starter@example.com")
     monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school))
@@ -249,9 +228,6 @@ def test_apply_view_conversion_skipped_for_starter_plan(client, monkeypatch, set
 def test_apply_view_conversion_skipped_when_no_email_in_config(client, monkeypatch, settings):
     """No email field in YAML config: submission created without error, no conversion."""
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
-    from django.urls import reverse
-    from core.models import Submission
-
     school = SchoolFactory(plan="pro", slug="conv-test-no-email-cfg")
     lead = LeadFactory(school=school, email="noemail@example.com")
     monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school, email_field=False))
@@ -261,7 +237,6 @@ def test_apply_view_conversion_skipped_when_no_email_in_config(client, monkeypat
         data={"first_name": "Test"},
     )
 
-    from core.models import Submission
     assert Submission.objects.filter(school=school).count() == 1
     lead.refresh_from_db()
     assert lead.converted_submission_id is None

@@ -250,7 +250,10 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 )
 
             submission = Submission.objects.create(school=school, form_key="default", data=cleaned)
-            try_convert_lead(school=school, submission=submission, config_raw=getattr(config, "raw", {}) or {})
+            try:
+                try_convert_lead(school=school, submission=submission, config_raw=getattr(config, "raw", {}) or {})
+            except Exception:
+                logger.exception("Failed to convert lead for submission %s", submission.public_id)
             if school.features.file_uploads_enabled:
                 _save_uploaded_files(submission, form_cfg, request.FILES)
             if school.features.email_notifications_enabled:
@@ -339,7 +342,10 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
 
         # Done: clear session key and go success
         request.session.pop(_multi_session_key(school_slug), None)
-        try_convert_lead(school=school, submission=submission, config_raw=getattr(config, "raw", {}) or {})
+        try:
+            try_convert_lead(school=school, submission=submission, config_raw=getattr(config, "raw", {}) or {})
+        except Exception:
+            logger.exception("Failed to convert lead for submission %s", submission.public_id)
         if school.features.email_notifications_enabled:
             try:
                 send_submission_notification_email(
