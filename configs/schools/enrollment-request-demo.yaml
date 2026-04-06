@@ -181,6 +181,12 @@ success:
       from_email: "kg.ketan@gmail.com"   # must match a verified sender for now
       subject: "New submission: {{student_name}}"
 
+    applicant_confirmation:
+      enabled: true
+      from_email: "kg.ketan@gmail.com"   # must match a verified sender
+      subject: "We received your application, {{student_name}}!"
+      # message: ""   # optional — leave blank to use the default message
+
 admin:
   submission_statuses:
     - New

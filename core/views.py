@@ -24,7 +24,7 @@ from .services.admin_themes import (
 from .services.config_loader import get_forms, load_school_config
 from .services.form_utils import build_option_label_map
 from .services.validation import validate_submission
-from .services.notifications import send_submission_notification_email
+from .services.notifications import send_applicant_confirmation_email, send_submission_notification_email
 
 
 # Phase 9: default branding (used when YAML has missing branding keys)
@@ -252,6 +252,16 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                     )
                 except Exception:
                     logger.exception("Failed to send submission notification email")
+                try:
+                    send_applicant_confirmation_email(
+                        config_raw=getattr(config, "raw", {}) or {},
+                        school_name=config.display_name,
+                        submission_public_id=submission.public_id,
+                        student_name=submission.student_display_name(),
+                        submission_data=submission.data or {},
+                    )
+                except Exception:
+                    logger.exception("Failed to send applicant confirmation email")
 
             return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
@@ -328,6 +338,16 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 )
             except Exception:
                 logger.exception("Failed to send submission notification email")
+            try:
+                send_applicant_confirmation_email(
+                    config_raw=getattr(config, "raw", {}) or {},
+                    school_name=config.display_name,
+                    submission_public_id=submission.public_id,
+                    student_name=submission.student_display_name(),
+                    submission_data=submission.data or {},
+                )
+            except Exception:
+                logger.exception("Failed to send applicant confirmation email")
 
         return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 

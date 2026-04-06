@@ -1,4 +1,5 @@
 import os
+from unittest import mock
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -206,4 +207,130 @@ def test_apply_view_returns_404_for_inactive_school_post(client):
     # Verify no submission was created
     from core.models import Submission
     assert not Submission.objects.filter(school=school).exists()
-    
+
+
+# ---------------------------------------------------------------------------
+# Applicant confirmation email — integration tests
+# ---------------------------------------------------------------------------
+
+SINGLE_FORM_SLUG = "enrollment-request-demo"
+
+
+@pytest.mark.django_db
+def test_apply_flow_sends_confirmation_email_to_applicant(client, settings):
+    """
+    Submitting a valid single-form application sends a confirmation email
+    to the applicant's email address (contact_email field).
+    """
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    mail.outbox.clear()
+
+    from core.models import School
+    cfg = load_school_config(SINGLE_FORM_SLUG)
+    assert cfg is not None
+
+    School.objects.get_or_create(
+        slug=SINGLE_FORM_SLUG,
+        defaults={"display_name": cfg.display_name, "plan": "starter"},
+    )
+
+    url = reverse("apply", kwargs={"school_slug": SINGLE_FORM_SLUG})
+    post_data = _build_valid_post_data(cfg.form)
+    # Provide a real applicant email so the confirmation can be sent
+    post_data["contact_email"] = "applicant@example.com"
+    post_data.update(_attach_files_for_form(cfg.form))
+
+    resp = client.post(url, data=post_data, follow=False)
+    assert resp.status_code in (302, 303)
+
+    # At least one email should go to the applicant
+    applicant_emails = [m for m in mail.outbox if "applicant@example.com" in m.to]
+    assert applicant_emails, "Expected a confirmation email sent to applicant@example.com"
+
+    confirmation = applicant_emails[0]
+    submission = Submission.objects.order_by("-id").first()
+    assert submission is not None
+    assert submission.public_id in confirmation.body
+
+
+@pytest.mark.django_db
+def test_apply_flow_no_confirmation_email_when_feature_disabled(client, settings):
+    """
+    Schools on the Trial plan (email_notifications_enabled=False)
+    must not receive any emails at all.
+    """
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    mail.outbox.clear()
+
+    from core.models import School
+    cfg = load_school_config(SINGLE_FORM_SLUG)
+    assert cfg is not None
+
+    School.objects.filter(slug=SINGLE_FORM_SLUG).delete()
+    School.objects.create(
+        slug=SINGLE_FORM_SLUG,
+        display_name=cfg.display_name,
+        plan="trial",  # email_notifications_enabled = False
+    )
+
+    url = reverse("apply", kwargs={"school_slug": SINGLE_FORM_SLUG})
+    post_data = _build_valid_post_data(cfg.form)
+    post_data["contact_email"] = "applicant@example.com"
+    post_data.update(_attach_files_for_form(cfg.form))
+
+    resp = client.post(url, data=post_data, follow=False)
+    assert resp.status_code in (302, 303)
+
+    assert mail.outbox == [], "No emails should be sent for Trial-plan schools"
+
+
+@pytest.mark.django_db
+def test_apply_flow_confirmation_sent_only_on_final_multiform_step(client, settings):
+    """
+    For multi-form schools, send_applicant_confirmation_email must be called
+    only after the LAST step, not on intermediate steps.
+    """
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+
+    from core.models import School
+    slug = "multi-form-demo"
+    cfg = load_school_config(slug)
+    assert cfg is not None
+
+    School.objects.filter(slug=slug).delete()
+    School.objects.create(
+        slug=slug,
+        display_name=cfg.display_name,
+        plan="pro",
+    )
+
+    from core.services.config_loader import get_forms
+    forms = get_forms(cfg)
+    form_keys = list(forms.keys())
+    assert len(form_keys) > 1, "multi-form-demo should have multiple steps"
+
+    target = "core.views.send_applicant_confirmation_email"
+    with mock.patch(target) as mock_confirm:
+        mock_confirm.return_value = True
+
+        # Submit all steps except the last
+        for form_key in form_keys[:-1]:
+            form_cfg = forms[form_key]["form"]
+            post_data = _build_valid_post_data(form_cfg)
+            url = reverse("apply_form", kwargs={"school_slug": slug, "form_key": form_key})
+            resp = client.post(url, data=post_data, follow=False)
+            assert resp.status_code in (302, 303), f"Step {form_key} failed"
+
+        # Confirmation must NOT have been called yet
+        mock_confirm.assert_not_called()
+
+        # Submit the final step
+        last_key = form_keys[-1]
+        form_cfg = forms[last_key]["form"]
+        post_data = _build_valid_post_data(form_cfg)
+        url = reverse("apply_form", kwargs={"school_slug": slug, "form_key": last_key})
+        resp = client.post(url, data=post_data, follow=False)
+        assert resp.status_code in (302, 303), "Final step failed"
+
+        # Now confirmation should have been called exactly once
+        mock_confirm.assert_called_once()
