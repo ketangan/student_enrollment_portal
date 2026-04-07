@@ -343,6 +343,7 @@ LEAD_SOURCE_CHOICES = [
     ("referral", "Referral"),
     ("social", "Social Media"),
     ("walk_in", "Walk-in"),
+    ("phone", "Phone"),
     ("event", "Event"),
     ("other", "Other"),
 ]

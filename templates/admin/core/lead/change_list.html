@@ -1,0 +1,74 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block content %}
+{% if not request.user.is_superuser %}
+<div style="margin-bottom:16px;">
+  <button
+    id="qa-toggle"
+    type="button"
+    onclick="(function(){var p=document.getElementById('qa-panel');p.style.display=p.style.display==='none'?'block':'none';})();"
+    style="padding:6px 16px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:0.01em;">
+    + Add Phone-in Lead
+  </button>
+
+  <div id="qa-panel" style="display:none;margin-top:12px;padding:20px;border-radius:8px;border:1px solid #334155;background:var(--darkblue, #1e293b);">
+    <form method="post" action="{% url 'admin:core_lead_quick_add' %}">
+      {% csrf_token %}
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px;">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#94a3b8;">Name *</label>
+          <input type="text" name="name" required autocomplete="off"
+            style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #475569;border-radius:4px;background:#0f172a;color:#f1f5f9;font-size:13px;">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#94a3b8;">Email *</label>
+          <input type="email" name="email" required autocomplete="off"
+            style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #475569;border-radius:4px;background:#0f172a;color:#f1f5f9;font-size:13px;">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#94a3b8;">Phone</label>
+          <input type="tel" name="phone" autocomplete="off"
+            style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #475569;border-radius:4px;background:#0f172a;color:#f1f5f9;font-size:13px;">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#94a3b8;">Interested In</label>
+          <input type="text" name="interested_in_label" placeholder="e.g. Ballet, Hip-Hop" autocomplete="off"
+            style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #475569;border-radius:4px;background:#0f172a;color:#f1f5f9;font-size:13px;">
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#94a3b8;">Source</label>
+          <select name="source"
+            style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #475569;border-radius:4px;background:#0f172a;color:#f1f5f9;font-size:13px;">
+            <option value="phone" selected>Phone</option>
+            <option value="website">Website</option>
+            <option value="referral">Referral</option>
+            <option value="social">Social Media</option>
+            <option value="walk_in">Walk-in</option>
+            <option value="event">Event</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#94a3b8;">Notes</label>
+        <textarea name="notes" rows="2" placeholder="Call notes, questions asked, etc."
+          style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #475569;border-radius:4px;background:#0f172a;color:#f1f5f9;font-size:13px;resize:vertical;"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button type="submit"
+          style="padding:7px 20px;background:#16a34a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;">
+          Save Lead
+        </button>
+        <button type="button"
+          onclick="document.getElementById('qa-panel').style.display='none';"
+          style="padding:7px 16px;background:#475569;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}

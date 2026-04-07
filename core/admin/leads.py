@@ -36,6 +36,24 @@ def _get_day_bounds():
     return now, today_start, today_end
 
 
+class ConvertedFilter(admin.SimpleListFilter):
+    title = "Conversion"
+    parameter_name = "converted"
+
+    def lookups(self, request, model_admin):
+        return [
+            ("no", "Unconverted only"),
+            ("yes", "Converted only"),
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value() == "no":
+            return queryset.filter(converted_submission__isnull=True)
+        if self.value() == "yes":
+            return queryset.filter(converted_submission__isnull=False)
+        return queryset
+
+
 class FollowUpFilter(admin.SimpleListFilter):
     title = "Follow-up"
     parameter_name = "follow_up"
@@ -87,7 +105,7 @@ class LeadAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_editable = ("status",)
-    list_filter = ("status", "source", FollowUpFilter)
+    list_filter = ("status", "source", FollowUpFilter, ConvertedFilter)
     search_fields = ("name", "email", "phone")
     readonly_fields = (
         "public_id",
@@ -127,6 +145,75 @@ class LeadAdmin(admin.ModelAdmin):
             "fields": ("created_at", "updated_at"),
         }),
     )
+
+    # ------------------------------------------------------------------
+    # Custom URLs + quick-add view
+    # ------------------------------------------------------------------
+
+    def get_urls(self):
+        from django.urls import path
+        urls = super().get_urls()
+        custom = [
+            path(
+                "quick_add/",
+                self.admin_site.admin_view(self.quick_add_view),
+                name="core_lead_quick_add",
+            ),
+        ]
+        return custom + urls
+
+    def quick_add_view(self, request):
+        from django.db import IntegrityError, transaction
+        from django.http import HttpResponseForbidden
+        from django.shortcuts import redirect
+
+        if request.method != "POST":
+            return redirect("../")
+
+        if not self.has_module_permission(request):
+            return HttpResponseForbidden()
+
+        if _is_superuser(request.user):
+            # Superusers must use the full admin form; quick-add is staff-only.
+            messages.error(request, "Superusers cannot use quick-add. Use the full admin add form.")
+            return redirect("../")
+
+        school_id = _membership_school_id(request.user)
+        if not school_id:
+            messages.error(request, "No school associated with your account.")
+            return redirect("../")
+
+        from core.models import School
+        try:
+            school = School.objects.get(pk=school_id)
+        except School.DoesNotExist:
+            messages.error(request, "School not found.")
+            return redirect("../")
+
+        name = (request.POST.get("name") or "").strip()
+        email = (request.POST.get("email") or "").strip()
+
+        if not name or not email:
+            messages.error(request, "Name and email are required.")
+            return redirect("../")
+
+        try:
+            with transaction.atomic():
+                lead = Lead.objects.create(
+                    school=school,
+                    name=name,
+                    email=email,
+                    phone=(request.POST.get("phone") or "").strip(),
+                    interested_in_label=(request.POST.get("interested_in_label") or "").strip(),
+                    source=request.POST.get("source") or "phone",
+                    notes=(request.POST.get("notes") or "").strip(),
+                    status=LEAD_STATUS_NEW,
+                )
+            messages.success(request, f"Lead '{lead.name}' added.")
+        except IntegrityError:
+            messages.error(request, f"A lead with email '{email}' already exists for this school.")
+
+        return redirect("../")
 
     # ------------------------------------------------------------------
     # Bulk actions
