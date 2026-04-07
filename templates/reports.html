@@ -171,6 +171,105 @@
         </div>
     </div>
 
+      <!-- Lead Pipeline section -->
+      {% if lead_stats %}
+      <div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--border,#e5e7eb);">
+        <h2 style="font-size:18px;font-weight:700;margin:0 0 4px;">Lead Pipeline</h2>
+        <div class="reports-muted" style="font-size:13px;margin-bottom:14px;">All leads captured for this school (all-time pipeline)</div>
+      </div>
+
+      <!-- Lead KPI cards -->
+      {% if lead_stats.conversion_enabled %}
+      <div class="reports-cards" style="grid-template-columns:repeat(3,minmax(0,1fr));">
+      {% else %}
+      <div class="reports-cards">
+      {% endif %}
+        <div class="reports-card">
+          <div class="reports-k">New leads</div>
+          <div class="reports-v">{{ lead_stats.total_in_period }}</div>
+          <div class="reports-muted" style="margin-top:6px;">Last {{ range_days }} days</div>
+        </div>
+        <div class="reports-card">
+          <div class="reports-k">Total pipeline</div>
+          <div class="reports-v">{{ lead_stats.total }}</div>
+          <div class="reports-muted" style="margin-top:6px;">All time</div>
+        </div>
+        {% if lead_stats.conversion_enabled %}
+        <div class="reports-card">
+          <div class="reports-k">Conversion rate</div>
+          <div class="reports-v">
+            {% if lead_stats.total %}{{ lead_stats.overall_rate }}%{% else %}<span class="reports-muted">—</span>{% endif %}
+          </div>
+          <div class="reports-muted" style="margin-top:6px;">
+            {% if lead_stats.total_converted %}{{ lead_stats.total_converted }} converted{% else %}No conversions yet{% endif %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Pipeline by stage -->
+      <div class="reports-card" style="margin-top:12px;">
+        <div class="reports-filterbar">
+          <div class="reports-k">Pipeline by stage</div>
+        </div>
+        {% if lead_stats.total %}
+        <table class="reports-table">
+          <thead>
+            <tr>
+              <th>Stage</th>
+              <th style="width:120px;">Count</th>
+              <th style="width:120px;">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in lead_stats.funnel %}
+            <tr>
+              <td>{{ row.label }}</td>
+              <td>{{ row.count }}</td>
+              <td class="reports-muted">{{ row.pct }}%</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="reports-muted">No leads yet.</div>
+        {% endif %}
+      </div>
+
+      <!-- Leads by source -->
+      {% if lead_stats.sources %}
+      <div class="reports-card" style="margin-top:12px;">
+        <div class="reports-filterbar">
+          <div class="reports-k">Leads by source{% if lead_stats.conversion_enabled %} &amp; conversion{% endif %}</div>
+        </div>
+        <table class="reports-table">
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th style="width:100px;">Leads</th>
+              {% if lead_stats.conversion_enabled %}
+              <th style="width:110px;">Converted</th>
+              <th style="width:100px;">Rate</th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in lead_stats.sources %}
+            <tr>
+              <td>{{ row.label }}</td>
+              <td>{{ row.count }}</td>
+              {% if lead_stats.conversion_enabled %}
+              <td>{{ row.converted }}</td>
+              <td class="reports-muted">{{ row.rate }}%</td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      {% endif %}
+
       <!-- Recent submissions -->
       <div class="reports-card" style="margin-top: 12px;">
         <div class="reports-k" style="margin-bottom:10px;">Recent submissions</div>

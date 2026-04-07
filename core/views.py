@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
+from django.db.models import Count, Q
 from django.http import Http404, HttpResponse, FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
@@ -21,9 +22,10 @@ from django.views.decorators.http import require_http_methods
 from .models import (
     AdminPreference,
     Lead,
+    LEAD_SOURCE_CHOICES,
+    LEAD_STATUS_CHOICES,
     LEAD_STATUS_LOST,
     LEAD_STATUS_NEW,
-    LEAD_SOURCE_CHOICES,
     School,
     Submission,
     SubmissionFile,
@@ -649,6 +651,56 @@ def school_reports_view(request, school_slug: str):
             }
         )
 
+    # Lead analytics — only if leads feature is on
+    lead_stats = None
+    if school.features.leads_enabled:
+        leads_qs = Lead.objects.filter(school=school)
+        lead_total = leads_qs.count()
+        lead_total_in_period = leads_qs.filter(created_at__gte=since).count()
+
+        # Pipeline funnel (all-time current state)
+        status_counts = {
+            row["status"]: row["c"]
+            for row in leads_qs.values("status").annotate(c=Count("id"))
+        }
+        lead_funnel = []
+        for status_val, status_label in LEAD_STATUS_CHOICES:
+            count = status_counts.get(status_val, 0)
+            pct = round(count / lead_total * 100.0, 1) if lead_total else 0.0
+            lead_funnel.append({"status": status_val, "label": status_label, "count": count, "pct": pct})
+
+        # Source breakdown (all-time)
+        conversion_enabled = school.features.leads_conversion_enabled or request.user.is_superuser
+        source_label_map = dict(LEAD_SOURCE_CHOICES)
+        source_data = (
+            leads_qs
+            .values("source")
+            .annotate(count=Count("id"), converted=Count("id", filter=Q(converted_submission__isnull=False)))
+            .order_by("-count")
+        )
+        source_rows = []
+        for row in source_data:
+            count = row["count"]
+            converted = row["converted"]
+            source_rows.append({
+                "label": source_label_map.get(row["source"], row["source"].replace("_", " ").title()),
+                "count": count,
+                "converted": converted if conversion_enabled else None,
+                "rate": round(converted / count * 100.0, 1) if (count and conversion_enabled) else None,
+            })
+
+        # Overall conversion rate
+        total_converted = leads_qs.filter(converted_submission__isnull=False).count()
+        lead_stats = {
+            "total_in_period": lead_total_in_period,
+            "total": lead_total,
+            "funnel": lead_funnel,
+            "sources": source_rows,
+            "conversion_enabled": conversion_enabled,
+            "total_converted": total_converted if conversion_enabled else None,
+            "overall_rate": round(total_converted / lead_total * 100.0, 1) if (lead_total and conversion_enabled) else None,
+        }
+
     return render(
         request,
         "reports.html",
@@ -662,6 +714,7 @@ def school_reports_view(request, school_slug: str):
             "selected_program": selected_program,
             "range_days": range_days,
             "csv_export_enabled": csv_enabled,
+            "lead_stats": lead_stats,
         },
     )
 
