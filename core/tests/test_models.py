@@ -385,3 +385,15 @@ def test_leads_conversion_enabled_pro_plan():
 def test_leads_conversion_disabled_starter_plan():
     school = SchoolFactory(plan="starter")
     assert school.features.leads_conversion_enabled is False
+
+
+@pytest.mark.django_db
+def test_waiver_enabled_starter_plan():
+    school = SchoolFactory(plan="starter")
+    assert school.features.waiver_enabled is True
+
+
+@pytest.mark.django_db
+def test_waiver_disabled_trial_plan():
+    school = SchoolFactory(plan="trial")
+    assert school.features.waiver_enabled is False

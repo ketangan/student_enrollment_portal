@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 from collections import Counter
@@ -156,6 +157,45 @@ def _merge_submission_data(submission: Submission, cleaned: dict) -> None:
     submission.data = merged  # keep in-memory object consistent
 
 
+def _get_client_ip(request) -> str:
+    """Return client IP, preferring X-Forwarded-For (first entry) over REMOTE_ADDR."""
+    xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR") or ""
+
+
+def _strip_waiver_fields(form_cfg: dict) -> dict:
+    """Return a deep copy of form_cfg with waiver-type fields removed."""
+    cfg = copy.deepcopy(form_cfg)
+    for section in (cfg.get("sections") or []):
+        section["fields"] = [
+            f for f in (section.get("fields") or [])
+            if (f.get("type") or "").strip().lower() != "waiver"
+        ]
+    return cfg
+
+
+def _inject_waiver_metadata(cleaned: dict, form_cfg: dict, request) -> None:
+    """
+    Inject audit metadata for agreed waiver fields in-place.
+    Stores: __at (UTC-aware ISO 8601), __ip (XFF-aware), __text (wording snapshot),
+    and __link_url (if present). Only written when agreed = True.
+    """
+    now_iso = timezone.now().isoformat()  # UTC-aware ISO 8601
+    ip = _get_client_ip(request)
+    for section in (form_cfg.get("sections") or []):
+        for field in (section.get("fields") or []):
+            if (field.get("type") or "").strip().lower() == "waiver":
+                key = field.get("key")
+                if key and cleaned.get(key):
+                    cleaned[f"{key}__at"] = now_iso
+                    cleaned[f"{key}__ip"] = ip
+                    cleaned[f"{key}__text"] = field.get("text", "")
+                    if field.get("link_url"):
+                        cleaned[f"{key}__link_url"] = field.get("link_url", "")
+
+
 def _get_multi_form_context(config, form_key: str):
     """
     Returns: (form_cfg, ordered_keys, next_key)
@@ -230,6 +270,8 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
     # ----------------------------
     if not is_multi:
         form_cfg = config.form
+        if not school.features.waiver_enabled:
+            form_cfg = _strip_waiver_fields(form_cfg)
 
         if request.method == "POST":
             cleaned, errors = validate_submission(form_cfg, request.POST, request.FILES)
@@ -249,6 +291,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                     ),
                 )
 
+            _inject_waiver_metadata(cleaned, form_cfg, request)
             submission = Submission.objects.create(school=school, form_key="default", data=cleaned)
             try:
                 try_convert_lead(school=school, submission=submission, config_raw=getattr(config, "raw", {}) or {})
@@ -307,6 +350,8 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
         return redirect(reverse("apply_form", kwargs={"school_slug": school_slug, "form_key": first_key}))
 
     form_cfg, ordered_keys, next_key = _get_multi_form_context(config, form_key)
+    if not school.features.waiver_enabled:
+        form_cfg = _strip_waiver_fields(form_cfg)
 
     # GET: do NOT create Submission yet. Only load existing (if any) to prefill values.
     submission = _get_multi_submission(request, school, school_slug)
@@ -332,6 +377,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
         # Create or reuse ONE submission for the whole flow
         submission = _ensure_multi_submission(request, school, school_slug)
 
+        _inject_waiver_metadata(cleaned, form_cfg, request)
         _merge_submission_data(submission, cleaned)
         if school.features.file_uploads_enabled:
             _save_uploaded_files(submission, form_cfg, request.FILES)

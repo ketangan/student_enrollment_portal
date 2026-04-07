@@ -71,11 +71,12 @@
                   <div class="
                     {% if field.type == 'textarea' %}span-2{% endif %}
                     {% if field.type == 'file' %}span-2{% endif %}
+                    {% if field.type == 'waiver' %}span-2{% endif %}
                     {% if field.full_width %}span-2{% endif %}
                   ">
 
                     {# Standard label (not for checkbox) #}
-                    {% if field.type != "checkbox" and field.type != "multiselect" %}
+                    {% if field.type != "checkbox" and field.type != "multiselect" and field.type != "waiver" %}
                     <label class="label" for="{{ field.key }}">
                         {{ field.label }}
                         {% if field.required %}<span class="required">*</span>{% endif %}
@@ -158,6 +159,31 @@
                           {{ field.checkbox_label|default:field.label }}
                           {% if field.required %}<span class="required">*</span>{% endif %}
                         </label>
+                      </div>
+
+                    {# --- WAIVER --- #}
+                    {% elif field.type == "waiver" %}
+                      <div class="waiver-box">
+                        <p class="waiver-text">{{ field.text }}</p>
+                        {% if field.link_url %}
+                          <a href="{{ field.link_url }}" target="_blank" rel="noopener noreferrer" class="waiver-link">
+                            {{ field.link_text|default:"View terms" }}
+                          </a>
+                        {% endif %}
+                        <div class="check-row">
+                          <input
+                            class="check"
+                            id="{{ field.key }}"
+                            name="{{ field.key }}"
+                            type="checkbox"
+                            value="true"
+                            {% if values|get_item:field.key %}checked{% endif %}
+                          />
+                          <label class="check-label" for="{{ field.key }}">
+                            {{ field.checkbox_label|default:"I agree" }}
+                            {% if field.required %}<span class="required">*</span>{% endif %}
+                          </label>
+                        </div>
                       </div>
 
                     {# --- EMAIL --- #}

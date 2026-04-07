@@ -69,6 +69,14 @@ def validate_submission(
             if ftype == "multiselect":
                 raw_val = post_data.getlist(key)  # type: ignore[attr-defined]
 
+            if ftype == "waiver":
+                agreed = raw_val in ("on", "true", "True", True)
+                if required and not agreed:
+                    errors[key] = "You must agree to continue."
+                    continue
+                cleaned[key] = agreed
+                continue
+
             if required and _is_empty(raw_val):
                 errors[key] = "This field is required."
                 continue

@@ -46,6 +46,14 @@ def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=Non
                     value = name in post_data
                 else:
                     value = post_data.get(name, "")
+            elif ftype == "waiver":
+                value = {
+                    "agreed": bool(existing.get(key, False)),
+                    "timestamp": existing.get(f"{key}__at", ""),
+                    "ip": existing.get(f"{key}__ip", ""),
+                    "text": existing.get(f"{key}__text", ""),
+                    "link_url": existing.get(f"{key}__link_url", ""),
+                }
             else:
                 value = existing.get(key, "")
 
@@ -79,7 +87,7 @@ def validate_required_fields(cfg, post_data, form: dict | None = None) -> list[s
     for section in form.get("sections", []):
         for f in section.get("fields", []):
             ftype = (f.get("type") or "text").strip().lower()
-            if ftype == "file":
+            if ftype in ("file", "waiver"):
                 continue
 
             key = f.get("key")
@@ -116,7 +124,7 @@ def apply_post_to_submission_data(cfg, post_data, existing_data: dict, form: dic
     for section in form.get("sections", []):
         for f in section.get("fields", []):
             ftype = (f.get("type") or "text").strip().lower()
-            if ftype == "file":
+            if ftype in ("file", "waiver"):
                 continue
 
             key = f.get("key")

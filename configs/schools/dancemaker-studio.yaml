@@ -120,9 +120,12 @@ form:
       title: "Agreements"
       fields:
         - key: "liability_waiver"
-          label: "I agree to the studio liability waiver."
-          type: "checkbox"
+          type: "waiver"
           required: true
+          text: "I release Dancemaker Studio from liability for injuries sustained during classes, rehearsals, or performances."
+          link_url: "https://www.dancemarkstudio.com/terms"
+          link_text: "View full waiver"
+          checkbox_label: "I have read and agree to the liability waiver"
 
         - key: "media_release"
           label: "I consent to photo/video use (optional)."

@@ -73,6 +73,29 @@ Expects: yaml_sections = [{title, fields:[{key,label,type,required,options,value
                       <span class="yaml-check-text">Yes</span>
                     </label>
 
+                  {% elif f.type == "waiver" %}
+                    <div>
+                      {% if f.value.agreed %}
+                        <span style="color:#16a34a;font-weight:600;">Agreed ✓</span>
+                        {% if f.value.timestamp %}
+                          <span style="color:#6b7280;margin-left:8px;">{{ f.value.timestamp }}</span>
+                        {% endif %}
+                        {% if f.value.ip %}
+                          <span style="color:#6b7280;margin-left:8px;">(IP: {{ f.value.ip }})</span>
+                        {% endif %}
+                        {% if f.value.text %}
+                          <div style="color:#6b7280;font-size:12px;margin-top:4px;font-style:italic;">"{{ f.value.text }}"</div>
+                        {% endif %}
+                        {% if f.value.link_url %}
+                          <div style="font-size:12px;margin-top:2px;">
+                            <a href="{{ f.value.link_url }}" target="_blank" rel="noopener noreferrer">{{ f.value.link_url }}</a>
+                          </div>
+                        {% endif %}
+                      {% else %}
+                        <span style="color:#6b7280;">Not agreed</span>
+                      {% endif %}
+                    </div>
+
                   {% elif f.type == "date" %}
                     <input
                       id="id_dyn__{{ f.key }}"

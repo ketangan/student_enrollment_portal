@@ -75,6 +75,10 @@ class SchoolFeatures:
     def leads_conversion_enabled(self) -> bool:
         return bool(self._flags().get("leads_conversion_enabled", False))
 
+    @property
+    def waiver_enabled(self) -> bool:
+        return bool(self._flags().get("waiver_enabled", False))
+
 
 class School(models.Model):
     """
