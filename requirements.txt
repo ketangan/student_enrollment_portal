@@ -1,3 +1,4 @@
+anthropic>=0.40.0
 asgiref==3.11.0
 certifi==2026.1.4
 coverage==7.13.1

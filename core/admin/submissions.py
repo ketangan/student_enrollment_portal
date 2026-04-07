@@ -8,10 +8,12 @@ from django import forms
 from django.core.exceptions import PermissionDenied
 from django.contrib import admin, messages
 from django.http import HttpResponse
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.formats import date_format
+from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from core.admin.audit import log_admin_audit
 from copy import deepcopy
@@ -31,6 +33,7 @@ from core.services.admin_submission_yaml import (
     get_submission_status_choices,
     validate_required_fields,
 )
+from core.services.ai_summary import generate_ai_summary
 from core.services.config_loader import load_school_config
 from core.services.form_utils import build_option_label_map
 
@@ -83,7 +86,7 @@ class SubmissionAdmin(admin.ModelAdmin):
     object_history_template = "admin/core/submission/object_history.html"
 
     # yaml_form is rendered HTML (readonly method), data is readonly (still shown collapsed)
-    readonly_fields = ("public_id", "school_display", "created_at_pretty", "yaml_form", "data", "attachments")
+    readonly_fields = ("public_id", "school_display", "created_at_pretty", "yaml_form", "data", "attachments", "ai_summary_display")
     search_fields = ("public_id", "school__slug", "school__display_name")
     list_filter = ("school",)
 
@@ -123,11 +126,16 @@ class SubmissionAdmin(admin.ModelAdmin):
         if _is_superuser(request.user) or (obj and obj.school and obj.school.features.status_enabled):
             general_fields.insert(1, "status")
 
-        return (
+        fieldsets = [
             ("General", {"fields": tuple(general_fields)}),
             ("Raw Data (advanced)", {"fields": ("data",), "classes": ("collapse",)}),
             ("Attachments", {"fields": ("attachments",)}),
-        )
+        ]
+
+        if obj and obj.school and obj.school.features.ai_summary_enabled:
+            fieldsets.insert(1, ("AI Summary", {"fields": ("ai_summary_display",)}))
+
+        return tuple(fieldsets)
 
     def log_change(self, request, obj, message):
         old = getattr(request, "_old_submission_data", None)
@@ -239,7 +247,67 @@ class SubmissionAdmin(admin.ModelAdmin):
             if obj.school_id != school_id:
                 raise PermissionDenied
 
+        extra_context = extra_context or {}
+        if obj and obj.school:
+            extra_context["ai_summary_enabled"] = obj.school.features.ai_summary_enabled
+
         return super().change_view(request, object_id, form_url, extra_context)
+
+    def get_urls(self):
+        from django.urls import path
+        urls = super().get_urls()
+        custom = [
+            path(
+                "<int:pk>/generate-summary/",
+                self.admin_site.admin_view(self.generate_summary_view),
+                name="core_submission_generate_summary",
+            ),
+        ]
+        return custom + urls
+
+    def generate_summary_view(self, request, pk):
+        if request.method != "POST":
+            return redirect(reverse("admin:core_submission_change", args=[pk]))
+
+        obj = get_object_or_404(Submission, pk=pk)
+
+        if not self.has_change_permission(request, obj):
+            messages.error(request, "Permission denied.")
+            return redirect(reverse("admin:core_submission_change", args=[pk]))
+
+        if not obj.school.features.ai_summary_enabled:
+            messages.error(request, "AI summary is not available for this school's plan.")
+            return redirect(reverse("admin:core_submission_change", args=[pk]))
+
+        cfg = load_school_config(obj.school.slug)
+        form_cfg: dict = {}
+        criteria: list = []
+        school_name = obj.school.slug
+
+        if cfg:
+            school_name = getattr(cfg, "display_name", school_name) or school_name
+            raw = getattr(cfg, "raw", {}) or {}
+            ai_cfg = raw.get("ai_summary") or {}
+            criteria = list(ai_cfg.get("criteria") or [])
+            resolved, _ = _resolve_submission_form_cfg_and_labels(cfg, obj.form_key)
+            form_cfg = resolved or {}
+
+        result = generate_ai_summary(
+            submission_data=obj.data or {},
+            school_name=school_name,
+            form_cfg=form_cfg,
+            criteria=criteria,
+        )
+
+        if result is not None:
+            obj.ai_summary = result
+            obj.ai_summary_at = timezone.now()
+            obj.save(update_fields=["ai_summary", "ai_summary_at"])
+            messages.success(request, "AI summary generated.")
+        else:
+            messages.error(request, "Could not generate summary. Check that ANTHROPIC_API_KEY is configured.")
+
+        return redirect(reverse("admin:core_submission_change", args=[pk]))
 
     # ----------------------------
     # Display helpers
@@ -296,6 +364,61 @@ class SubmissionAdmin(admin.ModelAdmin):
         )
         return mark_safe(html)
     yaml_form.short_description = ""
+
+    def ai_summary_display(self, obj):
+        if not obj or not obj.pk or not obj.school or not obj.school.features.ai_summary_enabled:
+            return "—"
+
+        if not obj.ai_summary:
+            return mark_safe(
+                '<span style="color:#6b7280;font-style:italic;">'
+                'No summary yet. Click "Generate AI Summary" above to create one.'
+                "</span>"
+            )
+
+        summary_data = obj.ai_summary
+        summary_text = escape(str(summary_data.get("summary", "")))
+        criteria_scores = summary_data.get("criteria_scores") or []
+
+        parts = [
+            '<div style="font-size:13px;line-height:1.6;">',
+            f'<p style="margin:0 0 10px;">{summary_text}</p>',
+        ]
+
+        if criteria_scores:
+            parts.append(
+                '<div style="border-top:1px solid #e5e7eb;padding-top:10px;">'
+                '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;'
+                'color:#6b7280;margin-bottom:8px;">Criteria Assessment</div>'
+            )
+            for score in criteria_scores:
+                criterion = escape(str(score.get("criterion", "")))
+                assessment = escape(str(score.get("assessment", "")))
+                note = escape(str(score.get("note", "")))
+                note_html = (
+                    f'<div style="color:#6b7280;font-size:11px;margin-top:2px;">{note}</div>'
+                    if note else ""
+                )
+                parts.append(
+                    f'<div style="margin-bottom:6px;padding:8px;background:#f9fafb;border-radius:6px;">'
+                    f'<strong style="font-size:12px;">{criterion}:</strong> '
+                    f'<span style="color:#374151;">{assessment}</span>'
+                    f"{note_html}"
+                    f"</div>"
+                )
+            parts.append("</div>")
+
+        if obj.ai_summary_at:
+            at_str = obj.ai_summary_at.strftime("%b %d, %Y").replace(" 0", " ")
+            parts.append(
+                f'<div style="color:#9ca3af;font-size:11px;margin-top:8px;">Generated {at_str}</div>'
+            )
+
+        parts.append("</div>")
+        return mark_safe("".join(parts))
+
+    ai_summary_display.short_description = "AI Summary"
+
     # ----------------------------
     # The save pipeline (fix success message issues)
     # ----------------------------

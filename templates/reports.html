@@ -268,6 +268,34 @@
         </table>
       </div>
       {% endif %}
+
+      <!-- Lead pipeline charts -->
+      {% if lead_stats.total %}
+      <div class="reports-charts" style="margin-top:12px;">
+        <div class="reports-card">
+          <div class="reports-k" style="margin-bottom:10px;">Pipeline by stage</div>
+          <div class="reports-chartWrap">
+            <canvas id="leadStageBarChart"></canvas>
+          </div>
+        </div>
+        <div class="reports-card">
+          <div class="reports-k" style="margin-bottom:10px;">Leads by source</div>
+          <div class="reports-chartWrap">
+            <canvas id="leadSourceDonutChart"></canvas>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Conversion chart (Pro+) -->
+      {% if lead_stats.conversion_enabled and lead_stats.total %}
+      <div class="reports-card" style="margin-top:12px;">
+        <div class="reports-k" style="margin-bottom:10px;">Lead conversion by source</div>
+        <div class="reports-chartWrap">
+          <canvas id="leadConversionChart"></canvas>
+        </div>
+      </div>
+      {% endif %}
       {% endif %}
 
       <!-- Recent submissions -->
@@ -370,5 +398,99 @@
             }
         })();
         </script>
+
+    {% if lead_stats %}
+    {{ lead_stats.funnel|json_script:"lead-funnel-data" }}
+    {{ lead_stats.sources|json_script:"lead-sources-data" }}
+    {% endif %}
+    <script>
+    (function () {
+        const funnelEl = document.getElementById("lead-funnel-data");
+        if (funnelEl) {
+            let funnel = [];
+            try { funnel = JSON.parse(funnelEl.textContent || "[]"); } catch (e) {}
+            const stageLabels = funnel.map(r => r.label);
+            const stageCounts = funnel.map(r => Number(r.count || 0));
+            const stageCanvas = document.getElementById("leadStageBarChart");
+            if (stageCanvas && stageLabels.length) {
+                new Chart(stageCanvas, {
+                    type: "bar",
+                    data: {
+                        labels: stageLabels,
+                        datasets: [{ label: "Leads", data: stageCounts }]
+                    },
+                    options: {
+                        indexAxis: "y",
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+                    }
+                });
+            }
+        }
+
+        const sourcesEl = document.getElementById("lead-sources-data");
+        if (sourcesEl) {
+            let sources = [];
+            try { sources = JSON.parse(sourcesEl.textContent || "[]"); } catch (e) {}
+            const sourceLabels = sources.map(r => r.label);
+            const sourceCounts = sources.map(r => Number(r.count || 0));
+
+            // Donut: leads by source (volume only)
+            const sourceCanvas = document.getElementById("leadSourceDonutChart");
+            if (sourceCanvas && sourceLabels.length) {
+                new Chart(sourceCanvas, {
+                    type: "doughnut",
+                    data: {
+                        labels: sourceLabels,
+                        datasets: [{ data: sourceCounts }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: "bottom" }, tooltip: { enabled: true } },
+                        cutout: "60%"
+                    }
+                });
+            }
+
+            // Stacked bar: conversion by source (Pro+)
+            const convCanvas = document.getElementById("leadConversionChart");
+            if (convCanvas && sourceLabels.length) {
+                const converted = sources.map(r => Number(r.converted || 0));
+                const notConverted = sources.map((r, i) => sourceCounts[i] - converted[i]);
+                new Chart(convCanvas, {
+                    type: "bar",
+                    data: {
+                        labels: sourceLabels,
+                        datasets: [
+                            {
+                                label: "Converted",
+                                data: converted,
+                                backgroundColor: "rgba(22, 163, 74, 0.75)"
+                            },
+                            {
+                                label: "Not converted",
+                                data: notConverted,
+                                backgroundColor: "rgba(209, 213, 219, 0.75)"
+                            }
+                        ]
+                    },
+                    options: {
+                        indexAxis: "y",
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: "bottom" }, tooltip: { enabled: true } },
+                        scales: {
+                            x: { stacked: true, beginAtZero: true, ticks: { precision: 0 } },
+                            y: { stacked: true }
+                        }
+                    }
+                });
+            }
+        }
+    })();
+    </script>
   </body>
 </html>

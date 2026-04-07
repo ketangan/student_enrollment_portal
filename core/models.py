@@ -79,6 +79,10 @@ class SchoolFeatures:
     def waiver_enabled(self) -> bool:
         return bool(self._flags().get("waiver_enabled", False))
 
+    @property
+    def ai_summary_enabled(self) -> bool:
+        return bool(self._flags().get("ai_summary_enabled", False))
+
 
 class School(models.Model):
     """
@@ -210,6 +214,17 @@ class Submission(models.Model):
         max_length=40,
         db_index=True,
         default="New",
+    )
+
+    ai_summary = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Claude-generated summary (dict with 'summary' and 'criteria_scores').",
+    )
+    ai_summary_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the AI summary was last generated.",
     )
 
     def __str__(self) -> str:
