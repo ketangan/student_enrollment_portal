@@ -193,8 +193,10 @@ class LeadAdmin(admin.ModelAdmin):
         name = (request.POST.get("name") or "").strip()
         email = (request.POST.get("email") or "").strip()
 
-        if not name or not email:
-            messages.error(request, "Name and email are required.")
+        source = (request.POST.get("source") or "").strip()
+
+        if not name or not email or not source:
+            messages.error(request, "Name, email, and source are required.")
             return redirect("../")
 
         try:
@@ -205,7 +207,7 @@ class LeadAdmin(admin.ModelAdmin):
                     email=email,
                     phone=(request.POST.get("phone") or "").strip(),
                     interested_in_label=(request.POST.get("interested_in_label") or "").strip(),
-                    source=request.POST.get("source") or "phone",
+                    source=source,
                     notes=(request.POST.get("notes") or "").strip(),
                     status=LEAD_STATUS_NEW,
                 )

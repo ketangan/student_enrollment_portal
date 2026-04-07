@@ -133,10 +133,22 @@ def test_quick_add_duplicate_email_no_create(client):
     response = client.post(QUICK_ADD_URL, {
         "name": "Dupe Person",
         "email": "dup@example.com",
+        "source": "referral",
     })
 
     assert response.status_code == 302
     assert Lead.objects.filter(school=school, email="dup@example.com").count() == 1
+
+
+@pytest.mark.django_db
+def test_quick_add_missing_source_no_create(client):
+    school = SchoolFactory(plan="starter", slug="qa-missing-source")
+    _staff_client(client, school)
+
+    response = client.post(QUICK_ADD_URL, {"name": "No Source", "email": "nosource@example.com"})
+
+    assert response.status_code == 302
+    assert Lead.objects.filter(school=school).count() == 0
 
 
 @pytest.mark.django_db
@@ -146,7 +158,7 @@ def test_quick_add_auto_assigns_school(client):
     other_school = SchoolFactory(plan="starter", slug="qa-other-school")
     _staff_client(client, school)
 
-    client.post(QUICK_ADD_URL, {"name": "Auto", "email": "auto@example.com"})
+    client.post(QUICK_ADD_URL, {"name": "Auto", "email": "auto@example.com", "source": "walk_in"})
 
     assert Lead.objects.filter(school=school, email="auto@example.com").exists()
     assert not Lead.objects.filter(school=other_school, email="auto@example.com").exists()

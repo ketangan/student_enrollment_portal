@@ -9,7 +9,7 @@
     type="button"
     onclick="(function(){var p=document.getElementById('qa-panel');p.style.display=p.style.display==='none'?'block':'none';})();"
     style="padding:6px 16px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:0.01em;">
-    + Add Phone-in Lead
+    + Add Lead
   </button>
 
   <div id="qa-panel" style="display:none;margin-top:12px;padding:20px;border-radius:8px;border:1px solid #334155;background:var(--darkblue, #1e293b);">
@@ -38,13 +38,14 @@
         </div>
         <div>
           <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#94a3b8;">Source</label>
-          <select name="source"
+          <select name="source" required
             style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #475569;border-radius:4px;background:#0f172a;color:#f1f5f9;font-size:13px;">
-            <option value="phone" selected>Phone</option>
+            <option value="">— Select source —</option>
             <option value="website">Website</option>
             <option value="referral">Referral</option>
             <option value="social">Social Media</option>
             <option value="walk_in">Walk-in</option>
+            <option value="phone">Phone</option>
             <option value="event">Event</option>
             <option value="other">Other</option>
           </select>
