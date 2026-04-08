@@ -121,4 +121,10 @@ def generate_ai_summary(
         return {"summary": raw, "criteria_scores": []}, None
     except Exception as exc:
         logger.exception("Failed to generate AI summary via Claude API")
+        # Anthropic SDK errors carry a structured body; extract just the message field.
+        body = getattr(exc, "body", None)
+        if isinstance(body, dict):
+            nested = body.get("error", {})
+            if isinstance(nested, dict) and nested.get("message"):
+                return None, nested["message"]
         return None, str(exc) or "Unexpected error calling the Claude API."
