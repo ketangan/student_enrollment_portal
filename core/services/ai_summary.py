@@ -7,6 +7,10 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+_MAX_CRITERIA = 10
+_MAX_CRITERION_LEN = 200
+_API_TIMEOUT_SECONDS = 30.0
+
 
 def _build_submission_text(submission_data: dict, form_cfg: dict) -> str:
     """Format submission data as labelled key-value pairs for Claude."""
@@ -21,6 +25,9 @@ def _build_submission_text(submission_data: dict, form_cfg: dict) -> str:
     for key, value in (submission_data or {}).items():
         # Skip waiver audit metadata keys
         if any(key.endswith(suffix) for suffix in ("__at", "__ip", "__text", "__link_url")):
+            continue
+        # Skip empty values — they add noise without signal
+        if value is None or value == "" or value == []:
             continue
         label = label_map.get(key, key.replace("_", " ").title())
         if isinstance(value, list):
@@ -45,6 +52,23 @@ def _build_prompt(submission_text: str, school_name: str, criteria: list[str]) -
         f"Application:\n{submission_text}"
         f"{criteria_section}"
     )
+
+
+def _normalize_result(data: Any) -> dict[str, Any]:
+    """
+    Coerce the AI response to the expected schema before saving to DB.
+    Ensures summary is a string and criteria_scores is a list of dicts.
+    """
+    if not isinstance(data, dict):
+        return {"summary": str(data) if data else "", "criteria_scores": []}
+    summary = data.get("summary", "")
+    if not isinstance(summary, str):
+        summary = str(summary)
+    scores = data.get("criteria_scores") or []
+    if not isinstance(scores, list):
+        scores = []
+    scores = [s for s in scores if isinstance(s, dict)]
+    return {"summary": summary, "criteria_scores": scores}
 
 
 def generate_ai_summary(
@@ -85,11 +109,24 @@ def generate_ai_summary(
         logger.warning("No submission data to summarize")
         return None, "This submission has no data to summarize."
 
-    # Safety truncation — avoid very large prompts
+    # Truncate by lines so we never cut through a field mid-value
     if len(submission_text) > 3000:
-        submission_text = submission_text[:3000] + "\n[truncated]"
+        truncated_lines = []
+        total = 0
+        for line in submission_text.splitlines():
+            if total + len(line) + 1 > 3000:
+                break
+            truncated_lines.append(line)
+            total += len(line) + 1
+        submission_text = "\n".join(truncated_lines) + "\n[truncated]"
 
-    prompt = _build_prompt(submission_text, school_name, criteria or [])
+    # Cap criteria count and length to avoid prompt bloat
+    safe_criteria = [
+        str(c)[:_MAX_CRITERION_LEN]
+        for c in (criteria or [])[:_MAX_CRITERIA]
+    ]
+
+    prompt = _build_prompt(submission_text, school_name, safe_criteria)
 
     system = (
         "You are reviewing a student enrollment application. "
@@ -97,11 +134,14 @@ def generate_ai_summary(
         'Schema: {"summary": "<3-sentence summary of the applicant>", '
         '"criteria_scores": [{"criterion": "...", "assessment": "...", "note": "..."}]}\n'
         "criteria_scores should be an empty array [] if no criteria were provided. "
+        "Only state what is explicitly mentioned in the application. "
+        "Do not infer facts not present. Say 'not mentioned' when information is absent. "
         "Be concise, factual, and professional."
     )
 
+    raw = ""  # Initialize before try so except blocks always have a reference
     try:
-        client = anthropic.Anthropic(api_key=api_key)
+        client = anthropic.Anthropic(api_key=api_key, timeout=_API_TIMEOUT_SECONDS)
         message = client.messages.create(
             model="claude-sonnet-4-6",
             max_tokens=512,
@@ -114,11 +154,12 @@ def generate_ai_summary(
             raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
         result = json.loads(raw)
         if "summary" not in result:
-            return {"summary": raw, "criteria_scores": []}, None
-        return result, None
+            return _normalize_result({"summary": raw, "criteria_scores": []}), None
+        return _normalize_result(result), None
     except json.JSONDecodeError:
         # Model returned non-JSON; wrap as plain summary
-        return {"summary": raw, "criteria_scores": []}, None
+        logger.warning("AI summary: model returned non-JSON response; falling back to plain text. raw=%r", raw[:200])
+        return _normalize_result({"summary": raw, "criteria_scores": []}), None
     except Exception as exc:
         logger.exception("Failed to generate AI summary via Claude API")
         # Anthropic SDK errors carry a structured body; extract just the message field.

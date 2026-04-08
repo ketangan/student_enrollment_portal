@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import csv
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 from django import forms
 from django.core.exceptions import PermissionDenied
@@ -272,8 +275,12 @@ class SubmissionAdmin(admin.ModelAdmin):
         obj = get_object_or_404(Submission, pk=pk)
 
         if not self.has_change_permission(request, obj):
-            messages.error(request, "Permission denied.")
-            return redirect(reverse("admin:core_submission_change", args=[pk]))
+            raise PermissionDenied
+
+        # Mirror change_view's explicit school-scope check (defence-in-depth)
+        if not _is_superuser(request.user):
+            if obj.school_id != _membership_school_id(request.user):
+                raise PermissionDenied
 
         if not obj.school.features.ai_summary_enabled:
             messages.error(request, "AI summary is not available for this school's plan.")
@@ -286,12 +293,13 @@ class SubmissionAdmin(admin.ModelAdmin):
 
         if cfg:
             school_name = getattr(cfg, "display_name", school_name) or school_name
-            raw = getattr(cfg, "raw", {}) or {}
-            ai_cfg = raw.get("ai_summary") or {}
+            raw_cfg = getattr(cfg, "raw", {}) or {}
+            ai_cfg = raw_cfg.get("ai_summary") or {}
             criteria = list(ai_cfg.get("criteria") or [])
             resolved, _ = _resolve_submission_form_cfg_and_labels(cfg, obj.form_key)
             form_cfg = resolved or {}
 
+        was_regeneration = bool(obj.ai_summary)
         result, error = generate_ai_summary(
             submission_data=obj.data or {},
             school_name=school_name,
@@ -303,8 +311,17 @@ class SubmissionAdmin(admin.ModelAdmin):
             obj.ai_summary = result
             obj.ai_summary_at = timezone.now()
             obj.save(update_fields=["ai_summary", "ai_summary_at"])
+            log_admin_audit(
+                request=request,
+                action="action",
+                obj=obj,
+                extra={"name": "regenerate_ai_summary" if was_regeneration else "generate_ai_summary"},
+            )
             messages.success(request, "AI summary generated.")
         else:
+            logger.warning(
+                "AI summary generation failed for submission %s: %s", pk, error
+            )
             messages.error(request, f"Could not generate summary. {error}")
 
         return redirect(reverse("admin:core_submission_change", args=[pk]))
@@ -377,8 +394,13 @@ class SubmissionAdmin(admin.ModelAdmin):
             )
 
         summary_data = obj.ai_summary
+        if not isinstance(summary_data, dict):
+            return mark_safe('<span style="color:#6b7280;font-style:italic;">Summary data is malformed.</span>')
+
         summary_text = escape(str(summary_data.get("summary", "")))
         criteria_scores = summary_data.get("criteria_scores") or []
+        if not isinstance(criteria_scores, list):
+            criteria_scores = []
 
         parts = [
             '<div style="font-size:13px;line-height:1.6;">',
@@ -392,6 +414,8 @@ class SubmissionAdmin(admin.ModelAdmin):
                 'color:#6b7280;margin-bottom:8px;">Criteria Assessment</div>'
             )
             for score in criteria_scores:
+                if not isinstance(score, dict):
+                    continue
                 criterion = escape(str(score.get("criterion", "")))
                 assessment = escape(str(score.get("assessment", "")))
                 note = escape(str(score.get("note", "")))

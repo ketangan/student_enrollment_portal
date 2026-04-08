@@ -17,6 +17,11 @@
   </a>
   <script>
   (function () {
+    function getCsrfToken() {
+      var match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+      return match ? decodeURIComponent(match[1]) : "";
+    }
+
     var btn = document.getElementById("ai-summary-btn");
     if (!btn) return;
     btn.addEventListener("click", function (e) {
@@ -24,15 +29,17 @@
       if (btn.getAttribute("data-has-summary") === "true") {
         if (!confirm("This will replace the existing summary. Continue?")) return;
       }
-      var csrfInput = document.querySelector("[name=csrfmiddlewaretoken]");
-      var csrf = csrfInput ? csrfInput.value : "";
+      // Disable immediately to prevent double-submit
+      btn.disabled = true;
+      btn.textContent = "Generating\u2026";
+
       var form = document.createElement("form");
       form.method = "POST";
       form.action = btn.getAttribute("data-url");
       var hidden = document.createElement("input");
       hidden.type = "hidden";
       hidden.name = "csrfmiddlewaretoken";
-      hidden.value = csrf;
+      hidden.value = getCsrfToken();
       form.appendChild(hidden);
       document.body.appendChild(form);
       form.submit();

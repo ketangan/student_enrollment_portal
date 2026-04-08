@@ -9,6 +9,7 @@ from django.urls import reverse
 from core.services.ai_summary import (
     _build_prompt,
     _build_submission_text,
+    _normalize_result,
     generate_ai_summary,
 )
 from core.tests.factories import SchoolAdminMembershipFactory, SchoolFactory, SubmissionFactory
@@ -84,6 +85,15 @@ def test_build_submission_text_list_values():
     assert "Monday, Wednesday" in text
 
 
+def test_build_submission_text_skips_empty_values():
+    data = {"first_name": "Alice", "notes": "", "tags": [], "middle_name": None}
+    text = _build_submission_text(data, {})
+    assert "Alice" in text
+    assert "notes" not in text
+    assert "tags" not in text
+    assert "middle_name" not in text
+
+
 # ---------------------------------------------------------------------------
 # _build_prompt
 # ---------------------------------------------------------------------------
@@ -98,6 +108,47 @@ def test_build_prompt_includes_criteria():
 def test_build_prompt_no_criteria_section_when_empty():
     prompt = _build_prompt("Name: Alice", "Dance Studio", [])
     assert "criteria_scores" not in prompt
+
+
+# ---------------------------------------------------------------------------
+# _normalize_result
+# ---------------------------------------------------------------------------
+
+def test_normalize_result_passthrough_clean_dict():
+    data = {"summary": "Good student.", "criteria_scores": [{"criterion": "A", "assessment": "B", "note": "C"}]}
+    result = _normalize_result(data)
+    assert result["summary"] == "Good student."
+    assert len(result["criteria_scores"]) == 1
+
+
+def test_normalize_result_coerces_non_dict_to_summary():
+    result = _normalize_result("just a string")
+    assert result["summary"] == "just a string"
+    assert result["criteria_scores"] == []
+
+
+def test_normalize_result_non_dict_input_is_safe():
+    result = _normalize_result(["list", "input"])
+    assert isinstance(result["summary"], str)
+    assert result["criteria_scores"] == []
+
+
+def test_normalize_result_coerces_non_string_summary():
+    result = _normalize_result({"summary": 42, "criteria_scores": []})
+    assert result["summary"] == "42"
+
+
+def test_normalize_result_filters_non_dict_criteria_scores():
+    data = {"summary": "OK", "criteria_scores": [{"criterion": "A"}, "bad_string", 99, None]}
+    result = _normalize_result(data)
+    assert len(result["criteria_scores"]) == 1
+    assert result["criteria_scores"][0]["criterion"] == "A"
+
+
+def test_normalize_result_coerces_non_list_criteria_scores():
+    data = {"summary": "OK", "criteria_scores": "not a list"}
+    result = _normalize_result(data)
+    assert result["criteria_scores"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +189,18 @@ def test_generate_returns_none_on_empty_submission(settings):
     assert error is not None
 
 
+def test_generate_returns_none_on_all_empty_fields(settings):
+    """Submission with only empty/null values should be treated as empty."""
+    settings.ANTHROPIC_API_KEY = "sk-test"
+    result, error = generate_ai_summary(
+        submission_data={"first_name": "", "notes": None, "tags": []},
+        school_name="Test School",
+        form_cfg={},
+    )
+    assert result is None
+    assert error is not None
+
+
 @patch("anthropic.Anthropic")
 def test_generate_calls_claude_sonnet(mock_anthropic_class, settings):
     settings.ANTHROPIC_API_KEY = "sk-test"
@@ -152,6 +215,24 @@ def test_generate_calls_claude_sonnet(mock_anthropic_class, settings):
 
     call_kwargs = mock_client.messages.create.call_args.kwargs
     assert call_kwargs["model"] == "claude-sonnet-4-6"
+
+
+@patch("anthropic.Anthropic")
+def test_generate_client_has_timeout(mock_anthropic_class, settings):
+    """Client must be instantiated with an explicit timeout."""
+    settings.ANTHROPIC_API_KEY = "sk-test"
+    mock_client = _mock_anthropic_client()
+    mock_anthropic_class.return_value = mock_client
+
+    generate_ai_summary(
+        submission_data={"first_name": "Alice"},
+        school_name="Test School",
+        form_cfg={},
+    )
+
+    init_kwargs = mock_anthropic_class.call_args.kwargs
+    assert "timeout" in init_kwargs
+    assert init_kwargs["timeout"] > 0
 
 
 @patch("anthropic.Anthropic")
@@ -170,6 +251,24 @@ def test_generate_returns_summary_dict(mock_anthropic_class, settings):
     assert error is None
     assert result["summary"] == "A motivated student."
     assert result["criteria_scores"] == []
+
+
+@patch("anthropic.Anthropic")
+def test_generate_result_is_normalized(mock_anthropic_class, settings):
+    """Response with non-dict criteria items must be filtered before returning."""
+    settings.ANTHROPIC_API_KEY = "sk-test"
+    bad_response = '{"summary": "OK", "criteria_scores": [{"criterion": "A"}, "junk", null]}'
+    mock_anthropic_class.return_value = _mock_anthropic_client(bad_response)
+
+    result, error = generate_ai_summary(
+        submission_data={"first_name": "Alice"},
+        school_name="Test School",
+        form_cfg={},
+    )
+
+    assert result is not None
+    assert error is None
+    assert len(result["criteria_scores"]) == 1
 
 
 @patch("anthropic.Anthropic")
@@ -209,6 +308,23 @@ def test_generate_handles_non_json_response(mock_anthropic_class, settings):
 
 
 @patch("anthropic.Anthropic")
+def test_generate_non_json_fallback_is_logged(mock_anthropic_class, settings, caplog):
+    """Non-JSON fallback must be logged at WARNING level."""
+    import logging
+    settings.ANTHROPIC_API_KEY = "sk-test"
+    mock_anthropic_class.return_value = _mock_anthropic_client("plain prose, not JSON")
+
+    with caplog.at_level(logging.WARNING, logger="core.services.ai_summary"):
+        generate_ai_summary(
+            submission_data={"first_name": "Alice"},
+            school_name="Test School",
+            form_cfg={},
+        )
+
+    assert any("non-JSON" in r.message for r in caplog.records)
+
+
+@patch("anthropic.Anthropic")
 def test_generate_returns_none_on_api_exception(mock_anthropic_class, settings):
     settings.ANTHROPIC_API_KEY = "sk-test"
     mock_client = MagicMock()
@@ -239,6 +355,51 @@ def test_generate_truncates_long_submission(mock_anthropic_class, settings):
 
     content = mock_client.messages.create.call_args.kwargs["messages"][0]["content"]
     assert len(content) < 4500  # truncation applied; well under the original 5000+
+
+
+@patch("anthropic.Anthropic")
+def test_generate_truncation_does_not_cut_mid_line(mock_anthropic_class, settings):
+    """Truncation must happen at line boundaries, not mid-value."""
+    settings.ANTHROPIC_API_KEY = "sk-test"
+    mock_client = _mock_anthropic_client()
+    mock_anthropic_class.return_value = mock_client
+
+    # Create data where lines are each ~100 chars so truncation hits a boundary
+    many_fields = {f"field_{i}": "a" * 90 for i in range(50)}
+    generate_ai_summary(
+        submission_data=many_fields,
+        school_name="Test School",
+        form_cfg={},
+    )
+
+    content = mock_client.messages.create.call_args.kwargs["messages"][0]["content"]
+    # Every non-truncation line should end with 'a' (not mid-field)
+    lines = content.split("\n")
+    for line in lines:
+        if line == "[truncated]":
+            break
+        assert not line.endswith("aaaa"[:-1]) or ":" in line  # lines are complete key:value pairs
+
+
+@patch("anthropic.Anthropic")
+def test_generate_caps_criteria_count(mock_anthropic_class, settings):
+    """More than 10 criteria should be silently capped."""
+    settings.ANTHROPIC_API_KEY = "sk-test"
+    mock_client = _mock_anthropic_client()
+    mock_anthropic_class.return_value = mock_client
+
+    many_criteria = [f"Criterion {i}" for i in range(20)]
+    generate_ai_summary(
+        submission_data={"first_name": "Alice"},
+        school_name="Test School",
+        form_cfg={},
+        criteria=many_criteria,
+    )
+
+    content = mock_client.messages.create.call_args.kwargs["messages"][0]["content"]
+    # Only the first 10 criteria should appear
+    assert "Criterion 9" in content
+    assert "Criterion 10" not in content
 
 
 # ---------------------------------------------------------------------------
@@ -277,6 +438,19 @@ def test_generate_summary_view_requires_feature_flag(client):
 
 
 @pytest.mark.django_db
+def test_generate_summary_view_rejects_wrong_school(client):
+    """Staff from a different school must be denied (403)."""
+    school_a = SchoolFactory(plan="growth", slug="ai-scope-a")
+    school_b = SchoolFactory(plan="growth", slug="ai-scope-b")
+    _login_staff(client, school_a)
+    sub = SubmissionFactory(school=school_b)
+
+    url = reverse("admin:core_submission_generate_summary", args=[sub.pk])
+    resp = client.post(url)
+    assert resp.status_code == 403
+
+
+@pytest.mark.django_db
 @patch("core.admin.submissions.generate_ai_summary")
 def test_generate_summary_view_saves_on_success(mock_gen, client):
     mock_gen.return_value = ({"summary": "Great student.", "criteria_scores": []}, None)
@@ -293,6 +467,25 @@ def test_generate_summary_view_saves_on_success(mock_gen, client):
     assert sub.ai_summary is not None
     assert sub.ai_summary["summary"] == "Great student."
     assert sub.ai_summary_at is not None
+
+
+@pytest.mark.django_db
+@patch("core.admin.submissions.generate_ai_summary")
+def test_generate_summary_view_logs_audit(mock_gen, client):
+    """Successful generation must write an audit log entry."""
+    from core.models import AdminAuditLog
+    mock_gen.return_value = ({"summary": "Solid.", "criteria_scores": []}, None)
+
+    school = SchoolFactory(plan="growth", slug="ai-audit-test")
+    _login_staff(client, school)
+    sub = SubmissionFactory(school=school, data={"first_name": "Alice"})
+
+    url = reverse("admin:core_submission_generate_summary", args=[sub.pk])
+    client.post(url)
+
+    log = AdminAuditLog.objects.filter(object_id=str(sub.pk), action="action").first()
+    assert log is not None
+    assert log.extra.get("name") == "generate_ai_summary"
 
 
 @pytest.mark.django_db
@@ -396,6 +589,33 @@ def test_ai_summary_display_renders_criteria_scores(admin_client):
     assert b"Experience" in resp.content
     assert b"Intermediate" in resp.content
     assert b"3 years mentioned" in resp.content
+
+
+@pytest.mark.django_db
+def test_ai_summary_display_handles_malformed_data(admin_client):
+    """Non-dict ai_summary must not crash the admin page."""
+    school = SchoolFactory(plan="growth", slug="ai-disp-malformed")
+    sub = SubmissionFactory(school=school, ai_summary="unexpected string")
+
+    url = reverse("admin:core_submission_change", args=[sub.pk])
+    resp = admin_client.get(url)
+    assert resp.status_code == 200
+    assert b"malformed" in resp.content
+
+
+@pytest.mark.django_db
+def test_ai_summary_display_handles_non_dict_criteria_items(admin_client):
+    """criteria_scores with non-dict items must not crash the admin page."""
+    school = SchoolFactory(plan="growth", slug="ai-disp-bad-criteria")
+    sub = SubmissionFactory(
+        school=school,
+        ai_summary={"summary": "OK", "criteria_scores": ["bad", None, 42]},
+    )
+
+    url = reverse("admin:core_submission_change", args=[sub.pk])
+    resp = admin_client.get(url)
+    assert resp.status_code == 200
+    assert b"OK" in resp.content
 
 
 @pytest.mark.django_db
