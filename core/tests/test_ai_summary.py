@@ -106,33 +106,36 @@ def test_build_prompt_no_criteria_section_when_empty():
 
 def test_generate_returns_none_when_no_api_key(settings):
     settings.ANTHROPIC_API_KEY = ""
-    result = generate_ai_summary(
+    result, error = generate_ai_summary(
         submission_data={"first_name": "Alice"},
         school_name="Test School",
         form_cfg={},
     )
     assert result is None
+    assert error is not None
 
 
 def test_generate_returns_none_when_no_api_key_attr(settings):
     if hasattr(settings, "ANTHROPIC_API_KEY"):
         del settings.ANTHROPIC_API_KEY
-    result = generate_ai_summary(
+    result, error = generate_ai_summary(
         submission_data={"first_name": "Alice"},
         school_name="Test School",
         form_cfg={},
     )
     assert result is None
+    assert error is not None
 
 
 def test_generate_returns_none_on_empty_submission(settings):
     settings.ANTHROPIC_API_KEY = "sk-test"
-    result = generate_ai_summary(
+    result, error = generate_ai_summary(
         submission_data={},
         school_name="Test School",
         form_cfg={},
     )
     assert result is None
+    assert error is not None
 
 
 @patch("anthropic.Anthropic")
@@ -157,13 +160,14 @@ def test_generate_returns_summary_dict(mock_anthropic_class, settings):
     mock_client = _mock_anthropic_client()
     mock_anthropic_class.return_value = mock_client
 
-    result = generate_ai_summary(
+    result, error = generate_ai_summary(
         submission_data={"first_name": "Alice"},
         school_name="Test School",
         form_cfg={},
     )
 
     assert result is not None
+    assert error is None
     assert result["summary"] == "A motivated student."
     assert result["criteria_scores"] == []
 
@@ -175,13 +179,14 @@ def test_generate_handles_markdown_fences(mock_anthropic_class, settings):
     wrapped = '```json\n{"summary": "Good applicant.", "criteria_scores": []}\n```'
     mock_anthropic_class.return_value = _mock_anthropic_client(wrapped)
 
-    result = generate_ai_summary(
+    result, error = generate_ai_summary(
         submission_data={"first_name": "Alice"},
         school_name="Test School",
         form_cfg={},
     )
 
     assert result is not None
+    assert error is None
     assert result["summary"] == "Good applicant."
 
 
@@ -191,13 +196,14 @@ def test_generate_handles_non_json_response(mock_anthropic_class, settings):
     settings.ANTHROPIC_API_KEY = "sk-test"
     mock_anthropic_class.return_value = _mock_anthropic_client("Just some text.")
 
-    result = generate_ai_summary(
+    result, error = generate_ai_summary(
         submission_data={"first_name": "Alice"},
         school_name="Test School",
         form_cfg={},
     )
 
     assert result is not None
+    assert error is None
     assert result["summary"] == "Just some text."
     assert result["criteria_scores"] == []
 
@@ -209,12 +215,13 @@ def test_generate_returns_none_on_api_exception(mock_anthropic_class, settings):
     mock_client.messages.create.side_effect = Exception("Network error")
     mock_anthropic_class.return_value = mock_client
 
-    result = generate_ai_summary(
+    result, error = generate_ai_summary(
         submission_data={"first_name": "Alice"},
         school_name="Test School",
         form_cfg={},
     )
     assert result is None
+    assert "Network error" in error
 
 
 @patch("anthropic.Anthropic")
@@ -246,7 +253,7 @@ def _login_staff(client, school):
 
 @pytest.mark.django_db
 def test_generate_summary_view_get_redirects(client):
-    school = SchoolFactory(plan="pro", slug="ai-get-test")
+    school = SchoolFactory(plan="growth", slug="ai-get-test")
     _login_staff(client, school)
     sub = SubmissionFactory(school=school)
 
@@ -272,9 +279,9 @@ def test_generate_summary_view_requires_feature_flag(client):
 @pytest.mark.django_db
 @patch("core.admin.submissions.generate_ai_summary")
 def test_generate_summary_view_saves_on_success(mock_gen, client):
-    mock_gen.return_value = {"summary": "Great student.", "criteria_scores": []}
+    mock_gen.return_value = ({"summary": "Great student.", "criteria_scores": []}, None)
 
-    school = SchoolFactory(plan="pro", slug="ai-save-test")
+    school = SchoolFactory(plan="growth", slug="ai-save-test")
     _login_staff(client, school)
     sub = SubmissionFactory(school=school, data={"first_name": "Alice"})
 
@@ -292,9 +299,9 @@ def test_generate_summary_view_saves_on_success(mock_gen, client):
 @patch("core.admin.submissions.generate_ai_summary")
 def test_generate_summary_view_error_on_none(mock_gen, client):
     """When generate_ai_summary returns None, show error message, don't save."""
-    mock_gen.return_value = None
+    mock_gen.return_value = (None, "Something went wrong.")
 
-    school = SchoolFactory(plan="pro", slug="ai-none-test")
+    school = SchoolFactory(plan="growth", slug="ai-none-test")
     _login_staff(client, school)
     sub = SubmissionFactory(school=school, data={"first_name": "Alice"})
 
@@ -309,10 +316,27 @@ def test_generate_summary_view_error_on_none(mock_gen, client):
 
 @pytest.mark.django_db
 @patch("core.admin.submissions.generate_ai_summary")
-def test_generate_summary_view_saves_timestamp(mock_gen, client):
-    mock_gen.return_value = {"summary": "Solid.", "criteria_scores": []}
+def test_generate_summary_view_shows_specific_error(mock_gen, client):
+    """The actual error string from the service appears in the admin message."""
+    mock_gen.return_value = (None, "Your credit balance is too low.")
 
-    school = SchoolFactory(plan="pro", slug="ai-ts-test")
+    school = SchoolFactory(plan="growth", slug="ai-err-msg-test")
+    _login_staff(client, school)
+    sub = SubmissionFactory(school=school, data={"first_name": "Alice"})
+
+    url = reverse("admin:core_submission_generate_summary", args=[sub.pk])
+    resp = client.post(url, follow=True)
+
+    messages_list = [str(m) for m in resp.context["messages"]]
+    assert any("credit balance" in m for m in messages_list)
+
+
+@pytest.mark.django_db
+@patch("core.admin.submissions.generate_ai_summary")
+def test_generate_summary_view_saves_timestamp(mock_gen, client):
+    mock_gen.return_value = ({"summary": "Solid.", "criteria_scores": []}, None)
+
+    school = SchoolFactory(plan="growth", slug="ai-ts-test")
     _login_staff(client, school)
     sub = SubmissionFactory(school=school, data={"first_name": "Alice"})
 
@@ -329,8 +353,8 @@ def test_generate_summary_view_saves_timestamp(mock_gen, client):
 
 @pytest.mark.django_db
 def test_ai_summary_display_no_summary_shows_prompt(admin_client):
-    """Pro school with no summary: shows 'No summary yet' message."""
-    school = SchoolFactory(plan="pro", slug="ai-disp-empty")
+    """Growth school with no summary: shows 'No summary yet' message."""
+    school = SchoolFactory(plan="growth", slug="ai-disp-empty")
     sub = SubmissionFactory(school=school, ai_summary=None)
 
     url = reverse("admin:core_submission_change", args=[sub.pk])
@@ -341,7 +365,7 @@ def test_ai_summary_display_no_summary_shows_prompt(admin_client):
 
 @pytest.mark.django_db
 def test_ai_summary_display_renders_summary(admin_client):
-    school = SchoolFactory(plan="pro", slug="ai-disp-has")
+    school = SchoolFactory(plan="growth", slug="ai-disp-has")
     sub = SubmissionFactory(
         school=school,
         ai_summary={"summary": "Excellent dancer.", "criteria_scores": []},
@@ -355,7 +379,7 @@ def test_ai_summary_display_renders_summary(admin_client):
 
 @pytest.mark.django_db
 def test_ai_summary_display_renders_criteria_scores(admin_client):
-    school = SchoolFactory(plan="pro", slug="ai-disp-criteria")
+    school = SchoolFactory(plan="growth", slug="ai-disp-criteria")
     sub = SubmissionFactory(
         school=school,
         ai_summary={
@@ -387,9 +411,9 @@ def test_ai_summary_section_hidden_for_starter(admin_client):
 
 
 @pytest.mark.django_db
-def test_generate_button_present_for_pro(admin_client):
-    """Pro plan: 'Generate AI Summary' button rendered in change form."""
-    school = SchoolFactory(plan="pro", slug="ai-btn-pro")
+def test_generate_button_present_for_growth(admin_client):
+    """Growth plan: 'Generate AI Summary' button rendered in change form."""
+    school = SchoolFactory(plan="growth", slug="ai-btn-pro")
     sub = SubmissionFactory(school=school)
 
     url = reverse("admin:core_submission_change", args=[sub.pk])

@@ -46,7 +46,7 @@ _FEATURE_MIN_PLAN: dict[str, str] = {
     "multi_form_enabled": PLAN_PRO,
     "custom_statuses_enabled": PLAN_PRO,
     "leads_conversion_enabled": PLAN_PRO,
-    "ai_summary_enabled": PLAN_PRO,
+    "ai_summary_enabled": PLAN_GROWTH,
 }
 
 ALL_FLAGS = list(_FEATURE_MIN_PLAN.keys())

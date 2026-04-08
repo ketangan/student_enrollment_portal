@@ -400,12 +400,12 @@ def test_waiver_disabled_trial_plan():
 
 
 @pytest.mark.django_db
-def test_ai_summary_enabled_pro_plan():
-    school = SchoolFactory(plan="pro")
+def test_ai_summary_enabled_growth_plan():
+    school = SchoolFactory(plan="growth")
     assert school.features.ai_summary_enabled is True
 
 
 @pytest.mark.django_db
-def test_ai_summary_disabled_starter_plan():
-    school = SchoolFactory(plan="starter")
+def test_ai_summary_disabled_pro_plan():
+    school = SchoolFactory(plan="pro")
     assert school.features.ai_summary_enabled is False

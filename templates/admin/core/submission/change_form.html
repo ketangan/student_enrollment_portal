@@ -2,17 +2,15 @@
 
 {% block object-tools-items %}
   {% if ai_summary_enabled and original %}
-  <li>
-    <a
-      href="#"
-      class="historylink"
-      id="ai-summary-btn"
-      data-url="{% url 'admin:core_submission_generate_summary' original.pk %}"
-      data-has-summary="{% if original.ai_summary %}true{% else %}false{% endif %}"
-    >
-      {% if original.ai_summary %}Regenerate AI Summary{% else %}Generate AI Summary{% endif %}
-    </a>
-  </li>
+  <a
+    href="#"
+    class="btn btn-block btn-primary btn-sm"
+    id="ai-summary-btn"
+    data-url="{% url 'admin:core_submission_generate_summary' original.pk %}"
+    data-has-summary="{% if original.ai_summary %}true{% else %}false{% endif %}"
+  >
+    {% if original.ai_summary %}Regenerate AI Summary{% else %}Generate AI Summary{% endif %}
+  </a>
   <script>
   (function () {
     var btn = document.getElementById("ai-summary-btn");
@@ -22,10 +20,8 @@
       if (btn.getAttribute("data-has-summary") === "true") {
         if (!confirm("This will replace the existing summary. Continue?")) return;
       }
-      // Grab CSRF token from the existing admin form on the page
       var csrfInput = document.querySelector("[name=csrfmiddlewaretoken]");
       var csrf = csrfInput ? csrfInput.value : "";
-      // Build a fresh form outside the existing form to avoid nested-form issues
       var form = document.createElement("form");
       form.method = "POST";
       form.action = btn.getAttribute("data-url");

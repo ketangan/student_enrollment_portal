@@ -195,6 +195,8 @@ ANYMAIL = {
     "SENDGRID_API_KEY": os.getenv("SENDGRID_API_KEY", "").strip(),
 }
 
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+
 
 JAZZMIN_SETTINGS = {
     "site_title": "Student Enrollment Portal",

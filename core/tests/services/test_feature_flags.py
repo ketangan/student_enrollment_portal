@@ -81,8 +81,12 @@ def test_starter_gets_trial_and_starter_tier_flags():
 
 def test_pro_gets_trial_starter_and_pro_tier_flags():
     flags = default_flags_for_plan(PLAN_PRO)
-    for flag in ALL_FLAGS:
+    pro_and_below = {f for f, plan in _FEATURE_MIN_PLAN.items() if PLAN_RANK[plan] <= PLAN_RANK[PLAN_PRO]}
+    growth_only = {f for f, plan in _FEATURE_MIN_PLAN.items() if PLAN_RANK[plan] > PLAN_RANK[PLAN_PRO]}
+    for flag in pro_and_below:
         assert flags[flag] is True, f"Pro plan should enable {flag}"
+    for flag in growth_only:
+        assert flags[flag] is False, f"Pro plan should NOT enable growth-only flag {flag}"
 
 
 def test_growth_gets_all_flags():

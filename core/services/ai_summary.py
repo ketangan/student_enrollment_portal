@@ -53,16 +53,13 @@ def generate_ai_summary(
     school_name: str,
     form_cfg: dict,
     criteria: list[str] | None = None,
-) -> Optional[dict[str, Any]]:
+) -> tuple[Optional[dict[str, Any]], Optional[str]]:
     """
     Calls Claude API to generate a summary of the submission.
 
-    Returns a dict with:
-      - "summary": str  (3-sentence overview of the applicant)
-      - "criteria_scores": list of {"criterion", "assessment", "note"} dicts
-
-    Returns None if API key is missing, SDK is not installed, or the call fails.
-    Caller is responsible for logging the None case to the user.
+    Returns (result, error_message):
+      - On success: ({"summary": str, "criteria_scores": [...]}, None)
+      - On failure: (None, human-readable error string)
 
     YAML config (optional, read by caller and passed via criteria):
       ai_summary:
@@ -75,18 +72,18 @@ def generate_ai_summary(
     api_key = getattr(settings, "ANTHROPIC_API_KEY", None)
     if not api_key:
         logger.warning("ANTHROPIC_API_KEY not configured; skipping AI summary generation")
-        return None
+        return None, "ANTHROPIC_API_KEY is not configured on this server."
 
     try:
         import anthropic
     except ImportError:
         logger.error("anthropic package not installed; run: pip install anthropic")
-        return None
+        return None, "The anthropic Python package is not installed on this server."
 
     submission_text = _build_submission_text(submission_data, form_cfg)
     if not submission_text.strip():
         logger.warning("No submission data to summarize")
-        return None
+        return None, "This submission has no data to summarize."
 
     # Safety truncation — avoid very large prompts
     if len(submission_text) > 3000:
@@ -117,11 +114,11 @@ def generate_ai_summary(
             raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
         result = json.loads(raw)
         if "summary" not in result:
-            return {"summary": raw, "criteria_scores": []}
-        return result
+            return {"summary": raw, "criteria_scores": []}, None
+        return result, None
     except json.JSONDecodeError:
         # Model returned non-JSON; wrap as plain summary
-        return {"summary": raw, "criteria_scores": []}
-    except Exception:
+        return {"summary": raw, "criteria_scores": []}, None
+    except Exception as exc:
         logger.exception("Failed to generate AI summary via Claude API")
-        return None
+        return None, str(exc) or "Unexpected error calling the Claude API."

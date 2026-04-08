@@ -292,7 +292,7 @@ class SubmissionAdmin(admin.ModelAdmin):
             resolved, _ = _resolve_submission_form_cfg_and_labels(cfg, obj.form_key)
             form_cfg = resolved or {}
 
-        result = generate_ai_summary(
+        result, error = generate_ai_summary(
             submission_data=obj.data or {},
             school_name=school_name,
             form_cfg=form_cfg,
@@ -305,7 +305,7 @@ class SubmissionAdmin(admin.ModelAdmin):
             obj.save(update_fields=["ai_summary", "ai_summary_at"])
             messages.success(request, "AI summary generated.")
         else:
-            messages.error(request, "Could not generate summary. Check that ANTHROPIC_API_KEY is configured.")
+            messages.error(request, f"Could not generate summary. {error}")
 
         return redirect(reverse("admin:core_submission_change", args=[pk]))
 
