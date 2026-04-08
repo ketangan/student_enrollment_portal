@@ -51,6 +51,17 @@
           <div class="notice">{{ form.description }}</div>
         {% endif %}
 
+        {% if messages %}
+          {% for message in messages %}
+            <div class="notice" style="
+              {% if message.tags == 'success' %}background:#d1fae5;border-left:4px solid #10b981;{% endif %}
+              {% if message.tags == 'info' %}background:#dbeafe;border-left:4px solid #3b82f6;{% endif %}
+              {% if message.tags == 'warning' %}background:#fef9c3;border-left:4px solid #f59e0b;{% endif %}
+              {% if message.tags == 'error' %}background:#fee2e2;border-left:4px solid #ef4444;{% endif %}
+            ">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+
         <form method="post"
             enctype="multipart/form-data"
             novalidate
@@ -282,6 +293,12 @@
             <button class="btn btn-primary" type="submit">
               {% if next_key %}Next{% else %}{{ form.submit_button_text|default:"Submit" }}{% endif %}
             </button>
+            {% if save_resume_enabled %}
+            <button class="btn btn-secondary" type="submit" name="_action" value="save_draft"
+                    style="margin-left:12px;">
+              Save &amp; Resume Later
+            </button>
+            {% endif %}
           </div>
         </form>
 

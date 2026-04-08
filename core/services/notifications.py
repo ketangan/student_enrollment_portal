@@ -407,6 +407,45 @@ def get_submission_email_config(config_raw: Dict[str, Any]) -> Optional[Submissi
     )
 
 
+def send_resume_link_email(*, draft, school, config_raw: dict) -> bool:
+    """
+    Email the applicant their magic resume link.
+    Returns True if sent, False if skipped (no email) or failed.
+    Uses DEFAULT_FROM_EMAIL — same SendGrid config used across the app.
+    """
+    if not draft.email:
+        return False
+
+    base_url = getattr(settings, "BASE_URL", "http://localhost:8000").rstrip("/")
+    from django.urls import reverse as _reverse
+    resume_path = _reverse("apply_resume", args=[school.slug, draft.token])
+    resume_url = f"{base_url}{resume_path}"
+    school_name = school.display_name or school.slug
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "")
+    if not from_email:
+        logger.warning("send_resume_link_email: DEFAULT_FROM_EMAIL not configured; skipping")
+        return False
+
+    subject = f"Continue your application to {school_name}"
+    body = (
+        f"Hi,\n\n"
+        f"You saved your application to {school_name}. "
+        f"Click the link below to continue where you left off:\n\n"
+        f"{resume_url}\n\n"
+        f"This link expires in 7 days.\n\n"
+        f"If you did not request this email, you can ignore it.\n\n"
+        f"— {school_name}"
+    )
+    try:
+        conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))
+        msg = EmailMessage(subject, body, from_email, [draft.email], connection=conn)
+        msg.send(fail_silently=False)
+        return True
+    except Exception:
+        logger.exception("Failed to send resume link email to %s", draft.email)
+        return False
+
+
 def send_submission_notification_email(
     *,
     request: Optional[HttpRequest],

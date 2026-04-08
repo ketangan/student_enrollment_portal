@@ -6,8 +6,9 @@ from .views_billing import stripe_webhook
 urlpatterns = [
     path("schools/<slug:school_slug>/apply/", views.apply_view, name="apply"),
 
-    # must be BEFORE apply/<form_key> so "success" doesn't get captured
+    # must be BEFORE apply/<form_key> so "success" and "resume" don't get captured
     path("schools/<slug:school_slug>/apply/success/", views.apply_success_view, name="apply_success"),
+    path("schools/<slug:school_slug>/apply/resume/<str:token>/", views.resume_draft_view, name="apply_resume"),
 
     path("schools/<slug:school_slug>/apply/<slug:form_key>/", views.apply_view, name="apply_form"),
 

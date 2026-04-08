@@ -18,11 +18,15 @@ def validate_submission(
     form: Dict[str, Any],
     post_data: Any,
     files_data: Any | None = None,
+    partial: bool = False,
 ) -> Tuple[Dict[str, Any], Dict[str, str]]:
     """
     Returns: (cleaned_data, errors)
     - cleaned_data is JSON-serializable (for files we store metadata only)
     - errors maps field_key -> error message
+    - partial=True: skip required-field enforcement (used for draft saves).
+      All other validation (type coercion, format checks) still runs.
+      File fields are skipped entirely in partial mode (not preserved in drafts).
     """
     files_data = files_data or {}
     cleaned: Dict[str, Any] = {}
@@ -36,6 +40,9 @@ def validate_submission(
 
             # ✅ FILE: validate from FILES, not POST
             if ftype == "file":
+                if partial:
+                    continue  # file fields not stored in drafts; re-upload on final submit
+
                 uploaded = files_data.get(key)
 
                 if required and not uploaded:
@@ -71,13 +78,13 @@ def validate_submission(
 
             if ftype == "waiver":
                 agreed = raw_val in ("on", "true", "True", True)
-                if required and not agreed:
+                if required and not agreed and not partial:
                     errors[key] = "You must agree to continue."
                     continue
                 cleaned[key] = agreed
                 continue
 
-            if required and _is_empty(raw_val):
+            if required and not partial and _is_empty(raw_val):
                 errors[key] = "This field is required."
                 continue
 

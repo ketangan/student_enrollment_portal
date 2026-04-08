@@ -1,5 +1,7 @@
 from dataclasses import dataclass
+from datetime import timedelta
 from django.db import models
+from django.utils import timezone
 import os
 import re
 import uuid
@@ -78,6 +80,10 @@ class SchoolFeatures:
     @property
     def waiver_enabled(self) -> bool:
         return bool(self._flags().get("waiver_enabled", False))
+
+    @property
+    def save_resume_enabled(self) -> bool:
+        return bool(self._flags().get("save_resume_enabled", False))
 
     @property
     def ai_summary_enabled(self) -> bool:
@@ -334,6 +340,79 @@ class SubmissionFile(models.Model):
     def __str__(self) -> str:
         return f"{self.submission.school.slug} #{self.submission_id} {self.field_key}"
     
+
+# ---------------------------------------------------------------------------
+# DraftSubmission — save-and-resume magic link drafts
+# ---------------------------------------------------------------------------
+
+_DRAFT_EXPIRY_DAYS = 7
+
+
+def _generate_draft_token() -> str:
+    # token_urlsafe(32) produces ~43 chars; max_length=128 gives headroom for future rotation
+    return secrets.token_urlsafe(32)
+
+
+def _default_token_expires_at():
+    return timezone.now() + timedelta(days=_DRAFT_EXPIRY_DAYS)
+
+
+class DraftSubmission(models.Model):
+    """
+    Persists a partially-completed application so the applicant can resume
+    via a magic-link email.  On final submit the draft is NOT deleted —
+    submitted_at is set instead, allowing the link to render "already submitted."
+    Expired/submitted drafts are candidates for periodic cleanup.
+
+    Security note: the raw token is stored (not hashed).  This is an accepted
+    MVP tradeoff — enrollment data is low-sensitivity and the token is
+    short-lived (7 days).  Future: HMAC-SHA256 if sensitivity increases.
+    """
+
+    school = models.ForeignKey(
+        "School", on_delete=models.CASCADE, related_name="draft_submissions"
+    )
+    # Mirrors Submission.form_key: "default" for single-form, "multi" for multi-form
+    form_key = models.CharField(max_length=64, default="default")
+    data = models.JSONField(default=dict)
+
+    # token_urlsafe(32) ≈ 43 chars; 128 gives ample headroom for future rotation
+    token = models.CharField(
+        max_length=128, unique=True, db_index=True, default=_generate_draft_token
+    )
+    token_expires_at = models.DateTimeField(default=_default_token_expires_at)
+
+    # Cached applicant email — used to send/resend the magic link
+    email = models.CharField(max_length=254, blank=True, default="")
+    # Multi-form only: last completed step key; blank = not past step 1
+    last_form_key = models.CharField(max_length=64, blank=True, default="")
+    # Throttle: don't resend email more than once per cooldown window
+    last_email_sent_at = models.DateTimeField(null=True, blank=True)
+    # Set on successful final submit (draft kept so link shows "already submitted")
+    submitted_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["token"]),
+            models.Index(fields=["token_expires_at"]),
+        ]
+
+    def is_expired(self) -> bool:
+        return timezone.now() > self.token_expires_at
+
+    def is_submitted(self) -> bool:
+        return self.submitted_at is not None
+
+    def extend_expiry(self) -> None:
+        """Reset the 7-day expiry window. Call before each save."""
+        self.token_expires_at = timezone.now() + timedelta(days=_DRAFT_EXPIRY_DAYS)
+
+    def __str__(self) -> str:
+        return f"Draft {self.school.slug} / {self.email or 'no-email'} ({self.form_key})"
+
 
 # ---------------------------------------------------------------------------
 # Lead — pre-application interest capture

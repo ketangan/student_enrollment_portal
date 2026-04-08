@@ -1,0 +1,48 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ school.display_name|default:school.slug }} - Already Submitted</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="{% static 'forms.css' %}">
+    <style>
+      :root{
+        --primary: {{ branding.theme.accent_color }};
+        --bg: {{ branding.theme.background }};
+        --card: {{ branding.theme.card }};
+        --text: {{ branding.theme.text }};
+        --muted: {{ branding.theme.muted }};
+        --border: {{ branding.theme.border }};
+        --radius: {{ branding.theme.radius }};
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="container">
+        <div class="header">
+          <div class="school-logo">
+            {% if branding.logo_url %}
+              <img src="{{ branding.logo_url }}" alt="logo" style="width:100%; height:100%; object-fit:cover;" />
+            {% else %}
+              <span aria-hidden="true">🏫</span>
+            {% endif %}
+          </div>
+          <div>
+            <div class="school-title">{{ school.display_name|default:school.slug }}</div>
+          </div>
+        </div>
+
+        <div class="card" style="text-align:center;padding:40px 24px;">
+          <div style="font-size:48px;margin-bottom:16px;">✅</div>
+          <h2 style="margin:0 0 12px;">Application already submitted</h2>
+          <p style="color:var(--muted);margin:0;">
+            Your application to {{ school.display_name|default:school.slug }} has already been submitted.
+            Check your email for a confirmation message.
+          </p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

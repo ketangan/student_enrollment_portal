@@ -17,6 +17,7 @@ from .schools import SchoolAdmin
 from .memberships import SchoolAdminMembershipAdmin
 from .preferences import AdminPreferenceAdmin  # noqa: F401
 from .leads import LeadAdmin  # noqa: F401
+from .drafts import DraftSubmissionAdmin  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Monkeypatch admin.site.has_permission to enforce School.is_active

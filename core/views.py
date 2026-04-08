@@ -16,11 +16,13 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils import timezone
+from django.contrib import messages
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.http import require_http_methods
 
 from .models import (
     AdminPreference,
+    DraftSubmission,
     Lead,
     LEAD_SOURCE_CHOICES,
     LEAD_STATUS_CHOICES,
@@ -38,8 +40,14 @@ from .services.admin_themes import (
 from .services.config_loader import get_forms, get_program_options, load_school_config
 from .services.form_utils import build_option_label_map
 from .services.validation import validate_submission
-from .services.notifications import send_applicant_confirmation_email, send_submission_notification_email
+from .services.notifications import (
+    send_applicant_confirmation_email,
+    send_resume_link_email,
+    send_submission_notification_email,
+)
 from .services.lead_conversion import try_convert_lead
+
+_DRAFT_RESEND_COOLDOWN_MINUTES = 5
 
 
 # Phase 9: default branding (used when YAML has missing branding keys)
@@ -123,41 +131,6 @@ def _save_uploaded_files(submission: Submission, form_cfg: dict, files) -> None:
                     )
 
 
-def _multi_session_key(school_slug: str) -> str:
-    return f"apply_submission_id:{school_slug}"
-
-
-def _get_multi_submission(request, school: School, school_slug: str) -> Submission | None:
-    submission_id = request.session.get(_multi_session_key(school_slug))
-    if not submission_id:
-        return None
-    return Submission.objects.filter(id=submission_id, school=school).first()
-
-
-def _ensure_multi_submission(request, school: School, school_slug: str) -> Submission:
-    """
-    Create the multi-form Submission only when needed (POST first step),
-    then persist id in session.
-    """
-    existing = _get_multi_submission(request, school, school_slug)
-    if existing:
-        return existing
-
-    submission = Submission.objects.create(
-        school=school,
-        form_key="multi",
-        data={},
-    )
-    request.session[_multi_session_key(school_slug)] = submission.id
-    return submission
-
-
-def _merge_submission_data(submission: Submission, cleaned: dict) -> None:
-    merged = dict(submission.data or {})
-    merged.update(cleaned or {})
-    Submission.objects.filter(pk=submission.pk).update(data=merged)
-    submission.data = merged  # keep in-memory object consistent
-
 
 def _get_client_ip(request) -> str:
     """Return client IP, preferring X-Forwarded-For (first entry) over REMOTE_ADDR."""
@@ -196,6 +169,88 @@ def _inject_waiver_metadata(cleaned: dict, form_cfg: dict, request) -> None:
                     cleaned[f"{key}__text"] = field.get("text", "")
                     if field.get("link_url"):
                         cleaned[f"{key}__link_url"] = field.get("link_url", "")
+
+
+def _draft_session_key(school_slug: str) -> str:
+    return f"apply_draft_id:{school_slug}"
+
+
+def _resolve_active_draft(request, school: School, school_slug: str, token: str | None = None):
+    """
+    Returns the active DraftSubmission for this request, or None.
+    Token takes precedence over session. Session is updated if token wins.
+    """
+    session_key = _draft_session_key(school_slug)
+
+    if token:
+        draft = DraftSubmission.objects.filter(token=token, school=school).first()
+        if draft and not draft.is_expired() and not draft.is_submitted():
+            request.session[session_key] = draft.pk
+            return draft
+        return None  # expired or submitted — handled by caller
+
+    draft_id = request.session.get(session_key)
+    if draft_id:
+        draft = DraftSubmission.objects.filter(pk=draft_id, school=school).first()
+        if draft and not draft.is_expired() and not draft.is_submitted():
+            return draft
+        # Stale session reference — clear it silently
+        del request.session[session_key]
+    return None
+
+
+def _save_draft(*, school, form_key, cleaned, config_raw, last_form_key="", draft=None):
+    """
+    Create or update a DraftSubmission with the given cleaned data.
+    Returns the draft instance.
+    """
+    from .services.notifications import _find_applicant_email
+    email = _find_applicant_email(cleaned, config_raw) or ""
+    if draft is None:
+        new_draft = DraftSubmission(
+            school=school,
+            form_key=form_key,
+            data=dict(cleaned),
+            email=email,
+            last_form_key=last_form_key,
+        )
+        new_draft.extend_expiry()
+        new_draft.save()
+        return new_draft
+    # Update existing draft
+    merged_data = dict(draft.data or {})
+    merged_data.update(cleaned)
+    draft.data = merged_data
+    draft.email = email or draft.email
+    draft.last_form_key = last_form_key or draft.last_form_key
+    draft.extend_expiry()
+    draft.save()
+    return draft
+
+
+def _maybe_send_resume_email(draft, school, config_raw):
+    """Send resume link email, throttled to once per cooldown window."""
+    if draft.last_email_sent_at:
+        cooldown = timedelta(minutes=_DRAFT_RESEND_COOLDOWN_MINUTES)
+        if timezone.now() - draft.last_email_sent_at < cooldown:
+            return False
+    sent = send_resume_link_email(draft=draft, school=school, config_raw=config_raw)
+    if sent:
+        draft.last_email_sent_at = timezone.now()
+        draft.save(update_fields=["last_email_sent_at"])
+    return sent
+
+
+def _get_next_step_after(config, last_form_key: str) -> str | None:
+    """Returns the step key after last_form_key for multi-form, or None if it's the last step."""
+    forms = get_forms(config) or {}
+    ordered_keys = list(forms.keys())
+    if not ordered_keys:
+        return None
+    if not last_form_key or last_form_key not in ordered_keys:
+        return ordered_keys[0]
+    idx = ordered_keys.index(last_form_key)
+    return ordered_keys[idx + 1] if idx + 1 < len(ordered_keys) else None
 
 
 def _get_multi_form_context(config, form_key: str):
@@ -275,28 +330,54 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
         if not school.features.waiver_enabled:
             form_cfg = _strip_waiver_fields(form_cfg)
 
+        save_resume_enabled = school.features.save_resume_enabled
+        raw_config = getattr(config, "raw", {}) or {}
+
         if request.method == "POST":
+            # Save-draft action (secondary submit button)
+            if request.POST.get("_action") == "save_draft" and save_resume_enabled:
+                cleaned, _ = validate_submission(form_cfg, request.POST, request.FILES, partial=True)
+                active_draft = _resolve_active_draft(request, school, school_slug)
+                draft = _save_draft(
+                    school=school, form_key="default", cleaned=cleaned,
+                    config_raw=raw_config, draft=active_draft,
+                )
+                request.session[_draft_session_key(school_slug)] = draft.pk
+                if draft.email:
+                    _maybe_send_resume_email(draft, school, raw_config)
+                    messages.success(request, "We've emailed you a link to continue your application.")
+                else:
+                    messages.info(request, "Draft saved. Fill in your email to receive a resume link.")
+                return redirect(request.path)
+
+            # Normal full submit
             cleaned, errors = validate_submission(form_cfg, request.POST, request.FILES)
             if errors:
-                return render(
-                    request,
-                    "apply_form.html",
-                    _apply_form_context(
-                        school=school,
-                        branding=branding,
-                        form=form_cfg,
-                        is_multi=False,
-                        form_key="default",
-                        next_key=None,
-                        errors=errors,
-                        values=request.POST,
-                    ),
+                ctx = _apply_form_context(
+                    school=school,
+                    branding=branding,
+                    form=form_cfg,
+                    is_multi=False,
+                    form_key="default",
+                    next_key=None,
+                    errors=errors,
+                    values=request.POST,
                 )
+                ctx["save_resume_enabled"] = save_resume_enabled
+                return render(request, "apply_form.html", ctx)
 
             _inject_waiver_metadata(cleaned, form_cfg, request)
             submission = Submission.objects.create(school=school, form_key="default", data=cleaned)
+
+            # Mark draft submitted (do NOT delete — magic link shows "already submitted" page)
+            active_draft = _resolve_active_draft(request, school, school_slug)
+            if active_draft:
+                active_draft.submitted_at = timezone.now()
+                active_draft.save(update_fields=["submitted_at"])
+            request.session.pop(_draft_session_key(school_slug), None)
+
             try:
-                try_convert_lead(school=school, submission=submission, config_raw=getattr(config, "raw", {}) or {})
+                try_convert_lead(school=school, submission=submission, config_raw=raw_config)
             except Exception:
                 logger.exception("Failed to convert lead for submission %s", submission.public_id)
             if school.features.file_uploads_enabled:
@@ -305,7 +386,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 try:
                     send_submission_notification_email(
                         request=request,
-                        config_raw=getattr(config, "raw", {}) or {},
+                        config_raw=raw_config,
                         school_name=config.display_name,
                         submission_id=submission.id,
                         submission_public_id=submission.public_id,
@@ -316,7 +397,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                     logger.exception("Failed to send submission notification email")
                 try:
                     send_applicant_confirmation_email(
-                        config_raw=getattr(config, "raw", {}) or {},
+                        config_raw=raw_config,
                         school_name=config.display_name,
                         submission_public_id=submission.public_id,
                         student_name=submission.student_display_name(),
@@ -327,24 +408,27 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
 
             return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
-        return render(
-            request,
-            "apply_form.html",
-            _apply_form_context(
-                school=school,
-                branding=branding,
-                form=form_cfg,
-                is_multi=False,
-                form_key="default",
-                next_key=None,
-                errors={},
-                values={},
-            ),
+        # GET: pre-populate from session draft
+        active_draft = _resolve_active_draft(request, school, school_slug)
+        ctx = _apply_form_context(
+            school=school,
+            branding=branding,
+            form=form_cfg,
+            is_multi=False,
+            form_key="default",
+            next_key=None,
+            errors={},
+            values=active_draft.data if active_draft else {},
         )
+        ctx["save_resume_enabled"] = save_resume_enabled
+        return render(request, "apply_form.html", ctx)
 
     # ----------------------------
     # MULTI-FORM SCHOOL
     # ----------------------------
+
+    raw_config = getattr(config, "raw", {}) or {}
+    save_resume_enabled = school.features.save_resume_enabled
 
     # If user hits /apply (default), jump to first configured form key
     if is_multi and form_key == "default":
@@ -355,50 +439,66 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
     if not school.features.waiver_enabled:
         form_cfg = _strip_waiver_fields(form_cfg)
 
-    # GET: do NOT create Submission yet. Only load existing (if any) to prefill values.
-    submission = _get_multi_submission(request, school, school_slug)
+    # GET: pre-populate from active draft (session or token)
+    active_draft = _resolve_active_draft(request, school, school_slug)
 
     if request.method == "POST":
         cleaned, errors = validate_submission(form_cfg, request.POST, request.FILES)
         if errors:
-            return render(
-                request,
-                "apply_form.html",
-                _apply_form_context(
-                    school=school,
-                    branding=branding,
-                    form=form_cfg,
-                    is_multi=True,
-                    form_key=form_key,
-                    next_key=next_key,
-                    errors=errors,
-                    values=request.POST,
-                ),
+            ctx = _apply_form_context(
+                school=school,
+                branding=branding,
+                form=form_cfg,
+                is_multi=True,
+                form_key=form_key,
+                next_key=next_key,
+                errors=errors,
+                values=request.POST,
             )
-
-        # Create or reuse ONE submission for the whole flow
-        submission = _ensure_multi_submission(request, school, school_slug)
+            ctx["save_resume_enabled"] = save_resume_enabled
+            return render(request, "apply_form.html", ctx)
 
         _inject_waiver_metadata(cleaned, form_cfg, request)
-        _merge_submission_data(submission, cleaned)
-        if school.features.file_uploads_enabled:
-            _save_uploaded_files(submission, form_cfg, request.FILES)
 
-        # Next step or finish
+        is_first_step = (ordered_keys[0] == form_key)
+        if not is_first_step and active_draft is None:
+            # Lost session + no token — restart from beginning
+            return redirect(reverse("apply", kwargs={"school_slug": school_slug}))
+
+        draft = _save_draft(
+            school=school, form_key="multi", cleaned=cleaned,
+            config_raw=raw_config, last_form_key=form_key, draft=active_draft,
+        )
+        request.session[_draft_session_key(school_slug)] = draft.pk
+
+        # After step 1: email the magic link if feature enabled and email present
+        if is_first_step and draft.email and save_resume_enabled:
+            _maybe_send_resume_email(draft, school, raw_config)
+
         if next_key:
             return redirect(reverse("apply_form", kwargs={"school_slug": school_slug, "form_key": next_key}))
 
-        # Done: clear session key and go success
-        request.session.pop(_multi_session_key(school_slug), None)
+        # Final step: convert draft → Submission
+        submission = Submission.objects.create(
+            school=school,
+            form_key="multi",
+            data=dict(draft.data),
+        )
+        draft.submitted_at = timezone.now()
+        draft.save(update_fields=["submitted_at"])
+        request.session.pop(_draft_session_key(school_slug), None)
+
+        if school.features.file_uploads_enabled:
+            _save_uploaded_files(submission, form_cfg, request.FILES)
         try:
-            try_convert_lead(school=school, submission=submission, config_raw=getattr(config, "raw", {}) or {})
+            try_convert_lead(school=school, submission=submission, config_raw=raw_config)
         except Exception:
             logger.exception("Failed to convert lead for submission %s", submission.public_id)
         if school.features.email_notifications_enabled:
             try:
                 send_submission_notification_email(
                     request=request,
-                    config_raw=getattr(config, "raw", {}) or {},
+                    config_raw=raw_config,
                     school_name=config.display_name,
                     submission_id=submission.id,
                     submission_public_id=submission.public_id,
@@ -409,7 +509,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 logger.exception("Failed to send submission notification email")
             try:
                 send_applicant_confirmation_email(
-                    config_raw=getattr(config, "raw", {}) or {},
+                    config_raw=raw_config,
                     school_name=config.display_name,
                     submission_public_id=submission.public_id,
                     student_name=submission.student_display_name(),
@@ -421,20 +521,18 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
         return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
     # GET render
-    return render(
-        request,
-        "apply_form.html",
-        _apply_form_context(
-            school=school,
-            branding=branding,
-            form=form_cfg,
-            is_multi=True,
-            form_key=form_key,
-            next_key=next_key,
-            errors={},
-            values=submission.data if submission else {},
-        ),
+    ctx = _apply_form_context(
+        school=school,
+        branding=branding,
+        form=form_cfg,
+        is_multi=True,
+        form_key=form_key,
+        next_key=next_key,
+        errors={},
+        values=active_draft.data if active_draft else {},
     )
+    ctx["save_resume_enabled"] = save_resume_enabled
+    return render(request, "apply_form.html", ctx)
 
 
 @xframe_options_exempt
@@ -488,6 +586,41 @@ def apply_success_view(request, school_slug: str):
             "scheduling_label": scheduling_label,
         },
     )
+
+
+@xframe_options_exempt
+def resume_draft_view(request, school_slug: str, token: str):
+    config = load_school_config(school_slug)
+    if config is None:
+        raise Http404("School config not found")
+
+    branding = merge_branding(getattr(config, "branding", None))
+    school = _get_or_create_school_from_config(school_slug, config, branding)
+
+    if not school.is_active or not school.features.save_resume_enabled:
+        raise Http404
+
+    draft = get_object_or_404(DraftSubmission, token=token, school=school)
+
+    if draft.is_submitted():
+        return render(request, "apply_submitted_already.html", {"school": school, "branding": branding})
+
+    if draft.is_expired():
+        return render(request, "apply_expired.html", {"school": school, "branding": branding})
+
+    # Token wins — update session so subsequent GETs use this draft
+    request.session[_draft_session_key(school_slug)] = draft.pk
+
+    if draft.form_key == "multi":
+        next_step = _get_next_step_after(config, draft.last_form_key)
+        forms = get_forms(config) or {}
+        ordered_keys = list(forms.keys())
+        target = next_step or draft.last_form_key or (ordered_keys[0] if ordered_keys else None)
+        if not target:
+            raise Http404
+        return redirect(reverse("apply_form", kwargs={"school_slug": school_slug, "form_key": target}))
+
+    return redirect(reverse("apply", kwargs={"school_slug": school_slug}))
 
 
 def _can_view_school_admin_page(request, school: School) -> bool:

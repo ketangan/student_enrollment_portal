@@ -195,6 +195,13 @@ ANYMAIL = {
     "SENDGRID_API_KEY": os.getenv("SENDGRID_API_KEY", "").strip(),
 }
 
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@example.com")
+EMAIL_TIMEOUT = 10
+
+# Absolute base URL for building magic links in emails.
+# IMPORTANT: set this explicitly in production/staging. Wrong value = broken resume links.
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 
 

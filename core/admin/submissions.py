@@ -468,10 +468,9 @@ class SubmissionAdmin(admin.ModelAdmin):
             if cfg:
                 form_cfg, _ = _resolve_submission_form_cfg_and_labels(cfg, getattr(obj, "form_key", None))
                 errors = validate_required_fields(cfg, request.POST, form=form_cfg)
-                if errors:
-                    for e in errors:
-                        messages.error(request, e)
-                    return redirect(request.path)
+                for e in errors:
+                    messages.warning(request, f"Warning: {e}")
+                # Fall through to save_model — admin is trusted
 
         return super().changeform_view(request, object_id, form_url, extra_context)
 
