@@ -196,7 +196,9 @@ ANYMAIL = {
 }
 
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@example.com")
-EMAIL_TIMEOUT = 10
+# WARNING: the fallback "noreply@example.com" is not a real verified sender.
+# Always set DEFAULT_FROM_EMAIL explicitly in production/staging env vars.
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
 
 # Absolute base URL for building magic links in emails.
 # IMPORTANT: set this explicitly in production/staging. Wrong value = broken resume links.

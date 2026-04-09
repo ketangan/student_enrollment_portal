@@ -16,11 +16,11 @@ class DraftSubmissionAdmin(admin.ModelAdmin):
     )
     list_filter = ("school", "form_key")
     readonly_fields = (
-        "school", "form_key", "data", "token", "token_expires_at",
+        "school", "form_key", "data", "token_expires_at",
         "email", "last_form_key", "last_email_sent_at",
         "submitted_at", "created_at", "updated_at",
     )
-    search_fields = ("email", "school__slug", "token")
+    search_fields = ("email", "school__slug")
 
     def has_add_permission(self, request):
         return False

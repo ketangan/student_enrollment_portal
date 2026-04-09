@@ -152,8 +152,8 @@ def test_save_draft_no_email_no_send(client, settings):
     mail.outbox.clear()
     _make_school(SINGLE_SLUG)
     url = reverse("apply", kwargs={"school_slug": SINGLE_SLUG})
-    # no email field in data
-    post_data = {"first_name": "No", "last_name": "Email", "_action": "save_draft"}
+    # POST with only the action flag — no recognisable email field present
+    post_data = {"student_first_name": "No", "student_last_name": "Email", "_action": "save_draft"}
     client.post(url, data=post_data)
     assert len(mail.outbox) == 0
 
@@ -377,74 +377,115 @@ def test_multi_resume_rehydrates_session_and_redirects_to_next_step(client):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.django_db
-def test_admin_edit_warns_not_blocks_on_missing_required_field():
+def test_admin_edit_warns_not_blocks_on_missing_required_field(monkeypatch):
     """
-    changeform_view must issue warnings (not redirect/block) when required fields are absent.
-    We test this at the unit level by inspecting the patched messages behavior.
+    changeform_view must queue a warning and return 200 (not redirect) when required
+    fields are absent from the POST — admin is trusted, save is not blocked.
     """
-    from unittest.mock import patch, MagicMock
     from core.admin.submissions import SubmissionAdmin
-    from core.tests.factories import SchoolFactory, SubmissionFactory
-    from django.contrib.admin import site
+    from core.tests.factories import SchoolFactory, SubmissionFactory, UserFactory
+    from django.contrib.admin.sites import site as admin_site
     from django.test import RequestFactory
     from django.contrib.messages.storage.fallback import FallbackStorage
+    from django.contrib.messages import get_messages
+    from django.contrib.sessions.middleware import SessionMiddleware
+    from django.http import HttpResponse
 
     school = SchoolFactory(slug=SINGLE_SLUG)
     sub = SubmissionFactory(school=school, data={"student_first_name": "Alice"})
+    sub.form_key = "default"
+    sub.save()
 
-    # Build a fake superuser POST request
-    rf = RequestFactory()
-    request = rf.post(f"/admin/core/submission/{sub.pk}/change/", data={"_save": "1"})
-    request.user = MagicMock(is_superuser=True, is_active=True, is_staff=True, is_authenticated=True)
-    # Attach message storage
-    setattr(request, 'session', 'session')
-    messages_storage = FallbackStorage(request)
-    setattr(request, '_messages', messages_storage)
+    # Minimal config with one required field that is missing from the POST
+    class _Cfg:
+        form = {
+            "sections": [{
+                "title": "Main",
+                "fields": [
+                    {"key": "student_first_name", "label": "First Name", "type": "text", "required": True},
+                ],
+            }]
+        }
+        raw = {}
 
-    admin_instance = SubmissionAdmin(model=Submission, admin_site=site)
+    monkeypatch.setattr("core.admin.submissions.load_school_config", lambda slug: _Cfg())
 
-    warning_calls = []
+    ma = SubmissionAdmin(model=Submission, admin_site=admin_site)
+    user = UserFactory.create(is_superuser=True, is_staff=True)
+    # POST with empty body — required field is absent
+    req = RequestFactory().post(f"/admin/core/submission/{sub.pk}/change/", data={})
+    req.user = user
+    SessionMiddleware(lambda r: None).process_request(req)
+    req.session.save()
+    setattr(req, "_messages", FallbackStorage(req))
 
-    def fake_messages_warning(req, msg):
-        warning_calls.append(msg)
+    # Patch ModelAdmin.changeform_view to avoid full Django admin form rendering
+    monkeypatch.setattr(
+        "django.contrib.admin.ModelAdmin.changeform_view",
+        lambda self, req, *a, **kw: HttpResponse("ok", status=200),
+    )
 
-    with patch("core.admin.submissions.messages.warning", side_effect=fake_messages_warning):
-        with patch.object(admin_instance, "get_object", return_value=sub):
-            with patch("core.admin.submissions.load_school_config") as mock_cfg:
-                # Return a config that has required fields
-                from core.services.config_loader import load_school_config
-                real_cfg = load_school_config(SINGLE_SLUG)
-                mock_cfg.return_value = real_cfg
-                with patch.object(type(admin_instance), "changeform_view", wraps=lambda self, *a, **kw: MagicMock(status_code=200)):
-                    pass
+    resp = ma.changeform_view(req, object_id=str(sub.pk))
 
-    # Just verify the logic: validate_required_fields returns errors for an empty POST
-    from core.services.admin_submission_yaml import validate_required_fields
-    from core.admin.common import _resolve_submission_form_cfg_and_labels
-    from core.services.config_loader import load_school_config
-    cfg = load_school_config(SINGLE_SLUG)
-    form_cfg, _ = _resolve_submission_form_cfg_and_labels(cfg, "default")
-    from django.http import QueryDict
-    empty_post = QueryDict("")
-    errors = validate_required_fields(cfg, empty_post, form=form_cfg)
-    # There should be errors for missing required fields
-    assert len(errors) > 0, "Expected validation errors for empty POST"
-    # And the new code path uses messages.warning, not return redirect
-    # Verified by code inspection: submissions.py changeform_view now only calls
-    # messages.warning and falls through — no return redirect(request.path)
+    # Must NOT redirect — admin falls through to save even with missing fields
+    assert resp.status_code == 200
+
+    # A warning must be queued for the missing required field
+    msgs = [m.message for m in get_messages(req)]
+    assert any("First Name" in m for m in msgs), f"Expected warning about First Name in: {msgs}"
 
 
 @pytest.mark.django_db
-def test_admin_edit_saves_despite_warnings(admin_client):
-    """Admin save must succeed even when required fields are missing from submitted data."""
-    from core.tests.factories import SchoolFactory, SubmissionFactory
+def test_admin_edit_saves_despite_warnings(monkeypatch):
+    """Admin save must succeed (200, not redirect) even when required fields are missing."""
+    from core.admin.submissions import SubmissionAdmin
+    from core.tests.factories import SchoolFactory, SubmissionFactory, UserFactory
+    from django.contrib.admin.sites import site as admin_site
+    from django.test import RequestFactory
+    from django.contrib.messages.storage.fallback import FallbackStorage
+    from django.contrib.sessions.middleware import SessionMiddleware
+    from django.http import HttpResponse
+
     school = SchoolFactory(slug=SINGLE_SLUG)
     sub = SubmissionFactory(school=school, data={"student_first_name": "Alice"})
-    # Submission still exists (not deleted or broken by the admin validation change)
-    assert Submission.objects.filter(pk=sub.pk).exists()
-    # The code change removed the `return redirect(request.path)` guard.
-    # Verify the old blocking code is gone from the source.
-    import inspect
-    from core.admin.submissions import SubmissionAdmin
-    source = inspect.getsource(SubmissionAdmin.changeform_view)
-    assert "return redirect(request.path)" not in source
+    sub.form_key = "default"
+    sub.save()
+
+    class _Cfg:
+        form = {
+            "sections": [{
+                "title": "Main",
+                "fields": [
+                    {"key": "student_first_name", "label": "First Name", "type": "text", "required": True},
+                    {"key": "contact_email", "label": "Email", "type": "email", "required": True},
+                ],
+            }]
+        }
+        raw = {}
+
+    monkeypatch.setattr("core.admin.submissions.load_school_config", lambda slug: _Cfg())
+
+    ma = SubmissionAdmin(model=Submission, admin_site=admin_site)
+    user = UserFactory.create(is_superuser=True, is_staff=True)
+    req = RequestFactory().post(f"/admin/core/submission/{sub.pk}/change/", data={})
+    req.user = user
+    SessionMiddleware(lambda r: None).process_request(req)
+    req.session.save()
+    setattr(req, "_messages", FallbackStorage(req))
+
+    # Patch ModelAdmin.changeform_view — simulates the save succeeding
+    save_called = []
+    def fake_super_changeform(self, req, *a, **kw):
+        save_called.append(True)
+        return HttpResponse("saved", status=200)
+
+    monkeypatch.setattr(
+        "django.contrib.admin.ModelAdmin.changeform_view",
+        fake_super_changeform,
+    )
+
+    resp = ma.changeform_view(req, object_id=str(sub.pk))
+
+    # super().changeform_view must have been reached — admin is not blocked
+    assert save_called, "Expected super().changeform_view to be called (save not blocked)"
+    assert resp.status_code == 200

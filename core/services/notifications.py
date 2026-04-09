@@ -407,7 +407,7 @@ def get_submission_email_config(config_raw: Dict[str, Any]) -> Optional[Submissi
     )
 
 
-def send_resume_link_email(*, draft, school, config_raw: dict) -> bool:
+def send_resume_link_email(*, draft, school) -> bool:
     """
     Email the applicant their magic resume link.
     Returns True if sent, False if skipped (no email) or failed.

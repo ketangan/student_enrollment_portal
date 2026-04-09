@@ -195,7 +195,7 @@ def _resolve_active_draft(request, school: School, school_slug: str, token: str 
         if draft and not draft.is_expired() and not draft.is_submitted():
             return draft
         # Stale session reference — clear it silently
-        del request.session[session_key]
+        request.session.pop(session_key, None)
     return None
 
 
@@ -228,13 +228,13 @@ def _save_draft(*, school, form_key, cleaned, config_raw, last_form_key="", draf
     return draft
 
 
-def _maybe_send_resume_email(draft, school, config_raw):
+def _maybe_send_resume_email(draft, school):
     """Send resume link email, throttled to once per cooldown window."""
     if draft.last_email_sent_at:
         cooldown = timedelta(minutes=_DRAFT_RESEND_COOLDOWN_MINUTES)
         if timezone.now() - draft.last_email_sent_at < cooldown:
             return False
-    sent = send_resume_link_email(draft=draft, school=school, config_raw=config_raw)
+    sent = send_resume_link_email(draft=draft, school=school)
     if sent:
         draft.last_email_sent_at = timezone.now()
         draft.save(update_fields=["last_email_sent_at"])
@@ -344,8 +344,11 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 )
                 request.session[_draft_session_key(school_slug)] = draft.pk
                 if draft.email:
-                    _maybe_send_resume_email(draft, school, raw_config)
-                    messages.success(request, "We've emailed you a link to continue your application.")
+                    sent = _maybe_send_resume_email(draft, school)
+                    if sent:
+                        messages.success(request, "We've emailed you a link to continue your application.")
+                    else:
+                        messages.success(request, "Draft saved. We recently sent you a resume link.")
                 else:
                     messages.info(request, "Draft saved. Fill in your email to receive a resume link.")
                 return redirect(request.path)
@@ -443,6 +446,24 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
     active_draft = _resolve_active_draft(request, school, school_slug)
 
     if request.method == "POST":
+        # Save-draft action (secondary submit button) — mirrors single-form behavior
+        if request.POST.get("_action") == "save_draft" and save_resume_enabled:
+            cleaned, _ = validate_submission(form_cfg, request.POST, request.FILES, partial=True)
+            draft = _save_draft(
+                school=school, form_key="multi", cleaned=cleaned,
+                config_raw=raw_config, last_form_key=form_key, draft=active_draft,
+            )
+            request.session[_draft_session_key(school_slug)] = draft.pk
+            if draft.email:
+                sent = _maybe_send_resume_email(draft, school)
+                if sent:
+                    messages.success(request, "We've emailed you a link to continue your application.")
+                else:
+                    messages.success(request, "Draft saved. We recently sent you a resume link.")
+            else:
+                messages.info(request, "Draft saved. Fill in your email to receive a resume link.")
+            return redirect(request.path)
+
         cleaned, errors = validate_submission(form_cfg, request.POST, request.FILES)
         if errors:
             ctx = _apply_form_context(
@@ -473,7 +494,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
 
         # After step 1: email the magic link if feature enabled and email present
         if is_first_step and draft.email and save_resume_enabled:
-            _maybe_send_resume_email(draft, school, raw_config)
+            _maybe_send_resume_email(draft, school)
 
         if next_key:
             return redirect(reverse("apply_form", kwargs={"school_slug": school_slug, "form_key": next_key}))
