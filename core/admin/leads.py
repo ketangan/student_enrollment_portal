@@ -421,9 +421,16 @@ class LeadAdmin(admin.ModelAdmin):
     # ------------------------------------------------------------------
 
     def has_module_permission(self, request):
-        return _is_superuser(request.user) or (
-            _has_school_membership(request.user) and request.user.is_staff
-        )
+        if _is_superuser(request.user):
+            return True
+        if not (_has_school_membership(request.user) and request.user.is_staff):
+            return False
+        school_id = _membership_school_id(request.user)
+        if not school_id:
+            return False
+        from core.models import School
+        school = School.objects.filter(pk=school_id).first()
+        return school is not None and school.features.leads_enabled
 
     def has_view_permission(self, request, obj=None):
         return self.has_module_permission(request)
