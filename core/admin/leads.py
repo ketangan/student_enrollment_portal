@@ -20,14 +20,6 @@ from core.models import (
     LEAD_STATUS_TRIAL_SCHEDULED,
 )
 
-_STATUS_COLORS = {
-    "new": "#16a34a",             # green
-    "contacted": "#2563eb",       # blue
-    "trial_scheduled": "#d97706", # amber
-    "enrolled": "#7c3aed",        # purple
-    "lost": "#dc2626",            # red
-}
-
 
 def _get_day_bounds():
     """Returns (now, today_start, today_end) in the current timezone."""
@@ -96,11 +88,10 @@ class LeadAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "email",
-        "status_badge",
         "status",
         "next_follow_up_display",
         "converted_badge",
-        "interested_in_label",
+        "interested_in_display",
         "notes_preview",
         "source",
         "created_at",
@@ -354,17 +345,11 @@ class LeadAdmin(admin.ModelAdmin):
     # Display helpers
     # ------------------------------------------------------------------
 
-    def status_badge(self, obj: Lead) -> str:
-        color = _STATUS_COLORS.get(obj.status, "#6b7280")
-        label = obj.get_status_display()
-        return format_html(
-            '<span style="display:inline-block;padding:2px 10px;border-radius:999px;'
-            'background:{};color:#fff;font-size:12px;font-weight:600;">{}</span>',
-            color,
-            label,
-        )
+    def interested_in_display(self, obj: Lead) -> str:
+        return obj.interested_in_label or "—"
 
-    status_badge.short_description = "Status"
+    interested_in_display.short_description = "Interested In"
+    interested_in_display.admin_order_field = "interested_in_label"
 
     def next_follow_up_display(self, obj: Lead) -> str:
         if not obj.next_follow_up_at:

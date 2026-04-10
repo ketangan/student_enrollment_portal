@@ -1305,8 +1305,8 @@ def test_lead_admin_school_scoped(client):
 
 
 @pytest.mark.django_db
-def test_lead_admin_status_badge_renders(client):
-    """Superuser change-list must render the coloured status badge HTML."""
+def test_lead_admin_changelist_renders(client):
+    """Superuser changelist renders successfully and shows the lead's email."""
     User = get_user_model()
     superuser = User.objects.create_superuser(
         username="leadsu", password="pass", email="leadsu@example.com"
@@ -1319,8 +1319,7 @@ def test_lead_admin_status_badge_renders(client):
     url = reverse("admin:core_lead_changelist")
     response = client.get(url)
     assert response.status_code == 200
-    # Badge renders as a <span> with the New colour
-    assert b"border-radius:999px" in response.content
+    assert b"badge@example.com" in response.content
 
 
 # ---------------------------------------------------------------------------
