@@ -3,13 +3,12 @@
 
 {% block content %}
 {% if not request.user.is_superuser %}
-<div>
+<div style="margin-bottom:16px;">
   <button
     id="qa-toggle"
     type="button"
-    class="btn"
-    style="background-color:#2563eb;border-color:#2563eb;color:#fff;"
-    onclick="(function(){var p=document.getElementById('qa-panel');p.style.display=p.style.display==='none'?'block':'none';})();">
+    onclick="(function(){var p=document.getElementById('qa-panel');p.style.display=p.style.display==='none'?'block':'none';})();"
+    style="padding:6px 16px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:0.01em;">
     + Add Lead
   </button>
 
@@ -73,16 +72,4 @@
 </div>
 {% endif %}
 {{ block.super }}
-{% if not request.user.is_superuser %}
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  var btn = document.getElementById("qa-toggle");
-  var searchGroup = document.getElementById("search_group");
-  if (btn && searchGroup) {
-    // Move the button into the search bar row so it aligns with Search/filters
-    searchGroup.appendChild(btn);
-  }
-});
-</script>
-{% endif %}
 {% endblock %}
