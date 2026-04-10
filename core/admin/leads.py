@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 
+from core.admin.audit import log_admin_audit
 from core.admin.common import _has_school_membership, _is_superuser, _membership_school_id
 from core.models import (
     Lead,
@@ -212,10 +213,49 @@ class LeadAdmin(admin.ModelAdmin):
                     status=LEAD_STATUS_NEW,
                 )
             messages.success(request, f"Lead '{lead.name}' added.")
+            # Intentional omission: failed creates (IntegrityError) are NOT logged
+            # because no Lead object exists to reference. Future: log to extra with no obj.
+            if lead.school.features.audit_log_enabled:
+                log_admin_audit(
+                    request=request,
+                    action="add",
+                    obj=lead,
+                    extra={"name": "quick_add", "source": lead.source},
+                )
         except IntegrityError:
             messages.error(request, f"A lead with email '{email}' already exists for this school.")
 
         return redirect("../")
+
+    # ------------------------------------------------------------------
+    # Save pipeline
+    # ------------------------------------------------------------------
+
+    def save_model(self, request, obj, form, change):
+        old_status = None
+        if change and obj.pk:
+            old_status = Lead.objects.filter(pk=obj.pk).values_list("status", flat=True).first()
+
+        super().save_model(request, obj, form, change)
+
+        if not obj.school.features.audit_log_enabled:
+            return
+
+        if not change:
+            # has_add_permission is False so this branch is currently unreachable
+            # via the normal admin form. Kept for defensive completeness.
+            log_admin_audit(request=request, action="add", obj=obj, changes={})
+            return
+
+        # Only log status changes — notes/follow-up/lost_reason edits are v1 out of scope.
+        # No empty audit rows on saves where status did not change.
+        if old_status is not None and old_status != obj.status:
+            log_admin_audit(
+                request=request,
+                action="change",
+                obj=obj,
+                changes={"status": {"from": old_status, "to": obj.status}},
+            )
 
     # ------------------------------------------------------------------
     # Bulk actions
@@ -232,6 +272,13 @@ class LeadAdmin(admin.ModelAdmin):
             self.message_user(request, "No leads were updated.", level=messages.WARNING)
             return
         self.message_user(request, f"{updated} lead(s) marked as Contacted, follow-up scheduled for tomorrow.")
+        # queryset is already school-scoped via get_queryset(); first() is safe for feature flag check
+        first = queryset.first()
+        if first and first.school.features.audit_log_enabled:
+            log_admin_audit(
+                request=request, action="action", obj=None,
+                extra={"name": "mark_contacted", "count": updated},
+            )
 
     @admin.action(description="Mark as Trial Scheduled")
     def action_mark_trial_scheduled(self, request, queryset):
@@ -240,6 +287,12 @@ class LeadAdmin(admin.ModelAdmin):
             self.message_user(request, "No leads were updated.", level=messages.WARNING)
             return
         self.message_user(request, f"{updated} lead(s) marked as Trial Scheduled.")
+        first = queryset.first()
+        if first and first.school.features.audit_log_enabled:
+            log_admin_audit(
+                request=request, action="action", obj=None,
+                extra={"name": "mark_trial_scheduled", "count": updated},
+            )
 
     @admin.action(description="Mark as Lost")
     def action_mark_lost(self, request, queryset):
@@ -248,6 +301,12 @@ class LeadAdmin(admin.ModelAdmin):
             self.message_user(request, "No leads were updated.", level=messages.WARNING)
             return
         self.message_user(request, f"{updated} lead(s) marked as Lost.")
+        first = queryset.first()
+        if first and first.school.features.audit_log_enabled:
+            log_admin_audit(
+                request=request, action="action", obj=None,
+                extra={"name": "mark_lost", "count": updated},
+            )
 
     @admin.action(description="Schedule follow-up: tomorrow")
     def action_schedule_tomorrow(self, request, queryset):
@@ -256,6 +315,12 @@ class LeadAdmin(admin.ModelAdmin):
             self.message_user(request, "No leads were updated.", level=messages.WARNING)
             return
         self.message_user(request, f"{updated} lead(s) scheduled for tomorrow.")
+        first = queryset.first()
+        if first and first.school.features.audit_log_enabled:
+            log_admin_audit(
+                request=request, action="action", obj=None,
+                extra={"name": "schedule_tomorrow", "count": updated},
+            )
 
     @admin.action(description="Schedule follow-up: next week")
     def action_schedule_next_week(self, request, queryset):
@@ -264,6 +329,12 @@ class LeadAdmin(admin.ModelAdmin):
             self.message_user(request, "No leads were updated.", level=messages.WARNING)
             return
         self.message_user(request, f"{updated} lead(s) scheduled for next week.")
+        first = queryset.first()
+        if first and first.school.features.audit_log_enabled:
+            log_admin_audit(
+                request=request, action="action", obj=None,
+                extra={"name": "schedule_next_week", "count": updated},
+            )
 
     @admin.action(description="Clear follow-up date")
     def action_clear_follow_up(self, request, queryset):
@@ -272,6 +343,12 @@ class LeadAdmin(admin.ModelAdmin):
             self.message_user(request, "No leads were updated.", level=messages.WARNING)
             return
         self.message_user(request, f"{updated} lead(s) follow-up date cleared.")
+        first = queryset.first()
+        if first and first.school.features.audit_log_enabled:
+            log_admin_audit(
+                request=request, action="action", obj=None,
+                extra={"name": "clear_follow_up", "count": updated},
+            )
 
     # ------------------------------------------------------------------
     # Display helpers
