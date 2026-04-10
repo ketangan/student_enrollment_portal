@@ -476,7 +476,7 @@ class SubmissionAdmin(admin.ModelAdmin):
                     return redirect(request.path)
 
                 for w in result["warnings"]:
-                    messages.warning(request, f"Warning: {w}")
+                    messages.warning(request, w)
 
         return super().changeform_view(request, object_id, form_url, extra_context)
 
