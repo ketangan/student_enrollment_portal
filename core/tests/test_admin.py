@@ -397,8 +397,8 @@ def test_submission_admin_attachments_empty_and_program_name_no_config(monkeypat
     assert ma.program_name(sub) == sub.program_display_name()
 
 
-def test_submission_admin_changeform_view_required_fields_warns_not_blocks(monkeypatch, db):
-    """Required-field validation now issues warnings and falls through (does not redirect back)."""
+def test_submission_admin_changeform_view_required_fields_blocks_save(monkeypatch, db):
+    """Missing required field in the current admin form blocks save (redirect, error message)."""
     school = SchoolFactory.create()
     sub = SubmissionFactory.create(school=school, data={"first_name": "Existing"})
     sub.form_key = "default"
@@ -424,12 +424,10 @@ def test_submission_admin_changeform_view_required_fields_warns_not_blocks(monke
     req = RequestFactory().post(f"/admin/core/submission/{sub.id}/change/", data={})
     req.user = user
 
-    # Enable messages framework for RequestFactory requests
     SessionMiddleware(lambda r: None).process_request(req)
     req.session.save()
     setattr(req, "_messages", FallbackStorage(req))
 
-    # Patch super().changeform_view to avoid full Django admin rendering
     from django.http import HttpResponse
     with monkeypatch.context() as m:
         m.setattr(
@@ -438,10 +436,10 @@ def test_submission_admin_changeform_view_required_fields_warns_not_blocks(monke
         )
         resp = ma.changeform_view(req, object_id=str(sub.id))
 
-    # Must NOT redirect back (old blocking behavior removed)
-    assert resp.status_code == 200
+    # Must redirect back — save is blocked
+    assert resp.status_code == 302
 
-    # Warning message must be queued
+    # Error message (not warning) must be queued
     msgs = [m.message for m in get_messages(req)]
     assert any("First Name is required." in m for m in msgs)
 

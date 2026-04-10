@@ -468,10 +468,15 @@ class SubmissionAdmin(admin.ModelAdmin):
             cfg = load_school_config(obj.school.slug)
             if cfg:
                 form_cfg, _ = _resolve_submission_form_cfg_and_labels(cfg, getattr(obj, "form_key", None))
-                errors = validate_required_fields(cfg, request.POST, form=form_cfg)
-                for e in errors:
-                    messages.warning(request, f"Warning: {e}")
-                # Fall through to save_model — admin is trusted
+                result = validate_required_fields(cfg, request.POST, form=form_cfg)
+
+                if result["blocking"]:
+                    for e in result["blocking"]:
+                        messages.error(request, e)
+                    return redirect(request.path)
+
+                for w in result["warnings"]:
+                    messages.warning(request, f"Warning: {w}")
 
         return super().changeform_view(request, object_id, form_url, extra_context)
 

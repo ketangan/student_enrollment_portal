@@ -74,17 +74,40 @@ def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=Non
     return yaml_sections
 
 
-def validate_required_fields(cfg, post_data, form: dict | None = None) -> list[str]:
+def validate_required_fields(
+    cfg, post_data, form: dict | None = None
+) -> dict[str, list[str]]:
     """
     Validates required fields from YAML against request.POST.
-    Returns a list of human-friendly error strings.
-    """
-    errors: list[str] = []
-    if not cfg:
-        return errors
 
-    form = form or getattr(cfg, "form", None) or {}
-    for section in form.get("sections", []):
+    Returns {"blocking": [...], "warnings": [...]}:
+      - blocking: missing required field that is editable in the current admin
+                  form — save must be blocked.
+      - warnings: missing required field not present in the current admin form
+                  (e.g. legacy YAML drift or a different multi-form step) —
+                  save is allowed but admin is notified.
+    """
+    blocking: list[str] = []
+    warnings: list[str] = []
+    if not cfg:
+        return {"blocking": blocking, "warnings": warnings}
+
+    # form_cfg — the fields currently rendered in this admin view
+    form_cfg = form or getattr(cfg, "form", None) or {}
+
+    # Keys editable right now; only these can produce blocking errors
+    editable_keys: set[str] = {
+        f.get("key")
+        for section in form_cfg.get("sections", [])
+        for f in section.get("fields", [])
+        if f.get("key")
+    }
+
+    # Validate against all required fields in the full YAML config so that
+    # required fields from other form steps surface as warnings instead of
+    # being silently ignored.
+    full_form = getattr(cfg, "form", None) or form_cfg
+    for section in full_form.get("sections", []):
         for f in section.get("fields", []):
             ftype = (f.get("type") or "text").strip().lower()
             if ftype in ("file", "waiver"):
@@ -97,17 +120,22 @@ def validate_required_fields(cfg, post_data, form: dict | None = None) -> list[s
             label = f.get("label") or key.replace("_", " ").title()
             name = f"{DYN_PREFIX}{key}"
 
+            missing = False
             if ftype == "multiselect":
-                if not post_data.getlist(name):
-                    errors.append(f"{label} is required.")
+                missing = not post_data.getlist(name)
             elif ftype == "checkbox":
-                if name not in post_data:
-                    errors.append(f"{label} is required.")
+                missing = name not in post_data
             else:
-                if not (post_data.get(name, "") or "").strip():
-                    errors.append(f"{label} is required.")
+                missing = not (post_data.get(name, "") or "").strip()
 
-    return errors
+            if missing:
+                msg = f"{label} is required."
+                if key in editable_keys:
+                    blocking.append(msg)
+                else:
+                    warnings.append(msg)
+
+    return {"blocking": blocking, "warnings": warnings}
 
 
 def apply_post_to_submission_data(cfg, post_data, existing_data: dict, form: dict | None = None) -> dict:

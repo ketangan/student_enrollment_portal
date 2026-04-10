@@ -377,10 +377,10 @@ def test_multi_resume_rehydrates_session_and_redirects_to_next_step(client):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.django_db
-def test_admin_edit_warns_not_blocks_on_missing_required_field(monkeypatch):
+def test_admin_edit_blocks_on_missing_required_field(monkeypatch):
     """
-    changeform_view must queue a warning and return 200 (not redirect) when required
-    fields are absent from the POST — admin is trusted, save is not blocked.
+    changeform_view must redirect back (302) and queue an error when a required
+    field that is editable in the current admin form is absent from the POST.
     """
     from core.admin.submissions import SubmissionAdmin
     from core.tests.factories import SchoolFactory, SubmissionFactory, UserFactory
@@ -427,17 +427,17 @@ def test_admin_edit_warns_not_blocks_on_missing_required_field(monkeypatch):
 
     resp = ma.changeform_view(req, object_id=str(sub.pk))
 
-    # Must NOT redirect — admin falls through to save even with missing fields
-    assert resp.status_code == 200
+    # Must redirect back — save is blocked
+    assert resp.status_code == 302
 
-    # A warning must be queued for the missing required field
+    # An error must be queued for the missing required field
     msgs = [m.message for m in get_messages(req)]
-    assert any("First Name" in m for m in msgs), f"Expected warning about First Name in: {msgs}"
+    assert any("First Name" in m for m in msgs), f"Expected error about First Name in: {msgs}"
 
 
 @pytest.mark.django_db
-def test_admin_edit_saves_despite_warnings(monkeypatch):
-    """Admin save must succeed (200, not redirect) even when required fields are missing."""
+def test_admin_edit_blocks_save_on_missing_required_fields(monkeypatch):
+    """Admin save must be blocked (redirect 302) when editable required fields are missing."""
     from core.admin.submissions import SubmissionAdmin
     from core.tests.factories import SchoolFactory, SubmissionFactory, UserFactory
     from django.contrib.admin.sites import site as admin_site
@@ -486,6 +486,6 @@ def test_admin_edit_saves_despite_warnings(monkeypatch):
 
     resp = ma.changeform_view(req, object_id=str(sub.pk))
 
-    # super().changeform_view must have been reached — admin is not blocked
-    assert save_called, "Expected super().changeform_view to be called (save not blocked)"
-    assert resp.status_code == 200
+    # super().changeform_view must NOT have been reached — save is blocked
+    assert not save_called, "Expected super().changeform_view NOT to be called (save blocked)"
+    assert resp.status_code == 302

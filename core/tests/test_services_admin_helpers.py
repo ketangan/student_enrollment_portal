@@ -302,11 +302,12 @@ def test_admin_submission_yaml_helpers_build_sections_validate_and_apply():
     keys = [f["key"] for f in sections[0]["fields"]]
     assert "upload" not in keys
 
-    # missing required fields should produce human errors
+    # missing required fields in form → blocking (not warnings)
     empty_post = QueryDict("")
-    errors = validate_required_fields(cfg, empty_post, form=form)
-    assert "Full Name is required." in errors
-    assert "I Agree is required." in errors
+    result = validate_required_fields(cfg, empty_post, form=form)
+    assert "Full Name is required." in result["blocking"]
+    assert "I Agree is required." in result["blocking"]
+    assert result["warnings"] == []
 
     # post_data overrides existing; multiselect uses getlist; checkbox uses presence
     q = QueryDict(mutable=True)
@@ -325,3 +326,81 @@ def test_admin_submission_yaml_helpers_build_sections_validate_and_apply():
     q2.update({f"{DYN_PREFIX}age": "not-a-number"})
     new_data2 = apply_post_to_submission_data(cfg, q2, existing_data=existing, form=form)
     assert new_data2["age"] == "not-a-number"
+
+
+class _DummyCfgWithForm:
+    """Helper: cfg whose .form is the full YAML form (may differ from admin form_cfg)."""
+    def __init__(self, form):
+        self.form = form
+
+
+def test_validate_required_fields_blocking_when_field_in_form():
+    """Missing required field that IS in the current admin form → blocking, not warning."""
+    form = {
+        "sections": [
+            {
+                "title": "Info",
+                "fields": [
+                    {"key": "first_name", "label": "First Name", "type": "text", "required": True},
+                ],
+            }
+        ]
+    }
+    cfg = _DummyCfgWithForm(form=form)
+    empty_post = QueryDict("")
+    result = validate_required_fields(cfg, empty_post, form=form)
+    assert "First Name is required." in result["blocking"]
+    assert result["warnings"] == []
+
+
+def test_validate_required_fields_warning_when_field_not_in_admin_form():
+    """Missing required field NOT in the admin form_cfg (e.g. other multi-form step) → warning only."""
+    full_form = {
+        "sections": [
+            {
+                "title": "Step 1",
+                "fields": [
+                    {"key": "first_name", "label": "First Name", "type": "text", "required": True},
+                    {"key": "last_name", "label": "Last Name", "type": "text", "required": True},
+                ],
+            }
+        ]
+    }
+    # Admin form only shows last_name; first_name is from a different step
+    admin_form_cfg = {
+        "sections": [
+            {
+                "title": "Step 2",
+                "fields": [
+                    {"key": "last_name", "label": "Last Name", "type": "text", "required": True},
+                ],
+            }
+        ]
+    }
+    cfg = _DummyCfgWithForm(form=full_form)
+    empty_post = QueryDict("")
+    result = validate_required_fields(cfg, empty_post, form=admin_form_cfg)
+    # last_name is in admin form → blocking
+    assert "Last Name is required." in result["blocking"]
+    # first_name is not in admin form → warning
+    assert "First Name is required." in result["warnings"]
+
+
+def test_validate_required_fields_no_errors_on_valid_post():
+    """All required fields present → both lists empty."""
+    form = {
+        "sections": [
+            {
+                "title": "Info",
+                "fields": [
+                    {"key": "first_name", "label": "First Name", "type": "text", "required": True},
+                ],
+            }
+        ]
+    }
+    cfg = _DummyCfgWithForm(form=form)
+    post = QueryDict(mutable=True)
+    post.update({f"{DYN_PREFIX}first_name": "Alice"})
+    result = validate_required_fields(cfg, post, form=form)
+    assert result["blocking"] == []
+    assert result["warnings"] == []
