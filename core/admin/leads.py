@@ -277,12 +277,11 @@ class LeadAdmin(admin.ModelAdmin):
         updated = queryset.update(
             status=LEAD_STATUS_CONTACTED,
             last_contacted_at=timezone.now(),
-            next_follow_up_at=timezone.now() + timedelta(days=1),
         )
         if not updated:
             self.message_user(request, "No leads were updated.", level=messages.WARNING)
             return
-        self.message_user(request, f"{updated} lead(s) marked as Contacted, follow-up scheduled for tomorrow.")
+        self.message_user(request, f"{updated} lead(s) marked as Contacted.")
         # queryset is already school-scoped via get_queryset(); first() is safe for feature flag check
         first = queryset.first()
         if first and first.school.features.audit_log_enabled:

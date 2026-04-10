@@ -1367,10 +1367,8 @@ def test_lead_action_mark_contacted(client):
     assert lead.status == "contacted"
     assert lead.last_contacted_at is not None
     assert before <= lead.last_contacted_at <= after
-    # follow-up scheduled roughly tomorrow
-    from datetime import timedelta
-    assert lead.next_follow_up_at is not None
-    assert lead.next_follow_up_at >= before + timedelta(hours=20)
+    # follow-up date is NOT auto-set — admin sets it manually when needed
+    assert lead.next_follow_up_at is None
 
 
 @pytest.mark.django_db
