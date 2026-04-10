@@ -334,3 +334,20 @@
   color: #fff !important;
   border: 1px solid rgba(255,255,255,0.18) !important;
 }
+
+/* Apply button — match Search button solid appearance.
+   Bootstrap's btn-primary background gets overridden by Django admin's
+   #changelist .actions context. Re-assert solid primary style. */
+.change-list-actions .actions button[name="index"],
+.actions button[name="index"].btn-primary {
+  background-color: var(--primary) !important;
+  border-color: var(--primary) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.change-list-actions .actions button[name="index"]:hover,
+.change-list-actions .actions button[name="index"]:focus {
+  filter: brightness(0.88);
+}

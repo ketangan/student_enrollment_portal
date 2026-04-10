@@ -208,3 +208,31 @@ leads:
 # scheduling:
 #   url: "https://calendly.com/your-school/30min"
 #   label: "Book a free trial class"  # optional, defaults to "Book a time"
+
+# Generic CSV export profiles.
+# Each named profile adds an "Export → <Name> CSV" action to the admin Submissions list.
+# New profile = add a block here. No code changes required.
+#
+# Field spec rules:
+#   source: key          — looks up submission.data["key"]; missing → blank + warning
+#   value: "literal"     — hardcoded string, never looked up
+#   source_any: [k1, k2] — first key with a non-empty value wins; none found → blank + warning
+exports:
+  brightwheel:
+    field_map:
+      first_name:
+        source: student_first_name
+      last_name:
+        source: student_last_name
+      birthdate:
+        source_any:           # tries each in order; first non-empty value wins
+          - date_of_birth
+          - dob
+      homeroom:
+        value: "Enrollment Request Demo"   # literal — written as-is regardless of submission data
+      parent_email:
+        source_any:
+          - guardian_email
+          - contact_email
+      enrollment_status:
+        value: "Applied"

@@ -4,6 +4,7 @@ from __future__ import annotations
 import csv
 import json
 import logging
+from collections import Counter
 
 logger = logging.getLogger(__name__)
 
@@ -94,18 +95,18 @@ class SubmissionAdmin(admin.ModelAdmin):
     list_filter = ("school",)
 
     def get_list_filter(self, request):
-        base = ["school"]
-        # for superuser: keep status filter
+        # Superusers see all schools — school filter is meaningful.
         if _is_superuser(request.user):
             return ("status", "school")
 
-        # for school-admin: infer school from membership and gate status
+        # Staff are scoped to one school via get_queryset — no school filter needed.
+        base = []
         school_id = _membership_school_id(request.user)
         if school_id:
             from core.models import School
             school = School.objects.filter(id=school_id).first()
             if school and school.features.status_enabled:
-                base.insert(0, "status")
+                base = ["status"]
         return tuple(base)
 
     def get_list_display(self, request):
@@ -554,18 +555,151 @@ class SubmissionAdmin(admin.ModelAdmin):
     # Attachments + Export
     # ----------------------------
     def get_actions(self, request):
+        from core.models import School
+        from core.services.integrations import get_export_configs
+
         actions = super().get_actions(request)
+
         if _is_superuser(request.user):
+            # Superusers see only the default export_csv action.
+            # Profile actions are school-specific: get_actions() runs before the queryset
+            # is known, so there is no safe way to know which school's config applies.
+            # Enumerating all schools' profiles on every page load is expensive and
+            # produces a dropdown with dozens of school-scoped actions — worse UX than
+            # the limitation. Superusers can use the Django shell for custom exports.
             return actions
 
         school_id = _membership_school_id(request.user)
         if school_id:
-            from core.models import School
             school = School.objects.filter(id=school_id).first()
-            if school and not school.features.csv_export_enabled:
-                actions.pop("export_csv", None)
+            if school:
+                if not school.features.csv_export_enabled:
+                    actions.pop("export_csv", None)
+                cfg = load_school_config(school.slug)
+                config_raw = getattr(cfg, "raw", {}) or {}
+                used_names = set(actions.keys())
+                for profile_name, field_map in get_export_configs(config_raw).items():
+                    fn = self._make_integration_export_action(
+                        profile_name, field_map, school_id=school.id, used_names=used_names
+                    )
+                    label = f"Export selected → {profile_name} CSV"
+                    actions[fn.__name__] = (fn, fn.__name__, label)
+                    used_names.add(fn.__name__)
 
         return actions
+
+    def _make_integration_export_action(
+        self, profile_name: str, field_map: dict, school_id: int, used_names: set
+    ):
+        """Builds a Django admin action function for one export profile.
+
+        Action name is collision-disambiguated: if the base name (export_{slug}_csv)
+        is already in used_names, appends _2, _3, etc. until unique.
+        """
+        from core.services.integrations import slugify_export_name
+
+        base = f"export_{slugify_export_name(profile_name)}_csv"
+        name = base
+        suffix = 2
+        while name in used_names:
+            name = f"{base}_{suffix}"
+            suffix += 1
+
+        def action(modeladmin, request, queryset):
+            return modeladmin._do_integration_export(
+                request, queryset, profile_name, name, field_map, expected_school_id=school_id
+            )
+
+        action.__name__ = name
+        return action
+
+    def _do_integration_export(
+        self, request, queryset, profile_name, action_name, field_map, expected_school_id=None
+    ):
+        from core.services.integrations import resolve_export_row, slugify_export_name
+
+        # Re-scope through get_queryset for school isolation — mirrors export_csv pattern.
+        # Prevents cross-school data leakage if Django admin ever passes an unscoped queryset.
+        queryset = self.get_queryset(request).filter(id__in=queryset.values_list("id", flat=True))
+
+        # Guard: empty + single-school — DISTINCT[:2] avoids a separate exists() call
+        school_ids = list(queryset.values_list("school_id", flat=True).distinct()[:2])
+        if not school_ids:
+            messages.warning(request, "No submissions selected.")
+            return None
+        if len(school_ids) > 1:
+            messages.error(
+                request,
+                f"Cannot apply '{profile_name}' export mapping across multiple schools. "
+                "Select submissions from one school at a time.",
+            )
+            return None
+
+        # Guard: action was registered for a specific school (defence-in-depth)
+        if expected_school_id is not None and school_ids[0] != expected_school_id:
+            messages.error(
+                request,
+                "These submissions do not belong to the school this export profile was configured for.",
+            )
+            return None
+
+        # Fetch one extra row to detect truncation without a separate COUNT query.
+        # select_related("school") avoids a second query for school features below.
+        rows = list(queryset.select_related("school").order_by("-created_at")[:5001])
+        truncated = len(rows) > 5000
+        rows = rows[:5000]
+        exported_count = len(rows)
+        school = rows[0].school  # safe: school_ids non-empty guarantees rows non-empty
+
+        # COUNT only when needed (truncation warning or audit log)
+        needs_total = truncated or school.features.audit_log_enabled
+        total_count = queryset.count() if needs_total else exported_count
+
+        if school.features.audit_log_enabled:
+            log_admin_audit(
+                request=request,
+                action="action",
+                obj=None,
+                changes={},
+                extra={
+                    "action": action_name,
+                    "model": "core.submission",
+                    "selected_count": total_count,
+                    "exported_count": exported_count,
+                },
+            )
+
+        if truncated:
+            messages.warning(
+                request,
+                f"Only {exported_count:,} of {total_count:,} selected submissions exported "
+                "(5,000 row limit). Re-run with a smaller selection to get the rest.",
+            )
+
+        cols = list(field_map.keys())
+        warning_counts: Counter = Counter()
+
+        filename = f"{slugify_export_name(profile_name)}_export.csv"
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        writer = csv.writer(response)
+        writer.writerow(cols)
+
+        for s in rows:
+            row, warnings = resolve_export_row(s.data or {}, field_map)
+            for w in warnings:
+                warning_counts[w] += 1
+            writer.writerow([row.get(col, "") for col in cols])
+
+        if warning_counts:
+            total_warnings = sum(warning_counts.values())
+            summary = "; ".join(
+                f'"{msg}" × {count}'
+                for msg, count in warning_counts.most_common(10)
+            )
+            logger.warning("Export '%s' mapping warnings: %s", profile_name, summary)
+
+        return response
 
     def attachments(self, obj):
         qs = obj.files.all().order_by("field_key", "id")
