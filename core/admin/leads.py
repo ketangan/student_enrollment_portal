@@ -100,13 +100,11 @@ class LeadAdmin(admin.ModelAdmin):
     list_filter = ("status", "source", FollowUpFilter, ConvertedFilter)
     search_fields = ("name", "email", "phone")
     readonly_fields = (
+        "school_display",
         "public_id",
-        "normalized_email",
-        "normalized_phone",
         "converted_submission",
         "converted_at",
         "created_at",
-        "updated_at",
     )
     actions = [
         "action_mark_contacted",
@@ -118,25 +116,40 @@ class LeadAdmin(admin.ModelAdmin):
     ]
 
     fieldsets = (
-        ("Identity", {
-            "fields": ("school", "public_id", "name", "email", "phone", "normalized_email", "normalized_phone"),
-        }),
-        ("Interest", {
-            "fields": ("interested_in_label", "interested_in_value"),
-        }),
-        ("Attribution", {
-            "fields": ("source", "utm_source", "utm_medium", "utm_campaign"),
-        }),
-        ("Pipeline", {
-            "fields": ("status", "notes", "last_contacted_at", "next_follow_up_at", "lost_reason"),
-        }),
-        ("Conversion", {
-            "fields": ("converted_submission", "converted_at"),
-        }),
-        ("Timestamps", {
-            "fields": ("created_at", "updated_at"),
+        ("Lead Details", {
+            "fields": (
+                "school_display", "public_id", "name", "email", "phone",
+                "interested_in_label", "source",
+                "status", "notes", "last_contacted_at", "next_follow_up_at", "lost_reason",
+                "converted_submission", "converted_at",
+                "created_at",
+            ),
         }),
     )
+
+    # ------------------------------------------------------------------
+    # Form — combine split date/time widget into a single datetime-local input
+    # ------------------------------------------------------------------
+
+    def get_form(self, request, obj=None, **kwargs):
+        from django.forms import DateTimeField, DateTimeInput
+        form = super().get_form(request, obj, **kwargs)
+        for fname in ("last_contacted_at", "next_follow_up_at"):
+            if fname in form.base_fields:
+                existing = form.base_fields[fname]
+                # Replace SplitDateTimeField (which expects a [date, time] list) with a
+                # plain DateTimeField so a single datetime-local input works correctly.
+                form.base_fields[fname] = DateTimeField(
+                    required=existing.required,
+                    label=existing.label,
+                    help_text=existing.help_text,
+                    widget=DateTimeInput(
+                        attrs={"type": "datetime-local", "style": "width:220px;"},
+                        format="%Y-%m-%dT%H:%M",
+                    ),
+                    input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"],
+                )
+        return form
 
     # ------------------------------------------------------------------
     # Custom URLs + quick-add view
@@ -220,6 +233,13 @@ class LeadAdmin(admin.ModelAdmin):
 
     # ------------------------------------------------------------------
     # Save pipeline
+    # ------------------------------------------------------------------
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["show_save_and_continue"] = False
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
     # ------------------------------------------------------------------
 
     def save_model(self, request, obj, form, change):
@@ -344,6 +364,11 @@ class LeadAdmin(admin.ModelAdmin):
     # ------------------------------------------------------------------
     # Display helpers
     # ------------------------------------------------------------------
+
+    def school_display(self, obj: Lead) -> str:
+        return obj.school.display_name if obj.school_id else "—"
+
+    school_display.short_description = "School"
 
     def interested_in_display(self, obj: Lead) -> str:
         return obj.interested_in_label or "—"

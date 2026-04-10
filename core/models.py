@@ -538,7 +538,7 @@ class Lead(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
-        return f"{self.name} <{self.email}> ({self.school.slug})"
+        return self.name
 
 
 class AdminAuditLog(models.Model):
