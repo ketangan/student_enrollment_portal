@@ -1,0 +1,2 @@
+/* Hide the FontAwesome icon prepended to Django admin alert messages by Jazzmin */
+.alert .icon { display: none; }

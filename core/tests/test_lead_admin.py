@@ -26,53 +26,6 @@ def _superuser_client(client):
 
 
 # ---------------------------------------------------------------------------
-# 4a: ConvertedFilter
-# ---------------------------------------------------------------------------
-
-@pytest.mark.django_db
-def test_converted_filter_unconverted(client):
-    school = SchoolFactory(plan="starter")
-    _staff_client(client, school)
-    converted_lead = LeadFactory(school=school)
-    unconverted_lead = LeadFactory(school=school)
-
-    # Link a dummy submission to converted_lead
-    from core.tests.factories import SubmissionFactory
-    sub = SubmissionFactory(school=school)
-    converted_lead.converted_submission = sub
-    converted_lead.save(update_fields=["converted_submission"])
-
-    url = reverse("admin:core_lead_changelist") + "?converted=no"
-    response = client.get(url)
-
-    assert response.status_code == 200
-    ids_shown = [obj.pk for obj in response.context["cl"].queryset]
-    assert unconverted_lead.pk in ids_shown
-    assert converted_lead.pk not in ids_shown
-
-
-@pytest.mark.django_db
-def test_converted_filter_converted(client):
-    school = SchoolFactory(plan="starter")
-    _staff_client(client, school)
-    converted_lead = LeadFactory(school=school)
-    LeadFactory(school=school)  # unconverted, should be excluded
-
-    from core.tests.factories import SubmissionFactory
-    sub = SubmissionFactory(school=school)
-    converted_lead.converted_submission = sub
-    converted_lead.save(update_fields=["converted_submission"])
-
-    url = reverse("admin:core_lead_changelist") + "?converted=yes"
-    response = client.get(url)
-
-    assert response.status_code == 200
-    ids_shown = [obj.pk for obj in response.context["cl"].queryset]
-    assert converted_lead.pk in ids_shown
-    assert len(ids_shown) == 1
-
-
-# ---------------------------------------------------------------------------
 # 4b: quick_add_view
 # ---------------------------------------------------------------------------
 

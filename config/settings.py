@@ -226,6 +226,7 @@ JAZZMIN_SETTINGS = {
 
     # Theme picker (injected into user dropdown)
     "custom_js": "admin/theme_picker.js",
+    "custom_css": "admin/admin_global.css",
 
     # Icons (optional but makes it feel modern)
     "icons": {

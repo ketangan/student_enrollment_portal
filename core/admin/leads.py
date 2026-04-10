@@ -97,7 +97,7 @@ class LeadAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_editable = ("status",)
-    list_filter = ("status", "source", FollowUpFilter, ConvertedFilter)
+    list_filter = ("status",)
     search_fields = ("name", "email", "phone")
     readonly_fields = (
         "school_display",

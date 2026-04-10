@@ -1,14 +1,36 @@
 {% extends "admin/change_list.html" %}
 {% load i18n %}
 
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  /* "0 results (1 total)" — remove Bootstrap small + Jazzmin quiet shrinkage so
+     it matches the "0 of 0 selected" action-counter text */
+  #changelist-search .small { font-size: 1rem; font-weight: 400; }
+
+  /* list-editable Save button — remove btn-sm so it matches the Search button */
+  .dataTables_info input[name="_save"] {
+    padding: .375rem .75rem;
+    font-size: 1rem;
+    line-height: 1.5;
+    vertical-align: middle;
+  }
+  /* Align count text and Save button vertically inside dataTables_info */
+  .dataTables_info { display: flex; align-items: center; gap: 8px; }
+  /* Space between Search button and "0 results (1 total)" */
+  #search_group { display: flex; align-items: center; gap: 8px; }
+</style>
+{% endblock %}
+
 {% block content %}
 {% if not request.user.is_superuser %}
-<div style="margin-bottom:16px;">
+<div class="col-12 pb-2">
   <button
     id="qa-toggle"
     type="button"
-    onclick="(function(){var p=document.getElementById('qa-panel');p.style.display=p.style.display==='none'?'block':'none';})();"
-    style="padding:6px 16px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:0.01em;">
+    class="btn btn-primary"
+    style="background-color:#2563eb;border-color:#1d4ed8;"
+    onclick="(function(){var p=document.getElementById('qa-panel');p.style.display=p.style.display==='none'?'block':'none';})();">
     + Add Lead
   </button>
 
@@ -37,7 +59,7 @@
             style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #475569;border-radius:4px;background:#0f172a;color:#f1f5f9;font-size:13px;">
         </div>
         <div>
-          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#94a3b8;">Source</label>
+          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#94a3b8;">Source *</label>
           <select name="source" required
             style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #475569;border-radius:4px;background:#0f172a;color:#f1f5f9;font-size:13px;">
             <option value="">— Select source —</option>
