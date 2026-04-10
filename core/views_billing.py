@@ -224,9 +224,18 @@ def stripe_webhook(request):
     if event is None:
         return HttpResponse("Webhook signature verification failed", status=400)
 
-    # Stripe Event object always has .type and .data.object attributes
     event_type = event.type
     data_object = event.data.object
+
+    # Older Stripe SDK versions: StripeObject does not inherit from dict and
+    # doesn't implement .get().  Normalize to a plain dict so all handlers can
+    # use standard dict access regardless of SDK version.
+    if not isinstance(data_object, dict):
+        if hasattr(data_object, "to_dict_recursive"):
+            data_object = data_object.to_dict_recursive()
+        else:
+            import json as _json
+            data_object = _json.loads(str(data_object))
 
     logger.info("Stripe webhook received: %s", event_type)
 
