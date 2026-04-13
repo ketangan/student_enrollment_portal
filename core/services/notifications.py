@@ -142,11 +142,10 @@ def _pick_program_label(submission_data: dict) -> str:
     return str(val).strip()
 
 
-def _find_applicant_email(submission_data: dict, config_raw: dict) -> Optional[str]:
+def _collect_email_field_keys(config_raw: dict) -> List[str]:
     """
     Scans all form sections (single-form and multi-form) for fields of type=email.
-    Prefers required fields over optional. Returns the first non-empty value found
-    in submission_data, or None if no email field/value exists.
+    Returns an ordered list of keys: required fields first, then optional.
     """
     raw = config_raw or {}
     all_sections: List[dict] = []
@@ -178,8 +177,27 @@ def _find_applicant_email(submission_data: dict, config_raw: dict) -> Optional[s
                     else:
                         optional_keys.append(key)
 
+    return required_keys + optional_keys
+
+
+def _find_email_field_key(config_raw: dict) -> Optional[str]:
+    """
+    Returns the highest-priority email field key from YAML (required > optional),
+    or None if no type=email field is declared.
+    Used when building a submission that must be keyed to match the YAML's email field.
+    """
+    keys = _collect_email_field_keys(config_raw)
+    return keys[0] if keys else None
+
+
+def _find_applicant_email(submission_data: dict, config_raw: dict) -> Optional[str]:
+    """
+    Scans all form sections (single-form and multi-form) for fields of type=email.
+    Prefers required fields over optional. Returns the first non-empty value found
+    in submission_data, or None if no email field/value exists.
+    """
     data = submission_data or {}
-    for key in required_keys + optional_keys:
+    for key in _collect_email_field_keys(config_raw):
         val = data.get(key)
         if isinstance(val, str) and val.strip():
             return val.strip()

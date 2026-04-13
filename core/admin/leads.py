@@ -1,6 +1,7 @@
 # core/admin/leads.py
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 
 from django.contrib import admin, messages
@@ -8,6 +9,8 @@ from django.db.models import Case, IntegerField, Q, Value, When
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
+
+logger = logging.getLogger(__name__)
 
 from core.admin.audit import log_admin_audit
 from core.admin.common import _has_school_membership, _is_superuser, _membership_school_id
@@ -104,6 +107,7 @@ class LeadAdmin(admin.ModelAdmin):
         "public_id",
         "converted_submission",
         "converted_at",
+        "convert_to_submission_button",
         "created_at",
     )
     actions = [
@@ -121,7 +125,7 @@ class LeadAdmin(admin.ModelAdmin):
                 "school_display", "public_id", "name", "email", "phone",
                 "interested_in_label", "source",
                 "status", "notes", "last_contacted_at", "next_follow_up_at", "lost_reason",
-                "converted_submission", "converted_at",
+                "converted_submission", "converted_at", "convert_to_submission_button",
                 "created_at",
             ),
         }),
@@ -163,6 +167,11 @@ class LeadAdmin(admin.ModelAdmin):
                 "quick_add/",
                 self.admin_site.admin_view(self.quick_add_view),
                 name="core_lead_quick_add",
+            ),
+            path(
+                "<int:lead_id>/convert-to-submission/",
+                self.admin_site.admin_view(self.convert_to_submission_view),
+                name="core_lead_convert_to_submission",
             ),
         ]
         return custom + urls
@@ -230,6 +239,118 @@ class LeadAdmin(admin.ModelAdmin):
             messages.error(request, f"A lead with email '{email}' already exists for this school.")
 
         return redirect("../")
+
+    def convert_to_submission_view(self, request, lead_id):
+        from django.db import transaction
+        from django.http import HttpResponseNotAllowed
+        from django.shortcuts import redirect
+        from core.models import Submission
+        from core.services.config_loader import load_school_config
+        from core.services.lead_conversion import try_convert_lead
+        from core.services.notifications import _find_email_field_key
+
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+
+        lead_change_url = reverse("admin:core_lead_change", args=[lead_id])
+        changelist_url = reverse("admin:core_lead_changelist")
+
+        # Fast pre-flight load — non-locking, for early UX redirect only.
+        try:
+            lead = self.get_queryset(request).get(pk=lead_id)
+        except Lead.DoesNotExist:
+            messages.error(request, "Lead not found.")
+            return redirect(changelist_url)
+
+        # Pre-check idempotency (non-authoritative; real check is under the row lock below).
+        if lead.converted_submission_id:
+            messages.warning(request, "This lead has already been converted to a submission.")
+            return redirect(lead_change_url)
+
+        with transaction.atomic():
+            # Re-fetch with row lock — authoritative race-safe check.
+            try:
+                lead = self.get_queryset(request).select_for_update().get(pk=lead_id)
+            except Lead.DoesNotExist:
+                messages.error(request, "Lead not found.")
+                return redirect(changelist_url)
+
+            # Authoritative idempotency check under lock.
+            if lead.converted_submission_id:
+                messages.warning(request, "This lead has already been converted to a submission.")
+                return redirect(lead_change_url)
+
+            cfg = load_school_config(lead.school.slug)
+            config_raw = getattr(cfg, "raw", {}) or {}
+
+            # Resolve the YAML email field key before creating the submission.
+            # try_convert_lead matches by whichever key is declared as type=email in
+            # the YAML — the submission data must use that same key.
+            email_key = _find_email_field_key(config_raw)
+            if not email_key:
+                logger.warning(
+                    "convert_to_submission: no type=email field in YAML for school=%s lead=%s",
+                    lead.school.slug,
+                    lead.pk,
+                )
+                messages.error(
+                    request,
+                    "Conversion is not available for this school. Please contact support.",
+                )
+                return redirect(lead_change_url)
+
+            # Create minimal submission keyed to the school's YAML email field.
+            # Phone is seeded under the conventional key as enrichment; extra keys
+            # in submission.data are harmless if unused by this school's YAML.
+            submission = Submission.objects.create(
+                school=lead.school,
+                data={
+                    email_key: lead.email,
+                    "contact_phone": lead.phone or "",
+                },
+            )
+
+            # Attempt conversion via existing logic — matches by YAML email field.
+            matched = try_convert_lead(
+                school=lead.school,
+                submission=submission,
+                config_raw=config_raw,
+            )
+
+            # Critical identity validation.
+            # try_convert_lead matches by normalized email, not by pk.
+            # Returns None if leads_conversion_enabled is off for this school's plan.
+            # The matched.pk check is a defensive integrity guard — abort and clean up
+            # if conversion returned an unexpected result for any reason.
+            # on_delete=SET_NULL: deleting the submission auto-nulls any lead FK already set.
+            if not matched or matched.pk != lead.pk:
+                logger.warning(
+                    "convert_to_submission: failed for lead=%s school=%s matched=%s",
+                    lead.pk,
+                    lead.school.slug,
+                    matched.pk if matched else None,
+                )
+                submission.delete()
+                messages.error(
+                    request,
+                    "Conversion could not be completed. Please contact support.",
+                )
+                return redirect(lead_change_url)
+
+            if lead.school.features.audit_log_enabled:
+                log_admin_audit(
+                    request=request,
+                    action="action",
+                    obj=lead,
+                    changes={},
+                    extra={"name": "convert_to_submission"},
+                )
+
+        messages.success(
+            request,
+            f'Lead "{lead.name}" successfully converted. Submission #{submission.pk} created.',
+        )
+        return redirect(reverse("admin:core_submission_change", args=[submission.pk]))
 
     # ------------------------------------------------------------------
     # Save pipeline
@@ -401,6 +522,48 @@ class LeadAdmin(admin.ModelAdmin):
         return obj.notes[:60] + ("…" if len(obj.notes) > 60 else "")
 
     notes_preview.short_description = "Notes"
+
+    def convert_to_submission_button(self, obj: Lead):
+        """
+        Shown in the Lead change form.
+        - Unconverted lead: POST form button → convert_to_submission_view
+        - Already converted: link to existing Submission
+        The CSRF token is read from the parent change form's hidden input via JS
+        at submit time — the display method has no access to request.
+        """
+        if not obj or not obj.pk:
+            return "—"
+
+        if obj.converted_submission_id:
+            url = reverse("admin:core_submission_change", args=[obj.converted_submission_id])
+            return format_html(
+                '<span style="display:inline-flex;align-items:center;gap:10px;">'
+                '<span style="display:inline-block;padding:2px 10px;border-radius:999px;'
+                'background:#16a34a;color:#fff;font-size:12px;font-weight:600;">Converted</span>'
+                '<a href="{}" style="font-size:13px;color:#2563eb;font-weight:500;'
+                'text-decoration:none;">View Submission →</a>'
+                '</span>',
+                url,
+            )
+
+        convert_url = reverse("admin:core_lead_convert_to_submission", args=[obj.pk])
+        # The onsubmit handler copies the existing page-level CSRF token into this
+        # form before submission. The hidden input starts empty — never user-supplied.
+        return format_html(
+            '<form method="post" action="{}" style="display:inline;"'
+            " onsubmit=\"this.querySelector('[name=csrfmiddlewaretoken]').value="
+            "document.querySelector('input[name=csrfmiddlewaretoken]').value;\">"
+            '<input type="hidden" name="csrfmiddlewaretoken" value="">'
+            '<button type="submit"'
+            ' style="padding:4px 12px;background:#2563eb;color:#fff;border:none;'
+            'border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;">'
+            "Convert to Submission"
+            "</button>"
+            "</form>",
+            convert_url,
+        )
+
+    convert_to_submission_button.short_description = "Convert"
 
     def converted_badge(self, obj: Lead) -> str:
         if not obj.converted_submission_id:
