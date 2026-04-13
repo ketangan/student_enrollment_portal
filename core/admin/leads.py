@@ -547,19 +547,19 @@ class LeadAdmin(admin.ModelAdmin):
             )
 
         convert_url = reverse("admin:core_lead_convert_to_submission", args=[obj.pk])
-        # The onsubmit handler copies the existing page-level CSRF token into this
-        # form before submission. The hidden input starts empty — never user-supplied.
+        # Avoid nested <form> (invalid HTML; browsers handle it inconsistently and
+        # onsubmit on the inner form never fires reliably). Instead: build a fresh
+        # form via JS, read the CSRF token from the csrftoken cookie, and submit.
         return format_html(
-            '<form method="post" action="{}" style="display:inline;"'
-            " onsubmit=\"this.querySelector('[name=csrfmiddlewaretoken]').value="
-            "document.querySelector('input[name=csrfmiddlewaretoken]').value;\">"
-            '<input type="hidden" name="csrfmiddlewaretoken" value="">'
-            '<button type="submit"'
+            '<button type="button"'
             ' style="padding:4px 12px;background:#2563eb;color:#fff;border:none;'
-            'border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;">'
+            'border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;"'
+            " onclick=\"var f=document.createElement('form');f.method='POST';f.action='{}';"
+            "var i=document.createElement('input');i.type='hidden';i.name='csrfmiddlewaretoken';"
+            "var m=document.cookie.match(/(?:^|;\\s*)csrftoken=([^;]*)/);i.value=m?decodeURIComponent(m[1]):'';"
+            "f.appendChild(i);document.body.appendChild(f);f.submit();\">"
             "Convert to Submission"
-            "</button>"
-            "</form>",
+            "</button>",
             convert_url,
         )
 
