@@ -175,15 +175,15 @@ success:
 
   notifications:
     submission_email:
-      to: "kg.ketan@gmail.com"
+      to: ""
       cc: ""
-      bcc: "kg008.evony@gmail.com"
-      from_email: "kg.ketan@gmail.com"   # must match a verified sender for now
+      bcc: ""
+      from_email: "noreply@enrollifyapp.com"
       subject: "New submission: {{student_name}}"
 
     applicant_confirmation:
       enabled: true
-      from_email: "kg.ketan@gmail.com"   # must match a verified sender
+      from_email: "noreply@enrollifyapp.com"
       subject: "We received your application, {{student_name}}!"
       # message: ""   # optional — leave blank to use the default message
 
