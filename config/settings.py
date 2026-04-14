@@ -189,10 +189,10 @@ MEDIA_ROOT = BASE_DIR / "media"
 # ----------------------------------
 INSTALLED_APPS += ["anymail"]
 
-EMAIL_BACKEND = "anymail.backends.sendgrid.EmailBackend"
+EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
 
 ANYMAIL = {
-    "SENDGRID_API_KEY": os.getenv("SENDGRID_API_KEY", "").strip(),
+    "RESEND_API_KEY": os.getenv("RESEND_EMAIL_API_KEY", "").strip(),
 }
 
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@example.com")
