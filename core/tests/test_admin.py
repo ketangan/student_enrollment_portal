@@ -1533,3 +1533,58 @@ def test_lead_pipeline_school_admin_inline_status_edit(client):
     assert resp.status_code in (200, 302)
     lead.refresh_from_db()
     assert lead.status == "contacted"
+
+
+# ---------------------------------------------------------------------------
+# New Enrollment button on Submission changelist
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_new_enrollment_button_visible_for_school_admin(client):
+    """School admin sees 'New Enrollment' button on the submissions changelist."""
+    school = SchoolFactory(slug="ne-visible")
+    membership = SchoolAdminMembershipFactory(school=school)
+    client.force_login(membership.user)
+
+    response = client.get(reverse("admin:core_submission_changelist"))
+
+    assert response.status_code == 200
+    assert b"New Enrollment" in response.content
+
+
+@pytest.mark.django_db
+def test_new_enrollment_button_hidden_for_superuser(client):
+    """Superuser does NOT see the 'New Enrollment' button."""
+    su = UserFactory(is_staff=True, is_superuser=True)
+    client.force_login(su)
+
+    response = client.get(reverse("admin:core_submission_changelist"))
+
+    assert response.status_code == 200
+    assert b"New Enrollment" not in response.content
+
+
+@pytest.mark.django_db
+def test_new_enrollment_button_url_points_to_school_apply(client):
+    """Button href points to the logged-in school admin's /apply/ URL."""
+    school = SchoolFactory(slug="ne-url-check")
+    membership = SchoolAdminMembershipFactory(school=school)
+    client.force_login(membership.user)
+
+    response = client.get(reverse("admin:core_submission_changelist"))
+
+    assert response.status_code == 200
+    expected_url = reverse("apply", kwargs={"school_slug": school.slug})
+    assert expected_url.encode() in response.content
+
+
+@pytest.mark.django_db
+def test_new_enrollment_button_hidden_when_no_membership(client):
+    """Staff non-superuser with no school membership is denied access entirely (403)."""
+    user = UserFactory(is_staff=True, is_superuser=False)
+    client.force_login(user)
+
+    response = client.get(reverse("admin:core_submission_changelist"))
+
+    # has_module_permission requires membership — no membership means PermissionDenied.
+    assert response.status_code == 403

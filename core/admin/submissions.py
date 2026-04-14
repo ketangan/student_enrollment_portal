@@ -239,6 +239,21 @@ class SubmissionAdmin(admin.ModelAdmin):
             return qs.none()
         return qs.filter(school_id=school_id)
     
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        if not _is_superuser(request.user):
+            school_id = _membership_school_id(request.user)
+            if school_id:
+                from core.models import School
+                school = School.objects.filter(pk=school_id).first()
+                if school:
+                    extra_context["show_new_enrollment_button"] = True
+                    extra_context["new_enrollment_url"] = reverse(
+                        "apply", kwargs={"school_slug": school.slug}
+                    )
+        return super().changelist_view(request, extra_context=extra_context)
+
     def change_view(self, request, object_id, form_url="", extra_context=None):
         obj = self.get_object(request, object_id)
 

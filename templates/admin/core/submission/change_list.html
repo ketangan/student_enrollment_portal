@@ -1,0 +1,17 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block content %}
+{% if show_new_enrollment_button %}
+<div class="col-12 pb-2">
+  <a
+    href="{{ new_enrollment_url }}"
+    class="btn btn-primary"
+    style="background-color:#2563eb;border-color:#1d4ed8;"
+    target="_blank"
+    rel="noopener noreferrer"
+  >New Enrollment</a>
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}
