@@ -1,4 +1,21 @@
+from collections import defaultdict
+
 from django.db import migrations
+
+
+def backfill_school_submission_number(apps, schema_editor):
+    Submission = apps.get_model("core", "Submission")
+    submissions = list(Submission.objects.order_by("school_id", "created_at", "id"))
+    counters = defaultdict(int)
+    for sub in submissions:
+        counters[sub.school_id] += 1
+        sub.school_submission_number = counters[sub.school_id]
+    Submission.objects.bulk_update(submissions, ["school_submission_number"], batch_size=500)
+
+
+def reverse_backfill(apps, schema_editor):
+    Submission = apps.get_model("core", "Submission")
+    Submission.objects.update(school_submission_number=None)
 
 
 class Migration(migrations.Migration):
@@ -8,23 +25,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunSQL(
-            sql="""
-                UPDATE core_submission s
-                SET school_submission_number = numbered.rn
-                FROM (
-                    SELECT
-                        id,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY school_id
-                            ORDER BY created_at, id
-                        ) AS rn
-                    FROM core_submission
-                ) AS numbered
-                WHERE s.id = numbered.id;
-            """,
-            reverse_sql="""
-                UPDATE core_submission SET school_submission_number = NULL;
-            """,
-        ),
+        migrations.RunPython(backfill_school_submission_number, reverse_code=reverse_backfill),
     ]
