@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import timedelta
-from django.db import models
+from django.db import models, transaction
+from django.db.models import Max
 from django.utils import timezone
 import os
 import re
@@ -233,8 +234,33 @@ class Submission(models.Model):
         help_text="When the AI summary was last generated.",
     )
 
+    # Per-school sequential application number.
+    # Assigned on first save via select_for_update(School) to serialize concurrent creates.
+    # null=True for existing rows; backfilled by data migration 0022.
+    # No db_index=True — the unique_together constraint below already creates an index.
+    school_submission_number = models.PositiveIntegerField(null=True, blank=True)
+
+    class Meta:
+        unique_together = [("school", "school_submission_number")]
+
+    def save(self, *args, **kwargs):
+        if self.pk is None and self.school_submission_number is None:
+            with transaction.atomic():
+                # Lock the school row to serialize concurrent submission creates for
+                # the same school. Any second transaction blocks until this one commits.
+                School.objects.select_for_update().get(pk=self.school_id)
+                last = (
+                    Submission.objects
+                    .filter(school_id=self.school_id)
+                    .aggregate(Max("school_submission_number"))
+                    ["school_submission_number__max"]
+                ) or 0
+                self.school_submission_number = last + 1
+        return super().save(*args, **kwargs)
+
     def __str__(self) -> str:
-        return f"{self.school.slug} submission #{self.id}"
+        num = self.school_submission_number
+        return f"{self.school.slug} #{num}" if num else f"{self.school.slug} submission #{self.id}"
     
     def student_display_name(self) -> str:
         """

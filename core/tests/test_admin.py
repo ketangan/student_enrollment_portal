@@ -148,11 +148,11 @@ def test_submission_admin_display_and_get_list_display(db):
     req = RequestFactory().get("/")
     req.user = su
     assert "school_display" in sub_admin.get_list_display(req)
-    assert "public_id" in sub_admin.get_list_display(req)
+    assert "application_number" in sub_admin.get_list_display(req)
 
     req.user = non_su
     assert "school_display" not in sub_admin.get_list_display(req)
-    assert "public_id" in sub_admin.get_list_display(req)
+    assert "application_number" in sub_admin.get_list_display(req)
 
     # school_display on a submission
     sub = SubmissionFactory.create(school=school)

@@ -90,7 +90,7 @@ class SubmissionAdmin(admin.ModelAdmin):
     object_history_template = "admin/core/submission/object_history.html"
 
     # yaml_form is rendered HTML (readonly method), data is readonly (still shown collapsed)
-    readonly_fields = ("public_id", "school_display", "created_at_pretty", "yaml_form", "data", "attachments", "ai_summary_display")
+    readonly_fields = ("application_number", "public_id", "school_display", "created_at_pretty", "yaml_form", "data", "attachments", "ai_summary_display")
     search_fields = ("public_id", "school__slug", "school__display_name")
     list_filter = ("school",)
 
@@ -111,9 +111,9 @@ class SubmissionAdmin(admin.ModelAdmin):
 
     def get_list_display(self, request):
         if _is_superuser(request.user):
-            return ("id", "public_id", "status", "school_display", "student_name", "program_name", "created_at_pretty")
+            return ("application_number", "status", "school_display", "student_name", "program_name", "created_at_pretty")
 
-        cols = ["public_id", "student_name", "program_name", "created_at_pretty"]
+        cols = ["application_number", "student_name", "program_name", "created_at_pretty"]
 
         school_id = _membership_school_id(request.user)
         if school_id:
@@ -125,7 +125,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         return tuple(cols)
 
     def get_fieldsets(self, request, obj=None):
-        general_fields = ["public_id", "school_display", "created_at_pretty", "yaml_form"]
+        general_fields = ["application_number", "public_id", "school_display", "created_at_pretty", "yaml_form"]
 
         if _is_superuser(request.user) or (obj and obj.school and obj.school.features.status_enabled):
             general_fields.insert(1, "status")
@@ -330,6 +330,13 @@ class SubmissionAdmin(admin.ModelAdmin):
     # ----------------------------
     # Display helpers
     # ----------------------------
+    def application_number(self, obj: Submission) -> str:
+        n = obj.school_submission_number
+        return f"#{n}" if n is not None else "—"
+
+    application_number.short_description = "Application #"
+    application_number.admin_order_field = "school_submission_number"
+
     def school_display(self, obj: Submission) -> str:
         if not obj or not obj.school_id:
             return ""
