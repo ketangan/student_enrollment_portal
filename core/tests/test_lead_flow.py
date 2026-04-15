@@ -178,7 +178,16 @@ def test_lead_capture_view_404_inactive_school(client):
 
 @pytest.mark.django_db
 def test_lead_capture_view_404_feature_disabled(client):
-    _lead_school(plan="trial")
+    from core.models import School
+    from core.services.config_loader import load_school_config
+    cfg = load_school_config(SLUG)
+    School.objects.filter(slug=SLUG).delete()
+    School.objects.create(
+        slug=SLUG,
+        display_name=cfg.display_name,
+        plan="starter",
+        feature_flags={"leads_enabled": False},  # explicitly disabled
+    )
     url = reverse("lead_capture", kwargs={"school_slug": SLUG})
     assert client.get(url).status_code == 404
 

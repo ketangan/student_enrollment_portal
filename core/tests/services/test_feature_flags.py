@@ -47,20 +47,11 @@ def test_feature_min_plan_values_are_valid_plans():
 # default_flags_for_plan — cumulative tier logic
 # ---------------------------------------------------------------------------
 
-def test_trial_gets_only_trial_tier_flags():
+def test_trial_gets_all_flags():
+    """Trial is full-featured — every flag must be True."""
     flags = default_flags_for_plan(PLAN_TRIAL)
-    # Trial-tier flags are enabled
-    assert flags["status_enabled"] is True
-    assert flags["csv_export_enabled"] is True
-    assert flags["audit_log_enabled"] is True
-    # Starter-tier flags are off
-    assert flags["reports_enabled"] is False
-    assert flags["email_notifications_enabled"] is False
-    assert flags["file_uploads_enabled"] is False
-    # Pro-tier flags are off
-    assert flags["custom_branding_enabled"] is False
-    assert flags["multi_form_enabled"] is False
-    assert flags["custom_statuses_enabled"] is False
+    for flag in ALL_FLAGS:
+        assert flags[flag] is True, f"Trial plan should enable {flag}"
 
 
 def test_starter_gets_trial_and_starter_tier_flags():
@@ -96,8 +87,12 @@ def test_growth_gets_all_flags():
 
 
 def test_cumulative_tiers_are_monotonically_increasing():
-    """Higher plans should always have a superset of lower-plan features."""
-    ordered = [PLAN_TRIAL, PLAN_STARTER, PLAN_PRO, PLAN_GROWTH]
+    """Higher paid plans should always have a superset of lower-tier features.
+
+    Trial is excluded: it is a special full-featured tier, not part of the
+    rank-based progression (starter < pro < growth).
+    """
+    ordered = [PLAN_STARTER, PLAN_PRO, PLAN_GROWTH]
     for i in range(len(ordered) - 1):
         lower = default_flags_for_plan(ordered[i])
         higher = default_flags_for_plan(ordered[i + 1])
@@ -108,9 +103,20 @@ def test_cumulative_tiers_are_monotonically_increasing():
                 )
 
 
-def test_unknown_plan_falls_back_to_trial():
+def test_unknown_plan_falls_back_to_rank_zero():
+    """Unrecognised plan strings fall back to rank-0 (trial-tier subset only).
+
+    Note: this is NOT the same as PLAN_TRIAL, which returns all-True.
+    """
     flags = default_flags_for_plan("unknown-plan")
-    assert flags == default_flags_for_plan(PLAN_TRIAL)
+    # Rank-0 flags (trial-tier) are enabled
+    assert flags["status_enabled"] is True
+    assert flags["csv_export_enabled"] is True
+    # Starter-tier and above are off
+    assert flags["reports_enabled"] is False
+    assert flags["custom_branding_enabled"] is False
+    # Different from PLAN_TRIAL (which is all-True)
+    assert flags != default_flags_for_plan(PLAN_TRIAL)
 
 
 def test_empty_string_plan_falls_back_to_trial():
@@ -125,10 +131,10 @@ def test_none_plan_falls_back_to_trial():
 
 def test_default_flags_returns_fresh_dict():
     """Mutating the returned dict must not corrupt future calls."""
-    a = default_flags_for_plan(PLAN_TRIAL)
-    a["reports_enabled"] = True
-    b = default_flags_for_plan(PLAN_TRIAL)
-    assert b["reports_enabled"] is False
+    a = default_flags_for_plan(PLAN_STARTER)
+    a["custom_branding_enabled"] = True  # Pro-only; starter has it False
+    b = default_flags_for_plan(PLAN_STARTER)
+    assert b["custom_branding_enabled"] is False
 
 
 def test_default_flags_contains_all_known_flags():
@@ -164,11 +170,11 @@ def test_merge_flags_override_can_disable_plan_default():
 
 def test_merge_flags_ignores_non_boolean_overrides():
     result = merge_flags(plan=PLAN_TRIAL, overrides={
-        "reports_enabled": "yes",
+        "reports_enabled": "yes",  # string — ignored; trial default (True) survives
         "some_flag": 1,
         "another": None,
     })
-    assert result["reports_enabled"] is False
+    assert result["reports_enabled"] is True  # trial default, not the string override
     assert "some_flag" not in result
     assert "another" not in result
 
@@ -190,8 +196,8 @@ def test_merge_flags_mixed_overrides_only_bools_survive():
     assert "bad_flag" not in result
 
 
-def test_merge_flags_override_promotes_trial_to_pro_feature():
-    """Per-school override can enable a pro feature on a trial school."""
-    result = merge_flags(plan=PLAN_TRIAL, overrides={"custom_branding_enabled": True})
-    assert result["custom_branding_enabled"] is True
+def test_merge_flags_override_can_disable_trial_feature():
+    """Boolean override can disable a feature even though trial defaults it to True."""
+    result = merge_flags(plan=PLAN_TRIAL, overrides={"custom_branding_enabled": False})
+    assert result["custom_branding_enabled"] is False
 

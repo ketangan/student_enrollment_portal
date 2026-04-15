@@ -401,17 +401,32 @@ If a school needs **one** Pro feature on a Starter plan (e.g., an early client w
 
 # Stripe Billing — Operations (concise)
 
-Required environment variables
-- `STRIPE_SECRET_KEY` — Secret API key (Stripe Dashboard → Developers → API keys). Server-side only.
-- `STRIPE_PUBLISHABLE_KEY` — Publishable key (Stripe Dashboard → Developers → API keys). Client-side checkout.
-- `STRIPE_WEBHOOK_SECRET` — Webhook signing secret (Stripe Dashboard → Developers → Webhooks → click endpoint → Reveal signing secret).
-- `STRIPE_PRICE_STARTER_MONTHLY` — Price ID for monthly Starter plan (Stripe Dashboard → Products → [Product] → Prices → ID).
-- `STRIPE_PRICE_STARTER_ANNUAL` — Price ID for annual Starter plan (same location).
+## Dual-mode env var convention
+
+All Stripe keys come in `_TEST` and `_LIVE` variants. Set `STRIPE_MODE=test` (default) or `STRIPE_MODE=live` to select which set is active. Never swap individual keys manually.
+
+```
+STRIPE_MODE=test   # or live
+```
+
+Required environment variables (set both TEST and LIVE variants)
+- `STRIPE_SECRET_KEY_TEST` / `STRIPE_SECRET_KEY_LIVE` — Secret API key (Stripe Dashboard → Developers → API keys). Server-side only.
+- `STRIPE_PUBLISHABLE_KEY_TEST` / `STRIPE_PUBLISHABLE_KEY_LIVE` — Publishable key. Client-side checkout.
+- `STRIPE_WEBHOOK_SECRET_TEST` / `STRIPE_WEBHOOK_SECRET_LIVE` — Webhook signing secret (Stripe Dashboard → Developers → Webhooks → click endpoint → Reveal signing secret).
+- `STRIPE_PRICE_STARTER_MONTHLY_TEST` / `STRIPE_PRICE_STARTER_MONTHLY_LIVE` — Price ID for monthly Starter plan.
+- `STRIPE_PRICE_STARTER_ANNUAL_TEST` / `STRIPE_PRICE_STARTER_ANNUAL_LIVE` — Price ID for annual Starter plan.
+- `STRIPE_PRICE_PRO_MONTHLY_TEST` / `STRIPE_PRICE_PRO_MONTHLY_LIVE` — Price ID for monthly Pro plan (optional; omit to hide Pro from billing page).
+- `STRIPE_PRICE_PRO_ANNUAL_TEST` / `STRIPE_PRICE_PRO_ANNUAL_LIVE` — Price ID for annual Pro plan.
+- `STRIPE_PRICE_GROWTH_MONTHLY_TEST` / `STRIPE_PRICE_GROWTH_MONTHLY_LIVE` — Price ID for monthly Growth plan (optional).
+- `STRIPE_PRICE_GROWTH_ANNUAL_TEST` / `STRIPE_PRICE_GROWTH_ANNUAL_LIVE` — Price ID for annual Growth plan.
+
+> Price IDs come from Stripe Dashboard → Products → [Product] → Prices → copy the `price_xxx` ID.
+> Plan options only appear on the billing page if the corresponding price ID env var is set.
 
 What happens when vars are missing
 - Missing publishable/secret keys: billing page shows a warning and checkout/portal actions are blocked.
 - Missing webhook secret: incoming webhooks cannot be verified and will be ignored (logged).
-- Missing price IDs: UI shows “No pricing options configured.”
+- Missing price IDs: that plan option is hidden from the billing page (not an error).
 
 Local testing with Stripe CLI (quick)
 - Install: https://stripe.com/docs/stripe-cli#install
@@ -425,9 +440,10 @@ Local testing with Stripe CLI (quick)
 - Verify in DB (school record updates): `stripe_customer_id`, `stripe_subscription_id`, `stripe_subscription_status`, `plan`.
 
 Production (Render) checklist
-- Add env vars in Render: `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_STARTER_MONTHLY`, `STRIPE_PRICE_STARTER_ANNUAL`.
+- Add `STRIPE_MODE=live` to Render env vars.
+- Add all `_LIVE` variants: `STRIPE_SECRET_KEY_LIVE`, `STRIPE_PUBLISHABLE_KEY_LIVE`, `STRIPE_WEBHOOK_SECRET_LIVE`, and any price IDs you want active.
 - Create a webhook endpoint in Stripe: `https://<your-render-host>/stripe/webhook/` and subscribe to the three events above.
-- Copy the endpoint signing secret into `STRIPE_WEBHOOK_SECRET`.
+- Copy the endpoint signing secret into `STRIPE_WEBHOOK_SECRET_LIVE`.
 - Deploy and verify webhook deliveries return HTTP 200 and logs show handler processing.
 - Note: the webhook path is intentionally outside admin and is CSRF-exempt.
 
@@ -439,8 +455,8 @@ Manual smoke checklist
 - If `stripe_customer_id` exists: use Manage Billing → portal should open.
 
 Quick troubleshooting
-- Webhook signature errors: ensure `STRIPE_WEBHOOK_SECRET` matches the endpoint signing secret exactly.
-- No pricing shown: verify `STRIPE_PRICE_STARTER_*` values are set to Price IDs (not product IDs).
+- Webhook signature errors: ensure `STRIPE_WEBHOOK_SECRET_TEST` (or `_LIVE`) matches the endpoint signing secret exactly.
+- No pricing shown: verify price ID env vars are set to Price IDs (not product IDs) and `STRIPE_MODE` matches the key suffix in use.
 
 ---
 

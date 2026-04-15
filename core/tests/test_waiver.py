@@ -144,9 +144,9 @@ def test_apply_view_waiver_rejects_unchecked(client, monkeypatch, settings):
 
 @pytest.mark.django_db
 def test_apply_view_waiver_stripped_when_feature_disabled(client, monkeypatch, settings):
-    """Trial school: waiver field is stripped — key absent from submission.data."""
+    """School with waiver_enabled=False: waiver field is stripped — key absent from submission.data."""
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
-    school = SchoolFactory(plan="trial", slug="waiver-stripped")
+    school = SchoolFactory(plan="starter", slug="waiver-stripped", feature_flags={"waiver_enabled": False})
     monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school))
 
     client.post(

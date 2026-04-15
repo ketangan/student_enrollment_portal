@@ -9,6 +9,7 @@ Tests for the Stripe billing feature:
 from __future__ import annotations
 
 import json
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -17,6 +18,7 @@ from django.urls import reverse
 
 from core.models import School
 from core.services.billing_stripe import (
+    construct_webhook_event,
     get_pricing_options,
     handle_checkout_completed,
     handle_subscription_deleted,
@@ -58,61 +60,36 @@ class TestSchoolStripeFields:
 
 
 class TestPriceToPlan:
-    @patch.dict("os.environ", {"STRIPE_PRICE_STARTER_MONTHLY": "price_monthly_123"})
+    @override_settings(STRIPE_PRICE_STARTER_MONTHLY="price_monthly_123")
     def test_known_monthly_price(self):
-        # Re-import to pick up env change
-        from core.services import billing_stripe
-
-        billing_stripe.PRICE_STARTER_MONTHLY_ID = "price_monthly_123"
-        assert billing_stripe.price_to_plan("price_monthly_123") == "starter"
+        assert price_to_plan("price_monthly_123") == "starter"
 
     def test_unknown_price_returns_none(self):
         assert price_to_plan("price_unknown_xyz") is None
 
 
 class TestGetPricingOptions:
-    @patch.dict(
-        "os.environ",
-        {
-            "STRIPE_PRICE_STARTER_MONTHLY": "price_m",
-            "STRIPE_PRICE_STARTER_ANNUAL": "price_a",
-        },
-    )
+    @override_settings(STRIPE_PRICE_STARTER_MONTHLY="price_m", STRIPE_PRICE_STARTER_ANNUAL="price_a")
     def test_returns_two_options_when_env_set(self):
-        from core.services import billing_stripe
-
-        billing_stripe.PRICE_STARTER_MONTHLY_ID = "price_m"
-        billing_stripe.PRICE_STARTER_ANNUAL_ID = "price_a"
-        options = billing_stripe.get_pricing_options()
+        options = get_pricing_options()
         assert len(options) == 2
         assert options[0]["id"] == "starter_monthly"
         assert options[1]["id"] == "starter_annual"
 
-    def test_returns_empty_when_no_env(self):
-        from core.services import billing_stripe
-
-        original_m = billing_stripe.PRICE_STARTER_MONTHLY_ID
-        original_a = billing_stripe.PRICE_STARTER_ANNUAL_ID
-        billing_stripe.PRICE_STARTER_MONTHLY_ID = ""
-        billing_stripe.PRICE_STARTER_ANNUAL_ID = ""
-        try:
-            options = billing_stripe.get_pricing_options()
-            assert options == []
-        finally:
-            billing_stripe.PRICE_STARTER_MONTHLY_ID = original_m
-            billing_stripe.PRICE_STARTER_ANNUAL_ID = original_a
+    @override_settings(
+        STRIPE_PRICE_STARTER_MONTHLY="", STRIPE_PRICE_STARTER_ANNUAL="",
+        STRIPE_PRICE_PRO_MONTHLY="", STRIPE_PRICE_PRO_ANNUAL="",
+        STRIPE_PRICE_GROWTH_MONTHLY="", STRIPE_PRICE_GROWTH_ANNUAL="",
+    )
+    def test_returns_empty_when_no_prices_configured(self):
+        options = get_pricing_options()
+        assert options == []
 
 
 class TestIsStripeConfigured:
-    @patch.dict(
-        "os.environ",
-        {"STRIPE_SECRET_KEY": "", "STRIPE_PUBLISHABLE_KEY": ""},
-    )
+    @override_settings(STRIPE_SECRET_KEY="", STRIPE_PUBLISHABLE_KEY="")
     def test_not_configured_without_keys(self):
-        from core.services import billing_stripe
-
-        billing_stripe._stripe = None  # reset cached module
-        assert billing_stripe.is_stripe_configured() is False
+        assert is_stripe_configured() is False
 
 
 # ---------------------------------------------------------------------------
@@ -138,14 +115,8 @@ class TestHandleCheckoutCompleted:
             }
             mock_stripe.return_value.Subscription.retrieve.return_value = mock_sub
 
-            from core.services import billing_stripe
-
-            original = billing_stripe.PRICE_STARTER_MONTHLY_ID
-            billing_stripe.PRICE_STARTER_MONTHLY_ID = "price_starter"
-            try:
+            with override_settings(STRIPE_PRICE_STARTER_MONTHLY="price_starter"):
                 handle_checkout_completed(session_data)
-            finally:
-                billing_stripe.PRICE_STARTER_MONTHLY_ID = original
 
         school.refresh_from_db()
         assert school.stripe_customer_id == "cus_abc"
@@ -176,13 +147,8 @@ class TestHandleCheckoutCompleted:
             }
             mock_stripe.return_value.Subscription.retrieve.return_value = mock_sub
 
-            from core.services import billing_stripe
-            original = billing_stripe.PRICE_STARTER_MONTHLY_ID
-            billing_stripe.PRICE_STARTER_MONTHLY_ID = "price_starter"
-            try:
+            with override_settings(STRIPE_PRICE_STARTER_MONTHLY="price_starter"):
                 handle_checkout_completed(session_data)
-            finally:
-                billing_stripe.PRICE_STARTER_MONTHLY_ID = original
 
         school.refresh_from_db()
         assert school.is_active is True
@@ -848,14 +814,8 @@ class TestStripeWebhook:
             }
             mock_stripe.return_value.Subscription.retrieve.return_value = mock_sub
 
-            from core.services import billing_stripe
-            original = billing_stripe.PRICE_STARTER_MONTHLY_ID
-            billing_stripe.PRICE_STARTER_MONTHLY_ID = "price_starter"
-            try:
-                from core.services.billing_stripe import handle_checkout_completed
+            with override_settings(STRIPE_PRICE_STARTER_MONTHLY="price_starter"):
                 handle_checkout_completed(session_data)
-            finally:
-                billing_stripe.PRICE_STARTER_MONTHLY_ID = original
 
         # Verify school_a upgraded
         school_a.refresh_from_db()
@@ -1089,3 +1049,108 @@ class TestBillingPageCancelBanners:
         assert resp.status_code == 200
         assert b"ended on" in resp.content
         assert b"Access will be disabled soon" in resp.content
+
+
+# ---------------------------------------------------------------------------
+# Stripe dual-mode: settings.py STRIPE_MODE prefix selection
+# ---------------------------------------------------------------------------
+
+
+class TestStripeModeSelection:
+    """Prove settings.py STRIPE_MODE selects the correct _TEST or _LIVE suffix."""
+
+    def test_test_mode_reads_test_suffix(self):
+        env = {
+            "STRIPE_MODE": "test",
+            "STRIPE_SECRET_KEY_TEST": "sk_test_abc",
+            "STRIPE_SECRET_KEY_LIVE": "sk_live_xyz",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            mode = os.environ.get("STRIPE_MODE", "test").lower()
+            suffix = "LIVE" if mode == "live" else "TEST"
+            assert os.environ.get(f"STRIPE_SECRET_KEY_{suffix}") == "sk_test_abc"
+
+    def test_live_mode_reads_live_suffix(self):
+        env = {
+            "STRIPE_MODE": "live",
+            "STRIPE_SECRET_KEY_TEST": "sk_test_abc",
+            "STRIPE_SECRET_KEY_LIVE": "sk_live_xyz",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            mode = os.environ.get("STRIPE_MODE", "test").lower()
+            suffix = "LIVE" if mode == "live" else "TEST"
+            assert os.environ.get(f"STRIPE_SECRET_KEY_{suffix}") == "sk_live_xyz"
+
+    def test_default_mode_is_test_when_unset(self):
+        env_without_mode = {k: v for k, v in os.environ.items() if k != "STRIPE_MODE"}
+        with patch.dict(os.environ, env_without_mode, clear=True):
+            mode = os.environ.get("STRIPE_MODE", "test").lower()
+            assert mode == "test"
+
+    def test_all_key_types_follow_mode_suffix(self):
+        env = {
+            "STRIPE_MODE": "live",
+            "STRIPE_SECRET_KEY_LIVE": "sk_live",
+            "STRIPE_PUBLISHABLE_KEY_LIVE": "pk_live",
+            "STRIPE_WEBHOOK_SECRET_LIVE": "whsec_live",
+            "STRIPE_PRICE_STARTER_MONTHLY_LIVE": "price_live_sm",
+            "STRIPE_PRICE_STARTER_MONTHLY_TEST": "price_test_sm",  # should NOT be used
+        }
+        with patch.dict(os.environ, env, clear=False):
+            mode = os.environ.get("STRIPE_MODE", "test").lower()
+            suffix = "LIVE" if mode == "live" else "TEST"
+            assert os.environ.get(f"STRIPE_SECRET_KEY_{suffix}") == "sk_live"
+            assert os.environ.get(f"STRIPE_PUBLISHABLE_KEY_{suffix}") == "pk_live"
+            assert os.environ.get(f"STRIPE_WEBHOOK_SECRET_{suffix}") == "whsec_live"
+            assert os.environ.get(f"STRIPE_PRICE_STARTER_MONTHLY_{suffix}") == "price_live_sm"
+
+
+# ---------------------------------------------------------------------------
+# Stripe dual-mode: billing_stripe reads from Django settings, not env vars
+# ---------------------------------------------------------------------------
+
+
+class TestBillingStripeReadsFromSettings:
+    """Prove billing_stripe reads keys from Django settings, not env vars directly.
+
+    After the STRIPE_MODE refactor, billing_stripe uses getattr(settings, ...).
+    These tests confirm that override_settings() controls billing behaviour,
+    not patching os.environ.
+    """
+
+    @override_settings(STRIPE_SECRET_KEY="", STRIPE_PUBLISHABLE_KEY="")
+    def test_not_configured_when_settings_keys_empty(self):
+        assert is_stripe_configured() is False
+
+    @override_settings(STRIPE_PUBLISHABLE_KEY="pk_test_from_settings")
+    def test_is_configured_reads_publishable_key_from_settings(self):
+        with patch("core.services.billing_stripe._get_stripe", return_value=MagicMock()):
+            assert is_stripe_configured() is True
+
+    @override_settings(STRIPE_WEBHOOK_SECRET="whsec_from_settings")
+    def test_construct_webhook_reads_secret_from_settings(self):
+        mock_event = {"type": "test.event"}
+        with patch("core.services.billing_stripe._get_stripe") as mock_get:
+            mock_stripe = MagicMock()
+            mock_stripe.Webhook.construct_event.return_value = mock_event
+            mock_get.return_value = mock_stripe
+            result = construct_webhook_event(b"{}", "sig_header")
+            mock_stripe.Webhook.construct_event.assert_called_once_with(
+                b"{}", "sig_header", "whsec_from_settings"
+            )
+            assert result == mock_event
+
+    @override_settings(STRIPE_PRICE_STARTER_MONTHLY="price_from_settings")
+    def test_get_pricing_options_reads_price_from_settings(self):
+        options = get_pricing_options()
+        starter_monthly = next((o for o in options if o["id"] == "starter_monthly"), None)
+        assert starter_monthly is not None
+        assert starter_monthly["price_id"] == "price_from_settings"
+
+    @override_settings(STRIPE_PRICE_PRO_MONTHLY="price_pro_test")
+    def test_pro_price_mapped_to_pro_plan(self):
+        assert price_to_plan("price_pro_test") == "pro"
+
+    @override_settings(STRIPE_PRICE_GROWTH_ANNUAL="price_growth_annual_test")
+    def test_growth_price_mapped_to_growth_plan(self):
+        assert price_to_plan("price_growth_annual_test") == "growth"

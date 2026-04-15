@@ -256,8 +256,8 @@ def test_apply_flow_sends_confirmation_email_to_applicant(client, settings):
 @pytest.mark.django_db
 def test_apply_flow_no_confirmation_email_when_feature_disabled(client, settings):
     """
-    Schools on the Trial plan (email_notifications_enabled=False)
-    must not receive any emails at all.
+    Schools with email_notifications_enabled=False must not receive any emails.
+    Uses a per-school override to explicitly disable the feature.
     """
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     mail.outbox.clear()
@@ -270,7 +270,8 @@ def test_apply_flow_no_confirmation_email_when_feature_disabled(client, settings
     School.objects.create(
         slug=SINGLE_FORM_SLUG,
         display_name=cfg.display_name,
-        plan="trial",  # email_notifications_enabled = False
+        plan="trial",
+        feature_flags={"email_notifications_enabled": False},  # explicitly disabled
     )
 
     url = reverse("apply", kwargs={"school_slug": SINGLE_FORM_SLUG})
@@ -281,7 +282,7 @@ def test_apply_flow_no_confirmation_email_when_feature_disabled(client, settings
     resp = client.post(url, data=post_data, follow=False)
     assert resp.status_code in (302, 303)
 
-    assert mail.outbox == [], "No emails should be sent for Trial-plan schools"
+    assert mail.outbox == [], "No emails should be sent when email_notifications_enabled=False"
 
 
 @pytest.mark.django_db

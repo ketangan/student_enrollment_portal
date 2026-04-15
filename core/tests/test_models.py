@@ -192,8 +192,9 @@ def test_school_features_property_returns_school_features_dataclass():
 
 @pytest.mark.django_db
 def test_school_features_reports_enabled_follows_plan():
+    # Trial is now full-featured — all flags True
     trial_school = SchoolFactory(plan="trial")
-    assert trial_school.features.reports_enabled is False
+    assert trial_school.features.reports_enabled is True
 
     starter_school = SchoolFactory(plan="starter")
     assert starter_school.features.reports_enabled is True
@@ -269,7 +270,7 @@ def test_school_plan_choices():
 
 @pytest.mark.django_db
 def test_school_features_email_notifications_follows_plan():
-    assert SchoolFactory(plan="trial").features.email_notifications_enabled is False
+    assert SchoolFactory(plan="trial").features.email_notifications_enabled is True
     assert SchoolFactory(plan="starter").features.email_notifications_enabled is True
     assert SchoolFactory(plan="pro").features.email_notifications_enabled is True
 
@@ -282,7 +283,7 @@ def test_school_features_email_notifications_respects_override():
 
 @pytest.mark.django_db
 def test_school_features_file_uploads_follows_plan():
-    assert SchoolFactory(plan="trial").features.file_uploads_enabled is False
+    assert SchoolFactory(plan="trial").features.file_uploads_enabled is True
     assert SchoolFactory(plan="starter").features.file_uploads_enabled is True
     assert SchoolFactory(plan="pro").features.file_uploads_enabled is True
 
@@ -295,7 +296,7 @@ def test_school_features_file_uploads_respects_override():
 
 @pytest.mark.django_db
 def test_school_features_custom_branding_follows_plan():
-    assert SchoolFactory(plan="trial").features.custom_branding_enabled is False
+    assert SchoolFactory(plan="trial").features.custom_branding_enabled is True
     assert SchoolFactory(plan="starter").features.custom_branding_enabled is False
     assert SchoolFactory(plan="pro").features.custom_branding_enabled is True
 
@@ -308,7 +309,7 @@ def test_school_features_custom_branding_respects_override():
 
 @pytest.mark.django_db
 def test_school_features_multi_form_follows_plan():
-    assert SchoolFactory(plan="trial").features.multi_form_enabled is False
+    assert SchoolFactory(plan="trial").features.multi_form_enabled is True
     assert SchoolFactory(plan="starter").features.multi_form_enabled is False
     assert SchoolFactory(plan="pro").features.multi_form_enabled is True
 
@@ -321,7 +322,7 @@ def test_school_features_multi_form_respects_override():
 
 @pytest.mark.django_db
 def test_school_features_custom_statuses_follows_plan():
-    assert SchoolFactory(plan="trial").features.custom_statuses_enabled is False
+    assert SchoolFactory(plan="trial").features.custom_statuses_enabled is True
     assert SchoolFactory(plan="starter").features.custom_statuses_enabled is False
     assert SchoolFactory(plan="pro").features.custom_statuses_enabled is True
 
@@ -339,20 +340,20 @@ def test_school_features_caching_is_effective():
     f1 = school.features
     f2 = school.features
     assert f1 is f2
-    assert f1.reports_enabled is False
+    assert f1.reports_enabled is True  # trial is full-featured
 
 
 @pytest.mark.django_db
 def test_school_features_cache_invalidated_after_refresh():
     """After refresh_from_db, a new SchoolFeatures is created with fresh data."""
-    school = SchoolFactory(plan="trial")
-    assert school.features.reports_enabled is False
+    school = SchoolFactory(plan="starter")
+    assert school.features.custom_branding_enabled is False
 
     # Simulate admin upgrading the plan via DB
     School.objects.filter(pk=school.pk).update(plan="pro")
     school.refresh_from_db()
     # refresh_from_db clears Python-level attrs, so _features_cache is gone
-    assert school.features.reports_enabled is True
+    assert school.features.custom_branding_enabled is True
 
 
 # ---------------------------------------------------------------------------
@@ -367,7 +368,8 @@ def test_leads_enabled_starter_plan():
 
 @pytest.mark.django_db
 def test_leads_disabled_trial_plan():
-    school = SchoolFactory(plan="trial")
+    # Trial is full-featured; use explicit override to disable
+    school = SchoolFactory(plan="starter", feature_flags={"leads_enabled": False})
     assert school.features.leads_enabled is False
 
 
@@ -395,7 +397,8 @@ def test_waiver_enabled_starter_plan():
 
 @pytest.mark.django_db
 def test_waiver_disabled_trial_plan():
-    school = SchoolFactory(plan="trial")
+    # Trial is full-featured; use explicit override to disable
+    school = SchoolFactory(plan="starter", feature_flags={"waiver_enabled": False})
     assert school.features.waiver_enabled is False
 
 

@@ -667,8 +667,8 @@ def test_school_admin_form_initial_shows_effective_flags():
     SchoolAdminForm.current_user_is_superuser = True
     form = SchoolAdminForm(instance=school)
     effective = form.initial["feature_flags"]
-    # trial plan: reports_enabled=False, others True
-    assert effective["reports_enabled"] is False
+    # trial plan: all flags True (full-featured trial)
+    assert effective["reports_enabled"] is True
     assert effective["status_enabled"] is True
 
 
@@ -688,7 +688,7 @@ def test_school_admin_form_clean_stores_overrides_only():
     """clean_feature_flags should only store flags that differ from plan defaults."""
     school = SchoolFactory.create(plan="trial")
     SchoolAdminForm.current_user_is_superuser = True
-    # trial defaults: reports_enabled=False. Submit reports_enabled=True → override.
+    # trial defaults: all flags True. Submit reports_enabled=False → override.
     form = SchoolAdminForm(
         instance=school,
         data={
@@ -698,7 +698,7 @@ def test_school_admin_form_clean_stores_overrides_only():
             "source_url": school.source_url or "",
             "plan": "trial",
             "feature_flags": json.dumps({
-                "reports_enabled": True,   # differs from trial default (False)
+                "reports_enabled": False,  # differs from trial default (True)
                 "status_enabled": True,    # matches trial default → stripped
             }),
             "logo_url": "",
@@ -708,7 +708,7 @@ def test_school_admin_form_clean_stores_overrides_only():
     )
     assert form.is_valid(), form.errors
     overrides = form.cleaned_data["feature_flags"]
-    assert overrides == {"reports_enabled": True}
+    assert overrides == {"reports_enabled": False}
 
 
 @pytest.mark.django_db

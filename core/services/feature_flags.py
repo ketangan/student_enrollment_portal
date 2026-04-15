@@ -54,8 +54,16 @@ ALL_FLAGS = list(_FEATURE_MIN_PLAN.keys())
 
 
 def default_flags_for_plan(plan: str) -> dict[str, bool]:
-    """Compute default flag values for a plan based on cumulative tier ranks."""
-    rank = PLAN_RANK.get(plan or PLAN_TRIAL, PLAN_RANK[PLAN_TRIAL])
+    """Compute default flag values for a plan based on cumulative tier ranks.
+
+    Trial is full-featured — every flag is True — to support a marketing
+    trial where schools experience the full product before subscribing.
+    Unrecognised plan strings fall back to rank-0 (trial-tier subset only).
+    """
+    resolved = plan or PLAN_TRIAL
+    if resolved == PLAN_TRIAL:
+        return {flag: True for flag in _FEATURE_MIN_PLAN}
+    rank = PLAN_RANK.get(resolved, PLAN_RANK[PLAN_TRIAL])
     return {
         flag: rank >= PLAN_RANK.get(min_plan, 0)
         for flag, min_plan in _FEATURE_MIN_PLAN.items()

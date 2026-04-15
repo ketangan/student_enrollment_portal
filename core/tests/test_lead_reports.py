@@ -19,15 +19,19 @@ def _reports_url(school):
 
 
 # ---------------------------------------------------------------------------
-# lead_stats absent when leads disabled (trial plan)
+# lead_stats absent when leads disabled (explicit override)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.django_db
 def test_lead_stats_absent_for_trial_school(client):
-    school = SchoolFactory(plan="trial", slug="lr-trial")
+    school = SchoolFactory(
+        plan="starter",
+        slug="lr-trial",
+        feature_flags={"leads_enabled": False},  # explicitly disabled
+    )
     _login(client, school)
     resp = client.get(_reports_url(school))
-    # Trial schools have reports disabled — expect 403 or feature_disabled render
+    # leads_enabled=False — expect 403 or feature_disabled render
     assert resp.status_code in (200, 403)
     if resp.status_code == 200:
         assert resp.context.get("lead_stats") is None

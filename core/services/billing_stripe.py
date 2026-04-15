@@ -8,24 +8,21 @@ Never import stripe directly in views; always go through this module.
 from __future__ import annotations
 
 import logging
-import os
 from datetime import datetime, timezone
+
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Lazy Stripe SDK import — graceful if not installed or keys missing
-# ---------------------------------------------------------------------------
-_stripe = None
 
+# ---------------------------------------------------------------------------
+# Stripe SDK — no module-level cache; reads settings on each call so that
+# override_settings() in tests and STRIPE_MODE changes take effect immediately.
+# ---------------------------------------------------------------------------
 
 def _get_stripe():
     """Return the stripe module configured with the secret key, or None."""
-    global _stripe
-    if _stripe is not None:
-        return _stripe
-
-    secret = os.getenv("STRIPE_SECRET_KEY", "").strip()
+    secret = getattr(settings, "STRIPE_SECRET_KEY", "").strip()
     if not secret:
         logger.warning("STRIPE_SECRET_KEY not set — Stripe features disabled")
         return None
@@ -34,8 +31,7 @@ def _get_stripe():
         import stripe
 
         stripe.api_key = secret
-        _stripe = stripe
-        return _stripe
+        return stripe
     except ImportError:
         logger.error("stripe package not installed — pip install stripe")
         return None
@@ -44,42 +40,43 @@ def _get_stripe():
 def is_stripe_configured() -> bool:
     """Return True if Stripe keys are present and SDK is available."""
     return _get_stripe() is not None and bool(
-        os.getenv("STRIPE_PUBLISHABLE_KEY", "").strip()
+        getattr(settings, "STRIPE_PUBLISHABLE_KEY", "").strip()
     )
 
 
 # ---------------------------------------------------------------------------
-# Price helpers
+# Price helpers — lazy: read from Django settings at call time so that
+# override_settings() works correctly in tests and STRIPE_MODE is respected.
 # ---------------------------------------------------------------------------
-PRICE_STARTER_MONTHLY_ID = os.getenv("STRIPE_PRICE_STARTER_MONTHLY", "").strip()
-PRICE_STARTER_ANNUAL_ID = os.getenv("STRIPE_PRICE_STARTER_ANNUAL", "").strip()
+
+_PRICE_SETTINGS = [
+    ("STRIPE_PRICE_STARTER_MONTHLY", "starter_monthly", "Starter Monthly", "$49.99 / month", "starter", "month"),
+    ("STRIPE_PRICE_STARTER_ANNUAL",  "starter_annual",  "Starter Annual",  "$499 / year",   "starter", "year"),
+    ("STRIPE_PRICE_PRO_MONTHLY",     "pro_monthly",     "Pro Monthly",     "$99 / month",   "pro",     "month"),
+    ("STRIPE_PRICE_PRO_ANNUAL",      "pro_annual",      "Pro Annual",      "$990 / year",   "pro",     "year"),
+    ("STRIPE_PRICE_GROWTH_MONTHLY",  "growth_monthly",  "Growth Monthly",  "$199 / month",  "growth",  "month"),
+    ("STRIPE_PRICE_GROWTH_ANNUAL",   "growth_annual",   "Growth Annual",   "$1,990 / year", "growth",  "year"),
+]
+
+
+def _price(setting_name: str) -> str:
+    return getattr(settings, setting_name, "").strip()
 
 
 def get_pricing_options() -> list[dict]:
     """Return pricing cards for the billing page."""
     options = []
-    if PRICE_STARTER_MONTHLY_ID:
-        options.append(
-            {
-                "id": "starter_monthly",
-                "price_id": PRICE_STARTER_MONTHLY_ID,
-                "name": "Starter Monthly",
-                "amount": "$49.99 / month",
-                "plan": "starter",
-                "interval": "month",
-            }
-        )
-    if PRICE_STARTER_ANNUAL_ID:
-        options.append(
-            {
-                "id": "starter_annual",
-                "price_id": PRICE_STARTER_ANNUAL_ID,
-                "name": "Starter Annual",
-                "amount": "$499 / year",
-                "plan": "starter",
-                "interval": "year",
-            }
-        )
+    for setting_name, option_id, name, amount, plan, interval in _PRICE_SETTINGS:
+        price_id = _price(setting_name)
+        if price_id:
+            options.append({
+                "id": option_id,
+                "price_id": price_id,
+                "name": name,
+                "amount": amount,
+                "plan": plan,
+                "interval": interval,
+            })
     return options
 
 
@@ -88,12 +85,15 @@ def get_pricing_options() -> list[dict]:
 # ---------------------------------------------------------------------------
 def price_to_plan(price_id: str) -> str | None:
     """Map a Stripe Price ID to an internal plan name, or None if unknown."""
-    mapping = {}
-    if PRICE_STARTER_MONTHLY_ID:
-        mapping[PRICE_STARTER_MONTHLY_ID] = "starter"
-    if PRICE_STARTER_ANNUAL_ID:
-        mapping[PRICE_STARTER_ANNUAL_ID] = "starter"
-    return mapping.get(price_id)
+    plan_map = {"starter": ["STRIPE_PRICE_STARTER_MONTHLY", "STRIPE_PRICE_STARTER_ANNUAL"],
+                "pro":     ["STRIPE_PRICE_PRO_MONTHLY",     "STRIPE_PRICE_PRO_ANNUAL"],
+                "growth":  ["STRIPE_PRICE_GROWTH_MONTHLY",  "STRIPE_PRICE_GROWTH_ANNUAL"]}
+    for plan, setting_names in plan_map.items():
+        for sname in setting_names:
+            pid = _price(sname)
+            if pid and pid == price_id:
+                return plan
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +170,7 @@ def construct_webhook_event(payload: bytes, sig_header: str) -> object | None:
     if not stripe:
         return None
 
-    secret = os.getenv("STRIPE_WEBHOOK_SECRET", "").strip()
+    secret = getattr(settings, "STRIPE_WEBHOOK_SECRET", "").strip()
     if not secret:
         logger.error("STRIPE_WEBHOOK_SECRET not set — cannot verify webhook")
         return None

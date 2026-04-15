@@ -206,6 +206,27 @@ BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 
+# ---------------------------------------------------------------------------
+# Stripe — dual-mode configuration
+# ---------------------------------------------------------------------------
+# Set STRIPE_MODE=live in production; defaults to "test".
+# Each key takes a _TEST or _LIVE suffix matching the selected mode, e.g.:
+#   STRIPE_SECRET_KEY_TEST, STRIPE_SECRET_KEY_LIVE
+#   STRIPE_PRICE_STARTER_MONTHLY_TEST, STRIPE_PRICE_STARTER_MONTHLY_LIVE
+# billing_stripe.py reads these Django settings (not os.environ directly), so
+# override_settings() works correctly in tests.
+STRIPE_MODE = os.getenv("STRIPE_MODE", "test").lower()
+_stripe_env_suffix = "LIVE" if STRIPE_MODE == "live" else "TEST"
+
+STRIPE_SECRET_KEY = os.getenv(f"STRIPE_SECRET_KEY_{_stripe_env_suffix}", "").strip()
+STRIPE_PUBLISHABLE_KEY = os.getenv(f"STRIPE_PUBLISHABLE_KEY_{_stripe_env_suffix}", "").strip()
+STRIPE_WEBHOOK_SECRET = os.getenv(f"STRIPE_WEBHOOK_SECRET_{_stripe_env_suffix}", "").strip()
+STRIPE_PRICE_STARTER_MONTHLY = os.getenv(f"STRIPE_PRICE_STARTER_MONTHLY_{_stripe_env_suffix}", "").strip()
+STRIPE_PRICE_STARTER_ANNUAL = os.getenv(f"STRIPE_PRICE_STARTER_ANNUAL_{_stripe_env_suffix}", "").strip()
+STRIPE_PRICE_PRO_MONTHLY = os.getenv(f"STRIPE_PRICE_PRO_MONTHLY_{_stripe_env_suffix}", "").strip()
+STRIPE_PRICE_PRO_ANNUAL = os.getenv(f"STRIPE_PRICE_PRO_ANNUAL_{_stripe_env_suffix}", "").strip()
+STRIPE_PRICE_GROWTH_MONTHLY = os.getenv(f"STRIPE_PRICE_GROWTH_MONTHLY_{_stripe_env_suffix}", "").strip()
+STRIPE_PRICE_GROWTH_ANNUAL = os.getenv(f"STRIPE_PRICE_GROWTH_ANNUAL_{_stripe_env_suffix}", "").strip()
 
 JAZZMIN_SETTINGS = {
     "site_title": "Student Enrollment Portal",
