@@ -1,762 +1,385 @@
-This file is what new users, school admins, or partners will read first. I’ve kept it very clear, non-technical, and structured so someone without Django experience can follow it.
-
-# Student Enrollment Portal
-
-Student Enrollment Portal is a multi-tenant web application that lets schools/programs collect enrollment or registration submissions online using **configurable YAML forms** — no coding required per school.
-
-This MVP is ideal for small organizations (dance studios, arts schools, academies, summer programs, etc.) that currently collect applications via email or PDF.
-
----
-
-## 🚀 What It Does
-
-- One backend, many schools
-- Each school has a **YAML form** that defines:  
-  • fields and sections  
-  • validation rules  
-  • branding and theme  
-  • optional file upload fields
-- Applicants submit via a public form
-- Data is stored in PostgreSQL
-- School admins review applications in the admin UI
-- Attachments can be downloaded
-- Admins can export CSVs and view reports
-
----
-
-## 🧠 How It Works (High-Level)
-
-1. Each school has a **slug** (e.g., `my-dance-school`)
-2. There is a YAML config file at `configs/schools/<school_slug>.yaml`
-3. Visiting `/schools/<slug>/apply`:
-   - loads the config
-   - dynamically renders the application form
-4. On POST:
-   - data is validated
-   - stored in the database
-   - files are saved to disk
-5. Admins use `/admin/` to review submissions and files
-
----
-
-## 📦 Repo Structure
-
-student_enrollment_portal/
-├── config/                 # Django settings, URLs
-├── core/                   # Models, views, admin
-│   ├── services/           # YAML loading & helpers
-│   ├── templates/          # Shared HTML templates
-│   └── tests/              # Unit & integration tests
-├── configs/
-│   └── schools/            # YAML per school
-├── static/                 # Static files (CSS, custom brand assets)
-├── media/                  # Uploaded files
-├── .env.example
-├── README.md
-├── OPERATIONS.md
-└── manage.py
-
----
-
-## 🛠 Local Setup (Step-by-Step)
-
-1. Clone the repository:
-   ```bash
-   git clone <repo_url>
-   cd student_enrollment_portal
-
-	2.	Create & activate a virtual environment:
-
-python3 -m venv venv
-source venv/bin/activate
-
-
-	3.	Install dependencies:
-
-pip install -r requirements.txt
-
-
-	4.	Configure your environment variables:
-
-cp .env.example .env
-
-Edit .env and add:
-
-DJANGO_SECRET_KEY=<your-secret-key>
-DJANGO_DEBUG=True
-DATABASE_URL=postgres://<user>@localhost:5432/student_enrollment_portal
-ALLOWED_HOSTS=localhost,127.0.0.1
-
-
-	5.	Start Postgres (e.g., via Homebrew on macOS):
-
-brew install postgresql@16
-brew services start postgresql@16
-createdb student_enrollment_portal
-
-
-	6.	Run migrations:
-
-python manage.py migrate
-
-
-	7.	Create a superuser:
-
-python manage.py createsuperuser
-
-
-	8.	Start the server:
-
-python manage.py runserver
-
-
-	9.	Visit:
-	•	Public app: http://127.0.0.1:8000/
-	•	Admin UI: http://127.0.0.1:8000/admin/
-
-⸻
-
-➕ Adding a New School (No Code)
-	1.	Copy an existing YAML file:
-
-configs/schools/example-school.yaml
-
-
-	2.	Rename it to match the slug:
-
-my-new-school.yaml
-
-
-	3.	Edit the YAML:
-
-school:
-  slug: "my-new-school"
-  display_name: "My New School"
-
-
-	4.	Restart the server
-	5.	Your form is now live at:
-
-/schools/my-new-school/apply
-
-
-
-⸻
-
-⚙ Branding + Theme
-
-Each YAML may include optional branding:
-
-branding:
-  logo_url: "/static/logos/mylogo.png"
-  theme:
-    primary_color: "#111827"
-    accent_color: "#2563EB"
-
-You may also include custom CSS/JS overrides via static file references.
-
-⸻
-
-📄 File Uploads (MVP)
-
-If the YAML has fields with type: file, applicants can upload documents/images.
-
-Uploaded files are stored under:
-
-media/uploads/<school_slug>/<submission_id>/
-
-School admins can download attachments from the admin UI.
-By default files are served by a download route that restricts access to logged-in admins.
-
-⸻
-
-📊 Admin Features
-
-✔ View submissions per school
-✔ Download attachments
-✔ Export CSV (selected rows)
-✔ School-scoped admin users
-✔ Per-school reporting with filters
-
-⸻
-
-👤 Admin Users
-
-There are two roles:
-
-Superuser
-	•	sees all schools & all data
-	•	manages users and memberships
-
-School Admin
-	•	limited to one school
-	•	sees only that school’s submissions
-	•	cannot see other schools’ data
-
-To create a school admin:
-	1.	Go to /admin/ → Users → Add
-	2.	Fill in user info
-	3.	Choose the School (superuser only)
-	4.	Save
-
-The system automatically:
-	•	sets is_staff = True
-	•	creates a membership linking the user to the school
-
-⸻
-
-🧪 Testing
-
-Run all unit and integration tests:
-
-python -m pytest -q
-
-Coverage target: ≥ 90%
-
-If you use Playwright for E2E tests:
-
-npx playwright test
-
-
-⸻
-
-🧩 Future Improvement Ideas
-	•	Admin-friendly submission detail view (no JSON blob)
-	•	Multi-step forms
-	•	E-signature for waivers
-	•	Per-school custom domain options
-	•	Email invites / password reset via SMTP
-
-⸻
-
-❗ MVP Tips & Gotchas
-	•	If custom CSS doesn’t load, verify the static path in the YAML
-	•	If uploads disappear on deploy (non-persistent host), switch to S3 or attach a persistent disk
-	•	School slug must match the YAML filename
-
----
-
-## ✅ Updated **OPERATIONS.md**
-
-> This doc is for internal operators, maintainers, or support engineers — the runbook for running, onboarding, and troubleshooting.
-
-```markdown
 # Student Enrollment Portal — Operations & Administration Guide
 
-This document is for:
-- Platform operators
-- Support engineers
-- Developers
-- Admin/operations staff onboarding schools
+For platform operators, support engineers, developers, and admin staff onboarding schools.
 
 ---
 
-## 🔑 Core Concepts
+## Core Concepts
 
 ### Schools Are Defined in Two Places
 
-#### YAML config (configs/schools)
-Defines:
-- form structure
-- validation rules
-- branding & theme
-- file upload behavior
+**YAML config** (`configs/schools/<slug>.yaml`) — defines form structure, validation, branding, lead/scheduling config, export profiles.
 
-#### Database (Admin UI)
-Defines:
-- which schools are active
-- admin user memberships
-- scoped access
+**Database** (Admin UI) — defines plan, feature flags, active status, trial start date, Stripe billing fields, admin user memberships.
 
-A YAML alone does not activate a school — it must be added in the Admin UI.
+A YAML alone does not activate a school — it must have a School record in the database.
 
 ---
 
-## 🆕 Activating a New School
+## Activating a New School
 
-1. Add YAML:
-   - Copy `example-school.yaml`
-   - Rename to `<slug>.yaml`
-   - Edit content
-
-2. Activate in Admin:
-   - Go to `/admin/`
-   - Core → Schools → Add
-   - Enter:
-     - Slug (matches YAML filename)
-     - Display name
-   - Save
-
-The form is now live at:
-
-/schools//apply
+1. Create YAML: copy `example-school.yaml`, rename to `<slug>.yaml`, edit content
+2. In `/admin/ → Core → Schools → Add`:
+   - Slug (must match YAML filename exactly)
+   - Display name
+   - Plan: `trial` for new schools (trial clock starts automatically on first save)
+3. Save — form is live at `/schools/<slug>/apply`
+4. Create admin user: `/admin/ → Users → Add`, fill in info, select school, save
+   - System sets `is_staff=True` and creates `SchoolAdminMembership`
 
 ---
 
-## 👤 Admin Roles & Permissions
+## Admin Roles
 
-**Superuser**
-- full access
-- sees all schools
-- manages users/memberships
+| Role | Access |
+|:-----|:-------|
+| **Superuser** | All schools, all data, user/membership management |
+| **School Admin** | One school only — submissions, leads, reports for that school |
 
-**School Admin**
-- scoped to one school
-- sees only that school’s submissions & reports
-- cannot access other schools’ data
-
-To create a school admin:
-1. `/admin/ → Users → Add`
-2. Fill in basic info
-3. Select School (only superuser can do this)
-4. Save
-   - System sets `is_staff = True`
-   - Creates a SchoolAdminMembership
-
-If a user is logged in but sees no data:
-- Ensure `is_staff = True`
-- Confirm SchoolAdminMembership links user to the correct school
+If a school admin logs in but sees no data: confirm `is_staff=True` and `SchoolAdminMembership` exists linking them to the correct school.
 
 ---
 
-## � Plans & Feature Flags
+## Plans & Feature Flags
 
-Every school has a **plan** that controls which features are available. Plans are cumulative — each higher tier includes everything from the tiers below it.
+Every school has a **plan** that controls feature availability. Plans are cumulative.
 
-| Feature                  | Trial | Starter | Pro | Growth |
-|:-------------------------|:-----:|:-------:|:---:|:------:|
-| Submission Status        | ✅    | ✅     | ✅  | ✅     |
-| CSV Export               | ✅    | ✅     | ✅  | ✅     |
-| Audit Log                | ✅    | ✅     | ✅  | ✅     |
-| Reports & Charts         | ❌    | ✅     | ✅  | ✅     |
-| Email Notifications      | ❌    | ✅     | ✅  | ✅     |
-| File Uploads             | ❌    | ✅     | ✅  | ✅     |
-| Custom Branding (CSS/JS) | ❌    | ❌     | ✅  | ✅     |
-| Multi-Form Support       | ❌    | ❌     | ✅  | ✅     |
-| Custom Statuses          | ❌    | ❌     | ✅  | ✅     |
+| Feature | Flag Key | Trial | Starter | Pro | Growth |
+|:--------|:---------|:-----:|:-------:|:---:|:------:|
+| Submission status | `status_enabled` | ✅ | ✅ | ✅ | ✅ |
+| CSV export | `csv_export_enabled` | ✅ | ✅ | ✅ | ✅ |
+| Audit log | `audit_log_enabled` | ✅ | ✅ | ✅ | ✅ |
+| Reports & charts | `reports_enabled` | ❌ | ✅ | ✅ | ✅ |
+| Email notifications | `email_notifications_enabled` | ❌ | ✅ | ✅ | ✅ |
+| File uploads | `file_uploads_enabled` | ❌ | ✅ | ✅ | ✅ |
+| Lead capture & pipeline | `leads_enabled` | ❌ | ✅ | ✅ | ✅ |
+| Waiver/consent field | `waiver_enabled` | ❌ | ✅ | ✅ | ✅ |
+| Custom branding (CSS/JS) | `custom_branding_enabled` | ❌ | ❌ | ✅ | ✅ |
+| Multi-form / multi-step | `multi_form_enabled` | ❌ | ❌ | ✅ | ✅ |
+| Custom statuses | `custom_statuses_enabled` | ❌ | ❌ | ✅ | ✅ |
+| Lead → Submission conversion | `leads_conversion_enabled` | ❌ | ❌ | ✅ | ✅ |
+| Save & Resume drafts | `save_resume_enabled` | ❌ | ❌ | ✅ | ✅ |
+| AI Application Summary | `ai_summary_enabled` | ❌ | ❌ | ❌ | ✅ |
 
-### How It Works
-
-- Each school's `plan` field determines its baseline feature set.
-- The `feature_flags` JSON field stores **per-school overrides only** (not the full set).
-- At runtime, flags are computed: `plan defaults + overrides → effective flags`.
-- Overrides let you enable a Pro feature on a Starter school (e.g., for early clients), or disable a feature for a specific school.
+**YAML-configured features** (available regardless of plan, when configured in YAML):
+- Scheduling link — `scheduling:` block in YAML
+- YAML export profiles — `exports:` block in YAML (respects `csv_export_enabled`)
+- Form embedding — iframe snippet always shown in admin school detail
 
 ### Setting a School's Plan
 
-1. Go to `/admin/ → Schools → (select school)`
-2. Choose a **Plan** from the dropdown
-3. (Optional) Add overrides in the **Feature flags** JSON editor
-4. Save
+1. `/admin/ → Schools → (select school)`
+2. Choose **Plan** from dropdown
+3. (Optional) Add per-school overrides in **Feature flags** JSON field
+4. Save — takes effect immediately
 
-### Flag Reference
+### Per-School Flag Overrides
 
-| Flag Key                       | Minimum Plan | What It Gates                                         |
-|:-------------------------------|:-------------|:------------------------------------------------------|
-| `status_enabled`               | trial        | Status column in admin + status filter                 |
-| `csv_export_enabled`           | trial        | "Export CSV" admin action                              |
-| `audit_log_enabled`            | trial        | Admin audit log recording                              |
-| `reports_enabled`              | starter      | `/schools/<slug>/admin/reports` page                   |
-| `email_notifications_enabled`  | starter      | Submission confirmation email dispatch                 |
-| `file_uploads_enabled`         | starter      | Saving uploaded files from application forms           |
-| `custom_branding_enabled`      | pro          | Custom CSS/JS injection from YAML branding             |
-| `multi_form_enabled`           | pro          | Multi-step / multi-form routing per school             |
-| `custom_statuses_enabled`      | pro          | YAML-defined custom status choices in admin            |
+The `feature_flags` JSON field stores **overrides only** (not the full set). At runtime: `plan defaults + overrides = effective flags`.
 
----
-## 🔄 Plan Changes & Downgrades
-
-### Upgrade (e.g. Trial → Starter → Pro)
-
-Upgrades take effect **immediately**. Change the plan in `/admin/ → Schools`, save, and the school gains access to all features in the new tier. No migration or restart required.
-
-### Downgrade (e.g. Pro → Starter)
-
-Downgrades also take effect **immediately**. The system uses an **"immediate disable + data preservation"** policy:
-
-- **Features are gated at request time.** The moment a plan changes, the next page load respects the new tier.
-- **No data is ever deleted.** Submissions, files, audit logs, and custom statuses remain in the database regardless of plan.
-- **No grace period.** Because plan changes are manual (admin-only), the operator is expected to communicate with the school before downgrading.
-
-### Edge Cases on Downgrade
-
-| Scenario | What Happens | Recommended Action |
-|:---------|:-------------|:-------------------|
-| **Pro → Starter: school uses multi-form** | Multi-step routing disabled; form falls back to single-page `/apply/`. YAML step definitions are ignored but still valid if the school upgrades again. | Review the school's YAML before downgrading. If steps contain very different fields, the flat single-page form may be confusing to applicants. Consider pausing the form or simplifying the YAML first. |
-| **Pro → Starter: school uses custom statuses** | Admin dropdown reverts to default statuses (`new`, `reviewed`, `accepted`, `rejected`). Existing submissions keep their custom status *value* in the database, but it won't appear in the dropdown filter. | Export or bulk-update submissions with custom statuses to a default value before downgrading. |
-| **Pro → Starter: school uses custom branding** | Custom CSS/JS stops injecting. Form renders with the default theme. | No action needed — form remains fully functional, just unstyled. |
-| **Starter → Trial: school uses file uploads** | File upload fields from YAML still render, but the backend silently skips saving the file. Existing files remain on disk and downloadable. | Remove `type: file` fields from the school's YAML before downgrading, or the applicant will see a broken experience (upload appears to work but file is not saved). |
-| **Starter → Trial: school uses email notifications** | Confirmation emails silently stop sending. No error is shown to the applicant. | Inform the school that applicants will no longer receive confirmation emails. |
-| **Starter → Trial: school uses reports** | Reports page shows "Feature not available on your current plan." | No action needed — data is still in the DB and will reappear on upgrade. |
-
-### Override Exceptions
-
-If a school needs **one** Pro feature on a Starter plan (e.g., an early client who was promised multi-form), use the `feature_flags` JSON field to grant an override:
-
+Example — give one Starter school access to multi-form:
 ```json
 {"multi_form_enabled": true}
 ```
 
+To revoke: remove the key or set to `false`.
+
+### Plan Changes & Downgrades
+
+Upgrades and downgrades take effect immediately on the next page load. No data is ever deleted on downgrade — features are gated at request time, data remains.
+
+Key edge cases on downgrade:
+
+| Scenario | What Happens |
+|:---------|:-------------|
+| Pro → Starter: multi-form YAML | Falls back to single-page form; YAML steps ignored |
+| Pro → Starter: custom statuses | Dropdown reverts to defaults; existing values preserved in DB |
+| Starter → Trial: file uploads | Upload fields render but files are not saved |
+| Starter → Trial: email notifications | Confirmation emails silently stop sending |
+
+**Operator checklist before downgrading**: check YAML for steps/file fields/custom CSS, communicate with school, bulk-update custom statuses if needed, then change plan.
+
 ---
 
-# Stripe Billing — Operations (concise)
+## Trial System
 
-## Dual-mode env var convention
+### How Trials Work
 
-All Stripe keys come in `_TEST` and `_LIVE` variants. Set `STRIPE_MODE=test` (default) or `STRIPE_MODE=live` to select which set is active. Never swap individual keys manually.
+- New schools are created with `plan="trial"`
+- `trial_started_at` is auto-set to `timezone.now()` on the first save
+- Trial length: **14 days** (`TRIAL_LENGTH_DAYS = 14` in `core/models.py`)
+- After 14 days, `school.is_trial_expired` becomes `True`
+
+### What Happens When a Trial Expires
+
+| Entry Point | Behaviour |
+|:------------|:----------|
+| Public apply form (`/schools/<slug>/apply`) | Shows `trial_expired.html` — no submission created |
+| Public lead capture form | Shows `trial_expired.html` — no lead created |
+| Admin quick-add lead | Error message + redirect — no lead created |
+| Admin lead → submission conversion | Error message + redirect — no submission created |
+| Admin submission/lead edit forms | Read-only (change permission removed) |
+| Admin dashboard (billing, reports, etc.) | Still accessible — school can view data and upgrade |
+
+School admins see a persistent **trial banner** in the Django admin:
+- Active trial: amber banner with days remaining + "Upgrade now" link
+- Expired trial: red banner with "Your trial has expired" + "Upgrade now" link
+- Superusers never see the banner
+
+### Extending or Resetting a Trial
+
+To extend a school's trial, update `trial_started_at` to a later date in `/admin/ → Schools`:
+
+```
+trial_started_at = now - (desired_remaining_days - 14 days)
+```
+
+Or set a future `trial_started_at` to give a fresh 14 days from that point.
+
+### Converting Trial to Paid
+
+School admin completes Stripe Checkout from the billing page. On `checkout.session.completed` webhook, `plan` is updated and `is_active` is confirmed `True`. Trial enforcement is lifted immediately.
+
+---
+
+## Stripe Billing
+
+### Dual-Mode Env Var Convention
+
+All Stripe keys come in `_TEST` and `_LIVE` variants. Set `STRIPE_MODE=test` (default) or `STRIPE_MODE=live` to select which set is active.
 
 ```
 STRIPE_MODE=test   # or live
 ```
 
-Required environment variables (set both TEST and LIVE variants)
-- `STRIPE_SECRET_KEY_TEST` / `STRIPE_SECRET_KEY_LIVE` — Secret API key (Stripe Dashboard → Developers → API keys). Server-side only.
-- `STRIPE_PUBLISHABLE_KEY_TEST` / `STRIPE_PUBLISHABLE_KEY_LIVE` — Publishable key. Client-side checkout.
-- `STRIPE_WEBHOOK_SECRET_TEST` / `STRIPE_WEBHOOK_SECRET_LIVE` — Webhook signing secret (Stripe Dashboard → Developers → Webhooks → click endpoint → Reveal signing secret).
-- `STRIPE_PRICE_STARTER_MONTHLY_TEST` / `STRIPE_PRICE_STARTER_MONTHLY_LIVE` — Price ID for monthly Starter plan.
-- `STRIPE_PRICE_STARTER_ANNUAL_TEST` / `STRIPE_PRICE_STARTER_ANNUAL_LIVE` — Price ID for annual Starter plan.
-- `STRIPE_PRICE_PRO_MONTHLY_TEST` / `STRIPE_PRICE_PRO_MONTHLY_LIVE` — Price ID for monthly Pro plan (optional; omit to hide Pro from billing page).
-- `STRIPE_PRICE_PRO_ANNUAL_TEST` / `STRIPE_PRICE_PRO_ANNUAL_LIVE` — Price ID for annual Pro plan.
-- `STRIPE_PRICE_GROWTH_MONTHLY_TEST` / `STRIPE_PRICE_GROWTH_MONTHLY_LIVE` — Price ID for monthly Growth plan (optional).
-- `STRIPE_PRICE_GROWTH_ANNUAL_TEST` / `STRIPE_PRICE_GROWTH_ANNUAL_LIVE` — Price ID for annual Growth plan.
+### Required Environment Variables
 
-> Price IDs come from Stripe Dashboard → Products → [Product] → Prices → copy the `price_xxx` ID.
-> Plan options only appear on the billing page if the corresponding price ID env var is set.
+| Variable | Description |
+|:---------|:------------|
+| `STRIPE_SECRET_KEY_TEST` / `_LIVE` | Secret API key — server-side only |
+| `STRIPE_PUBLISHABLE_KEY_TEST` / `_LIVE` | Publishable key — client-side checkout |
+| `STRIPE_WEBHOOK_SECRET_TEST` / `_LIVE` | Webhook signing secret |
+| `STRIPE_PRICE_STARTER_MONTHLY_TEST` / `_LIVE` | Price ID for monthly Starter |
+| `STRIPE_PRICE_STARTER_ANNUAL_TEST` / `_LIVE` | Price ID for annual Starter |
+| `STRIPE_PRICE_PRO_MONTHLY_TEST` / `_LIVE` | Price ID for monthly Pro (omit to hide from billing page) |
+| `STRIPE_PRICE_PRO_ANNUAL_TEST` / `_LIVE` | Price ID for annual Pro |
+| `STRIPE_PRICE_GROWTH_MONTHLY_TEST` / `_LIVE` | Price ID for monthly Growth (omit to hide) |
+| `STRIPE_PRICE_GROWTH_ANNUAL_TEST` / `_LIVE` | Price ID for annual Growth |
 
-What happens when vars are missing
-- Missing publishable/secret keys: billing page shows a warning and checkout/portal actions are blocked.
-- Missing webhook secret: incoming webhooks cannot be verified and will be ignored (logged).
-- Missing price IDs: that plan option is hidden from the billing page (not an error).
+Price IDs come from Stripe Dashboard → Products → [Product] → Prices → copy `price_xxx`. Plan options only appear on the billing page if the corresponding price ID env var is set.
 
-Local testing with Stripe CLI (quick)
-- Install: https://stripe.com/docs/stripe-cli#install
-- Login: `stripe login`
-- Forward webhooks to local server (assumes `python manage.py runserver` on port 8000):
-	- `stripe listen --forward-to http://localhost:8000/stripe/webhook/`
-- Trigger common events:
-	- `stripe trigger checkout.session.completed`
-	- `stripe trigger customer.subscription.updated`
-	- `stripe trigger customer.subscription.deleted`
-- Verify in DB (school record updates): `stripe_customer_id`, `stripe_subscription_id`, `stripe_subscription_status`, `plan`.
+### Billing State Grid
 
-Production (Render) checklist
-- Add `STRIPE_MODE=live` to Render env vars.
-- Add all `_LIVE` variants: `STRIPE_SECRET_KEY_LIVE`, `STRIPE_PUBLISHABLE_KEY_LIVE`, `STRIPE_WEBHOOK_SECRET_LIVE`, and any price IDs you want active.
-- Create a webhook endpoint in Stripe: `https://<your-render-host>/stripe/webhook/` and subscribe to the three events above.
-- Copy the endpoint signing secret into `STRIPE_WEBHOOK_SECRET_LIVE`.
-- Deploy and verify webhook deliveries return HTTP 200 and logs show handler processing.
-- Note: the webhook path is intentionally outside admin and is CSRF-exempt.
+| State | Conditions | School Access | Billing UI |
+|:------|:-----------|:-------------|:-----------|
+| **Trial** | `plan="trial"`, `is_active=True`, no subscription | Active | Upgrade pricing cards shown |
+| **Trial Expired** | `plan="trial"`, `trial_started_at` + 14d in past | Intake blocked | Upgrade pricing cards + expired banner |
+| **Active** | Subscription active/past_due/unpaid | Active | "Manage Subscription" portal button |
+| **Scheduled Cancel** | Subscription active, cancel scheduled | Active | "Manage Subscription" + cancel date banner |
+| **Ended/Locked** | `is_active=False` | Locked (billing page only) | "Account inactive" banner + "Re-subscribe" cards |
 
-Manual smoke checklist
-- As superuser: visit `/admin/reports/` → confirm Billing link visible.
-- As school admin: visit `/admin/reports/` → confirm hub shows your school + Billing link.
-- Open Billing page: confirm current plan and pricing appear (if prices set).
-- Start checkout (test keys): complete checkout; verify webhook updated `School.plan` and `stripe_*` fields.
-- If `stripe_customer_id` exists: use Manage Billing → portal should open.
+### Webhook Handlers
 
-Quick troubleshooting
-- Webhook signature errors: ensure `STRIPE_WEBHOOK_SECRET_TEST` (or `_LIVE`) matches the endpoint signing secret exactly.
-- No pricing shown: verify price ID env vars are set to Price IDs (not product IDs) and `STRIPE_MODE` matches the key suffix in use.
+**`checkout.session.completed`** — links Stripe customer + subscription to school, sets `plan`, `is_active=True`, clears cancel fields.
 
----
+**`customer.subscription.updated`** — syncs status, plan, and cancel scheduling fields. Sets `is_active=False` if status is `canceled` with no active period remaining.
 
-## Billing States
+**`customer.subscription.deleted`** — sets `stripe_subscription_status="canceled"`, `is_active=False`. Does not revert `plan` (preserves tier for records).
 
-The billing system implements **Option A**: after a paid subscription ends, the school becomes **inactive (locked)** and cannot revert to trial usage. Trial is onboarding-only. A locked school must re-subscribe to reactivate.
+### Local Testing with Stripe CLI
 
-### State Grid
+```bash
+# Forward webhooks to local server
+stripe listen --forward-to http://localhost:8000/stripe/webhook/
 
-| State                | Conditions                                                                                     | School Access | Billing UI Behavior                                                                                  | Webhooks                                                                                                      |
-|:---------------------|:-----------------------------------------------------------------------------------------------|:-------------|:-----------------------------------------------------------------------------------------------------|:--------------------------------------------------------------------------------------------------------------|
-| **Trial**            | `stripe_subscription_id=""`, `plan="trial"`, `is_active=True`                                  | Active       | - Show "Upgrade Your Plan" pricing cards<br>- Hide "Manage Subscription" section                      | N/A                                                                                                           |
-| **Active**           | `stripe_subscription_status` in `["active", "trialing", "past_due", "unpaid"]`, subscription exists | Active       | - Show "Manage Subscription" (Portal button)<br>- Hide upgrade cards<br>- Show note: "To change plans or billing cycles, use Manage Billing." | `checkout.session.completed`: Sets `stripe_*` fields, `plan`, `is_active=True`, clears cancel fields<br>`customer.subscription.updated`: Syncs status, plan, cancel fields |
-| **Scheduled Cancel** | Subscription exists, `stripe_cancel_at` set OR `stripe_cancel_at_period_end=True`, status still active-ish | Active       | - Show "Manage Subscription" (Portal button)<br>- Show banner: "Your subscription will cancel on [date]"<br>- Hide upgrade cards | `customer.subscription.updated`: Sets `stripe_cancel_at`, `stripe_cancel_at_period_end`, `stripe_current_period_end` from Stripe data |
-| **Ended/Locked**     | `is_active=False` (set by webhook when subscription deleted or canceled with no active period)  | **Locked**   | - Show "Your subscription ended and this account is now inactive" banner<br>- Show upgrade cards with copy: "Re-subscribe to reactivate"<br>- Hide "Manage Subscription" | `customer.subscription.deleted`: Sets `is_active=False`, `stripe_subscription_status="canceled"`, keeps `plan` unchanged, clears cancel fields |
-| **Scheduled Cancel (Overdue)** | Subscription scheduled to cancel, `stripe_cancel_at` or `stripe_current_period_end` in PAST, but `is_active=True` | Active (but should be locked) | - Show "Manage Subscription" (Portal button)<br>- Show ERROR banner: "Your subscription ended on [date]. Access will be disabled soon."<br>- Manual deactivation required | Same as Scheduled Cancel |
-
-### Key Implementation Details
-
-#### Webhook Handlers
-
-**`handle_checkout_completed(session_data)`**
-- **Purpose:** Link Stripe customer + subscription to school on successful checkout
-- **Actions:**
-  - Set `stripe_customer_id`, `stripe_subscription_id`, `stripe_subscription_status`
-  - Determine `plan` from `price_id` (via `price_to_plan()`)
-  - **Set `is_active=True`** (reactivate locked schools)
-  - Clear cancel scheduling: `stripe_cancel_at=None`, `stripe_cancel_at_period_end=False`, `stripe_current_period_end=None`
-- **Idempotent:** Safe to receive multiple times for same session
-
-**`handle_subscription_updated(subscription_data)`**
-- **Purpose:** Sync subscription status + plan changes from Stripe
-- **Actions:**
-  - Update `stripe_subscription_status` (e.g., `active` → `past_due`)
-  - Update `plan` from subscription line items
-  - Sync cancel scheduling: `stripe_cancel_at`, `stripe_cancel_at_period_end`, `stripe_current_period_end`
-  - **If status is `canceled` AND no active period remains:** set `is_active=False`
-- **Does NOT deactivate** if subscription is scheduled to cancel (still has active period)
-
-**`handle_subscription_deleted(subscription_data)`**
-- **Purpose:** Definitive end of subscription (Option A: no revert to trial)
-- **Actions:**
-  - Set `stripe_subscription_status="canceled"`
-  - **Set `is_active=False`** (LOCK school)
-  - **Keep `plan` unchanged** (preserves their subscription tier for records)
-  - Clear all cancel scheduling fields
-
-#### School Access Gating
-
-Helper functions in `core/services/school_access.py`:
-
-```python
-is_school_active(school) -> bool
-# Returns True if school.is_active is True
-
-require_school_active(request, school)
-# Returns lockout page (403) if school is inactive
-# Returns None if school is active (view continues normally)
+# Trigger events
+stripe trigger checkout.session.completed
+stripe trigger customer.subscription.updated
+stripe trigger customer.subscription.deleted
 ```
 
-**Usage:**
-- Billing page allows access even when locked (so users can re-subscribe)
-- Other admin/school entrypoints should call `require_school_active()` to enforce lock
+### Production (Render) Checklist
 
-#### Monitoring Cancellations (Sentry Reminders)
+- Set `STRIPE_MODE=live`
+- Add all `_LIVE` env vars
+- Create webhook endpoint in Stripe Dashboard: `https://<render-host>/stripe/webhook/`
+- Subscribe to: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
+- Copy endpoint signing secret → `STRIPE_WEBHOOK_SECRET_LIVE`
+- Deploy and verify webhook deliveries return HTTP 200
 
-The `billing_cancel_reminders` management command logs upcoming and overdue cancellations to Sentry for operator awareness.
+### Monitoring Cancellations
 
-**Run manually or via cron:**
 ```bash
 python manage.py billing_cancel_reminders
 ```
 
-**What it does:**
-- Finds schools with cancellations scheduled within 3 days → logs WARNING to Sentry
-- Finds schools with overdue cancellations (end date passed, still `is_active=True`) → logs ERROR to Sentry
-- Operators should manually deactivate overdue schools in Django admin (set `is_active=False`)
+Logs upcoming cancellations (within 3 days) as Sentry WARNINGs and overdue cancellations (end date passed, still active) as Sentry ERRORs. Run daily via cron. Overdue schools require manual deactivation in admin (uncheck `is_active`).
 
-**Recommended schedule:** Daily via cron (e.g., 9am daily to catch issues before business hours)
+### Troubleshooting
 
-**Manual deactivation procedure:**
-1. Check Sentry ERROR logs for overdue schools
-2. Open school in Django admin
-3. Uncheck `is_active` field
-4. Save
-5. School will see lockout page + re-subscribe option on billing page
+- **Webhook signature errors**: confirm `STRIPE_WEBHOOK_SECRET_TEST/LIVE` matches the endpoint signing secret exactly
+- **No pricing shown**: verify price ID env vars are Price IDs (not product IDs) and `STRIPE_MODE` matches the key suffix
 
-### Test Checklist
+---
 
-Use this checklist to verify billing state transitions work correctly:
+## Lead Pipeline
 
-#### 1. Trial → Active (Upgrade)
-- [ ] Start with a school on `plan="trial"`, no Stripe subscription
-- [ ] Visit Billing page, verify upgrade cards are shown
-- [ ] Complete checkout (use Stripe test mode or `stripe trigger checkout.session.completed`)
-- [ ] Verify webhook received and school updated:
-  - `stripe_customer_id`, `stripe_subscription_id`, `stripe_subscription_status` set
-  - `plan` changed to `"starter"` (or appropriate paid plan)
-  - `is_active=True`
-  - Cancel fields cleared
-- [ ] Visit Billing page again, verify "Manage Subscription" shown, upgrade cards hidden
+### YAML Configuration
 
-#### 2. Active → Scheduled Cancel
-- [ ] Start with a school on active subscription
-- [ ] Use Stripe Portal or Dashboard to schedule cancellation (cancel at period end)
-- [ ] Trigger `customer.subscription.updated` event
-- [ ] Verify school updated:
-  - `stripe_cancel_at` or `stripe_cancel_at_period_end=True` set
-  - `stripe_current_period_end` set
-  - `is_active` still `True` (not locked yet)
-- [ ] Visit Billing page, verify banner shows "Your subscription will cancel on [date]"
-- [ ] Verify "Manage Subscription" still shown (can resume via Portal)
+Add a `leads:` block to the school's YAML to enable the public lead capture form:
 
-#### 3. Scheduled Cancel → Ended/Locked
-- [ ] Wait for subscription period to end, or trigger `customer.subscription.deleted`
-- [ ] Verify school updated:
-  - `stripe_subscription_status="canceled"`
-  - `is_active=False` (LOCKED)
-  - `plan="trial"` (but locked, not usable)
-  - Cancel fields cleared
-- [ ] Visit Billing page, verify:
-  - "Your subscription ended and this account is now inactive" banner shown
-  - Upgrade cards shown
-  - "Manage Subscription" hidden
-- [ ] Attempt to access other admin pages (if gating implemented), verify lockout message
-
-#### 4. Ended/Locked → Active (Re-subscribe)
-- [ ] Start with a locked school (`is_active=False`)
-- [ ] Complete checkout again (trigger `checkout.session.completed`)
-- [ ] Verify school reactivated:
-  - `is_active=True`
-  - `stripe_subscription_id`, `stripe_customer_id`, `plan` updated
-  - Cancel fields cleared
-- [ ] Visit Billing page, verify back to "Active" state UI
-
-#### 5. Regression: Multi-School Isolation
-- [ ] Create two schools: School A (trial), School B (active subscription)
-- [ ] Upgrade School A
-- [ ] Verify School B unchanged (plan, status, IDs all intact)
-- [ ] Cancel School B's subscription
-- [ ] Verify School A unchanged
-
-#### 6. Edge Cases
-- [ ] Checkout completed webhook with missing `school_slug` metadata → logs warning, does not crash
-- [ ] Subscription updated webhook for unknown subscription ID → logs warning, does not crash
-- [ ] Subscription deleted webhook for unknown subscription ID → logs warning, does not crash
-- [ ] Superuser can view billing page for any school (via `?school=<slug>` param)
-- [ ] School admin can only view billing page for their own school (ignores `?school=` param)
-
-### Quick Commands for Testing Webhooks Locally
-
-```bash
-# 1. Start local server
-python manage.py runserver
-
-# 2. In another terminal, forward Stripe events
-stripe listen --forward-to http://localhost:8000/stripe/webhook/
-
-# 3. Trigger events
-stripe trigger checkout.session.completed
-stripe trigger customer.subscription.updated
-stripe trigger customer.subscription.deleted
-
-# 4. Check database
-python manage.py shell
->>> from core.models import School
->>> s = School.objects.get(slug="<your-test-school>")
->>> s.is_active, s.stripe_subscription_status, s.plan
+```yaml
+leads:
+  heading: "Join our waitlist"
+  programs:
+    - "Ballet"
+    - "Jazz"
 ```
 
+Also enable the feature flag: `leads_enabled: true` (automatic on Starter+).
+
+### Admin Workflow
+
+- **Inbox**: leads sorted by status (New → Contacted → Trial Scheduled → Enrolled/Lost)
+- **Quick-add lead**: "Add Lead" button on the leads changelist
+- **Follow-up scheduling**: set `next_follow_up_at` on any lead
+- **Bulk actions**: mark as contacted, mark as enrolled, mark as lost
+- **Convert to Submission**: button on lead detail page — matches by email field, creates a `Submission` from the lead (Pro+ feature)
+
+### Pipeline Analytics
+
+Available in the Reports page (`/schools/<slug>/admin/reports`). Shows lead counts by status, conversion rate, and recent activity.
+
 ---
 
-This override is stored per-school and survives plan changes. To revoke it, remove the key or set it to `false`.
+## Email (Resend)
 
-### Operator Checklist: Before Downgrading a School
+Email is sent via the [Resend](https://resend.com) API.
 
-1. **Check current feature usage** — open the school in admin, review plan and any `feature_flags` overrides
-2. **Review YAML config** — does it use `steps:` (multi-form), `type: file` (uploads), `branding:` (custom CSS/JS)?
-3. **Communicate with the school** — confirm they understand which features will be disabled
-4. **Clean up edge cases** — bulk-update custom statuses, remove file fields from YAML if needed
-5. **Change the plan** — save in admin; takes effect immediately
-6. **Verify** — visit the school's public form and admin to confirm expected behavior
+Required env var: `RESEND_API_KEY`
+
+Emails sent:
+- **Submission confirmation** — sent to applicant on successful form submission (Starter+, `email_notifications_enabled`)
+- **Staff notification** — sent to addresses in `notifications.submission_email.to` in YAML (Starter+)
+
+The `from_email` in the YAML `notifications` block must be a verified sender domain in Resend.
+
+Troubleshooting:
+- Email not sending: check `RESEND_API_KEY` is set and valid
+- From address rejected: verify the sender domain in Resend Dashboard
+- Check Django logs for Resend API error responses
 
 ---
-## �📩 Submissions Admin
 
-What is displayed:
-- Student / Applicant name
-- Program / Class name
-- Timestamp
-- School (for superusers)
+## Submissions Admin
 
 Features:
-- Search by name, program, or school (if superuser)
-- Export selected submissions to CSV
-- View attachments from file uploads
+- Search by name, program, school (superusers)
+- Status tracking (configurable via YAML or custom statuses)
+- Edit submission field data
+- Export selected rows to CSV (flat or YAML-configured profile)
+- AI application summary (Growth tier — "Generate Summary" button in change form)
+- Download file attachments
+- Audit log per submission
+
+**Sequential application numbers**: each school has its own counter (`school_submission_number`). Displayed as the public application ID.
+
+### YAML Export Profiles
+
+Add an `exports:` block to map submission fields to a third-party system's format:
+
+```yaml
+exports:
+  brightwheel:
+    field_map:
+      first_name:
+        source: student_first_name
+      homeroom:
+        value: "Dance Academy"
+      parent_1_email:
+        source_any:
+          - contact_email
+          - guardian_email
+```
+
+Field map spec:
+- `{source: key}` — looks up `submission.data[key]`; missing → empty + warning
+- `{value: "literal"}` — hardcoded literal; never looked up
+- `{source_any: [k1, k2]}` — first key with non-empty value wins; none found → empty + warning
+- Bare string — treated as `source:` only
+
+Export profiles appear as separate admin actions ("Export selected → Brightwheel CSV"). Capped at 5,000 rows per export.
 
 ---
 
-## 📊 Reporting Access
+## Save & Resume Drafts
 
-Accessible from the admin sidebar:
+Applicants can save a partial form via email. A magic link is emailed to them. Clicking the link restores the draft.
 
-/schools//admin/reports
-
-Features:
-- filter by date range
-- program breakdown
-- recent submissions
-
-School admins may only view their own school reports.
+- Drafts are stored in `DraftSubmission` model
+- Drafts expire (configurable; default 7 days)
+- Completing submission deletes the draft
+- Pro+ feature (`save_resume_enabled`)
 
 ---
 
-## 🗃 File Upload Handling
+## Form Embedding
 
-Uploaded files are stored on disk under:
+Each school's apply form can be embedded on external websites via an iframe. The embed snippet is shown in the school's admin detail page under "Embed on your website".
 
-media/uploads/<school_slug>/<submission_id>/
-
-Files uploaded via form are available for secure admin download:
-
-/admin/uploads/<file_id>/
-
-This route:
-- requires staff login
-- enforces school-scoped access
-- streams files (works with local or remote storage)
-
-**Important (Production):**  
-Local disk storage is ephemeral on many hosts (e.g., Render without a persistent disk). Attach a persistent disk or use S3/remote storage if you need uploads to persist.
+`X-Frame-Options` is set to `SAMEORIGIN` to allow embedding.
 
 ---
 
-## 🧪 Testing
+## File Upload Handling
 
-To run tests locally:
+Uploaded files: `media/uploads/<school_slug>/<submission_id>/`
+
+Secure admin download: `/admin/uploads/<file_id>/`
+- Requires staff login
+- Enforces school-scoped access
+
+**Production note**: local disk is ephemeral on most hosts (Render without a persistent disk). Attach a persistent disk or configure S3/remote storage.
+
+---
+
+## Reporting
+
+Accessible from admin sidebar → Reports, or `/schools/<slug>/admin/reports`.
+
+Available to school admins (Starter+):
+- Date-range filter
+- Program breakdown with submission counts
+- Recent submissions list
+- Lead pipeline section (if leads enabled)
+
+---
+
+## Testing
 
 ```bash
+# Unit + integration tests
 python -m pytest -q
 
-With coverage:
-
+# With coverage
 python -m pytest --cov=core --cov-report=term-missing
 
-CI:
-GitHub Actions runs:
-	•	dependency install
-	•	migrations
-	•	test suite
+# E2E tests (Playwright)
+npx playwright test
+```
 
-Deploy environments do not automatically run tests — CI protects the main branch.
-
-⸻
-
-⚠️ Known MVP Limitations
-	•	No email backend (SMTP) configured by default
-	•	Submission detail is stored as JSON
-	•	No custom domain per school yet
-	•	File preview only via download (no inline preview)
-
-⸻
-
-🧠 Troubleshooting Checklist
-
-Upload fails / admin shows 404:
-	•	Confirm the upload route exists: /admin/uploads/<file_id>/
-	•	Confirm MEDIA_ROOT and storage are reachable
-	•	Confirm file exists in media/
-
-User logs in but sees no data:
-	•	Check SchoolAdminMembership exists
-	•	User must have is_staff = True
-
-Form fields not saving:
-	•	Confirm YAML field keys are unique and required fields are present
-	•	Restart server after YAML save
-
-⸻
-
-🧾 Deployment Notes (Non-Technical)
-
-Avoid losing uploads:
-	•	Attach a persistent disk on your host OR
-	•	Move to remote storage backend (S3) when ready
-
-Static vs Media Files
-	•	static: shipped with app
-	•	media: uploaded by users
-Settings control where these reside (STATIC_ROOT, MEDIA_ROOT, MEDIA_URL)
-
-⸻
-
-🛠 End-of-Day Checklist
-
-Before handing off to schools:
-	•	Confirm branding loads
-	•	Submit a test application
-	•	Verify attachment download
-	•	Verify CSV export
-	•	Verify school admin scoping
+578+ unit/integration tests passing. E2E tests cover billing flows, apply form, and admin interactions.
 
 ---
+
+## Troubleshooting
+
+| Symptom | Check |
+|:--------|:------|
+| School admin sees no data | `SchoolAdminMembership` exists; user has `is_staff=True` |
+| Apply form shows "trial expired" | School's `trial_started_at` + 14 days has passed — upgrade plan or extend `trial_started_at` |
+| Upload fails / 404 | `MEDIA_ROOT` reachable; file exists in `media/`; upload route exists |
+| Form fields not saving | YAML field keys unique; required fields present; restart server after YAML change |
+| Webhook not processing | Stripe CLI forwarding active; signing secret matches; check logs for verification errors |
+| Email not sending | `RESEND_API_KEY` valid; `from_email` is verified sender in Resend |
+| No pricing options on billing page | Price ID env vars set to `price_xxx` IDs; `STRIPE_MODE` matches suffix |
