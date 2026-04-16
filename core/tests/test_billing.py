@@ -69,7 +69,11 @@ class TestPriceToPlan:
 
 
 class TestGetPricingOptions:
-    @override_settings(STRIPE_PRICE_STARTER_MONTHLY="price_m", STRIPE_PRICE_STARTER_ANNUAL="price_a")
+    @override_settings(
+        STRIPE_PRICE_STARTER_MONTHLY="price_m", STRIPE_PRICE_STARTER_ANNUAL="price_a",
+        STRIPE_PRICE_PRO_MONTHLY="", STRIPE_PRICE_PRO_ANNUAL="",
+        STRIPE_PRICE_GROWTH_MONTHLY="", STRIPE_PRICE_GROWTH_ANNUAL="",
+    )
     def test_returns_two_options_when_env_set(self):
         options = get_pricing_options()
         assert len(options) == 2

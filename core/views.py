@@ -314,6 +314,14 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
     if not school.is_active:
         raise Http404("School not found")
 
+    # Block expired-trial schools from accepting new applications (GET and POST)
+    if school.is_trial_expired:
+        return render(request, "trial_expired.html", {
+            "school": school,
+            "branding": branding,
+            "billing_url": reverse("admin:billing"),
+        })
+
     # Strip custom branding assets if the feature is not enabled for this school.
     if not school.features.custom_branding_enabled:
         branding["custom_css"] = None
@@ -930,6 +938,15 @@ def lead_capture_view(request, school_slug):
         raise Http404
 
     branding = merge_branding(config.branding)
+
+    # Block expired-trial schools from capturing new leads (GET and POST)
+    if school.is_trial_expired:
+        return render(request, "trial_expired.html", {
+            "school": school,
+            "branding": branding,
+            "billing_url": reverse("admin:billing"),
+        })
+
     leads_cfg = config.raw.get("leads") or {}
     program_options = get_program_options(config)
 

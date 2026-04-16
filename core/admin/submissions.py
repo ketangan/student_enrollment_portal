@@ -222,7 +222,14 @@ class SubmissionAdmin(admin.ModelAdmin):
 
 
     def has_change_permission(self, request, obj=None):
-        return self.has_view_permission(request, obj)
+        if not self.has_view_permission(request, obj):
+            return False
+        # Expired-trial school admins get view-only access — no writes.
+        if not _is_superuser(request.user) and obj is not None:
+            school = getattr(obj, "school", None)
+            if school and school.is_trial_expired:
+                return False
+        return True
 
     def has_add_permission(self, request):
         return _is_superuser(request.user)

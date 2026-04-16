@@ -204,6 +204,10 @@ class LeadAdmin(admin.ModelAdmin):
             messages.error(request, "School not found.")
             return redirect("../")
 
+        if school.is_trial_expired:
+            messages.error(request, "Your trial has expired. Upgrade to continue adding leads.")
+            return redirect("../")
+
         name = (request.POST.get("name") or "").strip()
         email = (request.POST.get("email") or "").strip()
 
@@ -265,6 +269,11 @@ class LeadAdmin(admin.ModelAdmin):
         # Pre-check idempotency (non-authoritative; real check is under the row lock below).
         if lead.converted_submission_id:
             messages.warning(request, "This lead has already been converted to a submission.")
+            return redirect(lead_change_url)
+
+        # Block conversion for expired-trial schools.
+        if lead.school.is_trial_expired:
+            messages.error(request, "Your trial has expired. Upgrade to convert leads to submissions.")
             return redirect(lead_change_url)
 
         with transaction.atomic():
@@ -599,7 +608,14 @@ class LeadAdmin(admin.ModelAdmin):
         return self.has_module_permission(request)
 
     def has_change_permission(self, request, obj=None):
-        return self.has_module_permission(request)
+        if not self.has_module_permission(request):
+            return False
+        # Expired-trial school admins get view-only access — no writes.
+        if not _is_superuser(request.user) and obj is not None:
+            school = getattr(obj, "school", None)
+            if school and school.is_trial_expired:
+                return False
+        return True
 
     def has_add_permission(self, request):
         return False

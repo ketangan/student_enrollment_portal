@@ -74,6 +74,47 @@ def _school_aware_has_permission(request):
 # Install the monkeypatch
 admin.site.has_permission = _school_aware_has_permission
 
+
+# ---------------------------------------------------------------------------
+# Monkeypatch admin.site.each_context to inject trial banner data
+# ---------------------------------------------------------------------------
+
+_original_each_context = admin.site.each_context
+
+
+def _trial_aware_each_context(request):
+    ctx = _original_each_context(request)
+
+    # Only inject for authenticated, non-superuser school admins
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated or _is_superuser(user):
+        return ctx
+
+    school_id = _membership_school_id(user)
+    if not school_id:
+        return ctx
+
+    from core.models import School
+    from django.urls import reverse
+    try:
+        school = School.objects.get(id=school_id)
+    except School.DoesNotExist:
+        return ctx
+
+    if not school.is_trial_plan:
+        return ctx
+
+    ctx["trial_banner"] = {
+        "expired": school.is_trial_expired,
+        "days_left": school.trial_days_left,
+        "billing_url": reverse("admin:billing"),
+    }
+    return ctx
+
+
+admin.site.each_context = _trial_aware_each_context
+
+
 __all__ = [
     # django admin module shim
     "admin",

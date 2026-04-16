@@ -1,0 +1,47 @@
+{% extends "admin/base.html" %}
+{% load i18n %}
+
+{% block messages %}
+{{ block.super }}
+{% if trial_banner %}
+<div style="
+  padding: 10px 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  {% if trial_banner.expired %}
+  background: #fef2f2;
+  border-bottom: 1px solid #fca5a5;
+  color: #991b1b;
+  {% else %}
+  background: #fffbeb;
+  border-bottom: 1px solid #fcd34d;
+  color: #92400e;
+  {% endif %}
+">
+  {% if trial_banner.expired %}
+    <span>⚠️</span>
+    <span>
+      {% trans "Your trial has expired." %}
+      {% trans "Upgrade to continue accepting new enrollments and leads." %}
+    </span>
+  {% else %}
+    <span>⏳</span>
+    <span>
+      {% blocktrans with days=trial_banner.days_left count days=trial_banner.days_left %}
+        Your free trial ends in {{ days }} day.
+      {% plural %}
+        Your free trial ends in {{ days }} days.
+      {% endblocktrans %}
+    </span>
+  {% endif %}
+  <a href="{{ trial_banner.billing_url }}"
+     style="margin-left:auto;white-space:nowrap;padding:4px 12px;border-radius:4px;text-decoration:none;font-weight:600;
+     {% if trial_banner.expired %}background:#dc2626;color:#fff;{% else %}background:#d97706;color:#fff;{% endif %}">
+    {% trans "Upgrade now" %} →
+  </a>
+</div>
+{% endif %}
+{% endblock %}

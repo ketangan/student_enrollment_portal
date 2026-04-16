@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import timedelta
+from math import ceil as _ceil
 from django.db import models, transaction
 from django.db.models import Max
 from django.utils import timezone
@@ -13,6 +14,9 @@ from core.services.form_utils import resolve_label
 from core.services import feature_flags as ff
 from core.services.admin_themes import THEME_CHOICES, DEFAULT_THEME_KEY
 from django.conf import settings
+
+# How many days a trial lasts. Single source of truth — do not hardcode elsewhere.
+TRIAL_LENGTH_DAYS = 14
 
 
 @dataclass
@@ -118,6 +122,9 @@ class School(models.Model):
     theme_accent_color = models.CharField(max_length=20, blank=True, default="")
 
 
+    # Trial billing
+    trial_started_at = models.DateTimeField(null=True, blank=True)
+
     # Stripe billing
     stripe_customer_id = models.CharField(max_length=255, blank=True, default="")
     stripe_subscription_id = models.CharField(max_length=255, blank=True, default="")
@@ -140,6 +147,47 @@ class School(models.Model):
     def refresh_from_db(self, using=None, fields=None, from_queryset=None):
         super().refresh_from_db(using=using, fields=fields, from_queryset=from_queryset)
         self.__dict__.pop("_features_cache", None)
+
+    # ── Trial helpers ──────────────────────────────────────────────────────
+
+    @property
+    def is_trial_plan(self) -> bool:
+        return self.plan == ff.PLAN_TRIAL
+
+    @property
+    def trial_ends_at(self):
+        """UTC datetime when the trial expires, or None if not a trial school."""
+        if not self.is_trial_plan or not self.trial_started_at:
+            return None
+        return self.trial_started_at + timedelta(days=TRIAL_LENGTH_DAYS)
+
+    @property
+    def trial_days_left(self) -> int:
+        """Days remaining in trial, clamped to 0. Ceiling so "expires today" shows 1."""
+        ends_at = self.trial_ends_at
+        if not ends_at:
+            return 0
+        seconds_left = (ends_at - timezone.now()).total_seconds()
+        if seconds_left <= 0:
+            return 0
+        return _ceil(seconds_left / 86400)
+
+    @property
+    def is_trial_expired(self) -> bool:
+        """True only when plan is trial AND the trial window has passed."""
+        if not self.is_trial_plan:
+            return False
+        ends_at = self.trial_ends_at
+        if not ends_at:
+            return False
+        return timezone.now() >= ends_at
+
+    def save(self, *args, **kwargs):
+        # Auto-start the trial clock the first time a school is saved as plan="trial".
+        # Never overrides an explicitly set trial_started_at.
+        if self.plan == ff.PLAN_TRIAL and self.trial_started_at is None:
+            self.trial_started_at = timezone.now()
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "School"
