@@ -7,7 +7,8 @@ school:
   source_url: "https://youngmindsla.com"
 
 branding:
-  logo_url: "https://youngmindsla.com/wp-content/uploads/2019/03/YMLA-HOR-LOGO-BLK.gif"
+  logo_url: "https://youngmindsla.com/wp-content/uploads/2020/11/ymla-logoblk-225.png"
+  custom_css: "schools/young-minds-la.css"
 
   theme:
     primary_color: "#fec96b"

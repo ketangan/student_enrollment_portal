@@ -1,0 +1,55 @@
+/* Young Minds Learning Academy — form branding overrides
+   Logo: vertical stack (owl + "young minds LEARNING ACADEMY")
+   Colors: #fec96b yellow primary, #00bcd4 teal accent, white/warm-cream bg
+*/
+
+/* Logo: strip the tiny square avatar box, show full logo naturally */
+.school-logo {
+  width: auto;
+  max-width: 220px;
+  height: 72px;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  overflow: visible;
+}
+
+.school-logo img {
+  width: auto !important;
+  height: 72px !important;
+  object-fit: contain !important;
+}
+
+/* The logo already contains the school name — hide the duplicate text */
+.school-title {
+  display: none;
+}
+
+.school-subtitle {
+  font-size: 13px;
+  color: #777777;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* Header: give it a bit more breathing room */
+.header {
+  padding: 8px 0 4px 0;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #f5e9cb;
+}
+
+/* Notice/description box: match their warm yellow brand instead of the default orange */
+.notice {
+  background: #fffdf0;
+  border: 1px solid #fec96b;
+  color: #5c3d00;
+}
+
+/* Section titles: slightly warmer */
+.section-title {
+  color: #333333;
+  border-bottom: 2px solid #fec96b;
+  padding-bottom: 6px;
+}
