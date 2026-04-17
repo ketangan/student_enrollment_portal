@@ -198,26 +198,12 @@ class School(models.Model):
 
     @property
     def has_active_stripe_subscription(self) -> bool:
-        """Return True when the school has a linked Stripe customer + subscription
-        and the subscription status indicates an active or recent billing state.
-        """
+        """True when a Stripe customer + subscription exist and status is active-like."""
         return bool(
             self.stripe_customer_id
             and self.stripe_subscription_id
             and self.stripe_subscription_status in ("active", "trialing", "past_due")
         )
-
-    def has_stripe_subscription(self) -> bool:
-        """Return True if the school has a Stripe customer and subscription id linked."""
-        return bool(self.stripe_customer_id and self.stripe_subscription_id)
-
-    def has_active_stripe_subscription(self) -> bool:
-        """Return True when a Stripe sub exists and its status is active/trialing/past_due."""
-        return self.has_stripe_subscription() and (self.stripe_subscription_status in ("active", "trialing", "past_due"))
-
-    def stripe_subscription_is_active(self) -> bool:
-        """Alias-style helper: True when subscription status is considered active-like."""
-        return self.stripe_subscription_status in ("active", "trialing", "past_due")
 
 
 class SchoolAdminMembership(models.Model):

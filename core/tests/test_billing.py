@@ -1158,3 +1158,197 @@ class TestBillingStripeReadsFromSettings:
     @override_settings(STRIPE_PRICE_GROWTH_ANNUAL="price_growth_annual_test")
     def test_growth_price_mapped_to_growth_plan(self):
         assert price_to_plan("price_growth_annual_test") == "growth"
+
+
+# ---------------------------------------------------------------------------
+# Upgrade flow: expired-trial → paid (end-to-end, 6 required test cases)
+# ---------------------------------------------------------------------------
+
+from datetime import timedelta
+from django.utils import timezone as _djtz
+from core.models import TRIAL_LENGTH_DAYS
+
+
+_DEMO_SLUG = "enrollment-request-demo"  # Has YAML + leads block
+
+
+def _force_expired_trial(school) -> None:
+    """Bypass School.save() to force trial_started_at into the past."""
+    expired_start = _djtz.now() - timedelta(days=TRIAL_LENGTH_DAYS + 5)
+    School.objects.filter(pk=school.pk).update(trial_started_at=expired_start)
+    school.refresh_from_db()
+
+
+def _checkout_session_data(slug, customer="cus_test", sub="sub_test"):
+    return {
+        "metadata": {"school_slug": slug},
+        "customer": customer,
+        "subscription": sub,
+        "line_items": {"data": []},
+    }
+
+
+def _mock_sub_with_price(price_id="price_s_m"):
+    return {
+        "items": {"data": [{"price": {"id": price_id}}]},
+        "status": "active",
+    }
+
+
+_STARTER_OVERRIDE = dict(
+    STRIPE_PRICE_STARTER_MONTHLY="price_s_m",
+    STRIPE_PRICE_STARTER_ANNUAL="",
+    STRIPE_PRICE_PRO_MONTHLY="",
+    STRIPE_PRICE_PRO_ANNUAL="",
+    STRIPE_PRICE_GROWTH_MONTHLY="",
+    STRIPE_PRICE_GROWTH_ANNUAL="",
+)
+
+
+@pytest.mark.django_db
+class TestExpiredTrialUpgradeFlow:
+    """End-to-end tests: expired trial → checkout webhook → unlock."""
+
+    # ── Test 1: checkout webhook upgrades an expired-trial school ────────────
+
+    def test_checkout_webhook_unlocks_expired_trial_school(self):
+        """handle_checkout_completed sets plan=starter and clears trial expiry."""
+        school = SchoolFactory(plan="trial")
+        _force_expired_trial(school)
+        assert school.is_trial_expired is True
+
+        with patch("core.services.billing_stripe._get_stripe") as m:
+            m.return_value.Subscription.retrieve.return_value = _mock_sub_with_price()
+            with override_settings(**_STARTER_OVERRIDE):
+                handle_checkout_completed(_checkout_session_data(school.slug))
+
+        school.refresh_from_db()
+        assert school.plan == "starter"
+        assert school.is_active is True
+        assert school.is_trial_plan is False
+        assert school.is_trial_expired is False  # No longer on trial plan
+
+    # ── Test 2: duplicate webhook delivery is idempotent ────────────────────
+
+    def test_checkout_webhook_is_idempotent(self):
+        """Sending checkout.session.completed twice produces the same school state."""
+        school = SchoolFactory(plan="trial")
+        data = _checkout_session_data(school.slug, "cus_idem", "sub_idem")
+
+        with patch("core.services.billing_stripe._get_stripe") as m:
+            m.return_value.Subscription.retrieve.return_value = _mock_sub_with_price()
+            with override_settings(**_STARTER_OVERRIDE):
+                handle_checkout_completed(data)
+                handle_checkout_completed(data)  # duplicate delivery
+
+        school.refresh_from_db()
+        assert school.plan == "starter"
+        assert school.is_active is True
+        assert school.stripe_customer_id == "cus_idem"
+        assert school.stripe_subscription_id == "sub_idem"
+
+    # ── Test 3: canceled checkout leaves school untouched ───────────────────
+
+    def test_canceled_checkout_leaves_school_unchanged(self, client):
+        """Hitting ?status=canceled redirect does not unlock or change school state."""
+        school = SchoolFactory(plan="trial")
+        _force_expired_trial(school)
+        assert school.is_trial_expired is True
+
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        resp = client.get(reverse("admin:billing") + "?status=canceled")
+        assert resp.status_code == 200
+
+        school.refresh_from_db()
+        assert school.plan == "trial"
+        assert school.is_trial_expired is True  # Still locked — no unlock from cancel redirect
+
+    # ── Test 4: unknown price in webhook payload leaves plan unchanged ───────
+
+    def test_checkout_webhook_unknown_price_does_not_change_plan(self):
+        """Unknown price ID in webhook: plan stays unchanged, no silent upgrade."""
+        school = SchoolFactory(plan="trial")
+
+        with patch("core.services.billing_stripe._get_stripe") as m:
+            m.return_value.Subscription.retrieve.return_value = {
+                "items": {"data": [{"price": {"id": "price_completely_unknown"}}]},
+                "status": "active",
+            }
+            # All price env vars empty — unknown price cannot map to any plan
+            with override_settings(
+                STRIPE_PRICE_STARTER_MONTHLY="", STRIPE_PRICE_STARTER_ANNUAL="",
+                STRIPE_PRICE_PRO_MONTHLY="", STRIPE_PRICE_PRO_ANNUAL="",
+                STRIPE_PRICE_GROWTH_MONTHLY="", STRIPE_PRICE_GROWTH_ANNUAL="",
+            ):
+                handle_checkout_completed(_checkout_session_data(school.slug))
+
+        school.refresh_from_db()
+        # Plan must not be silently changed
+        assert school.plan == "trial"
+        # is_active IS set (intentional: subsequent subscription.updated will resolve plan)
+        assert school.is_active is True
+
+    # ── Test 7: upgraded school can submit applications ──────────────────────
+
+    def test_upgraded_school_apply_form_is_accessible(self, client, settings):
+        """After checkout webhook upgrades trial → starter, apply form renders correctly."""
+        settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+
+        # GET the apply URL first — this creates the School record via _get_or_create_school_from_config
+        url = reverse("apply", kwargs={"school_slug": _DEMO_SLUG})
+        client.get(url)
+
+        # Force the school into expired-trial state
+        School.objects.filter(slug=_DEMO_SLUG).update(plan="trial", is_active=True)
+        school = School.objects.get(slug=_DEMO_SLUG)
+        _force_expired_trial(school)
+        school.refresh_from_db()
+        assert school.is_trial_expired is True
+
+        # Simulate checkout webhook upgrading the school
+        with patch("core.services.billing_stripe._get_stripe") as m:
+            m.return_value.Subscription.retrieve.return_value = _mock_sub_with_price()
+            with override_settings(**_STARTER_OVERRIDE):
+                handle_checkout_completed(_checkout_session_data(_DEMO_SLUG, "cus_apply", "sub_apply"))
+
+        school.refresh_from_db()
+        assert school.plan == "starter"
+        assert school.is_trial_expired is False
+
+        # Apply form must now render — not the trial-expired page
+        resp = client.get(url)
+        assert resp.status_code == 200
+        assert b"upgrade" not in resp.content.lower()
+
+    # ── Test 8: upgraded school can capture leads ────────────────────────────
+
+    def test_upgraded_school_lead_form_is_accessible(self, client, settings):
+        """After checkout webhook upgrades trial → starter, lead capture form is accessible."""
+        settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+
+        # GET the apply URL first to ensure the School record is created
+        client.get(reverse("apply", kwargs={"school_slug": _DEMO_SLUG}))
+
+        # Force the school into expired-trial state
+        School.objects.filter(slug=_DEMO_SLUG).update(plan="trial", is_active=True)
+        school = School.objects.get(slug=_DEMO_SLUG)
+        _force_expired_trial(school)
+        school.refresh_from_db()
+        assert school.is_trial_expired is True
+
+        # Simulate checkout webhook upgrading the school
+        with patch("core.services.billing_stripe._get_stripe") as m:
+            m.return_value.Subscription.retrieve.return_value = _mock_sub_with_price()
+            with override_settings(**_STARTER_OVERRIDE):
+                handle_checkout_completed(_checkout_session_data(_DEMO_SLUG, "cus_lead", "sub_lead"))
+
+        school.refresh_from_db()
+        assert school.plan == "starter"
+        assert school.is_trial_expired is False
+
+        # Lead form must now be accessible — not the trial-expired page
+        url = reverse("lead_capture", kwargs={"school_slug": _DEMO_SLUG})
+        resp = client.get(url)
+        assert resp.status_code == 200
+        assert b"upgrade" not in resp.content.lower()
