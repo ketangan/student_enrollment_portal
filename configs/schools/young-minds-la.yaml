@@ -1,0 +1,356 @@
+schema_version: "1.0"
+
+school:
+  slug: "young-minds-la"
+  display_name: "Young Minds Learning Academy"
+  website_url: "https://youngmindsla.com"
+  source_url: "https://youngmindsla.com"
+
+branding:
+  logo_url: "https://youngmindsla.com/wp-content/uploads/2019/03/YMLA-HOR-LOGO-BLK.gif"
+
+  theme:
+    primary_color: "#fec96b"
+    accent_color: "#00bcd4"
+    background: "#fffef7"
+    card: "#ffffff"
+    text: "#333333"
+    muted: "#777777"
+    border: "#f5e9cb"
+    radius: "14px"
+
+form:
+  title: "Enrollment Application"
+  description: >
+    Thank you for your interest in Young Minds Learning Academy!
+    Play. Explore. Learn. — Please complete this form to begin the enrollment process.
+    Our team will review your application and follow up with next steps within 1–2 business days.
+    Questions? Email us — please do not call.
+  submit_button_text: "Submit Application"
+
+  sections:
+
+    - title: "Child Information"
+      fields:
+        - key: student_first_name
+          label: "Child's First Name"
+          type: text
+          required: true
+
+        - key: student_last_name
+          label: "Child's Last Name"
+          type: text
+          required: true
+
+        - key: date_of_birth
+          label: "Date of Birth"
+          type: date
+          required: true
+          help_text: "Age eligibility is determined as of September 1st of the enrollment year."
+
+        - key: age
+          label: "Current Age"
+          type: number
+          required: false
+          readonly: true
+
+        - key: gender
+          label: "Gender"
+          type: select
+          required: false
+          options:
+            - { value: "female", label: "Female" }
+            - { value: "male", label: "Male" }
+            - { value: "nonbinary", label: "Non-binary" }
+            - { value: "prefer_not_to_say", label: "Prefer not to say" }
+
+        - key: previous_school
+          label: "Previous School or Childcare (if any)"
+          type: text
+          required: false
+          full_width: true
+
+    - title: "Program & Campus"
+      fields:
+        - key: interested_in
+          label: "Program of Interest"
+          type: select
+          required: true
+          options:
+            - { value: "2yr_program", label: "2-Year-Old Program (child must be 2 by Sept 1)" }
+            - { value: "3yr_program", label: "3-Year-Old Program (child must be 3 by Sept 1)" }
+            - { value: "4yr_program", label: "4-Year-Old Program (child must be 4 by Sept 1)" }
+            - { value: "parent_and_me", label: "Parent & Me Classes (Venice campus)" }
+            - { value: "tk_kinder", label: "Full-Day TK & Kindergarten (West LA campus)" }
+            - { value: "unsure", label: "Not sure yet — please advise" }
+
+        - key: campus_preference
+          label: "Preferred Campus"
+          type: select
+          required: true
+          options:
+            - { value: "venice", label: "Venice — 2802 Abbot Kinney Blvd." }
+            - { value: "westla", label: "West LA — 3030 Westwood Blvd." }
+            - { value: "westchester", label: "Westchester — 8065 Emerson Ave." }
+            - { value: "no_preference", label: "No preference" }
+
+        - key: enrollment_type
+          label: "Enrollment Type"
+          type: select
+          required: true
+          options:
+            - { value: "new_student", label: "New student" }
+            - { value: "returning_student", label: "Returning student" }
+            - { value: "sibling", label: "Sibling of current or former student" }
+
+        - key: desired_start_date
+          label: "Desired Start"
+          type: select
+          required: false
+          options:
+            - { value: "fall_2025", label: "Fall 2025" }
+            - { value: "spring_2026", label: "Spring 2026" }
+            - { value: "fall_2026", label: "Fall 2026" }
+            - { value: "asap", label: "As soon as possible" }
+            - { value: "unsure", label: "Not sure yet" }
+
+    - title: "Schedule Preferences"
+      fields:
+        - key: preferred_days
+          label: "Preferred Days"
+          type: multiselect
+          required: false
+          options:
+            - { value: "mon", label: "Monday" }
+            - { value: "tue", label: "Tuesday" }
+            - { value: "wed", label: "Wednesday" }
+            - { value: "thu", label: "Thursday" }
+            - { value: "fri", label: "Friday" }
+
+        - key: preferred_time
+          label: "Preferred Schedule"
+          type: select
+          required: false
+          options:
+            - { value: "morning", label: "Morning (8am–12pm)" }
+            - { value: "morning_lunch_bunch", label: "Morning with Lunch Bunch (8am–12:30pm)" }
+            - { value: "extended_day", label: "Extended Day (8am–3pm)" }
+            - { value: "late_owls", label: "Late Owls (8am–6pm)" }
+            - { value: "afternoon", label: "Afternoon (1:30pm–6pm)" }
+            - { value: "afternoon_late", label: "Afternoon Late Start (3pm–6pm)" }
+            - { value: "flexible", label: "Flexible / Not sure yet" }
+
+    - title: "Parent / Guardian Information"
+      fields:
+        - key: guardian_name
+          label: "Parent / Guardian Full Name"
+          type: text
+          required: true
+
+        - key: contact_email
+          label: "Parent / Guardian Email"
+          type: email
+          required: true
+          help_text: "This is our primary way of reaching you. Please do not call — email only."
+
+        - key: contact_phone
+          label: "Parent / Guardian Cell Phone"
+          type: tel
+          required: true
+
+        - key: guardian_relationship
+          label: "Relationship to Child"
+          type: select
+          required: false
+          options:
+            - { value: "mother", label: "Mother" }
+            - { value: "father", label: "Father" }
+            - { value: "grandparent", label: "Grandparent" }
+            - { value: "legal_guardian", label: "Legal Guardian" }
+            - { value: "other", label: "Other" }
+
+        - key: address
+          label: "Home Address"
+          type: text
+          required: false
+          full_width: true
+
+        - key: city
+          label: "City"
+          type: text
+          required: false
+
+        - key: zip
+          label: "ZIP Code"
+          type: text
+          required: false
+
+    - title: "Second Parent / Guardian (Optional)"
+      fields:
+        - key: guardian_2_name
+          label: "Second Parent / Guardian Name"
+          type: text
+          required: false
+
+        - key: guardian_email
+          label: "Second Parent / Guardian Email"
+          type: email
+          required: false
+
+        - key: guardian_phone
+          label: "Second Parent / Guardian Phone"
+          type: tel
+          required: false
+
+    - title: "Emergency Contact"
+      fields:
+        - key: emergency_contact_name
+          label: "Emergency Contact Name"
+          type: text
+          required: true
+          help_text: "Must be someone other than the parents/guardians listed above."
+
+        - key: emergency_contact_relationship
+          label: "Relationship to Child"
+          type: text
+          required: true
+
+        - key: emergency_contact_phone
+          label: "Emergency Contact Phone"
+          type: tel
+          required: true
+
+    - title: "Health & Medical Information"
+      fields:
+        - key: allergies
+          label: "Allergies (food, environmental, or other)"
+          type: textarea
+          required: false
+          full_width: true
+          help_text: "List any known allergies. Write 'None' if not applicable."
+
+        - key: medical_conditions
+          label: "Medical Conditions or Special Needs"
+          type: textarea
+          required: false
+          full_width: true
+          help_text: "Include any conditions staff should be aware of (asthma, epi-pen required, etc.)."
+
+        - key: pediatrician_name
+          label: "Pediatrician / Doctor Name"
+          type: text
+          required: false
+
+        - key: pediatrician_phone
+          label: "Pediatrician / Doctor Phone"
+          type: tel
+          required: false
+
+    - title: "Additional Information"
+      fields:
+        - key: how_did_you_hear
+          label: "How did you hear about us?"
+          type: select
+          required: false
+          options:
+            - { value: "google", label: "Google / Internet search" }
+            - { value: "yelp", label: "Yelp" }
+            - { value: "friend_family", label: "Friend or family referral" }
+            - { value: "current_family", label: "Current YMLA family" }
+            - { value: "instagram_facebook", label: "Instagram / Facebook" }
+            - { value: "drove_by", label: "Drove by the school" }
+            - { value: "other", label: "Other" }
+
+        - key: notes
+          label: "Anything else we should know?"
+          type: textarea
+          required: false
+          full_width: true
+
+    - title: "Photo & Media Release"
+      fields:
+        - key: photo_release
+          label: >
+            I give Young Minds Learning Academy permission to photograph or video my child
+            for use in school materials, social media, and promotional content.
+          type: waiver
+          required: true
+
+reporting:
+  program_fields:
+    - "interested_in"
+    - "campus_preference"
+
+success:
+  title: "Application Received!"
+  message: >
+    Thank you for applying to Young Minds Learning Academy.
+    Play. Explore. Learn. — We look forward to welcoming your family!
+    Our team will review your application and reach out within 1–2 business days.
+  response_time: "1–2 business days"
+  next_steps:
+    - "We'll review your child's age and the program you selected."
+    - "If space is available, we'll email you to schedule a school tour."
+    - "After the tour, we'll confirm enrollment and send registration documents."
+  contact:
+    name: "Young Minds Learning Academy"
+    email: "Venice@YoungMindsLA.com"
+    phone: "310.827.1144"
+  hours: "Mon–Fri, 8am–6pm (email preferred — please do not call)"
+
+  notifications:
+    submission_email:
+      to: "Venice@YoungMindsLA.com"
+      cc: ""
+      bcc: ""
+      from_email: "noreply@enrollifyapp.com"
+      subject: "New Enrollment Application: {{student_name}}"
+
+    applicant_confirmation:
+      enabled: true
+      from_email: "noreply@enrollifyapp.com"
+      subject: "We received your application, {{student_name}}!"
+
+admin:
+  submission_statuses:
+    - New
+    - Tour Scheduled
+    - Tour Completed
+    - Waitlisted
+    - Enrolled
+    - Declined
+    - Archived
+  default_submission_status:
+    - New
+
+leads:
+  success_message: "Thanks for your interest in Young Minds Learning Academy! We'll be in touch within 1–2 business days."
+  cta_text: "I'm interested"
+
+scheduling:
+  url: "https://youngmindsla.com/contact/"
+  label: "Schedule a Tour"
+
+exports:
+  brightwheel:
+    field_map:
+      first_name:
+        source: student_first_name
+      last_name:
+        source: student_last_name
+      birthdate:
+        source: date_of_birth
+      program:
+        source: interested_in
+      campus:
+        source: campus_preference
+      parent_1_name:
+        source: guardian_name
+      parent_1_email:
+        source: contact_email
+      parent_1_phone:
+        source: contact_phone
+      allergies:
+        source: allergies
+      enrollment_status:
+        value: "Applied"
