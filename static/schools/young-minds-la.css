@@ -1,55 +1,266 @@
-/* Young Minds Learning Academy — form branding overrides
-   Logo: vertical stack (owl + "young minds LEARNING ACADEMY")
-   Colors: #fec96b yellow primary, #00bcd4 teal accent, white/warm-cream bg
-*/
+/* Young Minds LA — make form feel closer to their website */
+/* Goal: cleaner, lighter, more editorial. Do not change layout or controls. */
 
-/* Logo: strip the tiny square avatar box, show full logo naturally */
+body {
+  background: #fdfcf8 !important;
+  color: #3a3a3a !important;
+  font-family: "Helvetica Neue", Arial, sans-serif !important;
+}
+
+.page {
+  padding-top: 36px !important;
+  padding-bottom: 64px !important;
+}
+
+.container {
+  max-width: 1070px !important;
+}
+
+/* Header */
+.header {
+  align-items: center !important;
+  gap: 28px !important;
+  padding-bottom: 18px !important;
+  margin-bottom: 24px !important;
+  border-bottom: 1px solid #e9e3d6 !important;
+}
+
 .school-logo {
-  width: auto;
-  max-width: 220px;
-  height: 72px;
-  border-radius: 0;
-  border: none;
-  box-shadow: none;
-  background: transparent;
-  overflow: visible;
+  width: 120px !important;
+  height: auto !important;
+  min-width: 120px !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .school-logo img {
-  width: auto !important;
-  height: 72px !important;
   object-fit: contain !important;
 }
 
-/* The logo already contains the school name — hide the duplicate text */
 .school-title {
-  display: none;
+  font-size: 15px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: #6b6b6b !important;
 }
 
-.school-subtitle {
-  font-size: 13px;
-  color: #777777;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-/* Header: give it a bit more breathing room */
-.header {
-  padding: 8px 0 4px 0;
-  margin-bottom: 20px;
-  border-bottom: 1px solid #f5e9cb;
-}
-
-/* Notice/description box: match their warm yellow brand instead of the default orange */
+/* Description / intro notice */
 .notice {
-  background: #fffdf0;
-  border: 1px solid #fec96b;
-  color: #5c3d00;
+  background: #fbf8ef !important;
+  border: 1px solid #ddb45a !important;
+  color: #5f4d2e !important;
+  border-radius: 18px !important;
+  padding: 16px 22px !important;
+  font-size: 15px !important;
+  line-height: 1.45 !important;
+  margin-bottom: 20px !important;
+  box-shadow: none !important;
 }
 
-/* Section titles: slightly warmer */
-.section-title {
-  color: #333333;
-  border-bottom: 2px solid #fec96b;
-  padding-bottom: 6px;
+/* Section cards */
+.card,
+.form-section,
+.section-card {
+  background: #ffffff !important;
+  border: 1px solid #e9e3d6 !important;
+  border-radius: 18px !important;
+  box-shadow: none !important;
+}
+
+/* If your template uses generic section wrappers */
+.section,
+.form-card {
+  background: #ffffff !important;
+  border: 1px solid #e9e3d6 !important;
+  border-radius: 18px !important;
+  box-shadow: none !important;
+}
+
+/* Section spacing */
+.section,
+.form-section,
+.section-card,
+.card {
+  margin-bottom: 18px !important;
+}
+
+/* Section titles */
+.section-title,
+.card h2,
+.card h3,
+.form-section h2,
+.form-section h3 {
+  color: #333333 !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  margin-bottom: 14px !important;
+  padding-bottom: 10px !important;
+  border-bottom: 2px solid #e2b457 !important;
+}
+
+/* Labels */
+label,
+.field-label {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #3d3d3d !important;
+  margin-bottom: 8px !important;
+}
+
+/* Help text */
+.help-text,
+.field-help,
+small,
+.form-text {
+  color: #7d7d7d !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+/* Inputs */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="number"],
+input[type="date"],
+select,
+textarea {
+  background: #fffefb !important;
+  border: 1px solid #eadfbe !important;
+  border-radius: 16px !important;
+  color: #333333 !important;
+  min-height: 44px !important;
+  padding: 10px 14px !important;
+  box-shadow: none !important;
+  font-size: 14px !important;
+}
+
+textarea {
+  min-height: 110px !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #a2a2a2 !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none !important;
+  border-color: #7fc7d8 !important;
+  box-shadow: 0 0 0 3px rgba(127, 199, 216, 0.14) !important;
+  background: #ffffff !important;
+}
+
+/* Readonly age field */
+input[readonly] {
+  background: #faf8f1 !important;
+  color: #8a8a8a !important;
+  border-style: dashed !important;
+}
+
+/* Required star */
+.required,
+.required-marker {
+  color: #7fc7d8 !important;
+}
+
+/* Buttons */
+.btn,
+button[type="submit"],
+input[type="submit"] {
+  background: #d8b15a !important;
+  border: 1px solid #d8b15a !important;
+  color: #ffffff !important;
+  border-radius: 999px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  padding: 12px 24px !important;
+  min-height: 46px !important;
+  box-shadow: none !important;
+}
+
+.btn:hover,
+button[type="submit"]:hover,
+input[type="submit"]:hover {
+  background: #c7a04b !important;
+  border-color: #c7a04b !important;
+}
+
+/* Secondary buttons if present */
+.btn-secondary,
+.btn-ghost {
+  background: #ffffff !important;
+  color: #5a5a5a !important;
+  border: 1px solid #d9d9d9 !important;
+}
+
+/* Validation */
+.errorlist,
+.field-error,
+.error-message {
+  color: #b44d3a !important;
+}
+
+input.error,
+select.error,
+textarea.error,
+.field-error input,
+.field-error select,
+.field-error textarea {
+  border-color: #d98a7a !important;
+  background: #fff9f8 !important;
+}
+
+/* Waiver / checkbox block */
+.checkbox-row,
+.waiver-field,
+input[type="checkbox"] + label {
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  color: #4a4a4a !important;
+}
+
+/* Success page / confirmation card if reused */
+.success-card,
+.success-message,
+.card.success {
+  border-radius: 18px !important;
+  border: 1px solid #e9e3d6 !important;
+  box-shadow: none !important;
+}
+
+/* Mobile polish */
+@media (max-width: 768px) {
+  .page {
+    padding-top: 22px !important;
+  }
+
+  .header {
+    gap: 16px !important;
+    align-items: flex-start !important;
+  }
+
+  .school-logo {
+    width: 92px !important;
+    min-width: 92px !important;
+  }
+
+  .school-title {
+    font-size: 13px !important;
+  }
+
+  .section-title,
+  .card h2,
+  .card h3,
+  .form-section h2,
+  .form-section h3 {
+    font-size: 18px !important;
+  }
 }

@@ -11,14 +11,14 @@ branding:
   custom_css: "schools/young-minds-la.css"
 
   theme:
-    primary_color: "#fec96b"
-    accent_color: "#00bcd4"
-    background: "#fffef7"
+    primary_color: "#d8b15a"
+    accent_color: "#7fc7d8"
+    background: "#fdfcf8"
     card: "#ffffff"
-    text: "#333333"
-    muted: "#777777"
-    border: "#f5e9cb"
-    radius: "14px"
+    text: "#3a3a3a"
+    muted: "#7a7a7a"
+    border: "#ece7dc"
+    radius: "10px"
 
 form:
   title: "Enrollment Application"
