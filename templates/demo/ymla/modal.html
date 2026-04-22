@@ -102,7 +102,8 @@
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,.65);
+    background: rgba(0,0,0,.75);
+    backdrop-filter: blur(2px);
     z-index: 9999;
     align-items: center;
     justify-content: center;
@@ -229,7 +230,10 @@
   </ul>
 
   <div class="cta-box">
-    <h3>Ready to apply?</h3>
+    <h3>Start your application</h3>
+    <p style="font-size: 13px; color:#777;">
+      The form will open in a pop-up window
+    </p>
     <p>After touring our school, start your enrollment application below.<br>The process takes about 10–15 minutes.</p>
     <button class="btn-apply" onclick="document.getElementById('apply-modal').classList.add('open')">
       Start Application &rarr;

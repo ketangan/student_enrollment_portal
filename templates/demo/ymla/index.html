@@ -6,7 +6,14 @@
 <title>Enrollment Form Integration Options | Young Minds Learning Academy</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #333; background: #f7f7f7; }
+
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #333;
+    background: #f7f7f7;
+  }
+
+  a { color: inherit; text-decoration: none; }
 
   /* ── Header ── */
   .site-header {
@@ -17,86 +24,272 @@
     align-items: center;
     justify-content: space-between;
     height: 80px;
-    box-shadow: 0 1px 4px rgba(0,0,0,.07);
   }
-  .site-header img { height: 55px; width: auto; }
+
+  .site-header img {
+    height: 55px;
+    width: auto;
+  }
+
   .header-label {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: .1em;
     text-transform: uppercase;
     color: #00bcd4;
-    background: #e0f7fa;
-    padding: 4px 10px;
+    background: #eaf9fc;
+    padding: 5px 10px;
     border-radius: 4px;
   }
 
   /* ── Hero ── */
   .hero {
     background: #fff;
-    border-bottom: 1px solid #e8e8e8;
+    border-bottom: 1px solid #ececec;
     text-align: center;
-    padding: 52px 24px 40px;
+    padding: 56px 24px 42px;
   }
+
   .hero h1 {
-    font-size: 30px; color: #222; font-weight: 700;
-    letter-spacing: .02em; margin-bottom: 14px;
+    font-size: 34px;
+    color: #222;
+    font-weight: 700;
+    letter-spacing: .01em;
+    margin-bottom: 14px;
   }
+
   .hero p {
-    font-size: 16px; color: #555; line-height: 1.6;
-    max-width: 600px; margin: 0 auto;
+    font-size: 17px;
+    color: #555;
+    line-height: 1.65;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  .hero-note {
+    margin-top: 18px;
+    font-size: 14px;
+    color: #666;
+  }
+
+  .hero-note strong {
+    color: #222;
+  }
+
+  /* ── Intro strip ── */
+  .intro-strip {
+    max-width: 1100px;
+    margin: 28px auto 0;
+    padding: 0 24px;
+  }
+
+  .intro-box {
+    background: #ffffff;
+    border: 1px solid #e4e4e4;
+    border-radius: 10px;
+    padding: 20px 22px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .intro-box h3 {
+    font-size: 17px;
+    margin-bottom: 8px;
+    color: #222;
+  }
+
+  .intro-box p {
+    font-size: 14px;
+    line-height: 1.65;
+    color: #555;
   }
 
   /* ── Cards grid ── */
   .options-grid {
-    max-width: 960px;
-    margin: 48px auto 80px;
+    max-width: 1100px;
+    margin: 28px auto 80px;
     padding: 0 24px;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
     gap: 24px;
   }
+
   .card {
     background: #fff;
     border: 1px solid #e0e0e0;
     border-radius: 10px;
-    padding: 32px 28px;
+    padding: 30px 28px;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 2px 8px rgba(0,0,0,.05);
-    transition: box-shadow .2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04);
+    transition: box-shadow .2s ease, transform .2s ease;
   }
-  .card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.1); }
+
+  .card:hover {
+    box-shadow: 0 8px 22px rgba(0,0,0,.08);
+    transform: translateY(-1px);
+  }
+
   .card-badge {
     display: inline-block;
-    font-size: 11px; font-weight: 700; letter-spacing: .08em;
-    text-transform: uppercase; color: #00838f;
-    background: #e0f7fa; padding: 3px 9px; border-radius: 3px;
-    margin-bottom: 16px; width: fit-content;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #00838f;
+    background: #e0f7fa;
+    padding: 4px 9px;
+    border-radius: 3px;
+    margin-bottom: 16px;
+    width: fit-content;
   }
-  .card h2 { font-size: 20px; color: #222; margin-bottom: 10px; }
-  .card p { font-size: 14px; color: #555; line-height: 1.65; flex: 1; }
-  .card-footer { margin-top: 24px; }
+
+  .card h2 {
+    font-size: 24px;
+    color: #222;
+    margin-bottom: 10px;
+    line-height: 1.25;
+  }
+
+  .card-subtitle {
+    font-size: 14px;
+    color: #00a7c2;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+
+  .card p {
+    font-size: 15px;
+    color: #555;
+    line-height: 1.7;
+  }
+
+  .card ul {
+    margin-top: 16px;
+    padding-left: 18px;
+  }
+
+  .card li {
+    font-size: 14px;
+    color: #555;
+    line-height: 1.65;
+    margin-bottom: 8px;
+  }
+
+  .card-footer {
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
   .btn-demo {
     display: inline-block;
-    background: #00bcd4; color: #fff;
-    text-decoration: none;
-    padding: 11px 28px; border-radius: 4px;
-    font-size: 14px; font-weight: 700; letter-spacing: .04em;
-    transition: background .2s;
+    background: #00bcd4;
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    transition: background .2s ease;
   }
-  .btn-demo:hover { background: #00838f; }
-  .card-recommended .card-badge {
-    background: #fef9c3; color: #854d0e;
+
+  .btn-demo:hover {
+    background: #0097a7;
   }
+
+  .card-meta {
+    font-size: 13px;
+    color: #777;
+  }
+
   .card-recommended {
-    border-color: #fcd34d;
+    border-color: #f0c96a;
+    box-shadow: 0 4px 18px rgba(212, 171, 72, 0.08);
+  }
+
+  .card-recommended .card-badge {
+    background: #fef3c7;
+    color: #8a5a00;
+  }
+
+  /* ── Recommendation footer box ── */
+  .recommendation {
+    max-width: 1100px;
+    margin: -32px auto 70px;
+    padding: 0 24px;
+  }
+
+  .recommendation-box {
+    background: #fff;
+    border: 1px solid #e4e4e4;
+    border-left: 4px solid #00bcd4;
+    border-radius: 8px;
+    padding: 20px 22px;
+  }
+
+  .recommendation-box h3 {
+    font-size: 18px;
+    color: #222;
+    margin-bottom: 8px;
+  }
+
+  .recommendation-box p {
+    font-size: 14px;
+    color: #555;
+    line-height: 1.65;
   }
 
   /* ── Footer ── */
   .site-footer {
-    background: #222; color: #aaa; text-align: center;
-    padding: 28px; font-size: 13px;
+    background: #222;
+    color: #aaa;
+    text-align: center;
+    padding: 28px;
+    font-size: 13px;
+  }
+
+  @media (max-width: 800px) {
+    .site-header {
+      padding: 0 18px;
+      height: 72px;
+    }
+
+    .site-header img {
+      height: 44px;
+    }
+
+    .header-label {
+      display: none;
+    }
+
+    .hero {
+      padding: 42px 20px 34px;
+    }
+
+    .hero h1 {
+      font-size: 28px;
+    }
+
+    .hero p {
+      font-size: 16px;
+    }
+
+    .intro-box {
+      grid-template-columns: 1fr;
+    }
+
+    .options-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .card h2 {
+      font-size: 22px;
+    }
   }
 </style>
 </head>
@@ -109,69 +302,125 @@
   <span class="header-label">Integration Demo</span>
 </header>
 
-<div class="hero">
-  <h1>Enrollment Form — Integration Options</h1>
+<section class="hero">
+  <h1>How the enrollment form can fit into your website</h1>
   <p>
-    Below are four ways to embed or link your enrollment form into the
-    Young Minds Learning Academy website. Click any option to see a live preview.
+    Below are four ways the Young Minds enrollment form can be added to your existing website.
+    Each option uses the same form and same admissions workflow — the only difference is how parents access it.
   </p>
-</div>
+  <div class="hero-note">
+    <strong>Most seamless parent experience:</strong> fully embedded on the admissions page.<br>
+    <strong>Fastest setup:</strong> link out or dedicated page.
+  </div>
+</section>
 
-<div class="options-grid">
+<section class="intro-strip">
+  <div class="intro-box">
+    <div>
+      <h3>What stays the same</h3>
+      <p>
+        Your branding, application questions, admissions review workflow, and reporting all stay the same.
+        These options only change how the form is presented to families on your website.
+      </p>
+    </div>
+    <div>
+      <h3>What this demo is showing</h3>
+      <p>
+        Each preview below shows the same Young Minds form placed into the site in a different way,
+        so you can compare what feels most natural for parents and easiest for your team to maintain.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="options-grid">
 
   <div class="card">
     <span class="card-badge">Option 1</span>
-    <h2>Dedicated Enrollment Page</h2>
+    <h2>Dedicated application page</h2>
+    <div class="card-subtitle">Clean and distraction-free</div>
     <p>
-      The form lives on its own page — <em>youngmindsla.com/apply</em> or similar.
-      Clean, distraction-free, and the simplest to implement. Parents land directly
-      on the form with no other page content to scroll past.
+      Parents click “Apply” and go straight to a full application page. This keeps the experience simple,
+      focused, and easy to manage.
     </p>
+    <ul>
+      <li>Best when you want the form on its own page</li>
+      <li>Very simple to implement and maintain</li>
+      <li>Strong choice for mobile and direct links</li>
+    </ul>
     <div class="card-footer">
-      <a href="{{ base_url }}dedicated-page/" class="btn-demo">View Demo &rarr;</a>
+      <a href="{{ base_url }}dedicated-page/" class="btn-demo">View demo &rarr;</a>
+      <span class="card-meta">Best for: simplicity</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <span class="card-badge">Option 2</span>
+    <h2>Pop-up form on your existing page</h2>
+    <div class="card-subtitle">Minimal change to the current site</div>
+    <p>
+      The current admissions page stays mostly as-is. Parents click a button and the application opens in a modal overlay.
+    </p>
+    <ul>
+      <li>Keeps your current page content intact</li>
+      <li>Feels lighter than sending parents to a new page</li>
+      <li>Good if you want minimal website edits</li>
+    </ul>
+    <div class="card-footer">
+      <a href="{{ base_url }}modal/" class="btn-demo">View demo &rarr;</a>
+      <span class="card-meta">Best for: minimal disruption</span>
     </div>
   </div>
 
   <div class="card card-recommended">
-    <span class="card-badge">Option 2 — Recommended</span>
-    <h2>Modal / Lightbox</h2>
+    <span class="card-badge">Recommended</span>
+    <h2>Fully embedded into the admissions page</h2>
+    <div class="card-subtitle">Most seamless experience for parents</div>
     <p>
-      The admissions page stays as-is. A button triggers a full-screen modal overlay
-      with the form. No new page needed — works perfectly on top of your existing
-      WordPress content. Best balance of minimal disruption and great UX.
+      The application appears directly within the admissions page, below your existing process content.
+      Parents stay on one page and the form feels like a natural extension of the site.
     </p>
+    <ul>
+      <li>Feels the most native to the Young Minds website</li>
+      <li>Best overall user experience for families</li>
+      <li>Strongest option for reducing friction</li>
+    </ul>
     <div class="card-footer">
-      <a href="{{ base_url }}modal/" class="btn-demo">View Demo &rarr;</a>
-    </div>
-  </div>
-
-  <div class="card">
-    <span class="card-badge">Option 3</span>
-    <h2>Inline Page Section</h2>
-    <p>
-      The form is embedded directly in a section at the bottom of your admissions page,
-      below the existing 5-step process content. Parents don't leave the page — they
-      scroll down and fill it out inline.
-    </p>
-    <div class="card-footer">
-      <a href="{{ base_url }}bottom-section/" class="btn-demo">View Demo &rarr;</a>
+      <a href="{{ base_url }}bottom-section/" class="btn-demo">View demo &rarr;</a>
+      <span class="card-meta">Best for: parent experience</span>
     </div>
   </div>
 
   <div class="card">
     <span class="card-badge">Option 4</span>
-    <h2>Link Out (New Tab)</h2>
+    <h2>Open the form in a new tab</h2>
+    <div class="card-subtitle">Fastest technical implementation</div>
     <p>
-      Buttons on your admissions page open the full enrollment form in a new browser
-      tab. No iframe required — the simplest technical implementation and works
-      perfectly on all devices including mobile.
+      The admissions page includes a button that opens the full application in a separate browser tab.
+      This is the fastest and lowest-effort setup.
     </p>
+    <ul>
+      <li>Very easy to launch quickly</li>
+      <li>No embedded layout work needed</li>
+      <li>Works well across desktop and mobile</li>
+    </ul>
     <div class="card-footer">
-      <a href="{{ base_url }}link-out/" class="btn-demo">View Demo &rarr;</a>
+      <a href="{{ base_url }}link-out/" class="btn-demo">View demo &rarr;</a>
+      <span class="card-meta">Best for: fastest rollout</span>
     </div>
   </div>
 
-</div>
+</section>
+
+<section class="recommendation">
+  <div class="recommendation-box">
+    <h3>Recommendation for Young Minds</h3>
+    <p>
+      Based on the current admissions page design, the <strong>fully embedded option</strong> is the strongest fit.
+      It preserves the admissions process content you already have, keeps parents on one page, and feels the most natural within the existing site design.
+    </p>
+  </div>
+</section>
 
 <footer class="site-footer">
   &copy; 2024 Young Minds Learning Academy Preschool
