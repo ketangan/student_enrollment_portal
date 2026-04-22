@@ -171,6 +171,62 @@
         </div>
     </div>
 
+      <!-- Schedule Preferences breakdown -->
+      {% if schedule_rows %}
+      <div class="reports-card" style="margin-top:12px;">
+        <div class="reports-filterbar">
+          <div class="reports-k">Schedule preferences</div>
+          <div class="reports-muted" style="font-size:12px;">% of submissions with a schedule preference</div>
+        </div>
+        <table class="reports-table">
+          <thead>
+            <tr>
+              <th>Schedule</th>
+              <th style="width:140px;">Count</th>
+              <th style="width:140px;">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in schedule_rows %}
+            <tr>
+              <td>{{ row.label }}</td>
+              <td>{{ row.count }}</td>
+              <td class="reports-muted">{{ row.pct }}%</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      <!-- Enrichment Interests breakdown -->
+      {% if enrichment_rows %}
+      <div class="reports-card" style="margin-top:12px;">
+        <div class="reports-filterbar">
+          <div class="reports-k">Enrichment interests</div>
+          <div class="reports-muted" style="font-size:12px;">% of total selections (multi-select — families may choose multiple)</div>
+        </div>
+        <table class="reports-table">
+          <thead>
+            <tr>
+              <th>Activity</th>
+              <th style="width:140px;">Selections</th>
+              <th style="width:140px;">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in enrichment_rows %}
+            <tr>
+              <td>{{ row.label }}</td>
+              <td>{{ row.count }}</td>
+              <td class="reports-muted">{{ row.pct }}%</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
       <!-- Lead Pipeline section -->
       {% if lead_stats %}
       <div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--border,#e5e7eb);">

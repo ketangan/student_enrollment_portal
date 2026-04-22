@@ -801,6 +801,37 @@ def school_reports_view(request, school_slug: str):
         pct = (c / total * 100.0) if total else 0.0
         program_rows.append({"label": display_label, "raw": program_label, "count": c, "pct": round(pct, 1)})
 
+    # Schedule breakdown — preferred_time single-select, percent of responses that answered
+    sched_label_map = label_map.get("preferred_time", {})
+    sched_values = [
+        (s.data or {}).get("preferred_time")
+        for s in rows_for_reporting
+        if (s.data or {}).get("preferred_time")
+    ]
+    sched_total = len(sched_values)
+    sched_counts = Counter(sched_values)
+    schedule_rows = []
+    for val, c in sched_counts.most_common():
+        lbl = sched_label_map.get(val, val)
+        pct = (c / sched_total * 100.0) if sched_total else 0.0
+        schedule_rows.append({"label": lbl, "count": c, "pct": round(pct, 1)})
+
+    # Enrichment interests breakdown — multiselect, percent of total selections
+    enrich_label_map = label_map.get("enrichment_interests", {})
+    enrich_counter: Counter = Counter()
+    for s in rows_for_reporting:
+        interests = (s.data or {}).get("enrichment_interests", [])
+        if isinstance(interests, list):
+            for v in interests:
+                if v:
+                    enrich_counter[v] += 1
+    enrich_total = sum(enrich_counter.values())
+    enrichment_rows = []
+    for val, c in enrich_counter.most_common():
+        lbl = enrich_label_map.get(val, val)
+        pct = (c / enrich_total * 100.0) if enrich_total else 0.0
+        enrichment_rows.append({"label": lbl, "count": c, "pct": round(pct, 1)})
+
     recent = []
     for s in rows_for_reporting[:25]:
         program_label = (s.program_display_name(label_map=label_map) or "").strip() or NONE_LABEL
@@ -881,6 +912,8 @@ def school_reports_view(request, school_slug: str):
             "range_days": range_days,
             "csv_export_enabled": csv_enabled,
             "lead_stats": lead_stats,
+            "schedule_rows": schedule_rows,
+            "enrichment_rows": enrichment_rows,
         },
     )
 

@@ -251,6 +251,24 @@ form:
             - { value: "drove_by", label: "Drove by the school" }
             - { value: "other", label: "Other" }
 
+        - key: enrichment_interests
+          label: "Enrichment Interests"
+          type: multiselect
+          required: false
+          full_width: true
+          help_text: "Select any enrichment activities your child is interested in (choose all that apply)."
+          options:
+            - { value: "ninja_ninja", label: "Ninja Ninja" }
+            - { value: "music", label: "Music" }
+            - { value: "gardening", label: "Gardening" }
+            - { value: "cooking", label: "Cooking" }
+            - { value: "yoga", label: "Yoga" }
+            - { value: "dance", label: "Dance" }
+            - { value: "soccer", label: "Soccer" }
+            - { value: "art", label: "Art" }
+            - { value: "stem_science", label: "STEM / Science" }
+            - { value: "spanish", label: "Spanish" }
+
         - key: notes
           label: "Anything else we should know?"
           type: textarea

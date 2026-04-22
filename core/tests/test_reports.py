@@ -344,3 +344,153 @@ def test_superuser_can_access_reports_for_inactive_school(client):
     url = reverse("school_reports", kwargs={"school_slug": school.slug})
     resp = client.get(url)
     assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Schedule preferences (preferred_time) reporting
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_schedule_rows_counts_and_pct(client):
+    """schedule_rows should count preferred_time values and compute percent share."""
+    school = SchoolFactory(slug="sched-test-school", plan="starter")
+    user = UserFactory()
+    SchoolAdminMembershipFactory(user=user, school=school)
+    client.force_login(user)
+
+    SubmissionFactory(school=school, data={"preferred_time": "morning"})
+    SubmissionFactory(school=school, data={"preferred_time": "morning"})
+    SubmissionFactory(school=school, data={"preferred_time": "afternoon"})
+    # one with no preferred_time — should not affect denominator
+    SubmissionFactory(school=school, data={})
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug}) + "?range=90"
+    resp = client.get(url)
+    assert resp.status_code == 200
+
+    rows = resp.context["schedule_rows"]
+    by_val = {r["label"]: r for r in rows}
+
+    # 3 submissions answered; morning=2 (66.7%), afternoon=1 (33.3%)
+    assert by_val["morning"]["count"] == 2
+    assert by_val["afternoon"]["count"] == 1
+    assert abs(by_val["morning"]["pct"] - 66.7) < 0.1
+    assert abs(by_val["afternoon"]["pct"] - 33.3) < 0.1
+
+
+@pytest.mark.django_db
+def test_schedule_rows_empty_when_no_data(client):
+    """schedule_rows should be empty when no submissions have preferred_time."""
+    school = SchoolFactory(slug="sched-empty-school", plan="starter")
+    user = UserFactory()
+    SchoolAdminMembershipFactory(user=user, school=school)
+    client.force_login(user)
+
+    SubmissionFactory(school=school, data={"some_other_field": "x"})
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug}) + "?range=90"
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert resp.context["schedule_rows"] == []
+
+
+# ---------------------------------------------------------------------------
+# Enrichment interests (multiselect) reporting
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_enrichment_rows_counts_each_selection_independently(client):
+    """Each selected value in a multiselect is counted separately."""
+    school = SchoolFactory(slug="enrich-test-school", plan="starter")
+    user = UserFactory()
+    SchoolAdminMembershipFactory(user=user, school=school)
+    client.force_login(user)
+
+    # 3 submissions: art+music, art+dance, art
+    SubmissionFactory(school=school, data={"enrichment_interests": ["art", "music"]})
+    SubmissionFactory(school=school, data={"enrichment_interests": ["art", "dance"]})
+    SubmissionFactory(school=school, data={"enrichment_interests": ["art"]})
+    # one with no enrichment_interests
+    SubmissionFactory(school=school, data={})
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug}) + "?range=90"
+    resp = client.get(url)
+    assert resp.status_code == 200
+
+    rows = resp.context["enrichment_rows"]
+    by_val = {r["label"]: r for r in rows}
+
+    # art=3, music=1, dance=1; total selections=5
+    assert by_val["art"]["count"] == 3
+    assert by_val["music"]["count"] == 1
+    assert by_val["dance"]["count"] == 1
+    # percentages based on 5 total selections
+    assert abs(by_val["art"]["pct"] - 60.0) < 0.1
+    assert abs(by_val["music"]["pct"] - 20.0) < 0.1
+    assert abs(by_val["dance"]["pct"] - 20.0) < 0.1
+
+
+@pytest.mark.django_db
+def test_enrichment_rows_empty_when_no_data(client):
+    """enrichment_rows should be empty when no submissions have enrichment_interests."""
+    school = SchoolFactory(slug="enrich-empty-school", plan="starter")
+    user = UserFactory()
+    SchoolAdminMembershipFactory(user=user, school=school)
+    client.force_login(user)
+
+    SubmissionFactory(school=school, data={"some_field": "x"})
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug}) + "?range=90"
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert resp.context["enrichment_rows"] == []
+
+
+@pytest.mark.django_db
+def test_enrichment_rows_skips_empty_string_entries(client):
+    """Empty string values in the multiselect list are ignored."""
+    school = SchoolFactory(slug="enrich-empty-str-school", plan="starter")
+    user = UserFactory()
+    SchoolAdminMembershipFactory(user=user, school=school)
+    client.force_login(user)
+
+    SubmissionFactory(school=school, data={"enrichment_interests": ["art", "", "music"]})
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug}) + "?range=90"
+    resp = client.get(url)
+    assert resp.status_code == 200
+
+    rows = resp.context["enrichment_rows"]
+    by_val = {r["label"]: r for r in rows}
+
+    # "" should be ignored; only art and music counted
+    assert "" not in by_val
+    assert by_val["art"]["count"] == 1
+    assert by_val["music"]["count"] == 1
+
+
+@pytest.mark.django_db
+def test_enrichment_rows_ignores_non_list_data(client):
+    """If enrichment_interests is not a list (malformed data), it is skipped gracefully."""
+    school = SchoolFactory(slug="enrich-nonlist-school", plan="starter")
+    user = UserFactory()
+    SchoolAdminMembershipFactory(user=user, school=school)
+    client.force_login(user)
+
+    # A string instead of a list (malformed)
+    SubmissionFactory(school=school, data={"enrichment_interests": "art"})
+    # A valid submission
+    SubmissionFactory(school=school, data={"enrichment_interests": ["music"]})
+
+    url = reverse("school_reports", kwargs={"school_slug": school.slug}) + "?range=90"
+    resp = client.get(url)
+    assert resp.status_code == 200
+
+    rows = resp.context["enrichment_rows"]
+    by_val = {r["label"]: r for r in rows}
+
+    # Only the list-based submission should count
+    assert by_val["music"]["count"] == 1
+    assert "art" not in by_val
