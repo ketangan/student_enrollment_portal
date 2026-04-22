@@ -18,6 +18,14 @@ db.sqlite3
 media/
 staticfiles/
 
+# Coverage
+.coverage
+coverage.json
+htmlcov/
+
+# Temp / patch files
+*.patch
+
 # OS / Editor
 .DS_Store
 .vscode/
