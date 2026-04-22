@@ -19,6 +19,15 @@
   .dataTables_info { display: flex; align-items: center; gap: 8px; }
   /* Space between Search button and "0 results (1 total)" */
   #search_group { display: flex; align-items: center; gap: 8px; }
+
+  /* Quick-add panel */
+  #qa-panel { margin-top: 12px; }
+  #qa-panel .card-body label {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 3px;
+    color: inherit;
+  }
 </style>
 {% endblock %}
 
@@ -34,62 +43,54 @@
     + Add Lead
   </button>
 
-  <div id="qa-panel" style="display:none;margin-top:12px;padding:20px;border-radius:8px;border:1px solid #334155;background:var(--darkblue, #1e293b);">
-    <form method="post" action="{% url 'admin:core_lead_quick_add' %}">
-      {% csrf_token %}
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px;">
-        <div>
-          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#94a3b8;">Name *</label>
-          <input type="text" name="name" required autocomplete="off"
-            style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #475569;border-radius:4px;background:#0f172a;color:#f1f5f9;font-size:13px;">
-        </div>
-        <div>
-          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#94a3b8;">Email *</label>
-          <input type="email" name="email" required autocomplete="off"
-            style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #475569;border-radius:4px;background:#0f172a;color:#f1f5f9;font-size:13px;">
-        </div>
-        <div>
-          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#94a3b8;">Phone</label>
-          <input type="tel" name="phone" autocomplete="off"
-            style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #475569;border-radius:4px;background:#0f172a;color:#f1f5f9;font-size:13px;">
-        </div>
-        <div>
-          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#94a3b8;">Interested In</label>
-          <input type="text" name="interested_in_label" placeholder="e.g. Ballet, Hip-Hop" autocomplete="off"
-            style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #475569;border-radius:4px;background:#0f172a;color:#f1f5f9;font-size:13px;">
-        </div>
-        <div>
-          <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#94a3b8;">Source *</label>
-          <select name="source" required
-            style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #475569;border-radius:4px;background:#0f172a;color:#f1f5f9;font-size:13px;">
-            <option value="">— Select source —</option>
-            <option value="website">Website</option>
-            <option value="referral">Referral</option>
-            <option value="social">Social Media</option>
-            <option value="walk_in">Walk-in</option>
-            <option value="phone">Phone</option>
-            <option value="event">Event</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
+  <div id="qa-panel" style="display:none;">
+    <div class="card mt-2">
+      <div class="card-body">
+        <form method="post" action="{% url 'admin:core_lead_quick_add' %}">
+          {% csrf_token %}
+          <div class="form-row">
+            <div class="col-md-4 mb-2">
+              <label>Name <span class="text-danger">*</span></label>
+              <input type="text" name="name" required autocomplete="off" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-4 mb-2">
+              <label>Email <span class="text-danger">*</span></label>
+              <input type="email" name="email" required autocomplete="off" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-4 mb-2">
+              <label>Phone</label>
+              <input type="tel" name="phone" autocomplete="off" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-4 mb-2">
+              <label>Interested In</label>
+              <input type="text" name="interested_in_label" placeholder="e.g. Ballet, Hip-Hop" autocomplete="off" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-4 mb-2">
+              <label>Source <span class="text-danger">*</span></label>
+              <select name="source" required class="form-control form-control-sm">
+                <option value="">— Select source —</option>
+                <option value="website">Website</option>
+                <option value="referral">Referral</option>
+                <option value="social">Social Media</option>
+                <option value="walk_in">Walk-in</option>
+                <option value="phone">Phone</option>
+                <option value="event">Event</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group mb-3">
+            <label>Notes</label>
+            <textarea name="notes" rows="2" placeholder="Call notes, questions asked, etc." class="form-control form-control-sm"></textarea>
+          </div>
+          <div class="d-flex gap-2 align-items-center" style="gap:8px;">
+            <button type="submit" class="btn btn-success btn-sm">Save Lead</button>
+            <button type="button" class="btn btn-secondary btn-sm"
+              onclick="document.getElementById('qa-panel').style.display='none';">Cancel</button>
+          </div>
+        </form>
       </div>
-      <div style="margin-bottom:12px;">
-        <label style="display:block;font-size:12px;font-weight:600;margin-bottom:4px;color:#94a3b8;">Notes</label>
-        <textarea name="notes" rows="2" placeholder="Call notes, questions asked, etc."
-          style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #475569;border-radius:4px;background:#0f172a;color:#f1f5f9;font-size:13px;resize:vertical;"></textarea>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <button type="submit"
-          style="padding:7px 20px;background:#16a34a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;">
-          Save Lead
-        </button>
-        <button type="button"
-          onclick="document.getElementById('qa-panel').style.display='none';"
-          style="padding:7px 16px;background:#475569;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">
-          Cancel
-        </button>
-      </div>
-    </form>
+    </div>
   </div>
 </div>
 {% endif %}

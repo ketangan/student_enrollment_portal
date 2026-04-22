@@ -88,6 +88,9 @@ class FollowUpFilter(admin.SimpleListFilter):
 
 @admin.register(Lead)
 class LeadAdmin(admin.ModelAdmin):
+    class Media:
+        js = ("admin_actions.js",)
+
     list_display = (
         "name",
         "email",
