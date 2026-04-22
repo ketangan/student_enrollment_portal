@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADMISSIONS | Young Minds Learning Academy Preschool</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #333; background: #fff; }
+
+  /* ── Header ── */
+  .site-header {
+    background: #fff;
+    border-bottom: 1px solid #e8e8e8;
+    padding: 0 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 80px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  }
+  .site-header img { height: 55px; width: auto; }
+  .site-nav { display: flex; gap: 28px; list-style: none; }
+  .site-nav a {
+    color: #333; text-decoration: none; font-size: 13px;
+    font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  }
+  .site-nav a:hover { color: #00bcd4; }
+  .site-nav .active { color: #00bcd4; }
+
+  /* ── Page hero ── */
+  .page-hero {
+    background: #f7f7f7;
+    border-bottom: 1px solid #e8e8e8;
+    padding: 36px 40px 28px;
+    text-align: center;
+  }
+  .page-hero h1 {
+    font-size: 28px; color: #222; font-weight: 700;
+    letter-spacing: .04em; text-transform: uppercase;
+  }
+
+  /* ── Main content ── */
+  .page-content {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 52px 24px 80px;
+  }
+  .section-heading {
+    font-size: 22px; color: #222; font-weight: 700;
+    margin-bottom: 28px; text-align: center;
+  }
+
+  /* ── Steps list ── */
+  .steps-list { list-style: none; display: flex; flex-direction: column; gap: 28px; }
+  .step-item { display: flex; gap: 16px; align-items: flex-start; }
+  .step-icon {
+    flex-shrink: 0;
+    width: 28px; height: 28px;
+    background: #fff;
+    border: 2px solid #e0e0e0;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 4px;
+  }
+  .step-icon svg { width: 12px; height: 12px; }
+  .step-body h3 {
+    font-size: 20px; color: #00bcd4; margin-bottom: 8px; font-weight: 600;
+  }
+  .step-body p { font-size: 15px; color: #333; line-height: 1.7; }
+
+  /* Inline CTA inside step 2 */
+  .step-cta {
+    display: inline-block;
+    margin-top: 14px;
+    background: #00bcd4;
+    color: #fff;
+    text-decoration: none;
+    padding: 11px 28px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    transition: background .2s;
+  }
+  .step-cta:hover { background: #00838f; }
+  .step-cta-note {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #888;
+  }
+
+  /* ── Full-width CTA banner ── */
+  .cta-banner {
+    background: #00bcd4;
+    padding: 48px 24px;
+    text-align: center;
+    margin-top: 48px;
+  }
+  .cta-banner h2 { color: #fff; font-size: 26px; margin-bottom: 10px; }
+  .cta-banner p { color: rgba(255,255,255,.85); font-size: 16px; margin-bottom: 28px; }
+  .btn-primary {
+    display: inline-block;
+    background: #fff;
+    color: #00838f;
+    text-decoration: none;
+    padding: 15px 44px;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    transition: background .2s, color .2s;
+  }
+  .btn-primary:hover { background: #e0f7fa; }
+  .btn-note { margin-top: 12px; color: rgba(255,255,255,.7); font-size: 13px; }
+
+  /* ── Footer ── */
+  .site-footer {
+    background: #222; color: #aaa; text-align: center;
+    padding: 28px; font-size: 13px;
+  }
+  .site-footer a { color: #00bcd4; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a href="https://youngmindsla.com">
+    <img src="https://youngmindsla.com/wp-content/uploads/2019/03/YMLA-HOR-LOGO-BLK.gif" alt="Young Minds Learning Academy">
+  </a>
+  <ul class="site-nav">
+    <li><a href="https://youngmindsla.com">Home</a></li>
+    <li><a href="https://youngmindsla.com/philosophy/">Philosophy</a></li>
+    <li><a href="https://youngmindsla.com/admissions/" class="active">Our Schools</a></li>
+    <li><a href="https://youngmindsla.com/enrichment/">Enrichment</a></li>
+    <li><a href="https://youngmindsla.com/contact/">Contact</a></li>
+  </ul>
+</header>
+
+<div class="page-hero">
+  <h1>Admissions</h1>
+</div>
+
+<div class="page-content">
+  <h2 class="section-heading">Application Process</h2>
+
+  <ul class="steps-list">
+    <li class="step-item">
+      <div class="step-icon">
+        <svg viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="#ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="step-body">
+        <h3>1. Plan a Visit</h3>
+        <p>Come take a tour of our preschool to see what we have to offer. Tours are conducted on a regular basis for prospective parents to get a general overview of our teaching style and facilities.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-icon">
+        <svg viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="#ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="step-body">
+        <h3>2. Get on our Wait List</h3>
+        <p>If you decide our preschool is right for you, fill out an application to be placed on our waitlist. There is a $100 application fee to get on the wait list. You must tour our school first. <strong>***This application DOES NOT guarantee a spot at our preschool.</strong></p>
+        <a href="{{ form_url }}" target="_blank" rel="noopener noreferrer" class="step-cta">
+          Start Application &rarr;
+        </a>
+        <span class="step-cta-note">Opens in a new tab &mdash; takes about 10&ndash;15 minutes</span>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-icon">
+        <svg viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="#ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="step-body">
+        <h3>3. Enrollment</h3>
+        <p>Our new school year begins in July. Enrollment for the school year begins in January of that year. We contact families on our waitlist between January–April notifying you of our available spots. Please look out for an email from us.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-icon">
+        <svg viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="#ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="step-body">
+        <h3>4. Pre-Attendance Visits</h3>
+        <p>Prior to your child's first day of school, we encourage you to come for 1–4 "play dates" on our playground, allowing your child to get acquainted with their new school, friends, and teachers.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-icon">
+        <svg viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="#ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="step-body">
+        <h3>5. First Week of School</h3>
+        <p>We gradually introduce new students into the program so they feel safe and comfortable. We ask parents to dedicate one week of their time to help your child transition into preschool.</p>
+      </div>
+    </li>
+  </ul>
+</div>
+
+<div class="cta-banner">
+  <h2>Start Your Application Today</h2>
+  <p>After your tour, complete the enrollment form on our secure application page.</p>
+  <a href="{{ form_url }}" target="_blank" rel="noopener noreferrer" class="btn-primary">
+    Apply Now &rarr;
+  </a>
+  <p class="btn-note">Opens in a new tab</p>
+</div>
+
+<footer class="site-footer">
+  &copy; 2024 Young Minds Learning Academy Preschool &nbsp;|&nbsp;
+  <a href="https://youngmindsla.com/contact/">Contact Us</a>
+</footer>
+
+</body>
+</html>

@@ -2,8 +2,13 @@ from django.urls import path
 from django.views.generic import RedirectView
 from . import views
 from .views_billing import stripe_webhook
+from . import views_demo
 
 urlpatterns = [
+    # Demo pages (public, no auth)
+    path("demo/<slug:demo_slug>/", views_demo.demo_index, name="demo_index"),
+    path("demo/<slug:demo_slug>/<slug:demo_name>/", views_demo.demo_detail, name="demo_detail"),
+
     path("schools/<slug:school_slug>/apply/", views.apply_view, name="apply"),
 
     # must be BEFORE apply/<form_key> so "success" and "resume" don't get captured
