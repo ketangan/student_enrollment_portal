@@ -429,7 +429,7 @@ def send_resume_link_email(*, draft, school) -> bool:
     """
     Email the applicant their magic resume link.
     Returns True if sent, False if skipped (no email) or failed.
-    Uses DEFAULT_FROM_EMAIL — same SendGrid config used across the app.
+    Uses DEFAULT_FROM_EMAIL — same Resend config used across the app.
     """
     if not draft.email:
         return False
