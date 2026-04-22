@@ -6,6 +6,7 @@
 {% if trial_banner %}
 <div style="
   padding: 10px 20px;
+  margin-bottom: 16px;
   font-size: 0.875rem;
   font-weight: 500;
   display: flex;
@@ -13,11 +14,13 @@
   gap: 12px;
   {% if trial_banner.expired %}
   background: #fef2f2;
-  border-bottom: 1px solid #fca5a5;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
   color: #991b1b;
   {% else %}
   background: #fffbeb;
-  border-bottom: 1px solid #fcd34d;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
   color: #92400e;
   {% endif %}
 ">
