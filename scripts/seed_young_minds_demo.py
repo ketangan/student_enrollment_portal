@@ -63,6 +63,39 @@ STATUS_WEIGHTS = [
     ("Waitlisted", 0.05),
     ("Declined", 0.05),
 ]
+ENRICHMENT_OPTIONS = [
+    "ninja_ninja",
+    "music",
+    "gardening",
+    "cooking",
+    "yoga",
+    "dance",
+    "soccer",
+    "art",
+    "stem_science",
+    "spanish",
+]
+
+ENRICHMENT_WEIGHTS = [
+    ("music", 0.20),
+    ("art", 0.18),
+    ("dance", 0.15),
+    ("soccer", 0.12),
+    ("ninja_ninja", 0.10),
+    ("stem_science", 0.08),
+    ("yoga", 0.07),
+    ("cooking", 0.05),
+    ("gardening", 0.03),
+    ("spanish", 0.02),
+]
+
+SCHEDULE_WEIGHTS = [
+    ("extended_day", 0.40),
+    ("morning", 0.25),
+    ("late_owls", 0.20),
+    ("morning_lunch_bunch", 0.10),
+    ("flexible", 0.05),
+]
 
 PREFERRED_TIME_BY_PROGRAM = {
     "2yr_program": ["morning", "morning_lunch_bunch", "extended_day"],
@@ -155,6 +188,17 @@ def maybe_second_guardian():
     return "", "", ""
 
 
+def pick_enrichments():
+    # 0–3 selections per child (realistic)
+    count = random.choices([0, 1, 2, 3], weights=[0.2, 0.4, 0.3, 0.1])[0]
+    if count == 0:
+        return []
+
+    choices = [x for x, _ in ENRICHMENT_WEIGHTS]
+    weights = [w for _, w in ENRICHMENT_WEIGHTS]
+
+    return list(set(random.choices(choices, weights=weights, k=count)))
+
 def build_submission(idx):
     child_first = random.choice(FIRST_NAMES)
     child_last = random.choice(LAST_NAMES)
@@ -194,7 +238,7 @@ def build_submission(idx):
             ["new_student", "returning_student", "sibling"], weights=[0.72, 0.12, 0.16], k=1
         )[0],
         "desired_start_date": random.choices(DESIRED_START_OPTIONS, weights=[0.35, 0.10, 0.25, 0.20, 0.10], k=1)[0],
-        "preferred_time": random.choice(PREFERRED_TIME_BY_PROGRAM[program]),
+        "preferred_time": weighted_choice(SCHEDULE_WEIGHTS),
         "guardian_name": guardian_name,
         "contact_email": unique_email(guardian_first, guardian_last, idx),
         "contact_phone": make_phone(),
@@ -214,6 +258,7 @@ def build_submission(idx):
         "pediatrician_phone": make_phone(),
         "how_did_you_hear": weighted_choice(HOW_HEARD_OPTIONS),
         "notes": random.choice(NOTES),
+        "enrichment_interests": pick_enrichments(),
         "photo_release": True,
         "enrollment_agreement": True,
     }
