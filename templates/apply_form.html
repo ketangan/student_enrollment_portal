@@ -31,6 +31,7 @@
     <div class="page">
       <div class="container">
 
+        {% if not embed_mode %}
         <!-- Header -->
         <div class="header">
           <div class="school-logo">
@@ -49,6 +50,7 @@
 
         {% if form.description %}
           <div class="notice">{{ form.description }}</div>
+        {% endif %}
         {% endif %}
 
         {% if messages %}

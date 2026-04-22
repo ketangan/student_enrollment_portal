@@ -117,17 +117,6 @@ form:
 
     - title: "Schedule Preferences"
       fields:
-        - key: preferred_days
-          label: "Preferred Days"
-          type: multiselect
-          required: false
-          options:
-            - { value: "mon", label: "Monday" }
-            - { value: "tue", label: "Tuesday" }
-            - { value: "wed", label: "Wednesday" }
-            - { value: "thu", label: "Thursday" }
-            - { value: "fri", label: "Friday" }
-
         - key: preferred_time
           label: "Preferred Schedule"
           type: select
@@ -269,11 +258,34 @@ form:
           full_width: true
 
     - title: "Photo & Media Release"
+      description: >
+        Young Minds Learning Academy occasionally photographs and videos children during
+        school activities for use in our website, social media, newsletters, and other
+        promotional materials. Your consent below authorizes this use. You may withdraw
+        consent at any time by notifying the school in writing.
       fields:
         - key: photo_release
           label: >
             I give Young Minds Learning Academy permission to photograph or video my child
             for use in school materials, social media, and promotional content.
+          type: waiver
+          required: true
+
+    - title: "Enrollment Agreement"
+      description: >
+        Please read the following terms carefully. By checking the box below, you acknowledge
+        that you have read and agree to the enrollment terms and policies of Young Minds
+        Learning Academy.
+      fields:
+        - key: enrollment_agreement
+          label: >
+            I agree to the enrollment terms and policies of Young Minds Learning Academy,
+            including the payment schedule, attendance expectations, and withdrawal notice
+            requirements. I understand that enrollment is subject to availability and that
+            a signed enrollment contract and deposit are required to secure my child's spot.
+            I acknowledge that tuition is due regardless of absences, school closures due to
+            holidays, or illness. I agree to provide at least 30 days' written notice prior
+            to withdrawing my child from the program.
           type: waiver
           required: true
 

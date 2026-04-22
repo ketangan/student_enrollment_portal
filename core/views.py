@@ -375,6 +375,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                     values=request.POST,
                 )
                 ctx["save_resume_enabled"] = save_resume_enabled
+                ctx["embed_mode"] = request.GET.get("embed") == "1"
                 return render(request, "apply_form.html", ctx)
 
             _inject_waiver_metadata(cleaned, form_cfg, request)
@@ -432,6 +433,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
             values=active_draft.data if active_draft else {},
         )
         ctx["save_resume_enabled"] = save_resume_enabled
+        ctx["embed_mode"] = request.GET.get("embed") == "1"
         return render(request, "apply_form.html", ctx)
 
     # ----------------------------
@@ -485,6 +487,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 values=request.POST,
             )
             ctx["save_resume_enabled"] = save_resume_enabled
+            ctx["embed_mode"] = request.GET.get("embed") == "1"
             return render(request, "apply_form.html", ctx)
 
         _inject_waiver_metadata(cleaned, form_cfg, request)
@@ -561,6 +564,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
         values=active_draft.data if active_draft else {},
     )
     ctx["save_resume_enabled"] = save_resume_enabled
+    ctx["embed_mode"] = request.GET.get("embed") == "1"
     return render(request, "apply_form.html", ctx)
 
 
