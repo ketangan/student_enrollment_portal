@@ -380,5 +380,25 @@
     {% if branding.custom_js %}
       <script defer src="{% static branding.custom_js %}"></script>
     {% endif %}
+
+    {% if embed_mode %}
+    <script>
+      // Notify parent frame of content height so it can resize the iframe.
+      // Only runs when ?embed=1 is present — no-op for standalone form loads.
+      (function () {
+        function postHeight() {
+          var h = document.documentElement.scrollHeight;
+          window.parent.postMessage({ type: "iframeResize", height: h }, "*");
+        }
+        window.addEventListener("load", postHeight);
+        // Re-send when DOM changes (validation errors, section toggles, etc.)
+        if (window.MutationObserver) {
+          new MutationObserver(postHeight).observe(document.body, {
+            childList: true, subtree: true, attributes: true
+          });
+        }
+      })();
+    </script>
+    {% endif %}
   </body>
 </html>
