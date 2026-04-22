@@ -72,6 +72,28 @@
   }
   .step-body p { font-size: 15px; color: #333; line-height: 1.7; }
 
+  /* Inline CTA inside step 2 */
+  .step-cta {
+    display: inline-block;
+    margin-top: 14px;
+    background: #00bcd4;
+    color: #fff;
+    text-decoration: none;
+    padding: 11px 28px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    transition: background .2s;
+  }
+  .step-cta:hover { background: #00838f; }
+  .step-cta-note {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #888;
+  }
+
   /* ── Divider ── */
   .divider {
     max-width: 880px;
@@ -158,6 +180,10 @@
       <div class="step-body">
         <h3>2. Get on our Wait List</h3>
         <p>If you decide our preschool is right for you, fill out an application to be placed on our waitlist. There is a $100 application fee to get on the wait list. You must tour our school first. <strong>***This application DOES NOT guarantee a spot at our preschool.</strong></p>
+        <a href="#apply" class="step-cta">
+          Start Application &rarr;
+        </a>
+        <span class="step-cta-note">Form is embedded below on this page</span>
       </div>
     </li>
     <li class="step-item">

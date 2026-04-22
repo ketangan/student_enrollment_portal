@@ -3,12 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Enrollment Application | Young Minds Learning Academy Preschool</title>
+<title>ADMISSIONS | Young Minds Learning Academy Preschool</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #333; background: #fff; }
 
-  /* ── Header ── */
   .site-header {
     background: #fff;
     border-bottom: 1px solid #e8e8e8;
@@ -31,7 +30,6 @@
   .site-nav a:hover { color: #00bcd4; }
   .site-nav .active { color: #00bcd4; }
 
-  /* ── Page hero ── */
   .page-hero {
     background: #f7f7f7;
     border-bottom: 1px solid #e8e8e8;
@@ -42,38 +40,96 @@
     font-size: 28px; color: #222; font-weight: 700;
     letter-spacing: .04em; text-transform: uppercase;
   }
-  .page-hero .breadcrumb {
-    margin-top: 8px; font-size: 13px; color: #888;
-  }
-  .page-hero .breadcrumb a { color: #00bcd4; text-decoration: none; }
 
-  /* ── Form wrapper ── */
-  .form-page-wrapper {
-    max-width: 920px;
+  .page-content {
+    max-width: 880px;
     margin: 0 auto;
-    padding: 48px 24px 80px;
+    padding: 52px 24px 80px;
   }
-  .form-intro {
-    text-align: center;
-    margin-bottom: 32px;
-  }
-  .form-intro p {
-    font-size: 15px; color: #555; line-height: 1.6; max-width: 600px; margin: 0 auto;
-  }
-  .iframe-container {
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 12px rgba(0,0,0,.06);
-  }
-  .iframe-container iframe {
-    display: block;
-    width: 100%;
-    height: 600px; /* initial; auto-resized by postMessage */
-    border: none;
+  .section-heading {
+    font-size: 22px; color: #222; font-weight: 700;
+    margin-bottom: 28px; text-align: center;
   }
 
-  /* ── Footer ── */
+  .steps-list { list-style: none; display: flex; flex-direction: column; gap: 28px; }
+  .step-item { display: flex; gap: 16px; align-items: flex-start; }
+  .step-icon {
+    flex-shrink: 0;
+    width: 28px; height: 28px;
+    background: #fff;
+    border: 2px solid #e0e0e0;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 4px;
+  }
+  .step-icon svg { width: 12px; height: 12px; }
+  .step-body h3 {
+    font-size: 20px; color: #00bcd4; margin-bottom: 8px; font-weight: 600;
+  }
+  .step-body p { font-size: 15px; color: #333; line-height: 1.7; }
+
+  .step-cta {
+    display: inline-block;
+    margin-top: 14px;
+    background: #00bcd4;
+    color: #fff;
+    text-decoration: none;
+    padding: 11px 28px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    transition: background .2s;
+  }
+  .step-cta:hover { background: #00838f; }
+
+  .step-cta-note {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #888;
+  }
+
+  .cta-banner {
+    background: #f0fbfd;
+    border-top: 1px solid #d7f1f5;
+    border-bottom: 1px solid #d7f1f5;
+    margin-top: 52px;
+    padding: 46px 24px;
+    text-align: center;
+  }
+  .cta-banner h2 {
+    font-size: 28px;
+    color: #00838f;
+    margin-bottom: 10px;
+  }
+  .cta-banner p {
+    color: #555;
+    font-size: 16px;
+    line-height: 1.7;
+    margin-bottom: 24px;
+  }
+
+  .btn-primary {
+    display: inline-block;
+    background: #00bcd4;
+    color: #fff;
+    text-decoration: none;
+    padding: 15px 42px;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    transition: background .2s;
+  }
+  .btn-primary:hover { background: #00838f; }
+
+  .btn-note {
+    margin-top: 10px;
+    color: #777;
+    font-size: 13px;
+  }
+
   .site-footer {
     background: #222;
     color: #aaa;
@@ -100,33 +156,79 @@
 </header>
 
 <div class="page-hero">
-  <h1>Enrollment Application</h1>
-  <div class="breadcrumb">
-    <a href="https://youngmindsla.com">Home</a> &rsaquo;
-    <a href="https://youngmindsla.com/admissions/">Admissions</a> &rsaquo;
-    Apply
-  </div>
+  <h1>Admissions</h1>
 </div>
 
-<div class="form-page-wrapper">
-  <div class="form-intro">
-    <h2 style="margin-bottom: 12px; font-size: 22px;">Apply for Enrollment</h2>
-<p style="font-size: 15px; color: #555; line-height: 1.6;">
-  Completing this application places your child on our admissions waitlist.
-  The process takes about 10–15 minutes.
-</p>
-  </div>
+<div class="page-content">
+  <h2 class="section-heading">Application Process</h2>
 
-  <div style="margin-bottom: 24px; font-size: 13px; color: #777; text-align: center;">
-  ✓ Secure form &nbsp;&nbsp; • &nbsp;&nbsp; ✓ Takes ~10–15 minutes &nbsp;&nbsp; • &nbsp;&nbsp; ✓ No payment required to apply
+  <ul class="steps-list">
+    <li class="step-item">
+      <div class="step-icon">
+        <svg viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="#ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="step-body">
+        <h3>1. Plan a Visit</h3>
+        <p>Come take a tour of our preschool to see what we have to offer. Tours are conducted on a regular basis for prospective parents to get a general overview of our teaching style and facilities.</p>
+      </div>
+    </li>
+
+    <li class="step-item">
+      <div class="step-icon">
+        <svg viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="#ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="step-body">
+        <h3>2. Get on our Wait List</h3>
+        <p>If you decide our preschool is right for you, fill out an application to be placed on our waitlist. There is a $100 application fee to get on the wait list. You must tour our school first. <strong>***This application DOES NOT guarantee a spot at our preschool.</strong></p>
+        <a href="/demo/{{ demo_slug }}/standalone-form/" class="step-cta">
+          Start Application &rarr;
+        </a>
+        <span class="step-cta-note">Opens the full application on its own dedicated page</span>
+      </div>
+    </li>
+
+    <li class="step-item">
+      <div class="step-icon">
+        <svg viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="#ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="step-body">
+        <h3>3. Enrollment</h3>
+        <p>Our new school year begins in July. Enrollment for the school year begins in January of that year. We contact families on our waitlist between January–April notifying you of our available spots. Please look out for an email from us.</p>
+      </div>
+    </li>
+
+    <li class="step-item">
+      <div class="step-icon">
+        <svg viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="#ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="step-body">
+        <h3>4. Pre-Attendance Visits</h3>
+        <p>Prior to your child's first day of school, we encourage you to come for 1–4 "play dates" on our playground, allowing your child to get acquainted with their new school, friends, and teachers.</p>
+      </div>
+    </li>
+
+    <li class="step-item">
+      <div class="step-icon">
+        <svg viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="#ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="step-body">
+        <h3>5. First Week of School</h3>
+        <p>We gradually introduce new students into the program so they feel safe and comfortable. We ask parents to dedicate one week of their time to help your child transition into preschool.</p>
+      </div>
+    </li>
+  </ul>
 </div>
-  <div class="iframe-container">
-    <iframe
-      src="{{ embed_form_url }}"
-      title="Young Minds Enrollment Application"
-      allow="payment"
-    ></iframe>
-  </div>
+
+<div class="cta-banner">
+  <h2>Ready to Apply?</h2>
+  <p>
+    When you're ready, continue to the full enrollment application page.<br>
+    The form takes about 10–15 minutes to complete.
+  </p>
+  <a href="/demo/{{ demo_slug }}/standalone-form/" class="btn-primary">
+    Start Application &rarr;
+  </a>
+  <div class="btn-note">Opens on its own dedicated application page</div>
 </div>
 
 <footer class="site-footer">
@@ -134,13 +236,5 @@
   <a href="https://youngmindsla.com/contact/">Contact Us</a>
 </footer>
 
-<script>
-  window.addEventListener("message", function (e) {
-    if (e.data && e.data.type === "iframeResize") {
-      var iframe = document.querySelector(".iframe-container iframe");
-      if (iframe) iframe.style.height = e.data.height + "px";
-    }
-  });
-</script>
 </body>
 </html>
