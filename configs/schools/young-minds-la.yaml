@@ -78,9 +78,9 @@ form:
           type: select
           required: true
           options:
-            - { value: "2yr_program", label: "2-Year-Old Program (child must be 2 by Sept 1)" }
-            - { value: "3yr_program", label: "3-Year-Old Program (child must be 3 by Sept 1)" }
-            - { value: "4yr_program", label: "4-Year-Old Program (child must be 4 by Sept 1)" }
+            - { value: "2yr_program", label: "2-Year-Old Program" }
+            - { value: "3yr_program", label: "3-Year-Old Program" }
+            - { value: "4yr_program", label: "4-Year-Old Program" }
             - { value: "parent_and_me", label: "Parent & Me Classes (Venice campus)" }
             - { value: "tk_kinder", label: "Full-Day TK & Kindergarten (West LA campus)" }
             - { value: "unsure", label: "Not sure yet — please advise" }
