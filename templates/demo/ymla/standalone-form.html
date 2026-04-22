@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enrollment Application | Young Minds Learning Academy Preschool</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #333; background: #fff; }
+
+  /* ── Header ── */
+  .site-header {
+    background: #fff;
+    border-bottom: 1px solid #e8e8e8;
+    padding: 0 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 80px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 1px 4px rgba(0,0,0,.07);
+  }
+  .site-header img { height: 55px; width: auto; }
+  .site-nav { display: flex; gap: 28px; list-style: none; }
+  .site-nav a {
+    color: #333; text-decoration: none; font-size: 13px;
+    font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  }
+  .site-nav a:hover { color: #00bcd4; }
+  .site-nav .active { color: #00bcd4; }
+
+  /* ── Page hero ── */
+  .page-hero {
+    background: #f7f7f7;
+    border-bottom: 1px solid #e8e8e8;
+    padding: 36px 40px 28px;
+    text-align: center;
+  }
+  .page-hero h1 {
+    font-size: 28px; color: #222; font-weight: 700;
+    letter-spacing: .04em; text-transform: uppercase;
+  }
+  .page-hero .breadcrumb {
+    margin-top: 8px; font-size: 13px; color: #888;
+  }
+  .page-hero .breadcrumb a { color: #00bcd4; text-decoration: none; }
+
+  /* ── Form wrapper ── */
+  .form-page-wrapper {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+  .form-intro {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .form-intro p {
+    font-size: 15px; color: #555; line-height: 1.6; max-width: 600px; margin: 0 auto;
+  }
+  .iframe-container {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,.06);
+  }
+  .iframe-container iframe {
+    display: block;
+    width: 100%;
+    height: 600px; /* initial; auto-resized by postMessage */
+    border: none;
+  }
+
+  /* ── Footer ── */
+  .site-footer {
+    background: #222;
+    color: #aaa;
+    text-align: center;
+    padding: 28px;
+    font-size: 13px;
+  }
+  .site-footer a { color: #00bcd4; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a href="https://youngmindsla.com">
+    <img src="https://youngmindsla.com/wp-content/uploads/2019/03/YMLA-HOR-LOGO-BLK.gif" alt="Young Minds Learning Academy">
+  </a>
+  <ul class="site-nav">
+    <li><a href="https://youngmindsla.com">Home</a></li>
+    <li><a href="https://youngmindsla.com/philosophy/">Philosophy</a></li>
+    <li><a href="https://youngmindsla.com/admissions/" class="active">Our Schools</a></li>
+    <li><a href="https://youngmindsla.com/enrichment/">Enrichment</a></li>
+    <li><a href="https://youngmindsla.com/contact/">Contact</a></li>
+  </ul>
+</header>
+
+<div class="page-hero">
+  <h1>Enrollment Application</h1>
+  <div class="breadcrumb">
+    <a href="https://youngmindsla.com">Home</a> &rsaquo;
+    <a href="https://youngmindsla.com/admissions/">Admissions</a> &rsaquo;
+    Apply
+  </div>
+</div>
+
+<div class="form-page-wrapper">
+  <div class="form-intro">
+    <p>Please complete the enrollment application below. All fields marked with an asterisk (*) are required. After submitting, our team will be in touch within 2–3 business days.</p>
+  </div>
+
+  <div class="iframe-container">
+    <iframe
+      src="{{ embed_form_url }}"
+      title="Young Minds Enrollment Application"
+      allow="payment"
+    ></iframe>
+  </div>
+</div>
+
+<footer class="site-footer">
+  &copy; 2024 Young Minds Learning Academy Preschool &nbsp;|&nbsp;
+  <a href="https://youngmindsla.com/contact/">Contact Us</a>
+</footer>
+
+<script>
+  window.addEventListener("message", function (e) {
+    if (e.data && e.data.type === "iframeResize") {
+      var iframe = document.querySelector(".iframe-container iframe");
+      if (iframe) iframe.style.height = e.data.height + "px";
+    }
+  });
+</script>
+</body>
+</html>

@@ -16,7 +16,7 @@ DEMO_REGISTRY = {
     "ymla-demo": {
         "school_slug": "young-minds-la",
         "template_dir": "demo/ymla",
-        "demos": ["dedicated-page", "modal", "bottom-section", "link-out"],
+        "demos": ["dedicated-page", "modal", "bottom-section", "link-out", "standalone-form"],
     },
 }
 
