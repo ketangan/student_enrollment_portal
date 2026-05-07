@@ -129,6 +129,12 @@ class OpsUserCreateForm(forms.ModelForm):
         widget=forms.PasswordInput,
         label="Confirm password",
     )
+    school = forms.ModelChoiceField(
+        queryset=School.objects.order_by("display_name", "slug"),
+        required=False,
+        empty_label="— No school (superuser / staff only) —",
+        help_text="Assigns this user as a school admin. Leave blank for superusers.",
+    )
 
     class Meta:
         model = User
@@ -140,6 +146,10 @@ class OpsUserCreateForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Render school labels as "Display Name (slug)" for clarity
+        self.fields["school"].label_from_instance = lambda s: (
+            f"{s.display_name} ({s.slug})" if s.display_name else s.slug
+        )
         _apply_dash_attrs(self)
 
     def clean(self):

@@ -252,6 +252,24 @@ def test_ops_user_create(client, superuser):
 
 
 @pytest.mark.django_db
+def test_ops_user_create_with_school(client, superuser, school):
+    client.force_login(superuser)
+    client.post(reverse("ops_user_create"), {
+        "username": "schoolstaff",
+        "email": "staff@school.com",
+        "first_name": "",
+        "last_name": "",
+        "password": "securepass99",
+        "password_confirm": "securepass99",
+        "is_staff": True,
+        "is_superuser": False,
+        "school": school.pk,
+    })
+    user = User.objects.get(username="schoolstaff")
+    assert SchoolAdminMembership.objects.filter(user=user, school=school).exists()
+
+
+@pytest.mark.django_db
 def test_ops_user_create_password_mismatch(client, superuser):
     client.force_login(superuser)
     resp = client.post(reverse("ops_user_create"), {

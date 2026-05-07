@@ -309,7 +309,18 @@ def ops_user_create_view(request):
             user.save()
             _log(request, "add", "auth.user", user.pk, str(user),
                  {"name": "create_user", "email": user.email})
-            messages.success(request, f"User '{user.email}' created.")
+
+            school = form.cleaned_data.get("school")
+            if school:
+                if hasattr(user, "school_membership"):
+                    messages.warning(request, f"User already has a school assignment — skipped.")
+                else:
+                    SchoolAdminMembership.objects.create(user=user, school=school)
+                    _log(request, "add", "core.schooladminmembership", user.pk,
+                         f"{user.email} → {school.slug}",
+                         {"name": "add_member", "email": user.email, "school": school.slug})
+
+            messages.success(request, f"User '{user.email or user.username}' created.")
             return redirect("ops_user_detail", user_id=user.pk)
     else:
         form = OpsUserCreateForm()
