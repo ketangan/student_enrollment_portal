@@ -3,93 +3,242 @@ school:
   display_name: "Maplewood Learning Center"
   website_url: ""
 
-form:
-  title: "Apply for Enrollment"
-  description: >
-    Thank you for your interest in Maplewood Learning Center.
-    Please complete this application and pay the non-refundable
-    application fee to secure your spot in the review queue.
+# Three separate application forms for different programs.
+# Each has its own URL: /schools/maplewood-learning/apply/?form_key=<key>
+forms:
+  general:
+    title: "General Enrollment"
+    description: >
+      Apply for enrollment in our core academic program.
+      A non-refundable $50 application fee is required to complete your application.
 
-  sections:
-    - title: "Student Information"
-      fields:
-        - key: student_first_name
-          label: "Student First Name"
-          type: text
-          required: true
+    form:
+      sections:
+        - title: "Student Information"
+          fields:
+            - key: student_first_name
+              label: "Student First Name"
+              type: text
+              required: true
 
-        - key: student_last_name
-          label: "Student Last Name"
-          type: text
-          required: true
+            - key: student_last_name
+              label: "Student Last Name"
+              type: text
+              required: true
 
-        - key: date_of_birth
-          label: "Date of Birth"
-          type: date
-          required: true
+            - key: date_of_birth
+              label: "Date of Birth"
+              type: date
+              required: true
 
-        - key: grade_applying_for
-          label: "Grade Applying For"
-          type: select
-          required: true
-          options:
-            - { value: "pre_k", label: "Pre-K" }
-            - { value: "k",     label: "Kindergarten" }
-            - { value: "1st",   label: "1st Grade" }
-            - { value: "2nd",   label: "2nd Grade" }
-            - { value: "3rd",   label: "3rd Grade" }
-            - { value: "4th",   label: "4th Grade" }
-            - { value: "5th",   label: "5th Grade" }
+            - key: grade_applying_for
+              label: "Grade Applying For"
+              type: select
+              required: true
+              options:
+                - { value: "pre_k", label: "Pre-K" }
+                - { value: "k",     label: "Kindergarten" }
+                - { value: "1st",   label: "1st Grade" }
+                - { value: "2nd",   label: "2nd Grade" }
+                - { value: "3rd",   label: "3rd Grade" }
+                - { value: "4th",   label: "4th Grade" }
+                - { value: "5th",   label: "5th Grade" }
 
-    - title: "Parent / Guardian Information"
-      fields:
-        - key: guardian_name
-          label: "Parent / Guardian Full Name"
-          type: text
-          required: true
+        - title: "Parent / Guardian Information"
+          fields:
+            - key: guardian_name
+              label: "Parent / Guardian Full Name"
+              type: text
+              required: true
 
-        - key: contact_email
-          label: "Email Address"
-          type: email
-          required: true
+            - key: contact_email
+              label: "Email Address"
+              type: email
+              required: true
 
-        - key: contact_phone
-          label: "Phone Number"
-          type: tel
-          required: true
+            - key: contact_phone
+              label: "Phone Number"
+              type: tel
+              required: true
 
-        - key: home_address
-          label: "Home Address"
-          type: text
-          required: false
+        - title: "Additional Information"
+          fields:
+            - key: previous_school
+              label: "Current / Previous School"
+              type: text
+              required: false
 
-    - title: "Additional Information"
-      fields:
-        - key: previous_school
-          label: "Current / Previous School"
-          type: text
-          required: false
+            - key: how_did_you_hear
+              label: "How did you hear about us?"
+              type: select
+              required: false
+              options:
+                - { value: "google",   label: "Google / Search" }
+                - { value: "referral", label: "Friend or Family Referral" }
+                - { value: "social",   label: "Social Media" }
+                - { value: "flyer",    label: "Flyer / Poster" }
+                - { value: "other",    label: "Other" }
 
-        - key: learning_needs
-          label: "Any learning needs or accommodations we should know about?"
-          type: textarea
-          required: false
+            - key: notes
+              label: "Anything else we should know?"
+              type: textarea
+              required: false
 
-        - key: how_did_you_hear
-          label: "How did you hear about us?"
-          type: select
-          required: false
-          options:
-            - { value: "google",    label: "Google / Search" }
-            - { value: "referral",  label: "Friend or Family Referral" }
-            - { value: "social",    label: "Social Media" }
-            - { value: "flyer",     label: "Flyer / Poster" }
-            - { value: "other",     label: "Other" }
+  afterschool:
+    title: "After School Program"
+    description: >
+      Apply for our After School Program, available Monday–Friday 3–6pm.
+      A non-refundable $50 application fee is required to complete your application.
+
+    form:
+      sections:
+        - title: "Student Information"
+          fields:
+            - key: student_first_name
+              label: "Student First Name"
+              type: text
+              required: true
+
+            - key: student_last_name
+              label: "Student Last Name"
+              type: text
+              required: true
+
+            - key: grade_applying_for
+              label: "Current Grade"
+              type: select
+              required: true
+              options:
+                - { value: "k",   label: "Kindergarten" }
+                - { value: "1st", label: "1st Grade" }
+                - { value: "2nd", label: "2nd Grade" }
+                - { value: "3rd", label: "3rd Grade" }
+                - { value: "4th", label: "4th Grade" }
+                - { value: "5th", label: "5th Grade" }
+
+            - key: pickup_person
+              label: "Authorized Pickup Person(s)"
+              type: text
+              required: true
+
+        - title: "Schedule"
+          fields:
+            - key: attendance_days
+              label: "Days Needed"
+              type: multiselect
+              required: true
+              options:
+                - { value: "mon", label: "Monday" }
+                - { value: "tue", label: "Tuesday" }
+                - { value: "wed", label: "Wednesday" }
+                - { value: "thu", label: "Thursday" }
+                - { value: "fri", label: "Friday" }
+
+            - key: start_date
+              label: "Requested Start Date"
+              type: date
+              required: false
+
+        - title: "Parent / Guardian Information"
+          fields:
+            - key: guardian_name
+              label: "Parent / Guardian Full Name"
+              type: text
+              required: true
+
+            - key: contact_email
+              label: "Email Address"
+              type: email
+              required: true
+
+            - key: contact_phone
+              label: "Phone Number"
+              type: tel
+              required: true
+
+            - key: emergency_contact
+              label: "Emergency Contact Name & Phone"
+              type: text
+              required: true
+
+  scholarship:
+    title: "Scholarship Application"
+    description: >
+      Apply for a need-based or merit-based scholarship at Maplewood Learning Center.
+      The application fee is waived for scholarship applicants.
+
+    form:
+      sections:
+        - title: "Student Information"
+          fields:
+            - key: student_first_name
+              label: "Student First Name"
+              type: text
+              required: true
+
+            - key: student_last_name
+              label: "Student Last Name"
+              type: text
+              required: true
+
+            - key: date_of_birth
+              label: "Date of Birth"
+              type: date
+              required: true
+
+            - key: grade_applying_for
+              label: "Grade Applying For"
+              type: select
+              required: true
+              options:
+                - { value: "pre_k", label: "Pre-K" }
+                - { value: "k",     label: "Kindergarten" }
+                - { value: "1st",   label: "1st Grade" }
+                - { value: "2nd",   label: "2nd Grade" }
+                - { value: "3rd",   label: "3rd Grade" }
+                - { value: "4th",   label: "4th Grade" }
+                - { value: "5th",   label: "5th Grade" }
+
+        - title: "Scholarship Type"
+          fields:
+            - key: scholarship_type
+              label: "Scholarship Type"
+              type: select
+              required: true
+              options:
+                - { value: "need_based",  label: "Need-Based" }
+                - { value: "merit_based", label: "Merit-Based" }
+                - { value: "both",        label: "Both" }
+
+            - key: statement
+              label: "Tell us why you are applying for this scholarship"
+              type: textarea
+              required: true
+
+        - title: "Parent / Guardian Information"
+          fields:
+            - key: guardian_name
+              label: "Parent / Guardian Full Name"
+              type: text
+              required: true
+
+            - key: contact_email
+              label: "Email Address"
+              type: email
+              required: true
+
+            - key: contact_phone
+              label: "Phone Number"
+              type: tel
+              required: true
 
 application_fee:
   enabled: true
   amount: 50
   description: "Non-refundable application fee"
+  # The scholarship form waives the fee — handled by form_key check in the payment view.
+  waived_for_forms:
+    - scholarship
 
 branding:
   theme:
@@ -99,9 +248,8 @@ branding:
 success:
   title: "Application Submitted!"
   message: >
-    Thank you — your application for Maplewood Learning Center has been received
-    and your application fee has been processed. We will review your application
-    and be in touch within 5 business days.
+    Thank you — your application to Maplewood Learning Center has been received.
+    We will review it and be in touch within 5 business days.
   response_time: "5 business days"
   next_steps:
     - "Our admissions team will review your application."
