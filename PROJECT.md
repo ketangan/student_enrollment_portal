@@ -234,13 +234,268 @@ Broken into logical git commits:
 - `/ops/reports/` — aggregate funnel metrics across all schools
 - Pagination and query optimization required before building (needs real data volume)
 
-### Phase 3 (future): Cleanup
-- Remove dead code after ops portal fully replaces Django admin for superadmin workflows
-- Identify unused views, templates, CSS — list explicitly before deleting
-- Run full test suite after each deletion to catch regressions
-- Django admin stays (it's the escape hatch) but superadmin-specific Django admin customizations may be simplified
-- `core/views.py` refactor: split into `views_public.py`, `views_school_submissions.py`, `views_school_leads.py`, `views_school_admin.py`
-- Audit all `is_superuser` template checks to see if any become redundant
+### Phase 3 (complete): Cleanup
+- Dead code audit: nothing to remove (all views, templates, URLs confirmed live)
+- `core/views.py` split into 5 files: `views_public.py`, `views_school_common.py`,
+  `views_school_dashboard.py`, `views_school_submissions.py`, `views_school_leads.py`
+- `views.py` kept as backward-compat re-export facade (urls.py unchanged)
+- All `is_superuser` template checks audited — all are still appropriate, none removed
+- 914 passing tests
+
+---
+
+## Planned Features (Prioritised)
+
+### Phase 18 — Application Fees (Stripe, school-direct)
+
+**Goal**: Schools can optionally charge an application fee, paid by the parent at submission time.
+Money goes directly to the school's own Stripe account. Platform never touches the funds.
+
+**Key design decisions**:
+- Payment is a **platform-injected step**, not a YAML form field. Configured in YAML as metadata only.
+- Stripe keys (publishable + secret) stored on `School` model in DB — never in YAML.
+- Fee is charged **at submission time**: applicant fills out form → clicks Submit → payment page → on success, Submission is created. Failed payment = no Submission.
+- Synchronous PaymentIntent confirm (no webhook needed for this flow — school's own account, real-time response).
+- Refunds are manual (school handles via their own Stripe dashboard).
+
+**YAML config** (per school, metadata only — no keys in YAML):
+```yaml
+application_fee:
+  enabled: true
+  amount: 75           # USD, whole dollars only
+  description: "Non-refundable application fee"
+```
+
+**DB changes** (new fields on `School` model, migration required):
+- `app_fee_stripe_public_key` CharField (blank=True)
+- `app_fee_stripe_secret_key` CharField (blank=True) — store encrypted or treat as sensitive
+- Fee amount + enabled flag live in YAML; keys live in DB to keep secrets out of config files
+
+**Files touched**:
+- `core/models.py` — 2 new School fields + migration
+- `core/services/config_loader.py` — parse `application_fee` block
+- `core/views_public.py` — `apply_view` checks for fee; new `apply_payment_view` (GET+POST)
+- `core/urls.py` — new URL `apply_payment` at `/schools/<slug>/apply/payment/`
+- `templates/apply_payment.html` — Stripe Elements card form (new template)
+- `templates/apply_form.html` — "Continue to payment" instead of "Submit" when fee enabled
+- `core/services/billing_stripe.py` — new helper `create_application_fee_intent(school, amount_cents)`
+- `core/models.py` — `Submission.payment_intent_id` (CharField blank=True), `Submission.payment_status` (CharField: `""`, `"paid"`, `"waived"`)
+- `templates/school_admin/submission_detail.html` — payment status badge
+- `templates/school_admin/submissions.html` — payment status column (optional, gated on school having fees)
+- `templates/ops/school_detail.html` — show fee config fields (read-only display + link to edit)
+- `core/forms_ops.py` — `OpsSchoolEditForm` gets Stripe key fields (write-only password inputs)
+
+**Out of scope**:
+- Refund UI (use school's Stripe dashboard)
+- Fee waivers via admin (add later if needed)
+- Per-form or per-program fee amounts (single fee per school)
+- PayPal or any second payment processor
+
+**Tests** (`core/tests/test_phase18.py`, ~12 tests):
+- `test_fee_skipped_when_disabled` — form with no fee goes straight to Submission creation
+- `test_fee_page_renders_with_school_pub_key` — payment page receives school's publishable key
+- `test_successful_payment_creates_submission` — mock PaymentIntent success → Submission created with `payment_status="paid"`
+- `test_failed_payment_no_submission` — mock PaymentIntent failure → no Submission, error shown
+- `test_payment_page_requires_prior_form_completion` — cannot load payment page without completing form first (session check)
+- `test_submission_detail_shows_paid_badge` — school admin sees payment status
+- `test_ops_school_edit_stores_stripe_keys` — ops can save publishable + secret key
+- `test_fee_amount_must_be_positive` — YAML validation rejects fee ≤ 0
+
+---
+
+### Phase 19 — Waitlist Management
+
+**Goal**: Schools can place applicants on a waitlist with an ordered position. Admins can promote
+from the waitlist with a single action that updates status and notifies the family.
+
+**Key design decisions**:
+- `"Waitlisted"` status already exists in the status choices — no new status needed.
+- Waitlist position is a per-school ordered integer, not global.
+- Promotion = status change to next step (configurable in YAML workflow) + optional email notification.
+- No enrollment cap enforcement in this phase — cap is informational only.
+
+**DB changes**:
+- `Submission.waitlist_position` IntegerField (null=True, blank=True, db_index=True)
+- `School.enrollment_cap` IntegerField (null=True, blank=True) — informational display only
+
+**Files touched**:
+- `core/models.py` + migration
+- `core/views_school_submissions.py` — `school_submission_status_update_view` auto-assigns waitlist position on transition to Waitlisted; new `school_waitlist_view` GET (ordered list of waitlisted submissions)
+- `core/urls.py` — `school_waitlist` URL, `school_waitlist_promote` POST URL
+- `templates/school_admin/waitlist.html` — drag-reorder list (or simple up/down buttons), Promote button per row
+- `templates/school_admin/submissions.html` — waitlist position shown for Waitlisted rows
+- `templates/school_admin/submission_detail.html` — waitlist position shown in sidebar
+- `core/services/notifications.py` — `send_waitlist_promotion_notification`
+- School admin nav — add Waitlist link (gated on school having any waitlisted submissions)
+
+**Out of scope**:
+- Drag-and-drop reordering (use up/down buttons for v1)
+- Auto-promote when enrolled count drops below cap
+- Public waitlist position display (parent portal feature)
+
+**Tests** (`core/tests/test_phase19.py`, ~10 tests):
+- `test_waitlist_position_assigned_on_status_change`
+- `test_waitlist_positions_are_sequential_per_school`
+- `test_promote_from_waitlist_changes_status`
+- `test_promote_sends_notification_when_email_enabled`
+- `test_waitlist_view_ordered_by_position`
+- `test_waitlist_position_null_for_non_waitlisted`
+
+---
+
+### Phase 20 — Parent Portal / Application Status Page
+
+**Goal**: Families can check the status of their application without calling the school.
+Public URL, no login, lookup by email address + application ID (public_id).
+
+**Key design decisions**:
+- Auth: email + public_id (not DOB — schools don't always collect it). Both must match.
+- Shows: current status, school-configured public message per status (optional), submitted date.
+- Does NOT show: internal notes, audit log, staff comments.
+- School can configure custom status messages in YAML per status value.
+- Rate-limited to prevent enumeration attacks.
+
+**YAML config** (optional):
+```yaml
+status_page:
+  enabled: true
+  messages:
+    New: "We've received your application and will be in touch soon."
+    Enrolled: "Congratulations! Your child has been enrolled."
+    Waitlisted: "Your child is on our waitlist. We'll contact you if a spot opens."
+```
+
+**Files touched**:
+- `core/views_public.py` — `application_status_view` (GET: lookup form; POST: show result)
+- `core/urls.py` — `application_status` at `/schools/<slug>/status/`
+- `templates/application_status.html` — lookup form + result card
+- `core/services/config_loader.py` — parse `status_page` block
+- Rate limiting: `@ratelimit(key="ip", rate="10/m")` on the view
+- `School.status_page_enabled` — or gate purely on YAML flag
+
+**Out of scope**:
+- Login / account creation for parents
+- Document upload or messaging from parent portal
+- Mobile push notifications
+
+**Tests** (`core/tests/test_phase20.py`, ~8 tests):
+- `test_status_lookup_correct_credentials`
+- `test_status_lookup_wrong_email`
+- `test_status_lookup_wrong_public_id`
+- `test_status_page_disabled_returns_404`
+- `test_custom_yaml_message_shown`
+- `test_rate_limit_enforced`
+
+---
+
+### Phase 21 — Multi-Child Household
+
+**Goal**: One parent email can have multiple children applying to the same school.
+Currently blocked by unique constraint on (school, normalized_email).
+
+**Key design decisions**:
+- **Approach**: Add `child_name` to `Lead` and change unique constraint from
+  `(school, normalized_email)` to `(school, normalized_email, child_name)`.
+  Simpler than a Household model; avoids a large data migration.
+- Lead capture form gets an optional "Child's name" field (not YAML-driven — platform level).
+- Admin lead list groups by email visually (CSS styling only, no DB grouping query).
+- Dedup logic: when a new lead arrives, match on school + email + child_name. If child_name
+  is blank, fall back to old dedup behavior (one lead per email).
+
+**DB changes**:
+- `Lead.child_name` CharField(max_length=200, blank=True, default="")
+- Remove `unique_together = [("school", "normalized_email")]`
+- Add `unique_together = [("school", "normalized_email", "child_name")]`
+- Migration: data migration to backfill `child_name=""` for all existing leads (already the default, so no-op)
+
+**Files touched**:
+- `core/models.py` + migration
+- `core/views_public.py` — lead capture form picks up `child_name`
+- `core/views_school_leads.py` — lead create form adds child_name field
+- `core/views_school_common.py` — `_build_lead_row` includes child_name in display
+- `templates/lead_form.html` — child name field on public capture form
+- `templates/school_admin/leads.html` — child name column
+- `templates/school_admin/lead_detail.html` — child name in header
+- `core/services/admin_lead_yaml.py` — export includes child_name column
+
+**Out of scope**:
+- Household model (overkill for v1)
+- Linking siblings in the UI
+- Per-child application tracking on the parent portal
+
+**Tests** (`core/tests/test_phase21.py`, ~8 tests):
+- `test_two_children_same_email_same_school_allowed`
+- `test_duplicate_child_name_same_email_rejected`
+- `test_blank_child_name_dedup_preserved`
+- `test_lead_export_includes_child_name`
+- `test_leads_list_shows_child_name`
+
+---
+
+### Phase 22 — Referral Source Analytics
+
+**Goal**: School admins can see which referral sources and UTM campaigns bring the most leads
+that actually convert to enrolled students. UTM data already captured on `Lead` model.
+
+**Key design decisions**:
+- No new models — all data already exists (`Lead.source`, `Lead.utm_source`,
+  `Lead.utm_medium`, `Lead.utm_campaign`, `Lead.converted_submission`).
+- Add a new section to the existing `school_reports_view` (not a separate page).
+- Two tables: (1) by `source` field, (2) by `utm_campaign` (only when UTM data exists).
+- Columns: Source, Total Leads, Converted, Conversion Rate, Enrolled (of converted).
+
+**Files touched**:
+- `core/views_school_dashboard.py` — `school_reports_view` adds `source_breakdown` + `utm_breakdown` context dicts
+- `templates/reports.html` — two new table sections (gated on leads_enabled)
+- No new URLs, no new models, no migrations
+
+**Out of scope**:
+- UTM link builder tool
+- Attribution across multiple touches (first-touch only)
+- Campaign cost / ROI tracking
+
+**Tests** (`core/tests/test_phase22.py`, ~6 tests):
+- `test_source_breakdown_correct_counts`
+- `test_source_breakdown_conversion_rate`
+- `test_utm_breakdown_hidden_when_no_utm_data`
+- `test_source_breakdown_hidden_when_leads_disabled`
+
+---
+
+### Phase 23 — Application Deadline Enforcement (low priority)
+
+**Goal**: Schools can set open/close dates for their application form. The form shows a
+countdown when approaching the deadline and a custom message when closed.
+
+**Key design decisions**:
+- Configured entirely in YAML — no DB fields needed.
+- `apply_view` checks date range before rendering form.
+- Closed form shows a static page (not a 404).
+
+**YAML config**:
+```yaml
+form:
+  open_date: "2025-09-01"    # optional
+  close_date: "2025-12-01"   # optional
+  closed_message: "Applications for the 2025–26 school year are now closed."
+```
+
+**Files touched**:
+- `core/services/config_loader.py` — parse open/close dates
+- `core/views_public.py` — `apply_view` date check + redirect to closed page
+- `templates/apply_closed.html` — new template (simple message + contact link)
+- `core/urls.py` — no new URL needed (reuse apply URL, render different template)
+
+**Out of scope**:
+- Per-form deadlines (multi-form schools — add later)
+- Auto-reopening
+- Deadline enforcement on re-apply / edit
+
+**Tests** (`core/tests/test_phase23.py`, ~4 tests):
+- `test_form_accessible_within_date_range`
+- `test_form_closed_before_open_date`
+- `test_form_closed_after_close_date`
+- `test_closed_message_from_yaml`
 
 ---
 
@@ -248,10 +503,11 @@ Broken into logical git commits:
 
 | Item | Priority | Notes |
 |------|----------|-------|
-| `core/views.py` ~5000 lines | High | Split into 4-5 files; no functional change, just organization |
+| `core/views.py` split | Done | 5 focused files + re-export facade |
 | nth-child CSS removed | Done | Replaced with semantic CSS classes |
-| Django admin login as school admin login | Fixed in Ops Phase 1 Commit 7 | |
+| Django admin login as school admin login | Fixed in Ops Phase 1 | |
 | `CSRF_COOKIE_SAMESITE = "None"` | Low | Required for iframe embed; document why |
+| Lead unique constraint | Phase 21 | Will relax to allow multi-child households |
 
 ---
 
