@@ -1,0 +1,158 @@
+school:
+  slug: "maplewood-learning"
+  display_name: "Maplewood Learning Center"
+  website_url: ""
+
+form:
+  title: "Apply for Enrollment"
+  description: >
+    Thank you for your interest in Maplewood Learning Center.
+    Please complete this application and pay the non-refundable
+    application fee to secure your spot in the review queue.
+
+  sections:
+    - title: "Student Information"
+      fields:
+        - key: student_first_name
+          label: "Student First Name"
+          type: text
+          required: true
+
+        - key: student_last_name
+          label: "Student Last Name"
+          type: text
+          required: true
+
+        - key: date_of_birth
+          label: "Date of Birth"
+          type: date
+          required: true
+
+        - key: grade_applying_for
+          label: "Grade Applying For"
+          type: select
+          required: true
+          options:
+            - { value: "pre_k", label: "Pre-K" }
+            - { value: "k",     label: "Kindergarten" }
+            - { value: "1st",   label: "1st Grade" }
+            - { value: "2nd",   label: "2nd Grade" }
+            - { value: "3rd",   label: "3rd Grade" }
+            - { value: "4th",   label: "4th Grade" }
+            - { value: "5th",   label: "5th Grade" }
+
+    - title: "Parent / Guardian Information"
+      fields:
+        - key: guardian_name
+          label: "Parent / Guardian Full Name"
+          type: text
+          required: true
+
+        - key: contact_email
+          label: "Email Address"
+          type: email
+          required: true
+
+        - key: contact_phone
+          label: "Phone Number"
+          type: tel
+          required: true
+
+        - key: home_address
+          label: "Home Address"
+          type: text
+          required: false
+
+    - title: "Additional Information"
+      fields:
+        - key: previous_school
+          label: "Current / Previous School"
+          type: text
+          required: false
+
+        - key: learning_needs
+          label: "Any learning needs or accommodations we should know about?"
+          type: textarea
+          required: false
+
+        - key: how_did_you_hear
+          label: "How did you hear about us?"
+          type: select
+          required: false
+          options:
+            - { value: "google",    label: "Google / Search" }
+            - { value: "referral",  label: "Friend or Family Referral" }
+            - { value: "social",    label: "Social Media" }
+            - { value: "flyer",     label: "Flyer / Poster" }
+            - { value: "other",     label: "Other" }
+
+application_fee:
+  enabled: true
+  amount: 50
+  description: "Non-refundable application fee"
+
+branding:
+  theme:
+    primary_color: "#166534"
+    accent_color: "#15803d"
+
+success:
+  title: "Application Submitted!"
+  message: >
+    Thank you — your application for Maplewood Learning Center has been received
+    and your application fee has been processed. We will review your application
+    and be in touch within 5 business days.
+  response_time: "5 business days"
+  next_steps:
+    - "Our admissions team will review your application."
+    - "You'll receive an email with our decision or next steps."
+    - "If accepted, we'll send enrollment paperwork and orientation details."
+  contact:
+    name: "Admissions Office"
+    email: "admissions@maplewoodlearning.edu"
+    phone: "(555) 400-1200"
+  hours: "Mon–Fri, 8am–4pm"
+
+  notifications:
+    submission_email:
+      to: "admissions@maplewoodlearning.edu"
+      from_email: "noreply@enrollifyapp.com"
+      subject: "New application: {{student_name}}"
+
+    applicant_confirmation:
+      enabled: true
+      from_email: "noreply@enrollifyapp.com"
+      subject: "We received your application — Maplewood Learning Center"
+
+admin:
+  submission_statuses:
+    - New
+    - Under Review
+    - Interview Scheduled
+    - Accepted
+    - Waitlisted
+    - Enrolled
+    - Declined
+  default_submission_status:
+    - New
+  lead_workflow:
+    filters:
+      new_leads:
+        label: "New"
+        statuses: [new]
+      pipeline:
+        label: "In Pipeline"
+        statuses: [contacted, trial_scheduled]
+      enrolled:
+        label: "Enrolled"
+        statuses: [enrolled]
+    transitions:
+      new:
+        - { label: "Mark Contacted", status: contacted }
+        - { label: "Lost", status: lost }
+      contacted:
+        - { label: "Lost", status: lost }
+
+leads:
+  success_message: "Thanks for your interest! We'll be in touch within 2 business days."
+  cta_text: "Request Information"
