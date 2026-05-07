@@ -2,10 +2,36 @@
 ModelForms for the /ops/ superadmin portal.
 Using ModelForm means new model fields auto-appear without code changes.
 """
+import json
+
 from django import forms
 from django.contrib.auth.models import User
 
 from core.models import School
+
+_INPUT_STYLE = (
+    "width:100%;padding:8px 10px;border:1px solid var(--dash-border,#e2e8f0);"
+    "border-radius:6px;font-size:13px;box-sizing:border-box;"
+    "background:var(--dash-bg,#fff);color:var(--dash-text,#0f172a);"
+)
+_TEXTAREA_STYLE = _INPUT_STYLE + "resize:vertical;"
+_SELECT_CLASS = "dash-select"
+
+
+def _apply_dash_attrs(form):
+    """Apply consistent dash styling to all visible widgets after form init."""
+    for name, field in form.fields.items():
+        w = field.widget
+        if isinstance(w, forms.CheckboxInput):
+            continue
+        elif isinstance(w, forms.Textarea):
+            existing = w.attrs.get("style", "")
+            w.attrs["style"] = _TEXTAREA_STYLE + existing
+        elif isinstance(w, (forms.Select, forms.SelectMultiple)):
+            w.attrs["class"] = w.attrs.get("class", "") + " " + _SELECT_CLASS
+            w.attrs["style"] = "width:100%;box-sizing:border-box;"
+        else:
+            w.attrs["style"] = _INPUT_STYLE
 
 
 class OpsSchoolCreateForm(forms.ModelForm):
@@ -27,6 +53,10 @@ class OpsSchoolCreateForm(forms.ModelForm):
             "trial_end_date": "Override the default trial length for this school.",
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _apply_dash_attrs(self)
+
     def clean_slug(self):
         slug = self.cleaned_data.get("slug", "").strip().lower()
         if not slug:
@@ -40,7 +70,6 @@ class OpsSchoolCreateForm(forms.ModelForm):
         if v is None:
             return {}
         if isinstance(v, str):
-            import json
             try:
                 v = json.loads(v)
             except (ValueError, TypeError):
@@ -72,12 +101,15 @@ class OpsSchoolEditForm(forms.ModelForm):
             "trial_end_date": "Superadmin override for trial end. Clears itself when plan changes off trial.",
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _apply_dash_attrs(self)
+
     def clean_feature_flags(self):
         v = self.cleaned_data.get("feature_flags")
         if v is None:
             return {}
         if isinstance(v, str):
-            import json
             try:
                 v = json.loads(v)
             except (ValueError, TypeError):
@@ -106,6 +138,10 @@ class OpsUserCreateForm(forms.ModelForm):
             "is_superuser": "Full access to everything including the ops portal.",
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _apply_dash_attrs(self)
+
     def clean(self):
         cleaned = super().clean()
         pw = cleaned.get("password")
@@ -124,3 +160,7 @@ class OpsUserEditForm(forms.ModelForm):
             "is_superuser": "Full access to everything including the ops portal.",
             "is_active": "Uncheck to deactivate (block login) without deleting.",
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _apply_dash_attrs(self)
