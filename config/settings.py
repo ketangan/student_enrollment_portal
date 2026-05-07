@@ -244,21 +244,14 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 # Cache
 # ----------------------------------
-# Use Redis when available (set REDIS_URL in production env), otherwise fall
-# back to the database cache (shared across all workers, no extra service needed).
+# Use Redis when REDIS_URL is set; otherwise default LocMemCache is fine for
+# single-worker deployments (WEB_CONCURRENCY=1 on Render).
 _REDIS_URL = os.getenv("REDIS_URL", "")
 if _REDIS_URL:
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
             "LOCATION": _REDIS_URL,
-        }
-    }
-else:
-    CACHES = {
-        "default": {
-            "BACKEND": "django.core.cache.backends.db.DatabaseCache",
-            "LOCATION": "django_cache_table",
         }
     }
 
@@ -269,7 +262,9 @@ INSTALLED_APPS += ["django_ratelimit"]
 # Disable rate limiting in tests and dev to avoid cache-state issues.
 RATELIMIT_ENABLE = os.getenv("RATELIMIT_ENABLE", "false" if (IS_TESTING or DEBUG) else "true").lower() == "true"
 
-if not RATELIMIT_ENABLE:
+# Silence django_ratelimit cache checks when Redis is not configured.
+# LocMemCache works correctly for single-worker deployments.
+if not _REDIS_URL:
     SILENCED_SYSTEM_CHECKS = ["django_ratelimit.E003", "django_ratelimit.W001"]
 
 # Email settings
