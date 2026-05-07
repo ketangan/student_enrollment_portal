@@ -1,0 +1,427 @@
+{% extends "school_admin/base.html" %}
+
+{% block page_title %}Leads{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <!-- Page heading -->
+  <div class="dash-greeting" style="margin-bottom: 16px;">
+    <h1 class="dash-greeting-title" style="font-size: 18px;">Leads</h1>
+    <p class="dash-greeting-sub">
+      {% if lead_display_cap_hit %}Showing first 200 results
+      {% elif total_count == 1 %}1 lead
+      {% else %}{{ total_count }} lead{{ total_count|pluralize }}{% endif %}
+      {% if active_filter or status_filter or search_q %} matching current filters{% endif %}
+    </p>
+  </div>
+
+  <!-- Metrics bar -->
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:stretch;">
+    <div class="dash-card" style="padding:14px 20px;flex:1;min-width:100px;text-align:center;margin-top:0;">
+      <div style="font-size:22px;font-weight:700;color:var(--dash-text);">{{ leads_metrics.new }}</div>
+      <div style="font-size:12px;color:var(--dash-muted);margin-top:2px;">New</div>
+    </div>
+    <div class="dash-card" style="padding:14px 20px;flex:1;min-width:100px;text-align:center;margin-top:0;">
+      <div style="font-size:22px;font-weight:700;color:var(--dash-text);">{{ leads_metrics.contacted }}</div>
+      <div style="font-size:12px;color:var(--dash-muted);margin-top:2px;">Contacted</div>
+    </div>
+    <div class="dash-card" style="padding:14px 20px;flex:1;min-width:100px;text-align:center;margin-top:0;">
+      <div style="font-size:22px;font-weight:700;color:var(--dash-text);">{{ leads_metrics.enrolled }}</div>
+      <div style="font-size:12px;color:var(--dash-muted);margin-top:2px;">Enrolled</div>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="dash-card" style="padding: 14px 18px; margin-bottom: 16px;">
+    <form method="get" action="{{ leads_url }}" style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+
+        <!-- All -->
+        <a href="{{ leads_url }}"
+           style="padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; text-decoration: none;
+                  border: 1px solid {% if not active_filter and not status_filter %}var(--dash-primary){% else %}var(--dash-border){% endif %};
+                  background: {% if not active_filter and not status_filter %}var(--dash-primary){% else %}#fff{% endif %};
+                  color: {% if not active_filter and not status_filter %}#fff{% else %}var(--dash-muted){% endif %};">
+          All
+        </a>
+
+        <!-- Smart filters (Needs Follow-Up, Recent) -->
+        {% for filter_key, filter_cfg in smart_filters.items %}
+        <a href="{{ leads_url }}?filter={{ filter_key }}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}"
+           style="padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; text-decoration: none;
+                  border: 1px solid {% if active_filter == filter_key %}#dc2626{% else %}var(--dash-border){% endif %};
+                  background: {% if active_filter == filter_key %}#dc2626{% else %}#fff{% endif %};
+                  color: {% if active_filter == filter_key %}#fff{% else %}var(--dash-muted){% endif %};">
+          {{ filter_cfg.label }}
+        </a>
+        {% endfor %}
+
+        <!-- Individual status pills — one per lead status, matching Status column exactly -->
+        {% for val, label in lead_status_choices %}
+        <a href="{{ leads_url }}?status={{ val }}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}"
+           style="padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; text-decoration: none;
+                  border: 1px solid {% if status_filter == val %}var(--dash-primary){% else %}var(--dash-border){% endif %};
+                  background: {% if status_filter == val %}var(--dash-primary){% else %}#fff{% endif %};
+                  color: {% if status_filter == val %}#fff{% else %}var(--dash-muted){% endif %};">
+          {{ label }}
+        </a>
+        {% endfor %}
+
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        {% if active_filter %}<input type="hidden" name="filter" value="{{ active_filter }}">{% endif %}
+        {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+        <input
+          type="text"
+          name="q"
+          value="{{ search_q|default:'' }}"
+          placeholder="Search name, email, phone…"
+          style="flex: 1; min-width: 180px; padding: 7px 12px; border: 1px solid var(--dash-border); border-radius: 8px; font-size: 13px; outline: none;"
+        >
+        <button type="submit"
+                style="padding: 7px 16px; background: var(--dash-primary); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">
+          Search
+        </button>
+        {% if active_filter or status_filter or search_q %}
+          <a href="{{ leads_url }}"
+             style="font-size: 13px; color: var(--dash-muted); text-decoration: none; padding: 7px 4px;">
+            Clear
+          </a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <!-- Action bar: create + export -->
+  <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:10px;">
+    {% if leads_enabled %}
+    <a href="{% url 'school_lead_create' school_slug=school.slug %}"
+       class="dash-action-btn dash-action-btn--primary"
+       style="font-size:12px;padding:5px 12px;">+ New Lead</a>
+    {% endif %}
+    <a href="{{ export_url }}"
+       style="font-size:12px;color:var(--dash-muted);text-decoration:none;padding:5px 10px;
+              border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;background:#fff;">
+      Export CSV
+    </a>
+  </div>
+
+  <!-- Leads table -->
+  <div class="dash-card">
+    {% if leads %}
+    <div class="dash-table-scroll">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            {% if workflow_actions_enabled %}<th style="width:32px;padding-right:0;"><input type="checkbox" id="select-all-checkbox" style="cursor:pointer;"></th>{% endif %}
+            <th>Name</th>
+            <th>Program</th>
+            <th>Status</th>
+            <th>Contact</th>
+            <th>Received</th>
+            <th>Follow-up</th>
+            <th>Last activity</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lead in leads %}
+          <tr>
+            {% if workflow_actions_enabled %}<td style="padding-right:0;"><input type="checkbox" class="lead-checkbox" value="{{ lead.id }}" style="cursor:pointer;"></td>{% endif %}
+            <td>
+              <a href="{{ lead.school_admin_url }}" class="dash-student-name">{{ lead.name }}</a>
+              {% if lead.has_notes %}<span title="Has notes" style="font-size:10px;padding:1px 5px;border-radius:3px;background:#ede9fe;color:#6d28d9;margin-left:5px;white-space:nowrap;flex-shrink:0;">Notes</span>{% endif %}
+            </td>
+            <td style="color: var(--dash-muted); font-size: 13px;">{{ lead.program }}</td>
+            <td>
+              <form method="post"
+                    action="{% url 'school_lead_inline_status' school_slug=school.slug lead_id=lead.id %}"
+                    style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <select name="new_status" onchange="this.form.submit()"
+                        style="font-size:12px;padding:3px 6px;border-radius:5px;
+                               border:1px solid var(--dash-border);background:var(--dash-bg);
+                               color:var(--dash-text);cursor:pointer;">
+                  {% for val, label in lead_status_choices %}
+                  <option value="{{ val }}" {% if val == lead.status_raw %}selected{% endif %}>
+                    {{ label }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </form>
+            </td>
+            <td style="font-size: 12px; color: var(--dash-muted);">
+              {% if lead.email %}<div>{{ lead.email }}</div>{% endif %}
+              {% if lead.phone %}<div>{{ lead.phone }}</div>{% endif %}
+            </td>
+            <td style="color: var(--dash-muted); font-size: 12px; white-space: nowrap;">
+              {{ lead.created_at|date:"M j, Y" }}
+            </td>
+            <td style="font-size: 12px; white-space: nowrap;">
+              {% if lead.next_follow_up_at %}
+                {% if lead.is_overdue %}
+                  <span style="color:#ef4444;font-weight:600;">{{ lead.next_follow_up_at|date:"M j, Y" }}</span>
+                  <span class="dash-badge dash-badge--red" style="font-size:10px;display:block;margin-top:2px;">Overdue</span>
+                {% else %}
+                  <span style="color:var(--dash-muted);">{{ lead.next_follow_up_at|date:"M j, Y" }}</span>
+                {% endif %}
+              {% else %}
+                <span style="color:var(--dash-muted);">—</span>
+              {% endif %}
+            </td>
+            <td style="color: var(--dash-muted); font-size: 12px; white-space: nowrap;">
+              {{ lead.last_activity|date:"M j, Y" }}
+            </td>
+            <td>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+
+                {% if lead.quick_actions %}
+                  {% for t in lead.quick_actions %}
+                  {% if t.status == "contacted" %}
+                  <!-- "contacted" transition → mark_contacted to properly track last_contacted_at -->
+                  <form method="post"
+                        action="{% url 'school_lead_mark_contacted' school_slug=request.resolver_match.kwargs.school_slug lead_id=lead.id %}"
+                        style="display: inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit"
+                            class="dash-action-btn dash-action-btn--secondary"
+                            style="font-size: 12px; padding: 4px 10px; white-space: nowrap;">
+                      {{ t.label }}
+                    </button>
+                  </form>
+                  {% else %}
+                  <form method="post"
+                        action="{% url 'school_lead_status_update' school_slug=request.resolver_match.kwargs.school_slug lead_id=lead.id %}"
+                        style="display: inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="new_status" value="{{ t.status }}">
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit"
+                            class="dash-action-btn dash-action-btn--secondary"
+                            style="font-size: 12px; padding: 4px 10px; white-space: nowrap;">
+                      {{ t.label }}
+                    </button>
+                  </form>
+                  {% endif %}
+                  {% endfor %}
+                {% endif %}
+
+                {% if lead.is_converted %}
+                  <!-- Already enrolled — show link to the linked submission -->
+                  <a href="{{ lead.converted_submission_admin_url }}"
+                     class="dash-action-btn dash-action-btn--secondary"
+                     style="font-size: 12px; padding: 4px 10px; white-space: nowrap;">
+                    View Submission
+                  </a>
+                {% endif %}
+
+                <!-- Always: open lead detail (school admin page) -->
+                <a href="{{ lead.school_admin_url }}"
+                   class="dash-action-btn dash-action-btn--secondary"
+                   style="font-size: 12px; padding: 4px 10px; white-space: nowrap;">
+                  Open
+                </a>
+
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if lead_display_cap_hit %}
+    <div style="padding: 12px 18px; font-size: 12px; color: var(--dash-muted); border-top: 1px solid var(--dash-border);">
+      Showing first 200 results. Use filters to narrow down.
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="dash-empty">
+      <div class="dash-empty-icon">📭</div>
+      <div class="dash-empty-title">No leads found</div>
+      <div class="dash-empty-sub">
+        {% if active_filter %}
+          {% for fk, fcfg in workflow_filters.items %}{% if fk == active_filter %}No leads need {{ fcfg.label }} right now.{% endif %}{% endfor %}
+          <a href="{{ leads_url }}" style="color: var(--dash-primary);">Clear</a>
+        {% elif status_filter or search_q %}
+          No leads match the current filters.
+          <a href="{{ leads_url }}" style="color: var(--dash-primary);">Clear filters</a>
+        {% else %}
+          No leads yet. Share your interest form link so families can express interest.
+        {% endif %}
+      </div>
+      {% if not active_filter and not status_filter and not search_q and lead_capture_url %}
+      <button type="button"
+              class="dash-copy-btn"
+              id="copy-lead-form-btn"
+              aria-label="Copy interest form link to clipboard"
+              onclick="navigator.clipboard.writeText('{{ lead_capture_url|escapejs }}').then(function(){var b=document.getElementById('copy-lead-form-btn');b.textContent='Copied!';setTimeout(function(){b.textContent='Copy Interest Form Link';},2000);}).catch(function(){var b=document.getElementById('copy-lead-form-btn');b.textContent='Copy failed';setTimeout(function(){b.textContent='Copy Interest Form Link';},2000);})">
+        Copy Interest Form Link
+      </button>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if workflow_actions_enabled %}
+  <!-- Bulk action bar (fixed bottom, visible when ≥1 checkbox checked) -->
+  <div id="bulk-action-bar"
+       style="display:none;position:fixed;bottom:0;left:0;right:0;
+              background:#1e293b;color:#fff;padding:12px 20px;z-index:1000;
+              flex-direction:column;gap:8px;box-shadow:0 -2px 8px rgba(0,0,0,.2);">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span id="bulk-count" style="font-size:13px;font-weight:600;min-width:80px;"></span>
+      <select id="bulk-status-select"
+              style="padding:6px 10px;border-radius:6px;border:none;font-size:13px;
+                     background:#fff;color:#1e293b;">
+        <option value="">— select status —</option>
+        {% for val, label in lead_status_choices %}
+        <option value="{{ val }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button type="button" onclick="bulkSubmit()"
+              style="padding:6px 16px;background:var(--dash-primary,#4f46e5);color:#fff;
+                     border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">
+        Update Status
+      </button>
+      <button type="button" onclick="bulkMarkContacted()"
+              style="padding:6px 14px;background:#059669;color:#fff;
+                     border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">
+        Mark Contacted
+      </button>
+      <input type="date" id="bulk-followup-date"
+             style="padding:6px 10px;border-radius:6px;border:none;font-size:13px;
+                    background:#fff;color:#1e293b;">
+      <button type="button" onclick="bulkSetFollowUp()"
+              style="padding:6px 14px;background:#0284c7;color:#fff;
+                     border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">
+        Set Follow-Up
+      </button>
+      <button type="button" onclick="bulkClearFollowUp()"
+              style="padding:6px 14px;background:#64748b;color:#fff;
+                     border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">
+        Clear Follow-up
+      </button>
+      <button type="button" onclick="bulkClear()"
+              style="padding:6px 12px;background:transparent;color:#94a3b8;
+                     border:1px solid #475569;border-radius:6px;font-size:13px;cursor:pointer;">
+        Cancel
+      </button>
+    </div>
+  </div>
+
+  <form id="bulk-action-form" method="post" action="{{ bulk_update_url }}" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <input type="hidden" name="new_status" id="bulk-new-status" value="">
+  </form>
+  <form id="bulk-mark-contacted-form" method="post"
+        action="{% url 'school_lead_bulk_mark_contacted' school_slug=school.slug %}"
+        style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  </form>
+  <form id="bulk-follow-up-form" method="post"
+        action="{% url 'school_lead_bulk_follow_up' school_slug=school.slug %}"
+        style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <input type="hidden" name="follow_up_date" id="bulk-follow-up-date-val" value="">
+  </form>
+  <form id="bulk-clear-follow-up-form" method="post"
+        action="{% url 'school_lead_bulk_clear_follow_up' school_slug=school.slug %}"
+        style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  </form>
+
+  <script>
+  (function () {
+    var bar    = document.getElementById('bulk-action-bar');
+    var cntEl  = document.getElementById('bulk-count');
+    var form   = document.getElementById('bulk-action-form');
+    var mcForm = document.getElementById('bulk-mark-contacted-form');
+    var fuForm = document.getElementById('bulk-follow-up-form');
+    var cfuForm = document.getElementById('bulk-clear-follow-up-form');
+    var selAll = document.getElementById('select-all-checkbox');
+
+    function boxes() { return document.querySelectorAll('.lead-checkbox'); }
+
+    function refresh() {
+      var all     = boxes();
+      var checked = Array.prototype.filter.call(all, function(c){ return c.checked; });
+      var n       = checked.length;
+      bar.style.display = n > 0 ? 'flex' : 'none';
+      cntEl.textContent = n === 1 ? '1 selected' : n + ' selected';
+      if (selAll) {
+        selAll.checked       = n > 0 && n === all.length;
+        selAll.indeterminate = n > 0 && n < all.length;
+      }
+    }
+
+    function collectIds(targetForm, fieldName) {
+      targetForm.querySelectorAll('input[name="' + fieldName + '"]').forEach(function(el){ el.remove(); });
+      Array.prototype.filter.call(boxes(), function(c){ return c.checked; }).forEach(function(c) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = fieldName; inp.value = c.value;
+        targetForm.appendChild(inp);
+      });
+    }
+
+    if (selAll) {
+      selAll.addEventListener('change', function () {
+        boxes().forEach(function(c){ c.checked = selAll.checked; });
+        refresh();
+      });
+    }
+    boxes().forEach(function(c){ c.addEventListener('change', refresh); });
+
+    window.bulkSubmit = function () {
+      var checked  = Array.prototype.filter.call(boxes(), function(c){ return c.checked; });
+      if (!checked.length) return;
+      var statusVal = document.getElementById('bulk-status-select').value;
+      if (!statusVal) { alert('Please select a target status.'); return; }
+      collectIds(form, 'lead_ids');
+      document.getElementById('bulk-new-status').value = statusVal;
+      form.submit();
+    };
+
+    window.bulkMarkContacted = function () {
+      var checked = Array.prototype.filter.call(boxes(), function(c){ return c.checked; });
+      if (!checked.length) return;
+      collectIds(mcForm, 'lead_ids');
+      mcForm.submit();
+    };
+
+    window.bulkSetFollowUp = function () {
+      var checked = Array.prototype.filter.call(boxes(), function(c){ return c.checked; });
+      if (!checked.length) return;
+      var d = document.getElementById('bulk-followup-date').value;
+      if (!d) { alert('Please select a follow-up date.'); return; }
+      collectIds(fuForm, 'lead_ids');
+      document.getElementById('bulk-follow-up-date-val').value = d;
+      fuForm.submit();
+    };
+
+    window.bulkClearFollowUp = function () {
+      var checked = Array.prototype.filter.call(boxes(), function(c){ return c.checked; });
+      if (!checked.length) return;
+      collectIds(cfuForm, 'lead_ids');
+      cfuForm.submit();
+    };
+
+    window.bulkClear = function () {
+      boxes().forEach(function(c){ c.checked = false; });
+      if (selAll) { selAll.checked = false; selAll.indeterminate = false; }
+      refresh();
+    };
+  }());
+  </script>
+  {% endif %}
+
+</main>
+{% endblock %}

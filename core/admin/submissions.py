@@ -696,7 +696,7 @@ class SubmissionAdmin(admin.ModelAdmin):
                 obj=None,
                 changes={},
                 extra={
-                    "action": action_name,
+                    "name": action_name,
                     "model": "core.submission",
                     "selected_count": total_count,
                     "exported_count": exported_count,
@@ -803,7 +803,7 @@ class SubmissionAdmin(admin.ModelAdmin):
                 action="action",
                 obj=None,
                 changes={},
-                extra={"action": "export_csv", "model": "core.submission", "count": queryset.count()},
+                extra={"name": "export_csv", "model": "core.submission", "count": queryset.count()},
             )
 
         rows = list(queryset.order_by("-created_at")[:5000])

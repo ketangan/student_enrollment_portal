@@ -319,9 +319,14 @@ def handle_subscription_updated(subscription_data: dict) -> None:
     school.stripe_cancel_at_period_end = bool(cancel_at_period_end)
     school.stripe_current_period_end = _to_dt(current_period_end)
 
-    # If status is canceled and no active period remains, lock the school
-    if status == "canceled" and not (school.stripe_cancel_at or school.stripe_cancel_at_period_end):
+    # Sync is_active based on subscription status
+    if status in ("active", "trialing"):
+        # Subscription is active — ensure school is accessible (idempotent)
+        school.is_active = True
+    elif status == "canceled" and not (school.stripe_cancel_at or school.stripe_cancel_at_period_end):
+        # Immediately canceled with no remaining access period — lock school
         school.is_active = False
+    # past_due / unpaid: do not change is_active — grace period, school retains access
 
     school.save(update_fields=[
         "stripe_subscription_status", "plan", "stripe_cancel_at", "stripe_cancel_at_period_end", "stripe_current_period_end", "is_active"

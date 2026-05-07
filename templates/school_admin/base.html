@@ -1,0 +1,210 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block page_title %}Dashboard{% endblock %} — {{ school.display_name|default:school.slug }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="{% static 'admin/dashboard.css' %}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body class="dash-body">
+
+  <!-- Top navigation -->
+  <header class="dash-header">
+    <div class="dash-header-left">
+      {% if school.logo_url %}
+        <img src="{{ school.logo_url }}" alt="{{ school.display_name }}" class="dash-logo">
+      {% endif %}
+      <div class="dash-school-name">{{ school.display_name|default:school.slug }}</div>
+    </div>
+
+    <nav class="dash-nav">
+      <a href="{% url 'school_dashboard' school.slug %}"
+         class="dash-nav-link{% if active_nav == 'dashboard' %} dash-nav-link--active{% endif %}">Dashboard</a>
+      <a href="{% url 'school_submissions' school.slug %}"
+         class="dash-nav-link{% if active_nav == 'submissions' %} dash-nav-link--active{% endif %}">Submissions</a>
+      {% if leads_enabled %}
+        <a href="{% url 'school_leads' school.slug %}"
+           class="dash-nav-link{% if active_nav == 'leads' %} dash-nav-link--active{% endif %}">Leads</a>
+      {% endif %}
+      <a href="{% url 'school_reports' school.slug %}"
+         class="dash-nav-link{% if active_nav == 'reports' %} dash-nav-link--active{% endif %}">Reports</a>
+      <a href="{% url 'school_settings' school.slug %}"
+         class="dash-nav-link{% if active_nav == 'settings' %} dash-nav-link--active{% endif %}">Settings</a>
+    </nav>
+
+    <div class="dash-header-right">
+      <span class="dash-date">{{ now|date:"M j, Y" }}</span>
+      <!-- Hamburger (mobile only) -->
+      <button id="mobile-nav-btn"
+              type="button"
+              class="dash-mobile-menu-btn"
+              aria-label="Open navigation"
+              aria-expanded="false">&#9776;</button>
+      <!-- User menu -->
+      <div style="position:relative;">
+        <button id="user-menu-btn"
+                style="width:32px;height:32px;border-radius:50%;background:var(--dash-primary,#4f46e5);
+                       color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;
+                       display:flex;align-items:center;justify-content:center;"
+                aria-label="User menu"
+                onclick="(function(){var d=document.getElementById('user-menu-dropdown');d.style.display=d.style.display==='block'?'none':'block';})()">
+          {{ user_initial }}
+        </button>
+        <div id="user-menu-dropdown"
+             style="display:none;position:absolute;right:0;top:40px;min-width:190px;
+                    background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);
+                    border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:200;
+                    padding:6px 0;">
+          <!-- Username -->
+          <div style="padding:8px 14px 8px;font-size:12px;color:var(--dash-muted,#64748b);
+                      border-bottom:1px solid var(--dash-border,#e2e8f0);margin-bottom:4px;">
+            {{ request.user.get_full_name|default:request.user.username }}
+          </div>
+          <!-- Change password -->
+          <a href="{% url 'school_password_change' school.slug %}" class="dash-menu-item">
+            Change Password
+          </a>
+          <!-- Theme selector -->
+          <div style="border-top:1px solid var(--dash-border,#e2e8f0);padding:6px 0;margin-top:2px;">
+            <div style="padding:5px 14px 3px;font-size:10px;font-weight:700;
+                        text-transform:uppercase;letter-spacing:.08em;
+                        color:var(--dash-muted,#64748b);">
+              Theme
+            </div>
+            <button type="button" onclick="dashSetTheme('clean')"
+                    class="dash-menu-item"
+                    style="display:flex;align-items:center;gap:10px;">
+              <span style="width:10px;font-size:10px;color:var(--dash-primary,#2563eb);" id="check-clean">✓</span>
+              Clean
+            </button>
+            <button type="button" onclick="dashSetTheme('midnight')"
+                    class="dash-menu-item"
+                    style="display:flex;align-items:center;gap:10px;">
+              <span style="width:10px;font-size:10px;color:var(--dash-primary,#2563eb);" id="check-midnight"></span>
+              Midnight
+            </button>
+            <button type="button" onclick="dashSetTheme('mint')"
+                    class="dash-menu-item"
+                    style="display:flex;align-items:center;gap:10px;">
+              <span style="width:10px;font-size:10px;color:var(--dash-primary,#2563eb);" id="check-mint"></span>
+              Mint
+            </button>
+          </div>
+          {% if request.user.is_superuser %}
+          <div style="height:1px;background:var(--dash-border,#e2e8f0);margin:2px 0;"></div>
+          <a href="{% url 'admin:index' %}" class="dash-menu-item">
+            Django Admin ↗
+          </a>
+          {% endif %}
+          <div style="height:1px;background:var(--dash-border,#e2e8f0);margin:2px 0;"></div>
+          <form method="post" action="{% url 'admin:logout' %}" style="margin:0;">
+            {% csrf_token %}
+            <button type="submit" class="dash-menu-item dash-menu-item--danger">
+              Sign out
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </header>
+  <script>
+  // ── Theme picker (3 themes, localStorage) ────────────────────────────────
+  (function () {
+    var KEY = 'dash_theme';
+    var THEME_CLS = { clean: '', midnight: 'dash-midnight', mint: 'dash-mint' };
+    var ALL_CLS   = ['dash-midnight', 'dash-mint'];
+
+    function applyTheme(name) {
+      var cls = THEME_CLS[name] || '';
+      ALL_CLS.forEach(function(c){ document.body.classList.remove(c); });
+      if (cls) document.body.classList.add(cls);
+      // Show checkmark next to active theme only
+      ['clean', 'midnight', 'mint'].forEach(function(k) {
+        var el = document.getElementById('check-' + k);
+        if (el) el.textContent = (k === name) ? '✓' : '';
+      });
+    }
+
+    // Restore preference before first paint to avoid flash.
+    var saved = localStorage.getItem(KEY) || 'clean';
+    applyTheme(saved);
+
+    window.dashSetTheme = function(name) {
+      localStorage.setItem(KEY, name);
+      applyTheme(name);
+    };
+  }());
+
+  // ── User menu: close on outside click ────────────────────────────────────
+  document.addEventListener('click', function(e) {
+    var btn = document.getElementById('user-menu-btn');
+    var dd  = document.getElementById('user-menu-dropdown');
+    if (btn && dd && !btn.contains(e.target) && !dd.contains(e.target)) {
+      dd.style.display = 'none';
+    }
+    // Mobile nav: close on outside click
+    var mBtn = document.getElementById('mobile-nav-btn');
+    var nav  = document.querySelector('.dash-nav');
+    if (mBtn && nav && !mBtn.contains(e.target) && !nav.contains(e.target)) {
+      nav.classList.remove('dash-nav--mobile-open');
+      mBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+  // Mobile nav toggle
+  (function() {
+    var mBtn = document.getElementById('mobile-nav-btn');
+    var nav  = document.querySelector('.dash-nav');
+    if (!mBtn || !nav) return;
+    mBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var open = nav.classList.toggle('dash-nav--mobile-open');
+      mBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }());
+  </script>
+
+  <!-- Trial banner -->
+  {% if school.is_trial_plan and not request.user.is_superuser %}
+  <div class="dash-trial-banner">
+    {% if school.trial_days_left > 0 %}
+      ⚡ Trial ends in {{ school.trial_days_left }} day{{ school.trial_days_left|pluralize }} — New submissions will stop after this.
+      <a href="{% url 'school_billing' school.slug %}">Upgrade now →</a>
+    {% else %}
+      Your trial has expired — new submissions are paused. <a href="{% url 'school_billing' school.slug %}">Upgrade to resume →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Django messages (status update feedback, etc.) -->
+  {% if messages %}
+  <div style="padding: 12px 20px 0;">
+    {% for message in messages %}
+    <div style="
+      margin-bottom: 8px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      {% if message.level_tag == 'error' %}
+        background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b;
+      {% elif message.level_tag == 'success' %}
+        background: #f0fdf4; border: 1px solid #86efac; color: #166534;
+      {% elif message.level_tag == 'warning' %}
+        background: #fffbeb; border: 1px solid #fcd34d; color: #92400e;
+      {% else %}
+        background: #f0f7ff; border: 1px solid #dbeafe; color: #1e40af;
+      {% endif %}
+    ">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Page content -->
+  {% block content %}{% endblock %}
+
+  {% block extra_js %}{% endblock %}
+
+</body>
+</html>

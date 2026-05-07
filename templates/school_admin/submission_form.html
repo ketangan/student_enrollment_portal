@@ -1,0 +1,279 @@
+{% extends "school_admin/base.html" %}
+
+{% block page_title %}{{ form_heading }}{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+<div style="max-width:760px;">
+
+  <!-- Page heading -->
+  <div class="dash-greeting" style="margin-bottom:16px;">
+    <h1 class="dash-greeting-title" style="font-size:18px;">{{ form_heading }}</h1>
+  </div>
+
+  <!-- Form picker (multi-form schools only) -->
+  {% if is_multi %}
+  <div class="dash-card" style="padding:14px 18px;margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;">
+    {% for key, meta in available_forms.items %}
+    <a href="?form_key={{ key }}"
+       class="dash-action-btn {% if key == form_key %}dash-action-btn--primary{% else %}dash-action-btn--secondary{% endif %}"
+       style="font-size:12px;padding:5px 12px;">
+      {{ meta.title|default:key }}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if has_file_fields %}
+  <div style="padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;
+              font-size:12px;color:#92400e;margin-bottom:16px;">
+    File uploads cannot be changed here. Existing file data is preserved.
+  </div>
+  {% endif %}
+
+  <form method="post" action="{{ form_action }}">
+    {% csrf_token %}
+    {% if is_multi %}
+    <input type="hidden" name="_form_key" value="{{ form_key }}">
+    {% endif %}
+
+    {% if yaml_sections %}
+      {% for section in yaml_sections %}
+      <div class="dash-card" style="padding:20px 24px;margin-bottom:16px;">
+
+        {% if section.title %}
+        <h2 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+                   color:var(--dash-muted);margin:0 0 {% if section.description %}8px{% else %}16px{% endif %};">
+          {{ section.title }}
+        </h2>
+        {% endif %}
+
+        {% if section.description %}
+        <p style="font-size:13px;color:var(--dash-muted);margin:0 0 16px;">{{ section.description }}</p>
+        {% endif %}
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px 20px;">
+          {% for field in section.fields %}
+          <div style="{% if field.type == 'textarea' or field.type == 'waiver' or field.full_width %}grid-column:1/-1;{% endif %}">
+
+            {# Standard label — not for checkbox, waiver, or checkboxes-style multiselect (label rendered inline) #}
+            {% if field.type != "checkbox" and field.type != "waiver" %}
+              {% if field.type != "multiselect" or field.ui != "checkboxes" %}
+              <label for="{{ field.key }}"
+                     style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
+                {{ field.label }}{% if field.required %}<span style="color:#dc2626;margin-left:2px;">*</span>{% endif %}
+              </label>
+              {% endif %}
+            {% endif %}
+
+            {# ── TEXTAREA ── #}
+            {% if field.type == "textarea" %}
+              <textarea
+                id="{{ field.key }}"
+                name="{{ field.key }}"
+                rows="4"
+                placeholder="{{ field.placeholder|default:'' }}"
+                style="width:100%;padding:8px 10px;border:1px solid {% if field.error %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
+                       border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;
+                       box-sizing:border-box;">{{ field.value|default:'' }}</textarea>
+
+            {# ── SELECT ── #}
+            {% elif field.type == "select" %}
+              <select
+                id="{{ field.key }}"
+                name="{{ field.key }}"
+                class="dash-select{% if field.error %} dash-select--error{% endif %}"
+                style="width:100%;box-sizing:border-box;appearance:none;-webkit-appearance:none;">
+                <option value="">— Select —</option>
+                {% for opt in field.options %}
+                <option value="{{ opt.value }}"
+                        {% if opt.value == field.value %}selected{% endif %}>
+                  {{ opt.label }}
+                </option>
+                {% endfor %}
+              </select>
+
+            {# ── MULTISELECT — checkbox list (ui=checkboxes) ── #}
+            {% elif field.type == "multiselect" and field.ui == "checkboxes" %}
+              <div style="font-size:12px;color:var(--dash-muted);margin-bottom:8px;">
+                {{ field.label }}{% if field.required %}<span style="color:#dc2626;margin-left:2px;">*</span>{% endif %}
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;">
+                {% for opt in field.options %}
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                  <input type="checkbox" name="{{ field.key }}" value="{{ opt.value }}"
+                         {% if field.value and opt.value in field.value %}checked{% endif %}>
+                  <span>{{ opt.label }}</span>
+                </label>
+                {% endfor %}
+              </div>
+
+            {# ── MULTISELECT — native multi-select ── #}
+            {% elif field.type == "multiselect" %}
+              <select
+                id="{{ field.key }}"
+                name="{{ field.key }}"
+                multiple
+                style="width:100%;padding:8px 10px;border:1px solid {% if field.error %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
+                       border-radius:6px;font-size:13px;background:var(--dash-bg);color:var(--dash-text);
+                       box-sizing:border-box;">
+                {% for opt in field.options %}
+                <option value="{{ opt.value }}"
+                        {% if field.value and opt.value in field.value %}selected{% endif %}>
+                  {{ opt.label }}
+                </option>
+                {% endfor %}
+              </select>
+              <div style="font-size:11px;color:var(--dash-muted);margin-top:4px;">
+                Hold ⌘ (Mac) / Ctrl (Windows) to select multiple.
+              </div>
+
+            {# ── CHECKBOX ── #}
+            {% elif field.type == "checkbox" %}
+              <div style="display:flex;align-items:center;gap:8px;">
+                <input
+                  type="checkbox"
+                  id="{{ field.key }}"
+                  name="{{ field.key }}"
+                  value="true"
+                  {% if field.value %}checked{% endif %}>
+                <label for="{{ field.key }}" style="font-size:13px;cursor:pointer;">
+                  {{ field.checkbox_label|default:field.label }}{% if field.required %}<span style="color:#dc2626;margin-left:2px;">*</span>{% endif %}
+                </label>
+              </div>
+
+            {# ── WAIVER ── #}
+            {% elif field.type == "waiver" %}
+              <div style="background:#f8fafc;border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;padding:14px 16px;">
+                {% if field.text %}
+                <p style="font-size:13px;color:var(--dash-text);margin:0 0 10px;">{{ field.text }}</p>
+                {% endif %}
+                {% if field.link_url %}
+                <a href="{{ field.link_url }}" target="_blank" rel="noopener noreferrer"
+                   style="font-size:13px;color:var(--dash-primary);text-decoration:underline;display:block;margin-bottom:10px;">
+                  {{ field.link_text|default:"View terms" }}
+                </a>
+                {% endif %}
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <input
+                    type="checkbox"
+                    id="{{ field.key }}"
+                    name="{{ field.key }}"
+                    value="agreed"
+                    {% if field.value.agreed %}checked{% endif %}>
+                  <label for="{{ field.key }}" style="font-size:13px;cursor:pointer;">
+                    {{ field.checkbox_label|default:"I agree" }}{% if field.required %}<span style="color:#dc2626;margin-left:2px;">*</span>{% endif %}
+                  </label>
+                </div>
+              </div>
+
+            {# ── EMAIL ── #}
+            {% elif field.type == "email" %}
+              <input
+                type="email"
+                id="{{ field.key }}"
+                name="{{ field.key }}"
+                value="{{ field.value|default:'' }}"
+                placeholder="{{ field.placeholder|default:'' }}"
+                style="width:100%;padding:8px 10px;border:1px solid {% if field.error %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
+                       border-radius:6px;font-size:13px;box-sizing:border-box;">
+
+            {# ── PHONE / TEL ── #}
+            {% elif field.type == "phone" or field.type == "tel" %}
+              <input
+                type="tel"
+                id="{{ field.key }}"
+                name="{{ field.key }}"
+                value="{{ field.value|default:'' }}"
+                placeholder="{{ field.placeholder|default:'' }}"
+                style="width:100%;padding:8px 10px;border:1px solid {% if field.error %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
+                       border-radius:6px;font-size:13px;box-sizing:border-box;">
+
+            {# ── DATE ── #}
+            {% elif field.type == "date" %}
+              <input
+                type="date"
+                id="{{ field.key }}"
+                name="{{ field.key }}"
+                value="{{ field.value|default:'' }}"
+                style="width:100%;padding:8px 10px;border:1px solid {% if field.error %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
+                       border-radius:6px;font-size:13px;box-sizing:border-box;">
+
+            {# ── NUMBER ── #}
+            {% elif field.type == "number" %}
+              <input
+                type="number"
+                id="{{ field.key }}"
+                name="{{ field.key }}"
+                value="{{ field.value|default:'' }}"
+                placeholder="{{ field.placeholder|default:'' }}"
+                style="width:100%;padding:8px 10px;border:1px solid {% if field.error %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
+                       border-radius:6px;font-size:13px;box-sizing:border-box;">
+
+            {# ── DEFAULT TEXT ── #}
+            {% else %}
+              <input
+                type="text"
+                id="{{ field.key }}"
+                name="{{ field.key }}"
+                value="{{ field.value|default:'' }}"
+                placeholder="{{ field.placeholder|default:'' }}"
+                style="width:100%;padding:8px 10px;border:1px solid {% if field.error %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
+                       border-radius:6px;font-size:13px;box-sizing:border-box;">
+            {% endif %}
+
+            {% if field.help_text %}
+            <div style="font-size:11px;color:var(--dash-muted);margin-top:4px;">{{ field.help_text }}</div>
+            {% endif %}
+
+            {% if field.error %}
+            <div style="color:#dc2626;font-size:12px;margin-top:4px;">{{ field.error }}</div>
+            {% endif %}
+
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+
+    {% else %}
+    <div class="dash-card" style="padding:24px;margin-bottom:16px;">
+      <div style="padding:14px;background:#f0f7ff;border:1px solid #dbeafe;border-radius:6px;
+                  font-size:13px;color:#1e40af;">
+        No form configuration found for this school. The submission will be created with no form data.
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Internal notes (edit only) -->
+    {% if show_notes %}
+    <div class="dash-card" style="padding:20px 24px;margin-bottom:16px;">
+      <h2 style="font-size:14px;font-weight:700;margin:0 0 12px;color:var(--dash-text);">
+        Internal Notes
+      </h2>
+      <textarea name="internal_notes" rows="4"
+                style="width:100%;padding:8px 10px;border:1px solid var(--dash-border,#e2e8f0);
+                       border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;
+                       box-sizing:border-box;">{{ notes_value|default:'' }}</textarea>
+      <p style="font-size:11px;color:var(--dash-muted);margin:4px 0 0;">
+        Visible to school staff only. Not shared with applicants.
+      </p>
+    </div>
+    {% endif %}
+
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:24px;">
+      <button type="submit"
+              class="dash-action-btn dash-action-btn--primary"
+              style="font-size:13px;">
+        Save
+      </button>
+      <a href="{{ cancel_url }}"
+         style="font-size:13px;color:var(--dash-muted);text-decoration:none;">
+        Cancel
+      </a>
+    </div>
+  </form>
+
+</div>
+</main>
+{% endblock %}

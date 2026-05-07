@@ -5,6 +5,7 @@ coverage==7.13.1
 dj-database-url==3.1.0
 Django==6.0.1
 django-anymail
+django-ratelimit==4.1.0
 django-jazzmin==3.0.1
 factory_boy==3.3.3
 Faker==40.1.2

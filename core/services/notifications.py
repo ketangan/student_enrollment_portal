@@ -511,4 +511,155 @@ def send_submission_notification_email(
     except Exception:
         logger.exception("Failed to send submission notification email")
         return False
-    
+
+
+# ── Phase 12: admin communication helpers ────────────────────────────────────
+
+_WORKFLOW_DEFAULTS: dict[str, dict[str, str]] = {
+    "contacted": {
+        "subject": "Reaching out \u2014 {{school}}",
+        "body": (
+            "Hi {{name}},\n\n"
+            "Thank you for your interest in {{school}}. We have recently reached out "
+            "and look forward to connecting with you.\n\n"
+            "\u2014 {{school}}"
+        ),
+    },
+    "follow_up": {
+        "subject": "Following up \u2014 {{school}}",
+        "body": (
+            "Hi {{name}},\n\n"
+            "We wanted to follow up on your inquiry at {{school}}. "
+            "Please do not hesitate to reach out with any questions.\n\n"
+            "\u2014 {{school}}"
+        ),
+    },
+}
+
+
+def _resolve_from_email(config_raw: dict) -> str:
+    """
+    Returns the school-configured from_email (from YAML applicant_confirmation block)
+    or falls back to settings.DEFAULT_FROM_EMAIL.
+    """
+    candidate = _get_nested(
+        config_raw,
+        ["success", "notifications", "applicant_confirmation", "from_email"],
+        default="",
+    )
+    if candidate and isinstance(candidate, str) and candidate.strip():
+        return candidate.strip()
+    return getattr(settings, "DEFAULT_FROM_EMAIL", "")
+
+
+def get_communication_template(config_raw: dict, template_key: str) -> tuple[str, str]:
+    """
+    Returns (subject, body) for a workflow notification email.
+
+    Reads communication.templates.{template_key} from config_raw; falls back to
+    _WORKFLOW_DEFAULTS if the key or config is absent.
+    """
+    # For unknown keys fall back to the "contacted" template rather than empty strings,
+    # so callers always receive a sendable subject+body pair.
+    defaults = _WORKFLOW_DEFAULTS.get(template_key) or _WORKFLOW_DEFAULTS["contacted"]
+    if not isinstance(config_raw, dict):
+        return defaults["subject"], defaults["body"]
+    tmpl_cfg = _get_nested(config_raw, ["communication", "templates", template_key], default={})
+    if not isinstance(tmpl_cfg, dict):
+        return defaults["subject"], defaults["body"]
+    subject = str(tmpl_cfg.get("subject") or defaults["subject"])
+    body = str(tmpl_cfg.get("body") or defaults["body"])
+    return subject, body
+
+
+def send_admin_message(
+    *,
+    to_email: str,
+    subject: str,
+    message: str,
+    school_name: str,
+    from_email: str | None = None,
+) -> bool:
+    """
+    Sends a one-off admin-composed message to a family member.
+    Returns True on success, False on failure (exception is logged).
+    """
+    sender = from_email or getattr(settings, "DEFAULT_FROM_EMAIL", "")
+    safe_message = escape(message)
+    safe_school = escape(school_name)
+
+    text_body = f"{message}\n\n\u2014 {school_name}"
+    html_body = (
+        "<div style=\"font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;\">"
+        f"<p style=\"font-size:15px;line-height:1.6;\">{safe_message}</p>"
+        "<hr style=\"border:none;border-top:1px solid #e2e8f0;margin:20px 0;\">"
+        f"<p style=\"font-size:13px;color:#64748b;\">{safe_school}</p>"
+        "</div>"
+    )
+
+    try:
+        conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_body,
+            from_email=sender,
+            to=[to_email],
+            connection=conn,
+        )
+        msg.attach_alternative(html_body, "text/html")
+        msg.send(fail_silently=False)
+        return True
+    except Exception:
+        logger.exception("Failed to send admin message to %s", to_email)
+        return False
+
+
+def send_workflow_notification(
+    *,
+    to_email: str,
+    student_name: str,
+    school_name: str,
+    notification_type: str,
+    config_raw: dict,
+    from_email: str | None = None,
+) -> bool:
+    """
+    Sends a workflow-triggered notification email ("we reached out" or "follow-up").
+
+    notification_type: "contacted" | "follow_up"
+    Returns True on success, False on failure (exception is logged).
+    """
+    sender = from_email or getattr(settings, "DEFAULT_FROM_EMAIL", "")
+    subject_tmpl, body_tmpl = get_communication_template(config_raw, notification_type)
+
+    context = {"name": student_name, "school": school_name}
+    subject = _render_template(subject_tmpl, context)
+    body = _render_template(body_tmpl, context)
+
+    safe_body = escape(body)
+    safe_school = escape(school_name)
+    html_body = (
+        "<div style=\"font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;\">"
+        f"<p style=\"font-size:15px;line-height:1.6;white-space:pre-line;\">{safe_body}</p>"
+        "<hr style=\"border:none;border-top:1px solid #e2e8f0;margin:20px 0;\">"
+        f"<p style=\"font-size:13px;color:#64748b;\">{safe_school}</p>"
+        "</div>"
+    )
+
+    try:
+        conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=body,
+            from_email=sender,
+            to=[to_email],
+            connection=conn,
+        )
+        msg.attach_alternative(html_body, "text/html")
+        msg.send(fail_silently=False)
+        return True
+    except Exception:
+        logger.exception(
+            "Failed to send %s workflow notification to %s", notification_type, to_email
+        )
+        return False

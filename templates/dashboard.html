@@ -1,0 +1,140 @@
+{% extends "school_admin/base.html" %}
+{% load static %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+  <main class="dash-main">
+
+    <!-- Greeting -->
+    <div class="dash-greeting">
+      <h1 class="dash-greeting-title">{{ greeting }} 👋</h1>
+      <p class="dash-greeting-sub">Here's what needs your attention today.</p>
+    </div>
+
+    <!-- Primary KPI cards -->
+    {% include "dashboard/_needs_attention.html" %}
+
+    <!-- At a glance strip -->
+    <div class="dash-glance-strip">
+      <span class="dash-glance-label">At a<br>glance</span>
+      <div class="dash-glance-items">
+
+        {% if conversion_metrics %}
+        <div class="dash-glance-item">
+          <svg class="dash-glance-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <div class="dash-glance-text">
+            <div class="dash-glance-num" style="color:#16a34a;">{{ conversion_metrics.lead_to_sub_rate }}%</div>
+            <div class="dash-glance-lbl">Lead &rarr; App Rate</div>
+            <div class="dash-glance-sub">{{ conversion_metrics.leads_not_converted }} unconverted</div>
+          </div>
+        </div>
+        <div class="dash-glance-sep"></div>
+        {% endif %}
+
+        <div class="dash-glance-item">
+          <svg class="dash-glance-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          <div class="dash-glance-text">
+            <div class="dash-glance-num">{{ approved_count }}</div>
+            <div class="dash-glance-lbl">Enrolled</div>
+            <div class="dash-glance-sub">Total</div>
+          </div>
+        </div>
+        <div class="dash-glance-sep"></div>
+
+        <div class="dash-glance-item">
+          <svg class="dash-glance-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <div class="dash-glance-text">
+            <div class="dash-glance-num" style="color:#6b7280;">{{ declined_count }}</div>
+            <div class="dash-glance-lbl">Declined</div>
+            <div class="dash-glance-sub">Total</div>
+          </div>
+        </div>
+        <div class="dash-glance-sep"></div>
+
+        <div class="dash-glance-item">
+          <svg class="dash-glance-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <div class="dash-glance-text">
+            <div class="dash-glance-num" style="color:#2563eb;">{{ active_count }}</div>
+            <div class="dash-glance-lbl">Active Applications</div>
+            <div class="dash-glance-sub">In pipeline</div>
+          </div>
+        </div>
+
+        {% if conversion_metrics %}
+        <div class="dash-glance-sep"></div>
+        <a href="{{ conversion_metrics.leads_not_converted_url }}" class="dash-glance-item" style="text-decoration:none;color:inherit;">
+          <svg class="dash-glance-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          <div class="dash-glance-text">
+            <div class="dash-glance-num" style="color:#ea580c;">{{ conversion_metrics.leads_not_converted }}</div>
+            <div class="dash-glance-lbl">Unconverted Lead{{ conversion_metrics.leads_not_converted|pluralize }}</div>
+            <div class="dash-glance-sub">Needs follow-up →</div>
+          </div>
+        </a>
+        {% endif %}
+
+      </div>
+    </div>
+
+    {% if total_submissions == 0 %}
+      <!-- Empty state -->
+      <div class="dash-card">
+        <div class="dash-empty">
+          <div class="dash-empty-icon">📋</div>
+          <div class="dash-empty-title">No submissions yet</div>
+          <div class="dash-empty-sub">
+            Start by sharing your application link with families.
+          </div>
+          <button class="dash-copy-btn" onclick="copyApplyLink(this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy application link
+          </button>
+          <div class="dash-copy-confirm" id="dash-copy-confirm">Copied!</div>
+        </div>
+      </div>
+    {% else %}
+      <!-- Two-column layout: work queue + activity sidebar -->
+      <div class="dash-grid">
+        <div class="dash-grid-main">
+          {% include "dashboard/_submissions_inbox.html" %}
+        </div>
+        <div class="dash-grid-side">
+          {% include "dashboard/_activity.html" %}
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Tip bar -->
+    <div class="dash-tip-bar">
+      💡 <span>Tip: Review new submissions daily to keep your pipeline moving.</span>
+    </div>
+
+  </main>
+{% endblock %}
+
+{% block extra_js %}
+  <script>
+    var APPLY_URL = "{{ apply_url|escapejs }}";
+
+    function copyApplyLink(btn) {
+      if (!navigator.clipboard) return;
+      navigator.clipboard.writeText(APPLY_URL).then(function() {
+        var confirm = document.getElementById("dash-copy-confirm");
+        if (confirm) {
+          confirm.style.display = "block";
+          setTimeout(function() { confirm.style.display = "none"; }, 2500);
+        }
+      });
+    }
+
+    // Work Queue tab switching
+    function switchTab(tabName) {
+      document.querySelectorAll('.dash-wq-tab').forEach(function(t) {
+        t.classList.toggle('dash-wq-tab--active', t.dataset.tab === tabName);
+      });
+      document.querySelectorAll('.dash-wq-panel').forEach(function(p) {
+        p.style.display = p.dataset.panel === tabName ? '' : 'none';
+      });
+    }
+  </script>
+{% endblock %}

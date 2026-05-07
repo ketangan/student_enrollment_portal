@@ -1,0 +1,58 @@
+<!-- Quick insights panel -->
+<div class="dash-card">
+  <div class="dash-card-header">
+    <span class="dash-card-title">Quick insight</span>
+    <span style="font-size: 11px; color: var(--dash-muted);">Last 30 days</span>
+  </div>
+
+  {% if top_schedule or top_program or top_enrichment %}
+
+    {% if top_schedule %}
+    <div class="dash-insight-item">
+      <div class="dash-insight-meta">
+        <div class="dash-insight-dot"></div>
+        <span class="dash-insight-label">Top schedule</span>
+      </div>
+      <div class="dash-insight-value">{{ top_schedule.label }}</div>
+      <div class="dash-bar">
+        <div class="dash-bar-fill" style="width: {{ top_schedule.pct }}%"></div>
+      </div>
+      <div class="dash-insight-count">{{ top_schedule.pct }}% &mdash; based on {{ top_schedule.total }} response{{ top_schedule.total|pluralize }}</div>
+    </div>
+    {% endif %}
+
+    {% if top_program %}
+    <div class="dash-insight-item">
+      <div class="dash-insight-meta">
+        <div class="dash-insight-dot" style="background: #16a34a;"></div>
+        <span class="dash-insight-label">Top program</span>
+      </div>
+      <div class="dash-insight-value">{{ top_program.label }}</div>
+      <div class="dash-bar">
+        <div class="dash-bar-fill" style="width: {{ top_program.pct }}%; background: #16a34a;"></div>
+      </div>
+      <div class="dash-insight-count">{{ top_program.pct }}% &mdash; {{ top_program.count }} of {{ top_program.total }} submission{{ top_program.total|pluralize }}</div>
+    </div>
+    {% endif %}
+
+    {% if top_enrichment %}
+    <div class="dash-insight-item">
+      <div class="dash-insight-meta">
+        <div class="dash-insight-dot" style="background: #7c3aed;"></div>
+        <span class="dash-insight-label">Top enrichment</span>
+      </div>
+      <div class="dash-insight-value">{{ top_enrichment.label }}</div>
+      <div class="dash-bar">
+        <div class="dash-bar-fill" style="width: {{ top_enrichment.pct }}%; background: #7c3aed;"></div>
+      </div>
+      <div class="dash-insight-count">{{ top_enrichment.pct }}% of all selections ({{ top_enrichment.count }})</div>
+    </div>
+    {% endif %}
+
+  {% else %}
+    <div class="dash-no-data">
+      Not enough data yet.<br>
+      <span style="font-size: 12px;">Insights appear once you receive more submissions.</span>
+    </div>
+  {% endif %}
+</div>

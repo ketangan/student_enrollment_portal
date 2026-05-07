@@ -351,8 +351,54 @@ admin:
     - Enrolled
     - Declined
     - Archived
-  default_submission_status:
-    - New
+  default_submission_status: New
+
+  submission_workflow:
+    filters:
+      needs_review:
+        label: "Needs Review"
+        statuses: ["New"]
+      tour_scheduled:
+        label: "Tour Scheduled"
+        statuses: ["Tour Scheduled"]
+      needs_decision:
+        label: "Needs Decision"
+        statuses: ["Tour Completed"]
+      waitlisted:
+        label: "Waitlisted"
+        statuses: ["Waitlisted"]
+      enrolled:
+        label: "Enrolled"
+        statuses: ["Enrolled"]
+      declined:
+        label: "Declined"
+        statuses: ["Declined"]
+
+    transitions:
+      New:
+        - label: "Mark Tour Scheduled"
+          status: "Tour Scheduled"
+        - label: "Mark Tour Completed"
+          status: "Tour Completed"
+        - label: "Decline"
+          status: "Declined"
+      Tour Scheduled:
+        - label: "Mark Tour Completed"
+          status: "Tour Completed"
+        - label: "Decline"
+          status: "Declined"
+      Tour Completed:
+        - label: "Enroll"
+          status: "Enrolled"
+        - label: "Waitlist"
+          status: "Waitlisted"
+        - label: "Decline"
+          status: "Declined"
+      Waitlisted:
+        - label: "Enroll"
+          status: "Enrolled"
+        - label: "Decline"
+          status: "Declined"
 
 leads:
   success_message: "Thanks for your interest in Young Minds Learning Academy! We'll be in touch within 1–2 business days."

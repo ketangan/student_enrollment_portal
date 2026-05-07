@@ -196,8 +196,38 @@ admin:
     - Archived
     - Enrolled
     - Closed
-  default_submission_status: 
+  default_submission_status:
     - New
+  lead_workflow:
+    filters:
+      new_leads:
+        label: "New"
+        statuses:
+          - new
+      pipeline:
+        label: "In Pipeline"
+        statuses:
+          - contacted
+          - trial_scheduled
+      won:
+        label: "Enrolled"
+        statuses:
+          - enrolled
+    transitions:
+      new:
+        - label: "Mark Contacted"
+          status: contacted
+        - label: "Lost"
+          status: lost
+      contacted:
+        - label: "Schedule Trial"
+          status: trial_scheduled
+        - label: "Lost"
+          status: lost
+      trial_scheduled:
+        - label: "Lost"
+          status: lost
+      # enrolled is a terminal status set only by auto-conversion — no transitions from/to it
 
 
 leads:

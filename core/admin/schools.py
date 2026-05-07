@@ -8,6 +8,7 @@ from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html, mark_safe
 
+from core.admin.audit import log_admin_audit
 from core.admin.common import _has_school_membership, _is_superuser, _membership_school_id
 from core.models import School
 from core.services.feature_flags import default_flags_for_plan, merge_flags
@@ -133,6 +134,29 @@ class SchoolAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return _is_superuser(request.user)
+
+    def save_model(self, request, obj, form, change):
+        _TRACKED = ("display_name", "plan", "is_active", "website_url")
+        old_values: dict = {}
+        if change and obj.pk:
+            old_row = School.objects.filter(pk=obj.pk).values(*_TRACKED).first() or {}
+            old_values = dict(old_row)
+
+        super().save_model(request, obj, form, change)
+
+        if not change:
+            log_admin_audit(request=request, action="add", obj=obj, changes={})
+            return
+
+        changes = {}
+        for field in _TRACKED:
+            old_val = old_values.get(field)
+            new_val = getattr(obj, field, None)
+            if str(old_val or "") != str(new_val or ""):
+                changes[field] = {"from": old_val, "to": new_val}
+
+        if changes:
+            log_admin_audit(request=request, action="change", obj=obj, changes=changes)
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)

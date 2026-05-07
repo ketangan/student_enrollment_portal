@@ -131,7 +131,7 @@ class SchoolConfig:
         return {}
 
 
-_PROGRAM_FIELD_KEYS = {"interested_in", "program", "program_interest", "dance_style"}
+PROGRAM_FIELD_KEYS = {"interested_in", "program", "program_interest", "dance_style"}
 
 
 def get_program_options(config: "SchoolConfig") -> list[dict]:
@@ -141,7 +141,7 @@ def get_program_options(config: "SchoolConfig") -> list[dict]:
 
     Lookup order:
     1. Explicit YAML override: leads.program_field_key
-    2. Heuristic: first type=select field whose key is in _PROGRAM_FIELD_KEYS
+    2. Heuristic: first type=select field whose key is in PROGRAM_FIELD_KEYS
 
     Returns [] if nothing found.
     """
@@ -165,7 +165,7 @@ def get_program_options(config: "SchoolConfig") -> list[dict]:
                 continue
             if explicit_key and key != explicit_key:
                 continue
-            if not explicit_key and key not in _PROGRAM_FIELD_KEYS:
+            if not explicit_key and key not in PROGRAM_FIELD_KEYS:
                 continue
             options = field.get("options") or []
             return [
@@ -178,6 +178,35 @@ def get_program_options(config: "SchoolConfig") -> list[dict]:
             ]
 
     return []
+
+
+def find_email_field_key(config_raw: dict) -> Optional[str]:
+    """Return the key of the highest-priority email field in the school's YAML form.
+    Required email fields are preferred over optional ones.
+    Handles both single-form and multi-form YAMLs.
+    """
+    if not isinstance(config_raw, dict):
+        return None
+    sections: list[dict] = []
+    if isinstance(config_raw.get("form"), dict):
+        sections = config_raw["form"].get("sections") or []
+    elif isinstance(config_raw.get("forms"), dict):
+        for form_data in config_raw["forms"].values():
+            if isinstance(form_data, dict) and isinstance(form_data.get("form"), dict):
+                sections.extend(form_data["form"].get("sections") or [])
+    required_key: Optional[str] = None
+    optional_key: Optional[str] = None
+    for section in sections:
+        for f in section.get("fields") or []:
+            if (f.get("type") or "").strip().lower() == "email":
+                key = f.get("key")
+                if not key:
+                    continue
+                if f.get("required") and required_key is None:
+                    required_key = key
+                elif optional_key is None:
+                    optional_key = key
+    return required_key or optional_key
 
 
 def load_school_config(school_slug: str) -> Optional[SchoolConfig]:

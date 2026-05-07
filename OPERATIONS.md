@@ -16,6 +16,74 @@ A YAML alone does not activate a school — it must have a School record in the 
 
 ---
 
+## Production Deployment Checklist
+
+Run this before every production deploy. All items must be green before going live.
+
+### Required Environment Variables
+
+| Variable | Example | Notes |
+|----------|---------|-------|
+| `DJANGO_SECRET_KEY` | 50-char random string | App crashes at startup if missing in prod |
+| `DJANGO_ENV` | `production` | Enables HTTPS redirect, secure cookies, Sentry |
+| `DATABASE_URL` | `postgres://...` | PostgreSQL connection string |
+| `ALLOWED_HOSTS` | `yourdomain.com,www.yourdomain.com` | Comma-separated |
+| `CSRF_TRUSTED_ORIGINS` | `https://yourdomain.com` | Required for CSRF to work behind proxy |
+| `DEFAULT_FROM_EMAIL` | `School Name <noreply@yourdomain.com>` | Must be a verified Resend sender |
+| `RESEND_EMAIL_API_KEY` | `re_xxx` | From Resend dashboard |
+| `BASE_URL` | `https://yourdomain.com` | Used for magic links in emails |
+
+### Recommended / Optional Variables
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `SENTRY_DSN` | *(empty)* | Enable error tracking (strongly recommended) |
+| `LOG_LEVEL` | `WARNING` | `DEBUG`/`INFO`/`WARNING`/`ERROR` |
+| `RATELIMIT_ENABLE` | `true` | Rate limiting on public forms; disable in local dev |
+| `STRIPE_MODE` | `test` | Set to `live` for real billing |
+| `ANTHROPIC_API_KEY` | *(empty)* | AI summary feature; optional |
+
+### Pre-Deploy Checks
+
+```bash
+# 1. Run migrations
+python manage.py migrate --check  # must exit 0
+
+# 2. Run full test suite
+python -m pytest -q               # must be 0 failed
+
+# 3. Collect static files
+python manage.py collectstatic --noinput
+
+# 4. Verify health check works
+curl https://yourdomain.com/healthz/
+# Expected: {"status": "ok"}
+
+# 5. Verify DEBUG is off
+python manage.py shell -c "from django.conf import settings; assert not settings.DEBUG"
+
+# 6. Verify SECRET_KEY is not the default
+python manage.py shell -c "
+from django.conf import settings
+assert settings.SECRET_KEY != 'unsafe-default-secret', 'SECRET_KEY not set!'
+print('SECRET_KEY OK')
+"
+```
+
+### Rate Limiting
+
+Public form endpoints are rate-limited per IP when `RATELIMIT_ENABLE=true`:
+
+| Endpoint | Limit |
+|----------|-------|
+| `POST /schools/<slug>/apply` | 30 requests / minute |
+| `POST /schools/<slug>/lead-capture` | 20 requests / minute |
+
+Exceeding the limit returns a 429 page. Limits are per-IP using Django's default cache backend.
+For higher traffic, configure a Redis cache backend to share state across workers.
+
+---
+
 ## Activating a New School
 
 1. Create YAML: copy `example-school.yaml`, rename to `<slug>.yaml`, edit content
@@ -37,6 +105,53 @@ A YAML alone does not activate a school — it must have a School record in the 
 | **School Admin** | One school only — submissions, leads, reports for that school |
 
 If a school admin logs in but sees no data: confirm `is_staff=True` and `SchoolAdminMembership` exists linking them to the correct school.
+
+---
+
+## School-Facing Admin UI
+
+### Two Separate Admin Areas
+
+| URL | Purpose | Who Uses It |
+|:----|:--------|:------------|
+| `/schools/<slug>/admin/` | School-facing dashboard — day-to-day submissions, leads, reports | School admins (primary workflow) |
+| `/admin/` | Django admin — full data management, user/membership, plan changes | Superusers + school admins for detail pages |
+
+School admins have access to both, but the school-facing UI is their primary workspace. The Django admin is for power operations (editing individual records, status changes, exports).
+
+### Middleware Auto-Redirect
+
+`SchoolAdminRedirectMiddleware` automatically redirects staff school admins from the Django admin **index** to their school dashboard. Deep links into the Django admin (e.g. `/admin/core/submission/42/change/`) are passed through untouched.
+
+Only GET requests to the admin index root are intercepted — POST, PUT, etc. are never redirected. Superusers are never redirected.
+
+### Changing the Admin URL
+
+By default the Django admin is at `/admin/`. To harden a deployment:
+
+1. Set `ADMIN_URL=myadmin/` in the environment (with trailing slash)
+2. The middleware and URL router both read this setting at startup — no code changes needed
+
+### School-Facing Routes
+
+| Route | View | Notes |
+|:------|:-----|:------|
+| `/schools/<slug>/admin/` | Dashboard | KPI counts, recent submissions inbox |
+| `/schools/<slug>/admin/submissions/` | Submissions list | Filter by status/search, cap 2,000 rows |
+| `/schools/<slug>/admin/leads/` | Leads pipeline | Filter by status/search, cap 200 rows |
+| `/schools/<slug>/admin/reports/` | Reports | Starter+ feature; `/admin/reports` 301s here |
+
+Access gate (`_get_accessible_school_for_admin`): 404 if school slug not found, 403 if user has no membership for that school, 403 if school is inactive.
+
+### Search Limitation
+
+The submissions and leads search is Python-level substring matching against an in-memory queryset slice (up to 2,000 / 200 rows respectively). It does **not** scan the full table. If a school has many records and a match is not found, the result is incomplete — the UI shows a "Showing first N results" notice.
+
+Future: move search to DB-level `ILIKE` filter before slicing.
+
+### YAML Contact Fields
+
+Lead and submission contact information (email, phone) is read from `submission.data[key]` using keys configured in the school's YAML. There is no canonical schema — if a YAML field key is renamed, existing records lose the displayed contact value (the raw data is preserved in `data`, but the display lookup will fail silently).
 
 ---
 
@@ -325,9 +440,64 @@ Applicants can save a partial form via email. A magic link is emailed to them. C
 
 ## Form Embedding
 
-Each school's apply form can be embedded on external websites via an iframe. The embed snippet is shown in the school's admin detail page under "Embed on your website".
+Each school's apply form and interest (lead capture) form can be embedded on external websites or linked from a button.
 
-`X-Frame-Options` is set to `SAMEORIGIN` to allow embedding.
+`X-Frame-Options` is set to `SAMEORIGIN` — iframes from external origins are blocked by default. To allow embedding on a school's own domain, set `EMBED_ALLOWED_ORIGINS` in settings or switch to `X_FRAME_OPTIONS = "ALLOWALL"` (not recommended for multi-tenant use).
+
+**Recommended approach for most schools: link-out buttons.** Iframes have mobile scaling issues and same-origin restrictions. A button that opens the form in a new tab gives a better mobile experience and avoids CORS/frame-busting concerns.
+
+### Option A — Link-Out Button (Recommended)
+
+Paste this HTML snippet on the school's website:
+
+```html
+<!-- Apply Now button -->
+<a href="https://yourdomain.com/schools/SCHOOL_SLUG/apply/"
+   target="_blank"
+   style="display:inline-block;padding:12px 28px;background:#2563eb;color:#fff;
+          font-size:16px;font-weight:600;border-radius:8px;text-decoration:none;">
+  Apply Now &rarr;
+</a>
+
+<!-- Request Info button (lead capture form) -->
+<a href="https://yourdomain.com/schools/SCHOOL_SLUG/interest/"
+   target="_blank"
+   style="display:inline-block;padding:12px 28px;background:#f8fafc;color:#1e293b;
+          font-size:16px;font-weight:600;border-radius:8px;text-decoration:none;
+          border:1px solid #e2e8f0;">
+  Request Info &rarr;
+</a>
+```
+
+Replace `SCHOOL_SLUG` with the school's slug (e.g. `young-minds-la`).
+
+### Option B — Iframe Embed
+
+Only use this if the school's website is on the **same domain** as the portal, or if `X_FRAME_OPTIONS` has been relaxed:
+
+```html
+<!-- Apply form iframe -->
+<iframe
+  src="https://yourdomain.com/schools/SCHOOL_SLUG/apply/"
+  width="100%"
+  height="800"
+  style="border:none;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.08);"
+  title="Enrollment Application">
+</iframe>
+
+<!-- Interest / lead capture form iframe -->
+<iframe
+  src="https://yourdomain.com/schools/SCHOOL_SLUG/interest/"
+  width="100%"
+  height="500"
+  style="border:none;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.08);"
+  title="Request Information">
+</iframe>
+```
+
+**Mobile note**: add `<meta name="viewport" content="width=device-width, initial-scale=1">` to the host page to prevent scaling issues. Set `height="auto"` is not supported in standard iframes — use a fixed height or a JS `postMessage` resize approach.
+
+The embed snippet (pre-filled with the correct URL) is shown in the school's Django admin detail page under "Embed on your website".
 
 ---
 
@@ -369,6 +539,135 @@ npx playwright test
 ```
 
 578+ unit/integration tests passing. E2E tests cover billing flows, apply form, and admin interactions.
+
+---
+
+## Sales Narrative
+
+### One-Line Pitch
+
+**Student Enrollment Portal gives school admins one place to capture interest, track families through the pipeline, and enroll students — no spreadsheets, no missed follow-ups.**
+
+### Problems It Solves
+
+- **Interest forms go into a void** — families fill out a Google Form and never hear back; the admin has no pipeline view
+- **Follow-ups live in someone's head** — who to call, when to call, what was said last time: all manual
+- **Leads and applications are disconnected** — a family who filled out an interest form last month submits an application today; the admin has no idea they're the same person
+- **No visibility into where families drop off** — admins can't answer "how many leads became applications, how many enrolled?" without exporting CSVs and counting manually
+- **Every school is different** — enrollment workflows, required fields, and status names vary; rigid software forces process changes
+
+### How This Product Solves Each
+
+- **Single intake funnel** — interest forms (leads) and application forms (submissions) flow into one admin dashboard; nothing is siloed
+- **Structured follow-up** — every lead has a status, a last-contacted date, and a scheduled follow-up; the dashboard surfaces what needs attention today
+- **Lead → Submission conversion** — one click from a lead detail page opens a pre-filled application form; when submitted, the lead and submission are linked for life
+- **Conversion reporting built in** — Reports show Leads → Applications → Enrolled with rates, week-over-week trends, and a "where you're losing people" section with clickable filters
+- **YAML-driven forms** — each school's form fields, validation rules, status names, and workflows are defined in a config file; no code changes per school
+
+### Plans
+
+| Plan | Monthly | Best For |
+|:-----|:--------|:---------|
+| **Starter** | $49.99/mo | Schools new to digital enrollment; includes leads, reports, email confirmations, CSV export |
+| **Pro** | $99/mo | Growing schools; adds custom branding, save & resume drafts, lead → submission conversion tracking, multi-form support |
+| **Growth** | $199/mo | High-volume schools; adds AI application summary for fast review, all Pro features |
+
+All plans start with a **14-day full-featured trial** — no credit card required.
+
+### Customer Success Template
+
+*(Leave blank — fill in with a real school's story after first paying customer)*
+
+> **[School Name]** was spending ___ hours per week managing enrollment in spreadsheets.
+> After switching, they reduced follow-up time by ___% and enrolled ___ more students in the first ___ months.
+
+---
+
+## Demo Walk-Through
+
+Use this script to walk a prospect through the product in under 5 minutes.
+
+### Setup (do this before the demo)
+
+```bash
+# 1. Use the existing demo school (young-minds-la or enrollment-request-demo)
+#    or create a fresh one:
+python manage.py shell -c "
+from core.models import School, SchoolAdminMembership
+from django.contrib.auth.models import User
+s = School.objects.create(slug='demo', display_name='Demo School', plan='trial')
+u = User.objects.create_user('demo', password='demo', is_staff=True)
+SchoolAdminMembership.objects.create(user=u, school=s)
+print('Done — login: demo / demo')
+"
+
+# 2. Create leads in different pipeline stages
+python manage.py shell -c "
+from core.models import Lead, School
+school = School.objects.get(slug='demo')
+Lead.objects.create(school=school, name='Sarah Chen', email='sarah@example.com', status='new', source='organic')
+Lead.objects.create(school=school, name='Marcus Williams', email='marcus@example.com', status='contacted', source='organic')
+Lead.objects.create(school=school, name='Jordan Lee', email='jordan@example.com', status='trial_scheduled', source='referral')
+print('3 leads created: new, contacted, trial_scheduled')
+"
+
+# 3. Create submissions in different stages + 1 converted lead
+python manage.py shell -c "
+from core.models import School, Submission, Lead
+from django.utils import timezone
+school = School.objects.get(slug='demo')
+# Submissions at various stages
+Submission.objects.create(school=school, status='New',
+    data={'student_first_name':'Emma','student_last_name':'Lee','contact_email':'emma@example.com'})
+Submission.objects.create(school=school, status='In Review',
+    data={'student_first_name':'Liam','student_last_name':'Brown','contact_email':'liam@example.com'})
+enrolled_sub = Submission.objects.create(school=school, status='Enrolled',
+    data={'student_first_name':'Zoe','student_last_name':'Kim','contact_email':'zoe@example.com'})
+# Converted lead — shows the full lead-to-enrollment journey
+Lead.objects.create(school=school, name='Zoe Kim', email='zoe@example.com',
+    status='enrolled', source='organic',
+    converted_submission=enrolled_sub, converted_at=timezone.now())
+print('3 submissions + 1 converted lead created')
+"
+```
+
+### Demo Script (5 minutes)
+
+**1. Dashboard** (`/schools/demo/admin/`)
+- Show the KPI cards: "New submissions", "New Leads", "Needs Attention", "Enrolled"
+- Point out: "Everything needing action is right here — no hunting through spreadsheets"
+- Click a KPI card to drill into the filtered list
+
+**2. Leads pipeline** (`/schools/demo/admin/leads/`)
+- Show leads list with status badges (New → Contacted → Trial Scheduled → Enrolled)
+- Click a lead in "new" or "contacted" status → show detail page: contact info, pipeline state
+- Demonstrate "Mark Contacted" — updates last contacted date instantly
+- Show "Open Form →" — opens pre-filled enrollment form in new tab (lead details auto-filled)
+- Show "Send link to family" — copy the pre-filled link to send to the family directly
+- Show the converted lead (Zoe Kim) → click "View Submission →" to jump to the linked submission
+
+**3. Submissions inbox** (`/schools/demo/admin/submissions/`)
+- Show "New" row highlighted — needs review
+- Click a submission → show detail: form answers, parent contact, linked lead (if any)
+- Show status transition buttons (e.g. Approve / Decline) from YAML config
+
+**4. Lead → Submission conversion (closed loop)**
+- Click Marcus Williams (contacted lead) → click "Open Form →" → fill and submit the form
+- Return to Marcus's lead — it now shows "Converted — linked to a submission"
+- Go to the linked submission → "Linked Lead" card shows Marcus's lead with "Open Lead" button
+- This demonstrates the full loop: lead → enrollment form → submission, all traceable
+
+**5. Reports** (`/schools/demo/admin/reports/`)
+- Show funnel KPI bar: Leads → Applications → Enrolled → Conversion rate
+- Show 7-day trend (requires data from past 2 weeks for comparison)
+- Show "Pipeline Gaps" section: click "View →" next to "Active leads not yet converted"
+  — pre-filters the leads list to show only unconverted active leads
+
+### What the Demo Proves
+
+- Leads come in → admins follow up → leads become applications → applications become enrollments
+- Every step has a clear next action, no dead ends
+- Reports show exactly where families are dropping off
 
 ---
 

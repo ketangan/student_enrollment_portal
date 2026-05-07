@@ -1,27 +1,88 @@
+{% extends "school_admin/base.html" %}
 {% load static %}
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>{{ school.display_name|default:school.slug }} - Reports</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <link rel="stylesheet" href="{% static 'forms.css' %}">
-    <link rel="stylesheet" href="{% static 'admin/reports.css' %}">
-  </head>
+{% block page_title %}Reports{% endblock %}
 
-  <body>
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'forms.css' %}">
+<link rel="stylesheet" href="{% static 'admin/reports.css' %}">
+{% endblock %}
+
+{% block content %}
     <div class="reports-page">
       <div class="reports-topbar">
         <div>
           <h1 class="reports-title">Reports</h1>
-          <div class="reports-subtitle">{{ school.display_name|default:school.slug }}</div>
-        </div>
-
-        <div class="reports-muted">
-          <span class="reports-pill">Program = Admin “Program” column</span>
         </div>
       </div>
+
+      <!-- Funnel KPI bar (Phase 14) -->
+      {% if funnel_metrics %}
+      {% if leads_enabled %}
+      <!-- 4-col: leads schools get Total Leads + Lead→App Rate cards -->
+      <div class="reports-cards" style="margin-top:12px;grid-template-columns:repeat(4,minmax(0,1fr));">
+        <div class="reports-card">
+          <div class="reports-k">Total Leads</div>
+          <div class="reports-v">{{ funnel_metrics.leads }}</div>
+          <div class="reports-muted" style="margin-top:6px;">All time</div>
+        </div>
+        <div class="reports-card">
+          <div class="reports-k">Applications</div>
+          <div class="reports-v">{{ funnel_metrics.submissions }}</div>
+          <div class="reports-muted" style="margin-top:6px;">All time</div>
+        </div>
+        <div class="reports-card">
+          <div class="reports-k">Enrolled</div>
+          <div class="reports-v">{{ funnel_metrics.enrolled }}</div>
+          <div class="reports-muted" style="margin-top:6px;">All time</div>
+        </div>
+        <div class="reports-card">
+          <div class="reports-k">Lead &#8594; Application Rate</div>
+          <div class="reports-v">
+            {% if funnel_metrics.lead_to_sub_rate is not None %}{{ funnel_metrics.lead_to_sub_rate }}%{% else %}<span class="reports-muted">&#8212;</span>{% endif %}
+          </div>
+          <div class="reports-muted" style="margin-top:6px;">
+            {% if funnel_metrics.sub_to_enrolled_rate is not None %}{{ funnel_metrics.sub_to_enrolled_rate }}% app &#8594; enrolled{% else %}No enrollments yet{% endif %}
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <!-- 3-col: non-leads schools see Applications, Enrolled, App→Enrolled Rate only -->
+      <div class="reports-cards" style="margin-top:12px;grid-template-columns:repeat(3,minmax(0,1fr));">
+        <div class="reports-card">
+          <div class="reports-k">Applications</div>
+          <div class="reports-v">{{ funnel_metrics.submissions }}</div>
+          <div class="reports-muted" style="margin-top:6px;">All time</div>
+        </div>
+        <div class="reports-card">
+          <div class="reports-k">Enrolled</div>
+          <div class="reports-v">{{ funnel_metrics.enrolled }}</div>
+          <div class="reports-muted" style="margin-top:6px;">All time</div>
+        </div>
+        <div class="reports-card">
+          <div class="reports-k">App &#8594; Enrolled Rate</div>
+          <div class="reports-v">
+            {% if funnel_metrics.sub_to_enrolled_rate is not None %}{{ funnel_metrics.sub_to_enrolled_rate }}%{% else %}<span class="reports-muted">&#8212;</span>{% endif %}
+          </div>
+          <div class="reports-muted" style="margin-top:6px;">All time</div>
+        </div>
+      </div>
+      {% endif %}
+      {% endif %}
+
+      <!-- Empty state: no submissions at all yet -->
+      {% if funnel_metrics and funnel_metrics.submissions == 0 %}
+      <div class="reports-card" style="margin-top:12px;text-align:center;padding:40px 24px;">
+        <div style="font-size:2rem;margin-bottom:12px;">📊</div>
+        <div style="font-size:16px;font-weight:700;color:var(--dash-text);margin-bottom:8px;">
+          No data yet
+        </div>
+        <p style="font-size:14px;color:var(--dash-muted);max-width:380px;margin:0 auto 20px;">
+          Reports appear once families start submitting applications.
+          Share your application link to get started.
+        </p>
+      </div>
+      {% endif %}
 
       <!-- Filters row -->
       <div class="reports-card" style="margin-top: 12px;">
@@ -227,6 +288,90 @@
       </div>
       {% endif %}
 
+      <!-- Application Status Breakdown (Phase 14) -->
+      {% if sub_status_breakdown %}
+      <div class="reports-card" style="margin-top:12px;">
+        <div class="reports-filterbar">
+          <div class="reports-k">Applications by Status</div>
+        </div>
+        <table class="reports-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th style="width:140px;">Count</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in sub_status_breakdown %}
+            <tr>
+              <td>{{ row.status|default:"New" }}</td>
+              <td>{{ row.count }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      <!-- 7-Day Trend (Phase 14) -->
+      {% if trend_stats %}
+      <div class="reports-card" style="margin-top:12px;">
+        <div class="reports-filterbar">
+          <div class="reports-k">Last 7 Days vs Previous 7 Days</div>
+        </div>
+        <table class="reports-table">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th style="width:120px;">This week</th>
+              <th style="width:120px;">Last week</th>
+              <th style="width:120px;">Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if trend_stats.leads %}
+            <tr>
+              <td>Leads</td>
+              <td>{{ trend_stats.leads.this }}</td>
+              <td>{{ trend_stats.leads.last }}</td>
+              <td>
+                {% if trend_stats.leads.pct is not None %}
+                  <span style="color:{% if trend_stats.leads.up %}#16a34a{% else %}#dc2626{% endif %}">
+                    {% if trend_stats.leads.up %}+{% endif %}{{ trend_stats.leads.pct }}%
+                  </span>
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+            {% endif %}
+            <tr>
+              <td>Applications</td>
+              <td>{{ trend_stats.submissions.this }}</td>
+              <td>{{ trend_stats.submissions.last }}</td>
+              <td>
+                {% if trend_stats.submissions.pct is not None %}
+                  <span style="color:{% if trend_stats.submissions.up %}#16a34a{% else %}#dc2626{% endif %}">
+                    {% if trend_stats.submissions.up %}+{% endif %}{{ trend_stats.submissions.pct }}%
+                  </span>
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+            <tr>
+              <td>Enrolled</td>
+              <td>{{ trend_stats.enrolled.this }}</td>
+              <td>{{ trend_stats.enrolled.last }}</td>
+              <td>
+                {% if trend_stats.enrolled.pct is not None %}
+                  <span style="color:{% if trend_stats.enrolled.up %}#16a34a{% else %}#dc2626{% endif %}">
+                    {% if trend_stats.enrolled.up %}+{% endif %}{{ trend_stats.enrolled.pct }}%
+                  </span>
+                {% else %}—{% endif %}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
       <!-- Lead Pipeline section -->
       {% if lead_stats %}
       <div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--border,#e5e7eb);">
@@ -322,6 +467,12 @@
             {% endfor %}
           </tbody>
         </table>
+        {% if leads_conversion_upgrade %}
+        <p style="margin:8px 0 0;font-size:13px;color:#6b7280;">
+          Source conversion rates are available on the <strong>Pro</strong> plan.
+          {% if billing_url %}<a href="{{ billing_url }}" style="color:#2563eb;">Upgrade &rarr;</a>{% endif %}
+        </p>
+        {% endif %}
       </div>
       {% endif %}
 
@@ -352,6 +503,78 @@
         </div>
       </div>
       {% endif %}
+      {% endif %}
+
+      <!-- Pipeline Gaps (Phase 14) -->
+      {% if pipeline_gaps %}
+      <div class="reports-card" style="margin-top:12px;">
+        <div class="reports-filterbar">
+          <div class="reports-k">Pipeline Gaps</div>
+        </div>
+        <table class="reports-table">
+          <tbody>
+            {% if pipeline_gaps.leads_not_converted is not None %}
+            <tr>
+              <td>Active leads not yet converted to applications</td>
+              <td style="width:80px;"><strong>{{ pipeline_gaps.leads_not_converted }}</strong></td>
+              <td style="width:80px;"><a href="{{ pipeline_gaps.leads_not_converted_url }}" class="reports-muted">View →</a></td>
+            </tr>
+            {% endif %}
+            <tr>
+              <td>Applications not yet enrolled or declined</td>
+              <td style="width:80px;"><strong>{{ pipeline_gaps.subs_not_enrolled }}</strong></td>
+              <td style="width:80px;"><a href="{{ pipeline_gaps.subs_not_enrolled_url }}" class="reports-muted">View →</a></td>
+            </tr>
+            {% if pipeline_gaps.lost_leads %}
+            <tr>
+              <td>Lost leads (all time)</td>
+              <td style="width:80px;"><strong>{{ pipeline_gaps.lost_leads }}</strong></td>
+              <td style="width:80px;"></td>
+            </tr>
+            {% endif %}
+          </tbody>
+        </table>
+        {% if pipeline_gaps.lost_reasons %}
+        <div style="margin-top:12px;">
+          <div class="reports-muted" style="font-size:12px;margin-bottom:6px;">Lost lead reasons</div>
+          <table class="reports-table">
+            <tbody>
+              {% for r in pipeline_gaps.lost_reasons %}
+              <tr>
+                <td>{{ r.lost_reason }}</td>
+                <td style="width:80px;">{{ r.count }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- Stale Pipeline (Phase 14) -->
+      {% if stale_counts.submissions or stale_counts.leads %}
+      <div class="reports-card" style="margin-top:12px;">
+        <div class="reports-filterbar">
+          <div class="reports-k">Stale Pipeline <span class="reports-muted" style="font-size:12px;font-weight:400;">(5+ days, no activity)</span></div>
+        </div>
+        <table class="reports-table">
+          <tbody>
+            {% if stale_counts.leads %}
+            <tr>
+              <td>Leads with no recent activity</td>
+              <td style="width:80px;"><strong>{{ stale_counts.leads }}</strong></td>
+              <td style="width:80px;"><a href="{{ stale_counts.leads_url }}" class="reports-muted">View →</a></td>
+            </tr>
+            {% endif %}
+            <tr>
+              <td>Applications with no recent activity</td>
+              <td style="width:80px;"><strong>{{ stale_counts.submissions }}</strong></td>
+              <td style="width:80px;"><a href="{{ stale_counts.submissions_url }}" class="reports-muted">View →</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       {% endif %}
 
       <!-- Recent submissions -->
@@ -548,5 +771,4 @@
         }
     })();
     </script>
-  </body>
-</html>
+{% endblock %}

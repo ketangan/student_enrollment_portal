@@ -19,14 +19,15 @@ from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
 
-from core.views import admin_download_submission_file
+from core.views import admin_download_submission_file, ratelimited_error_view
 from core.views_health import healthz
 
+handler429 = ratelimited_error_view
 
 urlpatterns = [
     path("healthz/", healthz, name="healthz"),
     path("admin/uploads/<int:file_id>/", admin_download_submission_file, name="admin_download_submission_file"),
-    path("admin/", admin.site.urls),
+    path(settings.ADMIN_URL, admin.site.urls),
     path("", include("core.urls")),
 ]
 

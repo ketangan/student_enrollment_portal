@@ -46,6 +46,10 @@ IS_TESTING = ("pytest" in sys.modules) or (os.getenv("PYTEST_RUNNING") == "1")
 
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",") if os.getenv("ALLOWED_HOSTS") else []
 
+# Django admin URL prefix (must include trailing slash, e.g. "admin/" or "internal-admin/").
+# Override via ADMIN_URL env var to harden production deployments.
+ADMIN_URL = os.getenv("ADMIN_URL", "admin/")
+
 # --------------
 # Production Safety
 # --------------
@@ -100,6 +104,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.middleware.SchoolAdminRedirectMiddleware',  # redirect school admins from /admin/ to modern dashboard
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -122,6 +127,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.school_admin_membership',
             ],
         },
     },
@@ -172,6 +178,56 @@ USE_I18N = True
 USE_TZ = True
 
 
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+# Logs go to stderr (captured by cloud platforms: Render, Heroku, Railway).
+# In production, set LOG_LEVEL=WARNING or LOG_LEVEL=ERROR to reduce noise.
+# In development, defaults to DEBUG so all log lines are visible.
+# ---------------------------------------------------------------------------
+_LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG" if DEBUG else "WARNING")
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{asctime} {levelname} {name} {message}",
+            "style": "{",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": _LOG_LEVEL,
+    },
+    "loggers": {
+        # Django internals — direct to console at WARNING to suppress noisy SQL
+        # and request logs; propagate=False prevents double output to root.
+        "django": {
+            "handlers": ["console"],
+            "level": os.getenv("DJANGO_LOG_LEVEL", "WARNING"),
+            "propagate": False,
+        },
+        # App code — no own handler; propagates to root so pytest caplog works.
+        "core": {
+            "handlers": [],
+            "level": _LOG_LEVEL,
+            "propagate": True,
+        },
+    },
+}
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
@@ -185,6 +241,19 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# Rate limiting (public form endpoints)
+# ----------------------------------
+INSTALLED_APPS += ["django_ratelimit"]
+
+# Disable rate limiting in tests and dev to avoid cache-state issues.
+# Set RATELIMIT_ENABLE=true in staging/production.
+RATELIMIT_ENABLE = os.getenv("RATELIMIT_ENABLE", "false" if (IS_TESTING or DEBUG) else "true").lower() == "true"
+
+# django-ratelimit 4.x added a system check (E003) that rejects LocMemCache as
+# non-shared. Silence it when ratelimit is disabled — no shared cache needed.
+if not RATELIMIT_ENABLE:
+    SILENCED_SYSTEM_CHECKS = ["django_ratelimit.E003", "django_ratelimit.W001"]
 
 # Email settings
 # ----------------------------------

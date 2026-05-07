@@ -1,0 +1,768 @@
+{% extends "school_admin/base.html" %}
+
+{% block extra_css %}
+<style>
+  /* ── Command bar ─────────────────────────────────────────────── */
+  .sub-cmd-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 12px 18px;
+    background: #f8fafc;
+    border: 1px solid var(--dash-border, #e2e8f0);
+    border-radius: 10px;
+    margin-bottom: 14px;
+  }
+  .sub-cmd-bar__sep {
+    width: 1px; height: 26px;
+    background: var(--dash-border, #e2e8f0);
+    margin: 0 2px;
+    flex-shrink: 0;
+  }
+
+  /* ── Pipeline breadcrumb ─────────────────────────────────────── */
+  .sub-pipeline { display:flex; align-items:center; gap:0; flex-wrap:wrap; margin-top:8px; }
+  .sub-pipeline__step {
+    font-size:12px; padding:3px 10px; background:#f1f5f9;
+    color:var(--dash-muted); border-radius:4px; white-space:nowrap;
+  }
+  .sub-pipeline__step--active {
+    background:var(--dash-primary,#2563eb); color:#fff; font-weight:600;
+  }
+  .sub-pipeline__step--clickable {
+    cursor:pointer; background:#dbeafe; color:#1d4ed8; border:1px solid #bfdbfe;
+    font-size:12px; padding:3px 10px; border-radius:4px; white-space:nowrap;
+    font-family:inherit; transition:background 0.1s;
+  }
+  .sub-pipeline__step--clickable:hover { background:#bfdbfe; }
+  .sub-pipeline__arrow { font-size:12px; color:var(--dash-muted); padding:0 3px; }
+
+  /* ── Snapshot table ──────────────────────────────────────────── */
+  .snapshot-table { width:100%; border-collapse:collapse; }
+  .snapshot-table td { padding:5px 0; font-size:13px; vertical-align:top; }
+  .snapshot-table td:first-child {
+    font-size:11px; color:var(--dash-muted); width:36%; padding-right:12px;
+  }
+
+  /* ── Full application collapsible ────────────────────────────── */
+  details.full-app summary {
+    font-size:12px; font-weight:600; color:var(--dash-primary,#2563eb);
+    cursor:pointer; padding:8px 0 4px; list-style:none; user-select:none;
+  }
+  details.full-app summary::-webkit-details-marker { display:none; }
+  details.full-app summary::before { content:"▶ "; font-size:9px; }
+  details.full-app[open] summary::before { content:"▼ "; font-size:9px; }
+
+  /* ── Activity timeline ───────────────────────────────────────── */
+  .activity-row {
+    display:flex; align-items:flex-start; gap:12px;
+    padding:8px 0; border-bottom:1px solid var(--dash-border,#e2e8f0);
+  }
+  .activity-row:last-child { border-bottom:none; }
+  .activity-time {
+    font-size:11px; color:var(--dash-muted); white-space:nowrap;
+    min-width:100px; flex-shrink:0; padding-top:1px;
+  }
+
+  /* ── Copy button ─────────────────────────────────────────────── */
+  .copy-btn {
+    background:none; border:none; cursor:pointer;
+    color:var(--dash-muted); font-size:13px; padding:0 4px;
+    vertical-align:middle; line-height:1;
+  }
+  .copy-btn:hover { color:var(--dash-primary,#2563eb); }
+
+  /* ── Sidebar section label ───────────────────────────────────── */
+  .sidebar-label {
+    font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--dash-muted); margin:0 0 12px;
+  }
+
+  /* ── Mobile ─────────────────────────────────────────────────── */
+  @media (max-width:600px) {
+    .sub-send-grid { grid-template-columns: 1fr !important; }
+    .sub-form-grid { grid-template-columns: 1fr !important; }
+    .sub-form-grid > [style*="grid-column"] { grid-column: 1 !important; }
+  }
+
+  /* ── Print ───────────────────────────────────────────────────── */
+  @media print {
+    .dash-nav, .no-print, .sub-cmd-bar { display:none !important; }
+    .dash-main { padding:0 !important; }
+    .dash-card { box-shadow:none !important; border:1px solid #ccc !important; break-inside:avoid; }
+    body, .dash-text { color:#000 !important; }
+    a { color:#000 !important; text-decoration:none; }
+    details.full-app { display:block; }
+    details.full-app summary { display:none; }
+    details.full-app > *:not(summary) { display:block !important; }
+  }
+</style>
+{% endblock %}
+
+{% block page_title %}{{ submission.student_display_name|default:"Application" }} — Submission{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <!-- ── Header ────────────────────────────────────────────────── -->
+  <div class="dash-card" style="padding:10px 20px 14px;margin-bottom:12px;">
+    <!-- Nav row: back + prev/next -->
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                margin-bottom:10px;padding-bottom:10px;
+                border-bottom:1px solid var(--dash-border,#e2e8f0);">
+      <a href="{{ submissions_url }}"
+         style="font-size:12px;color:var(--dash-muted);text-decoration:none;
+                display:flex;align-items:center;gap:4px;">
+        &larr; All Submissions
+      </a>
+      <div style="display:flex;align-items:center;gap:6px;" class="no-print">
+        {% if prev_url %}
+        <a href="{{ prev_url }}"
+           class="dash-action-btn dash-action-btn--secondary"
+           style="font-size:12px;padding:3px 10px;">
+          &larr; Prev
+        </a>
+        {% endif %}
+        {% if next_url %}
+        <a href="{{ next_url }}"
+           class="dash-action-btn dash-action-btn--secondary"
+           style="font-size:12px;padding:3px 10px;">
+          Next &rarr;
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    <!-- Name + status -->
+    <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+      <div style="min-width:0;flex:1;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;">
+          <h1 style="font-size:18px;font-weight:700;margin:0;">
+            {{ submission.student_display_name|default:"—" }}
+          </h1>
+          <span class="dash-badge {{ status_css }}" style="font-size:11px;">
+            {{ submission.status }}
+          </span>
+          {% if submission.school_submission_number %}
+          <span style="font-size:12px;color:var(--dash-muted);">#{{ submission.school_submission_number }}</span>
+          {% endif %}
+        </div>
+        <p style="font-size:12px;color:var(--dash-muted);margin:0;">
+          Submitted {{ submission.created_at|date:"M j, Y" }}{% if is_multi_form %} &middot; Form: {{ submission.form_key|default:"default" }}{% endif %}
+        </p>
+        {% if status_choices %}
+        <form method="post" class="no-print"
+              action="{% url 'school_submission_status_update' school_slug=school_slug submission_id=submission.id %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ detail_url }}">
+          <div class="sub-pipeline">
+            {% for s in status_choices %}
+              {% if not forloop.first %}<span class="sub-pipeline__arrow">›</span>{% endif %}
+              {% if s == submission.status %}
+                <span class="sub-pipeline__step sub-pipeline__step--active">{{ s }}</span>
+              {% elif not has_workflow_transitions or s in status_transition_keys %}
+                <button type="submit" name="new_status" value="{{ s }}"
+                        class="sub-pipeline__step--clickable" title="Move to {{ s }}">{{ s }}</button>
+              {% else %}
+                <span class="sub-pipeline__step" style="opacity:0.45;">{{ s }}</span>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Two-column layout ─────────────────────────────────────── -->
+  <div class="dash-detail-grid">
+
+    <!-- ── LEFT: AI Summary + Application + Activity ─────────── -->
+    <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
+
+      <!-- AI Summary -->
+      {% if ai_summary_enabled %}
+      <div class="dash-card" style="padding:18px 22px;border-left:4px solid var(--dash-primary,#2563eb);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <h2 class="sidebar-label" style="margin:0;">AI Summary</h2>
+          <form method="post" class="no-print"
+                action="{% url 'school_submission_generate_summary' school_slug=school_slug submission_id=submission.id %}">
+            {% csrf_token %}
+            <button type="submit" class="dash-action-btn dash-action-btn--secondary"
+                    style="font-size:11px;padding:3px 8px;">
+              {% if ai_summary_text %}Regenerate{% else %}Generate{% endif %}
+            </button>
+          </form>
+        </div>
+        {% if ai_summary_text %}
+        <p style="font-size:13px;color:var(--dash-text);margin:0;white-space:pre-line;line-height:1.65;">{{ ai_summary_text }}</p>
+        {% if submission.ai_summary_at %}
+        <p style="font-size:11px;color:var(--dash-muted);margin:6px 0 0;">Generated {{ submission.ai_summary_at|date:"M j, Y" }}</p>
+        {% endif %}
+        {% else %}
+        <p style="font-size:13px;color:var(--dash-muted);margin:0;">No summary yet. Click Generate to create one.</p>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- Application Snapshot (view + inline edit) -->
+      <div class="dash-card" style="padding:18px 22px;">
+
+        <!-- VIEW MODE -->
+        <div id="snap-view">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <h2 class="sidebar-label" style="margin:0;">Application</h2>
+            {% if yaml_sections %}
+            <button onclick="toggleEdit(true)"
+                    class="dash-action-btn dash-action-btn--secondary no-print"
+                    style="font-size:11px;padding:3px 10px;">
+              ✎ Edit
+            </button>
+            {% endif %}
+          </div>
+
+          <!-- Key snapshot -->
+          <table class="snapshot-table" style="margin-bottom:14px;">
+            {% if submission.student_display_name %}
+            <tr>
+              <td>Applicant</td>
+              <td style="font-weight:600;">{{ submission.student_display_name }}</td>
+            </tr>
+            {% endif %}
+            {% if program_display %}
+            <tr>
+              <td>Program / Class</td>
+              <td>{{ program_display }}</td>
+            </tr>
+            {% endif %}
+            {% if parent_email %}
+            <tr>
+              <td>Parent Email</td>
+              <td>
+                <a href="mailto:{{ parent_email }}" style="color:var(--dash-text);">{{ parent_email }}</a>
+                <button class="copy-btn no-print" onclick="copyText('{{ parent_email }}')" title="Copy email"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;"><rect x="4" y="4" width="8" height="8" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M2 9V2.5A.5.5 0 012.5 2H9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>
+              </td>
+            </tr>
+            {% endif %}
+            {% if parent_phone %}
+            <tr>
+              <td>Parent Phone</td>
+              <td>
+                <a href="tel:{{ parent_phone }}" style="color:var(--dash-text);">{{ parent_phone }}</a>
+                <button class="copy-btn no-print" onclick="copyText('{{ parent_phone }}')" title="Copy phone"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;"><rect x="4" y="4" width="8" height="8" rx="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M2 9V2.5A.5.5 0 012.5 2H9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>
+              </td>
+            </tr>
+            {% endif %}
+          </table>
+
+          <!-- Full application collapsible -->
+          {% if yaml_sections %}
+          <details class="full-app">
+            <summary>Show full application</summary>
+            <div style="margin-top:10px;">
+              {% for section in yaml_sections %}
+                {% if section.title and yaml_sections|length > 1 %}
+                <h3 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+                           color:var(--dash-muted);margin:16px 0 6px;padding-top:12px;
+                           border-top:1px solid var(--dash-border,#e2e8f0);">{{ section.title }}</h3>
+                {% endif %}
+                <table style="width:100%;border-collapse:collapse;">
+                  {% for f in section.fields %}
+                  <tr style="border-bottom:1px solid var(--dash-border,#e2e8f0);">
+                    <td style="padding:5px 0;width:40%;font-size:11px;color:var(--dash-muted);
+                               vertical-align:top;padding-right:12px;">{{ f.label }}</td>
+                    <td style="padding:5px 0;font-size:13px;color:var(--dash-text);
+                               vertical-align:top;word-break:break-word;">
+                      {% if f.type == "waiver" %}
+                        {% if f.value.agreed %}Signed{% if f.value.timestamp %} — {{ f.value.timestamp|slice:":10" }}{% endif %}
+                        {% else %}Not signed{% endif %}
+                      {% elif f.type == "multiselect" %}
+                        {% if f.value %}{{ f.value|join:", " }}{% else %}—{% endif %}
+                      {% elif f.type == "checkbox" %}
+                        {% if f.value %}Yes{% else %}No{% endif %}
+                      {% else %}
+                        {{ f.value|default:"—" }}
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </table>
+              {% endfor %}
+            </div>
+          </details>
+          {% else %}
+          <p style="font-size:13px;color:var(--dash-muted);margin:0;">
+            Form configuration unavailable.
+            {% if request.user.is_superuser %}
+            View raw data in <a href="{{ django_admin_url }}" style="color:var(--dash-primary);">Django admin</a>.
+            {% endif %}
+          </p>
+          {% endif %}
+
+        </div><!-- /snap-view -->
+
+        <!-- EDIT MODE (inline) -->
+        <div id="snap-edit" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <h2 class="sidebar-label" style="margin:0;">Edit Application</h2>
+            <button onclick="toggleEdit(false)" type="button"
+                    class="dash-action-btn dash-action-btn--secondary"
+                    style="font-size:11px;padding:3px 10px;">✕ Cancel</button>
+          </div>
+          {% if yaml_sections %}
+          <form method="post"
+                action="{% url 'school_submission_edit' school_slug=school_slug submission_id=submission.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ detail_url }}">
+            {% for section in yaml_sections %}
+              {% if section.title and yaml_sections|length > 1 %}
+              <h3 style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+                         color:var(--dash-muted);margin:18px 0 10px;padding-top:14px;
+                         border-top:1px solid var(--dash-border,#e2e8f0);">{{ section.title }}</h3>
+              {% endif %}
+              <div class="sub-form-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-bottom:10px;">
+                {% for field in section.fields %}
+                {% if field.type == 'textarea' or field.type == 'waiver' or field.full_width %}
+                <div style="grid-column:1/-1;">
+                {% else %}
+                <div>
+                {% endif %}
+
+                  {% if field.type != "checkbox" and field.type != "waiver" %}
+                    {% if field.type != "multiselect" or field.ui != "checkboxes" %}
+                    <label for="ei_{{ field.key }}"
+                           style="display:block;font-size:11px;color:var(--dash-muted);margin-bottom:3px;">
+                      {{ field.label }}{% if field.required %}<span style="color:#dc2626;margin-left:1px;">*</span>{% endif %}
+                    </label>
+                    {% endif %}
+                  {% endif %}
+
+                  {% if field.type == "textarea" %}
+                    <textarea id="ei_{{ field.key }}" name="{{ field.key }}" rows="3"
+                              style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                                     border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;
+                                     box-sizing:border-box;">{{ field.value|default:'' }}</textarea>
+
+                  {% elif field.type == "select" %}
+                    <select id="ei_{{ field.key }}" name="{{ field.key }}"
+                            style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                                   border-radius:6px;font-size:13px;background:#fff;box-sizing:border-box;">
+                      <option value="">— Select —</option>
+                      {% for opt in field.options %}
+                      <option value="{{ opt.value }}" {% if opt.value == field.value %}selected{% endif %}>{{ opt.label }}</option>
+                      {% endfor %}
+                    </select>
+
+                  {% elif field.type == "multiselect" and field.ui == "checkboxes" %}
+                    <div style="font-size:11px;color:var(--dash-muted);margin-bottom:5px;">
+                      {{ field.label }}{% if field.required %}<span style="color:#dc2626;margin-left:1px;">*</span>{% endif %}
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:4px;">
+                      {% for opt in field.options %}
+                      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                        <input type="checkbox" name="{{ field.key }}" value="{{ opt.value }}"
+                               {% if field.value and opt.value in field.value %}checked{% endif %}>
+                        {{ opt.label }}
+                      </label>
+                      {% endfor %}
+                    </div>
+
+                  {% elif field.type == "multiselect" %}
+                    <select id="ei_{{ field.key }}" name="{{ field.key }}" multiple
+                            style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                                   border-radius:6px;font-size:13px;background:#fff;box-sizing:border-box;">
+                      {% for opt in field.options %}
+                      <option value="{{ opt.value }}" {% if field.value and opt.value in field.value %}selected{% endif %}>{{ opt.label }}</option>
+                      {% endfor %}
+                    </select>
+
+                  {% elif field.type == "checkbox" %}
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <input type="checkbox" id="ei_{{ field.key }}" name="{{ field.key }}" value="true"
+                             {% if field.value %}checked{% endif %}>
+                      <label for="ei_{{ field.key }}" style="font-size:13px;cursor:pointer;">
+                        {{ field.checkbox_label|default:field.label }}{% if field.required %}<span style="color:#dc2626;margin-left:1px;">*</span>{% endif %}
+                      </label>
+                    </div>
+
+                  {% elif field.type == "waiver" %}
+                    <div style="background:#f8fafc;border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;padding:12px 14px;">
+                      <div style="font-size:11px;color:var(--dash-muted);margin-bottom:6px;">
+                        {{ field.label }}{% if field.required %}<span style="color:#dc2626;margin-left:1px;">*</span>{% endif %}
+                      </div>
+                      {% if field.text %}<p style="font-size:12px;margin:0 0 6px;">{{ field.text }}</p>{% endif %}
+                      {% if field.link_url %}
+                      <a href="{{ field.link_url }}" target="_blank" rel="noopener"
+                         style="font-size:12px;color:var(--dash-primary);display:block;margin-bottom:6px;">
+                        {{ field.link_text|default:"View terms" }}
+                      </a>
+                      {% endif %}
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <input type="checkbox" id="ei_{{ field.key }}" name="{{ field.key }}" value="agreed"
+                               {% if field.value.agreed %}checked{% endif %}>
+                        <label for="ei_{{ field.key }}" style="font-size:13px;cursor:pointer;">
+                          {{ field.checkbox_label|default:"I agree" }}
+                        </label>
+                      </div>
+                    </div>
+
+                  {% elif field.type == "email" %}
+                    <input type="email" id="ei_{{ field.key }}" name="{{ field.key }}"
+                           value="{{ field.value|default:'' }}"
+                           style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                                  border-radius:6px;font-size:13px;box-sizing:border-box;">
+
+                  {% elif field.type == "phone" or field.type == "tel" %}
+                    <input type="tel" id="ei_{{ field.key }}" name="{{ field.key }}"
+                           value="{{ field.value|default:'' }}"
+                           style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                                  border-radius:6px;font-size:13px;box-sizing:border-box;">
+
+                  {% elif field.type == "date" %}
+                    <input type="date" id="ei_{{ field.key }}" name="{{ field.key }}"
+                           value="{{ field.value|default:'' }}"
+                           style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                                  border-radius:6px;font-size:13px;box-sizing:border-box;">
+
+                  {% elif field.type == "number" %}
+                    <input type="number" id="ei_{{ field.key }}" name="{{ field.key }}"
+                           value="{{ field.value|default:'' }}"
+                           style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                                  border-radius:6px;font-size:13px;box-sizing:border-box;">
+
+                  {% else %}
+                    <input type="text" id="ei_{{ field.key }}" name="{{ field.key }}"
+                           value="{{ field.value|default:'' }}"
+                           placeholder="{{ field.placeholder|default:'' }}"
+                           style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                                  border-radius:6px;font-size:13px;box-sizing:border-box;">
+                  {% endif %}
+
+                </div>
+                {% endfor %}
+              </div>
+            {% endfor %}
+            <div style="display:flex;gap:10px;margin-top:14px;padding-top:14px;
+                        border-top:1px solid var(--dash-border,#e2e8f0);">
+              <button type="submit" class="dash-action-btn dash-action-btn--primary" style="font-size:13px;">
+                Save Changes
+              </button>
+              <button type="button" onclick="toggleEdit(false)"
+                      class="dash-action-btn dash-action-btn--secondary" style="font-size:13px;">
+                Cancel
+              </button>
+            </div>
+          </form>
+          {% else %}
+          <p style="font-size:13px;color:var(--dash-muted);">No form configuration available for inline editing.</p>
+          {% endif %}
+        </div><!-- /snap-edit -->
+
+      </div><!-- /Application card -->
+
+      <!-- Attachments -->
+      {% if submission_files %}
+      <div class="dash-card" style="padding:18px 22px;">
+        <h2 class="sidebar-label">Attachments</h2>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          {% for f in submission_files %}
+          <div style="display:flex;align-items:center;justify-content:space-between;
+                      padding:6px 10px;background:#f8fafc;border-radius:5px;
+                      border:1px solid var(--dash-border,#e2e8f0);">
+            <div style="min-width:0;">
+              <span style="font-size:13px;font-weight:500;word-break:break-all;">{{ f.original_name|default:f.field_key }}</span>
+              <span style="font-size:11px;color:var(--dash-muted);margin-left:6px;white-space:nowrap;">
+                {% if f.size_bytes %}{{ f.size_bytes|filesizeformat }}{% endif %}
+              </span>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0;margin-left:8px;">
+              <a href="{% url 'admin_download_submission_file' file_id=f.id %}" target="_blank"
+                 class="dash-action-btn dash-action-btn--secondary"
+                 style="font-size:11px;padding:3px 10px;">View</a>
+              <a href="{% url 'admin_download_submission_file' file_id=f.id %}?download=1" target="_blank"
+                 class="dash-action-btn dash-action-btn--secondary"
+                 style="font-size:11px;padding:3px 10px;">Download</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Send Message (left column, directly below Application) -->
+      {% if email_enabled and parent_email %}
+      <div class="dash-card no-print" style="padding:18px 22px;">
+        <h2 class="sidebar-label">Send Message</h2>
+        <form method="post"
+              action="{% url 'school_submission_send_message' school_slug=school_slug submission_id=submission.id %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ detail_url }}">
+          <div class="sub-send-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+            <div>
+              <label style="font-size:11px;color:var(--dash-muted);display:block;margin-bottom:3px;">To</label>
+              <input type="email" name="to_email" value="{{ parent_email }}"
+                     style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                            border-radius:6px;font-size:13px;box-sizing:border-box;">
+            </div>
+            <div>
+              <label style="font-size:11px;color:var(--dash-muted);display:block;margin-bottom:3px;">Subject</label>
+              <input type="text" name="subject"
+                     value="Regarding your enrollment application"
+                     style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                            border-radius:6px;font-size:13px;box-sizing:border-box;">
+            </div>
+          </div>
+          <div style="margin-bottom:10px;">
+            <label style="font-size:11px;color:var(--dash-muted);display:block;margin-bottom:3px;">Message</label>
+            <textarea name="message" rows="3" required
+                      placeholder="Write your message…"
+                      style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                             border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;
+                             box-sizing:border-box;"></textarea>
+          </div>
+          <button type="submit" class="dash-action-btn dash-action-btn--primary"
+                  style="font-size:12px;padding:6px 14px;">
+            Send
+          </button>
+        </form>
+      </div>
+      {% endif %}
+
+      <!-- Activity -->
+      <div class="dash-card activity-card" style="padding:18px 22px;">
+        <h2 class="sidebar-label">Activity</h2>
+        {% if audit_log %}
+        <div>
+          {% for entry in audit_log %}
+          <div class="activity-row">
+            <div class="activity-time">{{ entry.created_at|date:"M j, g:i A" }}</div>
+            <div style="font-size:13px;flex:1;min-width:0;">
+              {% if entry.actor %}
+                <span style="font-weight:600;">{{ entry.actor.get_full_name|default:entry.actor.username }}</span>
+              {% else %}
+                <span style="color:var(--dash-muted);">System</span>
+              {% endif %}
+              {% if entry.extra.name == "status_update" %}
+                changed status:
+                <span style="color:var(--dash-muted);">{{ entry.extra.from }}</span> &rarr;
+                <strong>{{ entry.extra.to }}</strong>
+              {% elif entry.extra.name == "submission_update" %}
+                added an internal note
+              {% elif entry.extra.name == "generate_ai_summary" %}
+                generated AI summary
+              {% elif entry.extra.name == "regenerate_ai_summary" %}
+                regenerated AI summary
+              {% elif entry.extra.name == "resend_confirmation" %}
+                resent confirmation email
+              {% elif entry.extra.name == "manual_message_sent" %}
+                sent message to parent{% if entry.extra.to %} ({{ entry.extra.to }}){% endif %}
+              {% elif entry.extra.name == "mark_contacted" %}
+                marked as contacted
+              {% elif entry.extra.name == "follow_up_set" %}
+                set a follow-up date
+              {% elif entry.extra.name == "export_csv" %}
+                exported to CSV
+              {% elif entry.extra.name == "bulk_status_update" %}
+                updated status (bulk action)
+              {% elif entry.extra.name == "submission_edit" %}
+                edited application data
+              {% elif entry.extra.name %}
+                — {{ entry.extra.name }}
+              {% elif entry.action == "change" and entry.changes %}
+                edited:
+                {% for k, v in entry.changes.items %}
+                  {{ k }}{% if not forloop.last %},{% endif %}
+                {% endfor %}
+              {% elif entry.action == "add" %}
+                submitted application
+              {% else %}
+                — {{ entry.action|capfirst }}
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p style="font-size:13px;color:var(--dash-muted);margin:0;">No activity recorded yet.</p>
+        {% endif %}
+      </div>
+
+    </div><!-- /LEFT -->
+
+    <!-- ── RIGHT sidebar ─────────────────────────────────────────── -->
+    <div style="display:flex;flex-direction:column;gap:14px;">
+
+      <!-- 1. Actions (follow-up + tools + meta — consolidated) -->
+      <div class="dash-card" style="padding:18px 22px;">
+        <h2 class="sidebar-label">Actions</h2>
+
+        <!-- Follow-up -->
+        <div style="margin-bottom:14px;">
+          <div style="font-size:11px;color:var(--dash-muted);margin-bottom:3px;display:flex;align-items:center;gap:6px;">
+            Follow-up
+            {% if is_followup_overdue %}
+            <span class="dash-badge dash-badge--red" style="font-size:10px;">Overdue</span>
+            {% endif %}
+          </div>
+          {% if submission.next_follow_up_at %}
+          <div style="font-size:14px;font-weight:600;margin-bottom:6px;">
+            {{ submission.next_follow_up_at|date:"M j, Y" }}
+          </div>
+          {% endif %}
+          <form method="post" class="no-print"
+                action="{% url 'school_submission_follow_up_set' school_slug=school_slug submission_id=submission.id %}"
+                style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ detail_url }}">
+            <input type="date" name="next_follow_up_at"
+                   {% if submission.next_follow_up_at %}value="{{ submission.next_follow_up_at|date:'Y-m-d' }}"{% endif %}
+                   style="font-size:12px;padding:4px 6px;border:1px solid var(--dash-border,#e2e8f0);
+                          border-radius:4px;flex:1;min-width:90px;">
+            <button type="submit" class="dash-action-btn dash-action-btn--secondary"
+                    style="font-size:11px;padding:4px 8px;">Set</button>
+            <button type="submit" name="follow_up_delta" value="2"
+                    class="dash-action-btn dash-action-btn--secondary"
+                    style="font-size:11px;padding:4px 8px;">+2d</button>
+            <button type="submit" name="follow_up_delta" value="7"
+                    class="dash-action-btn dash-action-btn--secondary"
+                    style="font-size:11px;padding:4px 8px;">+7d</button>
+          </form>
+        </div>
+
+        <!-- Tools -->
+        <div style="padding-top:12px;border-top:1px solid var(--dash-border,#e2e8f0);
+                    display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
+          <button onclick="window.print()"
+                  class="dash-action-btn dash-action-btn--secondary no-print"
+                  style="font-size:12px;width:100%;text-align:center;">
+            Print / PDF
+          </button>
+          {% if ai_summary_enabled %}
+          <form method="post" class="no-print"
+                action="{% url 'school_submission_generate_summary' school_slug=school_slug submission_id=submission.id %}">
+            {% csrf_token %}
+            <button type="submit" class="dash-action-btn dash-action-btn--secondary"
+                    style="font-size:12px;width:100%;">
+              {% if ai_summary_text %}Regenerate AI Summary{% else %}Generate AI Summary{% endif %}
+            </button>
+          </form>
+          {% endif %}
+          {% if email_enabled %}
+          <form method="post" class="no-print"
+                action="{% url 'school_submission_resend_confirmation' school_slug=school_slug submission_id=submission.id %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ detail_url }}">
+            <button type="submit" class="dash-action-btn dash-action-btn--secondary"
+                    style="font-size:12px;width:100%;">
+              Resend Confirmation
+            </button>
+          </form>
+          {% endif %}
+          {% if request.user.is_superuser %}
+          <a href="{{ django_admin_url }}"
+             style="font-size:11px;color:var(--dash-muted);text-decoration:none;
+                    text-align:center;display:block;padding:2px 0;">
+            Django admin ↗
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- Linked lead -->
+        {% if linked_lead %}
+        <div style="padding-top:12px;border-top:1px solid var(--dash-border,#e2e8f0);margin-bottom:14px;">
+          <div style="font-size:11px;color:var(--dash-muted);margin-bottom:3px;">Linked Lead</div>
+          <strong style="font-size:13px;display:block;">{{ linked_lead.name }}</strong>
+          <a href="{% url 'school_lead_detail' school_slug=school_slug lead_id=linked_lead.id %}"
+             class="dash-action-btn dash-action-btn--secondary"
+             style="font-size:11px;padding:3px 8px;display:inline-block;margin-top:5px;">
+            Open Lead →
+          </a>
+        </div>
+        {% endif %}
+
+        <!-- Metadata -->
+        <div style="padding-top:12px;border-top:1px solid var(--dash-border,#e2e8f0);
+                    display:flex;flex-direction:column;gap:6px;">
+          <div>
+            <span style="font-size:10px;color:var(--dash-muted);display:block;">Submitted</span>
+            <span style="font-size:12px;">{{ submission.created_at|date:"M j, Y g:i A" }}</span>
+          </div>
+          {% if submission.last_contacted_at %}
+          <div>
+            <span style="font-size:10px;color:var(--dash-muted);display:block;">Last contacted</span>
+            <span style="font-size:12px;">{{ submission.last_contacted_at|date:"M j, Y" }}</span>
+          </div>
+          {% endif %}
+          <div>
+            <span style="font-size:10px;color:var(--dash-muted);display:block;">Submission ID</span>
+            <span style="font-family:monospace;font-size:11px;color:var(--dash-muted);">{{ submission.public_id }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Internal Notes -->
+      <div class="dash-card" style="padding:18px 22px;">
+        <h2 class="sidebar-label">Internal Notes</h2>
+        {% if submission.internal_notes %}
+        <pre style="margin:0 0 12px;padding:8px 10px;background:#f8fafc;
+                    border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;
+                    font-size:12px;font-family:inherit;white-space:pre-wrap;
+                    word-break:break-word;color:var(--dash-text);
+                    max-height:160px;overflow-y:auto;">{{ submission.internal_notes }}</pre>
+        {% endif %}
+        <form method="post" class="no-print"
+              action="{% url 'school_submission_update' school_slug=school_slug submission_id=submission.id %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{{ detail_url }}">
+          <textarea name="new_note" rows="2" placeholder="Add internal note…"
+                    style="width:100%;padding:7px 9px;border:1px solid var(--dash-border,#e2e8f0);
+                           border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;
+                           box-sizing:border-box;margin-bottom:6px;"></textarea>
+          <p style="font-size:10px;color:var(--dash-muted);margin:0 0 8px;">Visible to school staff only.</p>
+          <button type="submit" class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;">
+            Add Note
+          </button>
+        </form>
+      </div>
+
+    </div><!-- /RIGHT -->
+  </div><!-- /grid -->
+
+  <!-- Back navigation -->
+  <div style="padding:6px 0 32px;" class="no-print">
+    <a href="{{ submissions_url }}"
+       style="font-size:13px;color:var(--dash-muted);text-decoration:none;">
+      &larr; All Submissions
+    </a>
+  </div>
+
+</main>
+
+<script>
+function toggleEdit(on) {
+  var view = document.getElementById('snap-view');
+  var edit = document.getElementById('snap-edit');
+  if (!view || !edit) return;
+  view.style.display = on ? 'none' : 'block';
+  edit.style.display = on ? 'block' : 'none';
+  if (on) {
+    edit.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text);
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch(e) {}
+    document.body.removeChild(ta);
+  }
+}
+</script>
+
+{% endblock %}

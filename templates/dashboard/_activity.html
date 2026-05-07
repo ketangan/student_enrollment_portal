@@ -1,0 +1,27 @@
+<!-- Recent activity feed -->
+<div class="dash-card">
+  <div class="dash-card-header">
+    <span class="dash-card-title">Recent Activity</span>
+    <a href="{{ submissions_url }}" class="dash-card-link">View all &rarr;</a>
+  </div>
+
+  {% if recent_activity %}
+    {% for event in recent_activity %}
+    <div class="dash-activity-item">
+      <div class="dash-initials dash-initials--sm">{{ event.initials }}</div>
+      <div class="dash-activity-body">
+        <div class="dash-activity-who">
+          <a href="{{ event.admin_url }}" style="color:inherit;text-decoration:none;">{{ event.student|default:"Unknown" }}</a>
+        </div>
+        <div class="dash-activity-what">{{ event.action }}</div>
+        <div class="dash-activity-when">{{ event.created_at|timesince }} ago</div>
+      </div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="dash-no-data">
+      No activity yet.<br>
+      <span style="font-size:12px;">Activity will appear once you start receiving submissions.</span>
+    </div>
+  {% endif %}
+</div>

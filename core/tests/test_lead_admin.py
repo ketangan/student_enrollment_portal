@@ -220,8 +220,8 @@ def test_lead_audit_save_model_logs_status_change(client):
 
 
 @pytest.mark.django_db
-def test_lead_audit_save_model_no_log_when_status_unchanged(client):
-    """save_model does NOT create an audit row when status has not changed."""
+def test_lead_audit_save_model_logs_notes_change(client):
+    """save_model creates an audit row when notes (or any tracked field) has changed."""
     from django.contrib.admin.sites import site as admin_site
     from django.test import RequestFactory
     from django.contrib.sessions.middleware import SessionMiddleware
@@ -238,12 +238,14 @@ def test_lead_audit_save_model_no_log_when_status_unchanged(client):
     req.session.save()
     setattr(req, "_messages", FallbackStorage(req))
 
-    # Save with no status change — only notes changed
+    # Save with notes changed but status unchanged — should still log (notes is tracked)
     lead.notes = "Updated notes"
     ma = LeadAdmin(Lead, admin_site)
     ma.save_model(req, lead, form=None, change=True)
 
-    assert AdminAuditLog.objects.filter(action="change", object_id=str(lead.pk)).count() == 0
+    entry = AdminAuditLog.objects.filter(action="change", object_id=str(lead.pk)).first()
+    assert entry is not None
+    assert "notes" in entry.changes
 
 
 @pytest.mark.django_db

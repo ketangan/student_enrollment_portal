@@ -1,0 +1,103 @@
+{% extends "school_admin/base.html" %}
+
+{% block page_title %}{{ form_heading }}{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <div class="dash-card" style="padding:24px;max-width:600px;">
+    <h1 style="font-size:18px;font-weight:700;margin:0 0 20px;">{{ form_heading }}</h1>
+
+    <form method="post" action="{{ form_action }}">
+      {% csrf_token %}
+
+      <!-- Name -->
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
+          Name <span style="color:#dc2626;">*</span>
+        </label>
+        <input type="text" name="name"
+               value="{{ values.name|default:'' }}"
+               style="width:100%;padding:8px 10px;border:1px solid {% if errors.name %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
+                      border-radius:6px;font-size:13px;box-sizing:border-box;"
+               placeholder="Full name">
+        {% if errors.name %}
+        <div style="color:#dc2626;font-size:12px;margin-top:4px;">{{ errors.name }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Email -->
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
+          Email <span style="color:#dc2626;">*</span>
+        </label>
+        <input type="email" name="email"
+               value="{{ values.email|default:'' }}"
+               style="width:100%;padding:8px 10px;border:1px solid {% if errors.email %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
+                      border-radius:6px;font-size:13px;box-sizing:border-box;"
+               placeholder="email@example.com">
+        {% if errors.email %}
+        <div style="color:#dc2626;font-size:12px;margin-top:4px;">{{ errors.email }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Phone -->
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
+          Phone
+        </label>
+        <input type="text" name="phone"
+               value="{{ values.phone|default:'' }}"
+               style="width:100%;padding:8px 10px;border:1px solid var(--dash-border,#e2e8f0);
+                      border-radius:6px;font-size:13px;box-sizing:border-box;"
+               placeholder="Optional">
+      </div>
+
+      <!-- Program Interest -->
+      {% if program_options %}
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
+          Program Interest
+        </label>
+        <select name="interested_in_value"
+                style="width:100%;padding:8px 10px;border:1px solid var(--dash-border,#e2e8f0);
+                       border-radius:6px;font-size:13px;background:#fff;color:var(--dash-text);
+                       box-sizing:border-box;">
+          <option value="">— Select program —</option>
+          {% for opt in program_options %}
+          <option value="{{ opt.value }}"
+                  {% if values.interested_in_value == opt.value %}selected{% endif %}>
+            {{ opt.label }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <!-- Notes -->
+      <div style="margin-bottom:20px;">
+        <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
+          Notes
+        </label>
+        <textarea name="notes" rows="4"
+                  style="width:100%;padding:8px 10px;border:1px solid var(--dash-border,#e2e8f0);
+                         border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;
+                         box-sizing:border-box;">{{ values.notes|default:'' }}</textarea>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:center;">
+        <button type="submit"
+                class="dash-action-btn dash-action-btn--primary"
+                style="font-size:13px;">
+          Save Lead
+        </button>
+        <a href="{{ cancel_url }}"
+           style="font-size:13px;color:var(--dash-muted);text-decoration:none;">
+          Cancel
+        </a>
+      </div>
+    </form>
+  </div>
+
+</main>
+{% endblock %}

@@ -1,0 +1,162 @@
+<!-- Work Queue -->
+<div class="dash-card">
+  <div class="dash-card-header">
+    <span class="dash-card-title">Work Queue</span>
+    <a href="{{ submissions_url }}" class="dash-card-link">View all submissions &rarr;</a>
+  </div>
+
+  <!-- Tab bar -->
+  <div class="dash-wq-tabs">
+    <button class="dash-wq-tab dash-wq-tab--active" data-tab="new" onclick="switchTab('new')">
+      New <span class="dash-wq-badge">{{ new_count }}</span>
+    </button>
+    <button class="dash-wq-tab" data-tab="overdue" onclick="switchTab('overdue')">
+      Overdue <span class="dash-wq-badge dash-wq-badge--orange">{{ sub_overdue_count }}</span>
+    </button>
+    <button class="dash-wq-tab" data-tab="stale" onclick="switchTab('stale')">
+      Stale <span class="dash-wq-badge dash-wq-badge--gray">{{ sub_stale_count }}</span>
+    </button>
+  </div>
+
+  <!-- New panel -->
+  <div class="dash-wq-panel" data-panel="new">
+    {% if inbox_submissions %}
+    <div class="dash-table-scroll">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Program</th>
+            <th>Status</th>
+            <th>Submitted</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in inbox_submissions %}
+          <tr{% if s.is_new %} class="dash-table-row--new"{% endif %}>
+            <td>
+              <div class="dash-student-cell">
+                <div class="dash-initials">{{ s.initials }}</div>
+                <a href="{{ s.admin_url }}" class="dash-student-name">{{ s.student|default:"—" }}</a>
+              </div>
+            </td>
+            <td style="color:var(--dash-muted);font-size:13px;">{{ s.program }}</td>
+            <td><span class="dash-badge {{ s.status_css }}">{{ s.status }}</span></td>
+            <td style="color:var(--dash-muted);font-size:12px;white-space:nowrap;">{{ s.created_at|timesince }} ago</td>
+            <td>
+              <a href="{{ s.admin_url }}"
+                 class="dash-action-btn {% if s.action_primary %}dash-action-btn--primary{% else %}dash-action-btn--secondary{% endif %}">
+                {{ s.action_label }}
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="dash-empty" style="padding:32px 20px;">
+      <div class="dash-empty-icon">📭</div>
+      <div class="dash-empty-title">You're all caught up!</div>
+      <div class="dash-empty-sub">No new submissions need review right now.</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Overdue panel -->
+  <div class="dash-wq-panel" data-panel="overdue" style="display:none">
+    {% if overdue_submissions %}
+    <div class="dash-table-scroll">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Program</th>
+            <th>Status</th>
+            <th>Submitted</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in overdue_submissions %}
+          <tr{% if s.is_new %} class="dash-table-row--new"{% endif %}>
+            <td>
+              <div class="dash-student-cell">
+                <div class="dash-initials">{{ s.initials }}</div>
+                <a href="{{ s.admin_url }}" class="dash-student-name">{{ s.student|default:"—" }}</a>
+              </div>
+            </td>
+            <td style="color:var(--dash-muted);font-size:13px;">{{ s.program }}</td>
+            <td><span class="dash-badge {{ s.status_css }}">{{ s.status }}</span></td>
+            <td style="color:var(--dash-muted);font-size:12px;white-space:nowrap;">{{ s.created_at|timesince }} ago</td>
+            <td>
+              <a href="{{ s.admin_url }}"
+                 class="dash-action-btn {% if s.action_primary %}dash-action-btn--primary{% else %}dash-action-btn--secondary{% endif %}">
+                {{ s.action_label }}
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:10px 0 2px;text-align:right;">
+      <a href="{{ submissions_url }}?filter=needs_follow_up" class="dash-card-link">View all overdue &rarr;</a>
+    </div>
+    {% else %}
+    <div class="dash-empty" style="padding:32px 20px;">
+      <div class="dash-empty-icon">✅</div>
+      <div class="dash-empty-title">No overdue items</div>
+      <div class="dash-empty-sub">All follow-ups are on schedule.</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Stale panel -->
+  <div class="dash-wq-panel" data-panel="stale" style="display:none">
+    {% if stale_submissions %}
+    <div class="dash-table-scroll">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Program</th>
+            <th>Status</th>
+            <th>Submitted</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in stale_submissions %}
+          <tr>
+            <td>
+              <div class="dash-student-cell">
+                <div class="dash-initials">{{ s.initials }}</div>
+                <a href="{{ s.admin_url }}" class="dash-student-name">{{ s.student|default:"—" }}</a>
+              </div>
+            </td>
+            <td style="color:var(--dash-muted);font-size:13px;">{{ s.program }}</td>
+            <td><span class="dash-badge {{ s.status_css }}">{{ s.status }}</span></td>
+            <td style="color:var(--dash-muted);font-size:12px;white-space:nowrap;">{{ s.created_at|timesince }} ago</td>
+            <td>
+              <a href="{{ s.admin_url }}" class="dash-action-btn dash-action-btn--secondary">Open</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:10px 0 2px;text-align:right;">
+      <a href="{{ submissions_url }}?filter=stale" class="dash-card-link">View all stale &rarr;</a>
+    </div>
+    {% else %}
+    <div class="dash-empty" style="padding:32px 20px;">
+      <div class="dash-empty-icon">✅</div>
+      <div class="dash-empty-title">No stale items</div>
+      <div class="dash-empty-sub">Everything has had recent activity.</div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>

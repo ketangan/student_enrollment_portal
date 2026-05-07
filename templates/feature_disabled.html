@@ -11,8 +11,20 @@
     <div class="page">
       <div class="card" style="max-width: 720px;">
         <h1 style="margin:0 0 8px 0;">{{ feature_name }} is disabled</h1>
-        <p style="margin:0 0 16px 0; color: #6b7280;">{{ message }}</p>
-        <a class="btn" href="/admin/">Back to Admin</a>
+        <p style="margin:0 0 8px 0; color: #6b7280;">{{ message }}</p>
+        {% if required_plan %}
+        <p style="margin:0 0 16px 0; color: #6b7280;">
+          This feature is available on the <strong>{{ required_plan }}</strong> plan.
+        </p>
+        {% else %}
+        <p style="margin:0 0 16px 0;"></p>
+        {% endif %}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          {% if billing_url %}
+          <a class="btn" href="{{ billing_url }}" style="background:#2563eb;color:#fff;">Upgrade plan &rarr;</a>
+          {% endif %}
+          <a class="btn" href="/admin/">Back to Admin</a>
+        </div>
       </div>
     </div>
   </body>

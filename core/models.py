@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import timedelta, datetime, time
 from math import ceil as _ceil
 from django.db import models, transaction
 from django.db.models import Max
@@ -16,7 +16,7 @@ from core.services.admin_themes import THEME_CHOICES, DEFAULT_THEME_KEY
 from django.conf import settings
 
 # How many days a trial lasts. Single source of truth — do not hardcode elsewhere.
-TRIAL_LENGTH_DAYS = 14
+TRIAL_LENGTH_DAYS = 30
 
 
 @dataclass
@@ -124,6 +124,7 @@ class School(models.Model):
 
     # Trial billing
     trial_started_at = models.DateTimeField(null=True, blank=True)
+    trial_end_date = models.DateField(null=True, blank=True)
 
     # Stripe billing
     stripe_customer_id = models.CharField(max_length=255, blank=True, default="")
@@ -159,6 +160,11 @@ class School(models.Model):
         """UTC datetime when the trial expires, or None if not a trial school."""
         if not self.is_trial_plan or not self.trial_started_at:
             return None
+        if self.trial_end_date:
+            # Superadmin override: school gets the full override date (23:59:59 UTC)
+            return timezone.make_aware(
+                datetime.combine(self.trial_end_date, time(23, 59, 59))
+            )
         return self.trial_started_at + timedelta(days=TRIAL_LENGTH_DAYS)
 
     @property
@@ -267,6 +273,14 @@ class Submission(models.Model):
         blank=True,
         help_text="When the AI summary was last generated.",
     )
+
+    # Internal staff notes — never shown to applicants.
+    internal_notes = models.TextField(blank=True, default="")
+
+    # Follow-up scheduling (Phase 11)
+    next_follow_up_at = models.DateTimeField(null=True, blank=True)
+    last_contacted_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     # Per-school sequential application number.
     # Assigned on first save via select_for_update(School) to serialize concurrent creates.
@@ -442,6 +456,17 @@ class DraftSubmission(models.Model):
     )
     token_expires_at = models.DateTimeField(default=_default_token_expires_at)
 
+    # Admin-initiated enrollment: link back to the Lead that started this draft.
+    # Nullable — family-initiated drafts have no lead. SET_NULL so draft survives lead deletion.
+    # Used for: (1) idempotent draft reuse, (2) bypassing save_resume_enabled in resume_draft_view.
+    lead = models.ForeignKey(
+        "Lead",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="enrollment_drafts",
+    )
+
     # Cached applicant email — used to send/resend the magic link
     email = models.CharField(max_length=254, blank=True, default="")
     # Multi-form only: last completed step key; blank = not past step 1
@@ -500,6 +525,7 @@ LEAD_SOURCE_CHOICES = [
     ("phone", "Phone"),
     ("event", "Event"),
     ("other", "Other"),
+    ("manual", "Manual Entry"),   # no migration needed — choices = display-only
 ]
 
 

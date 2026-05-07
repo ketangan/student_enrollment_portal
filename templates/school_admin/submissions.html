@@ -1,0 +1,347 @@
+{% extends "school_admin/base.html" %}
+
+{% block page_title %}Submissions{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <!-- Page heading -->
+  <div class="dash-greeting" style="margin-bottom: 16px;">
+    <h1 class="dash-greeting-title" style="font-size: 18px;">Submissions</h1>
+    <p class="dash-greeting-sub">
+      {% if display_cap_hit %}Showing first 200 of {{ result_count }} results
+      {% elif total_count == 1 %}1 submission
+      {% else %}{{ total_count }} submission{{ total_count|pluralize }}{% endif %}
+      {% if active_filter or status_filter or search_q %} matching current filters{% endif %}
+    </p>
+  </div>
+
+  <!-- Metrics bar -->
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:stretch;">
+    <div class="dash-card" style="padding:14px 20px;flex:1;min-width:100px;text-align:center;margin-top:0;">
+      <div style="font-size:22px;font-weight:700;color:var(--dash-text);">{{ submissions_metrics.new }}</div>
+      <div style="font-size:12px;color:var(--dash-muted);margin-top:2px;">Needs review</div>
+    </div>
+    <div class="dash-card" style="padding:14px 20px;flex:1;min-width:100px;text-align:center;margin-top:0;">
+      <div style="font-size:22px;font-weight:700;color:var(--dash-text);">{{ submissions_metrics.total }}</div>
+      <div style="font-size:12px;color:var(--dash-muted);margin-top:2px;">Total</div>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="dash-card" style="padding: 14px 18px; margin-bottom: 16px;">
+    <form method="get" action="{{ submissions_url }}" style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+
+        <!-- All -->
+        <a href="{{ submissions_url }}"
+           style="padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; text-decoration: none;
+                  border: 1px solid {% if not active_filter and not status_filter %}var(--dash-primary){% else %}var(--dash-border){% endif %};
+                  background: {% if not active_filter and not status_filter %}var(--dash-primary){% else %}#fff{% endif %};
+                  color: {% if not active_filter and not status_filter %}#fff{% else %}var(--dash-muted){% endif %};">
+          All
+        </a>
+
+        <!-- Individual status pills from YAML config — one per status, matching Status column exactly -->
+        {% for s in bulk_status_choices %}
+        <a href="{{ submissions_url }}?status={{ s|urlencode }}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}"
+           style="padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; text-decoration: none;
+                  border: 1px solid {% if status_filter == s %}var(--dash-primary){% else %}var(--dash-border){% endif %};
+                  background: {% if status_filter == s %}var(--dash-primary){% else %}#fff{% endif %};
+                  color: {% if status_filter == s %}#fff{% else %}var(--dash-muted){% endif %};">
+          {{ s }}
+        </a>
+        {% endfor %}
+
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        {% if active_filter %}<input type="hidden" name="filter" value="{{ active_filter }}">{% endif %}
+        {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+        <input
+          type="text"
+          name="q"
+          value="{{ search_q|default:'' }}"
+          placeholder="Search student, program…"
+          style="flex: 1; min-width: 180px; padding: 7px 12px; border: 1px solid var(--dash-border); border-radius: 8px; font-size: 13px; outline: none;"
+        >
+        <button type="submit"
+                style="padding: 7px 16px; background: var(--dash-primary); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">
+          Search
+        </button>
+        {% if active_filter or status_filter or search_q %}
+          <a href="{{ submissions_url }}"
+             style="font-size: 13px; color: var(--dash-muted); text-decoration: none; padding: 7px 4px;">
+            Clear
+          </a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <!-- Action bar: create + export -->
+  <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:10px;">
+    <a href="{% url 'school_submission_create' school_slug=school.slug %}"
+       class="dash-action-btn dash-action-btn--primary"
+       style="font-size:12px;padding:5px 12px;">+ New Submission</a>
+    <a href="{{ export_url }}"
+       style="font-size:12px;color:var(--dash-muted);text-decoration:none;padding:5px 10px;
+              border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;background:#fff;">
+      Export CSV
+    </a>
+    {% for profile in export_profiles %}
+    <a href="{{ profile.url }}"
+       style="font-size:12px;color:var(--dash-muted);text-decoration:none;padding:5px 10px;
+              border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;background:#fff;">
+      Export → {{ profile.name }}
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Search cap warning -->
+  {% if search_q and search_cap_hit %}
+  <div style="padding: 10px 16px; margin-bottom: 12px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; font-size: 13px; color: #92400e;">
+    ⚠️ This school has more than 2,000 submissions. Search covers the 2,000 most recent only — use filters to narrow further.
+  </div>
+  {% endif %}
+
+  <!-- Submissions table -->
+  <div class="dash-card">
+    {% if submissions %}
+    <div class="dash-table-scroll">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            {% if workflow_actions_enabled %}<th style="width:32px;padding-right:0;"><input type="checkbox" id="select-all-checkbox" style="cursor:pointer;"></th>{% endif %}
+            <th>Student</th>
+            <th>Program</th>
+            <th>Status</th>
+            <th>Submitted</th>
+            <th>Last activity</th>
+            <th>Parent contact</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in submissions %}
+          <tr{% if s.is_new %} class="dash-table-row--new"{% endif %}>
+            {% if workflow_actions_enabled %}<td style="padding-right:0;"><input type="checkbox" class="submission-checkbox" value="{{ s.id }}" style="cursor:pointer;"></td>{% endif %}
+            <td>
+              <div class="dash-student-cell">
+                <div class="dash-initials">{{ s.initials }}</div>
+                <a href="{{ s.school_admin_url }}" class="dash-student-name">{{ s.student|default:"—" }}</a>
+                {% if s.has_notes %}<span title="Has internal notes" style="font-size:10px;padding:1px 5px;border-radius:3px;background:#ede9fe;color:#6d28d9;margin-left:5px;white-space:nowrap;flex-shrink:0;">Notes</span>{% endif %}
+                {% if s.has_files %}<span title="Has attachments" style="font-size:10px;padding:1px 5px;border-radius:3px;background:#fef9c3;color:#92400e;margin-left:3px;white-space:nowrap;flex-shrink:0;">📎</span>{% endif %}
+              </div>
+            </td>
+            <td style="color: var(--dash-muted); font-size: 13px;">{{ s.program }}</td>
+            <td>
+              <form method="post"
+                    action="{% url 'school_submission_inline_status' school_slug=request.resolver_match.kwargs.school_slug submission_id=s.id %}"
+                    style="display:inline;">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <select name="new_status" onchange="this.form.submit()"
+                        style="font-size:12px;padding:3px 6px;border-radius:5px;
+                               border:1px solid var(--dash-border);background:var(--dash-bg);
+                               color:var(--dash-text);cursor:pointer;">
+                  {% for sc in bulk_status_choices %}
+                  <option value="{{ sc }}" {% if sc == s.status %}selected{% endif %}>{{ sc }}</option>
+                  {% endfor %}
+                </select>
+              </form>
+              {% if s.is_new %}<div style="font-size:10px;color:#92400e;margin-top:2px;">Needs review</div>{% endif %}
+            </td>
+            <td style="color: var(--dash-muted); font-size: 12px; white-space: nowrap;">
+              {{ s.created_at|date:"M j, Y" }}
+            </td>
+            <td style="color: var(--dash-muted); font-size: 12px; white-space: nowrap;">
+              {{ s.last_activity|date:"M j, Y" }}
+            </td>
+            <td style="font-size: 12px; color: var(--dash-muted);">
+              {% if s.parent_email %}
+                <div>{{ s.parent_email }}</div>
+              {% endif %}
+              {% if s.parent_phone %}
+                <div>{{ s.parent_phone }}</div>
+              {% endif %}
+              {% if not s.parent_email and not s.parent_phone %}—{% endif %}
+            </td>
+            <td style="white-space:nowrap;">
+              <a href="{{ s.school_admin_url }}"
+                 class="dash-action-btn {% if s.is_new %}dash-action-btn--primary{% else %}dash-action-btn--secondary{% endif %}"
+                 style="font-size:12px;padding:4px 10px;">
+                {% if s.is_new %}Review{% else %}Open{% endif %}
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if display_cap_hit %}
+    <div style="padding: 12px 18px; font-size: 12px; color: var(--dash-muted); border-top: 1px solid var(--dash-border);">
+      Showing first 200 of {{ result_count }} results. Use filters to narrow down.
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="dash-empty">
+      <div class="dash-empty-icon">📭</div>
+      <div class="dash-empty-title">No submissions found</div>
+      <div class="dash-empty-sub">
+        {% if active_filter %}
+          {% for fk, fcfg in workflow_filters.items %}{% if fk == active_filter %}No submissions need {{ fcfg.label }} right now.{% endif %}{% endfor %}
+          <a href="{{ submissions_url }}" style="color: var(--dash-primary);">Clear</a>
+        {% elif status_filter or search_q %}
+          No submissions match the current filters.
+          <a href="{{ submissions_url }}" style="color: var(--dash-primary);">Clear filters</a>
+        {% else %}
+          No submissions yet. Share your application link to start receiving submissions.
+        {% endif %}
+      </div>
+      {% if not active_filter and not status_filter and not search_q and apply_url %}
+      <button type="button"
+              class="dash-copy-btn"
+              id="copy-apply-btn"
+              aria-label="Copy application link to clipboard"
+              onclick="navigator.clipboard.writeText('{{ apply_url|escapejs }}').then(function(){var b=document.getElementById('copy-apply-btn');b.textContent='Copied!';setTimeout(function(){b.textContent='Copy Application Link';},2000);}).catch(function(){var b=document.getElementById('copy-apply-btn');b.textContent='Copy failed';setTimeout(function(){b.textContent='Copy Application Link';},2000);})">
+        Copy Application Link
+      </button>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if workflow_actions_enabled %}
+  <!-- Bulk action bar (fixed bottom, visible when ≥1 checkbox checked) -->
+  <div id="bulk-action-bar"
+       style="display:none;position:fixed;bottom:0;left:0;right:0;
+              background:#1e293b;color:#fff;padding:12px 20px;z-index:1000;
+              flex-direction:column;gap:8px;box-shadow:0 -2px 8px rgba(0,0,0,.2);">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span id="bulk-count" style="font-size:13px;font-weight:600;min-width:80px;"></span>
+      <select id="bulk-status-select"
+              style="padding:6px 10px;border-radius:6px;border:none;font-size:13px;
+                     background:#fff;color:#1e293b;">
+        <option value="">— select status —</option>
+        {% for st in bulk_status_choices %}
+        <option value="{{ st }}">{{ st }}</option>
+        {% endfor %}
+      </select>
+      <button type="button" onclick="bulkSubmit()"
+              style="padding:6px 16px;background:var(--dash-primary,#4f46e5);color:#fff;
+                     border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">
+        Update Status
+      </button>
+      <button type="button" onclick="bulkDownload()"
+              style="padding:6px 14px;background:#7c3aed;color:#fff;
+                     border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">
+        Download Files
+      </button>
+      <button type="button" onclick="bulkPrint()"
+              style="padding:6px 14px;background:#374151;color:#fff;
+                     border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;">
+        Print
+      </button>
+      <button type="button" onclick="bulkClear()"
+              style="padding:6px 12px;background:transparent;color:#94a3b8;
+                     border:1px solid #475569;border-radius:6px;font-size:13px;cursor:pointer;">
+        Cancel
+      </button>
+    </div>
+  </div>
+
+  <form id="bulk-action-form" method="post" action="{{ bulk_update_url }}" style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <input type="hidden" name="new_status" id="bulk-new-status" value="">
+  </form>
+  <form id="bulk-download-form" method="post"
+        action="{% url 'school_submission_bulk_download' school_slug=school.slug %}"
+        style="display:none;">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  </form>
+  <form id="bulk-print-form" method="post"
+        action="{% url 'school_submission_bulk_print' school_slug=school.slug %}"
+        target="_blank"
+        style="display:none;">
+    {% csrf_token %}
+  </form>
+
+  <script>
+  (function () {
+    var bar    = document.getElementById('bulk-action-bar');
+    var cntEl  = document.getElementById('bulk-count');
+    var form   = document.getElementById('bulk-action-form');
+    var dlForm = document.getElementById('bulk-download-form');
+    var prForm = document.getElementById('bulk-print-form');
+    var selAll = document.getElementById('select-all-checkbox');
+
+    function boxes() { return document.querySelectorAll('.submission-checkbox'); }
+
+    function refresh() {
+      var all     = boxes();
+      var checked = Array.prototype.filter.call(all, function(c){ return c.checked; });
+      var n       = checked.length;
+      bar.style.display = n > 0 ? 'flex' : 'none';
+      cntEl.textContent = n === 1 ? '1 selected' : n + ' selected';
+      if (selAll) {
+        selAll.checked       = n > 0 && n === all.length;
+        selAll.indeterminate = n > 0 && n < all.length;
+      }
+    }
+
+    function collectIds(targetForm, fieldName) {
+      targetForm.querySelectorAll('input[name="' + fieldName + '"]').forEach(function(el){ el.remove(); });
+      Array.prototype.filter.call(boxes(), function(c){ return c.checked; }).forEach(function(c) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = fieldName; inp.value = c.value;
+        targetForm.appendChild(inp);
+      });
+    }
+
+    if (selAll) {
+      selAll.addEventListener('change', function () {
+        boxes().forEach(function(c){ c.checked = selAll.checked; });
+        refresh();
+      });
+    }
+    boxes().forEach(function(c){ c.addEventListener('change', refresh); });
+
+    window.bulkSubmit = function () {
+      var checked  = Array.prototype.filter.call(boxes(), function(c){ return c.checked; });
+      if (!checked.length) return;
+      var statusVal = document.getElementById('bulk-status-select').value;
+      if (!statusVal) { alert('Please select a target status.'); return; }
+      collectIds(form, 'submission_ids');
+      document.getElementById('bulk-new-status').value = statusVal;
+      form.submit();
+    };
+
+    window.bulkDownload = function () {
+      var checked = Array.prototype.filter.call(boxes(), function(c){ return c.checked; });
+      if (!checked.length) return;
+      collectIds(dlForm, 'submission_ids');
+      dlForm.submit();
+    };
+
+    window.bulkPrint = function () {
+      var checked = Array.prototype.filter.call(boxes(), function(c){ return c.checked; });
+      if (!checked.length) return;
+      collectIds(prForm, 'submission_ids');
+      prForm.submit();
+    };
+
+    window.bulkClear = function () {
+      boxes().forEach(function(c){ c.checked = false; });
+      if (selAll) { selAll.checked = false; selAll.indeterminate = false; }
+      refresh();
+    };
+  }());
+  </script>
+  {% endif %}
+
+</main>
+{% endblock %}

@@ -1,0 +1,281 @@
+{% extends "school_admin/base.html" %}
+
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <div style="margin-bottom:24px;">
+    <h1 style="font-size:20px;font-weight:700;margin:0 0 4px;">Settings</h1>
+    <p style="font-size:13px;color:var(--dash-muted);margin:0;">{{ school.display_name }}</p>
+  </div>
+
+  <!-- ── School Info ────────────────────────────────────────────────────── -->
+  <div class="dash-card" style="padding:24px;margin-bottom:20px;">
+    <h2 style="font-size:15px;font-weight:700;margin:0 0 16px;">School Info</h2>
+    <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:flex-end;font-size:13px;">
+
+      <div>
+        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                     letter-spacing:.04em;display:block;margin-bottom:3px;">ID / Slug</span>
+        <span style="font-family:monospace;font-size:12px;">{{ school.slug }}</span>
+      </div>
+
+      <!-- Editable display name -->
+      <form method="post" action="{% url 'school_settings' school.slug %}"
+            style="display:flex;flex-direction:column;gap:4px;">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_display_name">
+        <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                      letter-spacing:.04em;">Display Name</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" name="display_name" value="{{ school.display_name }}"
+                 required maxlength="120"
+                 style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);
+                        min-width:220px;">
+          <button type="submit" class="dash-action-btn dash-action-btn--primary"
+                  style="font-size:12px;padding:6px 14px;">Save</button>
+        </div>
+      </form>
+
+      {% if school.website_url %}
+      <div>
+        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                     letter-spacing:.04em;display:block;margin-bottom:3px;">Website</span>
+        <a href="{{ school.website_url }}" target="_blank"
+           style="color:var(--dash-primary);">{{ school.website_url }}</a>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <!-- ── Plan & Billing ────────────────────────────────────────────────── -->
+  <div class="dash-card" style="padding:24px;margin-bottom:20px;">
+    <h2 style="font-size:15px;font-weight:700;margin:0 0 16px;">Plan &amp; Billing</h2>
+
+    <!-- Inline stat strip -->
+    <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-end;">
+
+      <div>
+        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                     letter-spacing:.05em;display:block;margin-bottom:4px;">Plan</span>
+        <span style="font-size:16px;font-weight:700;text-transform:capitalize;">{{ school.plan }}</span>
+      </div>
+
+      <div>
+        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                     letter-spacing:.05em;display:block;margin-bottom:4px;">Status</span>
+        {% if school.is_active %}
+          <span style="font-size:14px;font-weight:600;color:#059669;">Active</span>
+        {% else %}
+          <span style="font-size:14px;font-weight:600;color:#dc2626;">Inactive</span>
+        {% endif %}
+      </div>
+
+      {% if school.stripe_subscription_status %}
+      <div>
+        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                     letter-spacing:.05em;display:block;margin-bottom:4px;">Subscription</span>
+        <span style="font-size:14px;text-transform:capitalize;">{{ school.stripe_subscription_status }}</span>
+      </div>
+      {% endif %}
+
+      {% if school.stripe_current_period_end %}
+      <div>
+        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                     letter-spacing:.05em;display:block;margin-bottom:4px;">
+          {% if school.stripe_cancel_at_period_end %}Cancels{% else %}Renews{% endif %}
+        </span>
+        <span style="font-size:14px;">{{ school.stripe_current_period_end|date:"M j, Y" }}</span>
+      </div>
+      {% endif %}
+
+      {% if school.is_trial_plan %}
+      <div>
+        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                     letter-spacing:.05em;display:block;margin-bottom:4px;">Trial Ends</span>
+        <span style="font-size:14px;font-weight:600;">{{ school.trial_ends_at|date:"M j, Y" }}{% if school.trial_end_date %} <span style="font-size:11px;color:var(--dash-muted);font-weight:400;">(extended)</span>{% endif %}</span>
+      </div>
+      <div>
+        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                     letter-spacing:.05em;display:block;margin-bottom:4px;">Days Left</span>
+        <span style="font-size:14px;font-weight:600;{% if school.trial_days_left == 0 %}color:#dc2626;{% elif school.trial_days_left <= 7 %}color:#d97706;{% endif %}">
+          {% if school.trial_days_left > 0 %}{{ school.trial_days_left }} day{{ school.trial_days_left|pluralize }}{% else %}Expired{% endif %}
+        </span>
+      </div>
+      {% endif %}
+
+      {% if not school.stripe_subscription_status %}
+      <a href="{% url 'school_billing' school.slug %}"
+         style="font-size:13px;color:var(--dash-primary);text-decoration:none;padding-bottom:2px;">
+        View billing →
+      </a>
+      {% endif %}
+
+    </div>
+
+    <!-- Cancellation warning -->
+    {% if school.stripe_cancel_at_period_end %}
+    <p style="font-size:12px;color:#dc2626;margin:16px 0 0;padding:8px 14px;
+              background:#fef2f2;border-radius:6px;border:1px solid #fca5a5;">
+      Subscription cancels at end of billing period.
+    </p>
+    {% endif %}
+
+    <!-- Superadmin: extend trial end date -->
+    {% if request.user.is_superuser and school.is_trial_plan %}
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--dash-border);">
+      <form method="post" action="{% url 'school_settings' school.slug %}"
+            style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_trial_end_date">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:11px;font-weight:700;text-transform:uppercase;
+                        letter-spacing:.05em;color:var(--dash-muted);">
+            Trial End Date <span style="color:#7c3aed;">(superadmin)</span>
+          </label>
+          <input type="date" name="trial_end_date"
+                 value="{{ school.trial_end_date|date:'Y-m-d'|default:'' }}"
+                 style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+        </div>
+        <button type="submit" class="dash-action-btn dash-action-btn--primary"
+                style="font-size:12px;padding:6px 14px;">Save</button>
+        {% if school.trial_end_date %}
+        <button type="submit" name="trial_end_date" value=""
+                class="dash-action-btn dash-action-btn--secondary"
+                style="font-size:12px;padding:6px 14px;">Clear override</button>
+        {% endif %}
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- Stripe IDs (collapsed, secondary) -->
+    {% if school.stripe_customer_id or school.stripe_subscription_id %}
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--dash-border);
+                display:flex;gap:28px;flex-wrap:wrap;">
+      {% if school.stripe_customer_id %}
+      <div>
+        <span style="font-size:10px;color:var(--dash-muted);text-transform:uppercase;
+                     letter-spacing:.05em;display:block;margin-bottom:2px;">Customer ID</span>
+        <span style="font-size:11px;font-family:monospace;color:var(--dash-text);">{{ school.stripe_customer_id }}</span>
+      </div>
+      {% endif %}
+      {% if school.stripe_subscription_id %}
+      <div>
+        <span style="font-size:10px;color:var(--dash-muted);text-transform:uppercase;
+                     letter-spacing:.05em;display:block;margin-bottom:2px;">Subscription ID</span>
+        <span style="font-size:11px;font-family:monospace;color:var(--dash-text);">{{ school.stripe_subscription_id }}</span>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- ── Features ──────────────────────────────────────────────────────── -->
+  <div class="dash-card" style="padding:24px;margin-bottom:20px;">
+    <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Features</h2>
+    <p style="font-size:12px;color:var(--dash-muted);margin:0 0 16px;">
+      What's included on your current plan.
+    </p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0;">
+      {% for f in features %}
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  padding:9px 12px 9px 0;border-bottom:1px solid var(--dash-border);">
+        <span style="font-size:13px;{% if not f.enabled %}color:var(--dash-muted);{% endif %}">
+          {{ f.label }}
+        </span>
+        {% if f.enabled %}
+          <span style="color:#059669;font-size:13px;font-weight:700;">✓</span>
+        {% elif f.is_upgrade %}
+          <span style="font-size:11px;color:var(--dash-muted);background:var(--dash-bg);
+                       padding:2px 8px;border-radius:10px;
+                       border:1px solid var(--dash-border);white-space:nowrap;">
+            {{ f.required_plan }}
+          </span>
+        {% else %}
+          <span style="color:var(--dash-muted);font-size:12px;">—</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ── Application Form ──────────────────────────────────────────────── -->
+  <div class="dash-card" style="padding:24px;margin-bottom:40px;">
+    <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Application Form</h2>
+    <p style="font-size:13px;color:var(--dash-muted);margin:0 0 20px;">
+      Share this link with families or embed the form directly on your website.
+    </p>
+
+    <div style="margin-bottom:20px;">
+      <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                    letter-spacing:.06em;color:var(--dash-muted);margin-bottom:6px;">
+        Hosted Link
+      </label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="text" readonly value="{{ apply_url }}" id="apply-url-input"
+               onclick="this.select()"
+               style="flex:1;min-width:260px;padding:8px 12px;font-size:12px;
+                      border:1px solid var(--dash-border);border-radius:6px;
+                      background:var(--dash-bg);color:var(--dash-text);
+                      font-family:monospace;">
+        <button type="button" id="copy-link-btn"
+                onclick="copyField('apply-url-input','copy-link-btn','Copied!')"
+                class="dash-action-btn dash-action-btn--primary" style="font-size:13px;">
+          Copy Link
+        </button>
+        <a href="{{ apply_url }}" target="_blank"
+           class="dash-action-btn dash-action-btn--secondary" style="font-size:13px;">
+          Open ↗
+        </a>
+      </div>
+    </div>
+
+    <div>
+      <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                    letter-spacing:.06em;color:var(--dash-muted);margin-bottom:6px;">
+        Embed Snippet
+      </label>
+      <p style="font-size:12px;color:var(--dash-muted);margin:0 0 8px;">
+        Paste into your website HTML to embed the form inline.
+      </p>
+      <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
+        <textarea id="embed-snippet-input" readonly rows="3" onclick="this.select()"
+                  style="flex:1;min-width:260px;padding:8px 12px;font-size:12px;
+                         border:1px solid var(--dash-border);border-radius:6px;
+                         background:var(--dash-bg);color:var(--dash-text);
+                         font-family:monospace;resize:vertical;">{{ embed_snippet }}</textarea>
+        <button type="button" id="copy-embed-btn"
+                onclick="copyField('embed-snippet-input','copy-embed-btn','Copied!')"
+                class="dash-action-btn dash-action-btn--primary" style="font-size:13px;">
+          Copy Snippet
+        </button>
+      </div>
+      <p style="font-size:11px;color:var(--dash-muted);margin:8px 0 0;">
+        Height defaults to 700px — adjust as needed.
+      </p>
+    </div>
+  </div>
+
+</main>
+
+<script>
+function copyField(inputId, btnId, msg) {
+  var el = document.getElementById(inputId);
+  var btn = document.getElementById(btnId);
+  var orig = btn ? btn.textContent : '';
+  if (!el) return;
+  el.select();
+  navigator.clipboard.writeText(el.value).then(function() {
+    if (btn) { btn.textContent = msg; setTimeout(function(){ btn.textContent = orig; }, 2000); }
+  }).catch(function() {
+    try { document.execCommand('copy'); } catch(e) {}
+    if (btn) { btn.textContent = msg; setTimeout(function(){ btn.textContent = orig; }, 2000); }
+  });
+}
+</script>
+{% endblock %}

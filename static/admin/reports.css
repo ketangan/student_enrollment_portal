@@ -1,7 +1,9 @@
 /* Reports page (Phase 10) */
 
 .reports-page {
-  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 28px 24px 60px;
 }
 
 .reports-topbar {

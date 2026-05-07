@@ -65,11 +65,20 @@ def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=Non
                     "required": required,
                     "options": options,
                     "value": value,
+                    # Display properties passed through for template rendering
+                    "placeholder": f.get("placeholder", ""),
+                    "help_text": f.get("help_text", ""),
+                    "full_width": bool(f.get("full_width", False)),
+                    "ui": f.get("ui", ""),
+                    "text": f.get("text", ""),            # waiver body text
+                    "link_url": f.get("link_url", ""),    # waiver link
+                    "link_text": f.get("link_text", ""),  # waiver link label
+                    "checkbox_label": f.get("checkbox_label", ""),
                 }
             )
 
         if fields:
-            yaml_sections.append({"title": section_title, "fields": fields})
+            yaml_sections.append({"title": section_title, "description": section.get("description", ""), "fields": fields})
 
     return yaml_sections
 
@@ -187,6 +196,76 @@ def apply_post_to_submission_data(cfg, post_data, existing_data: dict, form: dic
             data[key] = raw
 
     return data
+
+def get_submission_workflow_filters(config_raw: dict) -> dict:
+    """Returns {key: {"label": str, "statuses": list[str]}} or {} if not configured.
+
+    Parses admin.submission_workflow.filters from school YAML.
+    Schools without this block get an empty dict — callers should fall back to
+    the generic status dropdown.
+    """
+    admin_block = (config_raw or {}).get("admin") if isinstance(config_raw, dict) else None
+    if not isinstance(admin_block, dict):
+        return {}
+    workflow = admin_block.get("submission_workflow")
+    if not isinstance(workflow, dict):
+        return {}
+    filters = workflow.get("filters")
+    if not isinstance(filters, dict):
+        return {}
+    result: dict = {}
+    for key, val in filters.items():
+        if not isinstance(val, dict):
+            continue
+        label = val.get("label")
+        statuses = val.get("statuses")
+        if not isinstance(label, str) or not label.strip():
+            continue
+        if not isinstance(statuses, list) or not statuses:
+            continue
+        result[str(key)] = {
+            "label": label.strip(),
+            "statuses": [str(s) for s in statuses if s],
+        }
+    return result
+
+
+def get_submission_workflow_transitions(config_raw: dict) -> dict:
+    """Returns {from_status: [{"label": str, "status": str}, ...]} or {} if not configured.
+
+    Parses admin.submission_workflow.transitions from school YAML.
+    Skips malformed entries (non-dict actions, missing label/status keys) silently.
+    Returns empty dict if the workflow block is absent — callers must not show
+    inline transition buttons when this is empty.
+    """
+    admin_block = (config_raw or {}).get("admin") if isinstance(config_raw, dict) else None
+    if not isinstance(admin_block, dict):
+        return {}
+    workflow = admin_block.get("submission_workflow")
+    if not isinstance(workflow, dict):
+        return {}
+    transitions = workflow.get("transitions")
+    if not isinstance(transitions, dict):
+        return {}
+    result: dict = {}
+    for from_status, actions in transitions.items():
+        if not isinstance(actions, list):
+            continue
+        valid_actions = []
+        for action in actions:
+            if not isinstance(action, dict):
+                continue
+            label = action.get("label")
+            status = action.get("status")
+            if (
+                isinstance(label, str) and label.strip()
+                and isinstance(status, str) and status.strip()
+            ):
+                valid_actions.append({"label": label.strip(), "status": status.strip()})
+        if valid_actions:
+            result[str(from_status)] = valid_actions
+    return result
+
 
 def get_submission_status_choices(config_raw: dict) -> tuple[list[str], str]:
     default_statuses = ["New", "In Review", "Contacted", "Archived"]

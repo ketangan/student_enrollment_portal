@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.forms import UserCreationForm
 
+from core.admin.audit import log_admin_audit
 from core.admin.common import _has_school_membership, _is_superuser, _membership_school_id
 from core.models import School, SchoolAdminMembership
 
@@ -131,6 +132,12 @@ class SchoolScopedUserAdmin(DjangoUserAdmin):
         return super().get_fieldsets(request, obj)
 
     def save_model(self, request, obj, form, change):
+        _TRACKED = ("username", "first_name", "last_name", "email", "is_active")
+        old_values: dict = {}
+        if change and obj.pk:
+            old_row = UserModel.objects.filter(pk=obj.pk).values(*_TRACKED).first() or {}
+            old_values = dict(old_row)
+
         if not change and not obj.is_staff:
             obj.is_staff = True
 
@@ -143,6 +150,21 @@ class SchoolScopedUserAdmin(DjangoUserAdmin):
                     user=obj,
                     defaults={"school": school},
                 )
+
+        if not change:
+            log_admin_audit(request=request, action="add", obj=obj, changes={},
+                            extra={"name": "user_created"})
+            return
+
+        changes = {}
+        for field in _TRACKED:
+            old_val = old_values.get(field)
+            new_val = getattr(obj, field, None)
+            if str(old_val or "") != str(new_val or ""):
+                changes[field] = {"from": old_val, "to": new_val}
+
+        if changes:
+            log_admin_audit(request=request, action="change", obj=obj, changes=changes)
 
     def has_delete_permission(self, request, obj=None):
         return _is_superuser(request.user)

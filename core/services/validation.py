@@ -3,6 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Tuple
 
+from django.core.exceptions import ValidationError as DjValidationError
+from django.core.validators import validate_email as dj_validate_email
+
 
 def _is_empty(value: Any) -> bool:
     if value is None:
@@ -93,7 +96,9 @@ def validate_submission(
                 continue
 
             if ftype == "email":
-                if "@" not in str(raw_val):
+                try:
+                    dj_validate_email(str(raw_val))
+                except DjValidationError:
                     errors[key] = "Enter a valid email address."
                     continue
 

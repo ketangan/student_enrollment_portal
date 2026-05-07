@@ -252,9 +252,8 @@ class LeadAdmin(admin.ModelAdmin):
         from django.http import HttpResponseNotAllowed
         from django.shortcuts import redirect
         from core.models import Submission
-        from core.services.config_loader import load_school_config
+        from core.services.config_loader import load_school_config, find_email_field_key
         from core.services.lead_conversion import try_convert_lead
-        from core.services.notifications import _find_email_field_key
 
         if request.method != "POST":
             return HttpResponseNotAllowed(["POST"])
@@ -298,7 +297,7 @@ class LeadAdmin(admin.ModelAdmin):
             # Resolve the YAML email field key before creating the submission.
             # try_convert_lead matches by whichever key is declared as type=email in
             # the YAML — the submission data must use that same key.
-            email_key = _find_email_field_key(config_raw)
+            email_key = find_email_field_key(config_raw)
             if not email_key:
                 logger.warning(
                     "convert_to_submission: no type=email field in YAML for school=%s lead=%s",
@@ -376,9 +375,12 @@ class LeadAdmin(admin.ModelAdmin):
     # ------------------------------------------------------------------
 
     def save_model(self, request, obj, form, change):
-        old_status = None
+        _TRACKED_FIELDS = ("name", "email", "phone", "status", "notes",
+                           "next_follow_up_at", "lost_reason", "interested_in_value")
+        old_values: dict = {}
         if change and obj.pk:
-            old_status = Lead.objects.filter(pk=obj.pk).values_list("status", flat=True).first()
+            old_row = Lead.objects.filter(pk=obj.pk).values(*_TRACKED_FIELDS).first() or {}
+            old_values = dict(old_row)
 
         super().save_model(request, obj, form, change)
 
@@ -386,19 +388,23 @@ class LeadAdmin(admin.ModelAdmin):
             return
 
         if not change:
-            # has_add_permission is False so this branch is currently unreachable
-            # via the normal admin form. Kept for defensive completeness.
             log_admin_audit(request=request, action="add", obj=obj, changes={})
             return
 
-        # Only log status changes — notes/follow-up/lost_reason edits are v1 out of scope.
-        # No empty audit rows on saves where status did not change.
-        if old_status is not None and old_status != obj.status:
+        changes = {}
+        for field in _TRACKED_FIELDS:
+            old_val = old_values.get(field)
+            new_val = getattr(obj, field, None)
+            # Normalise for comparison (str vs None edge cases)
+            if str(old_val or "") != str(new_val or ""):
+                changes[field] = {"from": old_val, "to": new_val}
+
+        if changes:
             log_admin_audit(
                 request=request,
                 action="change",
                 obj=obj,
-                changes={"status": {"from": old_status, "to": obj.status}},
+                changes=changes,
             )
 
     # ------------------------------------------------------------------

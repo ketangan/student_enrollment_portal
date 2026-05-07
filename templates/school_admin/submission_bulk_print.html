@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Submissions — {{ school.display_name }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+           font-size: 13px; color: #111; background: #fff; padding: 24px; }
+
+    .print-header {
+      text-align: center; border-bottom: 2px solid #111;
+      padding-bottom: 12px; margin-bottom: 24px;
+    }
+    .print-header h1 { font-size: 18px; font-weight: 700; }
+    .print-header p  { font-size: 12px; color: #555; margin-top: 4px; }
+
+    .submission-block {
+      padding: 20px 0;
+      page-break-inside: avoid;
+    }
+    .submission-block + .submission-block {
+      border-top: 2px solid #333;
+      margin-top: 20px;
+      page-break-before: always;
+    }
+
+    .sub-name { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .sub-meta { font-size: 12px; color: #555; margin-bottom: 14px; }
+    .sub-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 3px;
+      font-size: 11px; font-weight: 600; border: 1px solid #999;
+      vertical-align: middle; margin-left: 6px;
+    }
+
+    .info-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+      border: 1px solid #ccc; border-radius: 4px; margin-bottom: 14px;
+      overflow: hidden;
+    }
+    .info-cell {
+      padding: 8px 12px; border-bottom: 1px solid #ddd;
+    }
+    .info-cell:nth-child(odd) { border-right: 1px solid #ddd; }
+    .info-cell label { display: block; font-size: 10px; color: #777; text-transform: uppercase;
+                       letter-spacing: .04em; margin-bottom: 2px; }
+
+    .section-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; color: #555; margin: 14px 0 6px;
+    }
+
+    table.fields { width: 100%; border-collapse: collapse; }
+    table.fields td { padding: 5px 0; border-bottom: 1px solid #eee; vertical-align: top; }
+    table.fields td:first-child { color: #777; font-size: 11px; width: 40%; padding-right: 12px; }
+
+    .attachments { margin-top: 10px; }
+    .attachments p { font-size: 11px; font-weight: 700; color: #555; text-transform: uppercase;
+                     letter-spacing: .04em; margin-bottom: 4px; }
+    .attachments ul { list-style: disc; padding-left: 18px; font-size: 12px; }
+
+    @media print {
+      body { padding: 0; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="no-print" style="background:#f1f5f9;padding:12px 16px;border-radius:6px;
+       margin-bottom:20px;display:flex;align-items:center;gap:12px;">
+    <span style="font-size:13px;color:#374151;">
+      {{ rows|length }} submission{{ rows|length|pluralize }} ready to print.
+    </span>
+    <button onclick="window.print()"
+            style="padding:6px 16px;background:#2563eb;color:#fff;border:none;
+                   border-radius:5px;font-size:13px;font-weight:600;cursor:pointer;">
+      Print / Save PDF
+    </button>
+    <button onclick="window.close()"
+            style="padding:6px 12px;background:transparent;color:#6b7280;
+                   border:1px solid #d1d5db;border-radius:5px;font-size:13px;cursor:pointer;">
+      Close
+    </button>
+  </div>
+
+  <div class="print-header">
+    <h1>{{ school.display_name }} — Applications</h1>
+    <p>Printed {{ printed_at|date:"F j, Y g:i A" }} &middot; {{ rows|length }} submission{{ rows|length|pluralize }}</p>
+  </div>
+
+  {% for row in rows %}
+  <div class="submission-block">
+    <div class="sub-name">
+      {{ row.submission.student_display_name|default:"—" }}
+      <span class="sub-badge">{{ row.submission.status }}</span>
+    </div>
+    <div class="sub-meta">
+      Submitted {{ row.submission.created_at|date:"M j, Y" }}
+      {% if row.submission.school_submission_number %}&nbsp;&middot;&nbsp;#{{ row.submission.school_submission_number }}{% endif %}
+      {% if row.submission.form_key %}&nbsp;&middot;&nbsp;Form: {{ row.submission.form_key }}{% endif %}
+    </div>
+
+    <!-- Contact info -->
+    <div class="info-grid">
+      <div class="info-cell">
+        <label>Parent Email</label>
+        {{ row.parent_email|default:"—" }}
+      </div>
+      <div class="info-cell">
+        <label>Parent Phone</label>
+        {{ row.parent_phone|default:"—" }}
+      </div>
+      {% if row.program_display %}
+      <div class="info-cell" style="grid-column:span 2;border-right:none;">
+        <label>Program / Class</label>
+        {{ row.program_display }}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Application fields -->
+    {% if row.yaml_sections %}
+      {% for section in row.yaml_sections %}
+        {% if section.title and row.yaml_sections|length > 1 %}
+        <div class="section-title">{{ section.title }}</div>
+        {% endif %}
+        <table class="fields">
+          {% for f in section.fields %}
+          <tr>
+            <td>{{ f.label }}</td>
+            <td>
+              {% if f.type == "waiver" %}
+                {% if f.value.agreed %}Signed{% if f.value.timestamp %} — {{ f.value.timestamp|slice:":10" }}{% endif %}
+                {% else %}Not signed{% endif %}
+              {% elif f.type == "multiselect" %}
+                {% if f.value %}{{ f.value|join:", " }}{% else %}—{% endif %}
+              {% elif f.type == "checkbox" %}
+                {% if f.value %}Yes{% else %}No{% endif %}
+              {% else %}
+                {{ f.value|default:"—" }}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </table>
+      {% endfor %}
+    {% endif %}
+
+    <!-- Attachments (names only) -->
+    {% if row.files %}
+    <div class="attachments">
+      <p>Attachments</p>
+      <ul>
+        {% for f in row.files %}
+        <li>{{ f.original_name|default:f.field_key }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+
+  <script>
+    // Auto-trigger print after a short delay so the page renders first.
+    window.addEventListener('load', function () {
+      setTimeout(function () { window.print(); }, 400);
+    });
+  </script>
+</body>
+</html>
