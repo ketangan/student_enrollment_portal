@@ -102,7 +102,7 @@
       {% csrf_token %}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;">
         {% for field in form %}
-        <div style="{% if field.name == 'feature_flags' or field.name == 'website_url' %}grid-column:1/-1;{% endif %}">
+        <div style="{% if field.name == 'feature_flags' or field.name == 'website_url' or field.name == 'app_fee_stripe_public_key' or field.name == 'app_fee_stripe_secret_key' %}grid-column:1/-1;{% endif %}">
           {% if field.field.widget.input_type == 'checkbox' %}
             <div style="display:flex;align-items:center;gap:10px;padding-top:20px;">
               {{ field }}

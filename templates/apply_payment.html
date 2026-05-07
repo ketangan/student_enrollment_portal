@@ -1,0 +1,240 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ school.display_name|default:school.slug }} - Application Fee</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="{% static 'forms.css' %}">
+
+    <style>
+      :root{
+        --primary: {{ branding.theme.accent_color }};
+        --bg: {{ branding.theme.background }};
+        --card: {{ branding.theme.card }};
+        --text: {{ branding.theme.text }};
+        --muted: {{ branding.theme.muted }};
+        --border: {{ branding.theme.border }};
+        --radius: {{ branding.theme.radius }};
+      }
+
+      .payment-card {
+        background: var(--card, #fff);
+        border: 1px solid var(--border, #e5e7eb);
+        border-radius: var(--radius, 16px);
+        padding: 2rem;
+        max-width: 480px;
+        margin: 0 auto;
+      }
+
+      .payment-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text, #111827);
+        margin: 0 0 0.25rem;
+      }
+
+      .payment-subtitle {
+        font-size: 0.875rem;
+        color: var(--muted, #6b7280);
+        margin: 0 0 1.5rem;
+      }
+
+      .fee-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid var(--border, #e5e7eb);
+        margin-bottom: 1.5rem;
+        font-size: 0.95rem;
+      }
+
+      .fee-amount {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text, #111827);
+      }
+
+      #payment-element {
+        margin-bottom: 1.25rem;
+      }
+
+      #payment-submit {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        background: var(--primary, #2563eb);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.15s;
+      }
+
+      #payment-submit:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      #payment-message {
+        margin-top: 0.75rem;
+        font-size: 0.875rem;
+        color: #dc2626;
+        min-height: 1.25rem;
+      }
+
+      .secure-note {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.75rem;
+        color: var(--muted, #6b7280);
+        margin-top: 0.75rem;
+        justify-content: center;
+      }
+
+      .spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid #fff;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        vertical-align: middle;
+        margin-right: 6px;
+      }
+
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+
+  <body>
+    <div class="page">
+      <div class="container">
+
+        {% if not embed_mode %}
+        <div class="header">
+          <div class="school-logo">
+            {% if branding.logo_url %}
+              <img src="{{ branding.logo_url }}" alt="logo" style="width:100%;height:100%;object-fit:cover;" />
+            {% else %}
+              <span aria-hidden="true">🏫</span>
+            {% endif %}
+          </div>
+          <div>
+            <div class="school-title">{{ school.display_name|default:school.slug }}</div>
+            <div class="school-subtitle">Application Fee</div>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if payment_error %}
+        <div class="notice" style="background:#fef2f2;border-left:4px solid #dc2626;color:#991b1b;margin-bottom:1rem;">
+          {{ payment_error }}
+        </div>
+        {% endif %}
+
+        <div class="payment-card">
+          <p class="payment-title">Complete your application</p>
+          <p class="payment-subtitle">
+            {% if student_name %}For {{ student_name }} — {% endif %}a non-refundable application fee is required.
+          </p>
+
+          <div class="fee-row">
+            <span>{{ fee_cfg.description }}</span>
+            <span class="fee-amount">${{ fee_cfg.amount }}</span>
+          </div>
+
+          {% if client_secret %}
+          <form id="payment-form">
+            <div id="payment-element"></div>
+            <div id="payment-message"></div>
+            <button id="payment-submit" type="submit">
+              Pay ${{ fee_cfg.amount }} and Submit Application
+            </button>
+          </form>
+
+          <div class="secure-note">
+            <svg width="12" height="14" viewBox="0 0 12 14" fill="none">
+              <path d="M6 0L1 2.5V7c0 3.3 2.1 6.3 5 7 2.9-.7 5-3.7 5-7V2.5L6 0z" fill="currentColor"/>
+            </svg>
+            Secured by Stripe — we never store your card details
+          </div>
+          {% else %}
+          <p style="color:#dc2626;font-size:0.875rem;">
+            Payment is temporarily unavailable. Please contact
+            <strong>{{ school.display_name }}</strong> directly.
+          </p>
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+
+    {% if client_secret %}
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+      (function () {
+        var stripe = Stripe("{{ stripe_public_key|escapejs }}");
+        var elements = stripe.elements({
+          clientSecret: "{{ client_secret|escapejs }}",
+          appearance: {
+            theme: "stripe",
+            variables: {
+              colorPrimary: "{{ branding.theme.accent_color|default:'#2563eb'|escapejs }}",
+              borderRadius: "8px",
+            },
+          },
+        });
+
+        var paymentElement = elements.create("payment");
+        paymentElement.mount("#payment-element");
+
+        var form = document.getElementById("payment-form");
+        var submitBtn = document.getElementById("payment-submit");
+        var msgEl = document.getElementById("payment-message");
+
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<span class="spinner"></span>Processing…';
+          msgEl.textContent = "";
+
+          stripe.confirmPayment({
+            elements: elements,
+            confirmParams: {
+              return_url: "{{ confirm_url|escapejs }}",
+            },
+          }).then(function (result) {
+            if (result.error) {
+              msgEl.textContent = result.error.message || "Payment failed. Please try again.";
+              submitBtn.disabled = false;
+              submitBtn.textContent = "Pay ${{ fee_cfg.amount }} and Submit Application";
+            }
+          });
+        });
+      })();
+    </script>
+    {% endif %}
+
+    {% if embed_mode %}
+    <script>
+      (function () {
+        function postHeight() {
+          var h = document.documentElement.scrollHeight;
+          window.parent.postMessage({ type: "iframeResize", height: h }, "*");
+        }
+        window.addEventListener("load", postHeight);
+        if (window.MutationObserver) {
+          new MutationObserver(postHeight).observe(document.body, {
+            childList: true, subtree: true, attributes: true
+          });
+        }
+      })();
+    </script>
+    {% endif %}
+  </body>
+</html>

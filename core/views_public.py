@@ -53,10 +53,15 @@ from .services.admin_themes import (
 )
 from .services.config_loader import (
     find_email_field_key,
+    get_application_fee_config,
     get_forms,
     get_program_options,
     load_school_config,
     PROGRAM_FIELD_KEYS,
+)
+from .services.billing_stripe import (
+    create_application_fee_intent,
+    retrieve_application_fee_intent,
 )
 from .services.form_utils import build_option_label_map
 from .services.admin_submission_yaml import (
@@ -388,6 +393,68 @@ def _apply_form_context(
     }
 
 
+def _complete_submission_from_draft(
+    *,
+    request,
+    school: School,
+    school_slug: str,
+    draft: DraftSubmission,
+    raw_config: dict,
+    config,
+    form_cfg: dict,
+    payment_intent_id: str = "",
+    payment_status: str = "",
+) -> "HttpResponse":
+    """
+    Finalise a DraftSubmission → Submission, run post-processing, and redirect to success.
+    Used by both the normal (no-fee) submit path and the payment confirm path.
+    """
+    submission = Submission.objects.create(
+        school=school,
+        form_key=draft.form_key or "default",
+        data=dict(draft.data or {}),
+        payment_intent_id=payment_intent_id,
+        payment_status=payment_status,
+    )
+    draft.submitted_at = timezone.now()
+    draft.save(update_fields=["submitted_at"])
+    request.session.pop(_draft_session_key(school_slug), None)
+
+    try:
+        try_convert_lead(school=school, submission=submission, config_raw=raw_config, lead=draft.lead)
+    except Exception:
+        logger.exception("Failed to convert lead for submission %s", submission.public_id)
+
+    if school.features.file_uploads_enabled and request.FILES:
+        _save_uploaded_files(submission, form_cfg, request.FILES)
+
+    if school.features.email_notifications_enabled:
+        try:
+            send_submission_notification_email(
+                request=request,
+                config_raw=raw_config,
+                school_name=config.display_name,
+                submission_id=submission.id,
+                submission_public_id=submission.public_id,
+                student_name=submission.student_display_name(),
+                submission_data=submission.data or {},
+            )
+        except Exception:
+            logger.exception("Failed to send submission notification email")
+        try:
+            send_applicant_confirmation_email(
+                config_raw=raw_config,
+                school_name=config.display_name,
+                submission_public_id=submission.public_id,
+                student_name=submission.student_display_name(),
+                submission_data=submission.data or {},
+            )
+        except Exception:
+            logger.exception("Failed to send applicant confirmation email")
+
+    return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
+
+
 # -----------------------------
 # Apply view (dispatcher)
 # -----------------------------
@@ -475,7 +542,30 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 return render(request, "apply_form.html", ctx)
 
             _inject_waiver_metadata(cleaned, form_cfg, request)
-            submission = Submission.objects.create(school=school, form_key="default", data=cleaned)
+
+            # --- Application fee gate ---
+            # Use URL form_key for waiver check (single-form schools use "default"; multi-key
+            # schools with multi_form_enabled=False still route each key through this branch).
+            fee_cfg = get_application_fee_config(raw_config, form_key)
+            if fee_cfg["enabled"] and not fee_cfg["waived"] and school.app_fee_stripe_public_key:
+                active_draft = _resolve_active_draft(request, school, school_slug)
+                draft = _save_draft(
+                    school=school, form_key=form_key, cleaned=cleaned,
+                    config_raw=raw_config, last_form_key=form_key, draft=active_draft,
+                )
+                request.session[_draft_session_key(school_slug)] = draft.pk
+                return redirect(reverse(
+                    "apply_payment",
+                    kwargs={"school_slug": school_slug, "draft_token": draft.token},
+                ))
+
+            # No fee (or fee not configured) — create submission immediately
+            submission = Submission.objects.create(
+                school=school,
+                form_key="default",
+                data=cleaned,
+                payment_status="waived" if (fee_cfg["enabled"] and fee_cfg["waived"]) else "",
+            )
 
             # Mark draft submitted (do NOT delete — magic link shows "already submitted" page)
             active_draft = _resolve_active_draft(request, school, school_slug)
@@ -607,47 +697,25 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
         if next_key:
             return redirect(reverse("apply_form", kwargs={"school_slug": school_slug, "form_key": next_key}))
 
-        # Final step: convert draft → Submission
-        submission = Submission.objects.create(
+        # Final step — check application fee before creating Submission
+        fee_cfg = get_application_fee_config(raw_config, form_key)
+        if fee_cfg["enabled"] and not fee_cfg["waived"] and school.app_fee_stripe_public_key:
+            return redirect(reverse(
+                "apply_payment",
+                kwargs={"school_slug": school_slug, "draft_token": draft.token},
+            ))
+
+        payment_status = "waived" if (fee_cfg["enabled"] and fee_cfg["waived"]) else ""
+        return _complete_submission_from_draft(
+            request=request,
             school=school,
-            form_key="multi",
-            data=dict(draft.data),
+            school_slug=school_slug,
+            draft=draft,
+            raw_config=raw_config,
+            config=config,
+            form_cfg=form_cfg,
+            payment_status=payment_status,
         )
-        draft.submitted_at = timezone.now()
-        draft.save(update_fields=["submitted_at"])
-        request.session.pop(_draft_session_key(school_slug), None)
-
-        if school.features.file_uploads_enabled:
-            _save_uploaded_files(submission, form_cfg, request.FILES)
-        try:
-            try_convert_lead(school=school, submission=submission, config_raw=raw_config, lead=draft.lead)
-        except Exception:
-            logger.exception("Failed to convert lead for submission %s", submission.public_id)
-        if school.features.email_notifications_enabled:
-            try:
-                send_submission_notification_email(
-                    request=request,
-                    config_raw=raw_config,
-                    school_name=config.display_name,
-                    submission_id=submission.id,
-                    submission_public_id=submission.public_id,
-                    student_name=submission.student_display_name(),
-                    submission_data=submission.data or {},
-                )
-            except Exception:
-                logger.exception("Failed to send submission notification email")
-            try:
-                send_applicant_confirmation_email(
-                    config_raw=raw_config,
-                    school_name=config.display_name,
-                    submission_public_id=submission.public_id,
-                    student_name=submission.student_display_name(),
-                    submission_data=submission.data or {},
-                )
-            except Exception:
-                logger.exception("Failed to send applicant confirmation email")
-
-        return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
     # GET render
     ctx = _apply_form_context(
@@ -663,6 +731,154 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
     ctx["save_resume_enabled"] = save_resume_enabled
     ctx["embed_mode"] = request.GET.get("embed") == "1"
     return render(request, "apply_form.html", ctx)
+
+
+@xframe_options_exempt
+def apply_payment_view(request, school_slug: str, draft_token: str):
+    """
+    Payment page — shown after form completion when an application fee is required.
+    Creates a Stripe PaymentIntent and renders the Stripe Elements form.
+    """
+    try:
+        config = load_school_config(school_slug)
+    except Exception:
+        raise Http404("School configuration unavailable.")
+    if config is None:
+        raise Http404("School config not found")
+
+    branding = merge_branding(getattr(config, "branding", None))
+    school = _get_or_create_school_from_config(school_slug, config, branding)
+
+    if not school.is_active:
+        raise Http404("School not found")
+
+    draft = get_object_or_404(DraftSubmission, token=draft_token, school=school)
+
+    if draft.submitted_at:
+        return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
+
+    raw_config = getattr(config, "raw", {}) or {}
+    # Use last_form_key (multi-form) or form_key (single-form) for fee lookup
+    effective_form_key = draft.last_form_key or draft.form_key or "default"
+    fee_cfg = get_application_fee_config(raw_config, effective_form_key)
+
+    if not (fee_cfg["enabled"] and not fee_cfg["waived"] and school.app_fee_stripe_public_key):
+        # No fee applicable — complete directly
+        form_cfg = config.form if hasattr(config, "form") else {}
+        return _complete_submission_from_draft(
+            request=request, school=school, school_slug=school_slug,
+            draft=draft, raw_config=raw_config, config=config, form_cfg=form_cfg,
+        )
+
+    amount_cents = fee_cfg["amount"] * 100
+    student_first = (draft.data or {}).get("student_first_name", "")
+    student_last = (draft.data or {}).get("student_last_name", "")
+    student_name = f"{student_first} {student_last}".strip() or draft.email or "Applicant"
+
+    try:
+        client_secret, _pi_id = create_application_fee_intent(
+            school=school,
+            amount_cents=amount_cents,
+            metadata={
+                "school_slug": school_slug,
+                "draft_token": draft_token,
+                "student_name": student_name,
+            },
+        )
+    except Exception:
+        logger.exception("Failed to create PaymentIntent for school %s", school_slug)
+        # Graceful degradation: if Stripe is not reachable, let the submission through
+        form_cfg = config.form if hasattr(config, "form") else {}
+        return _complete_submission_from_draft(
+            request=request, school=school, school_slug=school_slug,
+            draft=draft, raw_config=raw_config, config=config, form_cfg=form_cfg,
+        )
+
+    confirm_url = request.build_absolute_uri(
+        reverse("apply_payment_confirm", kwargs={"school_slug": school_slug, "draft_token": draft_token})
+    )
+
+    return render(request, "apply_payment.html", {
+        "school": school,
+        "school_slug": school_slug,
+        "config": config,
+        "branding": branding,
+        "fee_cfg": fee_cfg,
+        "stripe_public_key": school.app_fee_stripe_public_key,
+        "client_secret": client_secret,
+        "confirm_url": confirm_url,
+        "student_name": student_name,
+        "embed_mode": request.GET.get("embed") == "1",
+    })
+
+
+@xframe_options_exempt
+def apply_payment_confirm_view(request, school_slug: str, draft_token: str):
+    """
+    Stripe redirects here after payment. Verifies the PaymentIntent and creates the Submission.
+    URL params from Stripe: payment_intent, payment_intent_client_secret, redirect_status
+    """
+    try:
+        config = load_school_config(school_slug)
+    except Exception:
+        raise Http404("School configuration unavailable.")
+    if config is None:
+        raise Http404("School config not found")
+
+    branding = merge_branding(getattr(config, "branding", None))
+    school = _get_or_create_school_from_config(school_slug, config, branding)
+
+    draft = get_object_or_404(DraftSubmission, token=draft_token, school=school)
+
+    if draft.submitted_at:
+        return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
+
+    payment_intent_id = request.GET.get("payment_intent", "").strip()
+    redirect_status = request.GET.get("redirect_status", "")
+
+    if not payment_intent_id:
+        return redirect(reverse("apply_payment", kwargs={"school_slug": school_slug, "draft_token": draft_token}))
+
+    # Verify the intent server-side
+    try:
+        intent = retrieve_application_fee_intent(school=school, payment_intent_id=payment_intent_id)
+        intent_status = intent.status
+    except Exception:
+        logger.exception("Failed to retrieve PaymentIntent %s for school %s", payment_intent_id, school_slug)
+        intent_status = ""
+
+    if intent_status != "succeeded":
+        raw_config = getattr(config, "raw", {}) or {}
+        branding = merge_branding(getattr(config, "branding", None))
+        return render(request, "apply_payment.html", {
+            "school": school,
+            "school_slug": school_slug,
+            "config": config,
+            "branding": branding,
+            "fee_cfg": get_application_fee_config(raw_config, draft.last_form_key or draft.form_key or "default"),
+            "stripe_public_key": school.app_fee_stripe_public_key,
+            "client_secret": None,
+            "confirm_url": request.build_absolute_uri(
+                reverse("apply_payment_confirm", kwargs={"school_slug": school_slug, "draft_token": draft_token})
+            ),
+            "student_name": "",
+            "payment_error": "Payment was not completed. Please try again.",
+            "embed_mode": request.GET.get("embed") == "1",
+        })
+
+    raw_config = getattr(config, "raw", {}) or {}
+    form_cfg = config.form if hasattr(config, "form") else {}
+    return _complete_submission_from_draft(
+        request=request,
+        school=school,
+        school_slug=school_slug,
+        draft=draft,
+        raw_config=raw_config,
+        config=config,
+        form_cfg=form_cfg,
+        payment_intent_id=payment_intent_id,
+        payment_status="paid",
+    )
 
 
 @xframe_options_exempt

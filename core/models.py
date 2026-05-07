@@ -126,7 +126,7 @@ class School(models.Model):
     trial_started_at = models.DateTimeField(null=True, blank=True)
     trial_end_date = models.DateField(null=True, blank=True)
 
-    # Stripe billing
+    # Stripe billing (platform subscription)
     stripe_customer_id = models.CharField(max_length=255, blank=True, default="")
     stripe_subscription_id = models.CharField(max_length=255, blank=True, default="")
     stripe_subscription_status = models.CharField(max_length=50, blank=True, default="")
@@ -134,6 +134,11 @@ class School(models.Model):
     stripe_cancel_at = models.DateTimeField(null=True, blank=True)
     stripe_cancel_at_period_end = models.BooleanField(default=False)
     stripe_current_period_end = models.DateTimeField(null=True, blank=True)
+
+    # Per-school Stripe keys for collecting application fees directly from applicants.
+    # These are the school's OWN Stripe account keys, not the platform's keys.
+    app_fee_stripe_public_key = models.CharField(max_length=255, blank=True, default="")
+    app_fee_stripe_secret_key = models.CharField(max_length=255, blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -287,6 +292,11 @@ class Submission(models.Model):
     # null=True for existing rows; backfilled by data migration 0022.
     # No db_index=True — the unique_together constraint below already creates an index.
     school_submission_number = models.PositiveIntegerField(null=True, blank=True)
+
+    # Application fee payment tracking (Phase 18).
+    # payment_status choices: "" (not applicable), "pending", "paid", "waived", "failed"
+    payment_intent_id = models.CharField(max_length=255, blank=True, default="")
+    payment_status = models.CharField(max_length=20, blank=True, default="")
 
     class Meta:
         unique_together = [("school", "school_submission_number")]

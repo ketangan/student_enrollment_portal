@@ -209,6 +209,22 @@ def find_email_field_key(config_raw: dict) -> Optional[str]:
     return required_key or optional_key
 
 
+def get_application_fee_config(config_raw: dict, form_key: str) -> dict:
+    """
+    Returns fee metadata for the given form_key from the school's YAML config.
+    Always safe to call — returns enabled=False when no fee block is configured.
+    """
+    fee = config_raw.get("application_fee") or {}
+    enabled = bool(fee.get("enabled", False))
+    waived_for = fee.get("waived_for_forms") or []
+    return {
+        "enabled": enabled,
+        "amount": int(fee.get("amount", 0)) if enabled else 0,
+        "description": fee.get("description", "Application fee"),
+        "waived": form_key in waived_for,
+    }
+
+
 def load_school_config(school_slug: str) -> Optional[SchoolConfig]:
     """
     Loads configs/schools/<school_slug>.yaml.

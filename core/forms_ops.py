@@ -90,15 +90,19 @@ class OpsSchoolEditForm(forms.ModelForm):
             "stripe_customer_id", "stripe_subscription_id",
             "stripe_subscription_status",
             "stripe_cancel_at_period_end", "stripe_current_period_end",
+            "app_fee_stripe_public_key", "app_fee_stripe_secret_key",
         ]
         widgets = {
             "feature_flags": forms.Textarea(attrs={"rows": 8, "style": "font-family:monospace;font-size:12px;"}),
             "trial_end_date": forms.DateInput(attrs={"type": "date"}),
             "stripe_current_period_end": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "app_fee_stripe_secret_key": forms.PasswordInput(render_value=True),
         }
         help_texts = {
             "feature_flags": "JSON overrides on top of plan defaults. Leave {} to use plan defaults.",
             "trial_end_date": "Superadmin override for trial end. Clears itself when plan changes off trial.",
+            "app_fee_stripe_public_key": "School's own Stripe publishable key (pk_live_… or pk_test_…). Required for application fee collection.",
+            "app_fee_stripe_secret_key": "School's own Stripe secret key (sk_live_… or sk_test_…). Stored encrypted-at-rest. Never share.",
         }
 
     def __init__(self, *args, **kwargs):
