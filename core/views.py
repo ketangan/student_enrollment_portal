@@ -2719,7 +2719,7 @@ def school_submission_inline_status_view(request, school_slug: str, submission_i
     redirect_url = _safe_redirect_url(request, next_url, fallback)
 
     submission = get_object_or_404(Submission, id=submission_id, school=school)
-    config_raw = load_school_config(school.slug)
+    config_raw = getattr(load_school_config(school.slug), "raw", {}) or {}
     allowed_statuses, _ = get_submission_status_choices(config_raw)
 
     if new_status not in allowed_statuses:
