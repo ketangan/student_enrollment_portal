@@ -999,9 +999,9 @@ body.dash-midnight .dash-select {
     grid-template-columns: 1fr;
   }
 
-  /* Hide Status column — badge takes space on narrow screens */
-  .dash-table th:nth-child(3),
-  .dash-table td:nth-child(3) {
+  /* Hide secondary columns on narrow screens */
+  .dash-col-last-activity,
+  .dash-col-contact {
     display: none;
   }
 
@@ -1019,11 +1019,6 @@ body.dash-midnight .dash-select {
 
   .dash-kpi-card {
     padding: 12px 14px;
-  }
-
-  .dash-table th:nth-child(2),
-  .dash-table td:nth-child(2) {
-    display: none;
   }
 
   /* Tab bar scrolls horizontally on very narrow screens */

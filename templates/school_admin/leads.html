@@ -118,10 +118,10 @@
             <th>Name</th>
             <th>Program</th>
             <th>Status</th>
-            <th>Contact</th>
+            <th class="dash-col-contact">Contact</th>
             <th>Received</th>
             <th>Follow-up</th>
-            <th>Last activity</th>
+            <th class="dash-col-last-activity">Last activity</th>
             <th>Action</th>
           </tr>
         </thead>
@@ -152,7 +152,7 @@
                 </select>
               </form>
             </td>
-            <td style="font-size: 12px; color: var(--dash-muted);">
+            <td class="dash-col-contact" style="font-size: 12px; color: var(--dash-muted);">
               {% if lead.email %}<div>{{ lead.email }}</div>{% endif %}
               {% if lead.phone %}<div>{{ lead.phone }}</div>{% endif %}
             </td>
@@ -171,7 +171,7 @@
                 <span style="color:var(--dash-muted);">—</span>
               {% endif %}
             </td>
-            <td style="color: var(--dash-muted); font-size: 12px; white-space: nowrap;">
+            <td class="dash-col-last-activity" style="color: var(--dash-muted); font-size: 12px; white-space: nowrap;">
               {{ lead.last_activity|date:"M j, Y" }}
             </td>
             <td>

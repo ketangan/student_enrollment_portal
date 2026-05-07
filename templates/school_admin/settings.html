@@ -107,12 +107,10 @@
       </div>
       {% endif %}
 
-      {% if not school.stripe_subscription_status %}
       <a href="{% url 'school_billing' school.slug %}"
          style="font-size:13px;color:var(--dash-primary);text-decoration:none;padding-bottom:2px;">
-        View billing →
+        {% if school.stripe_subscription_status %}Manage billing →{% else %}View billing →{% endif %}
       </a>
-      {% endif %}
 
     </div>
 
