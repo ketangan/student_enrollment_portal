@@ -116,7 +116,7 @@ def test_program_display_name_variants(monkeypatch, db):
 
     # dance_style + skill_level + label map via load_school_config
     cfg = type("C", (), {"form": {"sections": [{"fields": [{"key": "dance_style", "type": "select", "options": [{"value": "b", "label": "Ballet"}],}, {"key": "skill_level", "type": "select", "options": [{"value": "beg", "label": "Beginner"}]}] }]}})
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: cfg)
+    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: cfg)
 
     school2 = SchoolFactory.create(slug="label-school")
     s2 = SubmissionFactory.create(school=school2, data={"dance_style": "b", "skill_level": "beg"})

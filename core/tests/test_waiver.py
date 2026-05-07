@@ -111,7 +111,7 @@ def test_apply_view_waiver_stores_metadata(client, monkeypatch, settings):
     """Agreed waiver stores boolean, timestamp, IP, and text snapshot."""
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     school = SchoolFactory(plan="starter", slug="waiver-metadata")
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school))
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: _make_apply_config(school))
 
     client.post(
         reverse("apply", kwargs={"school_slug": school.slug}),
@@ -131,7 +131,7 @@ def test_apply_view_waiver_rejects_unchecked(client, monkeypatch, settings):
     """Required waiver unchecked → form re-rendered (200), no submission created."""
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     school = SchoolFactory(plan="starter", slug="waiver-reject")
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school))
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: _make_apply_config(school))
 
     response = client.post(
         reverse("apply", kwargs={"school_slug": school.slug}),
@@ -147,7 +147,7 @@ def test_apply_view_waiver_stripped_when_feature_disabled(client, monkeypatch, s
     """School with waiver_enabled=False: waiver field is stripped — key absent from submission.data."""
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     school = SchoolFactory(plan="starter", slug="waiver-stripped", feature_flags={"waiver_enabled": False})
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school))
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: _make_apply_config(school))
 
     client.post(
         reverse("apply", kwargs={"school_slug": school.slug}),
@@ -164,7 +164,7 @@ def test_apply_view_waiver_no_metadata_when_optional_unchecked(client, monkeypat
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     school = SchoolFactory(plan="starter", slug="waiver-optional")
     monkeypatch.setattr(
-        "core.views.load_school_config",
+        "core.views_public.load_school_config",
         lambda slug: _make_apply_config(school, waiver_required=False),
     )
 
@@ -183,7 +183,7 @@ def test_apply_view_waiver_ip_stored(client, monkeypatch, settings):
     """REMOTE_ADDR is stored in __ip when no XFF header."""
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     school = SchoolFactory(plan="starter", slug="waiver-ip")
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school))
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: _make_apply_config(school))
 
     client.post(
         reverse("apply", kwargs={"school_slug": school.slug}),
@@ -200,7 +200,7 @@ def test_apply_view_waiver_xff_ip_preferred(client, monkeypatch, settings):
     """HTTP_X_FORWARDED_FOR first entry takes precedence over REMOTE_ADDR."""
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     school = SchoolFactory(plan="starter", slug="waiver-xff")
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school))
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: _make_apply_config(school))
 
     client.post(
         reverse("apply", kwargs={"school_slug": school.slug}),
@@ -218,7 +218,7 @@ def test_apply_view_waiver_text_snapshot_stored(client, monkeypatch, settings):
     """The exact waiver text from config is snapshotted in __text."""
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     school = SchoolFactory(plan="starter", slug="waiver-text-snap")
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school))
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: _make_apply_config(school))
 
     client.post(
         reverse("apply", kwargs={"school_slug": school.slug}),

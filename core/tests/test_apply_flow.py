@@ -310,7 +310,7 @@ def test_apply_flow_confirmation_sent_only_on_final_multiform_step(client, setti
     form_keys = list(forms.keys())
     assert len(form_keys) > 1, "multi-form-demo should have multiple steps"
 
-    target = "core.views.send_applicant_confirmation_email"
+    target = "core.views_public.send_applicant_confirmation_email"
     with mock.patch(target) as mock_confirm:
         mock_confirm.return_value = True
 

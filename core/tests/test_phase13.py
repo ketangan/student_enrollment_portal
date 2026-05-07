@@ -192,7 +192,7 @@ def test_broken_yaml_does_not_crash_submissions_list(client, monkeypatch):
     user = _school_admin_user(school)
     client.force_login(user)
 
-    monkeypatch.setattr("core.views.load_school_config", _raise_yaml_error)
+    monkeypatch.setattr("core.views_school_common.load_school_config", _raise_yaml_error)
 
     response = client.get(_submissions_url(school))
     assert response.status_code == 200
@@ -206,7 +206,7 @@ def test_broken_yaml_does_not_crash_lead_detail(client, monkeypatch):
     lead = LeadFactory(school=school, status=LEAD_STATUS_NEW)
     client.force_login(user)
 
-    monkeypatch.setattr("core.views.load_school_config", _raise_yaml_error)
+    monkeypatch.setattr("core.views_school_common.load_school_config", _raise_yaml_error)
 
     response = client.get(_lead_detail_url(school, lead.id))
     assert response.status_code == 200
@@ -223,7 +223,7 @@ def test_config_none_does_not_crash_lead_detail(client, monkeypatch):
     lead = LeadFactory(school=school, status=LEAD_STATUS_NEW)
     client.force_login(user)
 
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: None)
+    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: None)
 
     response = client.get(_lead_detail_url(school, lead.id))
     assert response.status_code == 200
@@ -321,10 +321,10 @@ def test_empty_message_blocked_in_send_message(client, monkeypatch):
 
     send_called = []
     monkeypatch.setattr(
-        "core.views.send_admin_message",
+        "core.views_school_leads.send_admin_message",
         lambda **kw: send_called.append(kw) or True,
     )
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: None)
+    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: None)
 
     response = client.post(
         _lead_send_msg_url(school, lead.id),

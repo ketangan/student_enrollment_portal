@@ -72,7 +72,7 @@ def test_mark_contacted_sets_last_contacted_at(client, monkeypatch):
     school = SchoolFactory()
     user = _school_admin_user(school)
     lead = LeadFactory(school=school, status=LEAD_STATUS_NEW, last_contacted_at=None)
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_mock_config())
+    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: _make_mock_config())
     client.force_login(user)
 
     response = client.post(_status_url(school, lead.id), {"new_status": "contacted"})
@@ -91,7 +91,7 @@ def test_mark_contacted_clears_overdue_followup(client, monkeypatch):
     user = _school_admin_user(school)
     past_date = timezone.now() - timedelta(days=3)
     lead = LeadFactory(school=school, status=LEAD_STATUS_NEW, next_follow_up_at=past_date)
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_mock_config())
+    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: _make_mock_config())
     client.force_login(user)
 
     client.post(_status_url(school, lead.id), {"new_status": "contacted"})

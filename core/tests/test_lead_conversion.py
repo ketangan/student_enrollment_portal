@@ -181,7 +181,7 @@ def test_apply_view_triggers_conversion_on_submit(client, monkeypatch, settings)
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     school = SchoolFactory(plan="pro", slug="conv-test-pro")
     lead = LeadFactory(school=school, email="apply@example.com")
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school))
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: _make_apply_config(school))
 
     client.post(
         reverse("apply", kwargs={"school_slug": school.slug}),
@@ -197,9 +197,9 @@ def test_apply_view_submission_succeeds_even_if_conversion_raises(client, monkey
     """A conversion error must not surface as a 500 — submission still saves."""
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     school = SchoolFactory(plan="pro", slug="conv-test-exception")
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school))
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: _make_apply_config(school))
     monkeypatch.setattr(
-        "core.views.try_convert_lead",
+        "core.views_public.try_convert_lead",
         lambda **kw: (_ for _ in ()).throw(Exception("db exploded")),
     )
 
@@ -217,7 +217,7 @@ def test_apply_view_no_conversion_when_no_lead(client, monkeypatch, settings):
     """Pro school with no pre-existing lead: submission created, no error."""
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     school = SchoolFactory(plan="pro", slug="conv-test-no-lead")
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school))
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: _make_apply_config(school))
 
     client.post(
         reverse("apply", kwargs={"school_slug": school.slug}),
@@ -233,7 +233,7 @@ def test_apply_view_conversion_skipped_for_starter_plan(client, monkeypatch, set
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     school = SchoolFactory(plan="starter", slug="conv-test-starter")
     lead = LeadFactory(school=school, email="starter@example.com")
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school))
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: _make_apply_config(school))
 
     client.post(
         reverse("apply", kwargs={"school_slug": school.slug}),
@@ -250,7 +250,7 @@ def test_apply_view_conversion_skipped_when_no_email_in_config(client, monkeypat
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
     school = SchoolFactory(plan="pro", slug="conv-test-no-email-cfg")
     lead = LeadFactory(school=school, email="noemail@example.com")
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: _make_apply_config(school, email_field=False))
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: _make_apply_config(school, email_field=False))
 
     client.post(
         reverse("apply", kwargs={"school_slug": school.slug}),

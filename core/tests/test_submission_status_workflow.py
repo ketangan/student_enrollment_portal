@@ -169,7 +169,7 @@ def test_status_update_succeeds_with_valid_transition(client):
 
     sub = SubmissionFactory(school=school, status="New")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.post(
             _status_url(school, sub.id),
             {"new_status": "Tour Scheduled", "next_filter": "tour_scheduled"},
@@ -189,7 +189,7 @@ def test_status_update_blocked_for_other_school(client):
 
     sub = SubmissionFactory(school=school_b, status="New")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.post(
             _status_url(school_b, sub.id),
             {"new_status": "Tour Scheduled"},
@@ -234,7 +234,7 @@ def test_status_update_rejects_invalid_status_not_in_statuses(client):
     client.force_login(user)
     sub = SubmissionFactory(school=school, status="New")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.post(
             _status_url(school, sub.id),
             {"new_status": "NonExistentStatus"},
@@ -253,7 +253,7 @@ def test_status_update_rejects_invalid_transition_from_current_state(client):
     client.force_login(user)
     sub = SubmissionFactory(school=school, status="Enrolled")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.post(
             _status_url(school, sub.id),
             {"new_status": "Tour Scheduled"},
@@ -272,7 +272,7 @@ def test_status_update_allows_any_status_when_no_workflow_configured(client):
     client.force_login(user)
     sub = SubmissionFactory(school=school, status="New")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_NO_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_NO_WORKFLOW_CONFIG)):
         resp = client.post(
             _status_url(school, sub.id),
             {"new_status": "In Review"},
@@ -291,7 +291,7 @@ def test_superuser_can_update_any_school_submission(client):
 
     sub = SubmissionFactory(school=school, status="New")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.post(
             _status_url(school, sub.id),
             {"new_status": "Tour Scheduled"},
@@ -312,7 +312,7 @@ def test_status_update_redirects_preserving_full_query_string(client):
 
     next_url = f"/schools/{school.slug}/admin/submissions/?filter=needs_review&q=alice"
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.post(
             _status_url(school, sub.id),
             {"new_status": "Tour Scheduled", "next": next_url},
@@ -330,7 +330,7 @@ def test_status_update_rejects_absolute_next_url(client):
     client.force_login(user)
     sub = SubmissionFactory(school=school, status="New")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.post(
             _status_url(school, sub.id),
             {"new_status": "Tour Scheduled", "next": "https://evil.example.com/phish"},
@@ -356,7 +356,7 @@ def test_filter_tab_returns_correct_submissions(client):
 
     url = reverse("school_submissions", kwargs={"school_slug": school.slug})
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.get(url + "?filter=needs_review")
 
     assert resp.status_code == 200
@@ -376,7 +376,7 @@ def test_filter_all_returns_all_submissions(client):
 
     url = reverse("school_submissions", kwargs={"school_slug": school.slug})
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.get(url)
 
     assert resp.status_code == 200
@@ -395,7 +395,7 @@ def test_workflow_filter_empty_state_shows_label_specific_message(client):
 
     url = reverse("school_submissions", kwargs={"school_slug": school.slug})
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.get(url + "?filter=needs_review")
 
     assert resp.status_code == 200
@@ -413,7 +413,7 @@ def test_no_workflow_falls_back_to_status_dropdown_in_context(client):
 
     url = reverse("school_submissions", kwargs={"school_slug": school.slug})
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_NO_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_NO_WORKFLOW_CONFIG)):
         resp = client.get(url)
 
     assert resp.status_code == 200
@@ -439,7 +439,7 @@ def test_bulk_update_happy_path_all_eligible(client):
     sub1 = SubmissionFactory(school=school, status="New")
     sub2 = SubmissionFactory(school=school, status="New")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.post(
             _bulk_url(school),
             {"new_status": "Tour Scheduled", "submission_ids": [sub1.id, sub2.id]},
@@ -462,7 +462,7 @@ def test_bulk_update_partial_skip_ineligible_reports_counts(client):
     eligible = SubmissionFactory(school=school, status="New")
     ineligible = SubmissionFactory(school=school, status="Enrolled")  # no transition to Tour Scheduled
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.post(
             _bulk_url(school),
             {"new_status": "Tour Scheduled", "submission_ids": [eligible.id, ineligible.id]},
@@ -488,7 +488,7 @@ def test_bulk_update_empty_selection_returns_error(client):
 
     sub = SubmissionFactory(school=school, status="New")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.post(_bulk_url(school), {"new_status": "Tour Scheduled"})
 
     assert resp.status_code == 302
@@ -505,7 +505,7 @@ def test_bulk_update_invalid_status_not_in_yaml(client):
 
     sub = SubmissionFactory(school=school, status="New")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.post(
             _bulk_url(school),
             {"new_status": "NonExistentStatus", "submission_ids": [sub.id]},
@@ -525,7 +525,7 @@ def test_bulk_update_no_workflow_configured(client):
 
     sub = SubmissionFactory(school=school, status="New")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_NO_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_NO_WORKFLOW_CONFIG)):
         resp = client.post(
             _bulk_url(school),
             {"new_status": "In Review", "submission_ids": [sub.id]},
@@ -546,7 +546,7 @@ def test_bulk_update_blocked_for_non_member(client):
 
     sub = SubmissionFactory(school=school_b, status="New")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.post(
             _bulk_url(school_b),
             {"new_status": "Tour Scheduled", "submission_ids": [sub.id]},
@@ -597,7 +597,7 @@ def test_bulk_update_cross_school_ids_silently_excluded(client):
     sub_b = SubmissionFactory(school=school_b, status="New")
 
     # Post school_b's submission ID to school_a's bulk endpoint
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.post(
             _bulk_url(school_a),
             {"new_status": "Tour Scheduled", "submission_ids": [sub_b.id]},
@@ -618,7 +618,7 @@ def test_bulk_update_preserves_full_query_string(client):
 
     next_url = f"/schools/{school.slug}/admin/submissions/?filter=needs_review&q=alice"
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.post(
             _bulk_url(school),
             {"new_status": "Tour Scheduled", "submission_ids": [sub.id], "next": next_url},
@@ -654,7 +654,7 @@ def test_bulk_controls_always_enabled(client):
 
     url = reverse("school_submissions", kwargs={"school_slug": school.slug})
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_FILTERS_ONLY_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_FILTERS_ONLY_CONFIG)):
         resp = client.get(url)
 
     assert resp.status_code == 200

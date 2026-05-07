@@ -39,7 +39,7 @@ class DummyMultiConfig:
 
 
 def test_apply_view_get_creates_school_and_renders(client, monkeypatch, db):
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: DummyConfig())
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: DummyConfig())
 
     school_slug = "test-school-xyz"
     url = reverse("apply", kwargs={"school_slug": school_slug})
@@ -50,7 +50,7 @@ def test_apply_view_get_creates_school_and_renders(client, monkeypatch, db):
 
 
 def test_apply_view_multi_default_redirects_to_first_form(client, monkeypatch, db):
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: DummyMultiConfig())
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: DummyMultiConfig())
 
     school_slug = "dummy-multi"
     # Pre-create school on "pro" plan so multi_form_enabled is active.
@@ -62,7 +62,7 @@ def test_apply_view_multi_default_redirects_to_first_form(client, monkeypatch, d
 
 
 def test_apply_success_view_404_when_no_config(client, monkeypatch):
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: None)
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: None)
     url = reverse("apply_success", kwargs={"school_slug": "nope"})
     resp = client.get(url)
     assert resp.status_code == 404
@@ -83,7 +83,7 @@ def test_apply_success_view_normalizes_next_steps_and_contact(client, monkeypatc
             "response_time": "1 day",
         },
     }
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: cfg)
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: cfg)
 
     resp = client.get(reverse("apply_success", kwargs={"school_slug": "configured"}))
     assert resp.status_code == 200
@@ -97,7 +97,7 @@ def test_apply_success_view_normalizes_next_steps_and_contact(client, monkeypatc
 
 def test_school_reports_export_csv(client, monkeypatch, db):
     # Prepare config and data
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: DummyConfig())
+    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: DummyConfig())
 
     school = SchoolFactory.create(plan="starter")
     SubmissionFactory.create_batch(2, school=school)
@@ -117,7 +117,7 @@ def test_school_reports_export_csv(client, monkeypatch, db):
 
 
 def test_school_reports_range_defaults_and_none_label_in_csv(client, monkeypatch, db):
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: DummyConfig())
+    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: DummyConfig())
 
     school = SchoolFactory.create(plan="starter")
     # No program keys => program_display_name() == "" => should become "No program selected" in export
@@ -282,7 +282,7 @@ def test_program_display_name_variants(monkeypatch, db):
 
     # dance_style + skill_level + label map via load_school_config
     cfg = type("C", (), {"form": {"sections": [{"fields": [{"key": "dance_style", "type": "select", "options": [{"value": "b", "label": "Ballet"}],}, {"key": "skill_level", "type": "select", "options": [{"value": "beg", "label": "Beginner"}]}] }]}})
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: cfg)
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: cfg)
 
     school2 = SchoolFactory.create(slug="label-school")
     s2 = SubmissionFactory.create(school=school2, data={"dance_style": "b", "skill_level": "beg"})
@@ -297,7 +297,7 @@ def test_program_display_name_variants(monkeypatch, db):
 
 def test_apply_view_omits_x_frame_options_header(client, monkeypatch, db):
     """apply_view must NOT send X-Frame-Options so the form can be iframed."""
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: DummyConfig())
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: DummyConfig())
     school_slug = "iframe-test-school"
     SchoolFactory.create(slug=school_slug, plan="starter")
     url = reverse("apply", kwargs={"school_slug": school_slug})
@@ -309,7 +309,7 @@ def test_apply_view_omits_x_frame_options_header(client, monkeypatch, db):
 
 def test_apply_success_view_omits_x_frame_options_header(client, monkeypatch):
     """apply_success_view must not set X-Frame-Options (post-submit redirect lands here)."""
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: DummyConfig())
+    monkeypatch.setattr("core.views_public.load_school_config", lambda slug: DummyConfig())
     school_slug = "iframe-success-school"
     url = reverse("apply_success", kwargs={"school_slug": school_slug})
     response = client.get(url)
@@ -345,7 +345,7 @@ def _cfg_without_scheduling():
 
 
 def test_apply_success_view_passes_scheduling_url_to_context(client, monkeypatch):
-    monkeypatch.setattr("core.views.load_school_config",
+    monkeypatch.setattr("core.views_public.load_school_config",
                         lambda _: _cfg_with_scheduling(label="Book a trial"))
     resp = client.get(reverse("apply_success", kwargs={"school_slug": "sched-school"}))
     assert resp.status_code == 200
@@ -354,7 +354,7 @@ def test_apply_success_view_passes_scheduling_url_to_context(client, monkeypatch
 
 
 def test_apply_success_view_renders_scheduling_button(client, monkeypatch):
-    monkeypatch.setattr("core.views.load_school_config",
+    monkeypatch.setattr("core.views_public.load_school_config",
                         lambda _: _cfg_with_scheduling())
     resp = client.get(reverse("apply_success", kwargs={"school_slug": "sched-school"}))
     assert b"calendly.com" in resp.content
@@ -362,7 +362,7 @@ def test_apply_success_view_renders_scheduling_button(client, monkeypatch):
 
 
 def test_apply_success_view_no_scheduling_button_when_not_configured(client, monkeypatch):
-    monkeypatch.setattr("core.views.load_school_config",
+    monkeypatch.setattr("core.views_public.load_school_config",
                         lambda _: _cfg_without_scheduling())
     resp = client.get(reverse("apply_success", kwargs={"school_slug": "sched-school"}))
     assert resp.status_code == 200
@@ -372,7 +372,7 @@ def test_apply_success_view_no_scheduling_button_when_not_configured(client, mon
 
 @pytest.mark.django_db
 def test_lead_success_view_renders_scheduling_button(client, monkeypatch):
-    monkeypatch.setattr("core.views.load_school_config",
+    monkeypatch.setattr("core.views_public.load_school_config",
                         lambda _: _cfg_with_scheduling(label="Book a class"))
     url = reverse("lead_capture_success", kwargs={"school_slug": "sched-school"})
     resp = client.get(url)
@@ -383,7 +383,7 @@ def test_lead_success_view_renders_scheduling_button(client, monkeypatch):
 
 @pytest.mark.django_db
 def test_lead_success_view_no_scheduling_button_when_not_configured(client, monkeypatch):
-    monkeypatch.setattr("core.views.load_school_config",
+    monkeypatch.setattr("core.views_public.load_school_config",
                         lambda _: _cfg_without_scheduling())
     url = reverse("lead_capture_success", kwargs={"school_slug": "sched-school"})
     resp = client.get(url)
@@ -393,7 +393,7 @@ def test_lead_success_view_no_scheduling_button_when_not_configured(client, monk
 
 def test_apply_success_view_scheduling_label_defaults_to_book_a_time(client, monkeypatch):
     """When scheduling.label is absent, default label 'Book a time' is used."""
-    monkeypatch.setattr("core.views.load_school_config",
+    monkeypatch.setattr("core.views_public.load_school_config",
                         lambda _: _cfg_with_scheduling())  # no label kwarg
     resp = client.get(reverse("apply_success", kwargs={"school_slug": "sched-school"}))
     assert resp.context["scheduling_label"] == "Book a time"

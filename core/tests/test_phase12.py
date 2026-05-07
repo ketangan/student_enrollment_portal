@@ -86,8 +86,8 @@ def test_resend_confirmation_success(client, monkeypatch):
     submission = SubmissionFactory(school=school)
     client.force_login(user)
 
-    monkeypatch.setattr("core.views.send_applicant_confirmation_email", lambda **kw: True)
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: MagicMock(raw={}))
+    monkeypatch.setattr("core.views_school_submissions.send_applicant_confirmation_email", lambda **kw: True)
+    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: MagicMock(raw={}))
 
     resp = client.post(
         _resend_url(school, submission.id),
@@ -107,8 +107,8 @@ def test_resend_confirmation_email_failure(client, monkeypatch):
     submission = SubmissionFactory(school=school)
     client.force_login(user)
 
-    monkeypatch.setattr("core.views.send_applicant_confirmation_email", lambda **kw: False)
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: MagicMock(raw={}))
+    monkeypatch.setattr("core.views_school_submissions.send_applicant_confirmation_email", lambda **kw: False)
+    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: MagicMock(raw={}))
 
     resp = client.post(
         _resend_url(school, submission.id),
@@ -130,8 +130,8 @@ def test_resend_confirmation_audit_logged(client, monkeypatch):
     submission = SubmissionFactory(school=school)
     client.force_login(user)
 
-    monkeypatch.setattr("core.views.send_applicant_confirmation_email", lambda **kw: True)
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: MagicMock(raw={}))
+    monkeypatch.setattr("core.views_school_submissions.send_applicant_confirmation_email", lambda **kw: True)
+    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: MagicMock(raw={}))
 
     before = AdminAuditLog.objects.count()
     client.post(
@@ -157,9 +157,9 @@ def test_lead_send_message_success(client, monkeypatch):
         called_with.update(kw)
         return True
 
-    monkeypatch.setattr("core.views.send_admin_message", fake_send)
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: MagicMock(raw={}))
-    monkeypatch.setattr("core.views._resolve_from_email", lambda raw: "from@school.test")
+    monkeypatch.setattr("core.views_school_leads.send_admin_message", fake_send)
+    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: MagicMock(raw={}))
+    monkeypatch.setattr("core.views_school_leads._resolve_from_email", lambda raw: "from@school.test")
 
     resp = client.post(
         _lead_msg_url(school, lead.id),
@@ -182,7 +182,7 @@ def test_lead_send_message_no_email(client, monkeypatch):
     client.force_login(user)
 
     send_called = []
-    monkeypatch.setattr("core.views.send_admin_message", lambda **kw: send_called.append(kw) or True)
+    monkeypatch.setattr("core.views_school_leads.send_admin_message", lambda **kw: send_called.append(kw) or True)
 
     resp = client.post(
         _lead_msg_url(school, lead.id),
@@ -210,9 +210,9 @@ def test_submission_send_message_success(client, monkeypatch):
         called_with.update(kw)
         return True
 
-    monkeypatch.setattr("core.views.send_admin_message", fake_send)
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: MagicMock(raw={}))
-    monkeypatch.setattr("core.views._resolve_from_email", lambda raw: "from@school.test")
+    monkeypatch.setattr("core.views_school_submissions.send_admin_message", fake_send)
+    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: MagicMock(raw={}))
+    monkeypatch.setattr("core.views_school_submissions._resolve_from_email", lambda raw: "from@school.test")
 
     resp = client.post(
         _sub_msg_url(school, submission.id),
@@ -232,7 +232,7 @@ def test_submission_send_message_no_email(client, monkeypatch):
     client.force_login(user)
 
     send_called = []
-    monkeypatch.setattr("core.views.send_admin_message", lambda **kw: send_called.append(kw) or True)
+    monkeypatch.setattr("core.views_school_submissions.send_admin_message", lambda **kw: send_called.append(kw) or True)
 
     resp = client.post(
         _sub_msg_url(school, submission.id),
@@ -258,9 +258,9 @@ def test_mark_contacted_optional_email_lead(client, monkeypatch):
         notif_calls.append(kw)
         return True
 
-    monkeypatch.setattr("core.views.send_workflow_notification", fake_notif)
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: MagicMock(raw={}))
-    monkeypatch.setattr("core.views._resolve_from_email", lambda raw: "from@school.test")
+    monkeypatch.setattr("core.views_school_leads.send_workflow_notification", fake_notif)
+    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: MagicMock(raw={}))
+    monkeypatch.setattr("core.views_school_leads._resolve_from_email", lambda raw: "from@school.test")
 
     resp = client.post(
         _lead_mc_url(school, lead.id),
@@ -325,9 +325,9 @@ def test_mark_contacted_email_exception_non_blocking(client, monkeypatch):
     def boom(**kw):
         raise RuntimeError("smtp down")
 
-    monkeypatch.setattr("core.views.send_workflow_notification", boom)
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: MagicMock(raw={}))
-    monkeypatch.setattr("core.views._resolve_from_email", lambda raw: "from@school.test")
+    monkeypatch.setattr("core.views_school_leads.send_workflow_notification", boom)
+    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: MagicMock(raw={}))
+    monkeypatch.setattr("core.views_school_leads._resolve_from_email", lambda raw: "from@school.test")
 
     resp = client.post(
         _lead_mc_url(school, lead.id),

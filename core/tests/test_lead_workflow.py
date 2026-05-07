@@ -169,7 +169,7 @@ def test_lead_status_update_happy_path(client):
     client.force_login(user)
     lead = LeadFactory(school=school, status="new")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
         resp = client.post(
             _status_url(school, lead.id),
             {"new_status": "contacted"},
@@ -187,7 +187,7 @@ def test_lead_status_update_invalid_status_rejected(client):
     client.force_login(user)
     lead = LeadFactory(school=school, status="new")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
         resp = client.post(
             _status_url(school, lead.id),
             {"new_status": "garbage_status"},
@@ -205,7 +205,7 @@ def test_lead_status_update_allows_any_status_when_no_workflow_configured(client
     client.force_login(user)
     lead = LeadFactory(school=school, status="new")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_NO_LEAD_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_NO_LEAD_WORKFLOW_CONFIG)):
         resp = client.post(
             _status_url(school, lead.id),
             {"new_status": "contacted"},
@@ -224,7 +224,7 @@ def test_lead_status_update_disallowed_transition_rejected(client):
     client.force_login(user)
     lead = LeadFactory(school=school, status="enrolled")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
         resp = client.post(
             _status_url(school, lead.id),
             {"new_status": "new"},
@@ -270,7 +270,7 @@ def test_lead_status_update_cross_school_returns_404(client):
 
     lead_b = LeadFactory(school=school_b, status="new")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
         resp = client.post(
             _status_url(school_b, lead_b.id),
             {"new_status": "contacted"},
@@ -294,7 +294,7 @@ def test_bulk_lead_update_all_eligible(client):
     lead1 = LeadFactory(school=school, status="new")
     lead2 = LeadFactory(school=school, status="new")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
         resp = client.post(
             _bulk_url(school),
             {"new_status": "contacted", "lead_ids": [lead1.id, lead2.id]},
@@ -317,7 +317,7 @@ def test_bulk_lead_update_partial_skip_reports_counts(client):
     eligible   = LeadFactory(school=school, status="new")
     ineligible = LeadFactory(school=school, status="enrolled")  # no transition to contacted
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
         resp = client.post(
             _bulk_url(school),
             {"new_status": "contacted", "lead_ids": [eligible.id, ineligible.id]},
@@ -339,7 +339,7 @@ def test_bulk_lead_update_empty_selection_error(client):
     user = _school_admin_user(school)
     client.force_login(user)
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
         resp = client.post(_bulk_url(school), {"new_status": "contacted"})
 
     assert resp.status_code == 302
@@ -352,7 +352,7 @@ def test_bulk_lead_update_invalid_status_error(client):
     client.force_login(user)
     lead = LeadFactory(school=school, status="new")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
         resp = client.post(
             _bulk_url(school),
             {"new_status": "garbage_status", "lead_ids": [lead.id]},
@@ -370,7 +370,7 @@ def test_bulk_lead_update_allows_any_status_when_no_workflow_configured(client):
     client.force_login(user)
     lead = LeadFactory(school=school, status="new")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_NO_LEAD_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_NO_LEAD_WORKFLOW_CONFIG)):
         resp = client.post(
             _bulk_url(school),
             {"new_status": "contacted", "lead_ids": [lead.id]},
@@ -404,7 +404,7 @@ def test_bulk_lead_update_cross_school_ids_excluded(client):
 
     lead_b = LeadFactory(school=school_b, status="new")
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
         resp = client.post(
             _bulk_url(school_a),
             {"new_status": "contacted", "lead_ids": [lead_b.id]},
@@ -500,7 +500,7 @@ def test_lead_status_update_preserves_full_query_string(client):
 
     next_url = f"/schools/{school.slug}/admin/leads/?filter=new_leads&q=alice"
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
         resp = client.post(
             _status_url(school, lead.id),
             {"new_status": "contacted", "next": next_url},
@@ -522,7 +522,7 @@ def test_bulk_lead_update_preserves_full_query_string(client):
 
     next_url = f"/schools/{school.slug}/admin/leads/?filter=pipeline&q=bob"
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
         resp = client.post(
             _bulk_url(school),
             {"new_status": "contacted", "lead_ids": [lead.id], "next": next_url},
@@ -544,7 +544,7 @@ def test_bulk_contacted_sets_last_contacted_at(client):
     client.force_login(user)
     lead = LeadFactory(school=school, status="new", last_contacted_at=None)
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
         client.post(
             _bulk_url(school),
             {"new_status": "contacted", "lead_ids": [lead.id]},
@@ -567,7 +567,7 @@ def test_bulk_contacted_clears_overdue_followup(client):
     past = timezone.now() - timedelta(days=3)
     lead = LeadFactory(school=school, status="new", next_follow_up_at=past)
 
-    with patch("core.views.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
+    with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
         client.post(
             _bulk_url(school),
             {"new_status": "contacted", "lead_ids": [lead.id]},

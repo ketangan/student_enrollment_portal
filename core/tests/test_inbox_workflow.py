@@ -136,7 +136,7 @@ def test_lead_quick_actions_filtered_to_contacted_and_lost(client, monkeypatch):
             }
         }
     }
-    monkeypatch.setattr("core.views.load_school_config", lambda slug: mock)
+    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: mock)
 
     LeadFactory(school=school, status=LEAD_STATUS_NEW)
 
