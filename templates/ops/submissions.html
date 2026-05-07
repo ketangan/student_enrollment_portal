@@ -1,0 +1,122 @@
+{% extends "ops/base.html" %}
+{% block page_title %}Submissions{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+    <h1 style="font-size:20px;font-weight:700;margin:0;flex:1;">Submissions</h1>
+    <span style="font-size:13px;color:var(--dash-muted);">{{ total_count }} total</span>
+  </div>
+
+  <!-- Filters -->
+  <form method="get" style="margin-bottom:20px;">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">School</label>
+        <select name="school" class="dash-select" style="min-width:180px;" onchange="this.form.submit()">
+          <option value="">All schools</option>
+          {% for s in all_schools %}
+          <option value="{{ s.slug }}" {% if school_filter == s.slug %}selected{% endif %}>
+            {{ s.display_name|default:s.slug }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">Status</label>
+        <select name="status" class="dash-select" style="min-width:140px;" onchange="this.form.submit()">
+          <option value="">All statuses</option>
+          {% for s in status_choices %}
+          <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">Form</label>
+        <select name="form_key" class="dash-select" style="min-width:120px;" onchange="this.form.submit()">
+          <option value="">All forms</option>
+          {% for fk in form_key_choices %}
+          <option value="{{ fk }}" {% if form_key_filter == fk %}selected{% endif %}>{{ fk }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">From</label>
+        <input type="date" name="date_from" value="{{ date_from }}"
+               style="padding:7px 10px;border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;font-size:13px;">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">To</label>
+        <input type="date" name="date_to" value="{{ date_to }}"
+               style="padding:7px 10px;border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;font-size:13px;">
+      </div>
+      <button type="submit" class="dash-action-btn dash-action-btn--primary" style="font-size:12px;">Filter</button>
+      {% if school_filter or status_filter or form_key_filter or date_from or date_to %}
+      <a href="{% url 'ops_submissions' %}" class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;">Clear</a>
+      {% endif %}
+    </div>
+  </form>
+
+  <div class="dash-card" style="padding:0;overflow:hidden;">
+    <table class="dash-table">
+      <thead>
+        <tr>
+          <th>School</th>
+          <th>App ID</th>
+          <th>Status</th>
+          <th>Form</th>
+          <th>Submitted</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for sub in page_obj %}
+        <tr>
+          <td>
+            <a href="{% url 'ops_school_detail' sub.school.slug %}"
+               style="font-size:12px;color:var(--dash-primary);text-decoration:none;font-weight:600;">
+              {{ sub.school.display_name|default:sub.school.slug }}
+            </a>
+          </td>
+          <td style="font-family:monospace;font-size:12px;color:var(--dash-muted);">{{ sub.public_id }}</td>
+          <td>
+            <span class="dash-badge" style="font-size:11px;">{{ sub.status }}</span>
+          </td>
+          <td style="font-size:12px;color:var(--dash-muted);">{{ sub.form_key }}</td>
+          <td style="font-size:12px;color:var(--dash-muted);white-space:nowrap;">{{ sub.created_at|date:"M j, Y" }}</td>
+          <td>
+            <a href="{% url 'school_submission_detail' sub.school.slug sub.id %}"
+               style="font-size:12px;color:var(--dash-primary);text-decoration:none;">
+              View →
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" style="text-align:center;padding:32px;color:var(--dash-muted);font-size:13px;">
+            No submissions found.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+  <div style="display:flex;gap:8px;align-items:center;margin-top:16px;justify-content:center;font-size:13px;">
+    {% if page_obj.has_previous %}
+    <a href="?{% if school_filter %}school={{ school_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if form_key_filter %}form_key={{ form_key_filter }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}page={{ page_obj.previous_page_number }}"
+       class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;">← Prev</a>
+    {% endif %}
+    <span style="color:var(--dash-muted);">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+    <a href="?{% if school_filter %}school={{ school_filter }}&{% endif %}{% if status_filter %}status={{ status_filter }}&{% endif %}{% if form_key_filter %}form_key={{ form_key_filter }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}page={{ page_obj.next_page_number }}"
+       class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;">Next →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</main>
+{% endblock %}

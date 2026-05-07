@@ -5,12 +5,15 @@ from functools import wraps
 
 from django.contrib import messages
 from django.contrib.auth.models import User
-from django.db.models import Count, Max, Q
+from django.core.paginator import Paginator
+from django.db.models import Count, FloatField, Max, Q, Value
+from django.db.models.functions import Cast, NullIf
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from core.models import AdminAuditLog, School, SchoolAdminMembership
+from core.models import AdminAuditLog, Lead, School, SchoolAdminMembership, Submission
 
 
 def ops_required(view_func):
@@ -348,3 +351,176 @@ def ops_user_deactivate_view(request, user_id):
          {"name": f"user_{action_label}", "email": target_user.email})
     messages.success(request, f"User {action_label}.")
     return redirect("ops_user_detail", user_id=user_id)
+
+
+# ── Cross-school submissions ──────────────────────────────────────────────────
+
+_OPS_PAGE_SIZE = 50
+
+
+@ops_required
+def ops_submissions_view(request):
+    from core.views import STATUS_ENROLLED, STATUS_DECLINED
+
+    qs = Submission.objects.select_related("school").order_by("-created_at")
+
+    school_filter = request.GET.get("school", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+    date_from = request.GET.get("date_from", "").strip()
+    date_to = request.GET.get("date_to", "").strip()
+    form_key_filter = request.GET.get("form_key", "").strip()
+
+    if school_filter:
+        qs = qs.filter(school__slug=school_filter)
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    if date_from:
+        try:
+            from datetime import date
+            qs = qs.filter(created_at__date__gte=date.fromisoformat(date_from))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            from datetime import date
+            qs = qs.filter(created_at__date__lte=date.fromisoformat(date_to))
+        except ValueError:
+            pass
+    if form_key_filter:
+        qs = qs.filter(form_key=form_key_filter)
+
+    total_count = qs.count()
+    paginator = Paginator(qs, _OPS_PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    all_schools = School.objects.order_by("display_name", "slug").values("slug", "display_name")
+    status_choices = (
+        Submission.objects.values_list("status", flat=True)
+        .distinct().order_by("status")
+    )
+    form_key_choices = (
+        Submission.objects.values_list("form_key", flat=True)
+        .distinct().order_by("form_key")
+    )
+
+    return render(request, "ops/submissions.html", {
+        "active_nav": "submissions",
+        "page_obj": page_obj,
+        "total_count": total_count,
+        "all_schools": all_schools,
+        "status_choices": status_choices,
+        "form_key_choices": form_key_choices,
+        "school_filter": school_filter,
+        "status_filter": status_filter,
+        "date_from": date_from,
+        "date_to": date_to,
+        "form_key_filter": form_key_filter,
+    })
+
+
+# ── Cross-school leads ────────────────────────────────────────────────────────
+
+@ops_required
+def ops_leads_view(request):
+    from core.models import LEAD_STATUS_CHOICES, LEAD_SOURCE_CHOICES
+
+    qs = Lead.objects.select_related("school").order_by("-created_at")
+
+    school_filter = request.GET.get("school", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+    source_filter = request.GET.get("source", "").strip()
+    date_from = request.GET.get("date_from", "").strip()
+    date_to = request.GET.get("date_to", "").strip()
+    search_q = request.GET.get("q", "").strip()
+
+    if school_filter:
+        qs = qs.filter(school__slug=school_filter)
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    if source_filter:
+        qs = qs.filter(source=source_filter)
+    if date_from:
+        try:
+            from datetime import date
+            qs = qs.filter(created_at__date__gte=date.fromisoformat(date_from))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            from datetime import date
+            qs = qs.filter(created_at__date__lte=date.fromisoformat(date_to))
+        except ValueError:
+            pass
+    if search_q:
+        qs = qs.filter(
+            Q(name__icontains=search_q) | Q(email__icontains=search_q)
+        )
+
+    total_count = qs.count()
+    paginator = Paginator(qs, _OPS_PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    all_schools = School.objects.order_by("display_name", "slug").values("slug", "display_name")
+
+    return render(request, "ops/leads.html", {
+        "active_nav": "leads",
+        "page_obj": page_obj,
+        "total_count": total_count,
+        "all_schools": all_schools,
+        "lead_status_choices": LEAD_STATUS_CHOICES,
+        "lead_source_choices": LEAD_SOURCE_CHOICES,
+        "school_filter": school_filter,
+        "status_filter": status_filter,
+        "source_filter": source_filter,
+        "date_from": date_from,
+        "date_to": date_to,
+        "search_q": search_q,
+    })
+
+
+# ── Cross-school reports ──────────────────────────────────────────────────────
+
+@ops_required
+def ops_reports_view(request):
+    from core.views import STATUS_ENROLLED
+
+    school_rows = list(
+        School.objects.annotate(
+            sub_count=Count("submissions", distinct=True),
+            lead_count=Count("leads", distinct=True),
+            enrolled_count=Count(
+                "submissions",
+                filter=Q(submissions__status=STATUS_ENROLLED),
+                distinct=True,
+            ),
+        ).order_by("-sub_count", "display_name")
+    )
+
+    for row in school_rows:
+        row.lead_to_sub_rate = (
+            round(row.sub_count / row.lead_count * 100) if row.lead_count else None
+        )
+        row.sub_to_enrolled_rate = (
+            round(row.enrolled_count / row.sub_count * 100) if row.sub_count else None
+        )
+
+    totals = {
+        "schools": len(school_rows),
+        "leads": sum(r.lead_count for r in school_rows),
+        "submissions": sum(r.sub_count for r in school_rows),
+        "enrolled": sum(r.enrolled_count for r in school_rows),
+    }
+    totals["lead_to_sub_rate"] = (
+        round(totals["submissions"] / totals["leads"] * 100)
+        if totals["leads"] else None
+    )
+    totals["sub_to_enrolled_rate"] = (
+        round(totals["enrolled"] / totals["submissions"] * 100)
+        if totals["submissions"] else None
+    )
+
+    return render(request, "ops/reports.html", {
+        "active_nav": "reports",
+        "school_rows": school_rows,
+        "totals": totals,
+    })

@@ -30,6 +30,18 @@
          class="dash-nav-link{% if active_nav == 'users' %} dash-nav-link--active{% endif %}">
         Users
       </a>
+      <a href="{% url 'ops_submissions' %}"
+         class="dash-nav-link{% if active_nav == 'submissions' %} dash-nav-link--active{% endif %}">
+        Submissions
+      </a>
+      <a href="{% url 'ops_leads' %}"
+         class="dash-nav-link{% if active_nav == 'leads' %} dash-nav-link--active{% endif %}">
+        Leads
+      </a>
+      <a href="{% url 'ops_reports' %}"
+         class="dash-nav-link{% if active_nav == 'reports' %} dash-nav-link--active{% endif %}">
+        Reports
+      </a>
     </nav>
 
     <div class="dash-header-right">

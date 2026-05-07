@@ -12,4 +12,7 @@ urlpatterns = [
     path("users/new/", views_ops.ops_user_create_view, name="ops_user_create"),
     path("users/<int:user_id>/", views_ops.ops_user_detail_view, name="ops_user_detail"),
     path("users/<int:user_id>/toggle-active/", views_ops.ops_user_deactivate_view, name="ops_user_toggle_active"),
+    path("submissions/", views_ops.ops_submissions_view, name="ops_submissions"),
+    path("leads/", views_ops.ops_leads_view, name="ops_leads"),
+    path("reports/", views_ops.ops_reports_view, name="ops_reports"),
 ]

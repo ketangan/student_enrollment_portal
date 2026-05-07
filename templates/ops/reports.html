@@ -1,0 +1,123 @@
+{% extends "ops/base.html" %}
+{% block page_title %}Reports{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <h1 style="font-size:20px;font-weight:700;margin:0 0 20px;">Cross-School Reports</h1>
+
+  <!-- Global totals -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px;">
+    <div class="dash-card" style="padding:16px 20px;text-align:center;">
+      <div style="font-size:28px;font-weight:800;color:var(--dash-primary);">{{ totals.schools }}</div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--dash-muted);margin-top:4px;">Schools</div>
+    </div>
+    <div class="dash-card" style="padding:16px 20px;text-align:center;">
+      <div style="font-size:28px;font-weight:800;">{{ totals.leads }}</div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--dash-muted);margin-top:4px;">Total Leads</div>
+    </div>
+    <div class="dash-card" style="padding:16px 20px;text-align:center;">
+      <div style="font-size:28px;font-weight:800;">{{ totals.submissions }}</div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--dash-muted);margin-top:4px;">Applications</div>
+    </div>
+    <div class="dash-card" style="padding:16px 20px;text-align:center;">
+      <div style="font-size:28px;font-weight:800;color:#059669;">{{ totals.enrolled }}</div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--dash-muted);margin-top:4px;">Enrolled</div>
+    </div>
+    <div class="dash-card" style="padding:16px 20px;text-align:center;">
+      <div style="font-size:28px;font-weight:800;">
+        {% if totals.lead_to_sub_rate is not None %}{{ totals.lead_to_sub_rate }}%{% else %}—{% endif %}
+      </div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--dash-muted);margin-top:4px;">Lead → App Rate</div>
+    </div>
+    <div class="dash-card" style="padding:16px 20px;text-align:center;">
+      <div style="font-size:28px;font-weight:800;">
+        {% if totals.sub_to_enrolled_rate is not None %}{{ totals.sub_to_enrolled_rate }}%{% else %}—{% endif %}
+      </div>
+      <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--dash-muted);margin-top:4px;">App → Enrolled Rate</div>
+    </div>
+  </div>
+
+  <!-- Per-school breakdown -->
+  <div class="dash-card" style="padding:0;overflow:hidden;">
+    <table class="dash-table">
+      <thead>
+        <tr>
+          <th>School</th>
+          <th>Plan</th>
+          <th style="text-align:right;">Leads</th>
+          <th style="text-align:right;">Applications</th>
+          <th style="text-align:right;">Enrolled</th>
+          <th style="text-align:right;">Lead→App</th>
+          <th style="text-align:right;">App→Enrolled</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in school_rows %}
+        <tr>
+          <td style="font-weight:600;">
+            <a href="{% url 'ops_school_detail' row.slug %}"
+               style="color:var(--dash-primary);text-decoration:none;">
+              {{ row.display_name|default:row.slug }}
+            </a>
+          </td>
+          <td>
+            <span class="dash-badge" style="font-size:11px;text-transform:capitalize;">{{ row.plan }}</span>
+          </td>
+          <td style="text-align:right;font-size:13px;">
+            {% if row.lead_count %}
+            <a href="{% url 'ops_leads' %}?school={{ row.slug }}"
+               style="color:var(--dash-primary);text-decoration:none;">{{ row.lead_count }}</a>
+            {% else %}—{% endif %}
+          </td>
+          <td style="text-align:right;font-size:13px;">
+            {% if row.sub_count %}
+            <a href="{% url 'ops_submissions' %}?school={{ row.slug }}"
+               style="color:var(--dash-primary);text-decoration:none;">{{ row.sub_count }}</a>
+            {% else %}—{% endif %}
+          </td>
+          <td style="text-align:right;font-size:13px;font-weight:600;color:#059669;">
+            {{ row.enrolled_count|default:"—" }}
+          </td>
+          <td style="text-align:right;font-size:13px;color:var(--dash-muted);">
+            {% if row.lead_to_sub_rate is not None %}{{ row.lead_to_sub_rate }}%{% else %}—{% endif %}
+          </td>
+          <td style="text-align:right;font-size:13px;color:var(--dash-muted);">
+            {% if row.sub_to_enrolled_rate is not None %}{{ row.sub_to_enrolled_rate }}%{% else %}—{% endif %}
+          </td>
+          <td>
+            <a href="{% url 'school_dashboard' school_slug=row.slug %}" target="_blank"
+               style="font-size:11px;color:var(--dash-muted);text-decoration:none;">Open ↗</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8" style="text-align:center;padding:32px;color:var(--dash-muted);font-size:13px;">
+            No schools yet.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      {% if school_rows %}
+      <tfoot>
+        <tr style="font-weight:700;border-top:2px solid var(--dash-border,#e2e8f0);">
+          <td colspan="2" style="font-size:13px;">Total ({{ totals.schools }} schools)</td>
+          <td style="text-align:right;font-size:13px;">{{ totals.leads }}</td>
+          <td style="text-align:right;font-size:13px;">{{ totals.submissions }}</td>
+          <td style="text-align:right;font-size:13px;color:#059669;">{{ totals.enrolled }}</td>
+          <td style="text-align:right;font-size:13px;">
+            {% if totals.lead_to_sub_rate is not None %}{{ totals.lead_to_sub_rate }}%{% else %}—{% endif %}
+          </td>
+          <td style="text-align:right;font-size:13px;">
+            {% if totals.sub_to_enrolled_rate is not None %}{{ totals.sub_to_enrolled_rate }}%{% else %}—{% endif %}
+          </td>
+          <td></td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+
+</main>
+{% endblock %}
