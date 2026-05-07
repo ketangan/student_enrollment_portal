@@ -242,16 +242,33 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Cache
+# ----------------------------------
+# Use Redis when available (set REDIS_URL in production env), otherwise fall
+# back to the database cache (shared across all workers, no extra service needed).
+_REDIS_URL = os.getenv("REDIS_URL", "")
+if _REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": _REDIS_URL,
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+            "LOCATION": "django_cache_table",
+        }
+    }
+
 # Rate limiting (public form endpoints)
 # ----------------------------------
 INSTALLED_APPS += ["django_ratelimit"]
 
 # Disable rate limiting in tests and dev to avoid cache-state issues.
-# Set RATELIMIT_ENABLE=true in staging/production.
 RATELIMIT_ENABLE = os.getenv("RATELIMIT_ENABLE", "false" if (IS_TESTING or DEBUG) else "true").lower() == "true"
 
-# django-ratelimit 4.x added a system check (E003) that rejects LocMemCache as
-# non-shared. Silence it when ratelimit is disabled — no shared cache needed.
 if not RATELIMIT_ENABLE:
     SILENCED_SYSTEM_CHECKS = ["django_ratelimit.E003", "django_ratelimit.W001"]
 
