@@ -100,6 +100,24 @@ from .views_school_common import (  # noqa: F401 — private names not exported 
 from .views_public import _strip_file_fields, _plain_post_values  # noqa: F401
 
 
+def _get_display_form_dict(forms: dict, form_key: str) -> dict:
+    """
+    Return the form dict (with a 'sections' key) to use for admin display/edit.
+
+    For multi-step submissions (form_key='multi'), all steps' sections are merged
+    so the admin sees every field from every page in a single view.
+    For single-form or named-form submissions, the matching form entry is returned.
+    """
+    if form_key == "multi" and forms:
+        combined = []
+        for step_entry in forms.values():
+            step_form = step_entry.get("form", {}) if isinstance(step_entry, dict) else {}
+            combined.extend(step_form.get("sections") or [])
+        return {"sections": combined}
+    form_entry = forms.get(form_key) or forms.get("default") or {}
+    return form_entry.get("form", {}) if isinstance(form_entry, dict) else {}
+
+
 @login_required
 def school_submissions_view(request, school_slug: str):
     """
@@ -669,10 +687,10 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
     config_raw = getattr(config, "raw", {}) or {}
 
     # Select the right form config for this submission's form_key.
+    # Multi-step submissions (form_key='multi') get all steps merged into one view.
     forms = get_forms(config) if config else {}
     form_key = submission.form_key or "default"
-    form_entry = forms.get(form_key) or forms.get("default") or {}
-    form_dict = form_entry.get("form", {}) if isinstance(form_entry, dict) else {}
+    form_dict = _get_display_form_dict(forms, form_key)
 
     # build_yaml_sections populates value from submission.data for each field,
     # handling waiver, multiselect, checkbox, and unknown keys correctly.
@@ -911,8 +929,7 @@ def school_submission_edit_view(request, school_slug: str, submission_id: int):
     available_forms = get_forms(config) if config else {}
 
     form_key = submission.form_key or "default"
-    selected_form = available_forms.get(form_key, {})
-    raw_form_cfg = selected_form.get("form") or {}
+    raw_form_cfg = _get_display_form_dict(available_forms, form_key)
     form_cfg = _strip_file_fields(raw_form_cfg)
 
     # Check whether the original form config has any file fields (for template notice).

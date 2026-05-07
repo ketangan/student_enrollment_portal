@@ -313,6 +313,45 @@ stripe trigger customer.subscription.updated
 stripe trigger customer.subscription.deleted
 ```
 
+### Stripe Test Card Numbers
+
+Use these in any Stripe payment form (checkout or application fee) when `STRIPE_MODE=test`.
+
+| Card Number | Expiry | CVC | Result |
+|:------------|:-------|:----|:-------|
+| `4242 4242 4242 4242` | Any future date | Any 3 digits | ✅ Succeeds immediately |
+| `4000 0025 0000 3155` | Any future date | Any 3 digits | ✅ Succeeds after 3DS authentication popup |
+| `4000 0000 0000 9995` | Any future date | Any 3 digits | ❌ Always declines (insufficient funds) |
+| `4000 0000 0000 0002` | Any future date | Any 3 digits | ❌ Always declines (generic decline) |
+| `4000 0000 0000 3220` | Any future date | Any 3 digits | ⚠️ 3DS required — use to test the redirect-back confirm flow |
+
+**Postal code**: any 5-digit zip (e.g. `12345`). **Name**: anything.
+
+These cards work for both platform subscription billing (checkout sessions) and per-school application fees (PaymentIntents).
+
+### Application Fee — End-to-End Local Test
+
+The **Maplewood Learning Center** school is pre-configured for local application fee testing:
+
+- **Apply URL**: `http://127.0.0.1:8000/schools/maplewood-learning/apply/`
+- **Form type**: 3-step wizard (Student Info → Program & Schedule → Parent/Guardian)
+- **Fee**: $50 non-refundable on the final step (Step 3 → Submit)
+- **Stripe keys**: set to the same test keys as the platform (from `.env`)
+
+Steps:
+1. Fill in all 3 steps → click **Submit Application**
+2. Payment page renders with Stripe Elements
+3. Enter test card `4242 4242 4242 4242`, any future date, any CVC
+4. Click **Pay $50 and Submit Application**
+5. Stripe confirms → redirected to success page
+6. In admin (`/schools/maplewood-learning/admin/submissions/`) → open the submission → `payment_status` shows `paid`, `payment_intent_id` populated
+
+To test a **declined card**: use `4000 0000 0000 9995` — page re-renders with a Stripe error message; no submission is created.
+
+To test **3DS authentication**: use `4000 0025 0000 3155` — Stripe modal opens for OTP; after completing, redirects to confirm URL; submission created normally.
+
+To configure application fees for a different school: go to `/ops/schools/<slug>/` and fill in **App Fee Stripe Public Key** and **App Fee Stripe Secret Key**, then add the `application_fee:` block to the school's YAML.
+
 ### Production (Render) Checklist
 
 - Set `STRIPE_MODE=live`
