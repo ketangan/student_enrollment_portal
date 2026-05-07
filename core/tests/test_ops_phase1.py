@@ -317,6 +317,58 @@ def test_ops_user_cannot_deactivate_self(client, superuser):
     assert superuser.is_active  # unchanged
 
 
+# ── Password reset ────────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+def test_ops_user_reset_password_success(client, superuser, regular_user):
+    client.force_login(superuser)
+    resp = client.post(
+        reverse("ops_user_reset_password", kwargs={"user_id": regular_user.pk}),
+        {"new_password": "newpass99", "confirm_password": "newpass99"},
+    )
+    assert resp.status_code == 302
+    regular_user.refresh_from_db()
+    assert regular_user.check_password("newpass99")
+    assert AdminAuditLog.objects.filter(
+        model_label="auth.user", action="change",
+        extra__name="reset_password",
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_ops_user_reset_password_mismatch(client, superuser, regular_user):
+    client.force_login(superuser)
+    old_hash = regular_user.password
+    client.post(
+        reverse("ops_user_reset_password", kwargs={"user_id": regular_user.pk}),
+        {"new_password": "newpass99", "confirm_password": "different1"},
+    )
+    regular_user.refresh_from_db()
+    assert regular_user.password == old_hash  # unchanged
+
+
+@pytest.mark.django_db
+def test_ops_user_reset_password_too_short(client, superuser, regular_user):
+    client.force_login(superuser)
+    old_hash = regular_user.password
+    client.post(
+        reverse("ops_user_reset_password", kwargs={"user_id": regular_user.pk}),
+        {"new_password": "short", "confirm_password": "short"},
+    )
+    regular_user.refresh_from_db()
+    assert regular_user.password == old_hash  # unchanged
+
+
+@pytest.mark.django_db
+def test_ops_user_reset_password_requires_superuser(client, regular_user):
+    client.force_login(regular_user)
+    with pytest.raises(PermissionError):
+        client.post(
+            reverse("ops_user_reset_password", kwargs={"user_id": regular_user.pk}),
+            {"new_password": "newpass99", "confirm_password": "newpass99"},
+        )
+
+
 # ── Login / logout redirects ──────────────────────────────────────────────────
 
 @pytest.mark.django_db

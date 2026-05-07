@@ -45,6 +45,28 @@
 
     <!-- Info sidebar -->
     <div>
+      <!-- Password reset -->
+      <div class="dash-card" style="padding:20px 24px;margin-bottom:16px;">
+        <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin:0 0 14px;">Reset Password</h2>
+        <form method="post" action="{% url 'ops_user_reset_password' target_user.pk %}">
+          {% csrf_token %}
+          <div style="margin-bottom:10px;">
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:5px;">New password</label>
+            <input type="password" name="new_password" minlength="8" required
+                   style="width:100%;padding:8px 10px;border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;font-size:13px;box-sizing:border-box;background:var(--dash-bg,#fff);color:var(--dash-text,#0f172a);">
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:5px;">Confirm password</label>
+            <input type="password" name="confirm_password" minlength="8" required
+                   style="width:100%;padding:8px 10px;border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;font-size:13px;box-sizing:border-box;background:var(--dash-bg,#fff);color:var(--dash-text,#0f172a);">
+          </div>
+          <button type="submit" class="dash-action-btn dash-action-btn--secondary"
+                  style="font-size:12px;color:#dc2626;border-color:#fca5a5;"
+                  onclick="return confirm('Reset password for {{ target_user.email|default:target_user.username }}?')">
+            Reset Password
+          </button>
+        </form>
+      </div>
       <div class="dash-card" style="padding:20px 24px;margin-bottom:16px;">
         <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin:0 0 12px;">Account Info</h2>
         <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;">

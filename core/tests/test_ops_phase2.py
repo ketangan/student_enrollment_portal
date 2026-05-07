@@ -276,23 +276,48 @@ def test_ops_reports_per_school_rows(client, superuser, submissions, school_a, s
 @pytest.mark.django_db
 def test_ops_reports_conversion_rates(client, superuser, school_a):
     client.force_login(superuser)
+    # 1 of 2 leads converts to a submission
+    sub = Submission.objects.create(school=school_a, status="Enrolled", data={})
     Lead.objects.create(
         school=school_a, name="X", email="x@t.com", normalized_email="x@t.com",
-        status="new", source="website",
+        status="enrolled", source="website", converted_submission=sub,
     )
     Lead.objects.create(
         school=school_a, name="Y", email="y@t.com", normalized_email="y@t.com",
         status="new", source="website",
     )
     Submission.objects.create(school=school_a, status="Enrolled", data={})
-    Submission.objects.create(school=school_a, status="Enrolled", data={})
     Submission.objects.create(school=school_a, status="New", data={})
     resp = client.get(reverse("ops_reports"))
     totals = resp.context["totals"]
-    # 2 leads, 3 subs → lead_to_sub_rate is defined
-    assert totals["lead_to_sub_rate"] is not None
+    # 1 converted lead / 2 total leads → 50%
+    assert totals["lead_to_sub_rate"] == 50
     # 2 enrolled / 3 subs → 67%
     assert totals["sub_to_enrolled_rate"] == 67
+
+
+@pytest.mark.django_db
+def test_ops_reports_lead_rate_never_exceeds_100(client, superuser, school_a):
+    """Lead→App rate must be based on converted leads, not raw submission count.
+
+    A school with 4 leads and 120 submissions should NOT show 3000%.
+    Even if every submission came from somewhere, only leads with a linked
+    converted_submission count as converted.
+    """
+    client.force_login(superuser)
+    for i in range(120):
+        Submission.objects.create(school=school_a, status="New", data={})
+    for i in range(4):
+        Lead.objects.create(
+            school=school_a, name=f"Lead {i}", email=f"l{i}@t.com",
+            normalized_email=f"l{i}@t.com", status="new", source="website",
+        )
+    resp = client.get(reverse("ops_reports"))
+    totals = resp.context["totals"]
+    # 0 of 4 leads have converted_submission set → rate is 0%
+    assert totals["lead_to_sub_rate"] == 0
+    # Rate must never exceed 100
+    assert totals["lead_to_sub_rate"] <= 100
 
 
 @pytest.mark.django_db

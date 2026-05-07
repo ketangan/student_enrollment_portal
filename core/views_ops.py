@@ -353,6 +353,31 @@ def ops_user_deactivate_view(request, user_id):
     return redirect("ops_user_detail", user_id=user_id)
 
 
+@ops_required
+@require_POST
+def ops_user_reset_password_view(request, user_id):
+    target_user = get_object_or_404(User, pk=user_id)
+    new_password = request.POST.get("new_password", "").strip()
+    confirm = request.POST.get("confirm_password", "").strip()
+
+    if not new_password:
+        messages.error(request, "Password cannot be blank.")
+        return redirect("ops_user_detail", user_id=user_id)
+    if len(new_password) < 8:
+        messages.error(request, "Password must be at least 8 characters.")
+        return redirect("ops_user_detail", user_id=user_id)
+    if new_password != confirm:
+        messages.error(request, "Passwords do not match.")
+        return redirect("ops_user_detail", user_id=user_id)
+
+    target_user.set_password(new_password)
+    target_user.save(update_fields=["password"])
+    _log(request, "change", "auth.user", target_user.pk, str(target_user),
+         {"name": "reset_password", "email": target_user.email})
+    messages.success(request, f"Password reset for {target_user.email or target_user.username}.")
+    return redirect("ops_user_detail", user_id=user_id)
+
+
 # ── Cross-school submissions ──────────────────────────────────────────────────
 
 _OPS_PAGE_SIZE = 50
@@ -488,6 +513,11 @@ def ops_reports_view(request):
         School.objects.annotate(
             sub_count=Count("submissions", distinct=True),
             lead_count=Count("leads", distinct=True),
+            converted_lead_count=Count(
+                "leads",
+                filter=Q(leads__converted_submission__isnull=False),
+                distinct=True,
+            ),
             enrolled_count=Count(
                 "submissions",
                 filter=Q(submissions__status=STATUS_ENROLLED),
@@ -497,8 +527,10 @@ def ops_reports_view(request):
     )
 
     for row in school_rows:
+        # Lead→App: of the leads captured, what % converted to an application?
         row.lead_to_sub_rate = (
-            round(row.sub_count / row.lead_count * 100) if row.lead_count else None
+            round(row.converted_lead_count / row.lead_count * 100)
+            if row.lead_count else None
         )
         row.sub_to_enrolled_rate = (
             round(row.enrolled_count / row.sub_count * 100) if row.sub_count else None
@@ -507,11 +539,12 @@ def ops_reports_view(request):
     totals = {
         "schools": len(school_rows),
         "leads": sum(r.lead_count for r in school_rows),
+        "converted_leads": sum(r.converted_lead_count for r in school_rows),
         "submissions": sum(r.sub_count for r in school_rows),
         "enrolled": sum(r.enrolled_count for r in school_rows),
     }
     totals["lead_to_sub_rate"] = (
-        round(totals["submissions"] / totals["leads"] * 100)
+        round(totals["converted_leads"] / totals["leads"] * 100)
         if totals["leads"] else None
     )
     totals["sub_to_enrolled_rate"] = (
