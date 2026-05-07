@@ -1,0 +1,107 @@
+{% extends "ops/base.html" %}
+{% block page_title %}Users{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h1 style="font-size:20px;font-weight:700;margin:0 0 4px;">Users</h1>
+      <p style="font-size:13px;color:var(--dash-muted);margin:0;">{{ users|length }} user{{ users|length|pluralize }}</p>
+    </div>
+    <a href="{% url 'ops_user_create' %}" class="dash-action-btn dash-action-btn--primary">+ New User</a>
+  </div>
+
+  <!-- Filters -->
+  <div class="dash-card" style="padding:14px 18px;margin-bottom:16px;">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <input type="text" name="q" value="{{ q }}" placeholder="Search email, name, username…"
+             style="flex:1;min-width:200px;padding:7px 12px;border:1px solid var(--dash-border);border-radius:8px;font-size:13px;">
+      <select name="role" class="dash-select" style="width:auto;padding:7px 28px 7px 10px;">
+        <option value="">All Roles</option>
+        <option value="superuser" {% if role_filter == 'superuser' %}selected{% endif %}>Superuser</option>
+        <option value="staff" {% if role_filter == 'staff' %}selected{% endif %}>Staff</option>
+        <option value="school_admin" {% if role_filter == 'school_admin' %}selected{% endif %}>School Admin</option>
+      </select>
+      <select name="status" class="dash-select" style="width:auto;padding:7px 28px 7px 10px;">
+        <option value="">All Status</option>
+        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+      </select>
+      <button type="submit" style="padding:7px 16px;background:var(--dash-primary);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Filter</button>
+      {% if q or role_filter or status_filter %}
+      <a href="{% url 'ops_users_list' %}" style="font-size:13px;color:var(--dash-muted);text-decoration:none;padding:7px 4px;">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="dash-card">
+    {% if users %}
+    <div class="dash-table-scroll">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Email</th>
+            <th>Username</th>
+            <th>Name</th>
+            <th>School</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Joined</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td style="font-weight:600;">{{ u.email|default:"—" }}</td>
+            <td style="font-size:12px;color:var(--dash-muted);">{{ u.username }}</td>
+            <td style="font-size:12px;">{{ u.get_full_name|default:"—" }}</td>
+            <td style="font-size:12px;">
+              {% if u.school_membership %}
+                <a href="{% url 'ops_school_detail' u.school_membership.school.slug %}"
+                   style="color:var(--dash-primary);">{{ u.school_membership.school.display_name|default:u.school_membership.school.slug }}</a>
+              {% else %}—{% endif %}
+            </td>
+            <td style="font-size:11px;">
+              {% if u.is_superuser %}<span style="background:#ede9fe;color:#6d28d9;padding:2px 6px;border-radius:4px;font-weight:700;">Superuser</span>
+              {% elif u.is_staff %}<span style="background:#dbeafe;color:#1d4ed8;padding:2px 6px;border-radius:4px;">Staff</span>
+              {% else %}<span style="color:var(--dash-muted);">Standard</span>{% endif %}
+            </td>
+            <td>
+              {% if u.is_active %}
+                <span style="color:#059669;font-size:12px;font-weight:600;">Active</span>
+              {% else %}
+                <span style="color:#dc2626;font-size:12px;font-weight:600;">Inactive</span>
+              {% endif %}
+            </td>
+            <td style="font-size:12px;color:var(--dash-muted);">{{ u.date_joined|date:"M j, Y" }}</td>
+            <td>
+              <a href="{% url 'ops_user_detail' u.pk %}"
+                 class="dash-action-btn dash-action-btn--secondary" style="font-size:11px;padding:3px 10px;">
+                Edit
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="dash-empty">
+      <div class="dash-empty-icon">👤</div>
+      <div class="dash-empty-title">No users found</div>
+      <div class="dash-empty-sub">
+        {% if q or role_filter or status_filter %}
+          No users match the current filters.
+          <a href="{% url 'ops_users_list' %}" style="color:var(--dash-primary);">Clear</a>
+        {% else %}
+          <a href="{% url 'ops_user_create' %}" style="color:var(--dash-primary);">Create a user →</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</main>
+{% endblock %}

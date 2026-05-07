@@ -1,0 +1,124 @@
+{% extends "ops/base.html" %}
+{% block page_title %}{{ target_user.email|default:target_user.username }}{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <div style="margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <a href="{% url 'ops_users_list' %}" style="font-size:13px;color:var(--dash-muted);text-decoration:none;">← Users</a>
+    <h1 style="font-size:20px;font-weight:700;margin:0;flex:1;">{{ target_user.get_full_name|default:target_user.username }}</h1>
+    <form method="post" action="{% url 'ops_user_toggle_active' target_user.pk %}" style="margin:0;">
+      {% csrf_token %}
+      {% if target_user.is_active %}
+      <button type="submit" class="dash-action-btn dash-action-btn--secondary"
+              style="font-size:12px;color:#dc2626;border-color:#fca5a5;"
+              onclick="return confirm('Deactivate this user?')">
+        Deactivate
+      </button>
+      {% else %}
+      <button type="submit" class="dash-action-btn dash-action-btn--secondary"
+              style="font-size:12px;color:#059669;border-color:#86efac;">
+        Reactivate
+      </button>
+      {% endif %}
+    </form>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+
+    <!-- Edit form -->
+    <div class="dash-card" style="padding:24px;">
+      <h2 style="font-size:14px;font-weight:700;margin:0 0 20px;">Edit User</h2>
+
+      {% if form.non_field_errors %}
+      <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:10px 14px;font-size:13px;color:#991b1b;margin-bottom:16px;">
+        {% for e in form.non_field_errors %}{{ e }}{% endfor %}
+      </div>
+      {% endif %}
+
+      <form method="post">
+        {% csrf_token %}
+        {% include "ops/_form_fields.html" %}
+        <button type="submit" class="dash-action-btn dash-action-btn--primary" style="margin-top:8px;">Save</button>
+      </form>
+    </div>
+
+    <!-- Info sidebar -->
+    <div>
+      <div class="dash-card" style="padding:20px 24px;margin-bottom:16px;">
+        <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin:0 0 12px;">Account Info</h2>
+        <div style="display:flex;flex-direction:column;gap:10px;font-size:13px;">
+          <div>
+            <span style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);display:block;margin-bottom:2px;">Status</span>
+            {% if target_user.is_active %}<span style="color:#059669;font-weight:700;">Active</span>
+            {% else %}<span style="color:#dc2626;font-weight:700;">Inactive</span>{% endif %}
+          </div>
+          <div>
+            <span style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);display:block;margin-bottom:2px;">Joined</span>
+            {{ target_user.date_joined|date:"M j, Y H:i" }}
+          </div>
+          <div>
+            <span style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);display:block;margin-bottom:2px;">Last login</span>
+            {{ target_user.last_login|date:"M j, Y H:i"|default:"Never" }}
+          </div>
+          <div>
+            <span style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);display:block;margin-bottom:2px;">School</span>
+            {% if membership %}
+              <a href="{% url 'ops_school_detail' membership.school.slug %}" style="color:var(--dash-primary);">
+                {{ membership.school.display_name|default:membership.school.slug }}
+              </a>
+            {% else %}None{% endif %}
+          </div>
+        </div>
+      </div>
+
+      {% if membership %}
+      <div class="dash-card" style="padding:20px 24px;margin-bottom:16px;">
+        <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin:0 0 12px;">School Access</h2>
+        <p style="font-size:13px;margin:0 0 12px;">
+          Admin of <strong>{{ membership.school.display_name|default:membership.school.slug }}</strong>
+        </p>
+        <form method="post" action="{% url 'ops_school_member_remove' membership.school.slug target_user.pk %}"
+              onsubmit="return confirm('Remove school access for {{ target_user.email }}?')">
+          {% csrf_token %}
+          <button type="submit" style="font-size:12px;color:#dc2626;background:none;border:1px solid #fca5a5;padding:5px 12px;border-radius:6px;cursor:pointer;">
+            Remove School Access
+          </button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- Audit log -->
+  <div class="dash-card" style="padding:24px;margin-bottom:24px;">
+    <h2 style="font-size:14px;font-weight:700;margin:0 0 14px;">Recent Changes</h2>
+    {% if recent_audit %}
+    <table class="dash-table">
+      <thead><tr><th>When</th><th>By</th><th>Action</th><th>Detail</th></tr></thead>
+      <tbody>
+        {% for log in recent_audit %}
+        <tr>
+          <td style="font-size:11px;color:var(--dash-muted);white-space:nowrap;">{{ log.created_at|date:"M j H:i" }}</td>
+          <td style="font-size:12px;">{{ log.actor.username }}</td>
+          <td style="font-size:12px;text-transform:capitalize;">{{ log.action }}</td>
+          <td style="font-size:12px;color:var(--dash-muted);">
+            {% if log.extra.name %}{{ log.extra.name }}{% endif %}
+            {% if log.extra.changes %}
+              {% for field, diff in log.extra.changes.items %}
+              <div>{{ field }}: <span style="color:#dc2626;">{{ diff.old|truncatechars:30 }}</span> → <span style="color:#059669;">{{ diff.new|truncatechars:30 }}</span></div>
+              {% endfor %}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="font-size:13px;color:var(--dash-muted);margin:0;">No changes recorded yet.</p>
+    {% endif %}
+  </div>
+
+</main>
+{% endblock %}

@@ -1,0 +1,121 @@
+{% extends "ops/base.html" %}
+{% block page_title %}Schools{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h1 style="font-size:20px;font-weight:700;margin:0 0 4px;">Schools</h1>
+      <p style="font-size:13px;color:var(--dash-muted);margin:0;">{{ schools|length }} school{{ schools|length|pluralize }}</p>
+    </div>
+    <a href="{% url 'ops_school_create' %}" class="dash-action-btn dash-action-btn--primary">+ New School</a>
+  </div>
+
+  <!-- Filters -->
+  <div class="dash-card" style="padding:14px 18px;margin-bottom:16px;">
+    <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <input type="text" name="q" value="{{ q }}" placeholder="Search name or slug…"
+             style="flex:1;min-width:180px;padding:7px 12px;border:1px solid var(--dash-border);border-radius:8px;font-size:13px;">
+      <select name="plan" class="dash-select" style="width:auto;padding:7px 28px 7px 10px;">
+        <option value="">All Plans</option>
+        {% for val, label in plan_choices %}
+        <option value="{{ val }}" {% if val == plan_filter %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <select name="status" class="dash-select" style="width:auto;padding:7px 28px 7px 10px;">
+        <option value="">All Status</option>
+        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+        <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+      </select>
+      <button type="submit" style="padding:7px 16px;background:var(--dash-primary);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Filter</button>
+      {% if q or plan_filter or status_filter %}
+      <a href="{% url 'ops_schools_list' %}" style="font-size:13px;color:var(--dash-muted);text-decoration:none;padding:7px 4px;">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="dash-card">
+    {% if schools %}
+    <div class="dash-table-scroll">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>School</th>
+            <th>Slug</th>
+            <th>Plan</th>
+            <th>Status</th>
+            <th>Trial Ends</th>
+            <th>Submissions</th>
+            <th>Leads</th>
+            <th>Admins</th>
+            <th>Created</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in schools %}
+          <tr>
+            <td style="font-weight:600;">
+              <a href="{% url 'ops_school_detail' s.slug %}" style="color:var(--dash-text);text-decoration:none;">
+                {{ s.display_name|default:s.slug }}
+              </a>
+            </td>
+            <td style="font-family:monospace;font-size:11px;color:var(--dash-muted);">{{ s.slug }}</td>
+            <td style="text-transform:capitalize;font-size:12px;">{{ s.plan }}</td>
+            <td>
+              {% if s.is_active %}
+                <span style="color:#059669;font-size:12px;font-weight:600;">Active</span>
+              {% else %}
+                <span style="color:#dc2626;font-size:12px;font-weight:600;">Inactive</span>
+              {% endif %}
+            </td>
+            <td style="font-size:12px;color:var(--dash-muted);">
+              {% if s.is_trial_plan and s.trial_ends_at %}
+                {% if s.trial_days_left == 0 %}
+                  <span style="color:#dc2626;font-weight:600;">Expired</span>
+                {% elif s.trial_days_left <= 7 %}
+                  <span style="color:#d97706;font-weight:600;">{{ s.trial_ends_at|date:"M j" }} ({{ s.trial_days_left }}d)</span>
+                {% else %}
+                  {{ s.trial_ends_at|date:"M j, Y" }}
+                {% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td style="font-size:13px;color:var(--dash-muted);">{{ s.submission_count }}</td>
+            <td style="font-size:13px;color:var(--dash-muted);">{{ s.lead_count }}</td>
+            <td style="font-size:13px;color:var(--dash-muted);">{{ s.member_count }}</td>
+            <td style="font-size:12px;color:var(--dash-muted);">{{ s.created_at|date:"M j, Y" }}</td>
+            <td style="white-space:nowrap;">
+              <a href="{% url 'ops_school_detail' s.slug %}"
+                 class="dash-action-btn dash-action-btn--secondary" style="font-size:11px;padding:3px 10px;">
+                Edit
+              </a>
+              <a href="{% url 'school_dashboard' s.slug %}"
+                 class="dash-action-btn dash-action-btn--secondary" style="font-size:11px;padding:3px 10px;margin-left:4px;"
+                 target="_blank">
+                Open ↗
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="dash-empty">
+      <div class="dash-empty-icon">🏫</div>
+      <div class="dash-empty-title">No schools found</div>
+      <div class="dash-empty-sub">
+        {% if q or plan_filter or status_filter %}
+          No schools match the current filters.
+          <a href="{% url 'ops_schools_list' %}" style="color:var(--dash-primary);">Clear filters</a>
+        {% else %}
+          <a href="{% url 'ops_school_create' %}" style="color:var(--dash-primary);">Create your first school →</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+</main>
+{% endblock %}

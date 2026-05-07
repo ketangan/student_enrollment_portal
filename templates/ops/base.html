@@ -1,0 +1,117 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block page_title %}Ops{% endblock %} — Ops Portal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="{% static 'admin/dashboard.css' %}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body class="dash-body">
+
+  <header class="dash-header">
+    <div class="dash-header-left">
+      <div class="dash-school-name" style="font-weight:800;letter-spacing:-.01em;">
+        ⚙ Ops Portal
+      </div>
+    </div>
+
+    <nav class="dash-nav">
+      <a href="{% url 'ops_dashboard' %}"
+         class="dash-nav-link{% if active_nav == 'dashboard' %} dash-nav-link--active{% endif %}">
+        Dashboard
+      </a>
+      <a href="{% url 'ops_schools_list' %}"
+         class="dash-nav-link{% if active_nav == 'schools' %} dash-nav-link--active{% endif %}">
+        Schools
+      </a>
+      <a href="{% url 'ops_users_list' %}"
+         class="dash-nav-link{% if active_nav == 'users' %} dash-nav-link--active{% endif %}">
+        Users
+      </a>
+    </nav>
+
+    <div class="dash-header-right">
+      <button id="mobile-nav-btn" type="button" class="dash-mobile-menu-btn"
+              aria-label="Open navigation" aria-expanded="false">&#9776;</button>
+      <div style="position:relative;">
+        <button id="user-menu-btn"
+                style="width:32px;height:32px;border-radius:50%;background:var(--dash-primary,#4f46e5);
+                       color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;
+                       display:flex;align-items:center;justify-content:center;"
+                aria-label="User menu"
+                onclick="(function(){var d=document.getElementById('user-menu-dropdown');d.style.display=d.style.display==='block'?'none':'block';})()">
+          {{ request.user.username|slice:":1"|upper }}
+        </button>
+        <div id="user-menu-dropdown"
+             style="display:none;position:absolute;right:0;top:40px;min-width:200px;
+                    background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);
+                    border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:200;padding:6px 0;">
+          <div style="padding:8px 14px;font-size:12px;color:var(--dash-muted);
+                      border-bottom:1px solid var(--dash-border);margin-bottom:4px;">
+            {{ request.user.get_full_name|default:request.user.username }}
+            <div style="font-size:10px;color:#7c3aed;font-weight:700;margin-top:2px;">SUPERADMIN</div>
+          </div>
+          <a href="{% url 'admin:index' %}" class="dash-menu-item" target="_blank">
+            Django Admin ↗
+          </a>
+          <div style="height:1px;background:var(--dash-border);margin:2px 0;"></div>
+          <form method="post" action="{% url 'logout' %}" style="margin:0;">
+            {% csrf_token %}
+            <button type="submit" class="dash-menu-item dash-menu-item--danger">
+              Sign out
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <script>
+  (function () {
+    document.addEventListener('click', function(e) {
+      var btn = document.getElementById('user-menu-btn');
+      var dd  = document.getElementById('user-menu-dropdown');
+      if (btn && dd && !btn.contains(e.target) && !dd.contains(e.target)) {
+        dd.style.display = 'none';
+      }
+      var mBtn = document.getElementById('mobile-nav-btn');
+      var nav  = document.querySelector('.dash-nav');
+      if (mBtn && nav && !mBtn.contains(e.target) && !nav.contains(e.target)) {
+        nav.classList.remove('dash-nav--mobile-open');
+        mBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+    (function() {
+      var mBtn = document.getElementById('mobile-nav-btn');
+      var nav  = document.querySelector('.dash-nav');
+      if (!mBtn || !nav) return;
+      mBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var open = nav.classList.toggle('dash-nav--mobile-open');
+        mBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+    }());
+  }());
+  </script>
+
+  {% if messages %}
+  <div style="padding:12px 20px 0;">
+    {% for message in messages %}
+    <div style="margin-bottom:8px;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:500;
+      {% if message.level_tag == 'error' %}background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;
+      {% elif message.level_tag == 'success' %}background:#f0fdf4;border:1px solid #86efac;color:#166534;
+      {% elif message.level_tag == 'warning' %}background:#fffbeb;border:1px solid #fcd34d;color:#92400e;
+      {% else %}background:#f0f7ff;border:1px solid #dbeafe;color:#1e40af;{% endif %}">
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+  {% block extra_js %}{% endblock %}
+
+</body>
+</html>

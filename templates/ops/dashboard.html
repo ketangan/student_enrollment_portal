@@ -1,0 +1,134 @@
+{% extends "ops/base.html" %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <div style="margin-bottom:24px;">
+    <h1 style="font-size:20px;font-weight:700;margin:0 0 4px;">Operations Dashboard</h1>
+    <p style="font-size:13px;color:var(--dash-muted);margin:0;">Platform health at a glance.</p>
+  </div>
+
+  <!-- KPI cards -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:24px;">
+    <div class="dash-card" style="padding:18px 20px;text-align:center;">
+      <div style="font-size:28px;font-weight:700;">{{ total_schools }}</div>
+      <div style="font-size:12px;color:var(--dash-muted);margin-top:3px;">Total Schools</div>
+    </div>
+    <div class="dash-card" style="padding:18px 20px;text-align:center;">
+      <div style="font-size:28px;font-weight:700;color:#059669;">{{ active_schools }}</div>
+      <div style="font-size:12px;color:var(--dash-muted);margin-top:3px;">Active</div>
+    </div>
+    <div class="dash-card" style="padding:18px 20px;text-align:center;">
+      <div style="font-size:28px;font-weight:700;color:{% if inactive_schools %}#dc2626{% else %}var(--dash-text){% endif %};">{{ inactive_schools }}</div>
+      <div style="font-size:12px;color:var(--dash-muted);margin-top:3px;">Inactive</div>
+    </div>
+    <div class="dash-card" style="padding:18px 20px;text-align:center;">
+      <div style="font-size:28px;font-weight:700;color:{% if expiring_soon %}#d97706{% else %}var(--dash-text){% endif %};">{{ expiring_soon|length }}</div>
+      <div style="font-size:12px;color:var(--dash-muted);margin-top:3px;">Trials Expiring ≤7d</div>
+    </div>
+    <div class="dash-card" style="padding:18px 20px;text-align:center;">
+      <div style="font-size:28px;font-weight:700;color:{% if expired_trials %}#dc2626{% else %}var(--dash-text){% endif %};">{{ expired_trials|length }}</div>
+      <div style="font-size:12px;color:var(--dash-muted);margin-top:3px;">Expired Trials</div>
+    </div>
+    <div class="dash-card" style="padding:18px 20px;text-align:center;">
+      <div style="font-size:28px;font-weight:700;">{{ total_users }}</div>
+      <div style="font-size:12px;color:var(--dash-muted);margin-top:3px;">Active Users</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+
+    <!-- Trials expiring soon -->
+    <div class="dash-card" style="padding:20px 24px;">
+      <h2 style="font-size:14px;font-weight:700;margin:0 0 14px;color:var(--dash-text);">
+        ⚠ Trials Expiring Soon
+        {% if expiring_soon %}<span style="font-size:11px;font-weight:400;color:var(--dash-muted);margin-left:6px;">(next 7 days)</span>{% endif %}
+      </h2>
+      {% if expiring_soon %}
+      <table class="dash-table">
+        <thead><tr><th>School</th><th>Plan</th><th>Ends</th><th>Days Left</th></tr></thead>
+        <tbody>
+          {% for s in expiring_soon %}
+          <tr>
+            <td><a href="{% url 'ops_school_detail' s.slug %}" style="color:var(--dash-primary);font-weight:600;">{{ s.display_name|default:s.slug }}</a></td>
+            <td><span style="font-size:11px;text-transform:uppercase;color:var(--dash-muted);">{{ s.plan }}</span></td>
+            <td style="font-size:12px;color:var(--dash-muted);">{{ s.trial_ends_at|date:"M j, Y" }}</td>
+            <td>
+              <span style="font-size:12px;font-weight:700;color:#d97706;">
+                {{ s.trial_days_left }}d
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="font-size:13px;color:var(--dash-muted);margin:0;">No trials expiring in the next 7 days.</p>
+      {% endif %}
+    </div>
+
+    <!-- Expired trials -->
+    <div class="dash-card" style="padding:20px 24px;">
+      <h2 style="font-size:14px;font-weight:700;margin:0 0 14px;color:var(--dash-text);">
+        🚨 Expired Trials
+      </h2>
+      {% if expired_trials %}
+      <table class="dash-table">
+        <thead><tr><th>School</th><th>Expired</th></tr></thead>
+        <tbody>
+          {% for s in expired_trials %}
+          <tr>
+            <td><a href="{% url 'ops_school_detail' s.slug %}" style="color:var(--dash-primary);font-weight:600;">{{ s.display_name|default:s.slug }}</a></td>
+            <td style="font-size:12px;color:#dc2626;">{{ s.trial_ends_at|date:"M j, Y" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="font-size:13px;color:var(--dash-muted);margin:0;">No expired trials.</p>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- Recently added schools -->
+  <div class="dash-card" style="padding:20px 24px;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h2 style="font-size:14px;font-weight:700;margin:0;">Recently Added Schools</h2>
+      <a href="{% url 'ops_schools_list' %}" style="font-size:12px;color:var(--dash-primary);">View all →</a>
+    </div>
+    {% if recent_schools %}
+    <table class="dash-table">
+      <thead><tr><th>School</th><th>Slug</th><th>Plan</th><th>Status</th><th>Created</th><th></th></tr></thead>
+      <tbody>
+        {% for s in recent_schools %}
+        <tr>
+          <td style="font-weight:600;">{{ s.display_name|default:s.slug }}</td>
+          <td style="font-family:monospace;font-size:11px;color:var(--dash-muted);">{{ s.slug }}</td>
+          <td><span style="font-size:11px;text-transform:capitalize;color:var(--dash-muted);">{{ s.plan }}</span></td>
+          <td>
+            {% if s.is_active %}
+              <span style="color:#059669;font-size:12px;font-weight:600;">Active</span>
+            {% else %}
+              <span style="color:#dc2626;font-size:12px;font-weight:600;">Inactive</span>
+            {% endif %}
+          </td>
+          <td style="font-size:12px;color:var(--dash-muted);">{{ s.created_at|date:"M j, Y" }}</td>
+          <td>
+            <a href="{% url 'ops_school_detail' s.slug %}"
+               class="dash-action-btn dash-action-btn--secondary" style="font-size:11px;padding:3px 10px;">
+              Edit
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="font-size:13px;color:var(--dash-muted);margin:0;">No schools yet.</p>
+    {% endif %}
+  </div>
+
+</main>
+{% endblock %}

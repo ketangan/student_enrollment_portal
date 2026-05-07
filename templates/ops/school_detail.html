@@ -1,0 +1,208 @@
+{% extends "ops/base.html" %}
+{% block page_title %}{{ school.display_name|default:school.slug }}{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <div style="margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <a href="{% url 'ops_schools_list' %}" style="font-size:13px;color:var(--dash-muted);text-decoration:none;">← Schools</a>
+    <h1 style="font-size:20px;font-weight:700;margin:0;flex:1;">{{ school.display_name|default:school.slug }}</h1>
+    <a href="{% url 'school_dashboard' school.slug %}"
+       class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;" target="_blank">
+      Open School Admin ↗
+    </a>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+
+    <!-- Quick stats -->
+    <div class="dash-card" style="padding:18px 24px;">
+      <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin:0 0 14px;">Overview</h2>
+      <div style="display:flex;gap:28px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:3px;">Slug</div>
+          <div style="font-family:monospace;font-size:13px;">{{ school.slug }}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:3px;">Submissions</div>
+          <div style="font-size:20px;font-weight:700;">{{ submission_count }}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:3px;">Leads</div>
+          <div style="font-size:20px;font-weight:700;">{{ lead_count }}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:3px;">Created</div>
+          <div style="font-size:13px;">{{ school.created_at|date:"M j, Y" }}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:3px;">Status</div>
+          {% if school.is_active %}
+            <span style="color:#059669;font-weight:700;font-size:13px;">Active</span>
+          {% else %}
+            <span style="color:#dc2626;font-weight:700;font-size:13px;">Inactive</span>
+          {% endif %}
+        </div>
+        {% if school.stripe_subscription_status %}
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:3px;">Stripe Status</div>
+          <div style="font-size:13px;text-transform:capitalize;">{{ school.stripe_subscription_status }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Trial info (if applicable) -->
+    {% if school.is_trial_plan %}
+    <div class="dash-card" style="padding:18px 24px;">
+      <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin:0 0 14px;">Trial</h2>
+      <div style="display:flex;gap:28px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:3px;">Started</div>
+          <div style="font-size:13px;">{{ school.trial_started_at|date:"M j, Y" }}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:3px;">Ends</div>
+          <div style="font-size:13px;font-weight:600;">{{ school.trial_ends_at|date:"M j, Y" }}{% if school.trial_end_date %} <span style="font-size:11px;color:var(--dash-muted);font-weight:400;">(extended)</span>{% endif %}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:3px;">Days Left</div>
+          <div style="font-size:20px;font-weight:700;{% if school.trial_days_left == 0 %}color:#dc2626;{% elif school.trial_days_left <= 7 %}color:#d97706;{% endif %}">
+            {% if school.trial_days_left > 0 %}{{ school.trial_days_left }}{% else %}Expired{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="dash-card" style="padding:18px 24px;">
+      <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin:0 0 14px;">Plan</h2>
+      <div style="font-size:20px;font-weight:700;text-transform:capitalize;">{{ school.plan }}</div>
+      {% if school.stripe_current_period_end %}
+      <div style="font-size:12px;color:var(--dash-muted);margin-top:8px;">
+        {% if school.stripe_cancel_at_period_end %}Cancels{% else %}Renews{% endif %}
+        {{ school.stripe_current_period_end|date:"M j, Y" }}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Edit form -->
+  <div class="dash-card" style="padding:24px;margin-bottom:16px;">
+    <h2 style="font-size:14px;font-weight:700;margin:0 0 20px;">Edit School</h2>
+
+    {% if form.non_field_errors %}
+    <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:10px 14px;font-size:13px;color:#991b1b;margin-bottom:16px;">
+      {% for e in form.non_field_errors %}{{ e }}{% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;">
+        {% for field in form %}
+        <div style="{% if field.name == 'feature_flags' or field.name == 'website_url' %}grid-column:1/-1;{% endif %}">
+          {% if field.field.widget.input_type == 'checkbox' %}
+            <div style="display:flex;align-items:center;gap:10px;padding-top:20px;">
+              {{ field }}
+              <label for="{{ field.id_for_label }}" style="font-size:13px;cursor:pointer;">
+                {{ field.label }}{% if field.field.required %}<span style="color:#dc2626;margin-left:2px;">*</span>{% endif %}
+              </label>
+            </div>
+          {% else %}
+            <label for="{{ field.id_for_label }}"
+                   style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                          letter-spacing:.05em;color:var(--dash-muted);margin-bottom:5px;">
+              {{ field.label }}{% if field.field.required %}<span style="color:#dc2626;margin-left:2px;">*</span>{% endif %}
+            </label>
+            {{ field }}
+          {% endif %}
+          {% if field.help_text %}<div style="font-size:11px;color:var(--dash-muted);margin-top:4px;">{{ field.help_text }}</div>{% endif %}
+          {% for e in field.errors %}<div style="color:#dc2626;font-size:12px;margin-top:4px;">{{ e }}</div>{% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+      <div style="display:flex;gap:12px;margin-top:20px;">
+        <button type="submit" class="dash-action-btn dash-action-btn--primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- School Admin Memberships -->
+  <div class="dash-card" style="padding:24px;margin-bottom:16px;">
+    <h2 style="font-size:14px;font-weight:700;margin:0 0 16px;">School Admins</h2>
+
+    {% if members %}
+    <table class="dash-table" style="margin-bottom:16px;">
+      <thead><tr><th>Email</th><th>Username</th><th>Name</th><th></th></tr></thead>
+      <tbody>
+        {% for m in members %}
+        <tr>
+          <td>{{ m.user.email }}</td>
+          <td style="font-size:12px;color:var(--dash-muted);">{{ m.user.username }}</td>
+          <td style="font-size:12px;color:var(--dash-muted);">{{ m.user.get_full_name|default:"—" }}</td>
+          <td>
+            <form method="post" action="{% url 'ops_school_member_remove' school.slug m.user.pk %}"
+                  style="display:inline;"
+                  onsubmit="return confirm('Remove {{ m.user.email }} from this school?')">
+              {% csrf_token %}
+              <button type="submit"
+                      style="font-size:11px;color:#dc2626;background:none;border:none;cursor:pointer;padding:3px 6px;">
+                Remove
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="font-size:13px;color:var(--dash-muted);margin:0 0 16px;">No school admins yet.</p>
+    {% endif %}
+
+    <form method="post" action="{% url 'ops_school_member_add' school.slug %}"
+          style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+      {% csrf_token %}
+      <div style="flex:1;min-width:220px;">
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.05em;color:var(--dash-muted);margin-bottom:5px;">Add Admin by Email</label>
+        <input type="email" name="email" placeholder="user@example.com" required
+               style="width:100%;padding:8px 10px;border:1px solid var(--dash-border);border-radius:6px;
+                      font-size:13px;box-sizing:border-box;background:var(--dash-bg);color:var(--dash-text);">
+      </div>
+      <button type="submit" class="dash-action-btn dash-action-btn--primary" style="font-size:12px;">Add</button>
+    </form>
+  </div>
+
+  <!-- Audit log -->
+  <div class="dash-card" style="padding:24px;margin-bottom:24px;">
+    <h2 style="font-size:14px;font-weight:700;margin:0 0 14px;">Recent Changes</h2>
+    {% if recent_audit %}
+    <table class="dash-table">
+      <thead><tr><th>When</th><th>By</th><th>Action</th><th>Detail</th></tr></thead>
+      <tbody>
+        {% for log in recent_audit %}
+        <tr>
+          <td style="font-size:11px;color:var(--dash-muted);white-space:nowrap;">{{ log.created_at|date:"M j H:i" }}</td>
+          <td style="font-size:12px;">{{ log.actor.username }}</td>
+          <td style="font-size:12px;text-transform:capitalize;">{{ log.action }}</td>
+          <td style="font-size:12px;color:var(--dash-muted);">
+            {% if log.extra.name %}{{ log.extra.name }}{% endif %}
+            {% if log.extra.changes %}
+              {% for field, diff in log.extra.changes.items %}
+              <div>{{ field }}: <span style="color:#dc2626;">{{ diff.old|truncatechars:30 }}</span> → <span style="color:#059669;">{{ diff.new|truncatechars:30 }}</span></div>
+              {% endfor %}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="font-size:13px;color:var(--dash-muted);margin:0;">No changes recorded yet.</p>
+    {% endif %}
+  </div>
+
+</main>
+{% endblock %}

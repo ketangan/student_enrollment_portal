@@ -1,0 +1,30 @@
+{% extends "ops/base.html" %}
+{% block page_title %}{{ form_title }}{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <div style="margin-bottom:20px;display:flex;align-items:center;gap:12px;">
+    <a href="{% url 'ops_users_list' %}" style="font-size:13px;color:var(--dash-muted);text-decoration:none;">← Users</a>
+    <h1 style="font-size:20px;font-weight:700;margin:0;">{{ form_title }}</h1>
+  </div>
+
+  <div class="dash-card" style="padding:24px;max-width:560px;">
+    {% if form.non_field_errors %}
+    <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:10px 14px;font-size:13px;color:#991b1b;margin-bottom:16px;">
+      {% for e in form.non_field_errors %}{{ e }}{% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      {% include "ops/_form_fields.html" %}
+      <div style="display:flex;gap:12px;margin-top:8px;">
+        <button type="submit" class="dash-action-btn dash-action-btn--primary">{{ submit_label }}</button>
+        <a href="{% url 'ops_users_list' %}" style="font-size:13px;color:var(--dash-muted);text-decoration:none;padding:8px 4px;">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+</main>
+{% endblock %}

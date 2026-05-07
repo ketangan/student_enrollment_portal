@@ -288,6 +288,10 @@ BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 
+# Auth redirects — custom login page instead of Django admin login
+LOGIN_URL = "/login/"
+LOGOUT_REDIRECT_URL = "/login/"
+
 # ---------------------------------------------------------------------------
 # Stripe — dual-mode configuration
 # ---------------------------------------------------------------------------

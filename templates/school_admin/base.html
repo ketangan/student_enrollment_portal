@@ -94,12 +94,15 @@
           </div>
           {% if request.user.is_superuser %}
           <div style="height:1px;background:var(--dash-border,#e2e8f0);margin:2px 0;"></div>
+          <a href="{% url 'ops_dashboard' %}" class="dash-menu-item">
+            Ops Portal ↗
+          </a>
           <a href="{% url 'admin:index' %}" class="dash-menu-item">
             Django Admin ↗
           </a>
           {% endif %}
           <div style="height:1px;background:var(--dash-border,#e2e8f0);margin:2px 0;"></div>
-          <form method="post" action="{% url 'admin:logout' %}" style="margin:0;">
+          <form method="post" action="{% url 'logout' %}" style="margin:0;">
             {% csrf_token %}
             <button type="submit" class="dash-menu-item dash-menu-item--danger">
               Sign out
