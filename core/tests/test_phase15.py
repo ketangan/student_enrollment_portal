@@ -142,7 +142,7 @@ def test_dashboard_new_leads_card_absent_without_leads(client):
 @pytest.mark.django_db
 def test_reports_empty_state_when_no_submissions(client):
     """
-    Reports page shows 'No data yet' empty state when school has zero submissions.
+    Reports page renders 200 and shows the 'no data yet' empty state when school has zero submissions.
     """
     school = _full_school()
     user = _school_admin(school)
@@ -152,25 +152,28 @@ def test_reports_empty_state_when_no_submissions(client):
     assert resp.status_code == 200
 
     content = resp.content.decode()
-    assert "No data yet" in content
+    assert "no data yet" in content  # shown in KPI tiles when value is None
 
 
 @pytest.mark.django_db
 def test_reports_no_empty_state_when_submissions_exist(client):
     """
-    Reports page does NOT show the empty state when submissions exist.
+    Reports page shows a real enrollment-rate value when an enrolled submission exists.
     """
     school = _full_school()
     user = _school_admin(school)
     client.force_login(user)
 
+    SubmissionFactory(school=school, status="Enrolled")
     SubmissionFactory(school=school, status="In Review")
 
     resp = client.get(_reports_url(school))
     assert resp.status_code == 200
 
-    content = resp.content.decode()
-    assert "No data yet" not in content
+    # App→Enrolled rate tile: 1 enrolled of 2 total = 50.0%
+    tile = resp.context["kpi_tiles"][0]
+    assert tile["value"] == "50.0%"
+    assert tile["basis"] == "1 of 2"
 
 
 # ── Lead detail: primary CTA based on status ─────────────────────────────────

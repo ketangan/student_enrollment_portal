@@ -120,7 +120,7 @@ def test_school_reports_range_defaults_and_none_label_in_csv(client, monkeypatch
     monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: DummyConfig())
 
     school = SchoolFactory.create(plan="starter")
-    # No program keys => program_display_name() == "" => should become "No program selected" in export
+    # No program keys => program_display_name() returns "" => CSV program column is empty string
     SubmissionFactory.create(school=school, data={"first_name": "Alice"})
 
     user = UserFactory.create(is_staff=True)
@@ -134,13 +134,12 @@ def test_school_reports_range_defaults_and_none_label_in_csv(client, monkeypatch
     assert resp.status_code == 200
     assert resp.context["range_days"] == 30
 
-    # export should include the none label (not blank)
     resp2 = client.get(url, {"export": "1"})
     assert resp2.status_code == 200
     rows = list(csv.reader(resp2.content.decode("utf-8").splitlines()))
     assert rows[0][:5] == ["application_id", "created_at", "status", "student_name", "program"]
     assert any(r[2] == "New" for r in rows[1:])
-    assert any(r[4] == "No program selected" for r in rows[1:])
+    assert any(r[4] == "" for r in rows[1:])  # no program → empty string in CSV
 
 
 def test_admin_download_submission_file_permissions_and_filename(client, db):
@@ -224,9 +223,9 @@ def test_school_reports_metrics_and_filters(client, monkeypatch, db):
     url = reverse("school_reports", kwargs={"school_slug": school.slug})
     resp = client.get(url)
     assert resp.status_code == 200
-    # context should have totals and program_rows
-    assert resp.context["total"] == 3
-    assert isinstance(resp.context["program_rows"], list)
+    # context should have comparison_rows (period totals) and program_mix
+    assert resp.context["comparison_rows"][0]["this_val"] == 3
+    assert isinstance(resp.context["program_mix"], list)
 
 
 def test_submission_admin_export_csv_and_search(db):

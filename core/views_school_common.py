@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
 from django.db.models import Case, Count, Exists, IntegerField, OuterRef, Q, Value, When
+from django.db.models.functions import TruncDay, TruncWeek
 from django.http import Http404, HttpResponse, FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
@@ -522,14 +523,22 @@ def _build_lead_row(
 @login_required
 def school_reports_view(request, school_slug: str):
     """
-    Phase 10 Reports
-    URL: /schools/<slug>/admin/reports
+    Enrollment Analytics Reports.
+    URL: /schools/<slug>/admin/reports/
 
-    Features:
-    - date range filter: last 7/30/90 days (default 30)
-    - optional program filter (exact match on display string)
-    - export CSV of filtered rows
-    - Program "(none)" displayed explicitly as "No program selected"
+    Sections:
+    4.1  KPI row — rates and throughput only (App→Enrolled %, Lead→App %, Apps/Week, Avg Days)
+    4.2  This-period vs previous comparison table
+    4.3  Applications & Enrollments over time (inline SVG line chart)
+    4.4  Enrollment Funnel (all-time) + Program Mix (scoped)
+    4.5  Lead Source Effectiveness (all-time; leads module only)
+
+    Data integrity rules enforced:
+    - No Lead query executes when leads_enabled=False (§2)
+    - Every rate shows its basis and scope (§3 R1, R3, R6)
+    - Funnel is all-time and uses "of which" connectors, not a bare % (§3 R1)
+    - Avg Days to Enroll renders "— unavailable" — no trustworthy enrollment timestamp exists
+    - All time-series buckets gap-filled so the chart never has holes
     """
     school = _get_accessible_school_for_admin(request, school_slug)
 
@@ -551,315 +560,353 @@ def school_reports_view(request, school_slug: str):
     config = _safe_load_school_config(school_slug)
     label_map = build_option_label_map(config.form) if config else {}
 
-    # Filters
+    # ── Date range ────────────────────────────────────────────────────────────
     range_raw = (request.GET.get("range") or "30").strip()
     if range_raw not in {"7", "30", "90"}:
         range_raw = "30"
     range_days = int(range_raw)
-    since = timezone.now() - timedelta(days=range_days)
+    now = timezone.now()
+    period_start = now - timedelta(days=range_days)
+    prev_start = now - timedelta(days=range_days * 2)
+    range_label = {"7": "Last 7 days", "30": "Last 30 days", "90": "Last 90 days"}[range_raw]
 
-    selected_program = (request.GET.get("program") or "").strip()
-    export = (request.GET.get("export") or "").strip().lower() in {"1", "true", "yes", "csv"}
-
-    qs = Submission.objects.filter(school=school, created_at__gte=since).order_by("-created_at")
-
-    rows_for_reporting = list(qs[:5000])  # MVP cap
-
-    # Program strings (using same logic as admin list)
-    program_strings = []
-    for s in rows_for_reporting:
-        p = (s.program_display_name(label_map=label_map) or "").strip()
-        program_strings.append(p if p else "(none)")
-
-    # Apply program filter after computing strings
-    if selected_program:
-        filtered_rows = []
-        filtered_program_strings = []
-        for s, p in zip(rows_for_reporting, program_strings):
-            if p == selected_program:
-                filtered_rows.append(s)
-                filtered_program_strings.append(p)
-        rows_for_reporting = filtered_rows
-        program_strings = filtered_program_strings
-
-    NONE_LABEL = "No program selected"
-
-    # Export CSV
+    # ── Feature flags — resolved once; no Lead query runs when False ──────────
+    leads_enabled = school.features.leads_enabled
     csv_enabled = school.features.csv_export_enabled or request.user.is_superuser
+
+    # ── Inline helpers ────────────────────────────────────────────────────────
+    def _rate(num, den):
+        """(rate_float, 'N of M') or (None, None) when den == 0."""
+        if not den:
+            return None, None
+        return round(num / den * 100, 1), f"{num} of {den}"
+
+    def _count_delta(a, b):
+        """Signed integer delta with display string."""
+        d = a - b
+        return d, f"{'+' if d >= 0 else ''}{d}", d >= 0
+
+    def _rate_delta(r1, r2):
+        """Percentage-point delta between two rates."""
+        if r1 is None or r2 is None:
+            return None, None, None
+        d = round(r1 - r2, 1)
+        return d, f"{'+' if d >= 0 else ''}{d} pts", d >= 0
+
+    # ── Scoped application querysets ──────────────────────────────────────────
+    apps_this_qs = Submission.objects.filter(school=school, created_at__gte=period_start)
+    apps_prev_qs = Submission.objects.filter(school=school, created_at__range=(prev_start, period_start))
+
+    # ── CSV export ────────────────────────────────────────────────────────────
+    export = request.GET.get("export", "").lower() in {"1", "true", "csv"}
     if export and csv_enabled:
-        all_keys = set()
-        for s in rows_for_reporting:
+        rows = list(apps_this_qs.order_by("-created_at")[:5000])
+        all_keys: set = set()
+        for s in rows:
             all_keys.update((s.data or {}).keys())
-
         ordered_keys = ["application_id", "created_at", "status", "student_name", "program"] + sorted(all_keys)
-
         resp = HttpResponse(content_type="text/csv")
         resp["Content-Disposition"] = f'attachment; filename="{school.slug}-reports-last{range_days}d.csv"'
-
         writer = csv.writer(resp)
         writer.writerow(ordered_keys)
-
-        for s in rows_for_reporting:
+        for s in rows:
             data = s.data or {}
-            created = timezone.localtime(s.created_at).isoformat()
-            student = s.student_display_name()
-            program = (s.program_display_name(label_map=label_map) or "").strip() or NONE_LABEL
-
             writer.writerow(
-                [s.public_id, created, (s.status or ""), student, program]
+                [s.public_id, timezone.localtime(s.created_at).isoformat(),
+                 s.status or "", s.student_display_name(),
+                 s.program_display_name(label_map=label_map) or ""]
                 + [data.get(k, "") for k in sorted(all_keys)]
             )
         return resp
 
-    # Metrics
-    total = len(rows_for_reporting)
-    latest = rows_for_reporting[0].created_at if total else None
-
-    counts = Counter(program_strings)
-    program_rows = []
-    for program_label, c in counts.most_common():
-        display_label = NONE_LABEL if program_label == "(none)" else program_label
-        pct = (c / total * 100.0) if total else 0.0
-        program_rows.append({"label": display_label, "raw": program_label, "count": c, "pct": round(pct, 1)})
-
-    # Schedule breakdown — preferred_time single-select, percent of responses that answered
-    sched_label_map = label_map.get("preferred_time", {})
-    sched_values = [
-        (s.data or {}).get("preferred_time")
-        for s in rows_for_reporting
-        if (s.data or {}).get("preferred_time")
-    ]
-    sched_total = len(sched_values)
-    sched_counts = Counter(sched_values)
-    schedule_rows = []
-    for val, c in sched_counts.most_common():
-        lbl = sched_label_map.get(val, val)
-        pct = (c / sched_total * 100.0) if sched_total else 0.0
-        schedule_rows.append({"label": lbl, "count": c, "pct": round(pct, 1)})
-
-    # Enrichment interests breakdown — multiselect, percent of total selections
-    enrich_label_map = label_map.get("enrichment_interests", {})
-    enrich_counter: Counter = Counter()
-    for s in rows_for_reporting:
-        interests = (s.data or {}).get("enrichment_interests", [])
-        if isinstance(interests, list):
-            for v in interests:
-                if v:
-                    enrich_counter[v] += 1
-    enrich_total = sum(enrich_counter.values())
-    enrichment_rows = []
-    for val, c in enrich_counter.most_common():
-        lbl = enrich_label_map.get(val, val)
-        pct = (c / enrich_total * 100.0) if enrich_total else 0.0
-        enrichment_rows.append({"label": lbl, "count": c, "pct": round(pct, 1)})
-
-    recent = []
-    for s in rows_for_reporting[:25]:
-        program_label = (s.program_display_name(label_map=label_map) or "").strip() or NONE_LABEL
-        recent.append(
-            {
-                "id": s.id,
-                "admin_url": reverse("school_submission_detail", kwargs={"school_slug": school_slug, "submission_id": s.id}),
-                "created_at": timezone.localtime(s.created_at),
-                "student": s.student_display_name(),
-                "program": program_label,
-                "status": (s.status or "New"),
-            }
-        )
-
-    # Lead analytics — only if leads feature is on
-    lead_stats = None
-    if school.features.leads_enabled:
-        leads_qs = Lead.objects.filter(school=school)
-        lead_total = leads_qs.count()
-        lead_total_in_period = leads_qs.filter(created_at__gte=since).count()
-
-        # Pipeline funnel (all-time current state)
-        status_counts = {
-            row["status"]: row["c"]
-            for row in leads_qs.values("status").annotate(c=Count("id"))
-        }
-        lead_funnel = []
-        for status_val, status_label in LEAD_STATUS_CHOICES:
-            count = status_counts.get(status_val, 0)
-            pct = round(count / lead_total * 100.0, 1) if lead_total else 0.0
-            lead_funnel.append({"status": status_val, "label": status_label, "count": count, "pct": pct})
-
-        # Source breakdown (all-time)
-        conversion_enabled = school.features.leads_conversion_enabled or request.user.is_superuser
-        source_label_map = dict(LEAD_SOURCE_CHOICES)
-        source_data = (
-            leads_qs
-            .values("source")
-            .annotate(count=Count("id"), converted=Count("id", filter=Q(converted_submission__isnull=False)))
-            .order_by("-count")
-        )
-        source_rows = []
-        for row in source_data:
-            count = row["count"]
-            converted = row["converted"]
-            source_rows.append({
-                "label": source_label_map.get(row["source"], row["source"].replace("_", " ").title()),
-                "count": count,
-                "converted": converted if conversion_enabled else None,
-                "rate": round(converted / count * 100.0, 1) if (count and conversion_enabled) else None,
-            })
-
-        # Overall conversion rate
-        total_converted = leads_qs.filter(converted_submission__isnull=False).count()
-        lead_stats = {
-            "total_in_period": lead_total_in_period,
-            "total": lead_total,
-            "funnel": lead_funnel,
-            "sources": source_rows,
-            "conversion_enabled": conversion_enabled,
-            "total_converted": total_converted if conversion_enabled else None,
-            "overall_rate": round(total_converted / lead_total * 100.0, 1) if (lead_total and conversion_enabled) else None,
-        }
-
-    # ── Phase 14 — Conversion Intelligence ────────────────────────────────────
-    leads_enabled = school.features.leads_enabled
-    submissions_url = reverse("school_submissions", kwargs={"school_slug": school_slug})
-    leads_url = reverse("school_leads", kwargs={"school_slug": school_slug}) if leads_enabled else ""
-
-    # funnel_metrics: always computed — submissions/enrolled visible to all schools.
-    # Lead metrics are added only when leads_enabled (may be None if feature is off).
-    _sub_funnel = Submission.objects.filter(school=school).aggregate(
+    # ── §4.1 + §4.2: Aggregate counts — one query per queryset ───────────────
+    this_agg = apps_this_qs.aggregate(
         total=Count("id"),
         enrolled=Count("id", filter=Q(status=STATUS_ENROLLED)),
     )
-    _st = _sub_funnel["total"]
-    _se = _sub_funnel["enrolled"]
+    prev_agg = apps_prev_qs.aggregate(
+        total=Count("id"),
+        enrolled=Count("id", filter=Q(status=STATUS_ENROLLED)),
+    )
+    apps_t, apps_e = this_agg["total"], this_agg["enrolled"]
+    p_apps_t, p_apps_e = prev_agg["total"], prev_agg["enrolled"]
 
-    _lead_funnel_agg = None
+    app_rate, app_rate_basis = _rate(apps_e, apps_t)
+    p_app_rate, _ = _rate(p_apps_e, p_apps_t)
+    _, app_rate_delta_str, app_rate_up = _rate_delta(app_rate, p_app_rate)
+    _, apps_delta_str, apps_up = _count_delta(apps_t, p_apps_t)
+    _, enrolled_delta_str, enrolled_up = _count_delta(apps_e, p_apps_e)
+
+    apps_per_week = round(apps_t / (range_days / 7), 1) if apps_t else None
+    p_apps_per_week = round(p_apps_t / (range_days / 7), 1) if p_apps_t else None
+    _, apw_delta_str, apw_up = _rate_delta(apps_per_week or 0.0, p_apps_per_week or 0.0)
+
+    # Lead KPI aggregates — branch gates all Lead queries
+    leads_t = leads_c = p_leads_t = p_leads_c = 0
+    lead_rate = lead_rate_basis = p_lead_rate = None
+    lead_rate_delta_str = lead_rate_up = None
+    leads_delta_str = leads_up = None
     if leads_enabled:
-        _lead_funnel_agg = Lead.objects.filter(school=school).aggregate(
+        la = Lead.objects.filter(school=school, created_at__gte=period_start).aggregate(
             total=Count("id"),
             converted=Count("id", filter=Q(converted_submission__isnull=False)),
-            active=Count(
-                "id",
-                filter=Q(converted_submission__isnull=True)
-                    & ~Q(status__in=[LEAD_STATUS_ENROLLED, LEAD_STATUS_LOST]),
-            ),
         )
-    _lt = _lead_funnel_agg["total"] if _lead_funnel_agg else None
-    _lc = _lead_funnel_agg["converted"] if _lead_funnel_agg else None
-    funnel_metrics = {
-        "leads": _lt,
-        "submissions": _st,
-        "enrolled": _se,
-        "lead_to_sub_rate": round(_lc / _lt * 100, 1) if (_lt and _lc is not None) else None,
-        "sub_to_enrolled_rate": round(_se / _st * 100, 1) if _st else None,
-    }
-
-    # sub_status_breakdown: all-time submission counts grouped by status
-    sub_status_breakdown = list(
-        Submission.objects.filter(school=school)
-        .values("status")
-        .annotate(count=Count("id"))
-        .order_by("-count")
-    )
-
-    # trend_stats: last 7 days vs previous 7 days (2–3 aggregate queries)
-    _rpt_now = timezone.now()
-    _7d_ago = _rpt_now - timedelta(days=7)
-    _14d_ago = _rpt_now - timedelta(days=14)
-
-    def _week_trend(this_val: int, last_val: int) -> dict:
-        delta = this_val - last_val
-        pct = round((delta / last_val) * 100) if last_val else None
-        return {"this": this_val, "last": last_val, "delta": delta, "pct": pct, "up": delta >= 0}
-
-    _this_sub = Submission.objects.filter(school=school, created_at__gte=_7d_ago).aggregate(
-        subs=Count("id"),
-        enrolled=Count("id", filter=Q(status=STATUS_ENROLLED)),
-    )
-    _last_sub = Submission.objects.filter(
-        school=school, created_at__range=(_14d_ago, _7d_ago)
-    ).aggregate(
-        subs=Count("id"),
-        enrolled=Count("id", filter=Q(status=STATUS_ENROLLED)),
-    )
-    _this_leads = (
-        Lead.objects.filter(school=school, created_at__gte=_7d_ago).count()
-        if leads_enabled else 0
-    )
-    _last_leads = (
-        Lead.objects.filter(school=school, created_at__range=(_14d_ago, _7d_ago)).count()
-        if leads_enabled else 0
-    )
-    trend_stats = {
-        "leads": _week_trend(_this_leads, _last_leads) if leads_enabled else None,
-        "submissions": _week_trend(_this_sub["subs"], _last_sub["subs"]),
-        "enrolled": _week_trend(_this_sub["enrolled"], _last_sub["enrolled"]),
-    }
-
-    # pipeline_gaps: "where you're losing people"
-    _lost_reasons = (
-        list(
-            Lead.objects.filter(school=school, status=LEAD_STATUS_LOST)
-            .exclude(lost_reason="")
-            .values("lost_reason")
-            .annotate(count=Count("id"))
-            .order_by("-count")
+        pla = Lead.objects.filter(school=school, created_at__range=(prev_start, period_start)).aggregate(
+            total=Count("id"),
+            converted=Count("id", filter=Q(converted_submission__isnull=False)),
         )
-        if leads_enabled else []
-    )
-    pipeline_gaps = {
-        "leads_not_converted": _lead_funnel_agg["active"] if _lead_funnel_agg else None,
-        "leads_not_converted_url": f"{leads_url}?filter=not_converted" if leads_enabled else None,
-        "lost_leads": (
-            Lead.objects.filter(school=school, status=LEAD_STATUS_LOST).count()
-            if leads_enabled else None
-        ),
-        "lost_reasons": _lost_reasons,
-        "subs_not_enrolled": Submission.objects.filter(school=school).exclude(
-            status__in=_TERMINAL_SUBMISSION_STATUSES
-        ).count(),
-        "subs_not_enrolled_url": f"{submissions_url}?filter=not_enrolled",
-    }
+        leads_t, leads_c = la["total"], la["converted"]
+        p_leads_t, p_leads_c = pla["total"], pla["converted"]
+        lead_rate, lead_rate_basis = _rate(leads_c, leads_t)
+        p_lead_rate, _ = _rate(p_leads_c, p_leads_t)
+        _, lead_rate_delta_str, lead_rate_up = _rate_delta(lead_rate, p_lead_rate)
+        _, leads_delta_str, leads_up = _count_delta(leads_t, p_leads_t)
 
-    # stale_counts: 5+ days no activity, excluding terminal statuses
-    _5d_ago = _rpt_now - timedelta(days=5)
-    stale_counts = {
-        "submissions": Submission.objects.filter(school=school, updated_at__lte=_5d_ago).exclude(
-            status__in=_TERMINAL_SUBMISSION_STATUSES
-        ).count(),
-        "submissions_url": f"{submissions_url}?filter=stale",
-    }
+    # ── §4.1: KPI tiles ───────────────────────────────────────────────────────
+    kpi_tiles = [
+        {
+            "label": "App → Enrolled",
+            "value": f"{app_rate}%" if app_rate is not None else None,
+            "basis": app_rate_basis,
+            "delta_str": app_rate_delta_str,
+            "delta_up": app_rate_up,
+        },
+    ]
     if leads_enabled:
-        stale_counts["leads"] = Lead.objects.filter(
-            school=school, updated_at__lte=_5d_ago
-        ).exclude(status__in=[LEAD_STATUS_ENROLLED, LEAD_STATUS_LOST]).count()
-        stale_counts["leads_url"] = f"{leads_url}?filter=stale"
+        kpi_tiles.append({
+            "label": "Lead → Application",
+            "value": f"{lead_rate}%" if lead_rate is not None else None,
+            "basis": lead_rate_basis,
+            "delta_str": lead_rate_delta_str,
+            "delta_up": lead_rate_up,
+        })
+    kpi_tiles.extend([
+        {
+            "label": "Applications / Week",
+            "value": str(apps_per_week) if apps_per_week is not None else None,
+            "basis": None,
+            "delta_str": apw_delta_str,
+            "delta_up": apw_up,
+        },
+        {
+            "label": "Avg Days to Enroll",
+            "value": None,
+            "basis": None,
+            "delta_str": None,
+            "delta_up": None,
+            "unavailable": True,
+        },
+    ])
+
+    # ── §4.2: Comparison table rows ───────────────────────────────────────────
+    comparison_rows = [
+        {
+            "label": "Applications received",
+            "this_val": apps_t,
+            "prev_val": p_apps_t,
+            "delta_str": apps_delta_str,
+            "delta_up": apps_up,
+        },
+    ]
+    if leads_enabled:
+        comparison_rows.append({
+            "label": "Leads captured",
+            "this_val": leads_t,
+            "prev_val": p_leads_t,
+            "delta_str": leads_delta_str,
+            "delta_up": leads_up,
+        })
+        comparison_rows.append({
+            "label": "Leads → Applications",
+            "this_val": f"{leads_c} of {leads_t}" if leads_t else "—",
+            "prev_val": f"{p_leads_c} of {p_leads_t}" if p_leads_t else "—",
+            "delta_str": None,
+            "delta_up": None,
+            "is_basis_row": True,
+        })
+    comparison_rows.extend([
+        {
+            "label": "Enrolled",
+            "this_val": apps_e,
+            "prev_val": p_apps_e,
+            "delta_str": enrolled_delta_str,
+            "delta_up": enrolled_up,
+        },
+        {
+            "label": "App → Enrolled Rate",
+            "this_val": f"{app_rate}%" if app_rate is not None else "—",
+            "prev_val": f"{p_app_rate}%" if p_app_rate is not None else "—",
+            "delta_str": app_rate_delta_str,
+            "delta_up": app_rate_up,
+            "is_rate_row": True,
+        },
+        {
+            "label": "Avg Days to Enroll",
+            "this_val": "—",
+            "prev_val": "—",
+            "delta_str": None,
+            "delta_up": None,
+            "unavailable": True,
+        },
+    ])
+
+    # ── §4.3: Time series — DB-side bucketing + Python gap-fill ──────────────
+    if range_days <= 30:
+        trunc_fn, ts_step, ts_bucket_label = TruncDay, timedelta(days=1), "day"
+    else:
+        trunc_fn, ts_step, ts_bucket_label = TruncWeek, timedelta(weeks=1), "week"
+
+    apps_ts_db = list(
+        apps_this_qs
+        .annotate(bucket=trunc_fn("created_at"))
+        .values("bucket")
+        .annotate(
+            apps=Count("id"),
+            enrolled=Count("id", filter=Q(status=STATUS_ENROLLED)),
+        )
+        .order_by("bucket")
+    )
+    apps_ts_map = {}
+    for row in apps_ts_db:
+        b = row["bucket"]
+        apps_ts_map[b.date() if hasattr(b, "date") else b] = row
+
+    leads_ts_map: dict = {}
+    if leads_enabled:
+        for row in (
+            Lead.objects.filter(school=school, created_at__gte=period_start)
+            .annotate(bucket=trunc_fn("created_at"))
+            .values("bucket")
+            .annotate(leads=Count("id"))
+            .order_by("bucket")
+        ):
+            b = row["bucket"]
+            leads_ts_map[b.date() if hasattr(b, "date") else b] = row["leads"]
+
+    # Gap-fill from period_start to today; for weekly buckets align to Monday
+    cur_date = period_start.date()
+    if ts_step == timedelta(weeks=1):
+        cur_date -= timedelta(days=cur_date.weekday())  # back to Monday
+    ts_data = []
+    while cur_date <= now.date():
+        row = apps_ts_map.get(cur_date, {})
+        ts_data.append({
+            "date": f"{cur_date.month}/{cur_date.day}",
+            "apps": row.get("apps", 0),
+            "enrolled": row.get("enrolled", 0),
+            "leads": leads_ts_map.get(cur_date, 0),
+        })
+        cur_date += ts_step
+
+    ts_max_y = max((r["apps"] for r in ts_data), default=0)
+    if leads_enabled:
+        ts_max_y = max(ts_max_y, max((r["leads"] for r in ts_data), default=0))
+    ts_max_y = max(ts_max_y, 1)
+
+    ts_json = json.dumps({
+        "data": ts_data,
+        "max_y": ts_max_y,
+        "leads_enabled": leads_enabled,
+    })
+
+    # ── §4.4: Enrollment Funnel (all-time) ────────────────────────────────────
+    all_apps_agg = Submission.objects.filter(school=school).aggregate(
+        total=Count("id"),
+        enrolled=Count("id", filter=Q(status=STATUS_ENROLLED)),
+    )
+    funnel_apps = all_apps_agg["total"]
+    funnel_enrolled = all_apps_agg["enrolled"]
+    funnel_leads = funnel_converted = None
+    if leads_enabled:
+        all_leads_agg = Lead.objects.filter(school=school).aggregate(
+            total=Count("id"),
+            converted=Count("id", filter=Q(converted_submission__isnull=False)),
+        )
+        funnel_leads = all_leads_agg["total"]
+        funnel_converted = all_leads_agg["converted"]
+
+    funnel_max = max(funnel_leads or 0, funnel_apps, 1)
+    funnel_l2a_rate, funnel_l2a_basis = (
+        _rate(funnel_converted, funnel_leads) if funnel_leads else (None, None)
+    )
+    funnel_a2e_rate, funnel_a2e_basis = _rate(funnel_enrolled, funnel_apps)
+    funnel = {
+        "leads": funnel_leads,
+        "leads_w": round((funnel_leads or 0) / funnel_max * 100),
+        "converted": funnel_converted,
+        "l2a_rate": funnel_l2a_rate,
+        "l2a_basis": funnel_l2a_basis,
+        "apps": funnel_apps,
+        "apps_w": round(funnel_apps / funnel_max * 100),
+        "a2e_rate": funnel_a2e_rate,
+        "a2e_basis": funnel_a2e_basis,
+        "enrolled": funnel_enrolled,
+        "enrolled_w": round(funnel_enrolled / funnel_max * 100) if funnel_apps else 0,
+    }
+
+    # ── §4.4: Program Mix (scoped to date range) ──────────────────────────────
+    prog_rows = list(apps_this_qs[:5000])
+    prog_strings = [
+        (s.program_display_name(label_map=label_map) or "").strip() or "(none)"
+        for s in prog_rows
+    ]
+    mix_counts = Counter(prog_strings)
+    mix_total = len(prog_strings)
+    program_mix = []
+    other_count = 0
+    for i, (prog_key, c) in enumerate(mix_counts.most_common()):
+        pct = round(c / mix_total * 100, 1) if mix_total else 0.0
+        lbl = "Unspecified" if prog_key == "(none)" else prog_key
+        if i < 4:
+            program_mix.append({"label": lbl, "count": c, "pct": pct, "bar_w": int(pct)})
+        else:
+            other_count += c
+    if other_count:
+        other_pct = round(other_count / mix_total * 100, 1) if mix_total else 0.0
+        program_mix.append({"label": "Other", "count": other_count, "pct": other_pct, "bar_w": int(other_pct)})
+
+    # ── §4.5: Lead Source Effectiveness (all-time, leads only) ───────────────
+    source_rows = None
+    if leads_enabled:
+        src_label_map = dict(LEAD_SOURCE_CHOICES)
+        source_rows = []
+        for row in (
+            Lead.objects.filter(school=school)
+            .values("source")
+            .annotate(
+                total=Count("id"),
+                converted=Count("id", filter=Q(converted_submission__isnull=False)),
+            )
+            .order_by("-total")
+        ):
+            rate, basis = _rate(row["converted"], row["total"])
+            source_rows.append({
+                "label": src_label_map.get(row["source"], row["source"].replace("_", " ").title()),
+                "total": row["total"],
+                "converted": row["converted"],
+                "rate": rate,
+                "basis": basis,
+                "bar_w": int(rate) if rate is not None else 0,
+            })
 
     base_ctx = _school_admin_base_context(request, school, "reports")
-    base_ctx.update(
-        {
-            "school_slug": school_slug,
-            "total": total,
-            "latest": timezone.localtime(latest) if latest else None,
-            "program_rows": program_rows,
-            "recent": recent,
-            "selected_program": selected_program,
-            "range_days": range_days,
-            "csv_export_enabled": csv_enabled,
-            "lead_stats": lead_stats,
-            "schedule_rows": schedule_rows,
-            "enrichment_rows": enrichment_rows,
-            "funnel_metrics": funnel_metrics,
-            "sub_status_breakdown": sub_status_breakdown,
-            "trend_stats": trend_stats,
-            "pipeline_gaps": pipeline_gaps,
-            "stale_counts": stale_counts,
-            "leads_url": leads_url,
-            "submissions_url": submissions_url,
-            "billing_url": reverse("school_billing", kwargs={"school_slug": school_slug}),
-            # True when leads source-conversion upgrade hint should appear
-            "leads_conversion_upgrade": (
-                leads_enabled
-                and not (school.features.leads_conversion_enabled or request.user.is_superuser)
-            ),
-        }
-    )
+    base_ctx.update({
+        "school_slug": school_slug,
+        "range_days": range_days,
+        "range_label": range_label,
+        "range_options": [(7, "7d"), (30, "30d"), (90, "90d")],
+        "period_start": timezone.localtime(period_start),
+        "period_end": timezone.localtime(now),
+        "kpi_tiles": kpi_tiles,
+        "comparison_rows": comparison_rows,
+        "ts_json": ts_json,
+        "ts_bucket_label": ts_bucket_label,
+        "funnel": funnel,
+        "program_mix": program_mix,
+        "program_mix_total": mix_total,
+        "source_rows": source_rows,
+        "leads_enabled": leads_enabled,
+        "csv_export_enabled": csv_enabled,
+        "billing_url": reverse("school_billing", kwargs={"school_slug": school_slug}),
+    })
     return render(request, "reports.html", base_ctx)

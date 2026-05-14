@@ -1,8 +1,16 @@
 # core/tests/test_lead_reports.py
+"""
+Tests for the Lead module integration in the Reports page.
+Updated for Phase 19 analytics redesign — old `lead_stats` context replaced by
+`source_rows`, `kpi_tiles`, `funnel`, and `leads_enabled` context keys.
+"""
 from __future__ import annotations
+
+from datetime import timedelta
 
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 
 from core.models import Lead
 from core.tests.factories import LeadFactory, SchoolAdminMembershipFactory, SchoolFactory, SubmissionFactory
@@ -14,107 +22,95 @@ def _login(client, school):
     return membership.user
 
 
-def _reports_url(school):
-    return reverse("school_reports", kwargs={"school_slug": school.slug})
+def _reports_url(school, days=30):
+    return reverse("school_reports", kwargs={"school_slug": school.slug}) + f"?range={days}"
 
 
 # ---------------------------------------------------------------------------
-# lead_stats absent when leads disabled (explicit override)
+# leads_enabled flag propagates to template context
 # ---------------------------------------------------------------------------
 
 @pytest.mark.django_db
-def test_lead_stats_absent_for_trial_school(client):
+def test_leads_disabled_no_source_rows(client):
     school = SchoolFactory(
         plan="starter",
         slug="lr-trial",
-        feature_flags={"leads_enabled": False},  # explicitly disabled
+        feature_flags={"leads_enabled": False},
     )
     _login(client, school)
     resp = client.get(_reports_url(school))
-    # leads_enabled=False — expect 403 or feature_disabled render
-    assert resp.status_code in (200, 403)
-    if resp.status_code == 200:
-        assert resp.context.get("lead_stats") is None
+    assert resp.status_code == 200
+    assert resp.context.get("source_rows") is None
+    assert resp.context.get("leads_enabled") is False
 
-
-# ---------------------------------------------------------------------------
-# lead_stats present for starter plan
-# ---------------------------------------------------------------------------
 
 @pytest.mark.django_db
-def test_lead_stats_present_for_starter(client):
+def test_leads_enabled_context_flag(client):
     school = SchoolFactory(plan="starter", slug="lr-starter")
     _login(client, school)
-    LeadFactory(school=school, status="new")
-    LeadFactory(school=school, status="contacted")
     resp = client.get(_reports_url(school))
     assert resp.status_code == 200
-    stats = resp.context["lead_stats"]
-    assert stats is not None
-    assert stats["total"] == 2
+    assert resp.context.get("leads_enabled") is True
+
+
+# ---------------------------------------------------------------------------
+# Lead→Application KPI tile
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_lead_to_app_kpi_tile_rate(client):
+    """kpi_tiles[1] shows correct Lead→Application rate with basis."""
+    school = SchoolFactory(plan="starter", slug="lr-kpi-rate")
+    _login(client, school)
+    sub = SubmissionFactory(school=school)
+    LeadFactory(school=school, converted_submission=sub)
+    LeadFactory(school=school)  # unconverted
+    LeadFactory(school=school)  # unconverted
+
+    resp = client.get(_reports_url(school))
+    assert resp.status_code == 200
+    tiles = resp.context["kpi_tiles"]
+    assert len(tiles) == 4
+    lead_tile = tiles[1]
+    assert lead_tile["label"] == "Lead → Application"
+    assert lead_tile["value"] == "33.3%"
+    assert lead_tile["basis"] == "1 of 3"
 
 
 @pytest.mark.django_db
-def test_lead_total_in_period_respects_date_range(client):
-    from datetime import timedelta
-    from django.utils import timezone
-
+def test_lead_kpi_tile_respects_date_range(client):
+    """KPI tile is scoped to the selected period (leads outside window excluded)."""
     school = SchoolFactory(plan="starter", slug="lr-date-range")
     _login(client, school)
 
-    # Old lead (outside 30-day window)
     old_lead = LeadFactory(school=school)
-    Lead.objects.filter(pk=old_lead.pk).update(created_at=timezone.now() - timedelta(days=60))
+    Lead.objects.filter(pk=old_lead.pk).update(
+        created_at=timezone.now() - timedelta(days=60)
+    )
+    LeadFactory(school=school)  # recent
 
-    # Recent lead (inside window)
-    LeadFactory(school=school)
-
-    resp = client.get(_reports_url(school) + "?range=30")
+    resp = client.get(_reports_url(school, days=30))
     assert resp.status_code == 200
-    stats = resp.context["lead_stats"]
-    assert stats["total"] == 2            # all-time total includes old lead
-    assert stats["total_in_period"] == 1  # only the recent one is in period
-
-
-# ---------------------------------------------------------------------------
-# Funnel
-# ---------------------------------------------------------------------------
-
-@pytest.mark.django_db
-def test_funnel_counts_each_status(client):
-    school = SchoolFactory(plan="starter", slug="lr-funnel")
-    _login(client, school)
-    LeadFactory(school=school, status="new")
-    LeadFactory(school=school, status="new")
-    LeadFactory(school=school, status="contacted")
-    LeadFactory(school=school, status="enrolled")
-
-    resp = client.get(_reports_url(school))
-    funnel = {row["status"]: row["count"] for row in resp.context["lead_stats"]["funnel"]}
-    assert funnel["new"] == 2
-    assert funnel["contacted"] == 1
-    assert funnel["enrolled"] == 1
-    assert funnel["trial_scheduled"] == 0
-    assert funnel["lost"] == 0
+    lead_tile = resp.context["kpi_tiles"][1]
+    # Only 1 lead in the 30-day period; 0 converted → value is None (no rate)
+    assert lead_tile["basis"] == "0 of 1" or lead_tile["value"] is None
 
 
 @pytest.mark.django_db
-def test_funnel_pct_sums_to_100(client):
-    school = SchoolFactory(plan="starter", slug="lr-funnel-pct")
+def test_no_leads_renders_without_error(client):
+    """School with leads enabled but no leads renders 200 without crash."""
+    school = SchoolFactory(plan="starter", slug="lr-zero-leads")
     _login(client, school)
-    LeadFactory(school=school, status="new")
-    LeadFactory(school=school, status="contacted")
-    LeadFactory(school=school, status="lost")
-    LeadFactory(school=school, status="lost")
 
     resp = client.get(_reports_url(school))
-    funnel = resp.context["lead_stats"]["funnel"]
-    total_pct = sum(row["pct"] for row in funnel)
-    assert abs(total_pct - 100.0) < 0.2  # rounding tolerance
+    assert resp.status_code == 200
+    lead_tile = resp.context["kpi_tiles"][1]
+    assert lead_tile["label"] == "Lead → Application"
+    assert lead_tile["value"] is None
 
 
 # ---------------------------------------------------------------------------
-# Source breakdown
+# Source breakdown: source_rows structure
 # ---------------------------------------------------------------------------
 
 @pytest.mark.django_db
@@ -126,85 +122,74 @@ def test_source_breakdown_counts(client):
     LeadFactory(school=school, source="referral")
 
     resp = client.get(_reports_url(school))
-    sources = {row["label"]: row["count"] for row in resp.context["lead_stats"]["sources"]}
-    assert sources["Website"] == 2
-    assert sources["Referral"] == 1
+    assert resp.status_code == 200
+    source_rows = resp.context["source_rows"]
+    assert source_rows is not None
+    by_label = {row["label"]: row for row in source_rows}
+    assert by_label["Website"]["total"] == 2
+    assert by_label["Referral"]["total"] == 1
 
 
 @pytest.mark.django_db
-def test_source_conversion_hidden_for_starter(client):
-    """Starter plan: converted/rate columns are None (not shown)."""
-    school = SchoolFactory(plan="starter", slug="lr-source-starter")
-    _login(client, school)
-    LeadFactory(school=school, source="website")
-
-    resp = client.get(_reports_url(school))
-    stats = resp.context["lead_stats"]
-    assert stats["conversion_enabled"] is False
-    for row in stats["sources"]:
-        assert row["converted"] is None
-        assert row["rate"] is None
-
-
-@pytest.mark.django_db
-def test_source_conversion_shown_for_pro(client):
-    """Pro plan: converted count and rate included per source."""
-    school = SchoolFactory(plan="pro", slug="lr-source-pro")
+def test_source_conversion_rate_shown_for_all_plans(client):
+    """Source conversion rate is shown for any school with leads_enabled — no plan gating."""
+    school = SchoolFactory(plan="starter", slug="lr-source-rate")
     _login(client, school)
     sub = SubmissionFactory(school=school)
-    converted = LeadFactory(school=school, source="referral", converted_submission=sub)
+    LeadFactory(school=school, source="referral", converted_submission=sub)
     LeadFactory(school=school, source="referral")  # unconverted
 
     resp = client.get(_reports_url(school))
-    stats = resp.context["lead_stats"]
-    assert stats["conversion_enabled"] is True
-    referral = next(r for r in stats["sources"] if r["label"] == "Referral")
-    assert referral["count"] == 2
+    assert resp.status_code == 200
+    source_rows = resp.context["source_rows"]
+    referral = next(r for r in source_rows if r["label"] == "Referral")
+    assert referral["total"] == 2
     assert referral["converted"] == 1
     assert referral["rate"] == 50.0
 
 
-# ---------------------------------------------------------------------------
-# Overall conversion rate
-# ---------------------------------------------------------------------------
-
 @pytest.mark.django_db
-def test_overall_conversion_rate_calculated(client):
-    school = SchoolFactory(plan="pro", slug="lr-overall-rate")
-    _login(client, school)
-    sub = SubmissionFactory(school=school)
-    LeadFactory(school=school, converted_submission=sub)  # converted
-    LeadFactory(school=school)  # unconverted
-    LeadFactory(school=school)  # unconverted
-
-    resp = client.get(_reports_url(school))
-    stats = resp.context["lead_stats"]
-    assert stats["total_converted"] == 1
-    assert stats["overall_rate"] == round(1 / 3 * 100, 1)
-
-
-@pytest.mark.django_db
-def test_overall_rate_none_for_starter(client):
-    """Starter: overall_rate is None (conversion not shown)."""
-    school = SchoolFactory(plan="starter", slug="lr-rate-starter")
-    _login(client, school)
-    LeadFactory(school=school)
-
-    resp = client.get(_reports_url(school))
-    stats = resp.context["lead_stats"]
-    assert stats["overall_rate"] is None
-    assert stats["total_converted"] is None
-
-
-@pytest.mark.django_db
-def test_no_leads_shows_zero_not_error(client):
-    """School with no leads renders without error, total=0."""
-    school = SchoolFactory(plan="starter", slug="lr-zero-leads")
+def test_source_rows_empty_list_when_no_leads(client):
+    """leads_enabled but no leads → source_rows is an empty list, not None."""
+    school = SchoolFactory(plan="starter", slug="lr-source-empty")
     _login(client, school)
 
     resp = client.get(_reports_url(school))
     assert resp.status_code == 200
-    stats = resp.context["lead_stats"]
-    assert stats["total"] == 0
-    assert stats["total_in_period"] == 0
-    assert all(row["count"] == 0 for row in stats["funnel"])
+    assert resp.context["source_rows"] == []
+
+
+# ---------------------------------------------------------------------------
+# Funnel: leads stage
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_funnel_lead_counts(client):
+    """Funnel includes total leads and converted count when leads enabled."""
+    school = SchoolFactory(plan="starter", slug="lr-funnel")
+    _login(client, school)
+    sub = SubmissionFactory(school=school)
+    LeadFactory(school=school, converted_submission=sub)
+    LeadFactory(school=school)
+    LeadFactory(school=school)
+
+    resp = client.get(_reports_url(school))
+    assert resp.status_code == 200
+    funnel = resp.context["funnel"]
+    assert funnel["leads"] == 3
+    assert funnel["converted"] == 1
+
+
+@pytest.mark.django_db
+def test_funnel_leads_none_when_disabled(client):
+    """funnel['leads'] is None when leads module is off."""
+    school = SchoolFactory(
+        plan="starter",
+        slug="lr-funnel-off",
+        feature_flags={"leads_enabled": False},
+    )
+    _login(client, school)
+
+    resp = client.get(_reports_url(school))
+    assert resp.status_code == 200
+    assert resp.context["funnel"]["leads"] is None

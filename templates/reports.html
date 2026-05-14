@@ -4,771 +4,268 @@
 {% block page_title %}Reports{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'forms.css' %}">
 <link rel="stylesheet" href="{% static 'admin/reports.css' %}">
+{% if school.theme_primary_color and school.features.custom_branding_enabled %}
+<style>:root { --rp-accent: {{ school.theme_primary_color }}; }</style>
+{% endif %}
 {% endblock %}
 
 {% block content %}
-    <div class="reports-page">
-      <div class="reports-topbar">
-        <div>
-          <h1 class="reports-title">Reports</h1>
-        </div>
-      </div>
+<div class="rp-page">
 
-      <!-- Funnel KPI bar (Phase 14) -->
-      {% if funnel_metrics %}
-      {% if leads_enabled %}
-      <!-- 4-col: leads schools get Total Leads + Lead→App Rate cards -->
-      <div class="reports-cards" style="margin-top:12px;grid-template-columns:repeat(4,minmax(0,1fr));">
-        <div class="reports-card">
-          <div class="reports-k">Total Leads</div>
-          <div class="reports-v">{{ funnel_metrics.leads }}</div>
-          <div class="reports-muted" style="margin-top:6px;">All time</div>
-        </div>
-        <div class="reports-card">
-          <div class="reports-k">Applications</div>
-          <div class="reports-v">{{ funnel_metrics.submissions }}</div>
-          <div class="reports-muted" style="margin-top:6px;">All time</div>
-        </div>
-        <div class="reports-card">
-          <div class="reports-k">Enrolled</div>
-          <div class="reports-v">{{ funnel_metrics.enrolled }}</div>
-          <div class="reports-muted" style="margin-top:6px;">All time</div>
-        </div>
-        <div class="reports-card">
-          <div class="reports-k">Lead &#8594; Application Rate</div>
-          <div class="reports-v">
-            {% if funnel_metrics.lead_to_sub_rate is not None %}{{ funnel_metrics.lead_to_sub_rate }}%{% else %}<span class="reports-muted">&#8212;</span>{% endif %}
-          </div>
-          <div class="reports-muted" style="margin-top:6px;">
-            {% if funnel_metrics.sub_to_enrolled_rate is not None %}{{ funnel_metrics.sub_to_enrolled_rate }}% app &#8594; enrolled{% else %}No enrollments yet{% endif %}
-          </div>
-        </div>
+  {# ── Header ──────────────────────────────────────────────────────────────── #}
+  <div class="rp-header">
+    <div>
+      <div class="rp-title-row">
+        <h1 class="rp-title">Reports</h1>
+        <span class="rp-badge">Analytics</span>
       </div>
+      <p class="rp-subtitle">Trends, rates and comparisons over time. To review individual submissions, use the Dashboard.</p>
+    </div>
+    <div class="rp-controls">
+      <div class="rp-range-btns">
+        {% for d, lbl in range_options %}
+        <a href="?range={{ d }}" class="rp-range-btn{% if range_days == d %} rp-range-btn--active{% endif %}">{{ lbl }}</a>
+        {% endfor %}
+      </div>
+      {% if csv_export_enabled %}
+      <a href="?range={{ range_days }}&export=1" class="rp-export-btn">&#8595; Export CSV</a>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── §4.1 KPI Row ──────────────────────────────────────────────────────── #}
+  <div class="rp-kpi-grid rp-kpi-grid--{{ kpi_tiles|length }}">
+    {% for tile in kpi_tiles %}
+    <div class="rp-kpi-card">
+      <div class="rp-kpi-label">{{ tile.label }}</div>
+      {% if tile.unavailable %}
+        <div class="rp-kpi-value rp-kpi-value--unavailable">— unavailable</div>
+        <div class="rp-kpi-meta">no enrollment timestamp</div>
+      {% elif tile.value %}
+        <div class="rp-kpi-value">{{ tile.value }}</div>
+        {% if tile.basis %}<div class="rp-kpi-basis">{{ tile.basis }}</div>{% endif %}
+        <div class="rp-kpi-meta">
+          {% if tile.delta_str %}
+            <span class="rp-inline-delta {% if tile.delta_up %}rp-delta--up{% else %}rp-delta--down{% endif %}">{{ tile.delta_str }}</span>
+            vs prior period &middot;
+          {% endif %}
+          {{ range_label }}
+        </div>
       {% else %}
-      <!-- 3-col: non-leads schools see Applications, Enrolled, App→Enrolled Rate only -->
-      <div class="reports-cards" style="margin-top:12px;grid-template-columns:repeat(3,minmax(0,1fr));">
-        <div class="reports-card">
-          <div class="reports-k">Applications</div>
-          <div class="reports-v">{{ funnel_metrics.submissions }}</div>
-          <div class="reports-muted" style="margin-top:6px;">All time</div>
-        </div>
-        <div class="reports-card">
-          <div class="reports-k">Enrolled</div>
-          <div class="reports-v">{{ funnel_metrics.enrolled }}</div>
-          <div class="reports-muted" style="margin-top:6px;">All time</div>
-        </div>
-        <div class="reports-card">
-          <div class="reports-k">App &#8594; Enrolled Rate</div>
-          <div class="reports-v">
-            {% if funnel_metrics.sub_to_enrolled_rate is not None %}{{ funnel_metrics.sub_to_enrolled_rate }}%{% else %}<span class="reports-muted">&#8212;</span>{% endif %}
-          </div>
-          <div class="reports-muted" style="margin-top:6px;">All time</div>
-        </div>
-      </div>
+        <div class="rp-kpi-value rp-kpi-value--empty">—</div>
+        <div class="rp-kpi-meta">no data yet &middot; {{ range_label }}</div>
       {% endif %}
-      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
 
-      <!-- Empty state: no submissions at all yet -->
-      {% if funnel_metrics and funnel_metrics.submissions == 0 %}
-      <div class="reports-card" style="margin-top:12px;text-align:center;padding:40px 24px;">
-        <div style="font-size:2rem;margin-bottom:12px;">📊</div>
-        <div style="font-size:16px;font-weight:700;color:var(--dash-text);margin-bottom:8px;">
-          No data yet
-        </div>
-        <p style="font-size:14px;color:var(--dash-muted);max-width:380px;margin:0 auto 20px;">
-          Reports appear once families start submitting applications.
-          Share your application link to get started.
-        </p>
-      </div>
-      {% endif %}
-
-      <!-- Filters row -->
-      <div class="reports-card" style="margin-top: 12px;">
-        <div class="reports-filterbar">
-          <div class="reports-k">Filters</div>
-
-          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <!-- Date range -->
-            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-              <span class="reports-muted" style="font-size:12px;">Date range:</span>
-
-              <a
-                class="reports-chip {% if range_days == 7 %}reports-chip--active{% endif %}"
-                href="?range=7{% if selected_program %}&program={{ selected_program|urlencode }}{% endif %}"
-              >
-                Last 7
-              </a>
-
-              <a
-                class="reports-chip {% if range_days == 30 %}reports-chip--active{% endif %}"
-                href="?range=30{% if selected_program %}&program={{ selected_program|urlencode }}{% endif %}"
-              >
-                Last 30
-              </a>
-
-              <a
-                class="reports-chip {% if range_days == 90 %}reports-chip--active{% endif %}"
-                href="?range=90{% if selected_program %}&program={{ selected_program|urlencode }}{% endif %}"
-              >
-                Last 90
-              </a>
-            </div>
-
-            <!-- Export -->
-            {% if csv_export_enabled %}
-            <a
-              class="reports-clearbtn"
-              href="?range={{ range_days }}{% if selected_program %}&program={{ selected_program|urlencode }}{% endif %}&export=1"
-            >
-              Export CSV
-            </a>
-            {% endif %}
-
-            <!-- Clear -->
-            {% if selected_program %}
-              <a class="reports-clearbtn" href="?range={{ range_days }}">Clear Program</a>
-            {% endif %}
-          </div>
-        </div>
-
-        {% if selected_program %}
-          <div class="reports-muted" style="margin-top:10px;">
-            Showing only
-            <span class="reports-pill">
-              {% if selected_program == "(none)" %}
-                No program selected
-              {% else %}
-                {{ selected_program }}
-              {% endif %}
-            </span>
-          </div>
-        {% endif %}
-      </div>
-
-      <div class="reports-cards">
-        <div class="reports-card">
-          <div class="reports-k">Total submissions</div>
-          <div class="reports-v">{{ total }}</div>
-          <div class="reports-muted" style="margin-top:6px;">Last {{ range_days }} days</div>
-        </div>
-
-        <div class="reports-card">
-          <div class="reports-k">Latest submission</div>
-          <div class="reports-v">
-            {% if latest %}
-              {{ latest|date:"M j, Y, g:i A" }}
+  {# ── §4.2 Comparison Table ──────────────────────────────────────────────── #}
+  <div class="rp-card">
+    <div class="rp-card-header">
+      <span class="rp-card-title">This Period vs Previous</span>
+      <span class="rp-scope-chip">{{ range_label }} vs prior {{ range_days }}-day period</span>
+    </div>
+    <table class="rp-table">
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>This period</th>
+          <th>Previous period</th>
+          <th>Change</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in comparison_rows %}
+        <tr{% if row.unavailable %} class="rp-row--muted"{% endif %}>
+          <td class="rp-col-metric">{{ row.label }}</td>
+          <td class="rp-tabnum">{{ row.this_val }}</td>
+          <td class="rp-tabnum rp-tabnum--prev">{{ row.prev_val }}</td>
+          <td>
+            {% if row.delta_str %}
+              <span class="rp-delta-badge {% if row.delta_up %}rp-delta-badge--up{% else %}rp-delta-badge--down{% endif %}">{{ row.delta_str }}</span>
             {% else %}
-              <span class="reports-muted">None yet</span>
+              <span class="rp-muted-dash">—</span>
             {% endif %}
-          </div>
-        </div>
-      </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
-      <!-- Program breakdown -->
-      <div class="reports-card">
-        <div class="reports-filterbar">
-          <div class="reports-k">Program breakdown</div>
-        </div>
-
-        {% if program_rows %}
-          <!-- Program chips (filter) -->
-          <div class="reports-chiprow">
-            {% for row in program_rows %}
-              <a
-                class="reports-chip {% if selected_program == row.raw %}reports-chip--active{% endif %}"
-                href="?range={{ range_days }}&program={{ row.raw|urlencode }}"
-              >
-                <span>{{ row.label }}</span>
-                <span class="reports-chipCount">{{ row.count }}</span>
-              </a>
-            {% endfor %}
-          </div>
-
-          <table class="reports-table">
-            <thead>
-              <tr>
-                <th>Program</th>
-                <th style="width:140px;">Count</th>
-                <th style="width:140px;">Share</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in program_rows %}
-                <tr>
-                  <td>
-                    {% if selected_program == row.raw %}
-                      <span class="reports-pill">{{ row.label }}</span>
-                    {% else %}
-                      {{ row.label }}
-                    {% endif %}
-                  </td>
-                  <td>{{ row.count }}</td>
-                  <td class="reports-muted">{{ row.pct }}%</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        {% else %}
-          <div class="reports-muted">No data yet for the selected range.</div>
-        {% endif %}
-      </div>
-
-      <!-- Charts -->
-    <div class="reports-charts">
-        <div class="reports-card">
-            <div class="reports-k" style="margin-bottom:10px;">Program popularity</div>
-            <div class="reports-chartWrap">
-            <canvas id="programBarChart"></canvas>
-            </div>
-        </div>
-
-        <div class="reports-card">
-            <div class="reports-k" style="margin-bottom:10px;">Program share</div>
-            <div class="reports-chartWrap">
-            <canvas id="programDonutChart"></canvas>
-            </div>
-        </div>
+  {# ── §4.3 Time Series ───────────────────────────────────────────────────── #}
+  <div class="rp-card rp-card--chart">
+    <div class="rp-card-header">
+      <span class="rp-card-title">Applications &amp; Enrollments Over Time</span>
+      <span class="rp-scope-chip">{{ range_label }} &middot; by {{ ts_bucket_label }}</span>
     </div>
-
-      <!-- Schedule Preferences breakdown -->
-      {% if schedule_rows %}
-      <div class="reports-card" style="margin-top:12px;">
-        <div class="reports-filterbar">
-          <div class="reports-k">Schedule preferences</div>
-          <div class="reports-muted" style="font-size:12px;">% of submissions with a schedule preference</div>
-        </div>
-        <table class="reports-table">
-          <thead>
-            <tr>
-              <th>Schedule</th>
-              <th style="width:140px;">Count</th>
-              <th style="width:140px;">Share</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in schedule_rows %}
-            <tr>
-              <td>{{ row.label }}</td>
-              <td>{{ row.count }}</td>
-              <td class="reports-muted">{{ row.pct }}%</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% endif %}
-
-      <!-- Enrichment Interests breakdown -->
-      {% if enrichment_rows %}
-      <div class="reports-card" style="margin-top:12px;">
-        <div class="reports-filterbar">
-          <div class="reports-k">Enrichment interests</div>
-          <div class="reports-muted" style="font-size:12px;">% of total selections (multi-select — families may choose multiple)</div>
-        </div>
-        <table class="reports-table">
-          <thead>
-            <tr>
-              <th>Activity</th>
-              <th style="width:140px;">Selections</th>
-              <th style="width:140px;">Share</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in enrichment_rows %}
-            <tr>
-              <td>{{ row.label }}</td>
-              <td>{{ row.count }}</td>
-              <td class="reports-muted">{{ row.pct }}%</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% endif %}
-
-      <!-- Application Status Breakdown (Phase 14) -->
-      {% if sub_status_breakdown %}
-      <div class="reports-card" style="margin-top:12px;">
-        <div class="reports-filterbar">
-          <div class="reports-k">Applications by Status</div>
-        </div>
-        <table class="reports-table">
-          <thead>
-            <tr>
-              <th>Status</th>
-              <th style="width:140px;">Count</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in sub_status_breakdown %}
-            <tr>
-              <td>{{ row.status|default:"New" }}</td>
-              <td>{{ row.count }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% endif %}
-
-      <!-- 7-Day Trend (Phase 14) -->
-      {% if trend_stats %}
-      <div class="reports-card" style="margin-top:12px;">
-        <div class="reports-filterbar">
-          <div class="reports-k">Last 7 Days vs Previous 7 Days</div>
-        </div>
-        <table class="reports-table">
-          <thead>
-            <tr>
-              <th>Metric</th>
-              <th style="width:120px;">This week</th>
-              <th style="width:120px;">Last week</th>
-              <th style="width:120px;">Change</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% if trend_stats.leads %}
-            <tr>
-              <td>Leads</td>
-              <td>{{ trend_stats.leads.this }}</td>
-              <td>{{ trend_stats.leads.last }}</td>
-              <td>
-                {% if trend_stats.leads.pct is not None %}
-                  <span style="color:{% if trend_stats.leads.up %}#16a34a{% else %}#dc2626{% endif %}">
-                    {% if trend_stats.leads.up %}+{% endif %}{{ trend_stats.leads.pct }}%
-                  </span>
-                {% else %}—{% endif %}
-              </td>
-            </tr>
-            {% endif %}
-            <tr>
-              <td>Applications</td>
-              <td>{{ trend_stats.submissions.this }}</td>
-              <td>{{ trend_stats.submissions.last }}</td>
-              <td>
-                {% if trend_stats.submissions.pct is not None %}
-                  <span style="color:{% if trend_stats.submissions.up %}#16a34a{% else %}#dc2626{% endif %}">
-                    {% if trend_stats.submissions.up %}+{% endif %}{{ trend_stats.submissions.pct }}%
-                  </span>
-                {% else %}—{% endif %}
-              </td>
-            </tr>
-            <tr>
-              <td>Enrolled</td>
-              <td>{{ trend_stats.enrolled.this }}</td>
-              <td>{{ trend_stats.enrolled.last }}</td>
-              <td>
-                {% if trend_stats.enrolled.pct is not None %}
-                  <span style="color:{% if trend_stats.enrolled.up %}#16a34a{% else %}#dc2626{% endif %}">
-                    {% if trend_stats.enrolled.up %}+{% endif %}{{ trend_stats.enrolled.pct }}%
-                  </span>
-                {% else %}—{% endif %}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      {% endif %}
-
-      <!-- Lead Pipeline section -->
-      {% if lead_stats %}
-      <div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--border,#e5e7eb);">
-        <h2 style="font-size:18px;font-weight:700;margin:0 0 4px;">Lead Pipeline</h2>
-        <div class="reports-muted" style="font-size:13px;margin-bottom:14px;">All leads captured for this school (all-time pipeline)</div>
-      </div>
-
-      <!-- Lead KPI cards -->
-      {% if lead_stats.conversion_enabled %}
-      <div class="reports-cards" style="grid-template-columns:repeat(3,minmax(0,1fr));">
-      {% else %}
-      <div class="reports-cards">
-      {% endif %}
-        <div class="reports-card">
-          <div class="reports-k">New leads</div>
-          <div class="reports-v">{{ lead_stats.total_in_period }}</div>
-          <div class="reports-muted" style="margin-top:6px;">Last {{ range_days }} days</div>
-        </div>
-        <div class="reports-card">
-          <div class="reports-k">Total pipeline</div>
-          <div class="reports-v">{{ lead_stats.total }}</div>
-          <div class="reports-muted" style="margin-top:6px;">All time</div>
-        </div>
-        {% if lead_stats.conversion_enabled %}
-        <div class="reports-card">
-          <div class="reports-k">Conversion rate</div>
-          <div class="reports-v">
-            {% if lead_stats.total %}{{ lead_stats.overall_rate }}%{% else %}<span class="reports-muted">—</span>{% endif %}
-          </div>
-          <div class="reports-muted" style="margin-top:6px;">
-            {% if lead_stats.total_converted %}{{ lead_stats.total_converted }} converted{% else %}No conversions yet{% endif %}
-          </div>
-        </div>
-        {% endif %}
-      </div>
-
-      <!-- Pipeline by stage -->
-      <div class="reports-card" style="margin-top:12px;">
-        <div class="reports-filterbar">
-          <div class="reports-k">Pipeline by stage</div>
-        </div>
-        {% if lead_stats.total %}
-        <table class="reports-table">
-          <thead>
-            <tr>
-              <th>Stage</th>
-              <th style="width:120px;">Count</th>
-              <th style="width:120px;">Share</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in lead_stats.funnel %}
-            <tr>
-              <td>{{ row.label }}</td>
-              <td>{{ row.count }}</td>
-              <td class="reports-muted">{{ row.pct }}%</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        {% else %}
-        <div class="reports-muted">No leads yet.</div>
-        {% endif %}
-      </div>
-
-      <!-- Leads by source -->
-      {% if lead_stats.sources %}
-      <div class="reports-card" style="margin-top:12px;">
-        <div class="reports-filterbar">
-          <div class="reports-k">Leads by source{% if lead_stats.conversion_enabled %} &amp; conversion{% endif %}</div>
-        </div>
-        <table class="reports-table">
-          <thead>
-            <tr>
-              <th>Source</th>
-              <th style="width:100px;">Leads</th>
-              {% if lead_stats.conversion_enabled %}
-              <th style="width:110px;">Converted</th>
-              <th style="width:100px;">Rate</th>
-              {% endif %}
-            </tr>
-          </thead>
-          <tbody>
-            {% for row in lead_stats.sources %}
-            <tr>
-              <td>{{ row.label }}</td>
-              <td>{{ row.count }}</td>
-              {% if lead_stats.conversion_enabled %}
-              <td>{{ row.converted }}</td>
-              <td class="reports-muted">{{ row.rate }}%</td>
-              {% endif %}
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-        {% if leads_conversion_upgrade %}
-        <p style="margin:8px 0 0;font-size:13px;color:#6b7280;">
-          Source conversion rates are available on the <strong>Pro</strong> plan.
-          {% if billing_url %}<a href="{{ billing_url }}" style="color:#2563eb;">Upgrade &rarr;</a>{% endif %}
-        </p>
-        {% endif %}
-      </div>
-      {% endif %}
-
-      <!-- Lead pipeline charts -->
-      {% if lead_stats.total %}
-      <div class="reports-charts" style="margin-top:12px;">
-        <div class="reports-card">
-          <div class="reports-k" style="margin-bottom:10px;">Pipeline by stage</div>
-          <div class="reports-chartWrap">
-            <canvas id="leadStageBarChart"></canvas>
-          </div>
-        </div>
-        <div class="reports-card">
-          <div class="reports-k" style="margin-bottom:10px;">Leads by source</div>
-          <div class="reports-chartWrap">
-            <canvas id="leadSourceDonutChart"></canvas>
-          </div>
-        </div>
-      </div>
-      {% endif %}
-
-      <!-- Conversion chart (Pro+) -->
-      {% if lead_stats.conversion_enabled and lead_stats.total %}
-      <div class="reports-card" style="margin-top:12px;">
-        <div class="reports-k" style="margin-bottom:10px;">Lead conversion by source</div>
-        <div class="reports-chartWrap">
-          <canvas id="leadConversionChart"></canvas>
-        </div>
-      </div>
-      {% endif %}
-      {% endif %}
-
-      <!-- Pipeline Gaps (Phase 14) -->
-      {% if pipeline_gaps %}
-      <div class="reports-card" style="margin-top:12px;">
-        <div class="reports-filterbar">
-          <div class="reports-k">Pipeline Gaps</div>
-        </div>
-        <table class="reports-table">
-          <tbody>
-            {% if pipeline_gaps.leads_not_converted is not None %}
-            <tr>
-              <td>Active leads not yet converted to applications</td>
-              <td style="width:80px;"><strong>{{ pipeline_gaps.leads_not_converted }}</strong></td>
-              <td style="width:80px;"><a href="{{ pipeline_gaps.leads_not_converted_url }}" class="reports-muted">View →</a></td>
-            </tr>
-            {% endif %}
-            <tr>
-              <td>Applications not yet enrolled or declined</td>
-              <td style="width:80px;"><strong>{{ pipeline_gaps.subs_not_enrolled }}</strong></td>
-              <td style="width:80px;"><a href="{{ pipeline_gaps.subs_not_enrolled_url }}" class="reports-muted">View →</a></td>
-            </tr>
-            {% if pipeline_gaps.lost_leads %}
-            <tr>
-              <td>Lost leads (all time)</td>
-              <td style="width:80px;"><strong>{{ pipeline_gaps.lost_leads }}</strong></td>
-              <td style="width:80px;"></td>
-            </tr>
-            {% endif %}
-          </tbody>
-        </table>
-        {% if pipeline_gaps.lost_reasons %}
-        <div style="margin-top:12px;">
-          <div class="reports-muted" style="font-size:12px;margin-bottom:6px;">Lost lead reasons</div>
-          <table class="reports-table">
-            <tbody>
-              {% for r in pipeline_gaps.lost_reasons %}
-              <tr>
-                <td>{{ r.lost_reason }}</td>
-                <td style="width:80px;">{{ r.count }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        {% endif %}
-      </div>
-      {% endif %}
-
-      <!-- Stale Pipeline (Phase 14) -->
-      {% if stale_counts.submissions or stale_counts.leads %}
-      <div class="reports-card" style="margin-top:12px;">
-        <div class="reports-filterbar">
-          <div class="reports-k">Stale Pipeline <span class="reports-muted" style="font-size:12px;font-weight:400;">(5+ days, no activity)</span></div>
-        </div>
-        <table class="reports-table">
-          <tbody>
-            {% if stale_counts.leads %}
-            <tr>
-              <td>Leads with no recent activity</td>
-              <td style="width:80px;"><strong>{{ stale_counts.leads }}</strong></td>
-              <td style="width:80px;"><a href="{{ stale_counts.leads_url }}" class="reports-muted">View →</a></td>
-            </tr>
-            {% endif %}
-            <tr>
-              <td>Applications with no recent activity</td>
-              <td style="width:80px;"><strong>{{ stale_counts.submissions }}</strong></td>
-              <td style="width:80px;"><a href="{{ stale_counts.submissions_url }}" class="reports-muted">View →</a></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      {% endif %}
-
-      <!-- Recent submissions -->
-      <div class="reports-card" style="margin-top: 12px;">
-        <div class="reports-k" style="margin-bottom:10px;">Recent submissions</div>
-        {% if recent %}
-          <table class="reports-table">
-            <thead>
-              <tr>
-                <th style="width:180px;">Created</th>
-                <th>Student / Applicant</th>
-                <th style="width:160px;">Status</th>
-                <th>Program</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for r in recent %}
-                <tr>
-                  <td class="reports-muted">{{ r.created_at|date:"M j, Y, g:i A" }}</td>
-                  <td>
-                    {% if r.admin_url %}
-                      <a href="{{ r.admin_url }}">{{ r.student|default:"" }}</a>
-                    {% else %}
-                      {{ r.student|default:"" }}
-                    {% endif %}
-                  </td>
-                  <td class="reports-muted">{{ r.status|default:"New" }}</td>
-                  <td class="reports-muted">{{ r.program|default:"" }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        {% else %}
-          <div class="reports-muted">No submissions yet for the selected filters.</div>
-        {% endif %}
-      </div>
+    <div class="rp-chart-legend">
+      <span class="rp-legend-item"><span class="rp-legend-dot rp-legend-dot--apps"></span>Applications</span>
+      <span class="rp-legend-item"><span class="rp-legend-dot rp-legend-dot--enrolled"></span>Enrolled</span>
+      {% if leads_enabled %}<span class="rp-legend-item"><span class="rp-legend-dot rp-legend-dot--leads"></span>Leads</span>{% endif %}
     </div>
-    <script src="{% static 'vendor/chart.umd.min.js' %}"></script>
-    {{ program_rows|json_script:"program-rows-data" }}
-
-        <script>
-        (function () {
-            const el = document.getElementById("program-rows-data");
-            if (!el) return;
-
-            let rows = [];
-            try {
-            rows = JSON.parse(el.textContent || "[]");
-            } catch (e) {
-            return;
-            }
-
-            // rows look like: { label, raw, count, pct }
-            const labels = rows.map(r => r.label);
-            const counts = rows.map(r => Number(r.count || 0));
-
-            // Bar chart (horizontal)
-            const barCanvas = document.getElementById("programBarChart");
-            if (barCanvas && labels.length) {
-            new Chart(barCanvas, {
-                type: "bar",
-                data: {
-                labels,
-                datasets: [{ label: "Submissions", data: counts }]
-                },
-                options: {
-                indexAxis: "y",
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { enabled: true }
-                },
-                scales: {
-                    x: { beginAtZero: true }
-                }
-                }
-            });
-            }
-
-            // Donut chart
-            const donutCanvas = document.getElementById("programDonutChart");
-            if (donutCanvas && labels.length) {
-            new Chart(donutCanvas, {
-                type: "doughnut",
-                data: {
-                labels,
-                datasets: [{ data: counts }]
-                },
-                options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: "bottom" },
-                    tooltip: { enabled: true }
-                },
-                cutout: "60%"
-                }
-            });
-            }
-        })();
-        </script>
-
-    {% if lead_stats %}
-    {{ lead_stats.funnel|json_script:"lead-funnel-data" }}
-    {{ lead_stats.sources|json_script:"lead-sources-data" }}
-    {% endif %}
+    <div class="rp-chart-wrap">
+      <svg id="rp-ts-chart" viewBox="0 0 900 180" preserveAspectRatio="none" style="width:100%;height:200px;display:block;overflow:visible;"></svg>
+    </div>
+    <script id="rp-ts-data" type="application/json">{{ ts_json|safe }}</script>
     <script>
-    (function () {
-        const funnelEl = document.getElementById("lead-funnel-data");
-        if (funnelEl) {
-            let funnel = [];
-            try { funnel = JSON.parse(funnelEl.textContent || "[]"); } catch (e) {}
-            const stageLabels = funnel.map(r => r.label);
-            const stageCounts = funnel.map(r => Number(r.count || 0));
-            const stageCanvas = document.getElementById("leadStageBarChart");
-            if (stageCanvas && stageLabels.length) {
-                new Chart(stageCanvas, {
-                    type: "bar",
-                    data: {
-                        labels: stageLabels,
-                        datasets: [{ label: "Leads", data: stageCounts }]
-                    },
-                    options: {
-                        indexAxis: "y",
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false }, tooltip: { enabled: true } },
-                        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
-                    }
-                });
-            }
-        }
-
-        const sourcesEl = document.getElementById("lead-sources-data");
-        if (sourcesEl) {
-            let sources = [];
-            try { sources = JSON.parse(sourcesEl.textContent || "[]"); } catch (e) {}
-            const sourceLabels = sources.map(r => r.label);
-            const sourceCounts = sources.map(r => Number(r.count || 0));
-
-            // Donut: leads by source (volume only)
-            const sourceCanvas = document.getElementById("leadSourceDonutChart");
-            if (sourceCanvas && sourceLabels.length) {
-                new Chart(sourceCanvas, {
-                    type: "doughnut",
-                    data: {
-                        labels: sourceLabels,
-                        datasets: [{ data: sourceCounts }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: "bottom" }, tooltip: { enabled: true } },
-                        cutout: "60%"
-                    }
-                });
-            }
-
-            // Stacked bar: conversion by source (Pro+)
-            const convCanvas = document.getElementById("leadConversionChart");
-            if (convCanvas && sourceLabels.length) {
-                const converted = sources.map(r => Number(r.converted || 0));
-                const notConverted = sources.map((r, i) => sourceCounts[i] - converted[i]);
-                new Chart(convCanvas, {
-                    type: "bar",
-                    data: {
-                        labels: sourceLabels,
-                        datasets: [
-                            {
-                                label: "Converted",
-                                data: converted,
-                                backgroundColor: "rgba(22, 163, 74, 0.75)"
-                            },
-                            {
-                                label: "Not converted",
-                                data: notConverted,
-                                backgroundColor: "rgba(209, 213, 219, 0.75)"
-                            }
-                        ]
-                    },
-                    options: {
-                        indexAxis: "y",
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { position: "bottom" }, tooltip: { enabled: true } },
-                        scales: {
-                            x: { stacked: true, beginAtZero: true, ticks: { precision: 0 } },
-                            y: { stacked: true }
-                        }
-                    }
-                });
-            }
-        }
+    (function(){
+      var el=document.getElementById('rp-ts-data');
+      if(!el)return;
+      var p=JSON.parse(el.textContent),d=p.data,M=p.max_y,L=p.leads_enabled;
+      var svg=document.getElementById('rp-ts-chart');
+      if(!svg||!d.length)return;
+      var W=900,H=180,PL=36,PR=10,PT=10,PB=26,cw=W-PL-PR,ch=H-PT-PB,n=d.length;
+      function px(i){return PL+(i/Math.max(n-1,1))*cw;}
+      function py(v){return PT+ch*(1-(v/M));}
+      function ns(t){return document.createElementNS('http://www.w3.org/2000/svg',t);}
+      function attr(e,a){for(var k in a)e.setAttribute(k,a[k]);return e;}
+      // Grid lines
+      [M,Math.round(M/2),0].forEach(function(v,i){
+        var y=py(v);
+        svg.appendChild(attr(ns('line'),{x1:PL,y1:y,x2:W-PR,y2:y,stroke:i===2?'#e5e7eb':'#f3f4f6','stroke-width':'1'}));
+        var t=attr(ns('text'),{'x':PL-4,'y':y+3.5,'text-anchor':'end','font-size':'10','fill':'#9ca3af'});
+        t.textContent=v;svg.appendChild(t);
+      });
+      // X-axis labels (first, mid, last)
+      [0,Math.floor((n-1)/2),n-1].forEach(function(i){
+        if(i>=d.length)return;
+        var t=attr(ns('text'),{'x':px(i).toFixed(1),'y':H-4,'text-anchor':'middle','font-size':'10','fill':'#9ca3af'});
+        t.textContent=d[i].date;svg.appendChild(t);
+      });
+      // Series helper
+      function polyline(vals,color,dash){
+        var pts=vals.map(function(v,i){return px(i).toFixed(1)+','+py(v).toFixed(1);}).join(' ');
+        var e=attr(ns('polyline'),{points:pts,fill:'none',stroke:color,'stroke-width':'2.5','stroke-linejoin':'round','stroke-linecap':'round'});
+        if(dash)e.setAttribute('stroke-dasharray',dash);
+        return e;
+      }
+      if(L)svg.appendChild(polyline(d.map(function(r){return r.leads;}),'#94a3b8','5 3'));
+      svg.appendChild(polyline(d.map(function(r){return r.apps;}),'#3b82f6',null));
+      svg.appendChild(polyline(d.map(function(r){return r.enrolled;}),'#10b981','6 3'));
     })();
     </script>
+  </div>
+
+  {# ── §4.4 Funnel + Program Mix ──────────────────────────────────────────── #}
+  <div class="rp-two-col">
+
+    {# Funnel — all-time #}
+    <div class="rp-card rp-two-col__item">
+      <div class="rp-card-header">
+        <span class="rp-card-title">Enrollment Funnel</span>
+        <span class="rp-scope-chip rp-scope-chip--alltime">All time</span>
+      </div>
+
+      {% if leads_enabled and funnel.leads %}
+      <div class="rp-funnel-stage">
+        <div class="rp-funnel-stage-header">
+          <span>Leads captured</span>
+          <span class="rp-tabnum">{{ funnel.leads }}</span>
+        </div>
+        <div class="rp-bar-track rp-bar-track--funnel">
+          <div class="rp-funnel-fill rp-funnel-fill--leads" style="width:{{ funnel.leads_w }}%"></div>
+        </div>
+      </div>
+      <div class="rp-funnel-connector">
+        &#x21b3; of which
+        {% if funnel.l2a_basis %}
+          <strong>{{ funnel.l2a_basis }}</strong> became applications ({{ funnel.l2a_rate }}%)
+        {% else %}
+          none converted yet
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <div class="rp-funnel-stage">
+        <div class="rp-funnel-stage-header">
+          <span>Applications received</span>
+          <span class="rp-tabnum">{{ funnel.apps }}</span>
+        </div>
+        <div class="rp-bar-track rp-bar-track--funnel">
+          <div class="rp-funnel-fill rp-funnel-fill--apps" style="width:{{ funnel.apps_w }}%"></div>
+        </div>
+      </div>
+      <div class="rp-funnel-connector">
+        &#x21b3; of which
+        {% if funnel.a2e_basis %}
+          <strong>{{ funnel.a2e_basis }}</strong> enrolled ({{ funnel.a2e_rate }}%)
+        {% else %}
+          none enrolled yet
+        {% endif %}
+      </div>
+
+      <div class="rp-funnel-stage">
+        <div class="rp-funnel-stage-header">
+          <span>Enrolled</span>
+          <span class="rp-tabnum">{{ funnel.enrolled }}</span>
+        </div>
+        <div class="rp-bar-track rp-bar-track--funnel">
+          <div class="rp-funnel-fill rp-funnel-fill--enrolled" style="width:{{ funnel.enrolled_w }}%"></div>
+        </div>
+      </div>
+
+      {% if leads_enabled %}
+      <p class="rp-funnel-note">
+        Leads and applications are counted independently &#8212; a lead may or may not become an application, and applications may exist without a prior lead record.
+      </p>
+      {% endif %}
+    </div>
+
+    {# Program Mix — scoped to date range #}
+    <div class="rp-card rp-two-col__item">
+      <div class="rp-card-header">
+        <span class="rp-card-title">Program Mix</span>
+        <span class="rp-scope-chip">{{ range_label }}</span>
+      </div>
+      {% if program_mix %}
+        {% for row in program_mix %}
+        <div class="rp-bar-row">
+          <div class="rp-bar-label" title="{{ row.label }}">{{ row.label }}</div>
+          <div class="rp-bar-track">
+            <div class="rp-bar-fill" style="width:{% if row.bar_w %}{{ row.bar_w }}{% else %}1{% endif %}%"></div>
+          </div>
+          <div class="rp-bar-stat">{{ row.count }}<span class="rp-bar-pct"> ({{ row.pct }}%)</span></div>
+        </div>
+        {% endfor %}
+        <p class="rp-card-note">{{ program_mix_total }} application{{ program_mix_total|pluralize }} &middot; {{ range_label }}</p>
+      {% else %}
+        <p class="rp-empty-state">No applications in this period.</p>
+      {% endif %}
+    </div>
+
+  </div>
+
+  {# ── §4.5 Lead Source Effectiveness ────────────────────────────────────── #}
+  {% if source_rows %}
+  <div class="rp-card">
+    <div class="rp-card-header">
+      <span class="rp-card-title">Lead Source Effectiveness</span>
+      <span class="rp-scope-chip rp-scope-chip--alltime">All time &middot; bar width = conversion rate</span>
+    </div>
+    {% if source_rows %}
+      {% for row in source_rows %}
+      <div class="rp-bar-row rp-bar-row--source">
+        <div class="rp-bar-label" title="{{ row.label }}">{{ row.label }}</div>
+        <div class="rp-bar-track">
+          <div class="rp-bar-fill rp-bar-fill--lead" style="width:{% if row.bar_w %}{{ row.bar_w }}{% else %}1{% endif %}%"></div>
+        </div>
+        <div class="rp-bar-stat">
+          {% if row.rate is not None %}
+            {{ row.rate }}%<span class="rp-bar-pct"> ({{ row.basis }})</span>
+          {% else %}
+            —
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+      <p class="rp-card-note">&#8220;Converted&#8221; = lead submitted an application. {{ source_rows|length }} source{{ source_rows|length|pluralize }} tracked.</p>
+    {% else %}
+      <p class="rp-empty-state">No lead data yet.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>{# .rp-page #}
 {% endblock %}

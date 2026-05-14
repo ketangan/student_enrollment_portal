@@ -58,9 +58,9 @@ def test_school_reports_metrics_and_filters(client, monkeypatch, db):
     url = reverse("school_reports", kwargs={"school_slug": school.slug})
     resp = client.get(url)
     assert resp.status_code == 200
-    # context should have totals and program_rows
-    assert resp.context["total"] == 3
-    assert isinstance(resp.context["program_rows"], list)
+    # context should have comparison_rows (period totals) and program_mix
+    assert resp.context["comparison_rows"][0]["this_val"] == 3
+    assert isinstance(resp.context["program_mix"], list)
 
 
 def test_submission_admin_export_csv_and_search(db):

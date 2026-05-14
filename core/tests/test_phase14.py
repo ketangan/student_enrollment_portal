@@ -63,14 +63,14 @@ def _dashboard_url(school):
     return reverse("school_dashboard", kwargs={"school_slug": school.slug})
 
 
-# ── funnel_metrics ────────────────────────────────────────────────────────────
+# ── funnel context (all-time enrollment funnel) ───────────────────────────────
 
 
 @pytest.mark.django_db
 def test_funnel_metrics_correct(client):
     """
     10 leads; 4 converted; 2 submissions with status=Enrolled.
-    lead_to_sub_rate = 40.0, sub_to_enrolled_rate = 40.0 (2 enrolled / 5 total subs).
+    l2a_rate = 40.0; a2e_rate is computed from all subs.
     """
     school = _full_school()
     user = _school_admin(school)
@@ -93,21 +93,17 @@ def test_funnel_metrics_correct(client):
     resp = client.get(_reports_url(school))
     assert resp.status_code == 200
 
-    ctx = resp.context
-    fm = ctx["funnel_metrics"]
-    assert fm is not None
-    assert fm["leads"] == 10
+    funnel = resp.context["funnel"]
+    assert funnel["leads"] == 10
     # rate = 4/10 * 100 = 40.0
-    assert fm["lead_to_sub_rate"] == 40.0
-    # enrolled = 2 out of 5 + 4 new subs = 9 total, but only the 5 plain subs are
-    # involved in status; the 4 conversion subs are separate SubmissionFactory objs.
-    # We just check the rate is numeric and between 0–100.
-    assert fm["sub_to_enrolled_rate"] is None or isinstance(fm["sub_to_enrolled_rate"], float)
+    assert funnel["l2a_rate"] == 40.0
+    # enrolled = 2 out of (5 base + 4 conversion) = 9 total subs; check it's numeric
+    assert funnel["a2e_rate"] is None or isinstance(funnel["a2e_rate"], float)
 
 
 @pytest.mark.django_db
 def test_funnel_metrics_zero_leads(client):
-    """No leads → lead_to_sub_rate is None (no ZeroDivisionError). Page renders 200."""
+    """No leads → l2a_rate is None (no ZeroDivisionError). Page renders 200."""
     school = _full_school()
     user = _school_admin(school)
     client.force_login(user)
@@ -115,15 +111,14 @@ def test_funnel_metrics_zero_leads(client):
     resp = client.get(_reports_url(school))
     assert resp.status_code == 200
 
-    fm = resp.context["funnel_metrics"]
-    assert fm is not None
-    assert fm["lead_to_sub_rate"] is None
-    assert fm["leads"] == 0
+    funnel = resp.context["funnel"]
+    assert funnel["l2a_rate"] is None
+    assert funnel["leads"] == 0
 
 
 @pytest.mark.django_db
 def test_funnel_metrics_zero_submissions(client):
-    """No submissions → sub_to_enrolled_rate is None. Page renders 200."""
+    """No submissions → a2e_rate is None. Page renders 200."""
     school = _full_school()
     user = _school_admin(school)
     client.force_login(user)
@@ -133,9 +128,9 @@ def test_funnel_metrics_zero_submissions(client):
     resp = client.get(_reports_url(school))
     assert resp.status_code == 200
 
-    fm = resp.context["funnel_metrics"]
-    assert fm["sub_to_enrolled_rate"] is None
-    assert fm["submissions"] == 0
+    funnel = resp.context["funnel"]
+    assert funnel["a2e_rate"] is None
+    assert funnel["apps"] == 0
 
 
 # ── Smart filters ─────────────────────────────────────────────────────────────
@@ -196,14 +191,14 @@ def test_not_enrolled_filter_submissions(client):
     assert "Bob" not in content
 
 
-# ── stale_counts ──────────────────────────────────────────────────────────────
+# ── stale smart-filter (still works; just not surfaced in reports context) ─────
 
 
 @pytest.mark.django_db
 def test_stale_detection_in_reports(client):
     """
-    2 leads updated 6 days ago (not lost/enrolled); 1 recent lead.
-    stale_counts['leads'] == 2.
+    Stale leads are surfaced via the smart-filter ?filter=stale on the leads list.
+    2 leads updated 6 days ago; filtered list shows only them.
     """
     school = _full_school()
     user = _school_admin(school)
@@ -211,29 +206,29 @@ def test_stale_detection_in_reports(client):
 
     stale_time = timezone.now() - timedelta(days=6)
 
-    stale_lead_1 = LeadFactory(school=school, status=LEAD_STATUS_NEW)
-    stale_lead_2 = LeadFactory(school=school, status=LEAD_STATUS_NEW)
-    recent_lead = LeadFactory(school=school, status=LEAD_STATUS_NEW)
+    stale_lead_1 = LeadFactory(school=school, status=LEAD_STATUS_NEW, name="Stale One")
+    stale_lead_2 = LeadFactory(school=school, status=LEAD_STATUS_NEW, name="Stale Two")
+    LeadFactory(school=school, status=LEAD_STATUS_NEW, name="Recent Lead")
 
-    # Force updated_at to 6 days ago for the stale leads
     from core.models import Lead
     Lead.objects.filter(pk__in=[stale_lead_1.pk, stale_lead_2.pk]).update(updated_at=stale_time)
 
-    resp = client.get(_reports_url(school))
+    resp = client.get(_leads_url(school) + "?filter=stale")
     assert resp.status_code == 200
+    content = resp.content.decode()
+    assert "Stale One" in content
+    assert "Stale Two" in content
+    assert "Recent Lead" not in content
 
-    sc = resp.context["stale_counts"]
-    assert sc["leads"] == 2
 
-
-# ── trend_stats ───────────────────────────────────────────────────────────────
+# ── comparison_rows (replaces trend_stats) ────────────────────────────────────
 
 
 @pytest.mark.django_db
 def test_week_over_week_positive(client):
     """
-    3 submissions created today; 1 created 10 days ago.
-    trend_stats.submissions: this=3, last=1, delta=2, up=True.
+    3 submissions in the last 7 days; 1 in the previous 7-day window.
+    comparison_rows[0]: this_val=3, prev_val=1, delta_str='+2', up=True.
     """
     school = _full_school()
     user = _school_admin(school)
@@ -241,47 +236,47 @@ def test_week_over_week_positive(client):
 
     now = timezone.now()
 
-    # 3 submissions this week
+    # 3 submissions this 7-day period (1 day ago)
     for _ in range(3):
         s = SubmissionFactory(school=school)
-        s.created_at = now - timedelta(days=1)
-        s.save()
+        from core.models import Submission as Sub
+        Sub.objects.filter(pk=s.pk).update(created_at=now - timedelta(days=1))
 
-    # 1 submission previous week (10 days ago)
+    # 1 submission previous 7-day window (10 days ago)
     s_old = SubmissionFactory(school=school)
-    s_old.created_at = now - timedelta(days=10)
-    s_old.save()
+    from core.models import Submission as Sub
+    Sub.objects.filter(pk=s_old.pk).update(created_at=now - timedelta(days=10))
 
-    resp = client.get(_reports_url(school))
+    resp = client.get(_reports_url(school) + "?range=7")
     assert resp.status_code == 200
 
-    ts = resp.context["trend_stats"]
-    assert ts["submissions"]["this"] == 3
-    assert ts["submissions"]["last"] == 1
-    assert ts["submissions"]["delta"] == 2
-    assert ts["submissions"]["up"] is True
+    rows = resp.context["comparison_rows"]
+    apps_row = rows[0]  # "Applications received"
+    assert apps_row["this_val"] == 3
+    assert apps_row["prev_val"] == 1
+    assert apps_row["delta_str"] == "+2"
+    assert apps_row["delta_up"] is True
 
 
 @pytest.mark.django_db
 def test_week_over_week_zero_last_week(client):
     """
-    No submissions in the previous 7-day window → pct is None (no ZeroDivisionError).
+    No submissions in the previous period → prev_val == 0 (no ZeroDivisionError).
     """
     school = _full_school()
     user = _school_admin(school)
     client.force_login(user)
 
-    # Only submissions from this week
     s = SubmissionFactory(school=school)
-    s.created_at = timezone.now() - timedelta(days=2)
-    s.save()
+    from core.models import Submission as Sub
+    Sub.objects.filter(pk=s.pk).update(created_at=timezone.now() - timedelta(days=2))
 
-    resp = client.get(_reports_url(school))
+    resp = client.get(_reports_url(school) + "?range=7")
     assert resp.status_code == 200
 
-    ts = resp.context["trend_stats"]
-    assert ts["submissions"]["last"] == 0
-    assert ts["submissions"]["pct"] is None
+    rows = resp.context["comparison_rows"]
+    apps_row = rows[0]
+    assert apps_row["prev_val"] == 0
 
 
 # ── Lead CSV export ───────────────────────────────────────────────────────────
@@ -361,17 +356,15 @@ def test_dashboard_conversion_metrics(client):
     assert cm["leads_not_converted"] == 3
 
 
-# ── Fix 2: funnel_metrics with leads disabled ─────────────────────────────────
+# ── Fix 2: funnel with leads disabled ────────────────────────────────────────
 
 
 @pytest.mark.django_db
 def test_funnel_metrics_visible_without_leads_feature(client):
     """
     School with leads feature disabled still shows submission + enrolled metrics.
-    funnel_metrics.submissions and sub_to_enrolled_rate must be populated;
-    lead-specific metrics (leads, lead_to_sub_rate) must be None.
+    funnel.apps and a2e_rate must be populated; lead-specific fields must be None.
     """
-    # plan="starter" has no leads feature (check via feature_flags override)
     school = SchoolFactory(
         plan="trial",
         feature_flags={"leads_enabled": False},
@@ -385,14 +378,13 @@ def test_funnel_metrics_visible_without_leads_feature(client):
     resp = client.get(_reports_url(school))
     assert resp.status_code == 200
 
-    fm = resp.context["funnel_metrics"]
-    assert fm is not None
-    assert fm["submissions"] == 2
-    assert fm["enrolled"] == 1
-    assert fm["sub_to_enrolled_rate"] == 50.0
+    funnel = resp.context["funnel"]
+    assert funnel["apps"] == 2
+    assert funnel["enrolled"] == 1
+    assert funnel["a2e_rate"] == 50.0
     # Lead fields absent when leads disabled
-    assert fm["leads"] is None
-    assert fm["lead_to_sub_rate"] is None
+    assert funnel["leads"] is None
+    assert funnel["l2a_rate"] is None
 
 
 # ── Fix 5: not_enrolled filter excludes Archived ──────────────────────────────
