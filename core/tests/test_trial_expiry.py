@@ -19,7 +19,7 @@ from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 
-from core.models import School, TRIAL_LENGTH_DAYS
+from core.models import School, TRIAL_LENGTH_DAYS, TRIAL_BANNER_THRESHOLD_DAYS
 from core.tests.factories import SchoolAdminMembershipFactory, SchoolFactory
 
 
@@ -410,14 +410,15 @@ def _make_request(user):
 
 @pytest.mark.django_db
 def test_admin_banner_active_trial_has_banner():
-    """School admin on active trial: trial_banner injected with expired=False."""
-    school = _trial_school(days_ago=3)
+    """Banner shows when days_left is within TRIAL_BANNER_THRESHOLD_DAYS."""
+    days_ago = TRIAL_LENGTH_DAYS - (TRIAL_BANNER_THRESHOLD_DAYS - 2)  # 2 days inside threshold
+    school = _trial_school(days_ago=days_ago)
     membership = SchoolAdminMembershipFactory(school=school)
     user = membership.user
 
     from core.admin import admin as admin_module
     req = MagicMock()
-    req.user = user  # real User — is_authenticated is always True, no setter needed
+    req.user = user
 
     with patch("core.admin._is_superuser", return_value=False), \
          patch("core.admin._membership_school_id", return_value=school.id):
@@ -426,6 +427,24 @@ def test_admin_banner_active_trial_has_banner():
     assert "trial_banner" in ctx
     assert ctx["trial_banner"]["expired"] is False
     assert ctx["trial_banner"]["days_left"] > 0
+
+
+@pytest.mark.django_db
+def test_admin_banner_early_trial_no_banner():
+    """Banner is hidden when many days remain (before TRIAL_BANNER_THRESHOLD_DAYS)."""
+    school = _trial_school(days_ago=3)  # started 3 days ago → well above threshold
+    membership = SchoolAdminMembershipFactory(school=school)
+    user = membership.user
+
+    from core.admin import admin as admin_module
+    req = MagicMock()
+    req.user = user
+
+    with patch("core.admin._is_superuser", return_value=False), \
+         patch("core.admin._membership_school_id", return_value=school.id):
+        ctx = admin_module.site.each_context(req)
+
+    assert "trial_banner" not in ctx
 
 
 @pytest.mark.django_db

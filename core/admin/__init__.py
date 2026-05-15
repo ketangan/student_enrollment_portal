@@ -101,7 +101,7 @@ def _trial_aware_each_context(request):
     except School.DoesNotExist:
         return ctx
 
-    if not school.is_trial_plan:
+    if not school.show_trial_banner:
         return ctx
 
     ctx["trial_banner"] = {

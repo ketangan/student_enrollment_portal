@@ -169,7 +169,7 @@
   </script>
 
   <!-- Trial banner -->
-  {% if school.is_trial_plan and not request.user.is_superuser %}
+  {% if school.show_trial_banner and not request.user.is_superuser %}
   <div class="dash-trial-banner">
     {% if school.trial_days_left > 0 %}
       ⚡ Trial ends in {{ school.trial_days_left }} day{{ school.trial_days_left|pluralize }} — New submissions will stop after this.

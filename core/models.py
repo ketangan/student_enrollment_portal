@@ -18,6 +18,10 @@ from django.conf import settings
 # How many days a trial lasts. Single source of truth — do not hardcode elsewhere.
 TRIAL_LENGTH_DAYS = 30
 
+# Show the trial countdown banner only when this many days (or fewer) remain.
+# 0 = show only after expiry; set higher to warn earlier.
+TRIAL_BANNER_THRESHOLD_DAYS = 10
+
 
 @dataclass
 class SchoolFeatures:
@@ -192,6 +196,11 @@ class School(models.Model):
         if not ends_at:
             return False
         return timezone.now() >= ends_at
+
+    @property
+    def show_trial_banner(self) -> bool:
+        """Show the trial countdown/expired banner only in the final N days (see TRIAL_BANNER_THRESHOLD_DAYS)."""
+        return self.is_trial_plan and self.trial_days_left <= TRIAL_BANNER_THRESHOLD_DAYS
 
     def save(self, *args, **kwargs):
         # Auto-start the trial clock the first time a school is saved as plan="trial".
