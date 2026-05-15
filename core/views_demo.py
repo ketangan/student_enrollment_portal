@@ -18,6 +18,11 @@ DEMO_REGISTRY = {
         "template_dir": "demo/ymla",
         "demos": ["dedicated-page", "modal", "bottom-section", "link-out", "standalone-form"],
     },
+    "enrollment-demo": {
+        "school_slug": "enrollment-request-demo",
+        "template_dir": "demo/enrollment-demo",
+        "demos": ["dedicated-page", "modal", "bottom-section", "link-out"],
+    },
 }
 
 

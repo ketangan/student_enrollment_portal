@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admissions | Riverside Learning Academy</title>
+<style>
+  :root {
+    --school:      #2b6a72;
+    --school-dark: #1d4d54;
+    --school-tint: #e9f1f2;
+    --school-wash: #f3f8f8;
+    --ink:         #1c2426;
+    --ink-soft:    #5a6669;
+    --ink-faint:   #93a0a2;
+    --line:        #e2e8e8;
+    --serif:       "Georgia", "Times New Roman", serif;
+    --sans:        "Helvetica Neue", "Arial", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--sans); color: var(--ink); background: #fff; -webkit-font-smoothing: antialiased; }
+
+  .site-header {
+    background: #fff; border-bottom: 1px solid var(--line);
+    padding: 0 40px; height: 76px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 50;
+    box-shadow: 0 1px 4px rgba(28,40,42,.06);
+  }
+  .logo { display: flex; align-items: center; gap: 13px; }
+  .logo .mark {
+    width: 40px; height: 40px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--school) 0%, var(--school-dark) 100%);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .logo .mark svg { width: 22px; height: 22px; }
+  .logo .name {
+    font-family: var(--serif); font-size: 18px; font-weight: 700;
+    letter-spacing: -.01em; color: var(--ink); line-height: 1.1;
+  }
+  .logo .name .sub {
+    display: block; font-family: var(--sans);
+    font-size: 9px; font-weight: 600; letter-spacing: .18em;
+    color: var(--ink-faint); text-transform: uppercase; margin-top: 3px;
+  }
+  .site-nav { display: flex; align-items: center; gap: 28px; }
+  .site-nav a {
+    text-decoration: none; color: var(--ink-soft);
+    font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase;
+    transition: color .15s;
+  }
+  .site-nav a:hover, .site-nav a.current { color: var(--school); }
+
+  .page-hero {
+    background: var(--school-wash); border-bottom: 1px solid var(--line);
+    padding: 40px 40px 32px; text-align: center;
+  }
+  .page-hero .eyebrow {
+    font-size: 11px; font-weight: 700; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--school); margin-bottom: 10px;
+  }
+  .page-hero h1 {
+    font-family: var(--serif); font-size: 30px; font-weight: 700;
+    letter-spacing: -.01em; color: var(--ink);
+  }
+
+  .page-content { max-width: 860px; margin: 0 auto; padding: 52px 24px 0; }
+
+  .section-heading {
+    font-family: var(--serif); font-size: 22px; font-weight: 700;
+    color: var(--ink); margin-bottom: 32px; text-align: center;
+  }
+
+  .steps-list { list-style: none; display: flex; flex-direction: column; gap: 32px; }
+  .step-item { display: flex; gap: 18px; align-items: flex-start; }
+  .step-num {
+    flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--school-tint); border: 2px solid #cfe3e4;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: var(--school); margin-top: 3px;
+  }
+  .step-body h3 {
+    font-size: 18px; font-weight: 700; color: var(--school);
+    margin-bottom: 8px; line-height: 1.3;
+  }
+  .step-body p { font-size: 14.5px; color: var(--ink-soft); line-height: 1.7; }
+
+  .step-cta {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 16px; background: var(--school); color: #fff;
+    text-decoration: none; padding: 11px 24px; border-radius: 7px;
+    font-size: 13.5px; font-weight: 700; letter-spacing: .02em;
+    transition: background .15s;
+  }
+  .step-cta:hover { background: var(--school-dark); }
+  .step-cta-note { display: block; margin-top: 8px; font-size: 12px; color: var(--ink-faint); }
+
+  .scroll-cue {
+    text-align: center; padding: 52px 0 28px;
+    font-size: 12px; font-weight: 600; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-faint);
+  }
+  .scroll-cue svg { display: block; margin: 10px auto 0; }
+
+  .form-section {
+    background: var(--school-wash);
+    border-top: 4px solid var(--school);
+    padding: 64px 24px 80px;
+  }
+  .form-section-inner { max-width: 940px; margin: 0 auto; }
+  .form-section h2 {
+    font-family: var(--serif); font-size: 26px; font-weight: 700;
+    color: var(--ink); text-align: center; margin-bottom: 10px;
+  }
+  .form-sub {
+    text-align: center; color: var(--ink-soft); font-size: 15px;
+    margin-bottom: 36px; line-height: 1.65;
+  }
+  .iframe-wrap {
+    border: 1px solid #cce3e4; border-radius: 10px;
+    overflow: hidden; box-shadow: 0 10px 32px rgba(28,40,42,.09);
+  }
+  .iframe-wrap iframe {
+    display: block; width: 100%; height: 620px; border: none;
+  }
+
+  .site-footer {
+    background: var(--ink); color: #aeb9ba;
+    padding: 36px 40px; text-align: center;
+  }
+  .site-footer .f-logo {
+    font-family: var(--serif); font-size: 15px; font-weight: 700;
+    color: #fff; margin-bottom: 6px;
+  }
+  .site-footer .f-meta { font-size: 11.5px; color: #8a9799; line-height: 1.7; }
+  .site-footer .f-meta a { color: #c9d2d3; text-decoration: none; }
+  .site-footer .f-divider {
+    width: 36px; height: 2px; background: var(--school);
+    margin: 0 auto 14px; border-radius: 2px;
+  }
+
+  @media (max-width: 700px) {
+    .site-header { padding: 0 20px; }
+    .site-nav { display: none; }
+    .page-hero { padding: 32px 20px 24px; }
+    .page-content { padding: 36px 20px 0; }
+    .iframe-wrap iframe { height: 520px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="logo">
+    <span class="mark">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 3L2 8l10 5 10-5-10-5z" fill="#fff"/>
+        <path d="M5 10.5V15c0 1.7 3.1 3 7 3s7-1.3 7-3v-4.5" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+        <path d="M22 8v5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+    </span>
+    <span class="name">
+      Riverside Learning Academy
+      <span class="sub">Established 1998</span>
+    </span>
+  </div>
+  <nav class="site-nav">
+    <a href="#">Home</a>
+    <a href="#">Our Approach</a>
+    <a href="#">Programs</a>
+    <a href="#" class="current">Admissions</a>
+    <a href="#">Contact</a>
+  </nav>
+</header>
+
+<div class="page-hero">
+  <div class="eyebrow">Admissions</div>
+  <h1>How to Apply</h1>
+</div>
+
+<div class="page-content">
+  <h2 class="section-heading">Our Application Process</h2>
+
+  <ul class="steps-list">
+    <li class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Explore Our Programs</h3>
+        <p>Review our program offerings to find the right fit for your student. Our admissions team is happy to answer questions about curriculum, schedule, and availability.</p>
+      </div>
+    </li>
+
+    <li class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>Submit Your Application</h3>
+        <p>Complete the enrollment form below — right here on this page. The application takes about 10 minutes and covers your student's information, program interest, and scheduling preferences.</p>
+        <a href="#apply" class="step-cta">Start Application &rarr;</a>
+        <span class="step-cta-note">Form is embedded below — stay on this page</span>
+      </div>
+    </li>
+
+    <li class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Application Review</h3>
+        <p>Our admissions team reviews all submissions carefully. You'll hear from us within 2–3 business days with next steps or any follow-up questions.</p>
+      </div>
+    </li>
+
+    <li class="step-item">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h3>Enrollment Confirmation</h3>
+        <p>Once your application is approved, you'll receive a welcome packet with everything your family needs to prepare for your student's first day.</p>
+      </div>
+    </li>
+  </ul>
+</div>
+
+<div class="scroll-cue">
+  Continue below to apply
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4 6l4 4 4-4" stroke="#93a0a2" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</div>
+
+<section class="form-section" id="apply">
+  <div class="form-section-inner">
+    <h2>Enrollment Application</h2>
+    <p class="form-sub">
+      You can complete the application right here — no need to leave this page.<br>
+      After submitting, our admissions team will be in touch within 2–3 business days.
+    </p>
+    <div class="iframe-wrap">
+      <iframe
+        src="{{ embed_form_url }}"
+        title="Riverside Learning Academy Enrollment Application"
+        allow="payment"
+      ></iframe>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="f-divider"></div>
+  <div class="f-logo">Riverside Learning Academy</div>
+  <div class="f-meta">
+    1400 Maple Court &middot; Your City, State 00000 &middot; (000) 000-0000<br>
+    &copy; 2026 Riverside Learning Academy &nbsp;&middot;&nbsp; <a href="#">Contact Us</a>
+  </div>
+</footer>
+
+<script>
+  window.addEventListener("message", function(e) {
+    if (e.data && e.data.type === "iframeResize") {
+      var iframe = document.querySelector(".iframe-wrap iframe");
+      if (iframe) iframe.style.height = e.data.height + "px";
+    }
+  });
+</script>
+
+</body>
+</html>

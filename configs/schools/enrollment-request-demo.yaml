@@ -1,14 +1,14 @@
 school:
   slug: "enrollment-request-demo"
-  display_name: "Enrollment Request"
+  display_name: "Riverside Learning Academy"
   website_url: ""
   source_url: ""
 
 form:
-  title: "Start Enrollment"
+  title: "Enrollment Application"
   description: >
-    Submit this form to begin the enrollment process.
-    We’ll review your information and follow up with next steps.
+    Complete this form to begin the enrollment process.
+    We’ll review your application and follow up with next steps within 1–2 business days.
 
   sections:
     - title: "Student Information"
@@ -155,9 +155,10 @@ form:
           required: false
 
 branding:
+  logo_url: "/static/demo/riverside-mark.svg"
   theme:
-    primary_color: "#111827"
-    accent_color: "#2563eb"
+    primary_color: "#2b6a72"
+    accent_color: "#2b6a72"
 
 success:
   title: "Submitted!"
@@ -259,7 +260,7 @@ exports:
           - date_of_birth
           - dob
       homeroom:
-        value: "Enrollment Request Demo"   # literal — written as-is regardless of submission data
+        value: "Riverside Learning Academy"   # literal — written as-is regardless of submission data
       parent_email:
         source_any:
           - guardian_email

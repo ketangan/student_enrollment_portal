@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How the enrollment form fits into your website — Riverside Learning Academy</title>
+<style>
+  :root {
+    --school:        #2b6a72;
+    --school-dark:   #1d4d54;
+    --school-tint:   #e9f1f2;
+    --school-wash:   #f3f8f8;
+    --accent:        #c97b3c;
+    --accent-tint:   #fbeede;
+    --ink:           #1c2426;
+    --ink-soft:      #5a6669;
+    --ink-faint:     #93a0a2;
+    --line:          #e2e8e8;
+    --surface:       #ffffff;
+    --canvas:        #fafbfb;
+    --radius:        12px;
+    --shadow-sm:     0 1px 2px rgba(28,40,42,.04), 0 1px 3px rgba(28,40,42,.06);
+    --shadow-md:     0 2px 4px rgba(28,40,42,.04), 0 8px 24px rgba(28,40,42,.07);
+    --serif:         "Georgia", "Times New Roman", serif;
+    --sans:          "Helvetica Neue", "Arial", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--sans);
+    background: var(--canvas);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.55;
+  }
+
+  .site-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    padding: 0 40px;
+    height: 76px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 50;
+  }
+  .logo { display: flex; align-items: center; gap: 13px; }
+  .logo .mark {
+    width: 42px; height: 42px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--school) 0%, var(--school-dark) 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .logo .mark svg { width: 24px; height: 24px; }
+  .logo .name {
+    font-family: var(--serif);
+    font-size: 19px; font-weight: 700; letter-spacing: -.01em;
+    color: var(--ink); line-height: 1.1;
+  }
+  .logo .name .sub {
+    display: block; font-family: var(--sans);
+    font-size: 9.5px; font-weight: 600; letter-spacing: .18em;
+    color: var(--ink-faint); text-transform: uppercase; margin-top: 3px;
+  }
+  .site-nav { display: flex; align-items: center; gap: 30px; }
+  .site-nav a {
+    text-decoration: none; color: var(--ink-soft);
+    font-size: 12.5px; font-weight: 600; letter-spacing: .03em;
+    text-transform: uppercase; transition: color .15s;
+  }
+  .site-nav a:hover { color: var(--school); }
+  .site-nav a.current { color: var(--school); }
+  .demo-flag {
+    font-size: 9.5px; font-weight: 700; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--school-dark);
+    background: var(--school-tint); border: 1px solid #cfe3e4;
+    padding: 5px 11px; border-radius: 6px;
+  }
+
+  .hero {
+    background:
+      radial-gradient(ellipse 80% 60% at 50% -10%, var(--school-wash) 0%, transparent 70%),
+      var(--surface);
+    border-bottom: 1px solid var(--line);
+    padding: 64px 40px 56px;
+    text-align: center;
+  }
+  .hero-inner { max-width: 760px; margin: 0 auto; }
+  .hero .eyebrow {
+    font-size: 11px; font-weight: 700; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--school);
+    margin-bottom: 18px;
+  }
+  .hero h1 {
+    font-family: var(--serif);
+    font-size: 39px; line-height: 1.18; font-weight: 700;
+    letter-spacing: -.02em; color: var(--ink);
+    margin-bottom: 18px;
+  }
+  .hero .lede {
+    font-size: 15.5px; color: var(--ink-soft); line-height: 1.65;
+    max-width: 620px; margin: 0 auto 24px;
+  }
+  .hero .quick {
+    display: inline-flex; flex-direction: column; gap: 4px;
+    font-size: 13px; color: var(--ink-soft);
+    background: var(--canvas); border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px 22px;
+  }
+  .hero .quick .row { display: flex; gap: 8px; }
+  .hero .quick b { color: var(--ink); font-weight: 700; }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 52px 40px 80px; }
+
+  .context {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 40px; overflow: hidden;
+  }
+  .context > div { padding: 24px 28px; }
+  .context > div:first-child { border-right: 1px solid var(--line); }
+  .context h3 {
+    font-size: 11px; font-weight: 700; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--school);
+    margin-bottom: 9px;
+  }
+  .context p { font-size: 13.5px; color: var(--ink-soft); line-height: 1.6; }
+
+  .options {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 22px; margin-bottom: 40px;
+  }
+  .opt {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 26px 26px 24px;
+    box-shadow: var(--shadow-sm);
+    display: flex; flex-direction: column;
+    transition: transform .18s cubic-bezier(.22,.61,.36,1), box-shadow .18s;
+    position: relative;
+  }
+  .opt:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+  .opt.recommended {
+    border-color: #e6c79e;
+    box-shadow: 0 0 0 1px #e6c79e, var(--shadow-md);
+  }
+  .opt-tag {
+    align-self: flex-start;
+    font-size: 10px; font-weight: 700; letter-spacing: .11em;
+    text-transform: uppercase;
+    color: var(--school-dark); background: var(--school-tint);
+    padding: 4px 10px; border-radius: 5px; margin-bottom: 15px;
+  }
+  .opt.recommended .opt-tag {
+    color: #9a5a23; background: var(--accent-tint);
+  }
+  .opt h2 {
+    font-family: var(--serif);
+    font-size: 21px; font-weight: 700; letter-spacing: -.01em;
+    color: var(--ink); line-height: 1.25; margin-bottom: 6px;
+  }
+  .opt .tagline {
+    font-size: 12.5px; font-weight: 700; color: var(--school);
+    margin-bottom: 13px; letter-spacing: .01em;
+  }
+  .opt .desc {
+    font-size: 13.5px; color: var(--ink-soft); line-height: 1.62;
+    margin-bottom: 16px;
+  }
+  .opt ul {
+    list-style: none; margin-bottom: 22px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .opt li {
+    font-size: 12.5px; color: var(--ink-soft);
+    padding-left: 22px; position: relative; line-height: 1.5;
+  }
+  .opt li::before {
+    content: ""; position: absolute; left: 0; top: 6px;
+    width: 13px; height: 13px; border-radius: 50%;
+    background: var(--school-tint);
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.2 2.2 4.8-4.8' stroke='%232b6a72' stroke-width='1.7' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-size: 13px 13px;
+  }
+  .opt-foot {
+    margin-top: auto;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--school); color: #fff;
+    font-family: var(--sans);
+    font-size: 12.5px; font-weight: 700; letter-spacing: .02em;
+    padding: 10px 17px; border-radius: 8px;
+    text-decoration: none; border: 0; cursor: pointer;
+    transition: background .15s, transform .1s;
+  }
+  .btn:hover { background: var(--school-dark); }
+  .btn:active { transform: scale(.98); }
+  .opt.recommended .btn { background: var(--accent); }
+  .opt.recommended .btn:hover { background: #b06a2f; }
+  .opt-foot .bestfor {
+    font-size: 11.5px; color: var(--ink-faint);
+    text-align: right; line-height: 1.4;
+  }
+  .opt-foot .bestfor b { color: var(--ink-soft); font-weight: 700; }
+
+  .reco {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--school);
+    border-radius: 10px;
+    padding: 22px 28px;
+    box-shadow: var(--shadow-sm);
+  }
+  .reco h3 {
+    font-family: var(--serif);
+    font-size: 17px; font-weight: 700; color: var(--ink);
+    margin-bottom: 7px;
+  }
+  .reco p { font-size: 13.5px; color: var(--ink-soft); line-height: 1.65; }
+  .reco p b { color: var(--ink); font-weight: 700; }
+
+  .site-footer {
+    background: var(--ink);
+    color: #aeb9ba;
+    padding: 36px 40px;
+    text-align: center;
+  }
+  .site-footer .f-logo {
+    font-family: var(--serif);
+    font-size: 15px; font-weight: 700; color: #fff;
+    margin-bottom: 6px;
+  }
+  .site-footer .f-meta {
+    font-size: 11.5px; color: #8a9799; line-height: 1.7;
+  }
+  .site-footer .f-meta a { color: #c9d2d3; text-decoration: none; }
+  .site-footer .f-divider {
+    width: 36px; height: 2px; background: var(--school);
+    margin: 0 auto 14px; border-radius: 2px;
+  }
+
+  .hero-inner > * { animation: rise .5s cubic-bezier(.22,.61,.36,1) backwards; }
+  .hero-inner > *:nth-child(1){animation-delay:.04s}
+  .hero-inner > *:nth-child(2){animation-delay:.10s}
+  .hero-inner > *:nth-child(3){animation-delay:.16s}
+  .hero-inner > *:nth-child(4){animation-delay:.22s}
+  .context { animation: rise .5s cubic-bezier(.22,.61,.36,1) .26s backwards; }
+  .opt { animation: rise .5s cubic-bezier(.22,.61,.36,1) backwards; }
+  .options .opt:nth-child(1){animation-delay:.30s}
+  .options .opt:nth-child(2){animation-delay:.36s}
+  .options .opt:nth-child(3){animation-delay:.42s}
+  .options .opt:nth-child(4){animation-delay:.48s}
+  .reco { animation: rise .5s cubic-bezier(.22,.61,.36,1) .52s backwards; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+  @media (max-width: 880px) {
+    .site-header { padding: 0 20px; }
+    .site-nav { display: none; }
+    .hero { padding: 44px 20px 40px; }
+    .hero h1 { font-size: 30px; }
+    .wrap { padding: 36px 20px 56px; }
+    .context { grid-template-columns: 1fr; }
+    .context > div:first-child { border-right: 0; border-bottom: 1px solid var(--line); }
+    .options { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="logo">
+    <span class="mark">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 3L2 8l10 5 10-5-10-5z" fill="#fff"/>
+        <path d="M5 10.5V15c0 1.7 3.1 3 7 3s7-1.3 7-3v-4.5" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+        <path d="M22 8v5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+    </span>
+    <span class="name">
+      Riverside Learning Academy
+      <span class="sub">Established 1998</span>
+    </span>
+  </div>
+  <nav class="site-nav">
+    <a href="#">Home</a>
+    <a href="#">Our Approach</a>
+    <a href="#">Programs</a>
+    <a href="#" class="current">Admissions</a>
+    <a href="#">Contact</a>
+  </nav>
+  <span class="demo-flag">Integration Preview</span>
+</header>
+
+<section class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">Enrollment Integration</div>
+    <h1>How the enrollment form can fit into your website</h1>
+    <p class="lede">
+      Below are four ways your enrollment form can be added to your existing
+      website. Every option uses the same form and the same admissions
+      workflow — the only difference is how families reach it.
+    </p>
+    <div class="quick">
+      <div class="row"><b>Most seamless for families:</b> fully embedded on the admissions page.</div>
+      <div class="row"><b>Fastest to set up:</b> a dedicated page or a link out.</div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+
+  <div class="context">
+    <div>
+      <h3>What stays the same</h3>
+      <p>
+        Your branding, your application questions, your admissions review
+        workflow, and your reporting all stay exactly as they are. These
+        options only change how the form is presented to families on your
+        website.
+      </p>
+    </div>
+    <div>
+      <h3>What this preview shows</h3>
+      <p>
+        Each option below places the same enrollment form into your site a
+        different way, so you can compare what feels most natural for families
+        and easiest for your team to maintain.
+      </p>
+    </div>
+  </div>
+
+  <div class="options">
+
+    <article class="opt">
+      <span class="opt-tag">Option 1</span>
+      <h2>Dedicated application page</h2>
+      <div class="tagline">Clean and distraction-free</div>
+      <p class="desc">
+        Families click "Apply" and go straight to a full application page.
+        This keeps the experience simple, focused, and easy to manage.
+      </p>
+      <ul>
+        <li>Best when you want the form on its own page</li>
+        <li>Very simple to implement and maintain</li>
+        <li>Strong choice for mobile visitors and direct links</li>
+      </ul>
+      <div class="opt-foot">
+        <a href="{{ base_url }}dedicated-page/" class="btn">View demo &rarr;</a>
+        <span class="bestfor"><b>Best for:</b> simplicity</span>
+      </div>
+    </article>
+
+    <article class="opt">
+      <span class="opt-tag">Option 2</span>
+      <h2>Pop-up form on your existing page</h2>
+      <div class="tagline">Minimal change to your current site</div>
+      <p class="desc">
+        Your current admissions page stays mostly as-is. Families click a
+        button and the application opens in a pop-up over the page.
+      </p>
+      <ul>
+        <li>Keeps your current page content intact</li>
+        <li>Feels lighter than sending families to a new page</li>
+        <li>Good when you want only minimal website edits</li>
+      </ul>
+      <div class="opt-foot">
+        <a href="{{ base_url }}modal/" class="btn">View demo &rarr;</a>
+        <span class="bestfor"><b>Best for:</b> minimal disruption</span>
+      </div>
+    </article>
+
+    <article class="opt recommended">
+      <span class="opt-tag">Recommended</span>
+      <h2>Fully embedded into the admissions page</h2>
+      <div class="tagline">Most seamless experience for families</div>
+      <p class="desc">
+        The application appears directly within your admissions page, below
+        your existing process content. Families stay on one page and the form
+        feels like a natural part of the site.
+      </p>
+      <ul>
+        <li>Feels the most native to your website</li>
+        <li>Best overall experience for families</li>
+        <li>Strongest option for reducing drop-off</li>
+      </ul>
+      <div class="opt-foot">
+        <a href="{{ base_url }}bottom-section/" class="btn">View demo &rarr;</a>
+        <span class="bestfor"><b>Best for:</b> family experience</span>
+      </div>
+    </article>
+
+    <article class="opt">
+      <span class="opt-tag">Option 4</span>
+      <h2>Open the form in a new tab</h2>
+      <div class="tagline">Fastest technical setup</div>
+      <p class="desc">
+        Your admissions page includes a button that opens the full
+        application in a separate browser tab. This is the fastest,
+        lowest-effort option to launch.
+      </p>
+      <ul>
+        <li>Very easy to launch quickly</li>
+        <li>No embedded layout work needed</li>
+        <li>Works well across desktop and mobile</li>
+      </ul>
+      <div class="opt-foot">
+        <a href="{{ base_url }}link-out/" class="btn">View demo &rarr;</a>
+        <span class="bestfor"><b>Best for:</b> fastest rollout</span>
+      </div>
+    </article>
+
+  </div>
+
+  <div class="reco">
+    <h3>Our recommendation for your school</h3>
+    <p>
+      For most schools, the <b>fully embedded option</b> is the strongest fit.
+      It preserves the admissions content you already have, keeps families on
+      a single page, and feels the most natural within your existing site
+      design. If you'd prefer the simplest possible launch, the
+      <b>dedicated application page</b> is an excellent second choice — and
+      you can always move to the embedded version later.
+    </p>
+  </div>
+
+</div>
+
+<footer class="site-footer">
+  <div class="f-divider"></div>
+  <div class="f-logo">Riverside Learning Academy</div>
+  <div class="f-meta">
+    1400 Maple Court &middot; Your City, State 00000 &middot; (000) 000-0000<br>
+    &copy; 2026 Riverside Learning Academy &nbsp;&middot;&nbsp; <a href="#">Admissions</a> &nbsp;&middot;&nbsp; <a href="#">Contact Us</a>
+  </div>
+</footer>
+
+</body>
+</html>
