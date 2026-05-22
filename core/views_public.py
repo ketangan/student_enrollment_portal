@@ -442,12 +442,18 @@ def _complete_submission_from_draft(
         except Exception:
             logger.exception("Failed to send submission notification email")
         try:
+            _status_url = ""
+            if school.features.family_portal_enabled:
+                _status_url = request.build_absolute_uri(
+                    reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
+                )
             send_applicant_confirmation_email(
                 config_raw=raw_config,
                 school_name=config.display_name,
                 submission_public_id=submission.public_id,
                 student_name=submission.student_display_name(),
                 submission_data=submission.data or {},
+                status_url=_status_url,
             )
         except Exception:
             logger.exception("Failed to send applicant confirmation email")
@@ -595,12 +601,18 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 except Exception:
                     logger.exception("Failed to send submission notification email")
                 try:
+                    _status_url = ""
+                    if school.features.family_portal_enabled:
+                        _status_url = request.build_absolute_uri(
+                            reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
+                        )
                     send_applicant_confirmation_email(
                         config_raw=raw_config,
                         school_name=config.display_name,
                         submission_public_id=submission.public_id,
                         student_name=submission.student_display_name(),
                         submission_data=submission.data or {},
+                        status_url=_status_url,
                     )
                 except Exception:
                     logger.exception("Failed to send applicant confirmation email")
@@ -1151,4 +1163,46 @@ def lead_capture_success_view(request, school_slug):
         "apply_url": apply_url,
         "scheduling_url": scheduling_url,
         "scheduling_label": scheduling_label,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Family status page — token-based, no login required
+# ---------------------------------------------------------------------------
+
+@xframe_options_exempt
+def family_status_view(request, school_slug: str, token: str):
+    """
+    Public (no auth) status page for an applicant family.
+    URL: /schools/<slug>/status/<token>/
+    Returns 404 for unknown tokens — no enumeration vector.
+    """
+    school = get_object_or_404(School, slug=school_slug)
+
+    # Check feature flag; if disabled fall back to a plain 404 so the URL
+    # doesn't leak any information about the school's configuration.
+    if not school.features.family_portal_enabled:
+        raise Http404
+
+    submission = get_object_or_404(Submission, school=school, status_token=token)
+
+    config = None
+    try:
+        config = load_school_config(school_slug)
+    except Exception:
+        pass  # Treat missing config as no branding / default status labels
+
+    branding = merge_branding(getattr(config, "branding", None) if config else None)
+    school_name = (getattr(config, "display_name", None) if config else None) or school.display_name or school.slug
+
+    # submission.status is already the human-readable string (matches YAML list entries).
+    status_label = submission.status or "Pending"
+
+    return render(request, "family_status.html", {
+        "school": school,
+        "school_name": school_name,
+        "branding": branding,
+        "submission": submission,
+        "status_label": status_label,
+        "public_notes": submission.public_notes or "",
     })

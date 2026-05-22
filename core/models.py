@@ -98,6 +98,10 @@ class SchoolFeatures:
     def ai_summary_enabled(self) -> bool:
         return bool(self._flags().get("ai_summary_enabled", False))
 
+    @property
+    def family_portal_enabled(self) -> bool:
+        return bool(self._flags().get("family_portal_enabled", False))
+
 
 class School(models.Model):
     """
@@ -306,6 +310,10 @@ class Submission(models.Model):
     # payment_status choices: "" (not applicable), "pending", "paid", "waived", "failed"
     payment_intent_id = models.CharField(max_length=255, blank=True, default="")
     payment_status = models.CharField(max_length=20, blank=True, default="")
+
+    # Family status page — token-based public URL, admin-authored notes visible to family.
+    status_token = models.CharField(max_length=64, unique=True, default=lambda: secrets.token_urlsafe(32))
+    public_notes = models.TextField(blank=True, default="")
 
     class Meta:
         unique_together = [("school", "school_submission_number")]

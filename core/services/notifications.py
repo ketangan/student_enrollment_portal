@@ -214,6 +214,7 @@ def _build_confirmation_email_bodies(
     custom_message: str,
     scheduling_url: str = "",
     scheduling_label: str = "Book a time",
+    status_url: str = "",
 ) -> Tuple[str, str]:
     """Builds plain text and HTML bodies for the applicant confirmation email."""
     default_message = (
@@ -232,6 +233,8 @@ def _build_confirmation_email_bodies(
     ]
     if response_time:
         lines.append(f"Expected response time: {response_time}")
+    if status_url:
+        lines += ["", f"Track your application status: {status_url}"]
     if scheduling_url:
         lines += ["", f"{scheduling_label}: {scheduling_url}"]
     lines += ["", f"— {school_name}"]
@@ -242,6 +245,12 @@ def _build_confirmation_email_bodies(
     response_line = (
         f"<p><strong>Expected response time:</strong> {escape(response_time)}</p>"
         if response_time
+        else ""
+    )
+    status_line = (
+        f'<p><a href="{escape(status_url)}" style="color:#2563eb;font-weight:600;">'
+        f"Track your application status →</a></p>"
+        if status_url
         else ""
     )
     scheduling_line = (
@@ -258,6 +267,7 @@ def _build_confirmation_email_bodies(
         <strong>Application ID:</strong> {escape(submission_public_id)}
       </p>
       {response_line}
+      {status_line}
       {scheduling_line}
       <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;"/>
       <p style="color:#666;font-size:12px;">{escape(school_name)}</p>
@@ -313,6 +323,7 @@ def send_applicant_confirmation_email(
     submission_public_id: str,
     student_name: str,
     submission_data: Dict[str, Any],
+    status_url: str = "",
 ) -> bool:
     """
     Sends a confirmation email to the applicant after successful submission.
@@ -357,6 +368,7 @@ def send_applicant_confirmation_email(
         custom_message=custom_message,
         scheduling_url=scheduling_url,
         scheduling_label=scheduling_label,
+        status_url=status_url,
     )
 
     try:

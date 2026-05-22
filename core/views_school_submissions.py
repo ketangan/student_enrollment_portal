@@ -750,6 +750,14 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
         prev_sub = Submission.objects.filter(school=school, id__lt=submission.id).order_by("-id").first()
         next_sub = Submission.objects.filter(school=school, id__gt=submission.id).order_by("id").first()
 
+    # Family portal
+    family_portal_enabled = school.features.family_portal_enabled
+    family_status_url = ""
+    if family_portal_enabled:
+        family_status_url = request.build_absolute_uri(
+            reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
+        )
+
     ctx = _school_admin_base_context(request, school, "submissions")
     ctx.update({
         "submission": submission,
@@ -777,6 +785,8 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
         "has_workflow_transitions": bool(status_transitions),
         "prev_label": f"Prev #{prev_sub.school_submission_number}" if prev_sub and prev_sub.school_submission_number else ("Prev" if prev_sub else None),
         "next_label": f"Next #{next_sub.school_submission_number}" if next_sub and next_sub.school_submission_number else ("Next" if next_sub else None),
+        "family_portal_enabled": family_portal_enabled,
+        "family_status_url": family_status_url,
     })
     return render(request, "school_admin/submission_detail.html", ctx)
 
@@ -1616,4 +1626,48 @@ def school_submission_generate_summary_view(request, school_slug: str, submissio
         logger.warning("AI summary generation failed for submission %s: %s", submission_id, error)
         messages.error(request, f"Could not generate summary. {error}")
 
+    return redirect(detail_url)
+
+
+# ---------------------------------------------------------------------------
+# Family portal — public note from admin
+# ---------------------------------------------------------------------------
+
+@login_required
+@require_http_methods(["POST"])
+def school_submission_post_public_note_view(request, school_slug: str, submission_id: int):
+    """
+    Append a public-facing note that families can see on the status page.
+    POST /schools/<slug>/admin/submissions/<id>/public-note/
+    """
+    school = _get_accessible_school_for_admin(request, school_slug)
+    submission = get_object_or_404(Submission, id=submission_id, school=school)
+
+    detail_url = reverse(
+        "school_submission_detail",
+        kwargs={"school_slug": school_slug, "submission_id": submission_id},
+    )
+
+    new_note = request.POST.get("public_note", "").strip()
+    if not new_note:
+        messages.info(request, "No note entered.")
+        return redirect(detail_url)
+
+    ts = timezone.localtime(timezone.now()).strftime("%-m/%-d/%Y %-I:%M %p")
+    if submission.public_notes:
+        submission.public_notes = f"[{ts}] {new_note}\n\n{submission.public_notes}"
+    else:
+        submission.public_notes = f"[{ts}] {new_note}"
+
+    with transaction.atomic():
+        submission.save(update_fields=["public_notes", "updated_at"])
+        log_admin_audit(
+            request=request,
+            action="action",
+            obj=submission,
+            changes={},
+            extra={"name": "post_public_note"},
+        )
+
+    messages.success(request, "Public note added.")
     return redirect(detail_url)

@@ -41,6 +41,7 @@ urlpatterns = [
     path("schools/<slug:school_slug>/admin/submissions/<int:submission_id>/send-message/", views.school_submission_send_message_view, name="school_submission_send_message"),
     path("schools/<slug:school_slug>/admin/submissions/<int:submission_id>/resend-confirmation/", views.school_submission_resend_confirmation_view, name="school_submission_resend_confirmation"),
     path("schools/<slug:school_slug>/admin/submissions/<int:submission_id>/generate-summary/", views.school_submission_generate_summary_view, name="school_submission_generate_summary"),
+    path("schools/<slug:school_slug>/admin/submissions/<int:submission_id>/public-note/", views.school_submission_post_public_note_view, name="school_submission_post_public_note"),
     # bulk/ paths must be BEFORE <int:lead_id>/ to avoid URL collision
     path("schools/<slug:school_slug>/admin/leads/bulk-status/", views.school_lead_bulk_status_update_view, name="school_lead_bulk_status_update"),
     path("schools/<slug:school_slug>/admin/leads/bulk-mark-contacted/", views.school_lead_bulk_mark_contacted_view, name="school_lead_bulk_mark_contacted"),
@@ -63,6 +64,8 @@ urlpatterns = [
     # Backward-compat: old no-slash URL 301s to the canonical slash version.
     path("schools/<slug:school_slug>/admin/reports", RedirectView.as_view(pattern_name="school_reports", permanent=True)),
     path("schools/<slug:school_slug>/reports", RedirectView.as_view(pattern_name="school_reports", permanent=False)),
+
+    path("schools/<slug:school_slug>/status/<str:token>/", views.family_status_view, name="family_status"),
 
     path("schools/<slug:school_slug>/interest/", views.lead_capture_view, name="lead_capture"),
     path("schools/<slug:school_slug>/interest/success/", views.lead_capture_success_view, name="lead_capture_success"),

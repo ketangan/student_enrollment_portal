@@ -104,6 +104,7 @@ It replaces PDFs, email, and paper forms with a modern, branded, and secure enro
 - Send message to parent — admin-composed one-off email *(flag: `email_notifications_enabled`)*
 - Resend confirmation email to family *(flag: `email_notifications_enabled`)*
 - Linked lead (if submission originated from a lead)
+- **Family status page** — admin can post public notes visible to the family; shareable token-based URL included in confirmation email *(flag: `family_portal_enabled` — Starter+)*
 
 ### Lead Management Pipeline
 - Public lead capture form (separate from application form)
@@ -121,7 +122,7 @@ It replaces PDFs, email, and paper forms with a modern, branded, and secure enro
 - Lost reason tracking with breakdown in reports
 
 ### Communication
-- Submission confirmation email to family on submit
+- Submission confirmation email to family on submit — includes family status page link when enabled
 - Admin-composed one-off email to family from submission or lead detail page
 - Status-triggered workflow emails (contacted, follow-up reminder) with optional send checkbox
 - Resend confirmation email to family
@@ -144,7 +145,7 @@ It replaces PDFs, email, and paper forms with a modern, branded, and secure enro
 ### Feature Flag System
 - Plan-based gating — Trial → Starter → Pro → Growth unlocks features cumulatively
 - Per-school JSON overrides — any flag can be forced on or off for a specific school regardless of plan
-- Named flags: `leads_enabled`, `reports_enabled`, `csv_export_enabled`, `email_notifications_enabled`, `ai_summary_enabled`, `file_uploads_enabled`
+- Named flags: `leads_enabled`, `reports_enabled`, `csv_export_enabled`, `email_notifications_enabled`, `ai_summary_enabled`, `file_uploads_enabled`, `family_portal_enabled`
 - Application fees are YAML-gated (not plan-gated) — enabled per school in config
 
 ### Stripe Billing & Trial
@@ -196,6 +197,7 @@ Every school runs on a **plan** that unlocks features cumulatively:
 | Lead capture & pipeline         | ❌    | ✅     | ✅  | ✅     |
 | Waiver / consent field          | ❌    | ✅     | ✅  | ✅     |
 | Scheduling link config          | ❌    | ✅     | ✅  | ✅     |
+| Family status page              | ❌    | ✅     | ✅  | ✅     |
 | Custom branding (CSS/JS)        | ❌    | ❌     | ✅  | ✅     |
 | Multi-form / multi-step         | ❌    | ❌     | ✅  | ✅     |
 | Custom statuses                 | ❌    | ❌     | ✅  | ✅     |
