@@ -1544,12 +1544,19 @@ def school_submission_resend_confirmation_view(request, school_slug: str, submis
 
     config = _safe_load_school_config(school_slug)
 
+    status_url = ""
+    if school.features.family_portal_enabled:
+        status_url = request.build_absolute_uri(
+            reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
+        )
+
     sent = send_applicant_confirmation_email(
         config_raw=getattr(config, "raw", {}),
         school_name=school.display_name,
         submission_public_id=submission.public_id,
         student_name=submission.student_display_name() or "",
         submission_data=submission.data or {},
+        status_url=status_url,
     )
 
     if sent:
@@ -1641,6 +1648,9 @@ def school_submission_post_public_note_view(request, school_slug: str, submissio
     POST /schools/<slug>/admin/submissions/<id>/public-note/
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    if not school.features.family_portal_enabled:
+        raise Http404
+
     submission = get_object_or_404(Submission, id=submission_id, school=school)
 
     detail_url = reverse(

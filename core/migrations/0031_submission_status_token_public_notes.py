@@ -1,6 +1,7 @@
 import secrets
 
 from django.db import migrations, models
+from core.models import generate_submission_status_token
 
 
 def _backfill_status_tokens(apps, schema_editor):
@@ -36,6 +37,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="submission",
             name="status_token",
-            field=models.CharField(max_length=64, unique=True),
+            field=models.CharField(default=generate_submission_status_token, max_length=64, unique=True),
         ),
     ]

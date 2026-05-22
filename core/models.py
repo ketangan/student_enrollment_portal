@@ -23,6 +23,11 @@ TRIAL_LENGTH_DAYS = 30
 TRIAL_BANNER_THRESHOLD_DAYS = 10
 
 
+def generate_submission_status_token() -> str:
+    """Top-level callable so Django's migration framework can serialize it."""
+    return secrets.token_urlsafe(32)
+
+
 @dataclass
 class SchoolFeatures:
     school: "School"
@@ -312,7 +317,7 @@ class Submission(models.Model):
     payment_status = models.CharField(max_length=20, blank=True, default="")
 
     # Family status page — token-based public URL, admin-authored notes visible to family.
-    status_token = models.CharField(max_length=64, unique=True, default=lambda: secrets.token_urlsafe(32))
+    status_token = models.CharField(max_length=64, unique=True, default=generate_submission_status_token)
     public_notes = models.TextField(blank=True, default="")
 
     class Meta:
