@@ -82,6 +82,7 @@ from .services.notifications import (
 from .services.lead_conversion import try_convert_lead
 from .services.integrations import get_export_configs, normalize_csv_value, resolve_export_row
 from .services.ai_summary import generate_ai_summary
+from .services.capacity import get_capacity_summary, get_program_field_key, get_program_value
 
 from .views_school_common import *  # noqa: F401,F403
 from .views_school_common import (  # noqa: F401 — private names not exported by *
@@ -133,7 +134,7 @@ def school_submissions_view(request, school_slug: str):
 
     config = _safe_load_school_config(school_slug)
     config_raw = getattr(config, "raw", {}) or {}
-    label_map = build_option_label_map(config.form) if config else {}
+    label_map = build_option_label_map(config.form) if (config and config.form) else {}
 
     workflow_filters = get_submission_workflow_filters(config_raw)
     workflow_transitions = get_submission_workflow_transitions(config_raw)
@@ -235,6 +236,8 @@ def school_submissions_view(request, school_slug: str):
         reverse("apply", kwargs={"school_slug": school_slug})
     )
 
+    capacity_summary = get_capacity_summary(school, config_raw)
+
     ctx = _school_admin_base_context(request, school, "submissions")
     ctx.update(
         {
@@ -261,6 +264,7 @@ def school_submissions_view(request, school_slug: str):
             "export_profiles": export_profiles,
             "apply_url": apply_url,
             "smart_filters": _SMART_FILTERS,
+            "capacity_summary": capacity_summary,
         }
     )
     return render(request, "school_admin/submissions.html", ctx)
@@ -293,7 +297,7 @@ def school_submission_export_view(request, school_slug: str):
 
     config = _safe_load_school_config(school_slug)
     config_raw = getattr(config, "raw", {}) or {}
-    label_map = build_option_label_map(config.form) if config else {}
+    label_map = build_option_label_map(config.form) if (config and config.form) else {}
 
     workflow_filters = get_submission_workflow_filters(config_raw)
 
@@ -403,7 +407,7 @@ def school_submission_profile_export_view(request, school_slug: str, profile_nam
     status_filter = (request.GET.get("status") or "").strip()
     search_q = (request.GET.get("q") or "").strip()
 
-    label_map = build_option_label_map(config.form) if config else {}
+    label_map = build_option_label_map(config.form) if (config and config.form) else {}
 
     qs = _apply_submission_filters(
         Submission.objects.filter(school=school).order_by("-created_at"),
@@ -936,6 +940,7 @@ def school_submission_edit_view(request, school_slug: str, submission_id: int):
     submission = get_object_or_404(Submission, id=submission_id, school=school)
 
     config = _safe_load_school_config(school_slug)
+    config_raw = getattr(config, "raw", {}) or {}
     available_forms = get_forms(config) if config else {}
 
     form_key = submission.form_key or "default"
@@ -1009,11 +1014,58 @@ def school_submission_edit_view(request, school_slug: str, submission_id: int):
         messages.info(request, "No changes made.")
         return redirect(detail_url)
 
+    # Capacity conflict check — only for edits that change the program field.
+    # If the destination program is at capacity, re-render with a confirmation banner
+    # unless the admin has already acknowledged by sending capacity_override=1.
+    capacity_override = request.POST.get("capacity_override") == "1"
+    capacity_override_info = None
+
+    cap_summary = get_capacity_summary(school, config_raw)
+    if cap_summary:
+        field_key = get_program_field_key(config_raw)
+        new_program = get_program_value(cleaned, field_key)
+        old_program = get_program_value(submission.data, field_key)
+        if new_program and new_program != old_program and cap_summary.get(new_program, {}).get("at_capacity"):
+            stats = cap_summary[new_program]
+            if not capacity_override:
+                post_values = _plain_post_values(request.POST, raw_form_cfg)
+                yaml_sections = build_yaml_sections(config, existing_data=post_values, form=raw_form_cfg)
+                for section in yaml_sections:
+                    for field in section.get("fields", []):
+                        field["error"] = ""
+                ctx = _school_admin_base_context(request, school, "submissions")
+                ctx.update({
+                    "form_heading": "Edit Submission",
+                    "form_action": request.path,
+                    "cancel_url": detail_url,
+                    "yaml_sections": yaml_sections,
+                    "available_forms": available_forms,
+                    "form_key": form_key,
+                    "is_multi": False,
+                    "show_notes": True,
+                    "notes_value": request.POST.get("internal_notes", ""),
+                    "has_file_fields": has_file_fields,
+                    "capacity_override_pending": True,
+                    "capacity_conflict_program": new_program,
+                    "capacity_conflict_current": stats["current"],
+                    "capacity_conflict_max": stats["max"],
+                })
+                return render(request, "school_admin/submission_form.html", ctx)
+            # Admin confirmed — capture stats for audit (pre-save counts)
+            capacity_override_info = {
+                "program": new_program,
+                "current": stats["current"],
+                "max": stats["max"],
+            }
+
     # File fields stripped from validation — their keys absent from cleaned.
     # Merge preserves all existing file-related data from submission.data.
     new_data = {**submission.data, **cleaned}
     submission.data = new_data
     submission.internal_notes = new_notes
+    extra = {"name": "submission_update", "fields": changed_fields}
+    if capacity_override_info:
+        extra["capacity_override"] = capacity_override_info
     with transaction.atomic():
         submission.save(update_fields=["data", "internal_notes", "updated_at"])
         log_admin_audit(
@@ -1021,7 +1073,7 @@ def school_submission_edit_view(request, school_slug: str, submission_id: int):
             action="change",
             obj=submission,
             changes={},
-            extra={"name": "submission_update", "fields": changed_fields},
+            extra=extra,
         )
 
     messages.success(request, "Submission updated successfully.")

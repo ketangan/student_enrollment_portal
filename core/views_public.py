@@ -85,6 +85,7 @@ from .services.notifications import (
     _resolve_from_email,
 )
 from .services.lead_conversion import try_convert_lead
+from .services.capacity import check_waitlist, get_capacity_config, get_waitlist_message
 from .services.integrations import get_export_configs, normalize_csv_value, resolve_export_row
 from .services.ai_summary import generate_ai_summary
 
@@ -458,6 +459,7 @@ def _complete_submission_from_draft(
         except Exception:
             logger.exception("Failed to send applicant confirmation email")
 
+    _maybe_set_waitlist_flag(request, school, submission.data or {}, raw_config)
     return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
 
@@ -617,6 +619,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 except Exception:
                     logger.exception("Failed to send applicant confirmation email")
 
+            _maybe_set_waitlist_flag(request, school, submission.data or {}, raw_config)
             return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
         # GET: pre-populate from session draft
@@ -893,6 +896,18 @@ def apply_payment_confirm_view(request, school_slug: str, draft_token: str):
     )
 
 
+_WAITLIST_SESSION_KEY = "apply_waitlist"
+
+
+def _maybe_set_waitlist_flag(request, school, submission_data: dict, config_raw: dict) -> None:
+    """Set a session flag when the submitted program is now at or over capacity."""
+    try:
+        if check_waitlist(school, submission_data, config_raw):
+            request.session[_WAITLIST_SESSION_KEY] = True
+    except Exception:
+        logger.exception("Capacity check failed — ignoring")
+
+
 @xframe_options_exempt
 def apply_success_view(request, school_slug: str):
     try:
@@ -929,6 +944,14 @@ def apply_success_view(request, school_slug: str):
     scheduling_url = (scheduling_cfg.get("url") or "").strip()
     scheduling_label = (scheduling_cfg.get("label") or "").strip() or "Book a time"
 
+    # Waitlist flag — set by submit flow when program is at capacity.
+    on_waitlist = request.session.pop(_WAITLIST_SESSION_KEY, False)
+    waitlist_message = ""
+    if on_waitlist:
+        raw_config = getattr(config, "raw", None) or {}
+        cap_cfg = get_capacity_config(raw_config)
+        waitlist_message = get_waitlist_message(cap_cfg) if cap_cfg else ""
+
     return render(
         request,
         "apply_success.html",
@@ -946,6 +969,8 @@ def apply_success_view(request, school_slug: str):
             "response_time": response_time,
             "scheduling_url": scheduling_url,
             "scheduling_label": scheduling_label,
+            "on_waitlist": on_waitlist,
+            "waitlist_message": waitlist_message,
         },
     )
 

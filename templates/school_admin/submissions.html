@@ -28,6 +28,28 @@
     </div>
   </div>
 
+  <!-- Capacity summary badges -->
+  {% if capacity_summary %}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+    {% for program, stats in capacity_summary.items %}
+    <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:10px;
+                background:{% if stats.at_capacity %}#fef2f2{% elif stats.near_capacity %}#fffbeb{% else %}#f0fdf4{% endif %};
+                border:1px solid {% if stats.at_capacity %}#fecaca{% elif stats.near_capacity %}#fde68a{% else %}#bbf7d0{% endif %};
+                font-size:13px;">
+      <span style="font-weight:600;color:#374151;">{{ program }}</span>
+      <span style="color:{% if stats.at_capacity %}#dc2626{% elif stats.near_capacity %}#92400e{% else %}#166534{% endif %};font-weight:700;">
+        {{ stats.current }}/{{ stats.max }}
+      </span>
+      {% if stats.at_capacity %}
+      <span style="font-size:11px;font-weight:700;background:#dc2626;color:#fff;padding:2px 7px;border-radius:999px;">Full</span>
+      {% elif stats.near_capacity %}
+      <span style="font-size:11px;font-weight:700;background:#f59e0b;color:#fff;padding:2px 7px;border-radius:999px;">Near full</span>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <!-- Filter bar -->
   <div class="dash-card" style="padding: 14px 18px; margin-bottom: 16px;">
     <form method="get" action="{{ submissions_url }}" style="display: flex; flex-direction: column; gap: 10px;">

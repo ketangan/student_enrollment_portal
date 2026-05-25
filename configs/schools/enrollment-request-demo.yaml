@@ -236,6 +236,18 @@ leads:
   cta_text: "I'm interested"
   # program_field_key: "interested_in"  # optional: explicit override for program field
 
+# Enrollment capacity limits (soft caps per program).
+# Submissions are always accepted; families see a waitlist message when a program is full.
+capacity:
+  waitlist_message: "Our Beginner Program is currently full. You've been added to our waitlist — we'll contact you as spots open up."
+  excluded_statuses:
+    - Declined
+    - Archived
+  programs:
+    beginner: 5        # low cap for easy demo testing
+    intermediate: 20
+    advanced: 10
+
 # scheduling:
 #   url: "https://calendly.com/your-school/30min"
 #   label: "Book a free trial class"  # optional, defaults to "Book a time"

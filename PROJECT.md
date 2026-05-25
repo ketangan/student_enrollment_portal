@@ -81,166 +81,68 @@ JSON overrides in `School.feature_flags`. Superusers bypass most feature gates.
 
 ---
 
-## Completed Features (phases 2–17)
+## Completed Features
 
 ### School Admin UI (`/schools/<slug>/admin/`)
 
-| Phase | What Was Built |
-|-------|---------------|
-| 2 | Leads pipeline workflow — status transitions, `admin_lead_yaml.py` |
-| 3 | Lead → Submission conversion; `DraftSubmission.lead` FK; migration 0026 |
-| 4 | Submission detail page, Lead detail page, Django admin fallback links |
-| 5 | Lead edit (notes, follow-up date, Mark Contacted with email side-effect) |
-| 6 | Submission internal notes (`Submission.internal_notes`); migration 0027 |
-| 7/8 | CSV export for submissions + leads; `_apply_submission_filters` / `_apply_lead_filters` |
-| 9 | Mobile hamburger nav, responsive detail grid, clipboard copy buttons |
-| 10 | Admin create/edit for leads and submissions; multi-form school support |
-| 11 | Follow-up system (next_follow_up_at, last_contacted_at, updated_at); migration 0028; smart filter pills; bulk mark-contacted / bulk follow-up |
-| 12 | Email communication: send message to family, resend confirmation, workflow notifications |
-| 14 | Conversion intelligence: funnel metrics, trend stats, pipeline gaps, stale counts; hidden smart filters `not_converted` / `not_enrolled` |
-| 17 | Billing alignment: feature_disabled.html with upgrade hints; billing nav fixes |
+| Phase | What Was Built | Test file |
+|-------|---------------|-----------|
+| 2 | Leads pipeline workflow — status transitions, `admin_lead_yaml.py` | `test_lead_workflow.py` |
+| 3 | Lead → Submission conversion; `DraftSubmission.lead` FK; migration 0026 | `test_lead_start_enrollment.py` |
+| 4 | Submission detail + Lead detail pages; Django admin fallback links | `test_detail_pages.py` |
+| 5 | Lead edit: notes, follow-up date, Mark Contacted | `test_lead_update.py`, `test_lead_ux.py` |
+| 6 | Submission internal notes (`Submission.internal_notes`); migration 0027 | `test_submission_update.py` |
+| 7/8 | CSV export for submissions + leads; shared filter helpers | `test_export_csv.py` |
+| 9 | Mobile hamburger nav, responsive detail grid, clipboard copy buttons | `test_polish.py` |
+| 10 | Admin create/edit for leads and submissions; multi-form school support | `test_create_edit.py` |
+| 11 | Follow-up system (`next_follow_up_at`, `last_contacted_at`); migration 0028; smart filter pills; bulk actions | `test_phase11.py`, `test_inbox_workflow.py` |
+| 12 | Email: send message to family, resend confirmation, workflow notifications | `test_phase12.py` |
+| 13 | Hardening: cross-school 404s, config=None resilience, mark-contacted idempotency, draft select_for_update | `test_phase13.py` |
+| 14 | Conversion intelligence: funnel metrics, trend stats, pipeline gaps, stale counts; `not_converted`/`not_enrolled` filters | `test_phase14.py` |
+| 15 | Family status page (token-based public URL); admin post-public-note; confirmation email status link | `test_phase15.py`, `test_family_status_page.py` |
+| 17 | Billing alignment: `feature_disabled.html` with upgrade hints; billing nav fixes | `test_phase17.py` |
+| 18 | Application fees (Stripe, school-direct); `apply_payment_view`; `Submission.payment_status` | `test_phase18.py` |
+| 19 | Enrollment analytics reports: leads funnel, program mix, time-series, source rows | `test_phase19_reports.py` |
+| — | Enrollment capacity limits: per-program YAML soft caps; waitlist banner; admin badge; capacity override with audit log | `test_capacity.py` |
+| — | AI-generated submission summary | `test_ai_summary.py` |
+| — | Generic CSV export profiles (YAML-configured field maps, e.g. Brightwheel) | `test_export_profiles.py` |
+
+### Ops Portal (`/ops/`)
+
+| Phase | What Was Built | Test file |
+|-------|---------------|-----------|
+| Ops 1 | Auth guard, dashboard, schools CRUD, memberships inline, users CRUD, login/logout redirects | `test_ops_phase1.py` |
+| Ops 2 | Cross-school submissions list, leads list, aggregate reports | `test_ops_phase2.py` |
 
 ### Platform / Infrastructure
 
 | What | Detail |
 |------|--------|
-| Trial system | `School.trial_started_at` + `TRIAL_LENGTH_DAYS=30`; `trial_ends_at` property; `trial_days_left`; trial banner in school admin (hidden from superusers) |
-| Trial end date override | `School.trial_end_date` DateField (migration 0029); superadmin can extend/clear from Settings page |
-| Stripe billing | Checkout, webhooks, subscription lifecycle; `handle_subscription_updated` in `billing_stripe.py` |
-| Rate limiting | `django_ratelimit` on public form endpoints; silenced E003/W001 when no Redis (LocMemCache fine for single worker) |
-| Password change | Custom school admin page at `/schools/<slug>/admin/password/` (not Django admin) |
-| Work queue cap | `DASHBOARD_WORK_QUEUE_LIMIT = 10` constant in `views.py` after `_TERMINAL_SUBMISSION_STATUSES` |
-| Mobile table fix | Columns hidden by CSS class (`dash-col-last-activity`, `dash-col-contact`) not nth-child |
-| Settings billing link | Always visible ("Manage billing →" for subscribed, "View billing →" for trial/new) |
+| Trial system | `School.trial_started_at` + `TRIAL_LENGTH_DAYS=30`; trial banner in school admin (hidden from superusers) |
+| Trial end date override | `School.trial_end_date` DateField (migration 0029); superadmin can extend/clear |
+| Stripe billing | Checkout, webhooks, subscription lifecycle; `billing_stripe.py` |
+| Rate limiting | `django_ratelimit` on public form endpoints |
+| Password change | Custom school admin page at `/schools/<slug>/admin/password/` |
+| Views refactor | `views.py` split into `views_public.py`, `views_school_common.py`, `views_school_dashboard.py`, `views_school_submissions.py`, `views_school_leads.py`; `views.py` kept as re-export facade |
+| Custom login | Standalone `/login/` page; superuser → `/ops/`, school admin → school dashboard |
 
 ---
 
-## Current State (as of Phase 17 completion)
+## Current State
 
-- **854 passing tests**
-- `core/views.py` is ~5,000 lines / 80+ functions — **refactor is planned but not started**
-- Django admin (`/admin/`) is the only superadmin UI; it works but is not polished
-- Login/logout currently redirects through Django admin login page — **to be fixed in Ops Phase 1**
+- **974 passing tests**
+- All views refactored — `core/views.py` is now a thin re-export facade
+- Ops Portal (Phases 1 + 2) complete — Django admin kept as raw escape hatch only
+- Custom login/logout flow in place (no longer through Django admin)
 
 ---
 
-## Ops Portal — Design Decisions
+## Ops Portal — Architecture Notes
 
-### Background
-The Django admin at `/admin/` handles superadmin operations today. It works but is not polished.
-Decision: build a new custom ops portal at `/ops/` with the same visual style as the school admin.
-Django admin stays alive as a raw data escape hatch — do not remove it.
-
-### URL: `/ops/`
-Not `/admin/` (Django admin stays there). `/ops/` is less guessable than `/superadmin/` but
-still memorable for the operator. Can be further hardened via reverse proxy in production.
-
-### Mental Model
 - `/ops/` manages the **business** (schools, plans, billing, users, memberships)
 - `/schools/<slug>/admin/` manages the **work** within a school (submissions, leads, reports)
-- Cross-school aggregate data views (`/ops/submissions/`, `/ops/leads/`) are **Phase 2**
-
-### What the Ops Portal Must Provide (per operator requirements)
-1. Everything Django admin provides today for School, User, SchoolAdminMembership models
-2. Automatic forms tied to model fields (use Django ModelForms — new fields auto-appear)
-3. Audit trail for every ops action (reuse existing `AdminAuditLog` model)
-4. Inline editing of related objects (memberships inline on school detail)
-5. Create/edit/deactivate schools
-6. Manage users and school admin assignments across all schools
-7. Business health dashboard (trials expiring, active schools, submission volumes)
-8. Clean login/logout flow — not through Django admin login page
-
-### What Is NOT in the Ops Portal (stays in Django admin)
-- Raw model debugging / JSON field inspection (rare, Django admin is fine)
-- DraftSubmission management
-- AdminAuditLog raw list (Django admin has this)
-
----
-
-## Ops Portal — Implementation Plan
-
-### Phase 1 (current work): Core ops portal — Schools + Users + Auth
-
-Broken into logical git commits:
-
-#### Commit 1 — Auth, URL structure, base template
-- `ops_required` decorator: `is_superuser` check, redirect to `/ops/login/` if not
-- `LOGIN_URL` stays `/admin/login/` for now; update when custom login is ready
-- `config/urls.py`: add `path('ops/', include('core.urls_ops'))` 
-- New file: `core/urls_ops.py` with all `/ops/` URL patterns
-- `templates/ops/base.html`: same dash visual style, ops-specific nav (Dashboard, Schools, Users)
-- Redirect after login: superuser → `/ops/`, school admin → `/schools/<slug>/admin/`
-- Redirect after logout: → `/login/` (new standalone page, not Django admin)
-
-#### Commit 2 — Dashboard
-- View: `ops_dashboard_view`
-- Metrics: total schools, active schools, trials expiring ≤7 days, trials expired, total users
-- Expiring trials table (school name, plan, trial end date, days left) with link to school detail
-- Recently added schools (last 5)
-
-#### Commit 3 — Schools list + create
-- View: `ops_schools_list_view` at `/ops/schools/`
-- Paginated list, search by name/slug, filter by plan/is_active
-- Per row: name, slug, plan, status, trial end (if trial), submission count, link to ops detail + link to school admin
-- View: `ops_school_create_view` at `/ops/schools/new/`
-- Uses `SchoolForm(ModelForm)` — auto-includes all School fields
-- Audit logged on create
-
-#### Commit 4 — School detail + edit + trial override
-- View: `ops_school_detail_view` at `/ops/schools/<slug>/`
-- Sections: Info, Plan & Billing (Stripe data), Feature Flags, Trial Override, Memberships, Recent activity
-- Edit form: `SchoolEditForm(ModelForm)` — plan, is_active, display_name, website_url, trial_end_date, feature_flags (JSON), Stripe fields
-- Feature flags: rendered as individual toggles derived from the model form field (not raw JSON textarea)
-- Audit logged on every save; change diff shown in log
-- Quick stats: submission count, lead count, last submission date
-- "Open school admin →" button to `/schools/<slug>/admin/`
-
-#### Commit 5 — School memberships (inline on school detail)
-- List current members (user email, date added)
-- Add member: email lookup → create SchoolAdminMembership
-- Remove member: POST to remove
-- Audit logged
-- All inline on the school detail page (no separate page needed)
-
-#### Commit 6 — Users list + detail + create
-- View: `ops_users_list_view` at `/ops/users/`
-- All users, searchable by email/username, filterable by is_active/is_staff/is_superuser
-- Per row: email, username, school memberships, is_active, date joined
-- View: `ops_user_detail_view` at `/ops/users/<id>/`
-- Edit: `UserEditForm(ModelForm)` — email, first_name, last_name, is_active, is_staff
-- Password reset: send Django password reset email
-- View memberships, add/remove school access
-- Audit logged on changes
-
-#### Commit 7 — Login/logout redirect cleanup
-- New standalone login page at `/login/` with school brand-neutral styling
-- `LOGIN_URL = '/login/'` in settings
-- Custom login view: after login, redirect superuser → `/ops/`, school admin → `/schools/<slug>/admin/`
-- `LOGOUT_REDIRECT_URL = '/login/'`
-- Remove any Django admin login page references from school admin templates
-
-#### Commit 8 — Tests
-- `core/tests/test_ops_phase1.py`
-- Test auth guard: non-superuser gets redirected
-- Test dashboard metrics accuracy
-- Test school create/edit/deactivate
-- Test membership add/remove
-- Test user create/edit
-- Test login redirect for superuser vs school admin
-
-### Phase 2 (future): Cross-school aggregate data views
-- `/ops/submissions/` — all submissions from all schools, filterable by school, status, date, program type
-- `/ops/leads/` — all leads across all schools
-- `/ops/reports/` — aggregate funnel metrics across all schools
-- Pagination and query optimization required before building (needs real data volume)
-
-### Phase 3 (complete): Cleanup
-- Dead code audit: nothing to remove (all views, templates, URLs confirmed live)
-- `core/views.py` split into 5 files: `views_public.py`, `views_school_common.py`,
-  `views_school_dashboard.py`, `views_school_submissions.py`, `views_school_leads.py`
-- `views.py` kept as backward-compat re-export facade (urls.py unchanged)
-- All `is_superuser` template checks audited — all are still appropriate, none removed
-- 914 passing tests
+- Django admin at `/admin/` stays alive as raw data escape hatch — do not remove
+- `ops_required` decorator guards all `/ops/` views: `is_superuser` check, redirect to `/login/`
 
 ---
 
@@ -305,41 +207,89 @@ application_fee:
 
 ### Phase 19 — Waitlist Management
 
-**Goal**: Schools can place applicants on a waitlist with an ordered position. Admins can promote
-from the waitlist with a single action that updates status and notifies the family.
+**Goal**: Schools can place applicants on a per-program waitlist with an ordered position.
+Admins can reorder the queue and promote families with a single action.
 
 **Key design decisions**:
-- `"Waitlisted"` status already exists in the status choices — no new status needed.
-- Waitlist position is a per-school ordered integer, not global.
-- Promotion = status change to next step (configurable in YAML workflow) + optional email notification.
-- No enrollment cap enforcement in this phase — cap is informational only.
+- Position is scoped to `(school, program)` — Ballet #1 and Jazz #1 are independent queues.
+  Rationale: capacity limits are already per-program, waitlist must match.
+- YAML-gated (like capacity): presence of `waitlist.status` activates the feature. No feature flag.
+- Position auto-assigned on status transition to the configured waitlist status.
+  Reuses `get_program_field_key` / `get_program_value` from `core/services/capacity.py`.
+- Promote action: changes status to `promote_to`, clears position, resequences remaining positions
+  in that program to close the gap, optionally sends email notification.
+- Reorder: up/down swaps positions between adjacent submissions in the same `(school, program)`.
+  Two-row UPDATE in a single transaction.
+- Status changed away from Waitlisted via dropdown (bypassing Promote) also clears position and logs it.
+- Program changed via edit form while submission is Waitlisted: position cleared, new position
+  auto-assigned in destination program if it is also the waitlist status.
+
+**YAML config**:
+```yaml
+waitlist:
+  status: "Waitlisted"      # which status value triggers auto-assignment (required)
+  promote_to: "In Review"   # status set on promotion (required)
+  # notification_template: "waitlist_promoted"  # optional, falls back to default copy
+```
 
 **DB changes**:
 - `Submission.waitlist_position` IntegerField (null=True, blank=True, db_index=True)
-- `School.enrollment_cap` IntegerField (null=True, blank=True) — informational display only
+  NULL = not on waitlist. Value = position within `(school, program)` queue.
+
+**Audit log — every position change must be logged (no "I don't know how this happened" gaps)**:
+
+| Event | `extra["name"]` | Key fields logged |
+|-------|----------------|-------------------|
+| Status → Waitlisted (auto-assign) | `waitlist_position_assigned` | program, position |
+| Reorder ↑/↓ | `waitlist_reorder` | program, old_position, new_position (logged on BOTH swapped submissions) |
+| Promote | `waitlist_promote` | program, old_position, new_status, email_sent, positions_resequenced |
+| Status changed away from Waitlisted (not via Promote) | `waitlist_position_cleared` | program, old_position |
+| Bulk status → Waitlisted | `waitlist_position_assigned` | program, position (one entry per submission) |
+| Program changed via edit while Waitlisted | `waitlist_position_cleared` + `waitlist_position_assigned` | old_program, new_program, positions |
+
+**Where admins see the waitlist**:
+- **Submissions list**: Waitlisted rows show `#N` position badge inline with the status.
+- **Dedicated page** `/schools/<slug>/admin/waitlist/`: primary management UI. Program tabs across
+  the top (one per program with waitlisted submissions). Each tab: ordered table with position badge,
+  student name, submitted date, parent contact, ↑ ↓ reorder buttons, Promote button per row.
+- **Submission detail sidebar**: position badge + Promote button when submission is Waitlisted.
+- **Nav**: "Waitlist" link appears in school admin sidebar only when ≥1 waitlisted submission exists.
 
 **Files touched**:
 - `core/models.py` + migration
-- `core/views_school_submissions.py` — `school_submission_status_update_view` auto-assigns waitlist position on transition to Waitlisted; new `school_waitlist_view` GET (ordered list of waitlisted submissions)
-- `core/urls.py` — `school_waitlist` URL, `school_waitlist_promote` POST URL
-- `templates/school_admin/waitlist.html` — drag-reorder list (or simple up/down buttons), Promote button per row
-- `templates/school_admin/submissions.html` — waitlist position shown for Waitlisted rows
-- `templates/school_admin/submission_detail.html` — waitlist position shown in sidebar
+- `core/services/waitlist.py` (new) — `get_waitlist_config`, `assign_waitlist_position`,
+  `clear_waitlist_position`, `resequence_program_waitlist`, `promote_from_waitlist`
+- `core/views_school_submissions.py` — status update views call `assign_waitlist_position` /
+  `clear_waitlist_position`; new `school_waitlist_view` GET; new `school_waitlist_promote_view` POST;
+  new `school_waitlist_reorder_view` POST; edit view handles program-change-while-waitlisted
+- `core/urls.py` — `school_waitlist`, `school_waitlist_promote`, `school_waitlist_reorder`
+- `templates/school_admin/waitlist.html` — program tabs, ordered table, ↑/↓, Promote
+- `templates/school_admin/submissions.html` — `#N` badge on Waitlisted rows
+- `templates/school_admin/submission_detail.html` — position badge + Promote in sidebar
+- `templates/school_admin/base.html` — conditional Waitlist nav link
 - `core/services/notifications.py` — `send_waitlist_promotion_notification`
-- School admin nav — add Waitlist link (gated on school having any waitlisted submissions)
 
 **Out of scope**:
-- Drag-and-drop reordering (use up/down buttons for v1)
+- Drag-and-drop reordering (up/down buttons for v1)
 - Auto-promote when enrolled count drops below cap
-- Public waitlist position display (parent portal feature)
+- Public waitlist position display for families
+- Per-form (multi-form school) waitlist — program-level is sufficient
 
-**Tests** (`core/tests/test_phase19.py`, ~10 tests):
-- `test_waitlist_position_assigned_on_status_change`
-- `test_waitlist_positions_are_sequential_per_school`
-- `test_promote_from_waitlist_changes_status`
+**Tests** (`core/tests/test_waitlist.py`, ~14 tests):
+- `test_position_assigned_on_status_change` — per program, sequential
+- `test_position_not_assigned_when_waitlist_not_configured`
+- `test_position_cleared_on_status_change_away` — dropdown bypass path
+- `test_promote_changes_status_clears_position`
+- `test_promote_resequences_remaining`
 - `test_promote_sends_notification_when_email_enabled`
-- `test_waitlist_view_ordered_by_position`
-- `test_waitlist_position_null_for_non_waitlisted`
+- `test_promote_audit_log_entry`
+- `test_reorder_up_swaps_positions`
+- `test_reorder_audit_logged_on_both_submissions`
+- `test_bulk_status_assigns_positions`
+- `test_program_change_while_waitlisted_clears_and_reassigns`
+- `test_waitlist_view_grouped_by_program`
+- `test_waitlist_nav_link_hidden_when_none`
+- `test_position_scoped_per_program` — Ballet #1 and Jazz #1 are independent
 
 ---
 

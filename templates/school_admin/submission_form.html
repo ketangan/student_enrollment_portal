@@ -261,6 +261,30 @@
     </div>
     {% endif %}
 
+    {% if capacity_override_pending %}
+    <div style="padding:16px 18px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;margin-bottom:16px;">
+      <div style="font-size:14px;font-weight:700;color:#991b1b;margin-bottom:6px;">
+        &#9888; Program at capacity
+      </div>
+      <p style="margin:0 0 12px;font-size:13px;color:#7f1d1d;line-height:1.5;">
+        <strong>{{ capacity_conflict_program }}</strong> is currently at its enrollment cap
+        ({{ capacity_conflict_current }}/{{ capacity_conflict_max }} spots filled).
+        Proceeding will place this student above the cap.
+        This override will be recorded in the audit log.
+      </p>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button type="submit" name="capacity_override" value="1"
+                style="padding:8px 18px;background:#dc2626;color:#fff;border:none;border-radius:8px;
+                       font-size:13px;font-weight:600;cursor:pointer;">
+          Proceed with Override
+        </button>
+        <a href="{{ cancel_url }}"
+           style="font-size:13px;color:var(--dash-muted);text-decoration:none;padding:8px 4px;">
+          Cancel
+        </a>
+      </div>
+    </div>
+    {% else %}
     <div style="display:flex;gap:12px;align-items:center;margin-bottom:24px;">
       <button type="submit"
               class="dash-action-btn dash-action-btn--primary"
@@ -272,6 +296,7 @@
         Cancel
       </a>
     </div>
+    {% endif %}
   </form>
 
 </div>

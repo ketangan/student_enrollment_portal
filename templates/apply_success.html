@@ -51,9 +51,16 @@
     <div class="wrap">
       <div class="card">
         <h1>{{ success_title|default:"Submitted!" }}</h1>
+        {% if on_waitlist %}
+        <div style="margin-top:10px;padding:12px 16px;background:#fffbeb;border:1px solid #fcd34d;
+                    border-radius:10px;font-size:14px;font-weight:500;color:#92400e;">
+          {{ waitlist_message }}
+        </div>
+        {% else %}
         <div class="muted" style="margin-top:6px;">
           {{ success_message }}
         </div>
+        {% endif %}
 
         <div class="grid">
           <div class="card" style="padding:14px;">
