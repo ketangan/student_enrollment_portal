@@ -164,13 +164,16 @@ JSON overrides in `School.feature_flags`. Superusers bypass most feature gates.
 1. **`SchoolProgram` model** (new) — authoritative source of truth for programs per school:
    - `school` ForeignKey(School)
    - `name` CharField (display label)
-   - `code` CharField (matches the value stored in `Submission.data[program_field_key]` — immutable after first use)
+   - `code` CharField — matches the value stored in `Submission.data[program_field_key]`.
+     **Editable while no submissions reference it; locked once any submission uses this code.**
+     (Admins make typos during setup — don't make setup painful by locking immediately.)
    - `is_active` BooleanField (default True) — deactivate, never hard-delete if submissions exist
    - `display_order` PositiveIntegerField (default 0) — controls form dropdown order
    - `capacity` IntegerField (null=True, blank=True) — None = unlimited
-   - `auto_enroll` BooleanField (default False) — if True, submission is auto-enrolled when slots available
-   - `waitlist_enabled` BooleanField (default False) — if True, submission gets "Waitlisted" status when at cap
-   - `form_keys` JSONField (default=[]) — empty = available on all forms; `["enrollment", "summer"]` = specific forms only
+   - `auto_enroll` BooleanField (default False) — master switch for auto-enrollment mode (see point 5)
+   - `waitlist_enabled` BooleanField (default False) — only meaningful when `auto_enroll=True`
+   - `form_keys` JSONField (default=[]) — empty = available on all forms; `["enrollment", "summer"]` = specific forms.
+     **Expose only in Django admin for v1. Most schools will not need this.**
    - `created_at`, `updated_at` (auto timestamps)
 
 2. **`School.program_field_key`** CharField (blank=True, default="") — names which YAML field key
@@ -184,12 +187,18 @@ JSON overrides in `School.feature_flags`. Superusers bypass most feature gates.
        if programs.exists():
            field["options"] = [{"value": p.code, "label": p.name} for p in programs]
        else:
-           # ops warning — program_field_key set but no active programs
-           show_ops_warning("No active programs for field key '{}'".format(field.key))
+           # No active programs — explicit product behavior (not a silent degradation):
+           # 1. School admin /programs/ page shows a warning banner.
+           # 2. Public form renders the field with a single disabled option:
+           #    "No programs currently available — contact the school"
+           # 3. If the field is required, form submission is blocked (validation error).
+           # YAML options for this field are NOT used as fallback. Ops must fix the data.
+           field["options"] = []
+           field["no_programs_warning"] = True
    else:
        # YAML options used as-is
    ```
-   No silent YAML fallback in production once `program_field_key` is set. Ops must be informed.
+   No silent YAML fallback once `program_field_key` is set. Ops must be notified and add active programs.
 
 4. **`Submission.program`** ForeignKey(SchoolProgram, null=True, blank=True, on_delete=SET_NULL):
    - Set at submission time by matching `Submission.data[program_field_key]` → `SchoolProgram.code`
@@ -198,34 +207,62 @@ JSON overrides in `School.feature_flags`. Superusers bypass most feature gates.
    - No FK = school hasn't migrated to DB programs yet (YAML path still works)
 
 5. **Auto-enrollment at submission time** (concurrency-safe):
+
+   Waitlisting is an extension of auto-enroll mode, not a standalone setting. Explicit behavior matrix:
+
+   | `auto_enroll` | slots available | `waitlist_enabled` | result |
+   |---|---|---|---|
+   | True | Yes | any | `STATUS_ENROLLED` |
+   | True | No | True | `STATUS_WAITLISTED` |
+   | True | No | False | `STATUS_NEW` |
+   | False | any | any | `STATUS_NEW` |
+
+   `STATUS_WAITLISTED` must be a named constant (see below), not the string `"Waitlisted"`.
+
    ```python
    with transaction.atomic():
        program = SchoolProgram.objects.select_for_update().get(school=school, code=program_code)
        enrolled_count = Submission.objects.filter(
            school=school, program=program, status=STATUS_ENROLLED
        ).count()
-       if program.auto_enroll and (program.capacity is None or enrolled_count < program.capacity):
+       slots_available = program.capacity is None or enrolled_count < program.capacity
+       if program.auto_enroll and slots_available:
            submission.status = STATUS_ENROLLED
-       elif program.capacity is not None and enrolled_count >= program.capacity and program.waitlist_enabled:
-           submission.status = "Waitlisted"
+       elif program.auto_enroll and not slots_available and program.waitlist_enabled:
+           submission.status = STATUS_WAITLISTED
        else:
            submission.status = STATUS_NEW
    ```
    `select_for_update()` prevents two concurrent submissions both seeing "1 slot left" and both getting enrolled.
 
+   **Status constant rule**: `STATUS_WAITLISTED` must come from a named constant in `core/models.py`
+   (alongside existing `STATUS_ENROLLED`, `STATUS_NEW`, etc.), not from a hardcoded string anywhere
+   in the codebase. If the school uses custom statuses, `STATUS_WAITLISTED` should be derivable from
+   YAML config (e.g. `waitlist.status` key) — see Waitlist Management spec.
+
 6. **Admin UI** (school admin at `/schools/<slug>/admin/programs/`):
    - Program list: name, code, capacity (or "Unlimited"), enrolled count, waitlist count, active badge, ↑↓ reorder
-   - Add program form: name, code (auto-slugified), capacity, auto_enroll, waitlist_enabled, form_keys
-   - Edit program: all fields editable; capacity decrease shows warning if current enrolled > new cap
+   - Add program form: name, code (auto-slugified, editable), capacity, auto_enroll, waitlist_enabled
+   - Edit program: code field locked (read-only + tooltip) once any submission references it; all other fields editable;
+     capacity decrease shows warning if current enrolled > new cap
    - Deactivate: if submissions exist, deactivate only (no DELETE); if no submissions, allow hard delete
+   - Warning banner at top of list page when `program_field_key` is set but no active programs exist
+   - `form_keys` not exposed in school admin UI for v1 (Django admin only)
    - URL names: `school_programs_list`, `school_program_create`, `school_program_edit`, `school_program_deactivate`
 
 7. **Migration command** (for onboarding existing schools):
    ```
-   python manage.py seed_school_programs_from_yaml --school <slug>
+   python manage.py seed_school_programs_from_yaml --school <slug> [--backfill-submissions]
    ```
-   Reads YAML options from the program field, creates `SchoolProgram` records, sets `school.program_field_key`.
-   Idempotent — safe to re-run. Logs a summary of what was created / skipped.
+   Without `--backfill-submissions`: creates `SchoolProgram` records + sets `school.program_field_key`. Idempotent.
+
+   With `--backfill-submissions`: also walks existing `Submission` rows and sets `submission.program` FK:
+   - Match priority: exact `code` match → normalized name match
+   - Only set FK when exactly one program matches (skip ambiguous)
+   - Log a summary: matched N, skipped M (ambiguous), skipped K (no match)
+   - Never overwrite an already-set FK
+
+   Idempotent — safe to re-run. Always logs a summary of created / skipped / backfilled rows.
 
 **Audit requirements — every program state change must be logged (no "I don't know when this changed" gaps):**
 
@@ -242,7 +279,7 @@ JSON overrides in `School.feature_flags`. Superusers bypass most feature gates.
 **DB changes**:
 - New model `SchoolProgram` + migration
 - `School.program_field_key` CharField + migration
-- `Submission.program` ForeignKey + migration (nullable — no backfill required)
+- `Submission.program` ForeignKey + migration (nullable — existing rows have NULL FK until backfill command is run)
 
 **Files touched**:
 - `core/models.py` — `SchoolProgram`, `School.program_field_key`, `Submission.program` FK
@@ -267,22 +304,29 @@ JSON overrides in `School.feature_flags`. Superusers bypass most feature gates.
 - Drag-and-drop reordering (up/down buttons for v1)
 - Per-program fee amounts (that's Phase 18 scope)
 - Automatic capacity decrease notifications to waitlisted families
+- `form_keys` exposed in school admin UI (Django admin only for v1)
 
-**Tests** (`core/tests/test_programs.py`, ~16 tests):
+**Tests** (`core/tests/test_programs.py`, ~22 tests):
 - `test_program_options_from_db_when_field_key_set`
 - `test_program_options_from_yaml_when_no_field_key`
-- `test_ops_warning_when_field_key_set_but_no_active_programs`
+- `test_no_active_programs_renders_disabled_option_and_blocks_required_field`
+- `test_inactive_program_hidden_from_form_but_existing_submission_still_displays`
 - `test_auto_enroll_on_submission_when_slots_available`
-- `test_auto_waitlist_on_submission_when_at_capacity`
-- `test_auto_enroll_status_new_when_auto_enroll_off`
+- `test_auto_waitlist_on_submission_when_at_capacity_and_waitlist_enabled`
+- `test_auto_enroll_status_new_when_auto_enroll_off` — auto_enroll=False must NOT waitlist
+- `test_auto_waitlist_does_not_trigger_when_auto_enroll_false` — explicit: full program + auto_enroll=False → New
 - `test_concurrent_submissions_only_one_auto_enrolled` (select_for_update race condition)
 - `test_submission_program_fk_set_on_save`
 - `test_admin_create_program`
 - `test_admin_edit_program_logs_audit`
+- `test_program_code_cannot_change_when_submissions_exist`
+- `test_program_code_can_change_when_no_submissions`
 - `test_admin_deactivate_program_with_submissions`
 - `test_admin_deactivate_program_without_submissions_hard_deletes`
 - `test_seed_command_creates_programs_from_yaml`
 - `test_seed_command_idempotent`
+- `test_backfill_matches_code_then_normalized_name`
+- `test_backfill_skips_ambiguous_matches`
 - `test_program_list_shows_enrolled_count`
 - `test_capacity_change_audit_logged_with_old_new_values`
 
