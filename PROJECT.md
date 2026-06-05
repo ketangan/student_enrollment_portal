@@ -148,6 +148,146 @@ JSON overrides in `School.feature_flags`. Superusers bypass most feature gates.
 
 ## Planned Features (Prioritised)
 
+### Program Management — DB-Driven Programs (next to implement)
+
+**Why we are building this:**
+- Schools cannot self-manage programs today — every change (new program, rename, capacity edit)
+  requires an operator to edit YAML and redeploy. This is a hard blocker for high-churn schools.
+- Some schools add 10+ new programs every week. YAML cannot support that workflow.
+- Small schools (karate, music) want students automatically enrolled or waitlisted at submission
+  time — with no admin present. That requires reliable DB-level slot tracking per program.
+- Program renames break string matching against JSON data — a FK solves this permanently.
+- Slot count adjustments must be self-service for school admins, not require operator involvement.
+
+**Key design decisions:**
+
+1. **`SchoolProgram` model** (new) — authoritative source of truth for programs per school:
+   - `school` ForeignKey(School)
+   - `name` CharField (display label)
+   - `code` CharField (matches the value stored in `Submission.data[program_field_key]` — immutable after first use)
+   - `is_active` BooleanField (default True) — deactivate, never hard-delete if submissions exist
+   - `display_order` PositiveIntegerField (default 0) — controls form dropdown order
+   - `capacity` IntegerField (null=True, blank=True) — None = unlimited
+   - `auto_enroll` BooleanField (default False) — if True, submission is auto-enrolled when slots available
+   - `waitlist_enabled` BooleanField (default False) — if True, submission gets "Waitlisted" status when at cap
+   - `form_keys` JSONField (default=[]) — empty = available on all forms; `["enrollment", "summer"]` = specific forms only
+   - `created_at`, `updated_at` (auto timestamps)
+
+2. **`School.program_field_key`** CharField (blank=True, default="") — names which YAML field key
+   is the "program selector" for this school (e.g. `"dance_style"`, `"interested_in"`).
+   When set, the form renderer replaces YAML options for that field with active `SchoolProgram` records.
+
+3. **Form rendering rule — no heuristics, no silent fallback:**
+   ```python
+   if field.key == school.program_field_key:
+       programs = SchoolProgram.objects.filter(school=school, is_active=True).order_by("display_order", "name")
+       if programs.exists():
+           field["options"] = [{"value": p.code, "label": p.name} for p in programs]
+       else:
+           # ops warning — program_field_key set but no active programs
+           show_ops_warning("No active programs for field key '{}'".format(field.key))
+   else:
+       # YAML options used as-is
+   ```
+   No silent YAML fallback in production once `program_field_key` is set. Ops must be informed.
+
+4. **`Submission.program`** ForeignKey(SchoolProgram, null=True, blank=True, on_delete=SET_NULL):
+   - Set at submission time by matching `Submission.data[program_field_key]` → `SchoolProgram.code`
+   - JSON field (`Submission.data`) remains unchanged as historical display snapshot
+   - FK used for all capacity logic, reporting, and rename-safe queries
+   - No FK = school hasn't migrated to DB programs yet (YAML path still works)
+
+5. **Auto-enrollment at submission time** (concurrency-safe):
+   ```python
+   with transaction.atomic():
+       program = SchoolProgram.objects.select_for_update().get(school=school, code=program_code)
+       enrolled_count = Submission.objects.filter(
+           school=school, program=program, status=STATUS_ENROLLED
+       ).count()
+       if program.auto_enroll and (program.capacity is None or enrolled_count < program.capacity):
+           submission.status = STATUS_ENROLLED
+       elif program.capacity is not None and enrolled_count >= program.capacity and program.waitlist_enabled:
+           submission.status = "Waitlisted"
+       else:
+           submission.status = STATUS_NEW
+   ```
+   `select_for_update()` prevents two concurrent submissions both seeing "1 slot left" and both getting enrolled.
+
+6. **Admin UI** (school admin at `/schools/<slug>/admin/programs/`):
+   - Program list: name, code, capacity (or "Unlimited"), enrolled count, waitlist count, active badge, ↑↓ reorder
+   - Add program form: name, code (auto-slugified), capacity, auto_enroll, waitlist_enabled, form_keys
+   - Edit program: all fields editable; capacity decrease shows warning if current enrolled > new cap
+   - Deactivate: if submissions exist, deactivate only (no DELETE); if no submissions, allow hard delete
+   - URL names: `school_programs_list`, `school_program_create`, `school_program_edit`, `school_program_deactivate`
+
+7. **Migration command** (for onboarding existing schools):
+   ```
+   python manage.py seed_school_programs_from_yaml --school <slug>
+   ```
+   Reads YAML options from the program field, creates `SchoolProgram` records, sets `school.program_field_key`.
+   Idempotent — safe to re-run. Logs a summary of what was created / skipped.
+
+**Audit requirements — every program state change must be logged (no "I don't know when this changed" gaps):**
+
+| Event | `extra["name"]` | Key fields logged |
+|-------|----------------|-------------------|
+| Program created | `program_created` | code, name, capacity, auto_enroll, waitlist_enabled |
+| Program edited | `program_edited` | changed fields with old/new values |
+| Program deactivated | `program_deactivated` | code, name, reason (has_submissions bool) |
+| Capacity changed | `program_capacity_changed` | old_capacity, new_capacity, current_enrolled |
+| auto_enroll toggled | `program_auto_enroll_changed` | old, new |
+| Submission auto-enrolled | `auto_enrolled` | program_code, enrolled_count, capacity |
+| Submission auto-waitlisted | `auto_waitlisted` | program_code, enrolled_count, capacity |
+
+**DB changes**:
+- New model `SchoolProgram` + migration
+- `School.program_field_key` CharField + migration
+- `Submission.program` ForeignKey + migration (nullable — no backfill required)
+
+**Files touched**:
+- `core/models.py` — `SchoolProgram`, `School.program_field_key`, `Submission.program` FK
+- `core/migrations/` — 3 migrations (or 1 combined)
+- `core/services/programs.py` (new) — `get_program_options`, `resolve_submission_program`,
+  `apply_auto_enrollment`, `get_programs_summary`
+- `core/views_school_submissions.py` — `apply_auto_enrollment` called on new submission save;
+  form rendering uses `get_program_options` when `program_field_key` is set
+- `core/views_school_programs.py` (new) — list, create, edit, deactivate views
+- `core/urls.py` — 4 new program admin URLs
+- `templates/school_admin/programs.html` (new) — program list + reorder + enrolled/waitlist counts
+- `templates/school_admin/program_form.html` (new) — create/edit form
+- `templates/school_admin/base.html` — "Programs" nav link (gated on `program_field_key` set)
+- `core/admin/` — Django admin registration for `SchoolProgram`
+- `core/management/commands/seed_school_programs_from_yaml.py` (new)
+- `configs/settings.py` — no changes needed
+
+**Out of scope (v1)**:
+- `starts_on` / `ends_on` program date range (add later)
+- Per-program description or rich text
+- Public-facing "available programs" page
+- Drag-and-drop reordering (up/down buttons for v1)
+- Per-program fee amounts (that's Phase 18 scope)
+- Automatic capacity decrease notifications to waitlisted families
+
+**Tests** (`core/tests/test_programs.py`, ~16 tests):
+- `test_program_options_from_db_when_field_key_set`
+- `test_program_options_from_yaml_when_no_field_key`
+- `test_ops_warning_when_field_key_set_but_no_active_programs`
+- `test_auto_enroll_on_submission_when_slots_available`
+- `test_auto_waitlist_on_submission_when_at_capacity`
+- `test_auto_enroll_status_new_when_auto_enroll_off`
+- `test_concurrent_submissions_only_one_auto_enrolled` (select_for_update race condition)
+- `test_submission_program_fk_set_on_save`
+- `test_admin_create_program`
+- `test_admin_edit_program_logs_audit`
+- `test_admin_deactivate_program_with_submissions`
+- `test_admin_deactivate_program_without_submissions_hard_deletes`
+- `test_seed_command_creates_programs_from_yaml`
+- `test_seed_command_idempotent`
+- `test_program_list_shows_enrolled_count`
+- `test_capacity_change_audit_logged_with_old_new_values`
+
+---
+
 ### Phase 18 — Application Fees (Stripe, school-direct)
 
 **Goal**: Schools can optionally charge an application fee, paid by the parent at submission time.
