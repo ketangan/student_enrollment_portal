@@ -866,7 +866,7 @@ def school_submission_create_view(request, school_slug: str):
     is_multi = len(available_forms) > 1
 
     if request.method == "GET":
-        yaml_sections = build_yaml_sections(config, existing_data={}, form=raw_form_cfg)
+        yaml_sections = build_yaml_sections(config, existing_data={}, form=raw_form_cfg, school=school)
         for section in yaml_sections:
             for field in section.get("fields", []):
                 field["error"] = ""
@@ -889,7 +889,7 @@ def school_submission_create_view(request, school_slug: str):
 
     if errors:
         post_values = _plain_post_values(request.POST, raw_form_cfg)
-        yaml_sections = build_yaml_sections(config, existing_data=post_values, form=raw_form_cfg)
+        yaml_sections = build_yaml_sections(config, existing_data=post_values, form=raw_form_cfg, school=school)
         for section in yaml_sections:
             for field in section.get("fields", []):
                 field["error"] = errors.get(field.get("key", ""), "")
@@ -920,6 +920,14 @@ def school_submission_create_view(request, school_slug: str):
             changes={},
             extra={"name": "submission_created", "form_key": form_key},
         )
+
+    # Resolve program FK (no auto-enrollment for admin-created submissions)
+    if school.program_field_key:
+        from core.services.programs import resolve_submission_program
+        program = resolve_submission_program(school, cleaned)
+        if program:
+            submission.program = program
+            submission.save(update_fields=["program"])
 
     messages.success(request, "Submission created successfully.")
     return redirect(reverse(
@@ -961,7 +969,7 @@ def school_submission_edit_view(request, school_slug: str, submission_id: int):
     )
 
     if request.method == "GET":
-        yaml_sections = build_yaml_sections(config, existing_data=submission.data, form=raw_form_cfg)
+        yaml_sections = build_yaml_sections(config, existing_data=submission.data, form=raw_form_cfg, school=school)
         for section in yaml_sections:
             for field in section.get("fields", []):
                 field["error"] = ""
@@ -985,7 +993,7 @@ def school_submission_edit_view(request, school_slug: str, submission_id: int):
 
     if errors:
         post_values = _plain_post_values(request.POST, raw_form_cfg)
-        yaml_sections = build_yaml_sections(config, existing_data=post_values, form=raw_form_cfg)
+        yaml_sections = build_yaml_sections(config, existing_data=post_values, form=raw_form_cfg, school=school)
         for section in yaml_sections:
             for field in section.get("fields", []):
                 field["error"] = errors.get(field.get("key", ""), "")
@@ -1029,7 +1037,7 @@ def school_submission_edit_view(request, school_slug: str, submission_id: int):
             stats = cap_summary[new_program]
             if not capacity_override:
                 post_values = _plain_post_values(request.POST, raw_form_cfg)
-                yaml_sections = build_yaml_sections(config, existing_data=post_values, form=raw_form_cfg)
+                yaml_sections = build_yaml_sections(config, existing_data=post_values, form=raw_form_cfg, school=school)
                 for section in yaml_sections:
                     for field in section.get("fields", []):
                         field["error"] = ""

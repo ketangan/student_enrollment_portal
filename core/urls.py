@@ -3,6 +3,7 @@ from django.views.generic import RedirectView
 from . import views
 from .views_billing import stripe_webhook
 from . import views_demo
+from core import views_school_programs
 
 urlpatterns = [
     # Demo pages (public, no auth)
@@ -58,6 +59,10 @@ urlpatterns = [
     path("schools/<slug:school_slug>/admin/leads/<int:lead_id>/send-message/", views.school_lead_send_message_view, name="school_lead_send_message"),
     path("schools/<slug:school_slug>/admin/leads/export/", views.school_lead_export_view, name="school_lead_export"),
     path("schools/<slug:school_slug>/admin/leads/", views.school_leads_view, name="school_leads"),
+    path("schools/<slug:school_slug>/admin/programs/", views_school_programs.school_programs_list_view, name="school_programs_list"),
+    path("schools/<slug:school_slug>/admin/programs/new/", views_school_programs.school_program_create_view, name="school_program_create"),
+    path("schools/<slug:school_slug>/admin/programs/<int:program_id>/edit/", views_school_programs.school_program_edit_view, name="school_program_edit"),
+    path("schools/<slug:school_slug>/admin/programs/<int:program_id>/deactivate/", views_school_programs.school_program_deactivate_view, name="school_program_deactivate"),
     path("schools/<slug:school_slug>/admin/reports/", views.school_reports_view, name="school_reports"),
     path("schools/<slug:school_slug>/admin/settings/", views.school_settings_view, name="school_settings"),
     path("schools/<slug:school_slug>/admin/password/", views.school_password_change_view, name="school_password_change"),

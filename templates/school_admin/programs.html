@@ -1,0 +1,99 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Programs{% endblock %}
+
+{% block content %}
+<div class="dash-content">
+
+  {% if no_active_warning %}
+  <div class="dash-alert dash-alert--warning" style="margin-bottom:16px;padding:12px 16px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;color:#92400e;font-size:13px;">
+    <strong>Warning:</strong> No active programs exist, but <code>{{ program_field_key }}</code> is set as the program field key.
+    New submissions won't have valid program options until you add at least one active program.
+  </div>
+  {% endif %}
+
+  <div class="dash-page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+    <h1 class="dash-page-title">Programs</h1>
+    <a href="{{ create_url }}" class="dash-btn dash-btn--primary">+ Add Program</a>
+  </div>
+
+  {% if program_field_key %}
+  <p style="font-size:13px;color:var(--dash-muted,#64748b);margin-bottom:16px;">
+    Program field key: <code>{{ program_field_key }}</code>
+  </p>
+  {% else %}
+  <div style="font-size:13px;color:var(--dash-muted,#64748b);margin-bottom:16px;padding:12px 16px;background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:8px;">
+    No <code>program_field_key</code> set on this school. Programs created here won't appear on the form until you set
+    <code>School.program_field_key</code> via Django admin or the seed command.
+  </div>
+  {% endif %}
+
+  {% if programs_summary %}
+  <div class="dash-card" style="overflow:hidden;">
+    <table class="dash-table" style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th class="dash-th">Name</th>
+          <th class="dash-th">Code</th>
+          <th class="dash-th">Capacity</th>
+          <th class="dash-th">Enrolled</th>
+          <th class="dash-th">Waitlisted</th>
+          <th class="dash-th">Auto-Enroll</th>
+          <th class="dash-th">Active</th>
+          <th class="dash-th">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for code, p in programs_summary.items %}
+        <tr class="dash-tr">
+          <td class="dash-td" style="font-weight:500;">{{ p.name }}</td>
+          <td class="dash-td"><code>{{ p.code }}</code></td>
+          <td class="dash-td">
+            {% if p.capacity %}
+              {{ p.enrolled_count }} / {{ p.capacity }}
+            {% else %}
+              <span style="color:var(--dash-muted,#64748b);">Unlimited</span>
+            {% endif %}
+          </td>
+          <td class="dash-td">{{ p.enrolled_count }}</td>
+          <td class="dash-td">{{ p.waitlisted_count }}</td>
+          <td class="dash-td">
+            {% if p.auto_enroll %}
+              <span class="dash-badge dash-badge--green">Yes{% if p.waitlist_enabled %} + Waitlist{% endif %}</span>
+            {% else %}
+              <span class="dash-badge dash-badge--gray">No</span>
+            {% endif %}
+          </td>
+          <td class="dash-td">
+            {% if p.is_active %}
+              <span class="dash-badge dash-badge--green">Active</span>
+            {% else %}
+              <span class="dash-badge dash-badge--gray">Inactive</span>
+            {% endif %}
+          </td>
+          <td class="dash-td" style="white-space:nowrap;">
+            <a href="{% url 'school_program_edit' school.slug p.id %}"
+               class="dash-btn dash-btn--sm dash-btn--secondary">Edit</a>
+            <form method="post"
+                  action="{% url 'school_program_deactivate' school.slug p.id %}"
+                  style="display:inline;"
+                  onsubmit="return confirm('{% if p.has_submissions %}Deactivate (submissions will be preserved){% else %}Delete{% endif %} program \'{{ p.name }}\'?');">
+              {% csrf_token %}
+              <button type="submit" class="dash-btn dash-btn--sm dash-btn--danger">
+                {% if p.has_submissions %}Deactivate{% else %}Delete{% endif %}
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="dash-card" style="padding:32px;text-align:center;color:var(--dash-muted,#64748b);">
+    <p style="font-size:15px;margin:0 0 12px;">No programs yet.</p>
+    <a href="{{ create_url }}" class="dash-btn dash-btn--primary">Add your first program</a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

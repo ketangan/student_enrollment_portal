@@ -8,6 +8,7 @@ from core.views_school_common import *  # noqa: F401,F403
 from core.views_school_dashboard import *  # noqa: F401,F403
 from core.views_school_submissions import *  # noqa: F401,F403
 from core.views_school_leads import *  # noqa: F401,F403
+from core.views_school_programs import *  # noqa: F401,F403
 
 # Explicitly re-export private helpers that tests import directly from core.views.
 from core.views_school_common import (  # noqa: F401

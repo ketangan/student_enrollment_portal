@@ -153,6 +153,9 @@ class School(models.Model):
     app_fee_stripe_public_key = models.CharField(max_length=255, blank=True, default="")
     app_fee_stripe_secret_key = models.CharField(max_length=255, blank=True, default="")
 
+    # DB-driven programs: when set, this field key's options come from SchoolProgram records, not YAML.
+    program_field_key = models.CharField(max_length=120, blank=True, default="")
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property
@@ -243,6 +246,37 @@ class SchoolAdminMembership(models.Model):
         return f"{self.user.username} -> {self.school.slug}"
 
 
+class SchoolProgram(models.Model):
+    """
+    Authoritative DB record for a school's program/class offering.
+    When School.program_field_key is set, the form renderer replaces YAML options
+    for that field with active SchoolProgram records for this school.
+    """
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="programs")
+    name = models.CharField(max_length=255)
+    # code matches Submission.data[program_field_key] — locked once any submission uses it
+    code = models.CharField(max_length=120, db_index=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    display_order = models.PositiveIntegerField(default=0)
+    capacity = models.PositiveIntegerField(null=True, blank=True)  # None = unlimited
+    auto_enroll = models.BooleanField(default=False)  # master switch for auto-enrollment
+    waitlist_enabled = models.BooleanField(default=False)  # only meaningful when auto_enroll=True
+    # [] = available on all forms; ["enrollment", "summer"] = specific forms only.
+    # Exposed in Django admin only for v1 (not in school admin UI).
+    form_keys = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [("school", "code")]
+        ordering = ["display_order", "name"]
+
+    def __str__(self) -> str:
+        return f"{self.school.slug} / {self.name} ({self.code})"
+
+    def has_submissions(self) -> bool:
+        return self.submissions.exists()
+
 
 def generate_public_id() -> str:
     """Short, URL-safe identifier for sharing with school admins.
@@ -315,6 +349,16 @@ class Submission(models.Model):
     # payment_status choices: "" (not applicable), "pending", "paid", "waived", "failed"
     payment_intent_id = models.CharField(max_length=255, blank=True, default="")
     payment_status = models.CharField(max_length=20, blank=True, default="")
+
+    # FK to SchoolProgram — set at submission time when school uses DB-driven programs.
+    # Nullable: schools without program_field_key still work; existing rows are NULL until backfill.
+    program = models.ForeignKey(
+        "SchoolProgram",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="submissions",
+    )
 
     # Family status page — token-based public URL, admin-authored notes visible to family.
     status_token = models.CharField(max_length=64, unique=True, default=generate_submission_status_token)

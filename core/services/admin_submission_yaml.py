@@ -6,7 +6,7 @@ from typing import Any
 from core.admin.common import DYN_PREFIX
 
 
-def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=None, form: dict | None = None) -> list[dict]:
+def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=None, form: dict | None = None, school=None) -> list[dict]:
     """
     Returns:
       yaml_sections = [
@@ -16,6 +16,8 @@ def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=Non
         ...
       ]
     post_data: if provided (request.POST), its values win so page re-renders with user edits.
+    school: if provided and school.program_field_key is set, DB program options replace YAML options
+            for the matching field key.
     """
     form = form or getattr(cfg, "form", None) or {}
     existing = existing_data or {}
@@ -37,6 +39,17 @@ def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=Non
             label = f.get("label") or key.replace("_", " ").title()
             required = bool(f.get("required", False))
             options = f.get("options") or []
+
+            # DB-driven program injection
+            no_programs_warning = False
+            if school and getattr(school, "program_field_key", "") and key == school.program_field_key:
+                from core.services.programs import get_program_options
+                db_options = get_program_options(school)
+                if db_options:
+                    options = db_options
+                else:
+                    options = []
+                    no_programs_warning = True
 
             if post_data is not None:
                 name = f"{DYN_PREFIX}{key}"
@@ -74,6 +87,7 @@ def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=Non
                     "link_url": f.get("link_url", ""),    # waiver link
                     "link_text": f.get("link_text", ""),  # waiver link label
                     "checkbox_label": f.get("checkbox_label", ""),
+                    "no_programs_warning": no_programs_warning,
                 }
             )
 

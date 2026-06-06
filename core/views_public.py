@@ -575,6 +575,15 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 payment_status="waived" if (fee_cfg["enabled"] and fee_cfg["waived"]) else "",
             )
 
+            # Resolve program FK + apply auto-enrollment if school uses DB-driven programs
+            if school.program_field_key:
+                from core.services.programs import resolve_submission_program, apply_auto_enrollment
+                program = resolve_submission_program(school, cleaned)
+                if program:
+                    submission.program = program
+                    submission.save(update_fields=["program"])
+                    apply_auto_enrollment(school, submission, program)
+
             # Mark draft submitted (do NOT delete — magic link shows "already submitted" page)
             active_draft = _resolve_active_draft(request, school, school_slug)
             if active_draft:

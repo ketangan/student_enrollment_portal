@@ -1,0 +1,125 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}{{ form_heading }}{% endblock %}
+
+{% block content %}
+<div class="dash-content">
+  <div class="dash-page-header" style="margin-bottom:20px;">
+    <h1 class="dash-page-title">{{ form_heading }}</h1>
+  </div>
+
+  <div class="dash-card" style="max-width:560px;padding:24px;">
+    <form method="post" action="{{ form_action }}">
+      {% csrf_token %}
+
+      <!-- Name -->
+      <div class="dash-form-group" style="margin-bottom:16px;">
+        <label class="dash-label" for="id_name">Name <span style="color:#ef4444;">*</span></label>
+        <input type="text"
+               id="id_name"
+               name="name"
+               value="{{ values.name }}"
+               class="dash-input{% if errors.name %} dash-input--error{% endif %}"
+               style="width:100%;"
+               placeholder="e.g. Ballet — Beginner">
+        {% if errors.name %}
+        <div class="dash-field-error" style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.name }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Code -->
+      <div class="dash-form-group" style="margin-bottom:16px;">
+        <label class="dash-label" for="id_code">
+          Code <span style="color:#ef4444;">*</span>
+          {% if code_locked %}
+          <span style="font-size:11px;font-weight:400;color:var(--dash-muted,#64748b);margin-left:6px;">(locked)</span>
+          {% endif %}
+        </label>
+        <input type="text"
+               id="id_code"
+               name="code"
+               value="{{ values.code }}"
+               class="dash-input{% if errors.code %} dash-input--error{% endif %}{% if code_locked %} dash-input--disabled{% endif %}"
+               style="width:100%;{% if code_locked %}background:var(--dash-bg,#f8fafc);cursor:not-allowed;{% endif %}"
+               placeholder="e.g. ballet_beginner"
+               {% if code_locked %}readonly title="Code cannot be changed because submissions already reference this program."{% endif %}>
+        {% if code_locked %}
+        <div style="font-size:12px;color:var(--dash-muted,#64748b);margin-top:4px;">
+          Code cannot be changed because submissions already reference this program.
+        </div>
+        {% endif %}
+        {% if errors.code %}
+        <div class="dash-field-error" style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.code }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Capacity -->
+      <div class="dash-form-group" style="margin-bottom:16px;">
+        <label class="dash-label" for="id_capacity">Capacity <span style="color:var(--dash-muted,#64748b);font-weight:400;font-size:12px;">(leave blank for unlimited)</span></label>
+        <input type="number"
+               id="id_capacity"
+               name="capacity"
+               value="{{ values.capacity }}"
+               class="dash-input{% if errors.capacity %} dash-input--error{% endif %}"
+               style="width:100%;"
+               min="1"
+               placeholder="e.g. 20">
+        {% if errors.capacity %}
+        <div class="dash-field-error" style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.capacity }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Display Order -->
+      <div class="dash-form-group" style="margin-bottom:16px;">
+        <label class="dash-label" for="id_display_order">Display Order</label>
+        <input type="number"
+               id="id_display_order"
+               name="display_order"
+               value="{{ values.display_order }}"
+               class="dash-input"
+               style="width:120px;"
+               min="0">
+      </div>
+
+      <!-- Auto-Enroll -->
+      <div class="dash-form-group" style="margin-bottom:12px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
+          <input type="checkbox"
+                 id="id_auto_enroll"
+                 name="auto_enroll"
+                 value="1"
+                 {% if values.auto_enroll %}checked{% endif %}
+                 onchange="document.getElementById('waitlist-row').style.display=this.checked?'block':'none';">
+          <span>Auto-enroll on submit</span>
+        </label>
+        <div style="font-size:12px;color:var(--dash-muted,#64748b);margin-top:3px;margin-left:24px;">
+          When enabled, new public submissions for this program are automatically set to <strong>Enrolled</strong>
+          (or Waitlisted if at capacity and waitlist is on).
+        </div>
+      </div>
+
+      <!-- Waitlist Enabled (shown only when auto_enroll checked) -->
+      <div id="waitlist-row" style="margin-bottom:16px;margin-left:24px;{% if not values.auto_enroll %}display:none;{% endif %}">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;">
+          <input type="checkbox"
+                 id="id_waitlist_enabled"
+                 name="waitlist_enabled"
+                 value="1"
+                 {% if values.waitlist_enabled %}checked{% endif %}>
+          <span>Enable waitlist when at capacity</span>
+        </label>
+        <div style="font-size:12px;color:var(--dash-muted,#64748b);margin-top:3px;">
+          Requires a capacity limit to be set. Submissions beyond capacity get status <strong>Waitlisted</strong>.
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div style="display:flex;gap:10px;margin-top:24px;">
+        <button type="submit" class="dash-btn dash-btn--primary">
+          {% if is_edit %}Save Changes{% else %}Create Program{% endif %}
+        </button>
+        <a href="{{ cancel_url }}" class="dash-btn dash-btn--secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
