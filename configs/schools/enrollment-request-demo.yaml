@@ -40,11 +40,6 @@ form:
           label: "Program / Class of Interest"
           type: select
           required: true
-          options:
-            - { value: "beginner", label: "Beginner Program" }
-            - { value: "intermediate", label: "Intermediate Program" }
-            - { value: "advanced", label: "Advanced Program" }
-            - { value: "unsure", label: "Not sure yet" }
 
         - key: enrollment_type
           label: "Enrollment Type"

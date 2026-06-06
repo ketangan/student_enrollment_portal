@@ -648,3 +648,237 @@ def test_programs_list_view_returns_200():
     resp = client.get(url)
     assert resp.status_code == 200
     assert b"Ballet" in resp.content
+
+
+# ---------------------------------------------------------------------------
+# 23. auto_enrolled audit event includes full context
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_auto_enrolled_audit_event_has_full_context():
+    school = SchoolFactory(program_field_key="program")
+    program = _make_program(school, code="ballet", auto_enroll=True, capacity=10)
+    submission = SubmissionFactory(school=school, status=STATUS_NEW)
+
+    apply_auto_enrollment(school, submission, program)
+    submission.refresh_from_db()
+    assert submission.status == STATUS_ENROLLED
+
+    log = AdminAuditLog.objects.filter(
+        model_label="core.submission",
+        object_id=str(submission.pk),
+        action="action",
+    ).order_by("-created_at").first()
+
+    assert log is not None
+    extra = log.extra
+    assert extra["name"] == "auto_enrolled"
+    assert extra["submission_id"] == submission.pk
+    assert extra["program_code"] == "ballet"
+    assert extra["old_status"] == STATUS_NEW
+    assert extra["new_status"] == STATUS_ENROLLED
+    assert extra["enrolled_count_before"] == 0
+    assert extra["enrolled_count_after"] == 1
+    assert extra["capacity"] == 10
+    assert extra["waitlist_enabled"] is False
+
+
+# ---------------------------------------------------------------------------
+# 24. auto_waitlisted audit event includes full context
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_auto_waitlisted_audit_event_has_full_context():
+    school = SchoolFactory(program_field_key="program")
+    program = _make_program(school, code="ballet", auto_enroll=True, capacity=1, waitlist_enabled=True)
+
+    # Fill the one slot
+    existing = SubmissionFactory(school=school, status=STATUS_ENROLLED)
+    existing.program = program
+    existing.save(update_fields=["program"])
+
+    new_sub = SubmissionFactory(school=school, status=STATUS_NEW)
+    apply_auto_enrollment(school, new_sub, program)
+    new_sub.refresh_from_db()
+    assert new_sub.status == STATUS_WAITLISTED
+
+    log = AdminAuditLog.objects.filter(
+        model_label="core.submission",
+        object_id=str(new_sub.pk),
+        action="action",
+    ).order_by("-created_at").first()
+
+    assert log is not None
+    extra = log.extra
+    assert extra["name"] == "auto_waitlisted"
+    assert extra["submission_id"] == new_sub.pk
+    assert extra["program_code"] == "ballet"
+    assert extra["old_status"] == STATUS_NEW
+    assert extra["new_status"] == STATUS_WAITLISTED
+    assert extra["enrolled_count_before"] == 1
+    assert extra["capacity"] == 1
+    assert extra["waitlist_enabled"] is True
+
+
+# ---------------------------------------------------------------------------
+# 25. auto_enroll_skipped does NOT create an audit log
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_auto_enroll_skipped_does_not_create_audit_log():
+    school = SchoolFactory(program_field_key="program")
+    program = _make_program(school, code="ballet", auto_enroll=True, capacity=1, waitlist_enabled=False)
+
+    # Fill the one slot
+    existing = SubmissionFactory(school=school, status=STATUS_ENROLLED)
+    existing.program = program
+    existing.save(update_fields=["program"])
+
+    new_sub = SubmissionFactory(school=school, status=STATUS_NEW)
+    apply_auto_enrollment(school, new_sub, program)
+    new_sub.refresh_from_db()
+    # Status should stay New — no waitlist, no auto-enroll possible
+    assert new_sub.status == STATUS_NEW
+
+    # No audit log should be created for this submission
+    count = AdminAuditLog.objects.filter(
+        model_label="core.submission",
+        object_id=str(new_sub.pk),
+        action="action",
+    ).count()
+    assert count == 0
+
+
+# ---------------------------------------------------------------------------
+# 26. program_capacity_changed creates dedicated audit event
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_program_capacity_changed_creates_dedicated_audit_event():
+    membership = SchoolAdminMembershipFactory()
+    school = membership.school
+    program = _make_program(school, name="Ballet", code="ballet", capacity=10)
+    client = Client()
+    client.force_login(membership.user)
+
+    url = reverse("school_program_edit", kwargs={"school_slug": school.slug, "program_id": program.pk})
+    client.post(url, {
+        "name": "Ballet",
+        "code": "ballet",
+        "capacity": "20",
+        "auto_enroll": "0",
+        "waitlist_enabled": "0",
+        "display_order": "0",
+    })
+
+    log = AdminAuditLog.objects.filter(
+        model_label="core.schoolprogram",
+        object_id=str(program.pk),
+        action="action",
+    ).filter(extra__name="program_capacity_changed").first()
+
+    assert log is not None
+    extra = log.extra
+    assert extra["old_capacity"] == 10
+    assert extra["new_capacity"] == 20
+    assert "current_enrolled" in extra
+
+
+# ---------------------------------------------------------------------------
+# 27. program_auto_enroll_changed creates dedicated audit event
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_program_auto_enroll_changed_creates_dedicated_audit_event():
+    membership = SchoolAdminMembershipFactory()
+    school = membership.school
+    program = _make_program(school, name="Ballet", code="ballet", auto_enroll=False)
+    client = Client()
+    client.force_login(membership.user)
+
+    url = reverse("school_program_edit", kwargs={"school_slug": school.slug, "program_id": program.pk})
+    client.post(url, {
+        "name": "Ballet",
+        "code": "ballet",
+        "capacity": "",
+        "auto_enroll": "1",
+        "waitlist_enabled": "0",
+        "display_order": "0",
+    })
+
+    log = AdminAuditLog.objects.filter(
+        model_label="core.schoolprogram",
+        object_id=str(program.pk),
+        action="action",
+    ).filter(extra__name="program_auto_enroll_changed").first()
+
+    assert log is not None
+    extra = log.extra
+    assert extra["old"] is False
+    assert extra["new"] is True
+
+
+# ---------------------------------------------------------------------------
+# 28. YAML options stripped → DB programs appear in form
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_yaml_field_with_no_options_uses_db_programs():
+    """When YAML has no options for the program field key, DB programs are used."""
+    school = SchoolFactory(program_field_key="program")
+    _make_program(school, name="Ballet", code="ballet", is_active=True)
+    _make_program(school, name="Jazz", code="jazz", is_active=True)
+
+    # YAML field has NO options (simulating stripped YAML)
+    class FakeCfgNoOptions:
+        form = {
+            "sections": [
+                {
+                    "title": "Class",
+                    "fields": [{"key": "program", "type": "select", "label": "Class", "required": True}],
+                }
+            ]
+        }
+
+    sections = build_yaml_sections(FakeCfgNoOptions(), existing_data={}, school=school)
+    field = sections[0]["fields"][0]
+    codes = [o["value"] for o in field["options"]]
+    assert "ballet" in codes
+    assert "jazz" in codes
+
+
+# ---------------------------------------------------------------------------
+# 29. Inactive program submissions preserved in admin summary
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_inactive_program_submissions_preserved_in_summary():
+    school = SchoolFactory(program_field_key="program")
+    program = _make_program(school, name="Old Class", code="old_class", is_active=False)
+
+    sub = SubmissionFactory(school=school, status=STATUS_ENROLLED)
+    sub.program = program
+    sub.save(update_fields=["program"])
+
+    summary = get_programs_summary(school)
+    assert "old_class" in summary
+    assert summary["old_class"]["enrolled_count"] == 1
+    assert summary["old_class"]["is_active"] is False
+
+
+# ---------------------------------------------------------------------------
+# 30. Inactive program not offered on public form but active programs are
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_inactive_hidden_active_shown_in_public_options():
+    school = SchoolFactory(program_field_key="program")
+    _make_program(school, name="Active A", code="active_a", is_active=True)
+    _make_program(school, name="Active B", code="active_b", is_active=True)
+    _make_program(school, name="Retired", code="retired", is_active=False)
+
+    opts = get_program_options(school)
+    codes = [o["value"] for o in opts]
+    assert "active_a" in codes
+    assert "active_b" in codes
+    assert "retired" not in codes

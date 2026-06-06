@@ -61,12 +61,6 @@ form:
           label: "Dance Style"
           type: "select"
           required: true
-          options:
-            - { value: "ballet", label: "Ballet" }
-            - { value: "jazz", label: "Jazz" }
-            - { value: "hip_hop", label: "Hip-Hop" }
-            - { value: "contemporary", label: "Contemporary" }
-            - { value: "tap", label: "Tap" }
 
         - key: "skill_level"
           label: "Skill Level"

@@ -236,6 +236,35 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
                     extra=extra,
                 )
 
+            # Dedicated audit events for high-signal field changes
+            if "capacity" in changed_fields:
+                enrolled_now = program.submissions.filter(status=STATUS_ENROLLED).count()
+                log_admin_audit(
+                    request=request,
+                    action="action",
+                    obj=program,
+                    changes={},
+                    extra={
+                        "name": "program_capacity_changed",
+                        "old_capacity": old_capacity,
+                        "new_capacity": capacity,
+                        "current_enrolled": enrolled_now,
+                    },
+                )
+
+            if "auto_enroll" in changed_fields:
+                log_admin_audit(
+                    request=request,
+                    action="action",
+                    obj=program,
+                    changes={},
+                    extra={
+                        "name": "program_auto_enroll_changed",
+                        "old": old_auto_enroll,
+                        "new": auto_enroll,
+                    },
+                )
+
             messages.success(request, f"Program '{name}' updated.")
 
             # Warn when capacity decrease puts current enrolled over the new cap

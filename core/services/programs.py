@@ -83,11 +83,12 @@ def apply_auto_enrollment(school, submission, program) -> None:
     Behavior matrix:
       auto_enroll=True,  slots available               → STATUS_ENROLLED
       auto_enroll=True,  full, waitlist_enabled=True   → STATUS_WAITLISTED
-      auto_enroll=True,  full, waitlist_enabled=False  → STATUS_NEW
+      auto_enroll=True,  full, waitlist_enabled=False  → STATUS_NEW (no audit)
       auto_enroll=False, any                           → no-op (caller must not call this)
 
     Uses select_for_update() on SchoolProgram to prevent concurrent over-enrollment.
-    Audit-logs the outcome as a system event (actor=None).
+    Audit-logs auto_enrolled and auto_waitlisted as system events (actor=None).
+    Does NOT log when status stays New (auto_enroll_skipped).
     """
     from core.views_school_common import STATUS_ENROLLED, STATUS_NEW, STATUS_WAITLISTED
 
@@ -98,8 +99,9 @@ def apply_auto_enrollment(school, submission, program) -> None:
         from core.models import SchoolProgram
         locked = SchoolProgram.objects.select_for_update().get(pk=program.pk)
 
-        enrolled_count = locked.submissions.filter(status=STATUS_ENROLLED).count()
-        slots_available = locked.capacity is None or enrolled_count < locked.capacity
+        old_status = submission.status
+        enrolled_count_before = locked.submissions.filter(status=STATUS_ENROLLED).count()
+        slots_available = locked.capacity is None or enrolled_count_before < locked.capacity
 
         if slots_available:
             new_status = STATUS_ENROLLED
@@ -108,13 +110,14 @@ def apply_auto_enrollment(school, submission, program) -> None:
             new_status = STATUS_WAITLISTED
             audit_name = "auto_waitlisted"
         else:
-            new_status = STATUS_NEW
-            audit_name = "auto_enroll_skipped"
+            # Status stays New — no audit event, no status change needed
+            return
 
         submission.status = new_status
         submission.save(update_fields=["status"])
 
-        # Log the status assignment as a system event (no HTTP request — actor=None)
+        enrolled_count_after = enrolled_count_before + (1 if new_status == STATUS_ENROLLED else 0)
+
         from core.admin.audit import log_admin_audit
         log_admin_audit(
             request=None,
@@ -123,10 +126,16 @@ def apply_auto_enrollment(school, submission, program) -> None:
             changes={},
             extra={
                 "name": audit_name,
+                "submission_id": submission.pk,
+                "public_id": getattr(submission, "public_id", None),
+                "school_slug": getattr(school, "slug", None),
                 "program_code": locked.code,
                 "program_name": locked.name,
-                "enrolled_count": enrolled_count,
+                "enrolled_count_before": enrolled_count_before,
+                "enrolled_count_after": enrolled_count_after,
                 "capacity": locked.capacity,
+                "waitlist_enabled": locked.waitlist_enabled,
+                "old_status": old_status,
                 "new_status": new_status,
             },
         )
