@@ -1,6 +1,8 @@
 """School admin views for managing DB-driven programs (SchoolProgram)."""
 from __future__ import annotations
 
+import re
+
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -10,7 +12,13 @@ from django.contrib import messages
 from core.admin.audit import log_admin_audit
 from core.models import SchoolProgram
 from core.services.programs import get_programs_summary
-from core.views_school_common import _get_accessible_school_for_admin, _school_admin_base_context
+from core.views_school_common import (
+    STATUS_ENROLLED,
+    _get_accessible_school_for_admin,
+    _school_admin_base_context,
+)
+
+_CODE_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 
 @login_required
@@ -69,6 +77,8 @@ def school_program_create_view(request, school_slug: str):
             errors["name"] = "Name is required."
         if not code:
             errors["code"] = "Code is required."
+        elif not _CODE_RE.match(code):
+            errors["code"] = "Code must contain only lowercase letters, numbers, hyphens, and underscores."
         elif SchoolProgram.objects.filter(school=school, code=code).exists():
             errors["code"] = f"A program with code '{code}' already exists."
 
@@ -166,6 +176,8 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
             errors["name"] = "Name is required."
         if not code:
             errors["code"] = "Code is required."
+        elif not code_locked and not _CODE_RE.match(code):
+            errors["code"] = "Code must contain only lowercase letters, numbers, hyphens, and underscores."
         elif not code_locked and code != program.code and SchoolProgram.objects.filter(school=school, code=code).exclude(pk=program.pk).exists():
             errors["code"] = f"A program with code '{code}' already exists."
 
@@ -214,7 +226,7 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
             if changed_fields:
                 extra = {"name": "program_edited", "changed_fields": changed_fields}
                 if "capacity" in changed_fields:
-                    enrolled = program.submissions.filter(status="Enrolled").count()
+                    enrolled = program.submissions.filter(status=STATUS_ENROLLED).count()
                     extra["current_enrolled"] = enrolled
                 log_admin_audit(
                     request=request,
@@ -225,6 +237,21 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
                 )
 
             messages.success(request, f"Program '{name}' updated.")
+
+            # Warn when capacity decrease puts current enrolled over the new cap
+            if (
+                capacity is not None
+                and old_capacity is not None
+                and capacity < old_capacity
+            ):
+                enrolled_now = program.submissions.filter(status=STATUS_ENROLLED).count()
+                if enrolled_now > capacity:
+                    messages.warning(
+                        request,
+                        f"Warning: {enrolled_now} students are currently enrolled in '{name}', "
+                        f"which exceeds the new capacity of {capacity}.",
+                    )
+
             return redirect(list_url)
 
     ctx = _school_admin_base_context(request, school, "programs")

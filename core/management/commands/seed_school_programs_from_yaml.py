@@ -120,12 +120,16 @@ class Command(BaseCommand):
 
         # Backfill submissions
         self.stdout.write("\n--- Backfilling submissions ---")
+        from collections import defaultdict
         programs = {p.code: p for p in SchoolProgram.objects.filter(school=school)}
-        # Also build a normalized-name map for fuzzy matching
-        programs_by_name = {p.name.lower().strip(): p for p in programs.values()}
+
+        # Build normalized name → list of programs; only backfill when exactly one match.
+        programs_by_name: dict[str, list] = defaultdict(list)
+        for p in programs.values():
+            programs_by_name[p.name.lower().strip()].append(p)
 
         submissions = Submission.objects.filter(school=school, program__isnull=True)
-        matched = skipped_no_match = skipped_ambiguous = already_set = 0
+        matched = skipped_no_match = skipped_ambiguous = 0
 
         for sub in submissions:
             code_val = str((sub.data or {}).get(field_key, "")).strip()
@@ -136,9 +140,18 @@ class Command(BaseCommand):
             # Priority 1: exact code match
             prog = programs.get(code_val)
 
-            # Priority 2: normalized name match
+            # Priority 2: normalized name match (only when unambiguous)
             if prog is None:
-                prog = programs_by_name.get(code_val.lower())
+                candidates = programs_by_name.get(code_val.lower(), [])
+                if len(candidates) == 1:
+                    prog = candidates[0]
+                elif len(candidates) > 1:
+                    self.stdout.write(
+                        f"  AMBIGUOUS: submission #{sub.pk} value='{code_val}' "
+                        f"matches {len(candidates)} programs — skipping"
+                    )
+                    skipped_ambiguous += 1
+                    continue
 
             if prog is None:
                 skipped_no_match += 1
@@ -150,5 +163,5 @@ class Command(BaseCommand):
 
         self.stdout.write(
             f"Submissions backfilled: {matched} matched, "
-            f"{skipped_no_match} no match, {skipped_ambiguous} ambiguous."
+            f"{skipped_no_match} no match, {skipped_ambiguous} ambiguous (skipped)."
         )

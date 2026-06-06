@@ -75,6 +75,7 @@ from .services.admin_lead_yaml import (
     get_lead_workflow_transitions,
 )
 from core.admin.audit import log_admin_audit
+from .services.programs import inject_db_program_options, get_program_options
 from .services.validation import validate_submission
 from .services.notifications import (
     send_applicant_confirmation_email,
@@ -508,6 +509,8 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
         form_cfg = config.form
         if not school.features.waiver_enabled:
             form_cfg = _strip_waiver_fields(form_cfg)
+        # Inject DB program options (replaces YAML options when school.program_field_key is set)
+        form_cfg = inject_db_program_options(form_cfg, school, form_key="default")
 
         save_resume_enabled = school.features.save_resume_enabled
         raw_config = getattr(config, "raw", {}) or {}
@@ -534,6 +537,13 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
 
             # Normal full submit
             cleaned, errors = validate_submission(form_cfg, request.POST, request.FILES)
+
+            # Block submission when program_field_key is set but no active programs exist
+            if not errors and school.program_field_key:
+                if not get_program_options(school, form_key="default"):
+                    errors = errors or {}
+                    errors[school.program_field_key] = "No programs are currently available. Please contact the school."
+
             if errors:
                 ctx = _apply_form_context(
                     school=school,
@@ -662,6 +672,8 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
     form_cfg, ordered_keys, next_key = _get_multi_form_context(config, form_key)
     if not school.features.waiver_enabled:
         form_cfg = _strip_waiver_fields(form_cfg)
+    # Inject DB program options for multi-form schools
+    form_cfg = inject_db_program_options(form_cfg, school, form_key=form_key)
 
     # GET: pre-populate from active draft (session or token)
     active_draft = _resolve_active_draft(request, school, school_slug)
@@ -686,6 +698,13 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
             return redirect(request.path)
 
         cleaned, errors = validate_submission(form_cfg, request.POST, request.FILES)
+
+        # Block submission when program_field_key is set but no active programs exist
+        if not errors and school.program_field_key:
+            if not get_program_options(school, form_key=form_key):
+                errors = errors or {}
+                errors[school.program_field_key] = "No programs are currently available. Please contact the school."
+
         if errors:
             ctx = _apply_form_context(
                 school=school,
@@ -1061,7 +1080,7 @@ def lead_capture_view(request, school_slug):
         })
 
     leads_cfg = config.raw.get("leads") or {}
-    program_options = get_program_options(config)
+    program_options = get_program_options(school)
 
     errors: dict[str, str] = {}
 

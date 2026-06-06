@@ -3,22 +3,59 @@ DB-driven program management service.
 
 Functions here are called from:
   - build_yaml_sections (inject options when school.program_field_key is set)
+  - inject_db_program_options (public form rendering)
   - views_public.apply_view (auto-enrollment on public submission)
   - views_school_programs (admin CRUD)
   - seed_school_programs_from_yaml management command
 """
 from __future__ import annotations
 
+import copy
+
 from django.db import transaction
 
-from core.views_school_common import STATUS_ENROLLED, STATUS_NEW, STATUS_WAITLISTED
 
+def get_program_options(school, form_key: str = "default") -> list[dict]:
+    """
+    Return active SchoolProgram records as options list for form rendering.
 
-def get_program_options(school) -> list[dict]:
-    """Return active SchoolProgram records as options list for form rendering."""
+    Respects form_keys: a program with a non-empty form_keys list is only
+    returned when form_key appears in that list. An empty form_keys list means
+    "available on all forms."
+    """
     from core.models import SchoolProgram
-    programs = SchoolProgram.objects.filter(school=school, is_active=True).order_by("display_order", "name")
-    return [{"value": p.code, "label": p.name} for p in programs]
+    qs = SchoolProgram.objects.filter(school=school, is_active=True).order_by("display_order", "name")
+    result = []
+    for p in qs:
+        if p.form_keys and form_key not in p.form_keys:
+            continue
+        result.append({"value": p.code, "label": p.name})
+    return result
+
+
+def inject_db_program_options(form_cfg: dict, school, form_key: str = "default") -> dict:
+    """
+    Return a deep-copy of form_cfg with DB program options injected for the
+    field matching school.program_field_key.
+
+    If no active programs exist for this school/form_key, the field gets
+    options=[] and no_programs_warning=True so the template can block submission.
+    """
+    field_key = getattr(school, "program_field_key", "") or ""
+    if not form_cfg or not field_key:
+        return form_cfg
+
+    options = get_program_options(school, form_key=form_key)
+    form_cfg = copy.deepcopy(form_cfg)
+    for section in form_cfg.get("sections", []):
+        for field in section.get("fields", []):
+            if field.get("key") == field_key:
+                if options:
+                    field["options"] = options
+                else:
+                    field["options"] = []
+                    field["no_programs_warning"] = True
+    return form_cfg
 
 
 def resolve_submission_program(school, data: dict):
@@ -44,18 +81,20 @@ def apply_auto_enrollment(school, submission, program) -> None:
     Concurrency-safe auto-enrollment logic.
 
     Behavior matrix:
-      auto_enroll=True,  slots available                  → STATUS_ENROLLED
-      auto_enroll=True,  full, waitlist_enabled=True      → STATUS_WAITLISTED
-      auto_enroll=True,  full, waitlist_enabled=False     → STATUS_NEW
-      auto_enroll=False, any                              → STATUS_NEW (no-op, caller should not call this)
+      auto_enroll=True,  slots available               → STATUS_ENROLLED
+      auto_enroll=True,  full, waitlist_enabled=True   → STATUS_WAITLISTED
+      auto_enroll=True,  full, waitlist_enabled=False  → STATUS_NEW
+      auto_enroll=False, any                           → no-op (caller must not call this)
 
-    Uses select_for_update() on the SchoolProgram row to prevent concurrent over-enrollment.
+    Uses select_for_update() on SchoolProgram to prevent concurrent over-enrollment.
+    Audit-logs the outcome as a system event (actor=None).
     """
+    from core.views_school_common import STATUS_ENROLLED, STATUS_NEW, STATUS_WAITLISTED
+
     if not program or not program.auto_enroll:
         return
 
     with transaction.atomic():
-        # Lock the program row to serialize concurrent enrollments
         from core.models import SchoolProgram
         locked = SchoolProgram.objects.select_for_update().get(pk=program.pk)
 
@@ -64,13 +103,33 @@ def apply_auto_enrollment(school, submission, program) -> None:
 
         if slots_available:
             new_status = STATUS_ENROLLED
+            audit_name = "auto_enrolled"
         elif locked.waitlist_enabled:
             new_status = STATUS_WAITLISTED
+            audit_name = "auto_waitlisted"
         else:
             new_status = STATUS_NEW
+            audit_name = "auto_enroll_skipped"
 
         submission.status = new_status
         submission.save(update_fields=["status"])
+
+        # Log the status assignment as a system event (no HTTP request — actor=None)
+        from core.admin.audit import log_admin_audit
+        log_admin_audit(
+            request=None,
+            action="action",
+            obj=submission,
+            changes={},
+            extra={
+                "name": audit_name,
+                "program_code": locked.code,
+                "program_name": locked.name,
+                "enrolled_count": enrolled_count,
+                "capacity": locked.capacity,
+                "new_status": new_status,
+            },
+        )
 
 
 def get_programs_summary(school) -> dict:
@@ -79,7 +138,7 @@ def get_programs_summary(school) -> dict:
     {code: {name, capacity, enrolled_count, waitlisted_count, is_active, display_order}}
     """
     from core.models import SchoolProgram
-    from core.views_school_common import STATUS_WAITLISTED, STATUS_ENROLLED
+    from core.views_school_common import STATUS_ENROLLED, STATUS_WAITLISTED
     programs = SchoolProgram.objects.filter(school=school).order_by("display_order", "name")
     result = {}
     for p in programs:

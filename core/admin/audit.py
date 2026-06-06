@@ -12,7 +12,7 @@ from core.models import AdminAuditLog
 
 def _get_ip(request) -> str | None:
     # If you later add a proxy/load balancer header, you can extend this safely.
-    return request.META.get("REMOTE_ADDR")
+    return request.META.get("REMOTE_ADDR") if request is not None else None
 
 
 def log_admin_audit(
@@ -25,10 +25,12 @@ def log_admin_audit(
 ):
     """
     Level 1 audit log:
-    - who did it (actor)
+    - who did it (actor — None for system events, e.g. auto-enrollment)
     - what model/object
     - add/change/delete/action
     - optional changes diff and metadata
+
+    request=None is accepted for system-generated events (no HTTP actor).
     """
     model_label = ""
     object_id = ""
@@ -42,17 +44,30 @@ def log_admin_audit(
         except Exception:
             object_repr = ""
 
+    # Extract HTTP context when a real request is present
+    actor = None
+    path = ""
+    ip_address = None
+    user_agent = ""
+    if request is not None:
+        user = getattr(request, "user", None)
+        if user is not None and user.is_authenticated:
+            actor = user
+        path = getattr(request, "path", "") or ""
+        ip_address = _get_ip(request)
+        user_agent = getattr(request, "META", {}).get("HTTP_USER_AGENT", "") or ""
+
     AdminAuditLog.objects.create(
-        actor=getattr(request, "user", None) if getattr(request, "user", None) and request.user.is_authenticated else None,
+        actor=actor,
         action=action,
         model_label=model_label,
         object_id=object_id,
         object_repr=object_repr,
         changes=changes or {},
         extra=extra or {},
-        path=getattr(request, "path", "") or "",
-        ip_address=_get_ip(request),
-        user_agent=request.META.get("HTTP_USER_AGENT", "") or "",
+        path=path,
+        ip_address=ip_address,
+        user_agent=user_agent,
     )
 
 

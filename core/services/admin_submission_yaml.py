@@ -6,7 +6,7 @@ from typing import Any
 from core.admin.common import DYN_PREFIX
 
 
-def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=None, form: dict | None = None, school=None) -> list[dict]:
+def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=None, form: dict | None = None, school=None, form_key: str = "default") -> list[dict]:
     """
     Returns:
       yaml_sections = [
@@ -44,7 +44,7 @@ def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=Non
             no_programs_warning = False
             if school and getattr(school, "program_field_key", "") and key == school.program_field_key:
                 from core.services.programs import get_program_options
-                db_options = get_program_options(school)
+                db_options = get_program_options(school, form_key=form_key)
                 if db_options:
                     options = db_options
                 else:
