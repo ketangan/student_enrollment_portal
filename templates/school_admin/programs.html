@@ -1,99 +1,129 @@
 {% extends "school_admin/base.html" %}
-{% block page_title %}Programs{% endblock %}
+{% block page_title %}Programs — Settings{% endblock %}
 
 {% block content %}
-<div class="dash-content">
+<main class="dash-main">
+
+  <div style="margin-bottom:20px;">
+    <h1 style="font-size:20px;font-weight:700;margin:0 0 12px;">Settings</h1>
+    <div style="display:flex;gap:4px;border-bottom:1px solid var(--dash-border);padding-bottom:0;">
+      <a href="{% url 'school_settings' school.slug %}"
+         style="padding:7px 16px;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px 6px 0 0;
+                background:transparent;color:var(--dash-muted);border:1px solid transparent;
+                border-bottom:none;margin-bottom:-1px;">
+        General
+      </a>
+      <a href="{% url 'school_programs_list' school.slug %}"
+         style="padding:7px 16px;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px 6px 0 0;
+                border:1px solid var(--dash-border);border-bottom:none;margin-bottom:-1px;
+                background:var(--dash-card);color:var(--dash-text);">
+        Programs
+      </a>
+    </div>
+  </div>
 
   {% if no_active_warning %}
-  <div class="dash-alert dash-alert--warning" style="margin-bottom:16px;padding:12px 16px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;color:#92400e;font-size:13px;">
-    <strong>Warning:</strong> No active programs exist, but <code>{{ program_field_key }}</code> is set as the program field key.
-    New submissions won't have valid program options until you add at least one active program.
+  <div style="margin-bottom:16px;padding:12px 16px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;color:#92400e;font-size:13px;">
+    <strong>Warning:</strong> No active programs exist. New submissions won't have valid program options until you add at least one active program.
   </div>
   {% endif %}
 
-  <div class="dash-page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-    <h1 class="dash-page-title">Programs</h1>
-    <a href="{{ create_url }}" class="dash-btn dash-btn--primary">+ Add Program</a>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <p style="margin:0;font-size:13px;color:var(--dash-muted);">
+      {% if program_field_key %}
+        Programs for the <strong>{{ program_field_key }}</strong> field.
+      {% endif %}
+    </p>
+    <a href="{{ create_url }}" class="dash-action-btn dash-action-btn--primary" style="font-size:12px;padding:5px 12px;">+ Add Program</a>
   </div>
-
-  {% if program_field_key %}
-  <p style="font-size:13px;color:var(--dash-muted,#64748b);margin-bottom:16px;">
-    Program field key: <code>{{ program_field_key }}</code>
-  </p>
-  {% else %}
-  <div style="font-size:13px;color:var(--dash-muted,#64748b);margin-bottom:16px;padding:12px 16px;background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:8px;">
-    No <code>program_field_key</code> set on this school. Programs created here won't appear on the form until you set
-    <code>School.program_field_key</code> via Django admin or the seed command.
-  </div>
-  {% endif %}
 
   {% if programs_summary %}
-  <div class="dash-card" style="overflow:hidden;">
-    <table class="dash-table" style="width:100%;border-collapse:collapse;">
-      <thead>
-        <tr>
-          <th class="dash-th">Name</th>
-          <th class="dash-th">Code</th>
-          <th class="dash-th">Capacity</th>
-          <th class="dash-th">Enrolled</th>
-          <th class="dash-th">Waitlisted</th>
-          <th class="dash-th">Auto-Enroll</th>
-          <th class="dash-th">Active</th>
-          <th class="dash-th">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for code, p in programs_summary.items %}
-        <tr class="dash-tr">
-          <td class="dash-td" style="font-weight:500;">{{ p.name }}</td>
-          <td class="dash-td"><code>{{ p.code }}</code></td>
-          <td class="dash-td">
-            {% if p.capacity %}
-              {{ p.enrolled_count }} / {{ p.capacity }}
-            {% else %}
-              <span style="color:var(--dash-muted,#64748b);">Unlimited</span>
-            {% endif %}
-          </td>
-          <td class="dash-td">{{ p.enrolled_count }}</td>
-          <td class="dash-td">{{ p.waitlisted_count }}</td>
-          <td class="dash-td">
-            {% if p.auto_enroll %}
-              <span class="dash-badge dash-badge--green">Yes{% if p.waitlist_enabled %} + Waitlist{% endif %}</span>
-            {% else %}
-              <span class="dash-badge dash-badge--gray">No</span>
-            {% endif %}
-          </td>
-          <td class="dash-td">
-            {% if p.is_active %}
-              <span class="dash-badge dash-badge--green">Active</span>
-            {% else %}
-              <span class="dash-badge dash-badge--gray">Inactive</span>
-            {% endif %}
-          </td>
-          <td class="dash-td" style="white-space:nowrap;">
-            <a href="{% url 'school_program_edit' school.slug p.id %}"
-               class="dash-btn dash-btn--sm dash-btn--secondary">Edit</a>
-            <form method="post"
-                  action="{% url 'school_program_deactivate' school.slug p.id %}"
-                  style="display:inline;"
-                  onsubmit="return confirm('{% if p.has_submissions %}Deactivate (submissions will be preserved){% else %}Delete{% endif %} program \'{{ p.name }}\'?');">
-              {% csrf_token %}
-              <button type="submit" class="dash-btn dash-btn--sm dash-btn--danger">
-                {% if p.has_submissions %}Deactivate{% else %}Delete{% endif %}
-              </button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="dash-card">
+    <div class="dash-table-scroll">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Capacity</th>
+            <th>Enrolled</th>
+            <th>Waitlisted</th>
+            <th>Auto-Enroll</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for code, p in programs_summary.items %}
+          <tr{% if not p.is_active %} style="opacity:.65;"{% endif %}>
+            <td>
+              <div style="font-weight:500;font-size:13px;color:var(--dash-text);">{{ p.name }}</div>
+              <div style="font-size:11px;color:var(--dash-muted);margin-top:2px;">{{ p.code }}</div>
+            </td>
+            <td style="font-size:13px;color:var(--dash-muted);">
+              {% if p.capacity %}{{ p.capacity }}{% else %}Unlimited{% endif %}
+            </td>
+            <td style="font-size:13px;">{{ p.enrolled_count }}</td>
+            <td style="font-size:13px;">{{ p.waitlisted_count }}</td>
+            <td>
+              {% if p.auto_enroll %}
+                <span class="dash-badge dash-badge--green">On{% if p.waitlist_enabled %} + Waitlist{% endif %}</span>
+              {% else %}
+                <span class="dash-badge dash-badge--gray">Off</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if p.is_active %}
+                <span class="dash-badge dash-badge--green">Active</span>
+              {% else %}
+                <span class="dash-badge dash-badge--gray">Inactive</span>
+              {% endif %}
+            </td>
+            <td style="white-space:nowrap;text-align:right;">
+              <a href="{% url 'school_program_edit' school.slug p.id %}"
+                 class="dash-action-btn dash-action-btn--secondary"
+                 style="font-size:12px;padding:4px 10px;">Edit</a>
+
+              {% if not p.is_active %}
+                {# Inactive: offer Activate or Delete #}
+                {% if p.has_submissions %}
+                  <form method="post" action="{% url 'school_program_activate' school.slug p.id %}" style="display:inline;margin-left:4px;">
+                    {% csrf_token %}
+                    <button type="submit" class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;padding:4px 10px;">Activate</button>
+                  </form>
+                {% else %}
+                  <form method="post" action="{% url 'school_program_deactivate' school.slug p.id %}" style="display:inline;margin-left:4px;"
+                        onsubmit="return confirm('Delete program \'{{ p.name }}\'?');">
+                    {% csrf_token %}
+                    <button type="submit" class="dash-action-btn dash-action-btn--danger" style="font-size:12px;padding:4px 10px;">Delete</button>
+                  </form>
+                {% endif %}
+              {% else %}
+                {# Active: offer Deactivate or Delete #}
+                <form method="post" action="{% url 'school_program_deactivate' school.slug p.id %}" style="display:inline;margin-left:4px;"
+                      onsubmit="return confirm('{% if p.has_submissions %}Deactivate{% else %}Delete{% endif %} program \'{{ p.name }}\'?');">
+                  {% csrf_token %}
+                  <button type="submit" class="dash-action-btn dash-action-btn--danger" style="font-size:12px;padding:4px 10px;">
+                    {% if p.has_submissions %}Deactivate{% else %}Delete{% endif %}
+                  </button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
+
   {% else %}
-  <div class="dash-card" style="padding:32px;text-align:center;color:var(--dash-muted,#64748b);">
-    <p style="font-size:15px;margin:0 0 12px;">No programs yet.</p>
-    <a href="{{ create_url }}" class="dash-btn dash-btn--primary">Add your first program</a>
+  <div class="dash-card">
+    <div class="dash-empty">
+      <div class="dash-empty-title">No programs yet</div>
+      <div class="dash-empty-sub" style="margin-bottom:16px;">Add programs to control what options appear on your enrollment form.</div>
+      <a href="{{ create_url }}" class="dash-action-btn dash-action-btn--primary">Add your first program</a>
+    </div>
   </div>
   {% endif %}
 
-</div>
+</main>
 {% endblock %}

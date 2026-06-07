@@ -63,6 +63,7 @@ urlpatterns = [
     path("schools/<slug:school_slug>/admin/programs/new/", views_school_programs.school_program_create_view, name="school_program_create"),
     path("schools/<slug:school_slug>/admin/programs/<int:program_id>/edit/", views_school_programs.school_program_edit_view, name="school_program_edit"),
     path("schools/<slug:school_slug>/admin/programs/<int:program_id>/deactivate/", views_school_programs.school_program_deactivate_view, name="school_program_deactivate"),
+    path("schools/<slug:school_slug>/admin/programs/<int:program_id>/activate/", views_school_programs.school_program_activate_view, name="school_program_activate"),
     path("schools/<slug:school_slug>/admin/reports/", views.school_reports_view, name="school_reports"),
     path("schools/<slug:school_slug>/admin/settings/", views.school_settings_view, name="school_settings"),
     path("schools/<slug:school_slug>/admin/password/", views.school_password_change_view, name="school_password_change"),

@@ -299,6 +299,28 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
 
 @login_required
 @require_http_methods(["POST"])
+def school_program_activate_view(request, school_slug: str, program_id: int):
+    school = _get_accessible_school_for_admin(request, school_slug)
+    program = get_object_or_404(SchoolProgram, id=program_id, school=school)
+    list_url = reverse("school_programs_list", kwargs={"school_slug": school_slug})
+
+    if not program.is_active:
+        program.is_active = True
+        program.save(update_fields=["is_active"])
+        log_admin_audit(
+            request=request,
+            action="change",
+            obj=program,
+            changes={"is_active": {"old": False, "new": True}},
+            extra={"name": "program_activated", "code": program.code, "program_name": program.name},
+        )
+        messages.success(request, f"Program '{program.name}' reactivated.")
+
+    return redirect(list_url)
+
+
+@login_required
+@require_http_methods(["POST"])
 def school_program_deactivate_view(request, school_slug: str, program_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
     program = get_object_or_404(SchoolProgram, id=program_id, school=school)

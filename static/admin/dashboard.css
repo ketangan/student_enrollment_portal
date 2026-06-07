@@ -698,6 +698,17 @@ body.dash-midnight .dash-select {
   border: 1px solid var(--dash-border);
 }
 
+.dash-action-btn--danger {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.dash-action-btn--danger:hover {
+  background: #fee2e2;
+  opacity: 1;
+}
+
 /* ── Empty state ─────────────────────────────────────────────────────── */
 
 .dash-empty {
