@@ -11,76 +11,67 @@ from django.contrib import messages
 
 from core.admin.audit import log_admin_audit
 from core.models import SchoolProgram
-from core.services.programs import get_programs_summary
 from core.views_school_common import (
     STATUS_ENROLLED,
     _get_accessible_school_for_admin,
     _school_admin_base_context,
 )
 
-_CODE_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+
+def _auto_code(school, name: str) -> str:
+    """Generate a unique slug-like code from name. 'Ballet Beginner' → 'ballet_beginner'."""
+    base = re.sub(r"[^a-z0-9]+", "_", name.lower().strip()).strip("_")[:40] or "program"
+    code = base
+    n = 2
+    while SchoolProgram.objects.filter(school=school, code=code).exists():
+        code = f"{base}_{n}"
+        n += 1
+    return code
+
+
+def _next_display_order(school) -> int:
+    """Return max existing display_order + 1 (appends to end of list)."""
+    from django.db.models import Max
+    result = SchoolProgram.objects.filter(school=school).aggregate(Max("display_order"))
+    return (result["display_order__max"] or 0) + 1
+
+
+def _settings_url(school_slug: str) -> str:
+    return reverse("school_settings", kwargs={"school_slug": school_slug})
 
 
 @login_required
 @require_http_methods(["GET"])
 def school_programs_list_view(request, school_slug: str):
-    school = _get_accessible_school_for_admin(request, school_slug)
-    summary = get_programs_summary(school)
-    no_active_warning = (
-        bool(school.program_field_key)
-        and not SchoolProgram.objects.filter(school=school, is_active=True).exists()
-    )
-    ctx = _school_admin_base_context(request, school, "programs")
-    ctx.update({
-        "programs_summary": summary,
-        "program_field_key": school.program_field_key,
-        "no_active_warning": no_active_warning,
-        "create_url": reverse("school_program_create", kwargs={"school_slug": school_slug}),
-    })
-    return render(request, "school_admin/programs.html", ctx)
+    # Programs are now embedded in the Settings page.
+    _get_accessible_school_for_admin(request, school_slug)
+    return redirect(_settings_url(school_slug))
 
 
 @login_required
 @require_http_methods(["GET", "POST"])
 def school_program_create_view(request, school_slug: str):
     school = _get_accessible_school_for_admin(request, school_slug)
-    list_url = reverse("school_programs_list", kwargs={"school_slug": school_slug})
+    settings_url = _settings_url(school_slug)
 
     errors = {}
-    values = {
-        "name": "",
-        "code": "",
-        "capacity": "",
-        "auto_enroll": False,
-        "waitlist_enabled": False,
-        "display_order": 0,
-    }
+    values = {"name": "", "capacity": "", "auto_enroll": False, "waitlist_enabled": False}
 
     if request.method == "POST":
         name = request.POST.get("name", "").strip()
-        code = request.POST.get("code", "").strip()
         capacity_raw = request.POST.get("capacity", "").strip()
         auto_enroll = request.POST.get("auto_enroll") == "1"
         waitlist_enabled = request.POST.get("waitlist_enabled") == "1"
-        display_order_raw = request.POST.get("display_order", "0").strip()
 
         values = {
             "name": name,
-            "code": code,
             "capacity": capacity_raw,
             "auto_enroll": auto_enroll,
             "waitlist_enabled": waitlist_enabled,
-            "display_order": display_order_raw,
         }
 
         if not name:
             errors["name"] = "Name is required."
-        if not code:
-            errors["code"] = "Code is required."
-        elif not _CODE_RE.match(code):
-            errors["code"] = "Code must contain only lowercase letters, numbers, hyphens, and underscores."
-        elif SchoolProgram.objects.filter(school=school, code=code).exists():
-            errors["code"] = f"A program with code '{code}' already exists."
 
         capacity = None
         if capacity_raw:
@@ -91,13 +82,9 @@ def school_program_create_view(request, school_slug: str):
             except ValueError:
                 errors["capacity"] = "Capacity must be a whole number."
 
-        display_order = 0
-        try:
-            display_order = int(display_order_raw or "0")
-        except ValueError:
-            display_order = 0
-
         if not errors:
+            code = _auto_code(school, name)
+            display_order = _next_display_order(school)
             program = SchoolProgram.objects.create(
                 school=school,
                 name=name,
@@ -121,18 +108,17 @@ def school_program_create_view(request, school_slug: str):
                     "waitlist_enabled": waitlist_enabled,
                 },
             )
-            messages.success(request, f"Program '{name}' created.")
-            return redirect(list_url)
+            messages.success(request, f"Program '{name}' added.")
+            return redirect(settings_url)
 
-    ctx = _school_admin_base_context(request, school, "programs")
+    ctx = _school_admin_base_context(request, school, "settings")
     ctx.update({
         "form_heading": "Add Program",
         "form_action": request.path,
-        "cancel_url": list_url,
+        "back_url": settings_url,
         "errors": errors,
         "values": values,
         "is_edit": False,
-        "code_locked": False,
     })
     return render(request, "school_admin/program_form.html", ctx)
 
@@ -142,44 +128,31 @@ def school_program_create_view(request, school_slug: str):
 def school_program_edit_view(request, school_slug: str, program_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
     program = get_object_or_404(SchoolProgram, id=program_id, school=school)
-    list_url = reverse("school_programs_list", kwargs={"school_slug": school_slug})
-    code_locked = program.has_submissions()
+    settings_url = _settings_url(school_slug)
 
     errors = {}
     values = {
         "name": program.name,
-        "code": program.code,
         "capacity": str(program.capacity) if program.capacity is not None else "",
         "auto_enroll": program.auto_enroll,
         "waitlist_enabled": program.waitlist_enabled,
-        "display_order": program.display_order,
     }
 
     if request.method == "POST":
         name = request.POST.get("name", "").strip()
-        code = request.POST.get("code", "").strip() if not code_locked else program.code
         capacity_raw = request.POST.get("capacity", "").strip()
         auto_enroll = request.POST.get("auto_enroll") == "1"
         waitlist_enabled = request.POST.get("waitlist_enabled") == "1"
-        display_order_raw = request.POST.get("display_order", "0").strip()
 
         values = {
             "name": name,
-            "code": code,
             "capacity": capacity_raw,
             "auto_enroll": auto_enroll,
             "waitlist_enabled": waitlist_enabled,
-            "display_order": display_order_raw,
         }
 
         if not name:
             errors["name"] = "Name is required."
-        if not code:
-            errors["code"] = "Code is required."
-        elif not code_locked and not _CODE_RE.match(code):
-            errors["code"] = "Code must contain only lowercase letters, numbers, hyphens, and underscores."
-        elif not code_locked and code != program.code and SchoolProgram.objects.filter(school=school, code=code).exclude(pk=program.pk).exists():
-            errors["code"] = f"A program with code '{code}' already exists."
 
         capacity = None
         if capacity_raw:
@@ -190,12 +163,6 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
             except ValueError:
                 errors["capacity"] = "Capacity must be a whole number."
 
-        display_order = 0
-        try:
-            display_order = int(display_order_raw or "0")
-        except ValueError:
-            display_order = 0
-
         if not errors:
             old_capacity = program.capacity
             old_auto_enroll = program.auto_enroll
@@ -203,31 +170,23 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
 
             if program.name != name:
                 changed_fields["name"] = {"old": program.name, "new": name}
-            if not code_locked and program.code != code:
-                changed_fields["code"] = {"old": program.code, "new": code}
             if program.capacity != capacity:
                 changed_fields["capacity"] = {"old": old_capacity, "new": capacity}
             if program.auto_enroll != auto_enroll:
                 changed_fields["auto_enroll"] = {"old": old_auto_enroll, "new": auto_enroll}
             if program.waitlist_enabled != waitlist_enabled:
                 changed_fields["waitlist_enabled"] = {"old": program.waitlist_enabled, "new": waitlist_enabled}
-            if program.display_order != display_order:
-                changed_fields["display_order"] = {"old": program.display_order, "new": display_order}
 
             program.name = name
-            if not code_locked:
-                program.code = code
             program.capacity = capacity
             program.auto_enroll = auto_enroll
             program.waitlist_enabled = waitlist_enabled
-            program.display_order = display_order
             program.save()
 
             if changed_fields:
                 extra = {"name": "program_edited", "changed_fields": changed_fields}
                 if "capacity" in changed_fields:
-                    enrolled = program.submissions.filter(status=STATUS_ENROLLED).count()
-                    extra["current_enrolled"] = enrolled
+                    extra["current_enrolled"] = program.submissions.filter(status=STATUS_ENROLLED).count()
                 log_admin_audit(
                     request=request,
                     action="change",
@@ -236,7 +195,6 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
                     extra=extra,
                 )
 
-            # Dedicated audit events for high-signal field changes
             if "capacity" in changed_fields:
                 enrolled_now = program.submissions.filter(status=STATUS_ENROLLED).count()
                 log_admin_audit(
@@ -267,7 +225,6 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
 
             messages.success(request, f"Program '{name}' updated.")
 
-            # Warn when capacity decrease puts current enrolled over the new cap
             if (
                 capacity is not None
                 and old_capacity is not None
@@ -281,18 +238,17 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
                         f"which exceeds the new capacity of {capacity}.",
                     )
 
-            return redirect(list_url)
+            return redirect(settings_url)
 
-    ctx = _school_admin_base_context(request, school, "programs")
+    ctx = _school_admin_base_context(request, school, "settings")
     ctx.update({
-        "form_heading": f"Edit Program: {program.name}",
+        "form_heading": f"Edit: {program.name}",
         "form_action": request.path,
-        "cancel_url": list_url,
+        "back_url": settings_url,
         "errors": errors,
         "values": values,
         "is_edit": True,
-        "code_locked": code_locked,
-        "program": program,
+        "program_code": program.code,
     })
     return render(request, "school_admin/program_form.html", ctx)
 
@@ -302,7 +258,6 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
 def school_program_activate_view(request, school_slug: str, program_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
     program = get_object_or_404(SchoolProgram, id=program_id, school=school)
-    list_url = reverse("school_programs_list", kwargs={"school_slug": school_slug})
 
     if not program.is_active:
         program.is_active = True
@@ -316,7 +271,7 @@ def school_program_activate_view(request, school_slug: str, program_id: int):
         )
         messages.success(request, f"Program '{program.name}' reactivated.")
 
-    return redirect(list_url)
+    return redirect(_settings_url(school_slug))
 
 
 @login_required
@@ -324,7 +279,6 @@ def school_program_activate_view(request, school_slug: str, program_id: int):
 def school_program_deactivate_view(request, school_slug: str, program_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
     program = get_object_or_404(SchoolProgram, id=program_id, school=school)
-    list_url = reverse("school_programs_list", kwargs={"school_slug": school_slug})
     has_subs = program.has_submissions()
 
     if has_subs:
@@ -351,7 +305,7 @@ def school_program_deactivate_view(request, school_slug: str, program_id: int):
             obj=program,
             changes={},
             extra={
-                "name": "program_deactivated",
+                "name": "program_deleted",
                 "code": program.code,
                 "program_name": name,
                 "has_submissions": False,
@@ -360,4 +314,4 @@ def school_program_deactivate_view(request, school_slug: str, program_id: int):
         program.delete()
         messages.success(request, f"Program '{name}' deleted.")
 
-    return redirect(list_url)
+    return redirect(_settings_url(school_slug))

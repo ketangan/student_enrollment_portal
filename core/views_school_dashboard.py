@@ -587,11 +587,26 @@ def school_settings_view(request, school_slug: str):
             "is_upgrade": not enabled and required_rank > school_plan_rank,
         })
 
+    # Programs section (only when school has program_field_key configured)
+    programs_summary = {}
+    programs_create_url = ""
+    programs_no_active_warning = False
+    if school.program_field_key:
+        from core.services.programs import get_programs_summary as _get_programs_summary
+        from core.models import SchoolProgram as _SchoolProgram
+        programs_summary = _get_programs_summary(school)
+        programs_create_url = reverse("school_program_create", kwargs={"school_slug": school_slug})
+        programs_no_active_warning = not _SchoolProgram.objects.filter(school=school, is_active=True).exists()
+
     ctx = _school_admin_base_context(request, school, "settings")
     ctx.update({
         "apply_url": apply_url,
         "embed_snippet": embed_snippet,
         "features": features,
+        "programs_summary": programs_summary,
+        "programs_create_url": programs_create_url,
+        "programs_no_active_warning": programs_no_active_warning,
+        "program_field_key": school.program_field_key,
     })
     return render(request, "school_admin/settings.html", ctx)
 

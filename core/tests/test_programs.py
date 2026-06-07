@@ -280,44 +280,11 @@ def test_admin_edit_program_logs_audit():
 
 
 # ---------------------------------------------------------------------------
-# 12. Code cannot change when submissions exist
+# 12. Code is never changed via the edit form (always preserved as-is)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.django_db
-def test_program_code_cannot_change_when_submissions_exist():
-    membership = SchoolAdminMembershipFactory()
-    school = membership.school
-    program = _make_program(school, name="Ballet", code="ballet")
-
-    # Create a submission linked to this program
-    sub = SubmissionFactory(school=school)
-    sub.program = program
-    sub.save(update_fields=["program"])
-
-    client = Client()
-    client.force_login(membership.user)
-
-    url = reverse("school_program_edit", kwargs={"school_slug": school.slug, "program_id": program.pk})
-    client.post(url, {
-        "name": "Ballet Updated",
-        "code": "ballet_new",   # attempt to change code
-        "capacity": "",
-        "auto_enroll": "0",
-        "waitlist_enabled": "0",
-        "display_order": "0",
-    })
-
-    program.refresh_from_db()
-    # Code must NOT have changed
-    assert program.code == "ballet"
-
-
-# ---------------------------------------------------------------------------
-# 13. Code can change when no submissions exist
-# ---------------------------------------------------------------------------
-
-@pytest.mark.django_db
-def test_program_code_can_change_when_no_submissions():
+def test_program_code_never_changes_via_edit_form():
     membership = SchoolAdminMembershipFactory()
     school = membership.school
     program = _make_program(school, name="Ballet", code="ballet")
@@ -326,16 +293,40 @@ def test_program_code_can_change_when_no_submissions():
 
     url = reverse("school_program_edit", kwargs={"school_slug": school.slug, "program_id": program.pk})
     resp = client.post(url, {
-        "name": "Ballet",
-        "code": "ballet_v2",
+        "name": "Ballet Renamed",
         "capacity": "",
         "auto_enroll": "0",
         "waitlist_enabled": "0",
-        "display_order": "0",
     })
     assert resp.status_code == 302
     program.refresh_from_db()
-    assert program.code == "ballet_v2"
+    # Code stays the same regardless of what was POSTed
+    assert program.code == "ballet"
+    # Name was updated
+    assert program.name == "Ballet Renamed"
+
+
+# ---------------------------------------------------------------------------
+# 13. Code is auto-generated from name on create
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_program_code_auto_generated_from_name():
+    membership = SchoolAdminMembershipFactory()
+    school = membership.school
+    client = Client()
+    client.force_login(membership.user)
+
+    url = reverse("school_program_create", kwargs={"school_slug": school.slug})
+    resp = client.post(url, {
+        "name": "Hip Hop Dance",
+        "capacity": "",
+        "auto_enroll": "0",
+        "waitlist_enabled": "0",
+    })
+    assert resp.status_code == 302
+    program = SchoolProgram.objects.get(school=school, name="Hip Hop Dance")
+    assert program.code == "hip_hop_dance"
 
 
 # ---------------------------------------------------------------------------
@@ -630,11 +621,11 @@ def test_capacity_change_audit_logged_with_old_new_values():
 
 
 # ---------------------------------------------------------------------------
-# 22. Programs list view returns 200
+# 22. Programs list redirects to settings (programs now embedded there)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.django_db
-def test_programs_list_view_returns_200():
+def test_programs_list_redirects_to_settings():
     membership = SchoolAdminMembershipFactory()
     school = membership.school
     school.program_field_key = "program"
@@ -646,8 +637,8 @@ def test_programs_list_view_returns_200():
 
     url = reverse("school_programs_list", kwargs={"school_slug": school.slug})
     resp = client.get(url)
-    assert resp.status_code == 200
-    assert b"Ballet" in resp.content
+    assert resp.status_code == 302
+    assert "settings" in resp["Location"]
 
 
 # ---------------------------------------------------------------------------

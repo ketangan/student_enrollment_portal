@@ -1,116 +1,64 @@
 {% extends "school_admin/base.html" %}
-{% block page_title %}{{ form_heading }} — Programs{% endblock %}
+{% block page_title %}{{ form_heading }} — Settings{% endblock %}
 
 {% block content %}
 <main class="dash-main">
 
   <div style="margin-bottom:20px;">
-    <h1 style="font-size:20px;font-weight:700;margin:0 0 12px;">Settings</h1>
-    <div style="display:flex;gap:4px;border-bottom:1px solid var(--dash-border);padding-bottom:0;">
-      <a href="{% url 'school_settings' school.slug %}"
-         style="padding:7px 16px;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px 6px 0 0;
-                background:transparent;color:var(--dash-muted);border:1px solid transparent;
-                border-bottom:none;margin-bottom:-1px;">
-        General
-      </a>
-      <a href="{{ cancel_url }}"
-         style="padding:7px 16px;font-size:13px;font-weight:600;text-decoration:none;border-radius:6px 6px 0 0;
-                border:1px solid var(--dash-border);border-bottom:none;margin-bottom:-1px;
-                background:var(--dash-card);color:var(--dash-text);">
-        Programs
-      </a>
-    </div>
+    <a href="{{ back_url }}" style="font-size:13px;color:var(--dash-muted);text-decoration:none;">← Settings</a>
+    <h1 style="font-size:18px;font-weight:700;margin:8px 0 0;">{{ form_heading }}</h1>
   </div>
 
-  <div style="font-size:13px;color:var(--dash-muted);margin-bottom:20px;">{{ form_heading }}</div>
-
-  <div class="dash-card" style="max-width:560px;padding:24px;">
+  <div class="dash-card" style="max-width:520px;padding:24px;">
     <form method="post" action="{{ form_action }}">
       {% csrf_token %}
 
       <!-- Name -->
-      <div style="margin-bottom:16px;">
+      <div style="margin-bottom:18px;">
         <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"
-               for="id_name">Name <span style="color:#ef4444;">*</span></label>
+               for="id_name">Program Name <span style="color:#ef4444;">*</span></label>
         <input type="text"
                id="id_name"
                name="name"
                value="{{ values.name }}"
-               style="width:100%;padding:8px 12px;font-size:13px;border:1px solid {% if errors.name %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;"
-               placeholder="e.g. Ballet — Beginner">
-        {% if errors.name %}
-        <div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.name }}</div>
-        {% endif %}
-      </div>
-
-      <!-- Code -->
-      <div style="margin-bottom:16px;">
-        <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"
-               for="id_code">
-          Code <span style="color:#ef4444;">*</span>
-          {% if code_locked %}<span style="font-weight:400;text-transform:none;letter-spacing:0;"> — locked</span>{% endif %}
-        </label>
-        <input type="text"
-               id="id_code"
-               name="code"
-               value="{{ values.code }}"
-               style="width:100%;padding:8px 12px;font-size:13px;font-family:monospace;border:1px solid {% if errors.code %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;background:{% if code_locked %}var(--dash-bg){% else %}var(--dash-bg){% endif %};color:var(--dash-text);box-sizing:border-box;{% if code_locked %}opacity:.6;cursor:not-allowed;{% endif %}"
-               placeholder="e.g. ballet_beginner"
-               {% if code_locked %}readonly title="Code is locked because submissions already reference this program."{% endif %}>
-        {% if code_locked %}
-        <div style="font-size:12px;color:var(--dash-muted);margin-top:4px;">
-          Code is locked — submissions already reference this program.
-        </div>
-        {% endif %}
-        {% if errors.code %}
-        <div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.code }}</div>
+               style="width:100%;padding:8px 12px;font-size:14px;border:1px solid {% if errors.name %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;"
+               placeholder="e.g. Ballet Beginner"
+               autofocus>
+        {% if errors.name %}<div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.name }}</div>{% endif %}
+        {% if is_edit %}
+        <div style="font-size:11px;color:var(--dash-muted);margin-top:4px;">Internal code: <span style="font-family:monospace;">{{ program_code }}</span></div>
         {% endif %}
       </div>
 
       <!-- Capacity -->
-      <div style="margin-bottom:16px;">
+      <div style="margin-bottom:18px;">
         <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"
-               for="id_capacity">
-          Capacity <span style="font-size:11px;font-weight:400;text-transform:none;letter-spacing:0;"> — leave blank for unlimited</span>
-        </label>
+               for="id_capacity">Capacity</label>
         <input type="number"
                id="id_capacity"
                name="capacity"
                value="{{ values.capacity }}"
-               style="width:160px;padding:8px 12px;font-size:13px;border:1px solid {% if errors.capacity %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;background:var(--dash-bg);color:var(--dash-text);"
+               style="width:160px;padding:8px 12px;font-size:14px;border:1px solid {% if errors.capacity %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;background:var(--dash-bg);color:var(--dash-text);"
                min="1"
-               placeholder="e.g. 20">
-        {% if errors.capacity %}
-        <div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.capacity }}</div>
-        {% endif %}
-      </div>
-
-      <!-- Display Order -->
-      <div style="margin-bottom:20px;">
-        <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"
-               for="id_display_order">Display Order</label>
-        <input type="number"
-               id="id_display_order"
-               name="display_order"
-               value="{{ values.display_order }}"
-               style="width:100px;padding:8px 12px;font-size:13px;border:1px solid var(--dash-border);border-radius:6px;background:var(--dash-bg);color:var(--dash-text);"
-               min="0">
+               placeholder="Unlimited">
+        <div style="font-size:12px;color:var(--dash-muted);margin-top:4px;">Leave blank for unlimited enrollment.</div>
+        {% if errors.capacity %}<div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.capacity }}</div>{% endif %}
       </div>
 
       <!-- Auto-Enroll -->
-      <div style="margin-bottom:12px;padding:14px 16px;background:var(--dash-bg);border-radius:8px;border:1px solid var(--dash-border);">
+      <div style="margin-bottom:20px;padding:14px 16px;background:var(--dash-bg);border-radius:8px;border:1px solid var(--dash-border);">
         <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
           <input type="checkbox"
                  id="id_auto_enroll"
                  name="auto_enroll"
                  value="1"
-                 style="margin-top:2px;flex-shrink:0;"
+                 style="margin-top:3px;flex-shrink:0;"
                  {% if values.auto_enroll %}checked{% endif %}
                  onchange="document.getElementById('waitlist-row').style.display=this.checked?'block':'none';">
           <div>
             <div style="font-size:13px;font-weight:600;color:var(--dash-text);">Auto-enroll on submit</div>
             <div style="font-size:12px;color:var(--dash-muted);margin-top:2px;">
-              Automatically sets new submissions to <strong>Enrolled</strong>. If at capacity and waitlist is on, sets to <strong>Waitlisted</strong> instead.
+              Submissions are automatically marked <strong>Enrolled</strong>. When at capacity with waitlist enabled, they're marked <strong>Waitlisted</strong> instead.
             </div>
           </div>
         </label>
@@ -121,12 +69,12 @@
                    id="id_waitlist_enabled"
                    name="waitlist_enabled"
                    value="1"
-                   style="margin-top:2px;flex-shrink:0;"
+                   style="margin-top:3px;flex-shrink:0;"
                    {% if values.waitlist_enabled %}checked{% endif %}>
             <div>
               <div style="font-size:13px;font-weight:600;color:var(--dash-text);">Enable waitlist when at capacity</div>
               <div style="font-size:12px;color:var(--dash-muted);margin-top:2px;">
-                Requires a capacity limit. Submissions beyond capacity get status <strong>Waitlisted</strong>.
+                Requires a capacity limit. Submissions beyond capacity are set to <strong>Waitlisted</strong>.
               </div>
             </div>
           </label>
@@ -134,11 +82,11 @@
       </div>
 
       <!-- Buttons -->
-      <div style="display:flex;gap:10px;margin-top:24px;">
-        <button type="submit" class="dash-action-btn dash-action-btn--primary" style="font-size:13px;padding:7px 18px;cursor:pointer;">
-          {% if is_edit %}Save Changes{% else %}Create Program{% endif %}
+      <div style="display:flex;gap:10px;">
+        <button type="submit" class="dash-action-btn dash-action-btn--primary" style="font-size:13px;padding:8px 20px;cursor:pointer;border:none;">
+          {% if is_edit %}Save Changes{% else %}Add Program{% endif %}
         </button>
-        <a href="{{ cancel_url }}" class="dash-action-btn dash-action-btn--secondary" style="font-size:13px;padding:7px 18px;">Cancel</a>
+        <a href="{{ back_url }}" class="dash-action-btn dash-action-btn--secondary" style="font-size:13px;padding:8px 20px;">Cancel</a>
       </div>
     </form>
   </div>
