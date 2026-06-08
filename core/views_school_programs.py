@@ -279,9 +279,8 @@ def school_program_activate_view(request, school_slug: str, program_id: int):
 def school_program_deactivate_view(request, school_slug: str, program_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
     program = get_object_or_404(SchoolProgram, id=program_id, school=school)
-    has_subs = program.has_submissions()
 
-    if has_subs:
+    if program.is_active:
         program.is_active = False
         program.save(update_fields=["is_active"])
         log_admin_audit(
@@ -289,29 +288,32 @@ def school_program_deactivate_view(request, school_slug: str, program_id: int):
             action="change",
             obj=program,
             changes={"is_active": {"old": True, "new": False}},
-            extra={
-                "name": "program_deactivated",
-                "code": program.code,
-                "program_name": program.name,
-                "has_submissions": True,
-            },
+            extra={"name": "program_deactivated", "code": program.code, "program_name": program.name},
         )
-        messages.success(request, f"Program '{program.name}' deactivated (submissions preserved).")
-    else:
-        name = program.name
-        log_admin_audit(
-            request=request,
-            action="delete",
-            obj=program,
-            changes={},
-            extra={
-                "name": "program_deleted",
-                "code": program.code,
-                "program_name": name,
-                "has_submissions": False,
-            },
-        )
-        program.delete()
-        messages.success(request, f"Program '{name}' deleted.")
+        messages.success(request, f"Program '{program.name}' deactivated.")
 
+    return redirect(_settings_url(school_slug))
+
+
+@login_required
+@require_http_methods(["POST"])
+def school_program_delete_view(request, school_slug: str, program_id: int):
+    school = _get_accessible_school_for_admin(request, school_slug)
+    program = get_object_or_404(SchoolProgram, id=program_id, school=school)
+
+    if program.has_submissions():
+        messages.error(request, f"Cannot delete '{program.name}' — it has associated submissions. Deactivate it instead.")
+        return redirect(_settings_url(school_slug))
+
+    name = program.name
+    code = program.code
+    log_admin_audit(
+        request=request,
+        action="delete",
+        obj=program,
+        changes={},
+        extra={"name": "program_deleted", "code": code, "program_name": name},
+    )
+    program.delete()
+    messages.success(request, f"Program '{name}' deleted.")
     return redirect(_settings_url(school_slug))

@@ -255,27 +255,25 @@
               <a href="{% url 'school_program_edit' school.slug p.id %}"
                  class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;padding:4px 10px;">Edit</a>
 
-              {% if not p.is_active %}
-                {% if p.has_submissions %}
-                  <form method="post" action="{% url 'school_program_activate' school.slug p.id %}" style="display:inline;margin-left:4px;">
-                    {% csrf_token %}
-                    <button type="submit" class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;padding:4px 10px;">Activate</button>
-                  </form>
-                {% else %}
-                  <form method="post" action="{% url 'school_program_deactivate' school.slug p.id %}" style="display:inline;margin-left:4px;"
-                        onsubmit="return confirm('Delete program \'{{ p.name }}\'?');">
-                    {% csrf_token %}
-                    <button type="submit" class="dash-action-btn dash-action-btn--danger" style="font-size:12px;padding:4px 10px;">Delete</button>
-                  </form>
-                {% endif %}
-              {% else %}
-                <form method="post" action="{% url 'school_program_deactivate' school.slug p.id %}" style="display:inline;margin-left:4px;"
-                      onsubmit="return confirm('{% if p.has_submissions %}Deactivate{% else %}Delete{% endif %} program \'{{ p.name }}\'?');">
+              {% if p.is_active %}
+                {# Active → offer Deactivate #}
+                <form method="post" action="{% url 'school_program_deactivate' school.slug p.id %}" style="display:inline;margin-left:4px;">
                   {% csrf_token %}
-                  <button type="submit" class="dash-action-btn dash-action-btn--danger" style="font-size:12px;padding:4px 10px;">
-                    {% if p.has_submissions %}Deactivate{% else %}Delete{% endif %}
-                  </button>
+                  <button type="submit" class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;padding:4px 10px;">Deactivate</button>
                 </form>
+              {% else %}
+                {# Inactive → offer Activate, and Delete only if no submissions #}
+                <form method="post" action="{% url 'school_program_activate' school.slug p.id %}" style="display:inline;margin-left:4px;">
+                  {% csrf_token %}
+                  <button type="submit" class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;padding:4px 10px;">Activate</button>
+                </form>
+                {% if not p.has_submissions %}
+                <form method="post" action="{% url 'school_program_delete' school.slug p.id %}" style="display:inline;margin-left:4px;"
+                      onsubmit="return confirm('Permanently delete program \'{{ p.name }}\'?');">
+                  {% csrf_token %}
+                  <button type="submit" class="dash-action-btn dash-action-btn--danger" style="font-size:12px;padding:4px 10px;">Delete</button>
+                </form>
+                {% endif %}
               {% endif %}
             </td>
           </tr>

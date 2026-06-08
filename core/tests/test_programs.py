@@ -330,50 +330,61 @@ def test_program_code_auto_generated_from_name():
 
 
 # ---------------------------------------------------------------------------
-# 14. Deactivate (not delete) when submissions exist
+# 14. Deactivate always sets is_active=False (never deletes)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.django_db
-def test_admin_deactivate_program_with_submissions():
+def test_admin_deactivate_program_always_deactivates():
     membership = SchoolAdminMembershipFactory()
     school = membership.school
     program = _make_program(school, name="Ballet", code="ballet", is_active=True)
-
-    sub = SubmissionFactory(school=school)
-    sub.program = program
-    sub.save(update_fields=["program"])
-
     client = Client()
     client.force_login(membership.user)
 
     url = reverse("school_program_deactivate", kwargs={"school_slug": school.slug, "program_id": program.pk})
     resp = client.post(url)
     assert resp.status_code == 302
-
     program.refresh_from_db()
     assert program.is_active is False
-    # Submission FK preserved (SET_NULL only on program deletion, not deactivation)
-    sub.refresh_from_db()
-    assert sub.program_id == program.pk
+    # Program still exists — deactivate never deletes
+    assert SchoolProgram.objects.filter(pk=program.pk).exists()
 
 
 # ---------------------------------------------------------------------------
-# 15. Hard delete when no submissions
+# 15. Delete via school_program_delete only when no submissions
 # ---------------------------------------------------------------------------
 
 @pytest.mark.django_db
-def test_admin_deactivate_program_without_submissions_hard_deletes():
+def test_admin_delete_program_without_submissions():
     membership = SchoolAdminMembershipFactory()
     school = membership.school
-    program = _make_program(school, name="Ballet", code="ballet")
+    program = _make_program(school, name="Ballet", code="ballet", is_active=False)
     pk = program.pk
     client = Client()
     client.force_login(membership.user)
 
-    url = reverse("school_program_deactivate", kwargs={"school_slug": school.slug, "program_id": pk})
+    url = reverse("school_program_delete", kwargs={"school_slug": school.slug, "program_id": pk})
     resp = client.post(url)
     assert resp.status_code == 302
     assert not SchoolProgram.objects.filter(pk=pk).exists()
+
+
+@pytest.mark.django_db
+def test_admin_delete_program_blocked_when_has_submissions():
+    membership = SchoolAdminMembershipFactory()
+    school = membership.school
+    program = _make_program(school, name="Ballet", code="ballet", is_active=False)
+    sub = SubmissionFactory(school=school)
+    sub.program = program
+    sub.save(update_fields=["program"])
+    client = Client()
+    client.force_login(membership.user)
+
+    url = reverse("school_program_delete", kwargs={"school_slug": school.slug, "program_id": program.pk})
+    resp = client.post(url)
+    assert resp.status_code == 302
+    # Program must still exist — delete was blocked
+    assert SchoolProgram.objects.filter(pk=program.pk).exists()
 
 
 # ---------------------------------------------------------------------------
