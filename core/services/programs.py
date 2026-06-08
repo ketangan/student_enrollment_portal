@@ -73,22 +73,24 @@ def has_enrollment_options(school, form_key: str = "default") -> bool:
     """
     Return True if there is at least one selectable enrollment option.
 
-    A program contributes options only via its active sessions when it has any;
-    otherwise the program itself is the option.  Used to block submission when
-    no options exist.
+    Rule: once a program has any non-deleted sessions, it *only* contributes
+    options via its active sessions.  A program with sessions but all inactive
+    contributes nothing — the bare program is never shown as a fallback.
     """
-    from core.models import SchoolProgram, SchoolSession
+    from core.models import SchoolProgram
     programs = SchoolProgram.objects.filter(
         school=school, is_active=True, is_deleted=False
     ).order_by("display_order", "name")
     for p in programs:
         if p.form_keys and form_key not in p.form_keys:
             continue
-        if p.has_active_sessions():
-            # At least one active session available.
-            return True
+        has_any_sessions = p.sessions.filter(is_deleted=False).exists()
+        if has_any_sessions:
+            if p.has_active_sessions():
+                return True
+            # else: has sessions but all inactive → contributes nothing
         else:
-            # Bare program is the option.
+            # No sessions → bare program is available
             return True
     return False
 
@@ -117,18 +119,21 @@ def _get_enrollment_option_groups(school, form_key: str = "default") -> list[dic
         if p.form_keys and form_key not in p.form_keys:
             continue
 
-        active_sessions = [
-            s for s in p.sessions.all()
-            if s.is_active and not s.is_deleted
-        ]
+        all_sessions = [s for s in p.sessions.all() if not s.is_deleted]
+        active_sessions = [s for s in all_sessions if s.is_active]
         active_sessions.sort(key=lambda s: (s.display_order, s.name))
 
-        if active_sessions:
-            options = []
-            for s in active_sessions:
-                label = f"{p.name} — {s.name}"
-                options.append({"value": f"session:{s.pk}", "label": label})
-            grouped.append({"label": p.name, "options": options})
+        has_any_sessions = bool(all_sessions)
+
+        if has_any_sessions:
+            # Program uses sessions — only show active ones; never fall back to bare program.
+            if active_sessions:
+                options = [
+                    {"value": f"session:{s.pk}", "label": f"{p.name} — {s.name}"}
+                    for s in active_sessions
+                ]
+                grouped.append({"label": p.name, "options": options})
+            # else: all sessions inactive → contributes nothing
         else:
             ungrouped.append({"value": f"program:{p.code}", "label": p.name})
 
@@ -184,7 +189,7 @@ def inject_db_program_options(form_cfg: dict, school, form_key: str = "default")
 # Submission resolver
 # ---------------------------------------------------------------------------
 
-def resolve_submission_program_and_session(school, data: dict):
+def resolve_submission_program_and_session(school, data: dict, strict: bool = True):
     """
     Parse Submission.data[program_field_key] and return (program, session).
 
@@ -192,6 +197,13 @@ def resolve_submission_program_and_session(school, data: dict):
       "session:<pk>"      — session-namespaced (new; sets both program and session)
       "program:<code>"    — program-namespaced (new; session=None)
       "<bare code>"       — legacy (pre-sessions; session=None)
+
+    strict=True (default, used for public form submissions):
+      - Rejects inactive or deleted sessions and programs.
+      - A crafted POST with an inactive option returns (None, None).
+
+    strict=False (admin/historical context):
+      - Resolves inactive/deleted records for display purposes.
 
     Returns (SchoolProgram | None, SchoolSession | None).
     """
@@ -210,12 +222,11 @@ def resolve_submission_program_and_session(school, data: dict):
             session_pk = int(raw.split(":", 1)[1])
         except (ValueError, IndexError):
             return None, None
+        filters = {"pk": session_pk, "program__school": school, "is_deleted": False}
+        if strict:
+            filters["is_active"] = True
         try:
-            session = SchoolSession.objects.select_related("program").get(
-                pk=session_pk,
-                program__school=school,
-                is_deleted=False,
-            )
+            session = SchoolSession.objects.select_related("program").get(**filters)
             return session.program, session
         except SchoolSession.DoesNotExist:
             return None, None
@@ -225,8 +236,12 @@ def resolve_submission_program_and_session(school, data: dict):
     else:
         code = raw  # legacy bare code
 
+    filters = {"school": school, "code": code}
+    if strict:
+        filters["is_active"] = True
+        filters["is_deleted"] = False
     try:
-        program = SchoolProgram.objects.get(school=school, code=code)
+        program = SchoolProgram.objects.get(**filters)
         return program, None
     except SchoolProgram.DoesNotExist:
         return None, None
@@ -344,8 +359,12 @@ def get_programs_summary(school) -> dict:
     programs = SchoolProgram.objects.filter(school=school, is_deleted=False).order_by("display_order", "name")
     result = {}
     for p in programs:
+        # Total across all submissions (including session submissions).
         enrolled = p.submissions.filter(status=STATUS_ENROLLED).count()
         waitlisted = p.submissions.filter(status=STATUS_WAITLISTED).count()
+        # Program-level only: submissions with no session (pre-sessions or no-session schools).
+        pl_enrolled = p.submissions.filter(status=STATUS_ENROLLED, session__isnull=True).count()
+        pl_waitlisted = p.submissions.filter(status=STATUS_WAITLISTED, session__isnull=True).count()
 
         sessions_qs = SchoolSession.objects.filter(program=p, is_deleted=False).order_by("display_order", "name")
         session_rows = []
@@ -374,6 +393,9 @@ def get_programs_summary(school) -> dict:
             "capacity": p.capacity,
             "enrolled_count": enrolled,
             "waitlisted_count": waitlisted,
+            # Submissions with no session FK (program-level or pre-sessions).
+            "program_level_enrolled": pl_enrolled,
+            "program_level_waitlisted": pl_waitlisted,
             "is_active": p.is_active,
             "display_order": p.display_order,
             "auto_enroll": p.auto_enroll,

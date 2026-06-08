@@ -258,7 +258,7 @@ def test_session_auto_enroll_waitlists_when_full():
     prog = _program(school, auto_enroll=False)
     sess = _session(prog, auto_enroll=True, capacity=1, waitlist_enabled=True)
     # Fill the seat.
-    existing = SubmissionFactory(school=school, status=STATUS_ENROLLED, session=sess)
+    existing = SubmissionFactory(school=school, status=STATUS_ENROLLED, session=sess, program=prog)
     new_sub = SubmissionFactory(school=school, status=STATUS_NEW)
 
     apply_auto_enrollment(school, new_sub, prog, session=sess)
@@ -272,7 +272,7 @@ def test_session_auto_enroll_noop_when_full_no_waitlist():
     school = SchoolFactory(program_field_key="program")
     prog = _program(school, auto_enroll=False)
     sess = _session(prog, auto_enroll=True, capacity=1, waitlist_enabled=False)
-    SubmissionFactory(school=school, status=STATUS_ENROLLED, session=sess)
+    SubmissionFactory(school=school, status=STATUS_ENROLLED, session=sess, program=prog)
     new_sub = SubmissionFactory(school=school, status=STATUS_NEW)
 
     apply_auto_enrollment(school, new_sub, prog, session=sess)
@@ -300,7 +300,7 @@ def test_session_capacity_independent_from_program_capacity():
     school = SchoolFactory(program_field_key="program")
     prog = _program(school, auto_enroll=True, capacity=100)
     sess = _session(prog, auto_enroll=True, capacity=1, waitlist_enabled=True)
-    SubmissionFactory(school=school, status=STATUS_ENROLLED, session=sess)
+    SubmissionFactory(school=school, status=STATUS_ENROLLED, session=sess, program=prog)
     new_sub = SubmissionFactory(school=school, status=STATUS_NEW)
 
     apply_auto_enrollment(school, new_sub, prog, session=sess)
@@ -367,7 +367,7 @@ def test_session_code_locked_after_submissions(admin_client_and_school):
     client, school = admin_client_and_school
     prog = _program(school)
     sess = _session(prog, code="fall_2025")
-    SubmissionFactory(school=school, session=sess)
+    SubmissionFactory(school=school, session=sess, program=prog)
     url = reverse("school_session_edit", kwargs={"school_slug": school.slug, "program_id": prog.pk, "session_id": sess.pk})
 
     # POST with a different code — should be silently ignored (locked).
@@ -432,7 +432,7 @@ def test_session_delete_blocked_when_has_submissions(admin_client_and_school):
     client, school = admin_client_and_school
     prog = _program(school)
     sess = _session(prog, is_active=False)
-    SubmissionFactory(school=school, session=sess)
+    SubmissionFactory(school=school, session=sess, program=prog)
     url = reverse("school_session_delete", kwargs={"school_slug": school.slug, "program_id": prog.pk, "session_id": sess.pk})
 
     client.post(url)
@@ -520,3 +520,150 @@ def test_public_submit_legacy_code_sets_program_no_session(settings):
     assert sub is not None
     assert sub.program == prog
     assert sub.session is None
+
+
+# ---------------------------------------------------------------------------
+# 8. Regression tests for the review-identified bugs
+# ---------------------------------------------------------------------------
+
+# Bug 1: submission.session set → submission.program auto-populated
+@pytest.mark.django_db
+def test_submission_save_auto_sets_program_from_session():
+    school = SchoolFactory(program_field_key="program")
+    prog = _program(school)
+    sess = _session(prog)
+    # Create submission with session but no program — invariant should auto-fill.
+    sub = SubmissionFactory(school=school, session=sess)
+    sub.refresh_from_db()
+    assert sub.program == prog
+
+
+# Bug 4: program with sessions but all inactive → no enrollment options
+@pytest.mark.django_db
+def test_program_with_only_inactive_sessions_has_no_enrollment_options():
+    school = SchoolFactory(program_field_key="program")
+    prog = _program(school, is_active=True)
+    _session(prog, name="Old Session", code="old", is_active=False)
+    # All sessions inactive → must not fall back to bare program.
+    assert has_enrollment_options(school) is False
+
+
+@pytest.mark.django_db
+def test_inject_program_with_only_inactive_sessions_shows_no_options():
+    school = SchoolFactory(program_field_key="program")
+    prog = _program(school)
+    _session(prog, is_active=False)
+
+    form_cfg = _minimal_form_cfg()
+    result = inject_db_program_options(form_cfg, school)
+
+    field = result["sections"][0]["fields"][0]
+    assert field.get("no_programs_warning") is True
+
+
+# Bug 4: program with some active, some inactive sessions — only active shown
+@pytest.mark.django_db
+def test_inject_mixed_sessions_only_shows_active():
+    school = SchoolFactory(program_field_key="program")
+    prog = _program(school)
+    active = _session(prog, name="Active", code="active", is_active=True)
+    _session(prog, name="Inactive", code="inactive", is_active=False)
+
+    form_cfg = _minimal_form_cfg()
+    result = inject_db_program_options(form_cfg, school)
+
+    field = result["sections"][0]["fields"][0]
+    assert "option_groups" in field
+    all_values = [o["value"] for g in field["option_groups"] for o in g["options"]]
+    assert f"session:{active.pk}" in all_values
+    assert len(all_values) == 1  # inactive excluded
+
+
+# Bug 5: resolver strict mode rejects inactive program
+@pytest.mark.django_db
+def test_resolver_strict_rejects_inactive_program():
+    school = SchoolFactory(program_field_key="program")
+    _program(school, code="ballet", is_active=False)
+
+    program, session = resolve_submission_program_and_session(
+        school, {"program": "program:ballet"}, strict=True
+    )
+    assert program is None
+
+
+@pytest.mark.django_db
+def test_resolver_strict_rejects_inactive_session():
+    school = SchoolFactory(program_field_key="program")
+    prog = _program(school)
+    sess = _session(prog, is_active=False)
+
+    program, session = resolve_submission_program_and_session(
+        school, {"program": f"session:{sess.pk}"}, strict=True
+    )
+    assert program is None
+    assert session is None
+
+
+@pytest.mark.django_db
+def test_resolver_non_strict_accepts_inactive_program():
+    school = SchoolFactory(program_field_key="program")
+    prog = _program(school, code="ballet", is_active=False)
+
+    program, session = resolve_submission_program_and_session(
+        school, {"program": "program:ballet"}, strict=False
+    )
+    assert program == prog
+
+
+# Bug 6: date order validation
+@pytest.mark.django_db
+def test_session_create_rejects_end_before_start(admin_client_and_school):
+    client, school = admin_client_and_school
+    prog = _program(school)
+    url = reverse("school_session_create", kwargs={"school_slug": school.slug, "program_id": prog.pk})
+
+    resp = client.post(url, {
+        "name": "Bad Dates",
+        "code": "",
+        "capacity": "",
+        "start_date": "2025-09-01",
+        "end_date": "2025-08-01",  # before start
+    })
+    assert resp.status_code == 200  # re-render with error
+    assert not SchoolSession.objects.filter(program=prog).exists()
+
+
+@pytest.mark.django_db
+def test_session_edit_rejects_end_before_start(admin_client_and_school):
+    client, school = admin_client_and_school
+    prog = _program(school)
+    sess = _session(prog, code="fall")
+    url = reverse("school_session_edit", kwargs={"school_slug": school.slug, "program_id": prog.pk, "session_id": sess.pk})
+
+    resp = client.post(url, {
+        "name": "Fall",
+        "code": "fall",
+        "capacity": "",
+        "start_date": "2025-09-01",
+        "end_date": "2025-06-01",
+    })
+    assert resp.status_code == 200
+    sess.refresh_from_db()
+    assert sess.start_date is None  # unchanged
+
+
+# Bug 3: get_programs_summary includes program-level counts
+@pytest.mark.django_db
+def test_programs_summary_includes_program_level_counts():
+    from core.services.programs import get_programs_summary
+    school = SchoolFactory(program_field_key="program")
+    prog = _program(school, code="ballet")
+    sess = _session(prog)
+    # One submission at session level, one at program level.
+    SubmissionFactory(school=school, status=STATUS_ENROLLED, session=sess, program=prog)
+    SubmissionFactory(school=school, status=STATUS_ENROLLED, program=prog)
+
+    summary = get_programs_summary(school)
+    entry = summary["ballet"]
+    assert entry["enrolled_count"] == 2          # total
+    assert entry["program_level_enrolled"] == 1  # session=NULL only

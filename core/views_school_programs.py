@@ -423,6 +423,8 @@ def school_session_create_view(request, school_slug: str, program_id: int):
                 end_date = _date.fromisoformat(end_date_raw)
             except ValueError:
                 errors["end_date"] = "Enter a valid date (YYYY-MM-DD)."
+        if start_date and end_date and end_date < start_date:
+            errors["end_date"] = "End date must be on or after start date."
 
         if not errors:
             session = SchoolSession.objects.create(
@@ -537,17 +539,21 @@ def school_session_edit_view(request, school_slug: str, program_id: int, session
                 end_date = _date.fromisoformat(end_date_raw)
             except ValueError:
                 errors["end_date"] = "Enter a valid date (YYYY-MM-DD)."
+        if start_date and end_date and end_date < start_date:
+            errors["end_date"] = "End date must be on or after start date."
 
         if not errors:
+            old_capacity = session.capacity
+            old_auto_enroll = session.auto_enroll
             changed = {}
             if session.name != name:
                 changed["name"] = {"old": session.name, "new": name}
             if not code_locked and session.code != new_code:
                 changed["code"] = {"old": session.code, "new": new_code}
             if session.capacity != capacity:
-                changed["capacity"] = {"old": session.capacity, "new": capacity}
+                changed["capacity"] = {"old": old_capacity, "new": capacity}
             if session.auto_enroll != auto_enroll:
-                changed["auto_enroll"] = {"old": session.auto_enroll, "new": auto_enroll}
+                changed["auto_enroll"] = {"old": old_auto_enroll, "new": auto_enroll}
             if session.waitlist_enabled != waitlist_enabled:
                 changed["waitlist_enabled"] = {"old": session.waitlist_enabled, "new": waitlist_enabled}
 
@@ -570,7 +576,48 @@ def school_session_edit_view(request, school_slug: str, program_id: int, session
                     extra={"name": "session_edited", "session_code": session.code},
                 )
 
-            messages.success(request, f"Session '{name}' updated.")
+            if "capacity" in changed:
+                enrolled_now = session.submissions.filter(status=STATUS_ENROLLED).count()
+                log_admin_audit(
+                    request=request,
+                    action="action",
+                    obj=session,
+                    changes={},
+                    extra={
+                        "name": "session_capacity_changed",
+                        "old_capacity": old_capacity,
+                        "new_capacity": capacity,
+                        "current_enrolled": enrolled_now,
+                        "session_code": session.code,
+                    },
+                )
+                if (
+                    capacity is not None
+                    and old_capacity is not None
+                    and capacity < old_capacity
+                ):
+                    if enrolled_now > capacity:
+                        messages.warning(
+                            request,
+                            f"Warning: {enrolled_now} students are enrolled in '{session.name}', "
+                            f"which exceeds the new capacity of {capacity}.",
+                        )
+
+            if "auto_enroll" in changed:
+                log_admin_audit(
+                    request=request,
+                    action="action",
+                    obj=session,
+                    changes={},
+                    extra={
+                        "name": "session_auto_enroll_changed",
+                        "old": old_auto_enroll,
+                        "new": auto_enroll,
+                        "session_code": session.code,
+                    },
+                )
+
+            messages.success(request, f"Session '{session.name}' updated.")
             return redirect(back_url)
 
     enrolled_count = session.submissions.filter(status=STATUS_ENROLLED).count()

@@ -959,7 +959,26 @@ def school_reports_view(request, school_slug: str):
                     "waitlisted_pct": round(swaitlisted / stotal * 100) if stotal else 0,
                     "declined_pct": round(sdeclined / stotal * 100) if stotal else 0,
                     "pending_pct": round(spending / stotal * 100) if stotal else 0,
+                    "is_synthetic": False,
                 })
+
+            # Synthetic "Program-level enrollment" rows — session=NULL submissions that
+            # belong to a program which *also* has session submissions.  Only needed for
+            # programs that have both kinds; programs without any session data show
+            # everything in the program row directly.
+            null_sess_data = {}
+            null_qs = list(
+                apps_this_qs.filter(program__isnull=False, session__isnull=True)
+                .values("program__id")
+                .annotate(
+                    total=Count("id"),
+                    enrolled=Count("id", filter=Q(status=STATUS_ENROLLED)),
+                    waitlisted=Count("id", filter=Q(status=STATUS_WAITLISTED)),
+                    declined=Count("id", filter=Q(status=STATUS_DECLINED)),
+                )
+            )
+            for nr in null_qs:
+                null_sess_data[nr["program__id"]] = nr
 
             for r in prog_data:
                 total = r["total"]
@@ -968,6 +987,36 @@ def school_reports_view(request, school_slug: str):
                 declined = r["declined"]
                 pending = total - enrolled - waitlisted - declined
                 conv_rate = round(enrolled / total * 100, 1) if total else 0.0
+                pid = r["program__id"]
+                sessions = list(session_data.get(pid, []))
+
+                # Inject synthetic "Program-level enrollment" row when this program
+                # has *both* session submissions and null-session submissions.
+                nl = null_sess_data.get(pid)
+                if sessions and nl and nl["total"]:
+                    ntotal = nl["total"]
+                    nenrolled = nl["enrolled"]
+                    nwaitlisted = nl["waitlisted"]
+                    ndeclined = nl["declined"]
+                    npending = ntotal - nenrolled - nwaitlisted - ndeclined
+                    sessions.append({
+                        "name": "Program-level enrollment",
+                        "code": "",
+                        "is_active": True,
+                        "capacity": None,
+                        "total": ntotal,
+                        "enrolled": nenrolled,
+                        "waitlisted": nwaitlisted,
+                        "declined": ndeclined,
+                        "pending": npending,
+                        "conv_rate": round(nenrolled / ntotal * 100, 1) if ntotal else 0.0,
+                        "enrolled_pct": round(nenrolled / ntotal * 100) if ntotal else 0,
+                        "waitlisted_pct": round(nwaitlisted / ntotal * 100) if ntotal else 0,
+                        "declined_pct": round(ndeclined / ntotal * 100) if ntotal else 0,
+                        "pending_pct": round(npending / ntotal * 100) if ntotal else 0,
+                        "is_synthetic": True,
+                    })
+
                 row = {
                     "name": r["program__name"],
                     "code": r["program__code"],
@@ -984,7 +1033,7 @@ def school_reports_view(request, school_slug: str):
                     "waitlisted_pct": round(waitlisted / total * 100) if total else 0,
                     "declined_pct": round(declined / total * 100) if total else 0,
                     "pending_pct": round(pending / total * 100) if total else 0,
-                    "sessions": session_data.get(r["program__id"], []),
+                    "sessions": sessions,
                 }
                 if r["program__is_active"]:
                     active_rows.append(row)

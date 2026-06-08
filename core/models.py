@@ -291,7 +291,7 @@ class SchoolSession(models.Model):
     program          = models.ForeignKey(SchoolProgram, on_delete=models.CASCADE, related_name="sessions")
     name             = models.CharField(max_length=200)
     # Slugified from name on create; locked once any submission references this session.
-    code             = models.CharField(max_length=64, blank=True)
+    code             = models.CharField(max_length=64, blank=True, db_index=True)
     start_date       = models.DateField(null=True, blank=True)
     end_date         = models.DateField(null=True, blank=True)
     capacity         = models.PositiveIntegerField(null=True, blank=True)
@@ -414,6 +414,10 @@ class Submission(models.Model):
         unique_together = [("school", "school_submission_number")]
 
     def save(self, *args, **kwargs):
+        # Invariant: a session submission must always reference the session's own program.
+        if self.session_id is not None and self.program_id is None:
+            self.program_id = self.session.program_id
+
         if self.pk is None and self.school_submission_number is None:
             with transaction.atomic():
                 # Lock the school row to serialize concurrent submission creates for
