@@ -61,6 +61,7 @@ from .services.config_loader import (
 from .services.form_utils import build_option_label_map
 from .services.admin_submission_yaml import (
     build_yaml_sections,
+    get_effective_submission_status_choices,
     get_submission_status_choices,
     get_submission_workflow_filters,
     get_submission_workflow_transitions,
@@ -195,7 +196,7 @@ def school_submissions_view(request, school_slug: str):
         .order_by("status")
     )
 
-    allowed_statuses, _ = get_submission_status_choices(config_raw)
+    allowed_statuses, _ = get_effective_submission_status_choices(config_raw, school)
     # Checkboxes and bulk bar are always shown — download/print work without YAML workflow.
     # The status-update dropdown is independently gated on having bulk_status_choices.
     workflow_actions_enabled = True
@@ -491,16 +492,19 @@ def school_submission_status_update_view(request, school_slug: str, submission_i
     config = _safe_load_school_config(school_slug)
     config_raw = getattr(config, "raw", {}) or {}
 
-    # 1. Target status must be in this school's configured status list.
-    allowed_statuses, _ = get_submission_status_choices(config_raw)
-    if new_status not in allowed_statuses:
+    # 1. Target status must be in this school's effective status list.
+    #    For DB-program schools this includes Enrolled and Waitlisted even when absent from YAML.
+    effective_statuses, _ = get_effective_submission_status_choices(config_raw, school)
+    yaml_statuses, _ = get_submission_status_choices(config_raw)
+    if new_status not in effective_statuses:
         messages.error(request, f"'{new_status}' is not a valid status for this school.")
         return redirect(redirect_url)
 
-    # 2. If a workflow is configured, enforce the allowed transitions from current status.
-    #    If no workflow is configured, any status in the allowed list is valid (free-for-all).
+    # 2. Enforce transition graph ONLY when BOTH current AND target are YAML statuses.
+    #    Enrolled / Waitlisted (added by effective choices but absent from YAML) bypass
+    #    the graph entirely — they have no nodes — so admins can always manually enroll.
     transitions = get_submission_workflow_transitions(config_raw)
-    if transitions:
+    if transitions and submission.status in yaml_statuses and new_status in yaml_statuses:
         allowed_next = [t["status"] for t in transitions.get(submission.status, [])]
         if new_status not in allowed_next:
             messages.error(
@@ -511,6 +515,14 @@ def school_submission_status_update_view(request, school_slug: str, submission_i
 
     old_status = submission.status
     submission.status = new_status
+    extra = {"name": "status_update", "from": old_status, "to": new_status}
+    system_statuses = {STATUS_ENROLLED, STATUS_WAITLISTED}
+    if old_status in system_statuses or new_status in system_statuses:
+        extra["manual_enrollment_override"] = True
+        if submission.program:
+            extra["program_code"] = submission.program.code
+        if submission.session:
+            extra["session_code"] = str(submission.session.id)
     with transaction.atomic():
         submission.save(update_fields=["status", "updated_at"])
         log_admin_audit(
@@ -518,7 +530,7 @@ def school_submission_status_update_view(request, school_slug: str, submission_i
             action="action",
             obj=submission,
             changes={},
-            extra={"name": "status_update", "from": old_status, "to": new_status},
+            extra=extra,
         )
 
     messages.success(request, f"Status updated to \"{new_status}\".")
@@ -563,13 +575,14 @@ def school_submission_bulk_status_update_view(request, school_slug: str):
     config = _safe_load_school_config(school_slug)
     config_raw = getattr(config, "raw", {}) or {}
 
-    # 1. Target status must be in school's configured statuses.
-    allowed_statuses, _ = get_submission_status_choices(config_raw)
-    if new_status not in allowed_statuses:
+    # 1. Target status must be in school's effective statuses (YAML + Enrolled/Waitlisted for DB-program schools).
+    effective_statuses, _ = get_effective_submission_status_choices(config_raw, school)
+    yaml_statuses, _ = get_submission_status_choices(config_raw)
+    if new_status not in effective_statuses:
         messages.error(request, f"'{new_status}' is not a valid status for this school.")
         return redirect(redirect_url)
 
-    # 2. If workflow configured, validate the transition. Otherwise allow any status freely.
+    # 2. If workflow configured, enforce transitions only between YAML statuses.
     transitions = get_submission_workflow_transitions(config_raw)
 
     # 3. Parse IDs — ignore non-integer values silently.
@@ -593,7 +606,7 @@ def school_submission_bulk_status_update_view(request, school_slug: str):
     updated = 0
     skipped = 0
     for sub in submissions:
-        if transitions:
+        if transitions and sub.status in yaml_statuses and new_status in yaml_statuses:
             allowed_next = [t["status"] for t in transitions.get(sub.status, [])]
             if new_status not in allowed_next:
                 skipped += 1
@@ -601,12 +614,20 @@ def school_submission_bulk_status_update_view(request, school_slug: str):
         old_status = sub.status
         sub.status = new_status
         sub.save(update_fields=["status", "updated_at"])
+        extra = {"name": "bulk_status_update", "from": old_status, "to": new_status}
+        system_statuses = {STATUS_ENROLLED, STATUS_WAITLISTED}
+        if old_status in system_statuses or new_status in system_statuses:
+            extra["manual_enrollment_override"] = True
+            if sub.program:
+                extra["program_code"] = sub.program.code
+            if sub.session:
+                extra["session_code"] = str(sub.session.id)
         log_admin_audit(
             request=request,
             action="action",
             obj=sub,
             changes={},
-            extra={"name": "bulk_status_update", "from": old_status, "to": new_status},
+            extra=extra,
         )
         updated += 1
 
@@ -647,7 +668,7 @@ def school_submission_inline_status_view(request, school_slug: str, submission_i
 
     submission = get_object_or_404(Submission, id=submission_id, school=school)
     config_raw = getattr(load_school_config(school.slug), "raw", {}) or {}
-    allowed_statuses, _ = get_submission_status_choices(config_raw)
+    allowed_statuses, _ = get_effective_submission_status_choices(config_raw, school)
 
     if new_status not in allowed_statuses:
         messages.error(request, f"'{new_status}' is not a valid submission status.")
@@ -656,8 +677,25 @@ def school_submission_inline_status_view(request, school_slug: str, submission_i
     if new_status == submission.status:
         return redirect(redirect_url)
 
+    # Enforce workflow transitions for YAML-to-YAML moves; system statuses bypass graph.
+    yaml_statuses, _ = get_submission_status_choices(config_raw)
+    transitions = get_submission_workflow_transitions(config_raw)
+    if transitions and submission.status in yaml_statuses and new_status in yaml_statuses:
+        allowed_next = [t["status"] for t in transitions.get(submission.status, [])]
+        if new_status not in allowed_next:
+            messages.error(request, f"Cannot transition from \"{submission.status}\" to \"{new_status}\".")
+            return redirect(redirect_url)
+
     old_status = submission.status
     submission.status = new_status
+    system_statuses = {STATUS_ENROLLED, STATUS_WAITLISTED}
+    extra = {"name": "inline_status_update", "from": old_status, "to": new_status}
+    if old_status in system_statuses or new_status in system_statuses:
+        extra["manual_enrollment_override"] = True
+        if submission.program:
+            extra["program_code"] = submission.program.code
+        if submission.session:
+            extra["session_code"] = str(submission.session.id)
     with transaction.atomic():
         submission.save(update_fields=["status"])
         log_admin_audit(
@@ -665,7 +703,7 @@ def school_submission_inline_status_view(request, school_slug: str, submission_i
             action="action",
             obj=submission,
             changes={"status": {"from": old_status, "to": new_status}},
-            extra={"name": "inline_status_update"},
+            extra=extra,
         )
     return redirect(redirect_url)
 
@@ -696,9 +734,10 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
     form_key = submission.form_key or "default"
     form_dict = _get_display_form_dict(forms, form_key)
 
-    # build_yaml_sections populates value from submission.data for each field,
-    # handling waiver, multiselect, checkbox, and unknown keys correctly.
-    yaml_sections = build_yaml_sections(config, submission.data, form=form_dict) if config else []
+    # build_yaml_sections populates value from submission.data for each field.
+    # school= enables DB program injection (options + value normalization) for the
+    # inline edit mode on this page.
+    yaml_sections = build_yaml_sections(config, submission.data, form=form_dict, school=school) if config else []
 
     # Find a lead linked to this submission (reverse of lead.converted_submission).
     linked_lead = Lead.objects.filter(converted_submission=submission, school=school).first()
@@ -715,7 +754,11 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
     transitions = get_submission_workflow_transitions(config_raw)
     status = submission.status or STATUS_NEW
     status_transitions = transitions.get(status, [])
-    status_choices, _ = get_submission_status_choices(config_raw)
+    yaml_status_choices, _ = get_submission_status_choices(config_raw)
+    status_choices, _ = get_effective_submission_status_choices(config_raw, school)
+    # status_is_system only fires for truly unknown values — Enrolled/Waitlisted are
+    # always in effective_choices for DB-program schools, so this is a fallback only.
+    status_is_system = bool(status) and status not in status_choices
 
     # AI summary (Growth feature flag).
     ai_summary_enabled = school.features.ai_summary_enabled
@@ -770,6 +813,8 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
         "audit_log": audit_log,
         "status_transitions": status_transitions,
         "status_choices": status_choices,
+        "yaml_status_choices": yaml_status_choices,
+        "status_is_system": status_is_system,
         "status_css": get_submission_status_css(status),
         "parent_email": _extract_contact_field(submission.data, _PARENT_EMAIL_KEYS),
         "parent_phone": _extract_contact_field(submission.data, _PARENT_PHONE_KEYS),
@@ -921,13 +966,17 @@ def school_submission_create_view(request, school_slug: str):
             extra={"name": "submission_created", "form_key": form_key},
         )
 
-    # Resolve program FK (no auto-enrollment for admin-created submissions)
+    # Resolve program + session FKs (no auto-enrollment for admin-created submissions)
     if school.program_field_key:
-        from core.services.programs import resolve_submission_program
-        program = resolve_submission_program(school, cleaned)
+        from core.services.programs import resolve_submission_program_and_session
+        program, session = resolve_submission_program_and_session(school, cleaned, strict=False)
         if program:
+            update_fields = ["program"]
             submission.program = program
-            submission.save(update_fields=["program"])
+            if session is not None:
+                submission.session = session
+                update_fields.append("session")
+            submission.save(update_fields=update_fields)
 
     messages.success(request, "Submission created successfully.")
     return redirect(reverse(
@@ -1083,6 +1132,14 @@ def school_submission_edit_view(request, school_slug: str, submission_id: int):
             changes={},
             extra=extra,
         )
+
+    # Update program + session FKs if the program field changed.
+    if school.program_field_key and school.program_field_key in changed_fields:
+        from core.services.programs import resolve_submission_program_and_session
+        program, session = resolve_submission_program_and_session(school, new_data, strict=False)
+        submission.program = program
+        submission.session = session
+        submission.save(update_fields=["program", "session"])
 
     messages.success(request, "Submission updated successfully.")
     return redirect(detail_url)

@@ -150,17 +150,34 @@
         <p style="font-size:12px;color:var(--dash-muted);margin:0;">
           Submitted {{ submission.created_at|date:"M j, Y" }}{% if is_multi_form %} &middot; Form: {{ submission.form_key|default:"default" }}{% endif %}
         </p>
+        {% if status_choices or status_is_system %}
+        <div style="margin-top:10px;">
+        {% if status_is_system %}
+        <div style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;
+                    background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px;
+                    font-size:11px;color:#1d4ed8;margin-bottom:6px;">
+          <span>&#9432;</span>
+          System-set status: <strong>{{ submission.status }}</strong>
+        </div>
+        {% endif %}
         {% if status_choices %}
         <form method="post" class="no-print"
               action="{% url 'school_submission_status_update' school_slug=school_slug submission_id=submission.id %}">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ detail_url }}">
           <div class="sub-pipeline">
+            {% if status_is_system %}
+              <span class="sub-pipeline__step sub-pipeline__step--active"
+                    style="background:#dbeafe;color:#1d4ed8;border-color:#93c5fd;font-size:11px;">
+                {{ submission.status }} (system)
+              </span>
+            {% endif %}
             {% for s in status_choices %}
-              {% if not forloop.first %}<span class="sub-pipeline__arrow">›</span>{% endif %}
+              {% if not forloop.first or status_is_system %}<span class="sub-pipeline__arrow">›</span>{% endif %}
               {% if s == submission.status %}
                 <span class="sub-pipeline__step sub-pipeline__step--active">{{ s }}</span>
-              {% elif not has_workflow_transitions or s in status_transition_keys %}
+              {% elif not has_workflow_transitions or s in status_transition_keys or s not in yaml_status_choices %}
+                {# Steps not in yaml_status_choices (Enrolled/Waitlisted on DB-program schools) bypass the transition graph #}
                 <button type="submit" name="new_status" value="{{ s }}"
                         class="sub-pipeline__step--clickable" title="Move to {{ s }}">{{ s }}</button>
               {% else %}
@@ -169,6 +186,8 @@
             {% endfor %}
           </div>
         </form>
+        {% endif %}
+        </div>
         {% endif %}
       </div>
     </div>
@@ -280,6 +299,8 @@
                         {% if f.value %}{{ f.value|join:", " }}{% else %}—{% endif %}
                       {% elif f.type == "checkbox" %}
                         {% if f.value %}Yes{% else %}No{% endif %}
+                      {% elif f.type == "select" %}
+                        {{ f.display_value|default:f.value|default:"—" }}
                       {% else %}
                         {{ f.value|default:"—" }}
                       {% endif %}

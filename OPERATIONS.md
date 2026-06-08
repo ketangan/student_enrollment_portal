@@ -579,6 +579,19 @@ When `auto_enroll=True` on a program:
 
 Concurrency-safe via `select_for_update()` on `SchoolProgram`.
 
+### Manual Enrollment Override
+
+For DB-program schools (`program_field_key` set), admins can manually move a student to `Enrolled` or `Waitlisted` even if those statuses aren't in the YAML `submission_statuses` list.
+
+`Enrolled` and `Waitlisted` are always injected into the effective status choices for these schools via `get_effective_submission_status_choices()`. This affects all three status-update surfaces:
+- **Detail page pipeline sidebar** — clickable steps include Enrolled/Waitlisted
+- **List-page inline dropdown** — inline status select includes both options
+- **Bulk status update** — Enrolled/Waitlisted appear in the bulk bar
+
+Transition graph enforcement applies only to YAML-to-YAML moves. Enrolled and Waitlisted are system statuses that bypass the graph — admins can always reach them from any YAML status.
+
+Manual override actions are audit-logged with `manual_enrollment_override: true` plus `program_code` and `session_code` when a program/session FK is set on the submission.
+
 ### Seeding Programs from YAML (management command)
 
 ```bash

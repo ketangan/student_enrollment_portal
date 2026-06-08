@@ -85,12 +85,28 @@
                 class="dash-select{% if field.error %} dash-select--error{% endif %}"
                 style="width:100%;box-sizing:border-box;appearance:none;-webkit-appearance:none;">
                 <option value="">— Select —</option>
+                {% if field.option_groups %}
+                  {% for group in field.option_groups %}
+                    {% if group.label %}
+                    <optgroup label="{{ group.label }}">
+                      {% for opt in group.options %}
+                      <option value="{{ opt.value }}" {% if opt.value == field.value %}selected{% endif %}>{{ opt.label }}</option>
+                      {% endfor %}
+                    </optgroup>
+                    {% else %}
+                    {% for opt in group.options %}
+                    <option value="{{ opt.value }}" {% if opt.value == field.value %}selected{% endif %}>{{ opt.label }}</option>
+                    {% endfor %}
+                    {% endif %}
+                  {% endfor %}
+                {% else %}
                 {% for opt in field.options %}
                 <option value="{{ opt.value }}"
                         {% if opt.value == field.value %}selected{% endif %}>
                   {{ opt.label }}
                 </option>
                 {% endfor %}
+                {% endif %}
               </select>
 
             {# ── MULTISELECT — checkbox list (ui=checkboxes) ── #}

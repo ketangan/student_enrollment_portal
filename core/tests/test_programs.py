@@ -151,8 +151,8 @@ def test_inactive_program_hidden_from_form():
     sections = build_yaml_sections(cfg, existing_data={}, school=school)
     field = sections[0]["fields"][0]
     codes = [o["value"] for o in field["options"]]
-    assert "active" in codes
-    assert "inactive" not in codes
+    assert "program:active" in codes
+    assert "program:inactive" not in codes
 
 
 # ---------------------------------------------------------------------------
@@ -869,8 +869,8 @@ def test_yaml_field_with_no_options_uses_db_programs():
     sections = build_yaml_sections(FakeCfgNoOptions(), existing_data={}, school=school)
     field = sections[0]["fields"][0]
     codes = [o["value"] for o in field["options"]]
-    assert "ballet" in codes
-    assert "jazz" in codes
+    assert "program:ballet" in codes
+    assert "program:jazz" in codes
 
 
 # ---------------------------------------------------------------------------

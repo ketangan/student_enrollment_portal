@@ -64,8 +64,25 @@
           All
         </a>
 
-        <!-- Individual status pills from YAML config — one per status, matching Status column exactly -->
+        <!-- Status filter pills — YAML statuses + Enrolled/Waitlisted for DB-program schools -->
         {% for s in bulk_status_choices %}
+        {% if s == "Enrolled" %}
+        <a href="{{ submissions_url }}?status={{ s|urlencode }}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}"
+           style="padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; text-decoration: none;
+                  border: 1px solid {% if status_filter == s %}#16a34a{% else %}#bbf7d0{% endif %};
+                  background: {% if status_filter == s %}#16a34a{% else %}#f0fdf4{% endif %};
+                  color: {% if status_filter == s %}#fff{% else %}#166534{% endif %};">
+          {{ s }}
+        </a>
+        {% elif s == "Waitlisted" %}
+        <a href="{{ submissions_url }}?status={{ s|urlencode }}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}"
+           style="padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; text-decoration: none;
+                  border: 1px solid {% if status_filter == s %}#d97706{% else %}#fde68a{% endif %};
+                  background: {% if status_filter == s %}#d97706{% else %}#fffbeb{% endif %};
+                  color: {% if status_filter == s %}#fff{% else %}#92400e{% endif %};">
+          {{ s }}
+        </a>
+        {% else %}
         <a href="{{ submissions_url }}?status={{ s|urlencode }}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}"
            style="padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; text-decoration: none;
                   border: 1px solid {% if status_filter == s %}var(--dash-primary){% else %}var(--dash-border){% endif %};
@@ -73,6 +90,7 @@
                   color: {% if status_filter == s %}#fff{% else %}var(--dash-muted){% endif %};">
           {{ s }}
         </a>
+        {% endif %}
         {% endfor %}
 
       </div>
@@ -166,6 +184,9 @@
                         style="font-size:12px;padding:3px 6px;border-radius:5px;
                                border:1px solid var(--dash-border);background:var(--dash-bg);
                                color:var(--dash-text);cursor:pointer;">
+                  {% if s.status not in bulk_status_choices %}
+                  <option value="{{ s.status }}" selected>{{ s.status }} (system)</option>
+                  {% endif %}
                   {% for sc in bulk_status_choices %}
                   <option value="{{ sc }}" {% if sc == s.status %}selected{% endif %}>{{ sc }}</option>
                   {% endfor %}

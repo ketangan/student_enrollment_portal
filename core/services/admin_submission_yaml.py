@@ -40,17 +40,7 @@ def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=Non
             required = bool(f.get("required", False))
             options = f.get("options") or []
 
-            # DB-driven program injection
-            no_programs_warning = False
-            if school and getattr(school, "program_field_key", "") and key == school.program_field_key:
-                from core.services.programs import get_program_options
-                db_options = get_program_options(school, form_key=form_key)
-                if db_options:
-                    options = db_options
-                else:
-                    options = []
-                    no_programs_warning = True
-
+            # 1. Resolve value from POST or existing data first.
             if post_data is not None:
                 name = f"{DYN_PREFIX}{key}"
                 if ftype == "multiselect":
@@ -70,6 +60,47 @@ def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=Non
             else:
                 value = existing.get(key, "")
 
+            # 2. DB-driven program injection (session-aware) + bare-code normalization.
+            no_programs_warning = False
+            option_groups = None
+            if school and getattr(school, "program_field_key", "") and key == school.program_field_key:
+                from core.services.programs import has_enrollment_options, _get_enrollment_option_groups
+                if not has_enrollment_options(school, form_key=form_key):
+                    options = []
+                    no_programs_warning = True
+                else:
+                    groups = _get_enrollment_option_groups(school, form_key=form_key)
+                    has_named_group = any(g["label"] for g in groups)
+                    if has_named_group:
+                        option_groups = groups
+                        options = []
+                    else:
+                        flat = []
+                        for g in groups:
+                            flat.extend(g["options"])
+                        options = flat
+                    # Normalize legacy bare program codes → "program:<code>" so the
+                    # select value matches the namespaced option values.
+                    if value and isinstance(value, str) and not (
+                        value.startswith("session:") or value.startswith("program:")
+                    ):
+                        value = f"program:{value}"
+
+            # 3. For select fields, resolve a human-readable display_value from options.
+            #    Used by detail-page read mode; edit mode uses value directly for <option selected>.
+            display_value = None
+            if ftype == "select" and value:
+                all_opts: list[dict] = []
+                if option_groups:
+                    for g in option_groups:
+                        all_opts.extend(g.get("options") or [])
+                else:
+                    all_opts = [o for o in options if isinstance(o, dict)]
+                for opt in all_opts:
+                    if isinstance(opt, dict) and opt.get("value") == value:
+                        display_value = opt.get("label")
+                        break
+
             fields.append(
                 {
                     "key": key,
@@ -77,7 +108,9 @@ def build_yaml_sections(cfg, existing_data: dict[str, Any] | None, post_data=Non
                     "type": ftype,
                     "required": required,
                     "options": options,
+                    "option_groups": option_groups,
                     "value": value,
+                    "display_value": display_value,
                     # Display properties passed through for template rendering
                     "placeholder": f.get("placeholder", ""),
                     "help_text": f.get("help_text", ""),
@@ -302,3 +335,20 @@ def get_submission_status_choices(config_raw: dict) -> tuple[list[str], str]:
     final_default = default_status if default_status in final_statuses else (final_statuses[0] if final_statuses else default_default)
 
     return final_statuses, final_default
+
+
+def get_effective_submission_status_choices(config_raw: dict, school) -> tuple[list[str], str]:
+    """Like get_submission_status_choices, but for DB-program schools appends
+    STATUS_ENROLLED and STATUS_WAITLISTED if not already present in the YAML list.
+
+    This ensures admins can always manually enroll or waitlist a student even when
+    the school YAML omits those statuses (auto-enrollment handles them normally).
+    The local import breaks the circular dependency with views_school_common.
+    """
+    from core.views_school_common import STATUS_ENROLLED, STATUS_WAITLISTED  # noqa: PLC0415
+    choices, default = get_submission_status_choices(config_raw)
+    if getattr(school, "program_field_key", ""):
+        for s in [STATUS_ENROLLED, STATUS_WAITLISTED]:
+            if s not in choices:
+                choices = choices + [s]
+    return choices, default

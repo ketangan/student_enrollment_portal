@@ -18,6 +18,8 @@ from core.tests.factories import (
     UserFactory,
 )
 from core.services.admin_submission_yaml import (
+    get_effective_submission_status_choices,
+    get_submission_status_choices,
     get_submission_workflow_filters,
     get_submission_workflow_transitions,
 )
@@ -662,6 +664,321 @@ def test_bulk_controls_always_enabled(client):
     assert resp.context["workflow_actions_enabled"]  # always True now
     # Checkboxes always rendered so download/print bulk actions are accessible
     assert "submission-checkbox" in resp.content.decode()
+
+
+# ── System-status safety: Enrolled / Waitlisted not in YAML ──────────────
+
+# Config whose statuses do NOT include Enrolled or Waitlisted —
+# simulating a school that relies on auto-enrollment but hasn't added those
+# values to their submission_statuses YAML list.
+_NO_ENROLLED_STATUSES_CONFIG = {
+    "admin": {
+        "submission_statuses": ["New", "In Review", "Archived"],
+    }
+}
+
+
+def _detail_url(school, submission_id):
+    return reverse(
+        "school_submission_detail",
+        kwargs={"school_slug": school.slug, "submission_id": submission_id},
+    )
+
+
+def _edit_url(school, submission_id):
+    return reverse(
+        "school_submission_edit",
+        kwargs={"school_slug": school.slug, "submission_id": submission_id},
+    )
+
+
+@pytest.mark.django_db
+def test_auto_enrolled_submission_shows_system_badge_on_detail(client):
+    """status='Enrolled' not in YAML → detail page shows 'System-set status: Enrolled'."""
+    school = SchoolFactory()
+    user = _school_admin_user(school)
+    client.force_login(user)
+    sub = SubmissionFactory(school=school, status="Enrolled")
+
+    with patch(
+        "core.views_school_common.load_school_config",
+        return_value=_make_mock_config(_NO_ENROLLED_STATUSES_CONFIG),
+    ):
+        resp = client.get(_detail_url(school, sub.id))
+
+    assert resp.status_code == 200
+    assert resp.context["status_is_system"] is True
+    # Badge text: "System-set status: <strong>Enrolled</strong>" — check partial
+    assert "System-set status:" in resp.content.decode()
+    assert "Enrolled" in resp.content.decode()
+
+
+@pytest.mark.django_db
+def test_auto_waitlisted_submission_shows_system_badge_on_detail(client):
+    """status='Waitlisted' not in YAML → detail page shows system badge."""
+    school = SchoolFactory()
+    user = _school_admin_user(school)
+    client.force_login(user)
+    sub = SubmissionFactory(school=school, status="Waitlisted")
+
+    with patch(
+        "core.views_school_common.load_school_config",
+        return_value=_make_mock_config(_NO_ENROLLED_STATUSES_CONFIG),
+    ):
+        resp = client.get(_detail_url(school, sub.id))
+
+    assert resp.status_code == 200
+    assert resp.context["status_is_system"] is True
+    # Badge text: "System-set status: <strong>Waitlisted</strong>" — check partial
+    assert "System-set status:" in resp.content.decode()
+    assert "Waitlisted" in resp.content.decode()
+
+
+@pytest.mark.django_db
+def test_edit_form_preserves_system_set_status(client):
+    """Saving the submission edit form (e.g. adding a note) must not overwrite a system status."""
+    school = SchoolFactory()
+    user = _school_admin_user(school)
+    client.force_login(user)
+    sub = SubmissionFactory(school=school, status="Enrolled", internal_notes="")
+
+    with patch(
+        "core.views_school_common.load_school_config",
+        return_value=_make_mock_config(_NO_ENROLLED_STATUSES_CONFIG),
+    ):
+        resp = client.post(
+            _edit_url(school, sub.id),
+            {"internal_notes": "admin added a note"},
+        )
+
+    assert resp.status_code == 302
+    sub.refresh_from_db()
+    assert sub.status == "Enrolled"  # edit form never touches status
+
+
+@pytest.mark.django_db
+def test_system_status_allows_transition_to_yaml_status(client):
+    """Submission in system status 'Enrolled' (not in YAML) can be moved to a YAML status.
+    The transitions check must be bypassed since system statuses have no graph node."""
+    school = SchoolFactory()
+    user = _school_admin_user(school)
+    client.force_login(user)
+    # Workflow config WITH transitions defined — previously this would block all changes
+    # from "Enrolled" because it has no outgoing edges in the transition graph.
+    sub = SubmissionFactory(school=school, status="Enrolled")
+
+    with patch(
+        "core.views_school_common.load_school_config",
+        return_value=_make_mock_config({
+            "admin": {
+                "submission_statuses": ["New", "In Review", "Archived"],
+                "submission_workflow": {
+                    "transitions": {
+                        "New": [{"label": "Archive", "status": "Archived"}],
+                    }
+                },
+            }
+        }),
+    ):
+        resp = client.post(
+            _status_url(school, sub.id),
+            {"new_status": "In Review"},
+        )
+
+    assert resp.status_code == 302
+    sub.refresh_from_db()
+    assert sub.status == "In Review"  # transition from system status allowed
+
+
+# ── Django admin: staff without membership ─────────────────────────────────
+
+
+# ── Option 2: get_effective_submission_status_choices unit tests ──────────────
+
+
+def test_effective_choices_appends_enrolled_and_waitlisted_for_db_program_school():
+    """DB-program school whose YAML omits Enrolled/Waitlisted gets them appended."""
+    school = SchoolFactory.build(program_field_key="program")
+    choices, _ = get_effective_submission_status_choices(_NO_ENROLLED_STATUSES_CONFIG, school)
+    assert "Enrolled" in choices
+    assert "Waitlisted" in choices
+    # YAML choices still present
+    assert "New" in choices
+    assert "In Review" in choices
+
+
+def test_effective_choices_no_duplicates_when_already_in_yaml():
+    """If Enrolled/Waitlisted are already in YAML they are not added twice."""
+    config = {"admin": {"submission_statuses": ["New", "Enrolled", "Waitlisted"]}}
+    school = SchoolFactory.build(program_field_key="program")
+    choices, _ = get_effective_submission_status_choices(config, school)
+    assert choices.count("Enrolled") == 1
+    assert choices.count("Waitlisted") == 1
+
+
+def test_effective_choices_passthrough_for_non_db_program_school():
+    """Non-DB-program school (no program_field_key) gets exactly the YAML choices back."""
+    school = SchoolFactory.build(program_field_key="")
+    yaml_choices, _ = get_submission_status_choices(_NO_ENROLLED_STATUSES_CONFIG)
+    effective_choices, _ = get_effective_submission_status_choices(_NO_ENROLLED_STATUSES_CONFIG, school)
+    assert effective_choices == yaml_choices
+
+
+# ── Option 2: manual enrollment via status update endpoint ────────────────────
+
+
+@pytest.mark.django_db
+def test_db_program_school_can_manually_enroll_via_status_update(client):
+    """Admin can set status=Enrolled for a DB-program school even when Enrolled absent from YAML
+    and even when a transitions workflow is configured."""
+    school = SchoolFactory()
+    school.program_field_key = "program"
+    school.save()
+    user = _school_admin_user(school)
+    client.force_login(user)
+    sub = SubmissionFactory(school=school, status="New")
+
+    # Config has transitions but does NOT include Enrolled in statuses
+    config_with_transitions = {
+        "admin": {
+            "submission_statuses": ["New", "In Review", "Archived"],
+            "submission_workflow": {
+                "transitions": {
+                    "New": [{"label": "Review", "status": "In Review"}],
+                }
+            },
+        }
+    }
+    with patch("core.views_school_common.load_school_config",
+               return_value=_make_mock_config(config_with_transitions)):
+        resp = client.post(_status_url(school, sub.id), {"new_status": "Enrolled"})
+
+    assert resp.status_code == 302
+    sub.refresh_from_db()
+    assert sub.status == "Enrolled"
+
+
+@pytest.mark.django_db
+def test_db_program_school_can_manually_waitlist_via_status_update(client):
+    """Admin can set status=Waitlisted for a DB-program school even when absent from YAML."""
+    school = SchoolFactory()
+    school.program_field_key = "program"
+    school.save()
+    user = _school_admin_user(school)
+    client.force_login(user)
+    sub = SubmissionFactory(school=school, status="In Review")
+
+    with patch("core.views_school_common.load_school_config",
+               return_value=_make_mock_config(_NO_ENROLLED_STATUSES_CONFIG)):
+        resp = client.post(_status_url(school, sub.id), {"new_status": "Waitlisted"})
+
+    assert resp.status_code == 302
+    sub.refresh_from_db()
+    assert sub.status == "Waitlisted"
+
+
+@pytest.mark.django_db
+def test_manual_enroll_audit_log_has_override_flag(client):
+    """Manually setting Enrolled (not in YAML) logs manual_enrollment_override=True."""
+    from core.models import AdminAuditLog
+    school = SchoolFactory()
+    school.program_field_key = "program"
+    school.save()
+    user = _school_admin_user(school)
+    client.force_login(user)
+    sub = SubmissionFactory(school=school, status="New")
+
+    with patch("core.views_school_common.load_school_config",
+               return_value=_make_mock_config(_NO_ENROLLED_STATUSES_CONFIG)):
+        client.post(_status_url(school, sub.id), {"new_status": "Enrolled"})
+
+    log = AdminAuditLog.objects.filter(
+        model_label="core.submission", object_id=str(sub.pk)
+    ).order_by("-created_at").first()
+    assert log is not None
+    assert log.extra.get("manual_enrollment_override") is True
+    assert log.extra.get("to") == "Enrolled"
+
+
+@pytest.mark.django_db
+def test_non_db_program_school_enrolled_still_blocked(client):
+    """School without program_field_key: Enrolled not in YAML → status update rejected."""
+    school = SchoolFactory()  # program_field_key is empty by default
+    user = _school_admin_user(school)
+    client.force_login(user)
+    sub = SubmissionFactory(school=school, status="New")
+
+    with patch("core.views_school_common.load_school_config",
+               return_value=_make_mock_config(_NO_ENROLLED_STATUSES_CONFIG)):
+        resp = client.post(_status_url(school, sub.id), {"new_status": "Enrolled"})
+
+    assert resp.status_code == 302
+    sub.refresh_from_db()
+    assert sub.status == "New"  # rejected — Enrolled not in effective choices
+
+
+@pytest.mark.django_db
+def test_bulk_update_db_program_school_allows_enrolled_target(client):
+    """Bulk status update: Enrolled allowed as target for DB-program school."""
+    school = SchoolFactory()
+    school.program_field_key = "program"
+    school.save()
+    user = _school_admin_user(school)
+    client.force_login(user)
+    sub1 = SubmissionFactory(school=school, status="New")
+    sub2 = SubmissionFactory(school=school, status="In Review")
+
+    with patch("core.views_school_common.load_school_config",
+               return_value=_make_mock_config(_NO_ENROLLED_STATUSES_CONFIG)):
+        resp = client.post(
+            _bulk_url(school),
+            {"new_status": "Enrolled", "submission_ids": [sub1.id, sub2.id]},
+        )
+
+    assert resp.status_code == 302
+    sub1.refresh_from_db()
+    sub2.refresh_from_db()
+    assert sub1.status == "Enrolled"
+    assert sub2.status == "Enrolled"
+
+
+@pytest.mark.django_db
+def test_detail_page_enrolled_in_status_choices_for_db_program_school(client):
+    """Detail page context includes Enrolled in status_choices for DB-program school."""
+    school = SchoolFactory()
+    school.program_field_key = "program"
+    school.save()
+    user = _school_admin_user(school)
+    client.force_login(user)
+    sub = SubmissionFactory(school=school, status="New")
+
+    with patch("core.views_school_common.load_school_config",
+               return_value=_make_mock_config(_NO_ENROLLED_STATUSES_CONFIG)):
+        resp = client.get(_detail_url(school, sub.id))
+
+    assert resp.status_code == 200
+    assert "Enrolled" in resp.context["status_choices"]
+    assert "Waitlisted" in resp.context["status_choices"]
+
+
+@pytest.mark.django_db
+def test_detail_page_enrolled_not_system_status_for_db_program_school(client):
+    """For a DB-program school, a submission with status=Enrolled is NOT flagged as
+    status_is_system — it is a legitimate effective status, not an unknown value."""
+    school = SchoolFactory()
+    school.program_field_key = "program"
+    school.save()
+    user = _school_admin_user(school)
+    client.force_login(user)
+    sub = SubmissionFactory(school=school, status="Enrolled")
+
+    with patch("core.views_school_common.load_school_config",
+               return_value=_make_mock_config(_NO_ENROLLED_STATUSES_CONFIG)):
+        resp = client.get(_detail_url(school, sub.id))
+
+    assert resp.status_code == 200
+    # status_is_system should be False — Enrolled is in effective_choices for DB-program schools
+    assert resp.context["status_is_system"] is False
 
 
 # ── Django admin: staff without membership ─────────────────────────────────
