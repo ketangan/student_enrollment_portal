@@ -115,6 +115,28 @@ def test_no_active_programs_renders_disabled_option_and_blocks_required_field():
     assert field["options"] == []
 
 
+@pytest.mark.django_db
+def test_no_programs_warning_message_rendered_on_public_form():
+    from django.test import Client
+    from core.models import School
+    from core.services.config_loader import load_school_config
+
+    slug = "enrollment-request-demo"
+    cfg = load_school_config(slug)
+    school, _ = School.objects.get_or_create(
+        slug=slug,
+        defaults={"display_name": cfg.display_name, "plan": "starter"},
+    )
+    school.program_field_key = "interested_in"
+    school.save(update_fields=["program_field_key"])
+    # Deactivate all programs so the warning triggers
+    SchoolProgram.objects.filter(school=school).update(is_active=False)
+
+    resp = Client().get(reverse("apply", kwargs={"school_slug": slug}))
+    assert resp.status_code == 200
+    assert b"No programs are currently available" in resp.content
+
+
 # ---------------------------------------------------------------------------
 # 4. Inactive program not in form options
 # ---------------------------------------------------------------------------

@@ -593,6 +593,12 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                     submission.program = program
                     submission.save(update_fields=["program"])
                     apply_auto_enrollment(school, submission, program)
+                    # Sync waitlist session flag so the success page shows the right message.
+                    # _maybe_set_waitlist_flag uses the YAML capacity system and won't fire
+                    # for DB-driven programs; check the submission status directly instead.
+                    submission.refresh_from_db(fields=["status"])
+                    if submission.status == "Waitlisted":
+                        request.session[_WAITLIST_SESSION_KEY] = True
 
             # Mark draft submitted (do NOT delete — magic link shows "already submitted" page)
             active_draft = _resolve_active_draft(request, school, school_slug)
