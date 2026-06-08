@@ -5,7 +5,7 @@
 <main class="dash-main">
 
   <div style="margin-bottom:20px;">
-    <a href="{{ back_url }}" style="font-size:13px;color:var(--dash-muted);text-decoration:none;">← Settings</a>
+    <a href="{{ back_url }}" style="font-size:13px;color:var(--dash-muted);text-decoration:none;">← {{ program.name }}</a>
     <h1 style="font-size:18px;font-weight:700;margin:8px 0 0;">{{ form_heading }}</h1>
   </div>
 
@@ -16,18 +16,63 @@
       <!-- Name -->
       <div style="margin-bottom:18px;">
         <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"
-               for="id_name">Program Name <span style="color:#ef4444;">*</span></label>
+               for="id_name">Session Name <span style="color:#ef4444;">*</span></label>
         <input type="text"
                id="id_name"
                name="name"
                value="{{ values.name }}"
                style="width:100%;padding:8px 12px;font-size:14px;border:1px solid {% if errors.name %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;"
-               placeholder="e.g. Ballet Beginner"
+               placeholder="e.g. Fall 2025, Tuesdays 5 PM"
                autofocus>
         {% if errors.name %}<div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.name }}</div>{% endif %}
-        {% if is_edit %}
-        <div style="font-size:11px;color:var(--dash-muted);margin-top:4px;">Internal code: <span style="font-family:monospace;">{{ program_code }}</span></div>
+      </div>
+
+      <!-- Code -->
+      <div style="margin-bottom:18px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"
+               for="id_code">Code</label>
+        {% if is_edit and code_locked %}
+          <input type="text"
+                 id="id_code"
+                 name="code"
+                 value="{{ session_code }}"
+                 disabled
+                 style="width:100%;padding:8px 12px;font-size:13px;font-family:monospace;border:1px solid var(--dash-border);border-radius:6px;background:var(--dash-bg);color:var(--dash-muted);box-sizing:border-box;cursor:not-allowed;">
+          <div style="font-size:11px;color:var(--dash-muted);margin-top:4px;">Locked — submissions already reference this session.</div>
+        {% else %}
+          <input type="text"
+                 id="id_code"
+                 name="code"
+                 value="{{ values.code }}"
+                 style="width:100%;padding:8px 12px;font-size:13px;font-family:monospace;border:1px solid {% if errors.code %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;"
+                 placeholder="Auto-generated from name">
+          <div style="font-size:11px;color:var(--dash-muted);margin-top:4px;">Lowercase letters, numbers, underscores, hyphens. Leave blank to auto-generate.</div>
+          {% if errors.code %}<div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.code }}</div>{% endif %}
         {% endif %}
+      </div>
+
+      <!-- Dates row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"
+                 for="id_start_date">Start Date</label>
+          <input type="date"
+                 id="id_start_date"
+                 name="start_date"
+                 value="{{ values.start_date }}"
+                 style="width:100%;padding:8px 12px;font-size:14px;border:1px solid {% if errors.start_date %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;">
+          {% if errors.start_date %}<div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.start_date }}</div>{% endif %}
+        </div>
+        <div>
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"
+                 for="id_end_date">End Date</label>
+          <input type="date"
+                 id="id_end_date"
+                 name="end_date"
+                 value="{{ values.end_date }}"
+                 style="width:100%;padding:8px 12px;font-size:14px;border:1px solid {% if errors.end_date %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;">
+          {% if errors.end_date %}<div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.end_date }}</div>{% endif %}
+        </div>
       </div>
 
       <!-- Capacity -->
@@ -58,7 +103,7 @@
           <div>
             <div style="font-size:13px;font-weight:600;color:var(--dash-text);">Auto-enroll on submit</div>
             <div style="font-size:12px;color:var(--dash-muted);margin-top:2px;">
-              Submissions are automatically marked <strong>Enrolled</strong>. When at capacity with waitlist enabled, they're marked <strong>Waitlisted</strong> instead.
+              Submissions for this session are automatically marked <strong>Enrolled</strong>. Overrides the program-level setting.
             </div>
           </div>
         </label>
@@ -84,16 +129,16 @@
       <!-- Buttons -->
       <div style="display:flex;gap:10px;">
         <button type="submit" class="dash-action-btn dash-action-btn--primary" style="font-size:13px;padding:8px 20px;cursor:pointer;border:none;">
-          {% if is_edit %}Save Changes{% else %}Add Program{% endif %}
+          {% if is_edit %}Save Changes{% else %}Add Session{% endif %}
         </button>
         <a href="{{ back_url }}" class="dash-action-btn dash-action-btn--secondary" style="font-size:13px;padding:8px 20px;">Cancel</a>
       </div>
     </form>
 
     {% if is_edit %}
-    <!-- Program Status -->
+    <!-- Session Status -->
     <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--dash-border);">
-      <div style="font-size:11px;font-weight:700;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">Program Status</div>
+      <div style="font-size:11px;font-weight:700;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">Session Status</div>
 
       {% if is_active %}
       <div style="padding:12px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;margin-bottom:12px;">
@@ -101,29 +146,29 @@
         {% if enrolled_count > 0 %}
         <div style="font-size:12px;color:#92400e;margin-top:4px;">
           <strong>{{ enrolled_count }} student{{ enrolled_count|pluralize }} enrolled.</strong>
-          Deactivating removes this program from the form but does not change existing enrollment statuses.
+          Deactivating removes this session from the form but does not change existing enrollment statuses.
         </div>
         {% else %}
-        <div style="font-size:12px;color:var(--dash-muted);margin-top:4px;">Deactivating hides this program from new applicants.</div>
+        <div style="font-size:12px;color:var(--dash-muted);margin-top:4px;">Deactivating hides this session from new applicants.</div>
         {% endif %}
       </div>
       <form method="post" action="{{ deactivate_url }}">
         {% csrf_token %}
         <button type="submit" class="dash-action-btn dash-action-btn--danger" style="font-size:13px;padding:8px 16px;"
-          {% if enrolled_count > 0 %}onclick="return confirm('{{ enrolled_count }} student(s) are enrolled in this program. Deactivating hides it from new applicants — existing enrollments are not affected. Continue?')"{% endif %}>
-          Deactivate Program
+          {% if enrolled_count > 0 %}onclick="return confirm('{{ enrolled_count }} student(s) are enrolled in this session. Deactivating hides it from new applicants — existing enrollments are not affected. Continue?')"{% endif %}>
+          Deactivate Session
         </button>
       </form>
 
       {% else %}
       <div style="padding:12px 14px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;margin-bottom:12px;">
         <div style="font-size:13px;font-weight:600;color:#166534;">Currently Inactive</div>
-        <div style="font-size:12px;color:#166534;margin-top:4px;">Activating makes this program available on the enrollment form.</div>
+        <div style="font-size:12px;color:#166534;margin-top:4px;">Activating makes this session available on the enrollment form.</div>
       </div>
       <form method="post" action="{{ activate_url }}">
         {% csrf_token %}
         <button type="submit" class="dash-action-btn dash-action-btn--primary" style="font-size:13px;padding:8px 16px;">
-          Activate Program
+          Activate Session
         </button>
       </form>
       {% endif %}
@@ -132,75 +177,16 @@
       <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--dash-border);">
         <div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Danger Zone</div>
         <p style="font-size:12px;color:var(--dash-muted);margin:0 0 10px;">
-          This program is inactive and has no submissions. Removing it will hide it from this list permanently.
+          This session is inactive and has no submissions. Removing it will hide it permanently.
         </p>
         <form method="post" action="{{ delete_url }}"
-              onsubmit="return confirm('Remove program \'{{ program_code }}\'? This cannot be undone from the admin UI.');">
+              onsubmit="return confirm('Remove session \'{{ session_code }}\'? This cannot be undone from the admin UI.');">
           {% csrf_token %}
           <button type="submit" class="dash-action-btn dash-action-btn--danger" style="font-size:13px;padding:8px 16px;">
-            Remove Program
+            Remove Session
           </button>
         </form>
       </div>
-      {% endif %}
-    </div>
-
-    <!-- Sessions -->
-    <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--dash-border);">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-        <div style="font-size:11px;font-weight:700;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;">Sessions / Cohorts</div>
-        <a href="{{ add_session_url }}" class="dash-action-btn dash-action-btn--primary" style="font-size:12px;padding:5px 12px;">+ Add Session</a>
-      </div>
-
-      {% if sessions %}
-      <div style="font-size:12px;color:var(--dash-muted);margin-bottom:10px;">
-        When sessions are added, the enrollment form shows sessions instead of the bare program name.
-      </div>
-      <table style="width:100%;border-collapse:collapse;font-size:13px;">
-        <thead>
-          <tr style="border-bottom:1px solid var(--dash-border);">
-            <th style="text-align:left;padding:6px 8px 6px 0;font-size:11px;color:var(--dash-muted);font-weight:600;">Name</th>
-            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--dash-muted);font-weight:600;">Dates</th>
-            <th style="text-align:right;padding:6px 8px;font-size:11px;color:var(--dash-muted);font-weight:600;">Cap.</th>
-            <th style="text-align:center;padding:6px 8px;font-size:11px;color:var(--dash-muted);font-weight:600;">Status</th>
-            <th style="text-align:right;padding:6px 0 6px 8px;font-size:11px;color:var(--dash-muted);font-weight:600;"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for s in sessions %}
-          <tr style="border-bottom:1px solid var(--dash-border);{% if not s.is_active %}opacity:.55;{% endif %}">
-            <td style="padding:8px 8px 8px 0;color:var(--dash-text);">
-              {{ s.name }}
-              <div style="font-size:11px;color:var(--dash-muted);font-family:monospace;">{{ s.code }}</div>
-            </td>
-            <td style="padding:8px;color:var(--dash-muted);font-size:12px;">
-              {% if s.start_date %}{{ s.start_date }}{% endif %}
-              {% if s.start_date and s.end_date %} – {% endif %}
-              {% if s.end_date %}{{ s.end_date }}{% endif %}
-              {% if not s.start_date and not s.end_date %}—{% endif %}
-            </td>
-            <td style="padding:8px;text-align:right;color:var(--dash-muted);">
-              {{ s.capacity|default:"∞" }}
-            </td>
-            <td style="padding:8px;text-align:center;">
-              {% if s.is_active %}
-                <span style="font-size:11px;font-weight:600;color:#16a34a;background:#f0fdf4;border:1px solid #bbf7d0;padding:2px 7px;border-radius:4px;">Active</span>
-              {% else %}
-                <span style="font-size:11px;font-weight:600;color:var(--dash-muted);background:var(--dash-bg);border:1px solid var(--dash-border);padding:2px 7px;border-radius:4px;">Inactive</span>
-              {% endif %}
-            </td>
-            <td style="padding:8px 0 8px 8px;text-align:right;">
-              <a href="{% url 'school_session_edit' school_slug=school.slug program_id=program.pk session_id=s.pk %}"
-                 style="font-size:12px;color:var(--dash-primary);text-decoration:none;">Edit</a>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <p style="font-size:13px;color:var(--dash-muted);margin:0;">
-        No sessions yet. Add one to break this program into cohorts (e.g. "Fall 2025", "Morning class").
-      </p>
       {% endif %}
     </div>
     {% endif %}

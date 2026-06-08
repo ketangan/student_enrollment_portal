@@ -278,6 +278,41 @@ class SchoolProgram(models.Model):
     def has_submissions(self) -> bool:
         return self.submissions.exists()
 
+    def has_active_sessions(self) -> bool:
+        return self.sessions.filter(is_active=True, is_deleted=False).exists()
+
+
+class SchoolSession(models.Model):
+    """
+    Optional sub-grouping of a SchoolProgram (e.g. "Fall 2025", "Tuesdays 5 PM").
+    When a program has active sessions, the public form shows sessions instead of
+    the bare program.  Capacity / auto-enroll / waitlist are overrideable per session.
+    """
+    program          = models.ForeignKey(SchoolProgram, on_delete=models.CASCADE, related_name="sessions")
+    name             = models.CharField(max_length=200)
+    # Slugified from name on create; locked once any submission references this session.
+    code             = models.CharField(max_length=64, blank=True)
+    start_date       = models.DateField(null=True, blank=True)
+    end_date         = models.DateField(null=True, blank=True)
+    capacity         = models.PositiveIntegerField(null=True, blank=True)
+    auto_enroll      = models.BooleanField(default=False)
+    waitlist_enabled = models.BooleanField(default=False)
+    is_active        = models.BooleanField(default=True, db_index=True)
+    is_deleted       = models.BooleanField(default=False, db_index=True)
+    display_order    = models.PositiveIntegerField(default=0)
+    created_at       = models.DateTimeField(auto_now_add=True)
+    updated_at       = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [("program", "code")]
+        ordering = ["display_order", "name"]
+
+    def __str__(self) -> str:
+        return f"{self.program.school.slug} / {self.program.name} / {self.name}"
+
+    def has_submissions(self) -> bool:
+        return self.submissions.exists()
+
 
 def generate_public_id() -> str:
     """Short, URL-safe identifier for sharing with school admins.
@@ -355,6 +390,16 @@ class Submission(models.Model):
     # Nullable: schools without program_field_key still work; existing rows are NULL until backfill.
     program = models.ForeignKey(
         "SchoolProgram",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="submissions",
+    )
+
+    # FK to SchoolSession — set when the selected program option was a session-namespaced value.
+    # NULL for schools without sessions, or submissions made before sessions were added.
+    session = models.ForeignKey(
+        "SchoolSession",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,

@@ -75,7 +75,7 @@ from .services.admin_lead_yaml import (
     get_lead_workflow_transitions,
 )
 from core.admin.audit import log_admin_audit
-from .services.programs import inject_db_program_options, get_program_options
+from .services.programs import inject_db_program_options, get_program_options, has_enrollment_options
 from .services.validation import validate_submission
 from .services.notifications import (
     send_applicant_confirmation_email,
@@ -460,7 +460,27 @@ def _complete_submission_from_draft(
         except Exception:
             logger.exception("Failed to send applicant confirmation email")
 
-    _maybe_set_waitlist_flag(request, school, submission.data or {}, raw_config)
+    # Resolve program/session FK + auto-enroll for DB-driven program schools.
+    if school.program_field_key:
+        from core.services.programs import resolve_submission_program_and_session, apply_auto_enrollment
+        program, session = resolve_submission_program_and_session(school, submission.data or {})
+        if program:
+            update_fields = ["program"]
+            submission.program = program
+            if session is not None:
+                submission.session = session
+                update_fields.append("session")
+            submission.save(update_fields=update_fields)
+            apply_auto_enrollment(school, submission, program, session=session)
+            submission.refresh_from_db(fields=["status"])
+            if submission.status == "Waitlisted":
+                request.session[_WAITLIST_SESSION_KEY] = True
+        else:
+            # No DB program match — fall through to YAML capacity check.
+            _maybe_set_waitlist_flag(request, school, submission.data or {}, raw_config)
+    else:
+        _maybe_set_waitlist_flag(request, school, submission.data or {}, raw_config)
+
     return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
 
@@ -538,9 +558,9 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
             # Normal full submit
             cleaned, errors = validate_submission(form_cfg, request.POST, request.FILES)
 
-            # Block submission when program_field_key is set but no active programs exist
+            # Block submission when program_field_key is set but no enrollment options exist
             if not errors and school.program_field_key:
-                if not get_program_options(school, form_key="default"):
+                if not has_enrollment_options(school, form_key="default"):
                     errors = errors or {}
                     errors[school.program_field_key] = "No programs are currently available. Please contact the school."
 
@@ -585,17 +605,18 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 payment_status="waived" if (fee_cfg["enabled"] and fee_cfg["waived"]) else "",
             )
 
-            # Resolve program FK + apply auto-enrollment if school uses DB-driven programs
+            # Resolve program/session FK + apply auto-enrollment for DB-driven program schools.
             if school.program_field_key:
-                from core.services.programs import resolve_submission_program, apply_auto_enrollment
-                program = resolve_submission_program(school, cleaned)
+                from core.services.programs import resolve_submission_program_and_session, apply_auto_enrollment
+                program, session = resolve_submission_program_and_session(school, cleaned)
                 if program:
+                    update_fields = ["program"]
                     submission.program = program
-                    submission.save(update_fields=["program"])
-                    apply_auto_enrollment(school, submission, program)
-                    # Sync waitlist session flag so the success page shows the right message.
-                    # _maybe_set_waitlist_flag uses the YAML capacity system and won't fire
-                    # for DB-driven programs; check the submission status directly instead.
+                    if session is not None:
+                        submission.session = session
+                        update_fields.append("session")
+                    submission.save(update_fields=update_fields)
+                    apply_auto_enrollment(school, submission, program, session=session)
                     submission.refresh_from_db(fields=["status"])
                     if submission.status == "Waitlisted":
                         request.session[_WAITLIST_SESSION_KEY] = True
@@ -705,9 +726,9 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
 
         cleaned, errors = validate_submission(form_cfg, request.POST, request.FILES)
 
-        # Block submission when program_field_key is set but no active programs exist
+        # Block submission when program_field_key is set but no enrollment options exist
         if not errors and school.program_field_key:
-            if not get_program_options(school, form_key=form_key):
+            if not has_enrollment_options(school, form_key=form_key):
                 errors = errors or {}
                 errors[school.program_field_key] = "No programs are currently available. Please contact the school."
 

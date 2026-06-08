@@ -914,6 +914,53 @@ def school_reports_view(request, school_slug: str):
             max_total = max(r["total"] for r in prog_data)
             active_rows = []
             inactive_rows = []
+
+            # Build session-level breakdown per program.
+            session_data = {}
+            sess_qs = list(
+                apps_this_qs.filter(session__isnull=False)
+                .values(
+                    "session__id",
+                    "session__name",
+                    "session__code",
+                    "session__is_active",
+                    "session__capacity",
+                    "program__id",
+                )
+                .annotate(
+                    total=Count("id"),
+                    enrolled=Count("id", filter=Q(status=STATUS_ENROLLED)),
+                    waitlisted=Count("id", filter=Q(status=STATUS_WAITLISTED)),
+                    declined=Count("id", filter=Q(status=STATUS_DECLINED)),
+                )
+                .order_by("session__display_order", "session__name")
+            )
+            for sr in sess_qs:
+                pid = sr["program__id"]
+                if pid not in session_data:
+                    session_data[pid] = []
+                stotal = sr["total"]
+                senrolled = sr["enrolled"]
+                swaitlisted = sr["waitlisted"]
+                sdeclined = sr["declined"]
+                spending = stotal - senrolled - swaitlisted - sdeclined
+                session_data[pid].append({
+                    "name": sr["session__name"],
+                    "code": sr["session__code"],
+                    "is_active": sr["session__is_active"],
+                    "capacity": sr["session__capacity"],
+                    "total": stotal,
+                    "enrolled": senrolled,
+                    "waitlisted": swaitlisted,
+                    "declined": sdeclined,
+                    "pending": spending,
+                    "conv_rate": round(senrolled / stotal * 100, 1) if stotal else 0.0,
+                    "enrolled_pct": round(senrolled / stotal * 100) if stotal else 0,
+                    "waitlisted_pct": round(swaitlisted / stotal * 100) if stotal else 0,
+                    "declined_pct": round(sdeclined / stotal * 100) if stotal else 0,
+                    "pending_pct": round(spending / stotal * 100) if stotal else 0,
+                })
+
             for r in prog_data:
                 total = r["total"]
                 enrolled = r["enrolled"]
@@ -937,6 +984,7 @@ def school_reports_view(request, school_slug: str):
                     "waitlisted_pct": round(waitlisted / total * 100) if total else 0,
                     "declined_pct": round(declined / total * 100) if total else 0,
                     "pending_pct": round(pending / total * 100) if total else 0,
+                    "sessions": session_data.get(r["program__id"], []),
                 }
                 if r["program__is_active"]:
                     active_rows.append(row)
