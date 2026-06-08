@@ -609,17 +609,25 @@
               {% elif entry.extra.name == "regenerate_ai_summary" %}
                 regenerated AI summary
               {% elif entry.extra.name == "resend_confirmation" %}
-                resent confirmation email
+                resent confirmation email{% if entry.extra.to %} &rarr; {{ entry.extra.to }}{% endif %}
               {% elif entry.extra.name == "manual_message_sent" %}
                 sent message to parent{% if entry.extra.to %} ({{ entry.extra.to }}){% endif %}
               {% elif entry.extra.name == "mark_contacted" %}
-                marked as contacted
+                marked as contacted{% if entry.extra.follow_up_date %} &mdash; follow-up set for {{ entry.extra.follow_up_date }}{% endif %}
               {% elif entry.extra.name == "follow_up_set" %}
-                set a follow-up date
+                set a follow-up{% if entry.extra.date %}: <strong>{{ entry.extra.date }}</strong>{% endif %}
               {% elif entry.extra.name == "export_csv" %}
                 exported to CSV
               {% elif entry.extra.name == "bulk_status_update" %}
-                updated status (bulk action)
+                updated status (bulk):
+                <span style="color:var(--dash-muted);">{{ entry.extra.from }}</span> &rarr; <strong>{{ entry.extra.to }}</strong>
+              {% elif entry.extra.name == "inline_status_update" %}
+                updated status:
+                <span style="color:var(--dash-muted);">{{ entry.extra.from }}</span> &rarr; <strong>{{ entry.extra.to }}</strong>
+              {% elif entry.extra.name == "bulk_mark_contacted" %}
+                marked as contacted (bulk){% if entry.extra.follow_up_date %} &mdash; follow-up {{ entry.extra.follow_up_date }}{% endif %}
+              {% elif entry.extra.name == "bulk_follow_up_set" %}
+                set follow-up (bulk){% if entry.extra.date %}: <strong>{{ entry.extra.date }}</strong>{% endif %}
               {% elif entry.extra.name == "submission_edit" %}
                 edited application data
               {% elif entry.extra.name %}

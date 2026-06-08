@@ -374,11 +374,20 @@
               {% elif entry.extra.name == "start_enrollment" %}
                 initiated enrollment
               {% elif entry.extra.name == "lead_update" %}
-                updated lead details
+                updated lead details{% if entry.extra.changed %}:
+                {% for item in entry.extra.changed %}
+                  <span style="color:var(--dash-muted);">{{ item.field }}</span>{% if item.from is not None and item.from != item.to %} (<span style="color:var(--dash-muted);">{{ item.from }}</span> &rarr; <strong>{{ item.to }}</strong>){% endif %}{% if not forloop.last %},{% endif %}
+                {% endfor %}{% endif %}
+              {% elif entry.extra.name == "lead_created" %}
+                created lead{% if entry.extra.email %} for {{ entry.extra.email }}{% endif %}{% if entry.extra.source %} <span style="color:var(--dash-muted);">({{ entry.extra.source }})</span>{% endif %}
               {% elif entry.extra.name == "mark_contacted" %}
-                marked as contacted
+                marked as contacted{% if entry.extra.follow_up_date %} &mdash; follow-up set for {{ entry.extra.follow_up_date }}{% endif %}
               {% elif entry.extra.name == "follow_up_set" %}
-                set a follow-up date
+                set a follow-up{% if entry.extra.date %}: <strong>{{ entry.extra.date }}</strong>{% endif %}
+              {% elif entry.extra.name == "bulk_mark_contacted" %}
+                marked as contacted (bulk){% if entry.extra.follow_up_date %} &mdash; follow-up {{ entry.extra.follow_up_date }}{% endif %}
+              {% elif entry.extra.name == "bulk_follow_up_set" %}
+                set follow-up (bulk){% if entry.extra.date %}: <strong>{{ entry.extra.date }}</strong>{% endif %}
               {% elif entry.extra.name == "manual_message_sent" %}
                 sent message{% if entry.extra.to %} ({{ entry.extra.to }}){% endif %}
               {% elif entry.extra.name %}

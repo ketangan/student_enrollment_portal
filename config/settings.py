@@ -62,7 +62,7 @@ CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if os.ge
 # ------------------------------
 SESSION_COOKIE_SECURE = IS_PROD and (not IS_TESTING)
 CSRF_COOKIE_SECURE = IS_PROD and (not IS_TESTING)
-CSRF_COOKIE_SAMESITE = "None"  # Required for cross-origin iframe form submission
+CSRF_COOKIE_SAMESITE = "None" if IS_PROD else "Lax"  # None requires Secure; only valid over HTTPS in prod
 SECURE_SSL_REDIRECT = IS_PROD and (os.getenv("SECURE_SSL_REDIRECT", "True") == "True") and (not IS_TESTING)
 
 # Keep this (Render is behind a proxy and sets X-Forwarded-Proto)

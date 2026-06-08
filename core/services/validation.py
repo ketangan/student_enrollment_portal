@@ -80,7 +80,7 @@ def validate_submission(
                 raw_val = post_data.getlist(key)  # type: ignore[attr-defined]
 
             if ftype == "waiver":
-                agreed = raw_val in ("on", "true", "True", True)
+                agreed = raw_val in ("on", "true", "True", "agreed", True)
                 if required and not agreed and not partial:
                     errors[key] = "You must agree to continue."
                     continue

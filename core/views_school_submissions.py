@@ -1191,7 +1191,7 @@ def school_submission_mark_contacted_view(request, school_slug: str, submission_
             action="action",
             obj=submission,
             changes={},
-            extra={"name": "mark_contacted"},
+            extra={"name": "mark_contacted", "follow_up_date": (now + timedelta(days=2)).date().isoformat(), "status_changed": "status" in update_fields},
         )
 
     if request.POST.get("send_email") == "1" and school.features.email_notifications_enabled:
@@ -1280,7 +1280,7 @@ def school_submission_follow_up_set_view(request, school_slug: str, submission_i
             action="action",
             obj=submission,
             changes={},
-            extra={"name": "follow_up_set"},
+            extra={"name": "follow_up_set", "date": new_follow_up.date().isoformat()},
         )
 
     if request.POST.get("send_email") == "1" and school.features.email_notifications_enabled:
@@ -1368,7 +1368,7 @@ def school_submission_bulk_mark_contacted_view(request, school_slug: str):
                 action="action",
                 obj=submission,
                 changes={},
-                extra={"name": "bulk_mark_contacted"},
+                extra={"name": "bulk_mark_contacted", "follow_up_date": (now + timedelta(days=2)).date().isoformat(), "status_changed": "status" in _fields},
             )
             updated += 1
 
@@ -1430,7 +1430,7 @@ def school_submission_bulk_follow_up_view(request, school_slug: str):
                 action="action",
                 obj=submission,
                 changes={},
-                extra={"name": "bulk_follow_up_set"},
+                extra={"name": "bulk_follow_up_set", "date": follow_up_dt.date().isoformat()},
             )
             updated += 1
 
@@ -1678,12 +1678,13 @@ def school_submission_resend_confirmation_view(request, school_slug: str, submis
 
     if sent:
         messages.success(request, "Confirmation email resent.")
+        _resend_to = _extract_contact_field(submission.data, _PARENT_EMAIL_KEYS).strip()
         log_admin_audit(
             request=request,
             action="action",
             obj=submission,
             changes={},
-            extra={"name": "resend_confirmation"},
+            extra={"name": "resend_confirmation", "to": _resend_to},
         )
     else:
         messages.error(request, "Could not resend confirmation. Check email configuration.")

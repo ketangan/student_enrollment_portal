@@ -815,6 +815,34 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
         messages.info(request, "No changes made.")
         return redirect(redirect_url)
 
+    _LEAD_FIELD_LABELS = {
+        "name": "Name",
+        "email": "Email",
+        "phone": "Phone",
+        "interested_in": "Program Interest",
+        "notes": "Notes",
+        "next_follow_up_at": "Follow-up Date",
+    }
+    _old_values = {
+        "name": lead.name or "",
+        "email": lead.email or "",
+        "phone": lead.phone or "",
+        "interested_in": lead.interested_in_value or "",
+    }
+    _new_values = {
+        "name": new_name,
+        "email": new_email,
+        "phone": new_phone,
+        "interested_in": new_interested_in_value,
+    }
+    changed_detail = []
+    for field in changed_fields:
+        label = _LEAD_FIELD_LABELS.get(field, field)
+        if field in _old_values:
+            changed_detail.append({"field": label, "from": _old_values[field], "to": _new_values[field]})
+        else:
+            changed_detail.append({"field": label})
+
     lead.name = new_name
     lead.email = new_email
     lead.phone = new_phone
@@ -837,7 +865,7 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
             action="action",
             obj=lead,
             changes={},
-            extra={"name": "lead_update", "fields": changed_fields},
+            extra={"name": "lead_update", "changed": changed_detail},
         )
 
     messages.success(request, "Lead updated successfully.")
@@ -937,7 +965,7 @@ def school_lead_create_view(request, school_slug: str):
                 action="add",
                 obj=lead,
                 changes={},
-                extra={"name": "lead_created"},
+                extra={"name": "lead_created", "source": lead.source or "manual", "email": lead.email or "", "lead_name": lead.name or ""},
             )
     except IntegrityError:
         logger.warning("Duplicate lead email for school %r: %s", school_slug, new_email)
@@ -999,7 +1027,7 @@ def school_lead_mark_contacted_view(request, school_slug: str, lead_id: int):
             action="action",
             obj=lead,
             changes={},
-            extra={"name": "mark_contacted"},
+            extra={"name": "mark_contacted", "follow_up_date": lead.next_follow_up_at.date().isoformat(), "status_changed": "status" in update_fields},
         )
 
     if (request.POST.get("send_email") == "1"
@@ -1076,7 +1104,7 @@ def school_lead_bulk_mark_contacted_view(request, school_slug: str):
                 action="action",
                 obj=lead,
                 changes={},
-                extra={"name": "bulk_mark_contacted"},
+                extra={"name": "bulk_mark_contacted", "follow_up_date": (now + timedelta(days=2)).date().isoformat(), "status_changed": "status" in update_fields},
             )
             updated += 1
 
@@ -1138,7 +1166,7 @@ def school_lead_bulk_follow_up_view(request, school_slug: str):
                 action="action",
                 obj=lead,
                 changes={},
-                extra={"name": "bulk_follow_up_set"},
+                extra={"name": "bulk_follow_up_set", "date": follow_up_dt.date().isoformat()},
             )
             updated += 1
 
