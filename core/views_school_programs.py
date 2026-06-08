@@ -127,7 +127,7 @@ def school_program_create_view(request, school_slug: str):
 @require_http_methods(["GET", "POST"])
 def school_program_edit_view(request, school_slug: str, program_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
-    program = get_object_or_404(SchoolProgram, id=program_id, school=school)
+    program = get_object_or_404(SchoolProgram, id=program_id, school=school, is_deleted=False)
     settings_url = _settings_url(school_slug)
 
     errors = {}
@@ -240,6 +240,9 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
 
             return redirect(settings_url)
 
+    enrolled_count = program.submissions.filter(status=STATUS_ENROLLED).count()
+    can_delete = not program.is_active and not program.has_submissions()
+
     ctx = _school_admin_base_context(request, school, "settings")
     ctx.update({
         "form_heading": f"Edit: {program.name}",
@@ -249,6 +252,12 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
         "values": values,
         "is_edit": True,
         "program_code": program.code,
+        "is_active": program.is_active,
+        "enrolled_count": enrolled_count,
+        "can_delete": can_delete,
+        "deactivate_url": reverse("school_program_deactivate", kwargs={"school_slug": school_slug, "program_id": program.pk}),
+        "activate_url": reverse("school_program_activate", kwargs={"school_slug": school_slug, "program_id": program.pk}),
+        "delete_url": reverse("school_program_delete", kwargs={"school_slug": school_slug, "program_id": program.pk}),
     })
     return render(request, "school_admin/program_form.html", ctx)
 
@@ -257,7 +266,7 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
 @require_http_methods(["POST"])
 def school_program_activate_view(request, school_slug: str, program_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
-    program = get_object_or_404(SchoolProgram, id=program_id, school=school)
+    program = get_object_or_404(SchoolProgram, id=program_id, school=school, is_deleted=False)
 
     if not program.is_active:
         program.is_active = True
@@ -278,9 +287,10 @@ def school_program_activate_view(request, school_slug: str, program_id: int):
 @require_http_methods(["POST"])
 def school_program_deactivate_view(request, school_slug: str, program_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
-    program = get_object_or_404(SchoolProgram, id=program_id, school=school)
+    program = get_object_or_404(SchoolProgram, id=program_id, school=school, is_deleted=False)
 
     if program.is_active:
+        enrolled_now = program.submissions.filter(status=STATUS_ENROLLED).count()
         program.is_active = False
         program.save(update_fields=["is_active"])
         log_admin_audit(
@@ -290,7 +300,14 @@ def school_program_deactivate_view(request, school_slug: str, program_id: int):
             changes={"is_active": {"old": True, "new": False}},
             extra={"name": "program_deactivated", "code": program.code, "program_name": program.name},
         )
-        messages.success(request, f"Program '{program.name}' deactivated.")
+        if enrolled_now > 0:
+            messages.warning(
+                request,
+                f"Program '{program.name}' deactivated. "
+                f"{enrolled_now} student{'' if enrolled_now == 1 else 's'} remain enrolled — their status is unchanged.",
+            )
+        else:
+            messages.success(request, f"Program '{program.name}' deactivated.")
 
     return redirect(_settings_url(school_slug))
 
@@ -299,14 +316,20 @@ def school_program_deactivate_view(request, school_slug: str, program_id: int):
 @require_http_methods(["POST"])
 def school_program_delete_view(request, school_slug: str, program_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
-    program = get_object_or_404(SchoolProgram, id=program_id, school=school)
+    program = get_object_or_404(SchoolProgram, id=program_id, school=school, is_deleted=False)
+
+    if program.is_active:
+        messages.error(request, f"Cannot delete '{program.name}' — deactivate it first.")
+        return redirect(_settings_url(school_slug))
 
     if program.has_submissions():
-        messages.error(request, f"Cannot delete '{program.name}' — it has associated submissions. Deactivate it instead.")
+        messages.error(request, f"Cannot delete '{program.name}' — it has associated submissions.")
         return redirect(_settings_url(school_slug))
 
     name = program.name
     code = program.code
+    program.is_deleted = True
+    program.save(update_fields=["is_deleted", "updated_at"])
     log_admin_audit(
         request=request,
         action="delete",
@@ -314,6 +337,5 @@ def school_program_delete_view(request, school_slug: str, program_id: int):
         changes={},
         extra={"name": "program_deleted", "code": code, "program_name": name},
     )
-    program.delete()
-    messages.success(request, f"Program '{name}' deleted.")
+    messages.success(request, f"Program '{name}' removed.")
     return redirect(_settings_url(school_slug))

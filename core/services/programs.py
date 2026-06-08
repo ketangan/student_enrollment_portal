@@ -24,7 +24,7 @@ def get_program_options(school, form_key: str = "default") -> list[dict]:
     "available on all forms."
     """
     from core.models import SchoolProgram
-    qs = SchoolProgram.objects.filter(school=school, is_active=True).order_by("display_order", "name")
+    qs = SchoolProgram.objects.filter(school=school, is_active=True, is_deleted=False).order_by("display_order", "name")
     result = []
     for p in qs:
         if p.form_keys and form_key not in p.form_keys:
@@ -71,7 +71,7 @@ def resolve_submission_program(school, data: dict):
     if not code:
         return None
     try:
-        return SchoolProgram.objects.get(school=school, code=code)
+        return SchoolProgram.objects.get(school=school, code=code, is_deleted=False)
     except SchoolProgram.DoesNotExist:
         return None
 
@@ -148,7 +148,7 @@ def get_programs_summary(school) -> dict:
     """
     from core.models import SchoolProgram
     from core.views_school_common import STATUS_ENROLLED, STATUS_WAITLISTED
-    programs = SchoolProgram.objects.filter(school=school).order_by("display_order", "name")
+    programs = SchoolProgram.objects.filter(school=school, is_deleted=False).order_by("display_order", "name")
     result = {}
     for p in programs:
         enrolled = p.submissions.filter(status=STATUS_ENROLLED).count()

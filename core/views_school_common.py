@@ -889,6 +889,65 @@ def school_reports_view(request, school_slug: str):
                 "bar_w": int(rate) if rate is not None else 0,
             })
 
+    # ── §4.6: Program Enrollment Funnel (scoped to date range) ───────────────
+    program_funnel = None
+    if school.program_field_key:
+        prog_data = list(
+            apps_this_qs.filter(program__isnull=False)
+            .values(
+                "program__id",
+                "program__name",
+                "program__code",
+                "program__is_active",
+                "program__capacity",
+                "program__display_order",
+            )
+            .annotate(
+                total=Count("id"),
+                enrolled=Count("id", filter=Q(status=STATUS_ENROLLED)),
+                waitlisted=Count("id", filter=Q(status=STATUS_WAITLISTED)),
+                declined=Count("id", filter=Q(status=STATUS_DECLINED)),
+            )
+            .order_by("program__display_order", "program__name")
+        )
+        if prog_data:
+            max_total = max(r["total"] for r in prog_data)
+            active_rows = []
+            inactive_rows = []
+            for r in prog_data:
+                total = r["total"]
+                enrolled = r["enrolled"]
+                waitlisted = r["waitlisted"]
+                declined = r["declined"]
+                pending = total - enrolled - waitlisted - declined
+                conv_rate = round(enrolled / total * 100, 1) if total else 0.0
+                row = {
+                    "name": r["program__name"],
+                    "code": r["program__code"],
+                    "is_active": r["program__is_active"],
+                    "capacity": r["program__capacity"],
+                    "total": total,
+                    "enrolled": enrolled,
+                    "waitlisted": waitlisted,
+                    "declined": declined,
+                    "pending": pending,
+                    "conv_rate": conv_rate,
+                    "bar_w": round(total / max_total * 100),
+                    "enrolled_pct": round(enrolled / total * 100) if total else 0,
+                    "waitlisted_pct": round(waitlisted / total * 100) if total else 0,
+                    "declined_pct": round(declined / total * 100) if total else 0,
+                    "pending_pct": round(pending / total * 100) if total else 0,
+                }
+                if r["program__is_active"]:
+                    active_rows.append(row)
+                else:
+                    inactive_rows.append(row)
+            program_funnel = {
+                "active": active_rows,
+                "inactive": inactive_rows,
+                "max_total": max_total,
+            }
+
     base_ctx = _school_admin_base_context(request, school, "reports")
     base_ctx.update({
         "school_slug": school_slug,
@@ -905,6 +964,7 @@ def school_reports_view(request, school_slug: str):
         "program_mix": program_mix,
         "program_mix_total": mix_total,
         "source_rows": source_rows,
+        "program_funnel": program_funnel,
         "leads_enabled": leads_enabled,
         "csv_export_enabled": csv_enabled,
         "billing_url": reverse("school_billing", kwargs={"school_slug": school_slug}),

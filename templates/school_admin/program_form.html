@@ -89,6 +89,63 @@
         <a href="{{ back_url }}" class="dash-action-btn dash-action-btn--secondary" style="font-size:13px;padding:8px 20px;">Cancel</a>
       </div>
     </form>
+
+    {% if is_edit %}
+    <!-- Program Status -->
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--dash-border);">
+      <div style="font-size:11px;font-weight:700;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">Program Status</div>
+
+      {% if is_active %}
+      <div style="padding:12px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:600;color:#92400e;">Currently Active</div>
+        {% if enrolled_count > 0 %}
+        <div style="font-size:12px;color:#92400e;margin-top:4px;">
+          <strong>{{ enrolled_count }} student{{ enrolled_count|pluralize }} enrolled.</strong>
+          Deactivating removes this program from the form but does not change existing enrollment statuses.
+        </div>
+        {% else %}
+        <div style="font-size:12px;color:var(--dash-muted);margin-top:4px;">Deactivating hides this program from new applicants.</div>
+        {% endif %}
+      </div>
+      <form method="post" action="{{ deactivate_url }}">
+        {% csrf_token %}
+        <button type="submit" class="dash-action-btn dash-action-btn--danger" style="font-size:13px;padding:8px 16px;"
+          {% if enrolled_count > 0 %}onclick="return confirm('{{ enrolled_count }} student(s) are enrolled in this program. Deactivating hides it from new applicants — existing enrollments are not affected. Continue?')"{% endif %}>
+          Deactivate Program
+        </button>
+      </form>
+
+      {% else %}
+      <div style="padding:12px 14px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:600;color:#166534;">Currently Inactive</div>
+        <div style="font-size:12px;color:#166534;margin-top:4px;">Activating makes this program available on the enrollment form.</div>
+      </div>
+      <form method="post" action="{{ activate_url }}">
+        {% csrf_token %}
+        <button type="submit" class="dash-action-btn dash-action-btn--primary" style="font-size:13px;padding:8px 16px;">
+          Activate Program
+        </button>
+      </form>
+      {% endif %}
+
+      {% if can_delete %}
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--dash-border);">
+        <div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Danger Zone</div>
+        <p style="font-size:12px;color:var(--dash-muted);margin:0 0 10px;">
+          This program is inactive and has no submissions. Removing it will hide it from this list permanently.
+        </p>
+        <form method="post" action="{{ delete_url }}"
+              onsubmit="return confirm('Remove program \'{{ program_code }}\'? This cannot be undone from the admin UI.');">
+          {% csrf_token %}
+          <button type="submit" class="dash-action-btn dash-action-btn--danger" style="font-size:13px;padding:8px 16px;">
+            Remove Program
+          </button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
   </div>
 
 </main>

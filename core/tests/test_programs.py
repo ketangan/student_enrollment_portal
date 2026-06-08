@@ -366,7 +366,9 @@ def test_admin_delete_program_without_submissions():
     url = reverse("school_program_delete", kwargs={"school_slug": school.slug, "program_id": pk})
     resp = client.post(url)
     assert resp.status_code == 302
-    assert not SchoolProgram.objects.filter(pk=pk).exists()
+    # Soft-delete: record still in DB but marked is_deleted
+    program.refresh_from_db()
+    assert program.is_deleted is True
 
 
 @pytest.mark.django_db

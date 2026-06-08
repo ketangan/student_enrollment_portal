@@ -552,6 +552,51 @@ Secure admin download: `/admin/uploads/<file_id>/`
 
 ---
 
+## Program Management
+
+Programs are DB records (`SchoolProgram`) that drive the program-selection field on the enrollment form. They replace the static `options:` list in the YAML for that field.
+
+### Prerequisites
+
+1. Set `School.program_field_key` in Django admin (Superadmin → Schools → edit school) to match the YAML field key (e.g. `interested_in`).
+2. Remove the static `options:` block from that field in the school's YAML — the DB records take over.
+
+### School Admin UI
+
+School admins manage programs via **Settings → Programs**:
+
+- **Add Program** — name (required), capacity (optional), auto-enroll toggle
+- **Edit Program** — update any field; Activate/Deactivate toggle and (if inactive + no submissions) Remove are on the edit page, not the list
+- **Show inactive** checkbox on the settings list reveals inactive programs (hidden by default)
+- **Remove** is a soft delete — sets `is_deleted=True`, never hard-deletes the DB row; recovery requires Django admin or a direct DB update
+
+### Auto-Enrollment
+
+When `auto_enroll=True` on a program:
+- Submission status is set to `Enrolled` on submit (if capacity available)
+- If `waitlist_enabled=True` and at capacity → `Waitlisted`
+- If at capacity with no waitlist → stays `New` (no status change, no audit event)
+
+Concurrency-safe via `select_for_update()` on `SchoolProgram`.
+
+### Seeding Programs from YAML (management command)
+
+```bash
+python manage.py seed_school_programs <slug>
+```
+
+Reads any `options:` under the `program_field_key` field in the school's YAML and creates `SchoolProgram` records. Safe to re-run (skips existing codes).
+
+### Reports
+
+When `program_field_key` is set, the Reports page includes a **Program Enrollment Breakdown** section (§4.6):
+- Horizontal stacked bar chart: Enrolled / Waitlisted / Pending / Declined per program
+- Table with conversion rate (Enrolled / Submitted)
+- Inactive programs that had submissions in the period appear dimmed under "Past Programs"
+- Scoped to the selected date range (7d / 30d / 90d)
+
+---
+
 ## Reporting
 
 Accessible from admin sidebar → Reports, or `/schools/<slug>/admin/reports`.

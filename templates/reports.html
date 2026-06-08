@@ -267,5 +267,96 @@
   </div>
   {% endif %}
 
+  {# ── §4.6 Program Enrollment Funnel ──────────────────────────────────────── #}
+  {% if program_funnel %}
+  <div class="rp-card">
+    <div class="rp-card-header">
+      <span class="rp-card-title">Program Enrollment Breakdown</span>
+      <span class="rp-scope-chip">{{ range_label }}</span>
+    </div>
+
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px;font-size:12px;color:var(--dash-muted);">
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#10b981;margin-right:4px;vertical-align:middle;"></span>Enrolled</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#f59e0b;margin-right:4px;vertical-align:middle;"></span>Waitlisted</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#3b82f6;margin-right:4px;vertical-align:middle;opacity:.65;"></span>Pending</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ef4444;margin-right:4px;vertical-align:middle;opacity:.65;"></span>Declined</span>
+    </div>
+
+    {% for row in program_funnel.active %}
+    <div class="rp-bar-row">
+      <div class="rp-bar-label" title="{{ row.name }}">{{ row.name }}</div>
+      <div class="rp-bar-track" style="position:relative;overflow:hidden;background:transparent;">
+        <div style="position:absolute;left:0;top:0;height:100%;width:{{ row.bar_w }}%;display:flex;">
+          {% if row.enrolled_pct %}<div style="width:{{ row.enrolled_pct }}%;background:#10b981;"></div>{% endif %}
+          {% if row.waitlisted_pct %}<div style="width:{{ row.waitlisted_pct }}%;background:#f59e0b;"></div>{% endif %}
+          {% if row.pending_pct %}<div style="width:{{ row.pending_pct }}%;background:#3b82f6;opacity:.55;"></div>{% endif %}
+          {% if row.declined_pct %}<div style="width:{{ row.declined_pct }}%;background:#ef4444;opacity:.6;"></div>{% endif %}
+        </div>
+      </div>
+      <div class="rp-bar-stat">{{ row.enrolled }}/{{ row.total }}<span class="rp-bar-pct"> ({{ row.conv_rate }}%)</span></div>
+    </div>
+    {% endfor %}
+
+    {% if program_funnel.inactive %}
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--dash-border);">
+      <div style="font-size:11px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Past Programs</div>
+      {% for row in program_funnel.inactive %}
+      <div class="rp-bar-row" style="opacity:.5;">
+        <div class="rp-bar-label" title="{{ row.name }}">{{ row.name }}</div>
+        <div class="rp-bar-track" style="position:relative;overflow:hidden;background:transparent;">
+          <div style="position:absolute;left:0;top:0;height:100%;width:{{ row.bar_w }}%;display:flex;">
+            {% if row.enrolled_pct %}<div style="width:{{ row.enrolled_pct }}%;background:#10b981;"></div>{% endif %}
+            {% if row.waitlisted_pct %}<div style="width:{{ row.waitlisted_pct }}%;background:#f59e0b;"></div>{% endif %}
+            {% if row.pending_pct %}<div style="width:{{ row.pending_pct }}%;background:#3b82f6;opacity:.55;"></div>{% endif %}
+            {% if row.declined_pct %}<div style="width:{{ row.declined_pct }}%;background:#ef4444;opacity:.6;"></div>{% endif %}
+          </div>
+        </div>
+        <div class="rp-bar-stat">{{ row.enrolled }}/{{ row.total }}<span class="rp-bar-pct"> ({{ row.conv_rate }}%)</span></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <table class="rp-table" style="margin-top:16px;">
+      <thead>
+        <tr>
+          <th>Program</th>
+          <th>Submitted</th>
+          <th>Enrolled</th>
+          <th>Waitlisted</th>
+          <th>Pending</th>
+          <th>Declined</th>
+          <th>Conv. Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in program_funnel.active %}
+        <tr>
+          <td>{{ row.name }}</td>
+          <td class="rp-tabnum">{{ row.total }}</td>
+          <td class="rp-tabnum" style="color:#059669;">{{ row.enrolled }}</td>
+          <td class="rp-tabnum">{{ row.waitlisted }}</td>
+          <td class="rp-tabnum rp-tabnum--prev">{{ row.pending }}</td>
+          <td class="rp-tabnum rp-tabnum--prev">{{ row.declined }}</td>
+          <td class="rp-tabnum">{{ row.conv_rate }}%</td>
+        </tr>
+        {% endfor %}
+        {% for row in program_funnel.inactive %}
+        <tr class="rp-row--muted">
+          <td>{{ row.name }} <span class="rp-muted-dash" style="font-size:11px;">(inactive)</span></td>
+          <td class="rp-tabnum">{{ row.total }}</td>
+          <td class="rp-tabnum">{{ row.enrolled }}</td>
+          <td class="rp-tabnum">{{ row.waitlisted }}</td>
+          <td class="rp-tabnum">{{ row.pending }}</td>
+          <td class="rp-tabnum">{{ row.declined }}</td>
+          <td class="rp-tabnum">{{ row.conv_rate }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="rp-card-note">Conv. Rate = Enrolled / Submitted &middot; {{ range_label }}</p>
+  </div>
+  {% endif %}
+
 </div>{# .rp-page #}
 {% endblock %}

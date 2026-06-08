@@ -209,9 +209,15 @@
       <h2 style="font-size:15px;font-weight:700;margin:0;">Programs</h2>
       <a href="{{ programs_create_url }}" class="dash-action-btn dash-action-btn--primary" style="font-size:12px;padding:5px 12px;">+ Add Program</a>
     </div>
-    <p style="font-size:12px;color:var(--dash-muted);margin:0 0 16px;">
-      These are the options shown in the <strong>{{ program_field_key }}</strong> field on your enrollment form.
-    </p>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+      <p style="font-size:12px;color:var(--dash-muted);margin:0;">
+        These are the options shown in the <strong>{{ program_field_key }}</strong> field on your enrollment form.
+      </p>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dash-muted);cursor:pointer;user-select:none;">
+        <input type="checkbox" id="show-inactive-toggle" onchange="toggleInactivePrograms(this.checked)" style="cursor:pointer;">
+        Show inactive
+      </label>
+    </div>
 
     {% if programs_no_active_warning %}
     <div style="margin-bottom:12px;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;color:#92400e;font-size:12px;">
@@ -235,7 +241,7 @@
         </thead>
         <tbody>
           {% for code, p in programs_summary.items %}
-          <tr{% if not p.is_active %} style="opacity:.6;"{% endif %}>
+          <tr{% if not p.is_active %} data-inactive="1" style="opacity:.6;display:none;"{% endif %}>
             <td>
               <div style="font-weight:500;">{{ p.name }}</div>
               <div style="font-size:11px;color:var(--dash-muted);margin-top:1px;">{{ p.code }}</div>
@@ -255,25 +261,12 @@
               <a href="{% url 'school_program_edit' school.slug p.id %}"
                  class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;padding:4px 10px;">Edit</a>
 
-              {% if p.is_active %}
-                {# Active → offer Deactivate #}
-                <form method="post" action="{% url 'school_program_deactivate' school.slug p.id %}" style="display:inline;margin-left:4px;">
-                  {% csrf_token %}
-                  <button type="submit" class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;padding:4px 10px;">Deactivate</button>
-                </form>
-              {% else %}
-                {# Inactive → offer Activate, and Delete only if no submissions #}
-                <form method="post" action="{% url 'school_program_activate' school.slug p.id %}" style="display:inline;margin-left:4px;">
-                  {% csrf_token %}
-                  <button type="submit" class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;padding:4px 10px;">Activate</button>
-                </form>
-                {% if not p.has_submissions %}
-                <form method="post" action="{% url 'school_program_delete' school.slug p.id %}" style="display:inline;margin-left:4px;"
-                      onsubmit="return confirm('Permanently delete program \'{{ p.name }}\'?');">
-                  {% csrf_token %}
-                  <button type="submit" class="dash-action-btn dash-action-btn--danger" style="font-size:12px;padding:4px 10px;">Delete</button>
-                </form>
-                {% endif %}
+              {% if not p.is_active and not p.has_submissions %}
+              <form method="post" action="{% url 'school_program_delete' school.slug p.id %}" style="display:inline;margin-left:4px;"
+                    onsubmit="return confirm('Permanently delete program \'{{ p.name }}\'?');">
+                {% csrf_token %}
+                <button type="submit" class="dash-action-btn dash-action-btn--danger" style="font-size:12px;padding:4px 10px;">Delete</button>
+              </form>
               {% endif %}
             </td>
           </tr>
@@ -347,6 +340,12 @@
 </main>
 
 <script>
+function toggleInactivePrograms(show) {
+  document.querySelectorAll('tr[data-inactive]').forEach(function(row) {
+    row.style.display = show ? '' : 'none';
+  });
+}
+
 function copyField(inputId, btnId, msg) {
   var el = document.getElementById(inputId);
   var btn = document.getElementById(btnId);
