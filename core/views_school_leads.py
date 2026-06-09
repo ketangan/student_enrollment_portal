@@ -1307,16 +1307,33 @@ def school_lead_resend_resume_link_view(request, school_slug: str, lead_id: int)
         messages.error(request, "Email is not enabled for this school.")
         return redirect(redirect_url)
 
-    draft = (
-        DraftSubmission.objects
-        .filter(school=school, lead=lead, submitted_at__isnull=True)
-        .exclude(token_expires_at__lt=timezone.now())
-        .order_by("-created_at")
-        .first()
-    )
-    if not draft:
-        messages.error(request, "No active draft found. Use 'Start Enrollment' first to generate a link.")
-        return redirect(redirect_url)
+    # Find or create the draft so the link is always sendable without a prior
+    # "Start Enrollment" click.
+    with transaction.atomic():
+        draft = (
+            DraftSubmission.objects
+            .select_for_update()
+            .filter(school=school, lead=lead, submitted_at__isnull=True)
+            .order_by("-created_at")
+            .first()
+        )
+        if not draft:
+            config = _safe_load_school_config(school_slug)
+            config_raw = getattr(config, "raw", {}) or {}
+            prefill = _build_lead_prefill_data(lead, config_raw)
+            draft = DraftSubmission.objects.create(
+                school=school,
+                lead=lead,
+                data=prefill,
+                email=lead.email,
+            )
+            log_admin_audit(
+                request=request,
+                action="action",
+                obj=lead,
+                changes={},
+                extra={"name": "start_enrollment", "draft_id": draft.pk},
+            )
 
     sent = send_resume_link_email(draft=draft, school=school)
     if sent:
