@@ -1285,3 +1285,50 @@ def school_lead_send_message_view(request, school_slug: str, lead_id: int):
         messages.error(request, "Message could not be sent. Please try again.")
 
     return redirect(redirect_url)
+
+
+@login_required
+@require_http_methods(["POST"])
+def school_lead_resend_resume_link_view(request, school_slug: str, lead_id: int):
+    """
+    Resend the draft resume link to the lead's email address.
+    POST /schools/<slug>/admin/leads/<id>/resend-resume-link/
+    """
+    school = _get_accessible_school_for_admin(request, school_slug)
+    lead = get_object_or_404(Lead, id=lead_id, school=school)
+
+    next_url = request.POST.get("next", "").strip()
+    redirect_url = _safe_redirect_url(
+        request, next_url,
+        reverse("school_lead_detail", kwargs={"school_slug": school_slug, "lead_id": lead_id}),
+    )
+
+    if not school.features.email_notifications_enabled:
+        messages.error(request, "Email is not enabled for this school.")
+        return redirect(redirect_url)
+
+    draft = (
+        DraftSubmission.objects
+        .filter(school=school, lead=lead, submitted_at__isnull=True)
+        .exclude(token_expires_at__lt=timezone.now())
+        .order_by("-created_at")
+        .first()
+    )
+    if not draft:
+        messages.error(request, "No active draft found. Use 'Start Enrollment' first to generate a link.")
+        return redirect(redirect_url)
+
+    sent = send_resume_link_email(draft=draft, school=school)
+    if sent:
+        messages.success(request, f"Resume link sent to {draft.email}.")
+        log_admin_audit(
+            request=request,
+            action="action",
+            obj=lead,
+            changes={},
+            extra={"name": "resend_resume_link", "to": draft.email},
+        )
+    else:
+        messages.error(request, "Failed to send email. Check email configuration.")
+
+    return redirect(redirect_url)

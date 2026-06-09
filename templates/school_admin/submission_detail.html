@@ -559,28 +559,65 @@
             View page ↗
           </a>
         </h2>
-        {% if submission.public_notes %}
-        <div style="background:#f8fafc;border-left:3px solid var(--dash-primary,#4f46e5);
-                    border-radius:0 6px 6px 0;padding:10px 12px;margin-bottom:12px;
-                    white-space:pre-wrap;font-size:13px;line-height:1.5;color:var(--dash-text,#1e293b);">{{ submission.public_notes }}</div>
-        {% else %}
-        <p style="font-size:12px;color:var(--dash-muted);margin:0 0 12px;">No notes posted yet. Families see a generic status message until you add one.</p>
-        {% endif %}
-        <form method="post"
-              action="{% url 'school_submission_post_public_note' school_slug=school_slug submission_id=submission.id %}">
-          {% csrf_token %}
-          <div style="margin-bottom:8px;">
-            <label style="font-size:11px;color:var(--dash-muted);display:block;margin-bottom:3px;">Add note for family</label>
-            <textarea name="public_note" rows="2" placeholder="e.g. We've received your application and will follow up by Friday."
-                      style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
-                             border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;
-                             box-sizing:border-box;"></textarea>
+
+        <!-- Copyable status link -->
+        <div style="margin-bottom:14px;">
+          <p style="font-size:12px;color:var(--dash-muted);margin:0 0 6px;">
+            Share this link with the family so they can track their application status.
+          </p>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input id="status-link" type="text" readonly value="{{ family_status_url }}"
+                   style="flex:1;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                          border-radius:6px;font-size:11px;font-family:monospace;
+                          color:var(--dash-text);background:#f8fafc;min-width:0;">
+            <button type="button"
+                    onclick="(function(btn){navigator.clipboard.writeText(document.getElementById('status-link').value).then(function(){btn.textContent='Copied!';setTimeout(function(){btn.textContent='Copy';},2000);}).catch(function(){var i=document.getElementById('status-link');i.select();document.execCommand('copy');btn.textContent='Copied!';setTimeout(function(){btn.textContent='Copy';},2000);});})( this)"
+                    style="padding:6px 14px;background:#f1f5f9;border:1px solid var(--dash-border,#e2e8f0);
+                           border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
+              Copy
+            </button>
           </div>
-          <button type="submit" class="dash-action-btn dash-action-btn--primary"
-                  style="font-size:12px;padding:6px 14px;">
-            Post Note
-          </button>
-        </form>
+          {% if email_enabled and parent_email %}
+          <form method="post"
+                action="{% url 'school_submission_resend_status_link' school_slug=school_slug submission_id=submission.id %}"
+                style="margin-top:10px;">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ detail_url }}">
+            <button type="submit"
+                    style="padding:6px 14px;background:var(--dash-primary,#4f46e5);color:#fff;
+                           border:none;border-radius:6px;font-size:12px;font-weight:600;
+                           cursor:pointer;white-space:nowrap;">
+              Email this link →
+            </button>
+            <span style="font-size:11px;color:var(--dash-muted);margin-left:8px;">Sends to {{ parent_email }}</span>
+          </form>
+          {% endif %}
+        </div>
+
+        <div style="border-top:1px solid var(--dash-border,#e2e8f0);padding-top:14px;">
+          {% if submission.public_notes %}
+          <div style="background:#f8fafc;border-left:3px solid var(--dash-primary,#4f46e5);
+                      border-radius:0 6px 6px 0;padding:10px 12px;margin-bottom:12px;
+                      white-space:pre-wrap;font-size:13px;line-height:1.5;color:var(--dash-text,#1e293b);">{{ submission.public_notes }}</div>
+          {% else %}
+          <p style="font-size:12px;color:var(--dash-muted);margin:0 0 12px;">No notes posted yet. Families see a generic status message until you add one.</p>
+          {% endif %}
+          <form method="post"
+                action="{% url 'school_submission_post_public_note' school_slug=school_slug submission_id=submission.id %}">
+            {% csrf_token %}
+            <div style="margin-bottom:8px;">
+              <label style="font-size:11px;color:var(--dash-muted);display:block;margin-bottom:3px;">Add note for family</label>
+              <textarea name="public_note" rows="2" placeholder="e.g. We've received your application and will follow up by Friday."
+                        style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                               border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;
+                               box-sizing:border-box;"></textarea>
+            </div>
+            <button type="submit" class="dash-action-btn dash-action-btn--primary"
+                    style="font-size:12px;padding:6px 14px;">
+              Post Note
+            </button>
+          </form>
+        </div>
       </div>
       {% endif %}
 
@@ -610,6 +647,8 @@
                 regenerated AI summary
               {% elif entry.extra.name == "resend_confirmation" %}
                 resent confirmation email{% if entry.extra.to %} &rarr; {{ entry.extra.to }}{% endif %}
+              {% elif entry.extra.name == "resend_status_link" %}
+                sent status page link{% if entry.extra.to %} &rarr; {{ entry.extra.to }}{% endif %}
               {% elif entry.extra.name == "manual_message_sent" %}
                 sent message to parent{% if entry.extra.to %} ({{ entry.extra.to }}){% endif %}
               {% elif entry.extra.name == "mark_contacted" %}

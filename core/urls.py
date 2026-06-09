@@ -43,6 +43,7 @@ urlpatterns = [
     path("schools/<slug:school_slug>/admin/submissions/<int:submission_id>/resend-confirmation/", views.school_submission_resend_confirmation_view, name="school_submission_resend_confirmation"),
     path("schools/<slug:school_slug>/admin/submissions/<int:submission_id>/generate-summary/", views.school_submission_generate_summary_view, name="school_submission_generate_summary"),
     path("schools/<slug:school_slug>/admin/submissions/<int:submission_id>/public-note/", views.school_submission_post_public_note_view, name="school_submission_post_public_note"),
+    path("schools/<slug:school_slug>/admin/submissions/<int:submission_id>/resend-status-link/", views.school_submission_resend_status_link_view, name="school_submission_resend_status_link"),
     # bulk/ paths must be BEFORE <int:lead_id>/ to avoid URL collision
     path("schools/<slug:school_slug>/admin/leads/bulk-status/", views.school_lead_bulk_status_update_view, name="school_lead_bulk_status_update"),
     path("schools/<slug:school_slug>/admin/leads/bulk-mark-contacted/", views.school_lead_bulk_mark_contacted_view, name="school_lead_bulk_mark_contacted"),
@@ -57,6 +58,7 @@ urlpatterns = [
     path("schools/<slug:school_slug>/admin/leads/<int:lead_id>/status/", views.school_lead_status_update_view, name="school_lead_status_update"),
     path("schools/<slug:school_slug>/admin/leads/<int:lead_id>/mark-contacted/", views.school_lead_mark_contacted_view, name="school_lead_mark_contacted"),
     path("schools/<slug:school_slug>/admin/leads/<int:lead_id>/send-message/", views.school_lead_send_message_view, name="school_lead_send_message"),
+    path("schools/<slug:school_slug>/admin/leads/<int:lead_id>/resend-resume-link/", views.school_lead_resend_resume_link_view, name="school_lead_resend_resume_link"),
     path("schools/<slug:school_slug>/admin/leads/export/", views.school_lead_export_view, name="school_lead_export"),
     path("schools/<slug:school_slug>/admin/leads/", views.school_leads_view, name="school_leads"),
     path("schools/<slug:school_slug>/admin/programs/", views_school_programs.school_programs_list_view, name="school_programs_list"),

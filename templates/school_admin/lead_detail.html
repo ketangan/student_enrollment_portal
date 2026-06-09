@@ -301,6 +301,21 @@
                 Copy
               </button>
             </div>
+            {% if email_enabled and lead.email %}
+            <form method="post"
+                  action="{% url 'school_lead_resend_resume_link' school_slug=school_slug lead_id=lead.id %}"
+                  style="margin-top:10px;">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ detail_url }}">
+              <button type="submit"
+                      style="padding:6px 14px;background:var(--dash-primary,#4f46e5);color:#fff;
+                             border:none;border-radius:6px;font-size:12px;font-weight:600;
+                             cursor:pointer;white-space:nowrap;">
+                Email this link →
+              </button>
+              <span style="font-size:11px;color:var(--dash-muted);margin-left:8px;">Sends to {{ lead.email }}</span>
+            </form>
+            {% endif %}
           </div>
         {% elif start_enrollment_url %}
           <form method="post" action="{{ start_enrollment_url }}">
@@ -388,6 +403,8 @@
                 marked as contacted (bulk){% if entry.extra.follow_up_date %} &mdash; follow-up {{ entry.extra.follow_up_date }}{% endif %}
               {% elif entry.extra.name == "bulk_follow_up_set" %}
                 set follow-up (bulk){% if entry.extra.date %}: <strong>{{ entry.extra.date }}</strong>{% endif %}
+              {% elif entry.extra.name == "resend_resume_link" %}
+                sent resume link{% if entry.extra.to %} &rarr; {{ entry.extra.to }}{% endif %}
               {% elif entry.extra.name == "manual_message_sent" %}
                 sent message{% if entry.extra.to %} ({{ entry.extra.to }}){% endif %}
               {% elif entry.extra.name %}

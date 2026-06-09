@@ -476,6 +476,33 @@ def send_resume_link_email(*, draft, school) -> bool:
         return False
 
 
+def send_status_link_email(*, to_email: str, status_url: str, school_name: str) -> bool:
+    """
+    Email the parent a link to their application's family status page.
+    Returns True if sent, False if skipped or failed.
+    """
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "")
+    if not from_email:
+        logger.warning("send_status_link_email: DEFAULT_FROM_EMAIL not configured; skipping")
+        return False
+
+    subject = f"Your application status — {school_name}"
+    body = (
+        f"Hi,\n\n"
+        f"You can check the status of your application to {school_name} at the link below:\n\n"
+        f"{status_url}\n\n"
+        f"— {school_name}"
+    )
+    try:
+        conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))
+        msg = EmailMessage(subject, body, from_email, [to_email], connection=conn)
+        msg.send(fail_silently=False)
+        return True
+    except Exception:
+        logger.exception("Failed to send status link email to %s", to_email)
+        return False
+
+
 def send_submission_notification_email(
     *,
     request: Optional[HttpRequest],

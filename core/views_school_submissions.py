@@ -75,6 +75,7 @@ from .services.validation import validate_submission
 from .services.notifications import (
     send_applicant_confirmation_email,
     send_resume_link_email,
+    send_status_link_email,
     send_submission_notification_email,
     send_admin_message,
     send_workflow_notification,
@@ -1799,3 +1800,56 @@ def school_submission_post_public_note_view(request, school_slug: str, submissio
 
     messages.success(request, "Public note added.")
     return redirect(detail_url)
+
+
+@login_required
+@require_http_methods(["POST"])
+def school_submission_resend_status_link_view(request, school_slug: str, submission_id: int):
+    """
+    Email the parent a link to their family status portal page.
+    POST /schools/<slug>/admin/submissions/<id>/resend-status-link/
+    """
+    school = _get_accessible_school_for_admin(request, school_slug)
+    submission = get_object_or_404(Submission, id=submission_id, school=school)
+
+    next_url = request.POST.get("next", "").strip()
+    redirect_url = _safe_redirect_url(
+        request, next_url,
+        reverse("school_submission_detail", kwargs={"school_slug": school_slug, "submission_id": submission_id}),
+    )
+
+    if not school.features.family_portal_enabled:
+        messages.error(request, "Family portal is not enabled for this school.")
+        return redirect(redirect_url)
+
+    if not school.features.email_notifications_enabled:
+        messages.error(request, "Email is not enabled for this school.")
+        return redirect(redirect_url)
+
+    parent_email = _extract_contact_field(submission.data, _PARENT_EMAIL_KEYS).strip()
+    if not parent_email:
+        messages.error(request, "No parent email found on this submission.")
+        return redirect(redirect_url)
+
+    status_url = request.build_absolute_uri(
+        reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
+    )
+
+    sent = send_status_link_email(
+        to_email=parent_email,
+        status_url=status_url,
+        school_name=school.display_name,
+    )
+    if sent:
+        messages.success(request, f"Status link sent to {parent_email}.")
+        log_admin_audit(
+            request=request,
+            action="action",
+            obj=submission,
+            changes={},
+            extra={"name": "resend_status_link", "to": parent_email},
+        )
+    else:
+        messages.error(request, "Failed to send email. Check email configuration.")
+
+    return redirect(redirect_url)
