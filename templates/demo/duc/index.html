@@ -14,14 +14,15 @@
   .site-header {
     background: #161616; padding: 0 40px;
     display: flex; align-items: center; justify-content: space-between;
-    height: 72px;
+    height: 72px; position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 6px rgba(0,0,0,.4);
   }
   .site-header .logo-text {
-    font-size: 20px; font-weight: 700; color: #ffffff;
+    font-size: 19px; font-weight: 700; color: #ffffff;
     font-family: 'Playfair Display', Georgia, serif;
   }
   .site-header .logo-sub {
-    font-size: 11px; color: rgba(255,255,255,.55); letter-spacing: .08em;
+    font-size: 11px; color: rgba(255,255,255,.5); letter-spacing: .08em;
     text-transform: uppercase; margin-top: 2px;
   }
   .header-label {

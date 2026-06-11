@@ -11,8 +11,8 @@ branding:
   custom_css: "schools/duc-learning-center.css"
 
   theme:
-    primary_color: "#fcbf33"
-    accent_color: "#161616"
+    primary_color: "#161616"
+    accent_color: "#fcbf33"
     background: "#ffffff"
     card: "#ffffff"
     text: "#1a1a1a"
