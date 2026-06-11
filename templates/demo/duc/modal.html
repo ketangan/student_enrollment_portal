@@ -4,101 +4,106 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Enrollment | DUC Learning Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&display=swap">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #333; background: #fff; }
+  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #1a1a1a; background: #fff; }
 
   .site-header {
-    background: #1f4f3a; padding: 0 40px;
+    background: #161616; padding: 0 40px;
     display: flex; align-items: center; justify-content: space-between;
     height: 72px; position: sticky; top: 0; z-index: 100;
-    box-shadow: 0 2px 6px rgba(0,0,0,.18);
+    box-shadow: 0 2px 6px rgba(0,0,0,.4);
   }
-  .site-header .logo-text { font-size: 19px; font-weight: 800; color: #fff; }
-  .site-header .logo-sub { font-size: 11px; color: rgba(255,255,255,.6); letter-spacing: .08em; text-transform: uppercase; margin-top: 1px; }
+  .site-header .logo-text { font-size: 19px; font-weight: 700; color: #fff; font-family: 'Playfair Display', Georgia, serif; }
+  .site-header .logo-sub { font-size: 11px; color: rgba(255,255,255,.5); letter-spacing: .08em; text-transform: uppercase; margin-top: 2px; }
   .site-nav { display: flex; gap: 28px; list-style: none; }
-  .site-nav a { color: rgba(255,255,255,.8); text-decoration: none; font-size: 13px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; transition: color .15s; }
-  .site-nav a:hover, .site-nav .active { color: #c9a227; }
+  .site-nav a { color: rgba(255,255,255,.75); text-decoration: none; font-size: 13px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; transition: color .15s; }
+  .site-nav a:hover, .site-nav .active { color: #fcbf33; }
 
-  .page-hero { background: #f4f8f5; border-bottom: 3px solid #1f4f3a; padding: 36px 40px 28px; text-align: center; }
-  .page-hero h1 { font-size: 28px; color: #1f4f3a; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+  .page-hero { background: #fef2e3; border-bottom: 3px solid #fcbf33; padding: 36px 40px 28px; text-align: center; }
+  .page-hero h1 { font-size: 28px; color: #1a1a1a; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; font-family: 'Playfair Display', Georgia, serif; }
 
   .page-content { max-width: 880px; margin: 0 auto; padding: 52px 24px 80px; }
-  .section-heading { font-size: 22px; color: #222; font-weight: 700; margin-bottom: 28px; text-align: center; }
+  .section-heading { font-size: 22px; color: #1a1a1a; font-weight: 700; margin-bottom: 28px; text-align: center; font-family: 'Playfair Display', Georgia, serif; }
 
   .steps-list { list-style: none; display: flex; flex-direction: column; gap: 28px; }
   .step-item { display: flex; gap: 16px; align-items: flex-start; }
   .step-icon {
     flex-shrink: 0; width: 32px; height: 32px;
-    background: #1f4f3a; border-radius: 50%;
+    background: #fcbf33; border-radius: 50%;
     display: flex; align-items: center; justify-content: center; margin-top: 2px;
   }
-  .step-icon span { color: #fff; font-size: 13px; font-weight: 700; }
-  .step-body h3 { font-size: 20px; color: #1f4f3a; margin-bottom: 8px; font-weight: 700; }
+  .step-icon span { color: #0d0d0d; font-size: 13px; font-weight: 800; }
+  .step-body h3 { font-size: 20px; color: #1a1a1a; margin-bottom: 8px; font-weight: 700; }
   .step-body p { font-size: 15px; color: #444; line-height: 1.7; }
 
   .step-cta {
     display: inline-block; margin-top: 14px;
-    background: #1f4f3a; color: #fff; text-decoration: none;
+    background: #fcbf33; color: #0d0d0d; text-decoration: none;
     border: none; cursor: pointer;
-    padding: 11px 28px; border-radius: 4px; font-size: 14px;
+    padding: 11px 28px; border-radius: 2px; font-size: 14px;
     font-weight: 700; letter-spacing: .04em; transition: background .2s;
   }
-  .step-cta:hover { background: #17392b; }
+  .step-cta:hover { background: #fde1bb; }
   .step-cta-note { display: block; margin-top: 8px; font-size: 12px; color: #888; }
 
-  /* CTA box */
   .cta-box {
     margin-top: 52px; padding: 36px 28px;
-    background: #f4f8f5; border: 1px solid #c9d9ce; border-radius: 8px;
+    background: #fef2e3; border: 1px solid #fcbf33; border-radius: 6px;
     text-align: center;
   }
-  .cta-box h2 { font-size: 24px; color: #1f4f3a; margin-bottom: 10px; font-weight: 800; }
+  .cta-box h2 { font-size: 24px; color: #1a1a1a; margin-bottom: 10px; font-weight: 900; font-family: 'Playfair Display', Georgia, serif; }
   .cta-box p { font-size: 15px; color: #555; margin-bottom: 22px; line-height: 1.6; }
   .btn-primary {
-    display: inline-block; background: #c9a227; color: #1f1f1f;
+    display: inline-block; background: #fcbf33; color: #0d0d0d;
     border: none; cursor: pointer;
-    padding: 14px 40px; border-radius: 4px;
+    padding: 14px 40px; border-radius: 2px;
     font-size: 15px; font-weight: 800; letter-spacing: .04em; transition: background .2s;
   }
-  .btn-primary:hover { background: #b08c1e; }
+  .btn-primary:hover { background: #fde1bb; }
 
   /* ── Modal overlay ── */
   .modal-overlay {
     display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,.55); z-index: 1000;
+    background: rgba(0,0,0,.6); z-index: 1000;
     align-items: flex-start; justify-content: center;
-    padding: 32px 16px; overflow-y: auto;
+    padding: 32px 16px 32px; overflow-y: auto;
   }
   .modal-overlay.open { display: flex; }
   .modal-box {
-    background: #fff; border-radius: 10px;
-    width: 100%; max-width: 780px;
-    box-shadow: 0 24px 60px rgba(0,0,0,.22);
+    background: #fff; border-radius: 6px;
+    width: 100%; max-width: 800px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.3);
     overflow: hidden; position: relative;
-    margin: auto;
+    margin: 0 auto;
+    flex-shrink: 0;
   }
   .modal-header {
-    background: #1f4f3a; padding: 16px 22px;
+    background: #161616; padding: 16px 22px;
     display: flex; align-items: center; justify-content: space-between;
   }
-  .modal-header span { color: #fff; font-weight: 700; font-size: 15px; }
+  .modal-header span { color: #fff; font-weight: 700; font-size: 15px; font-family: 'Playfair Display', Georgia, serif; }
   .modal-close {
-    background: none; border: none; color: rgba(255,255,255,.75);
+    background: none; border: none; color: rgba(255,255,255,.7);
     font-size: 22px; cursor: pointer; line-height: 1; padding: 0 4px;
     transition: color .15s;
   }
-  .modal-close:hover { color: #fff; }
-  .modal-body iframe { display: block; width: 100%; height: 90vh; border: none; }
+  .modal-close:hover { color: #fcbf33; }
+  .modal-body iframe { display: block; width: 100%; height: 620px; border: none; }
 
-  .site-footer { background: #17392b; color: rgba(255,255,255,.5); text-align: center; padding: 28px; font-size: 13px; }
-  .site-footer a { color: #c9a227; text-decoration: none; }
+  .site-footer { background: #161616; color: rgba(255,255,255,.45); text-align: center; padding: 28px; font-size: 13px; }
+  .site-footer a { color: #fcbf33; text-decoration: none; }
 
   @media (max-width: 700px) {
     .site-header { padding: 0 18px; height: 64px; }
     .site-nav { display: none; }
     .page-hero h1 { font-size: 22px; }
     .page-content { padding: 36px 18px 60px; }
+    .modal-overlay { padding: 0; }
+    .modal-box { border-radius: 0; }
+    .modal-body iframe { height: 80vh; }
   }
 </style>
 </head>
@@ -107,7 +112,7 @@
 <header class="site-header">
   <a href="https://duclearningcenter.org/" style="text-decoration:none;">
     <div class="logo-text">DUC Learning Center</div>
-    <div class="logo-sub">Tutoring &amp; Academic Support</div>
+    <div class="logo-sub">Building a community of lifelong learners!</div>
   </a>
   <ul class="site-nav">
     <li><a href="https://duclearningcenter.org/">Home</a></li>

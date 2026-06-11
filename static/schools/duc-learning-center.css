@@ -1,11 +1,12 @@
 /* DUC Learning Center — Form Styles
-   Primary: #1f4f3a (forest green)
-   Accent:  #c9a227 (warm gold)
+   Brand: near-black header (#161616), gold accent (#fcbf33), Playfair Display headings
 */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&display=swap');
 
 /* ── Form header ── */
 .school-form-header {
-  background: #1f4f3a;
+  background: #161616;
   padding: 18px 24px;
   display: flex;
   align-items: center;
@@ -17,10 +18,11 @@
   font-size: 18px;
   font-weight: 700;
   letter-spacing: .02em;
+  font-family: 'Playfair Display', Georgia, serif;
 }
 
 .school-form-header .school-tagline {
-  color: rgba(255,255,255,.75);
+  color: rgba(255,255,255,.65);
   font-size: 12px;
   margin-top: 2px;
 }
@@ -29,17 +31,18 @@
 .form-section-heading {
   font-size: 15px;
   font-weight: 700;
-  color: #1f4f3a;
+  color: #1a1a1a;
   letter-spacing: .03em;
   text-transform: uppercase;
-  border-bottom: 2px solid #d8e6dd;
+  border-bottom: 2px solid #fcbf33;
   padding-bottom: 8px;
   margin-bottom: 18px;
+  font-family: 'Playfair Display', Georgia, serif;
 }
 
 /* ── Field labels ── */
 .form-label {
-  color: #2a2a2a;
+  color: #1a1a1a;
   font-weight: 600;
   font-size: 13px;
 }
@@ -53,9 +56,9 @@ input[type="date"],
 input[type="number"],
 select,
 textarea {
-  border-color: #d8e6dd;
-  background: #fbfdfb;
-  border-radius: 6px;
+  border-color: #e2e2e2;
+  background: #ffffff;
+  border-radius: 4px;
   transition: border-color .15s ease, box-shadow .15s ease;
 }
 
@@ -67,8 +70,8 @@ input[type="date"]:focus,
 input[type="number"]:focus,
 select:focus,
 textarea:focus {
-  border-color: #1f4f3a;
-  box-shadow: 0 0 0 3px rgba(31, 79, 58, .12);
+  border-color: #fcbf33;
+  box-shadow: 0 0 0 3px rgba(252, 191, 51, .2);
   outline: none;
 }
 
@@ -76,10 +79,10 @@ textarea:focus {
 button[type="submit"],
 input[type="submit"],
 .btn-submit {
-  background: #1f4f3a !important;
-  color: #ffffff !important;
+  background: #fcbf33 !important;
+  color: #0d0d0d !important;
   border: none;
-  border-radius: 6px;
+  border-radius: 0;
   font-weight: 700;
   letter-spacing: .03em;
   transition: background .2s ease;
@@ -88,17 +91,17 @@ input[type="submit"],
 button[type="submit"]:hover,
 input[type="submit"]:hover,
 .btn-submit:hover {
-  background: #17392b !important;
+  background: #fde1bb !important;
 }
 
 /* ── Checkboxes and multiselect ── */
 input[type="checkbox"]:checked {
-  accent-color: #1f4f3a;
+  accent-color: #fcbf33;
 }
 
 /* ── Required asterisk ── */
 .required-star {
-  color: #c9a227;
+  color: #fcbf33;
 }
 
 /* ── Help text ── */
@@ -118,22 +121,23 @@ input[type="checkbox"]:checked {
 
 /* ── Progress / section dividers ── */
 .form-section-card {
-  border-left: 3px solid #1f4f3a;
+  border-left: 3px solid #fcbf33;
   padding-left: 16px;
   margin-bottom: 28px;
 }
 
 /* ── Success page ── */
 .success-icon {
-  color: #1f4f3a;
+  color: #fcbf33;
 }
 
 .success-heading {
-  color: #1f4f3a;
+  color: #1a1a1a;
+  font-family: 'Playfair Display', Georgia, serif;
 }
 
 .success-next-steps li::marker {
-  color: #c9a227;
+  color: #fcbf33;
 }
 
 /* ── Mobile ── */

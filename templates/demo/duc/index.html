@@ -4,273 +4,105 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Enrollment Form Integration Options | DUC Learning Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&display=swap">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    color: #333;
-    background: #f7f7f7;
-  }
-
+  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #1a1a1a; background: #f5f5f5; }
   a { color: inherit; text-decoration: none; }
 
-  /* ── Header ── */
   .site-header {
-    background: #1f4f3a;
-    padding: 0 40px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    background: #161616; padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between;
     height: 72px;
   }
-
   .site-header .logo-text {
-    font-size: 20px;
-    font-weight: 800;
-    color: #ffffff;
-    letter-spacing: .01em;
+    font-size: 20px; font-weight: 700; color: #ffffff;
+    font-family: 'Playfair Display', Georgia, serif;
   }
-
   .site-header .logo-sub {
-    font-size: 11px;
-    color: rgba(255,255,255,.65);
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    margin-top: 1px;
+    font-size: 11px; color: rgba(255,255,255,.55); letter-spacing: .08em;
+    text-transform: uppercase; margin-top: 2px;
   }
-
   .header-label {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    color: #1f4f3a;
-    background: #fdf3d9;
-    border: 1px solid #c9a227;
-    padding: 5px 10px;
-    border-radius: 4px;
+    font-size: 11px; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: #0d0d0d;
+    background: #fcbf33; padding: 5px 10px; border-radius: 2px;
   }
 
-  /* ── Hero ── */
   .hero {
-    background: #fff;
-    border-bottom: 1px solid #ececec;
-    text-align: center;
-    padding: 56px 24px 42px;
+    background: #fff; border-bottom: 1px solid #e2e2e2;
+    text-align: center; padding: 56px 24px 42px;
   }
-
   .hero h1 {
-    font-size: 34px;
-    color: #222;
-    font-weight: 700;
-    letter-spacing: .01em;
-    margin-bottom: 14px;
+    font-size: 34px; color: #1a1a1a; font-weight: 900; letter-spacing: .01em;
+    margin-bottom: 14px; font-family: 'Playfair Display', Georgia, serif;
   }
+  .hero p { font-size: 17px; color: #555; line-height: 1.65; max-width: 760px; margin: 0 auto; }
+  .hero-note { margin-top: 18px; font-size: 14px; color: #666; }
+  .hero-note strong { color: #1a1a1a; }
 
-  .hero p {
-    font-size: 17px;
-    color: #555;
-    line-height: 1.65;
-    max-width: 760px;
-    margin: 0 auto;
-  }
-
-  .hero-note {
-    margin-top: 18px;
-    font-size: 14px;
-    color: #666;
-  }
-
-  .hero-note strong {
-    color: #222;
-  }
-
-  /* ── Intro strip ── */
-  .intro-strip {
-    max-width: 1100px;
-    margin: 28px auto 0;
-    padding: 0 24px;
-  }
-
+  .intro-strip { max-width: 1100px; margin: 28px auto 0; padding: 0 24px; }
   .intro-box {
-    background: #ffffff;
-    border: 1px solid #e4e4e4;
-    border-radius: 10px;
-    padding: 20px 22px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    background: #fff; border: 1px solid #e2e2e2; border-radius: 8px;
+    padding: 20px 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
   }
+  .intro-box h3 { font-size: 17px; margin-bottom: 8px; color: #1a1a1a; font-family: 'Playfair Display', Georgia, serif; }
+  .intro-box p { font-size: 14px; line-height: 1.65; color: #555; }
 
-  .intro-box h3 {
-    font-size: 17px;
-    margin-bottom: 8px;
-    color: #222;
-  }
-
-  .intro-box p {
-    font-size: 14px;
-    line-height: 1.65;
-    color: #555;
-  }
-
-  /* ── Cards grid ── */
   .options-grid {
-    max-width: 1100px;
-    margin: 28px auto 80px;
-    padding: 0 24px;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
-    gap: 24px;
+    max-width: 1100px; margin: 28px auto 80px; padding: 0 24px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 24px;
   }
-
   .card {
-    background: #fff;
-    border: 1px solid #e0e0e0;
-    border-radius: 10px;
-    padding: 30px 28px;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 2px 8px rgba(0,0,0,.04);
-    transition: box-shadow .2s ease, transform .2s ease;
+    background: #fff; border: 1px solid #e2e2e2; border-radius: 8px;
+    padding: 30px 28px; display: flex; flex-direction: column;
+    box-shadow: 0 2px 8px rgba(0,0,0,.04); transition: box-shadow .2s ease, transform .2s ease;
   }
-
-  .card:hover {
-    box-shadow: 0 8px 22px rgba(0,0,0,.08);
-    transform: translateY(-1px);
-  }
+  .card:hover { box-shadow: 0 8px 22px rgba(0,0,0,.08); transform: translateY(-1px); }
 
   .card-badge {
-    display: inline-block;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    color: #1f4f3a;
-    background: #eaf1ec;
-    padding: 4px 9px;
-    border-radius: 3px;
-    margin-bottom: 16px;
-    width: fit-content;
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: #1a1a1a; background: #fef2e3; border: 1px solid #fcbf33;
+    padding: 4px 9px; border-radius: 2px; margin-bottom: 16px; width: fit-content;
   }
-
-  .card h2 {
-    font-size: 24px;
-    color: #222;
-    margin-bottom: 10px;
-    line-height: 1.25;
-  }
-
-  .card-subtitle {
-    font-size: 14px;
-    color: #1f4f3a;
-    font-weight: 700;
-    margin-bottom: 14px;
-  }
-
-  .card p {
-    font-size: 15px;
-    color: #555;
-    line-height: 1.7;
-  }
-
-  .card ul {
-    margin-top: 16px;
-    padding-left: 18px;
-  }
-
-  .card li {
-    font-size: 14px;
-    color: #555;
-    line-height: 1.65;
-    margin-bottom: 8px;
-  }
+  .card h2 { font-size: 24px; color: #1a1a1a; margin-bottom: 10px; line-height: 1.25; font-family: 'Playfair Display', Georgia, serif; }
+  .card-subtitle { font-size: 14px; color: #5e5e5e; font-weight: 600; margin-bottom: 14px; }
+  .card p { font-size: 15px; color: #555; line-height: 1.7; }
+  .card ul { margin-top: 16px; padding-left: 18px; }
+  .card li { font-size: 14px; color: #555; line-height: 1.65; margin-bottom: 8px; }
 
   .card-footer {
-    margin-top: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    flex-wrap: wrap;
+    margin-top: 24px; display: flex; align-items: center;
+    justify-content: space-between; gap: 14px; flex-wrap: wrap;
   }
-
   .btn-demo {
-    display: inline-block;
-    background: #1f4f3a;
-    color: #fff;
-    padding: 12px 24px;
-    border-radius: 4px;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: .03em;
-    transition: background .2s ease;
+    display: inline-block; background: #fcbf33; color: #0d0d0d;
+    padding: 12px 24px; border-radius: 2px; font-size: 14px;
+    font-weight: 700; letter-spacing: .03em; transition: background .2s ease;
   }
+  .btn-demo:hover { background: #fde1bb; }
+  .card-meta { font-size: 13px; color: #777; }
 
-  .btn-demo:hover {
-    background: #17392b;
-  }
+  .card-recommended { border-color: #fcbf33; box-shadow: 0 4px 18px rgba(252,191,51,.12); }
+  .card-recommended .card-badge { background: #fcbf33; color: #0d0d0d; border-color: #fcbf33; }
 
-  .card-meta {
-    font-size: 13px;
-    color: #777;
-  }
-
-  .card-recommended {
-    border-color: #c9a227;
-    box-shadow: 0 4px 18px rgba(201, 162, 39, 0.1);
-  }
-
-  .card-recommended .card-badge {
-    background: #fdf3d9;
-    color: #7a5c00;
-    border: 1px solid #c9a227;
-  }
-
-  /* ── Recommendation box ── */
-  .recommendation {
-    max-width: 1100px;
-    margin: -32px auto 70px;
-    padding: 0 24px;
-  }
-
+  .recommendation { max-width: 1100px; margin: -32px auto 70px; padding: 0 24px; }
   .recommendation-box {
-    background: #fff;
-    border: 1px solid #e4e4e4;
-    border-left: 4px solid #1f4f3a;
-    border-radius: 8px;
-    padding: 20px 22px;
+    background: #fff; border: 1px solid #e2e2e2;
+    border-left: 4px solid #fcbf33; border-radius: 6px; padding: 20px 22px;
   }
+  .recommendation-box h3 { font-size: 18px; color: #1a1a1a; margin-bottom: 8px; font-family: 'Playfair Display', Georgia, serif; }
+  .recommendation-box p { font-size: 14px; color: #555; line-height: 1.65; }
 
-  .recommendation-box h3 {
-    font-size: 18px;
-    color: #222;
-    margin-bottom: 8px;
-  }
-
-  .recommendation-box p {
-    font-size: 14px;
-    color: #555;
-    line-height: 1.65;
-  }
-
-  /* ── Footer ── */
-  .site-footer {
-    background: #1f4f3a;
-    color: rgba(255,255,255,.6);
-    text-align: center;
-    padding: 28px;
-    font-size: 13px;
-  }
+  .site-footer { background: #161616; color: rgba(255,255,255,.5); text-align: center; padding: 28px; font-size: 13px; }
+  .site-footer a { color: #fcbf33; text-decoration: none; }
 
   @media (max-width: 800px) {
     .site-header { padding: 0 18px; height: 64px; }
-    .site-header .logo-text { font-size: 17px; }
     .header-label { display: none; }
     .hero { padding: 42px 20px 34px; }
     .hero h1 { font-size: 28px; }
-    .hero p { font-size: 16px; }
     .intro-box { grid-template-columns: 1fr; }
     .options-grid { grid-template-columns: 1fr; }
     .card h2 { font-size: 22px; }
@@ -282,7 +114,7 @@
 <header class="site-header">
   <a href="https://duclearningcenter.org/">
     <div class="logo-text">DUC Learning Center</div>
-    <div class="logo-sub">Tutoring &amp; Academic Support</div>
+    <div class="logo-sub">Building a community of lifelong learners!</div>
   </a>
   <span class="header-label">Integration Demo</span>
 </header>
