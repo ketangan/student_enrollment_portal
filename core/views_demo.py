@@ -23,6 +23,11 @@ DEMO_REGISTRY = {
         "template_dir": "demo/enrollment-demo",
         "demos": ["dedicated-page", "modal", "bottom-section", "link-out"],
     },
+    "duc-learning-center-demo": {
+        "school_slug": "duc-learning-center",
+        "template_dir": "demo/duc",
+        "demos": ["dedicated-page", "modal", "bottom-section", "link-out", "standalone-form"],
+    },
 }
 
 

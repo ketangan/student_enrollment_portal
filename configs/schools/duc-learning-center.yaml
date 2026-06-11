@@ -1,0 +1,318 @@
+schema_version: "1.0"
+
+school:
+  slug: "duc-learning-center"
+  display_name: "DUC Learning Center"
+  website_url: "https://duclearningcenter.org/"
+  source_url: "https://duclearningcenter.org/"
+
+branding:
+  logo_url: ""
+  custom_css: "schools/duc-learning-center.css"
+
+  theme:
+    primary_color: "#1f4f3a"
+    accent_color: "#c9a227"
+    background: "#f8faf9"
+    card: "#ffffff"
+    text: "#2a2a2a"
+    muted: "#6b7280"
+    border: "#d8e6dd"
+    radius: "8px"
+
+program_field_key: "interested_in"
+
+form:
+  title: "Enrollment Interest Form"
+  description: >
+    Complete this form to tell us about your student's needs.
+    Our team will review your request and follow up with next steps within 1–2 business days.
+  submit_button_text: "Submit Enrollment Request"
+
+  sections:
+    - title: "Student Information"
+      fields:
+        - key: student_first_name
+          label: "Student First Name"
+          type: text
+          required: true
+
+        - key: student_last_name
+          label: "Student Last Name"
+          type: text
+          required: true
+
+        - key: date_of_birth
+          label: "Date of Birth"
+          type: date
+          required: false
+
+        - key: grade_level
+          label: "Current Grade Level"
+          type: select
+          required: true
+          options:
+            - label: "Elementary School (K–5)"
+              value: elementary
+            - label: "Middle School (6–8)"
+              value: middle_school
+            - label: "High School (9–12)"
+              value: high_school
+            - label: "College / Adult Learner"
+              value: college_adult
+            - label: "Not sure / Other"
+              value: other
+
+    - title: "Program Interest"
+      fields:
+        - key: interested_in
+          label: "Program / Service of Interest"
+          type: select
+          required: true
+
+        - key: support_needed
+          label: "Primary Area of Support Needed"
+          type: multiselect
+          required: false
+          options:
+            - label: "Math"
+              value: math
+            - label: "English / Reading"
+              value: english_reading
+            - label: "Writing"
+              value: writing
+            - label: "Homework Support"
+              value: homework_support
+            - label: "Homeschool Support"
+              value: homeschool_support
+            - label: "College Preparation"
+              value: college_prep
+            - label: "Life Skills / Mentorship"
+              value: life_skills
+            - label: "Not sure yet"
+              value: unsure
+
+        - key: enrollment_type
+          label: "Enrollment Type"
+          type: select
+          required: true
+          options:
+            - label: "Enroll now"
+              value: enroll_now
+            - label: "Request more information"
+              value: info_request
+            - label: "Schedule consultation"
+              value: consultation
+            - label: "Returning student"
+              value: returning
+
+    - title: "Schedule Preferences"
+      fields:
+        - key: preferred_location
+          label: "Preferred Location / Format"
+          type: select
+          required: false
+          options:
+            - label: "Desert Hot Springs"
+              value: desert_hot_springs
+            - label: "Sacramento"
+              value: sacramento
+            - label: "Austin"
+              value: austin
+            - label: "Remote / Online"
+              value: remote
+            - label: "Flexible"
+              value: flexible
+
+        - key: preferred_days
+          label: "Preferred Days"
+          type: multiselect
+          required: false
+          options:
+            - label: "Monday"
+              value: mon
+            - label: "Tuesday"
+              value: tue
+            - label: "Wednesday"
+              value: wed
+            - label: "Thursday"
+              value: thu
+            - label: "Friday"
+              value: fri
+
+        - key: preferred_time
+          label: "Preferred Time of Day"
+          type: select
+          required: false
+          options:
+            - label: "Morning"
+              value: morning
+            - label: "Afternoon"
+              value: afternoon
+            - label: "Flexible"
+              value: flexible
+
+    - title: "Parent / Guardian Information"
+      fields:
+        - key: guardian_name
+          label: "Parent / Guardian Full Name"
+          type: text
+          required: true
+
+        - key: guardian_email
+          label: "Parent / Guardian Email"
+          type: email
+          required: true
+
+        - key: guardian_phone
+          label: "Parent / Guardian Phone Number"
+          type: tel
+          required: false
+
+    - title: "Student Background"
+      fields:
+        - key: current_school_type
+          label: "Current School Type"
+          type: select
+          required: false
+          options:
+            - label: "Public school"
+              value: public_school
+            - label: "Private school"
+              value: private_school
+            - label: "Homeschool"
+              value: homeschool
+            - label: "Independent study"
+              value: independent_study
+            - label: "Other"
+              value: other
+
+        - key: goals
+          label: "What goals would you like support with?"
+          type: textarea
+          required: false
+
+    - title: "File Uploads"
+      fields:
+        - key: current_school_year_form
+          label: "Current School Year Form"
+          type: file
+          required: false
+          accept: ".pdf,.jpg,.jpeg,.png"
+          max_mb: 10
+          help_text: "Upload a PDF or image if available."
+
+    - title: "Additional Notes"
+      fields:
+        - key: notes
+          label: "Anything else we should know?"
+          type: textarea
+          required: false
+
+success:
+  title: "Request Received!"
+  message: "Thank you — we received your enrollment interest form. Our team will follow up with next steps."
+  response_time: "1–2 business days"
+  next_steps:
+    - "We'll review your student's grade level, goals, and program interest."
+    - "We'll follow up to confirm the best tutoring, homeschool, or enrichment option."
+    - "If needed, we'll schedule a consultation or request additional documents."
+  contact:
+    name: "DUC Learning Center"
+    email: "Duclearningcenter.olucas@gmail.com"
+    phone: "(951) 777-5802"
+  hours: "Mon–Fri, 9am–5pm"
+
+  notifications:
+    submission_email:
+      to: "Duclearningcenter.olucas@gmail.com"
+      cc: ""
+      bcc: ""
+      from_email: "noreply@enrollifyapp.com"
+      subject: "New enrollment interest: {{student_name}}"
+
+    applicant_confirmation:
+      enabled: true
+      from_email: "noreply@enrollifyapp.com"
+      subject: "We received your enrollment request, {{student_name}}!"
+
+admin:
+  submission_statuses:
+    - New
+    - In Review
+    - Contacted
+    - Needs Follow Up
+    - Consultation Scheduled
+    - Enrolled
+    - Waitlisted
+    - Archived
+    - Closed
+  default_submission_status:
+    - New
+  lead_workflow:
+    filters:
+      new_leads:
+        label: "New"
+        statuses:
+          - new
+      pipeline:
+        label: "In Pipeline"
+        statuses:
+          - contacted
+          - consultation_scheduled
+      won:
+        label: "Enrolled"
+        statuses:
+          - enrolled
+    transitions:
+      new:
+        - label: "Mark Contacted"
+          status: contacted
+        - label: "Archive"
+          status: archived
+      contacted:
+        - label: "Schedule Consultation"
+          status: consultation_scheduled
+        - label: "Archive"
+          status: archived
+      consultation_scheduled:
+        - label: "Mark Enrolled"
+          status: enrolled
+        - label: "Archive"
+          status: archived
+
+leads:
+  success_message: "Thanks for your interest! DUC Learning Center will follow up with you soon."
+  cta_text: "Request enrollment information"
+
+capacity:
+  waitlist_message: "This program is currently full. You've been added to the waitlist and we'll contact you as space becomes available."
+  excluded_statuses:
+    - Archived
+    - Closed
+  programs:
+    tutoring: 20
+    homeschool_support: 15
+    afterschool_program: 25
+    teen_workshops: 12
+    life_coaching: 10
+
+exports:
+  brightwheel:
+    field_map:
+      first_name:
+        source: student_first_name
+      last_name:
+        source: student_last_name
+      birthdate:
+        source_any:
+          - date_of_birth
+          - dob
+      homeroom:
+        value: "DUC Learning Center"
+      parent_email:
+        source_any:
+          - guardian_email
+          - contact_email
+      enrollment_status:
+        value: "Applied"

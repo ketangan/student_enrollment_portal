@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enrollment | DUC Learning Center</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #333; background: #fff; }
+
+  .site-header {
+    background: #1f4f3a; padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 72px; position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 6px rgba(0,0,0,.18);
+  }
+  .site-header .logo-text { font-size: 19px; font-weight: 800; color: #fff; }
+  .site-header .logo-sub { font-size: 11px; color: rgba(255,255,255,.6); letter-spacing: .08em; text-transform: uppercase; margin-top: 1px; }
+  .site-nav { display: flex; gap: 28px; list-style: none; }
+  .site-nav a { color: rgba(255,255,255,.8); text-decoration: none; font-size: 13px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; transition: color .15s; }
+  .site-nav a:hover, .site-nav .active { color: #c9a227; }
+
+  .page-hero { background: #f4f8f5; border-bottom: 3px solid #1f4f3a; padding: 36px 40px 28px; text-align: center; }
+  .page-hero h1 { font-size: 28px; color: #1f4f3a; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+
+  .page-content { max-width: 880px; margin: 0 auto; padding: 52px 24px 0; }
+  .section-heading { font-size: 22px; color: #222; font-weight: 700; margin-bottom: 28px; text-align: center; }
+
+  .steps-list { list-style: none; display: flex; flex-direction: column; gap: 28px; }
+  .step-item { display: flex; gap: 16px; align-items: flex-start; }
+  .step-icon {
+    flex-shrink: 0; width: 32px; height: 32px;
+    background: #1f4f3a; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; margin-top: 2px;
+  }
+  .step-icon span { color: #fff; font-size: 13px; font-weight: 700; }
+  .step-body h3 { font-size: 20px; color: #1f4f3a; margin-bottom: 8px; font-weight: 700; }
+  .step-body p { font-size: 15px; color: #444; line-height: 1.7; }
+
+  .step-cta {
+    display: inline-block; margin-top: 14px;
+    background: #1f4f3a; color: #fff; text-decoration: none;
+    padding: 11px 28px; border-radius: 4px; font-size: 14px;
+    font-weight: 700; letter-spacing: .04em; transition: background .2s;
+  }
+  .step-cta:hover { background: #17392b; }
+  .step-cta-note { display: block; margin-top: 8px; font-size: 12px; color: #888; }
+
+  .divider { max-width: 880px; margin: 52px auto 0; border: none; border-top: 1px solid #e0e0e0; }
+
+  .form-section {
+    background: #f4f8f5;
+    border-top: 4px solid #1f4f3a;
+    padding: 60px 24px 80px;
+  }
+  .form-section-inner { max-width: 920px; margin: 0 auto; }
+  .form-section h2 { font-size: 26px; color: #1f4f3a; font-weight: 800; text-align: center; margin-bottom: 10px; }
+  .form-section .form-sub { text-align: center; color: #555; font-size: 15px; margin-bottom: 36px; line-height: 1.6; }
+
+  .iframe-wrap {
+    border: 1px solid #c9d9ce;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,.08);
+  }
+  .iframe-wrap iframe { display: block; width: 100%; height: 600px; border: none; }
+
+  .site-footer { background: #17392b; color: rgba(255,255,255,.5); text-align: center; padding: 28px; font-size: 13px; }
+  .site-footer a { color: #c9a227; text-decoration: none; }
+
+  @media (max-width: 700px) {
+    .site-header { padding: 0 18px; height: 64px; }
+    .site-nav { display: none; }
+    .page-hero h1 { font-size: 22px; }
+    .page-content { padding: 36px 18px 0; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <a href="https://duclearningcenter.org/" style="text-decoration:none;">
+    <div class="logo-text">DUC Learning Center</div>
+    <div class="logo-sub">Tutoring &amp; Academic Support</div>
+  </a>
+  <ul class="site-nav">
+    <li><a href="https://duclearningcenter.org/">Home</a></li>
+    <li><a href="https://duclearningcenter.org/">Programs</a></li>
+    <li><a href="https://duclearningcenter.org/">Tutoring</a></li>
+    <li><a href="https://duclearningcenter.org/">Homeschool</a></li>
+    <li><a href="https://duclearningcenter.org/" class="active">Enroll</a></li>
+  </ul>
+</header>
+
+<div class="page-hero">
+  <h1>Enrollment &amp; Programs</h1>
+</div>
+
+<div class="page-content">
+  <h2 class="section-heading">How It Works</h2>
+
+  <ul class="steps-list">
+    <li class="step-item">
+      <div class="step-icon"><span>1</span></div>
+      <div class="step-body">
+        <h3>Tell us about your student</h3>
+        <p>Fill out our short enrollment interest form below. It takes about 5 minutes and helps us understand your student's grade level, goals, and schedule.</p>
+        <a href="#apply" class="step-cta">Request Enrollment &rarr;</a>
+        <span class="step-cta-note">Form is embedded below on this page</span>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-icon"><span>2</span></div>
+      <div class="step-body">
+        <h3>We review and reach out</h3>
+        <p>Our team reviews every request within 1–2 business days and follows up personally with program options and scheduling availability.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-icon"><span>3</span></div>
+      <div class="step-body">
+        <h3>Schedule a consultation</h3>
+        <p>We'll set up a quick call or visit to match your student with the right educator and program format.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-icon"><span>4</span></div>
+      <div class="step-body">
+        <h3>Get matched with your program</h3>
+        <p>Tutoring, homeschool support, teen workshops, or life coaching — we'll confirm the best fit and set up your student's first session.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-icon"><span>5</span></div>
+      <div class="step-body">
+        <h3>Start learning</h3>
+        <p>Your student begins with a dedicated DUC educator who understands their specific needs and goals.</p>
+      </div>
+    </li>
+  </ul>
+</div>
+
+<div style="text-align:center; margin:60px 0 20px;">
+  <div style="font-size:13px; letter-spacing:.1em; text-transform:uppercase; color:#888;">
+    Complete your enrollment request below
+  </div>
+</div>
+
+<section class="form-section" id="apply">
+  <div class="form-section-inner">
+    <h2>Request Enrollment</h2>
+    <p class="form-sub">
+      Complete the form right here — no need to leave this page.
+    </p>
+    <p class="form-sub">
+      After submitting, our team will follow up within 1–2 business days<br>
+      with personalized next steps for your student.
+    </p>
+    <div class="iframe-wrap">
+      <iframe
+        src="{{ embed_form_url }}"
+        title="DUC Learning Center Enrollment Interest Form"
+        allow="payment"
+      ></iframe>
+    </div>
+  </div>
+</section>
+
+<footer class="site-footer">
+  &copy; 2025 DUC Learning Center &nbsp;|&nbsp;
+  <a href="https://duclearningcenter.org/">duclearningcenter.org</a> &nbsp;|&nbsp;
+  (951) 777-5802
+</footer>
+
+<script>
+  window.addEventListener("message", function (e) {
+    if (e.data && e.data.type === "iframeResize") {
+      var iframe = document.querySelector(".iframe-wrap iframe");
+      if (iframe) iframe.style.height = e.data.height + "px";
+    }
+  });
+</script>
+</body>
+</html>
