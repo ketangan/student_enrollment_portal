@@ -967,9 +967,9 @@ def school_submission_create_view(request, school_slug: str):
             extra={"name": "submission_created", "form_key": form_key},
         )
 
-    # Resolve program + session FKs (no auto-enrollment for admin-created submissions)
+    # Resolve program + session FKs and apply auto-enrollment (mirrors public form behaviour)
     if school.program_field_key:
-        from core.services.programs import resolve_submission_program_and_session
+        from core.services.programs import resolve_submission_program_and_session, apply_auto_enrollment
         program, session = resolve_submission_program_and_session(school, cleaned, strict=False)
         if program:
             update_fields = ["program"]
@@ -978,6 +978,8 @@ def school_submission_create_view(request, school_slug: str):
                 submission.session = session
                 update_fields.append("session")
             submission.save(update_fields=update_fields)
+            apply_auto_enrollment(school, submission, program, session=session)
+            submission.refresh_from_db(fields=["status"])
 
     messages.success(request, "Submission created successfully.")
     return redirect(reverse(
