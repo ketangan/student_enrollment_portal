@@ -124,5 +124,19 @@
         </div>
       </div>
     </div>
+  <script>
+    (function () {
+      function emitHeight() {
+        if (window.parent !== window) {
+          window.parent.postMessage(
+            { type: "iframeResize", height: document.body.scrollHeight },
+            "*"
+          );
+        }
+      }
+      emitHeight();
+      window.addEventListener("load", emitHeight);
+    })();
+  </script>
   </body>
 </html>
