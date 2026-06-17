@@ -12,13 +12,15 @@ branding:
 
   theme:
     primary_color: "#d8b15a"
-    accent_color: "#7fc7d8"
+    accent_color: "#00bcd4"
     background: "#fdfcf8"
     card: "#ffffff"
     text: "#3a3a3a"
     muted: "#7a7a7a"
     border: "#ece7dc"
     radius: "10px"
+    font_family: "'PT Sans', Arial, Helvetica, sans-serif"
+    heading_font: "Raleway, 'Helvetica Neue', sans-serif"
 
 form:
   title: "Enrollment Application"

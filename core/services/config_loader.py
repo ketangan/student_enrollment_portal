@@ -107,6 +107,8 @@ class SchoolConfig:
                 "muted": theme.get("muted", DEFAULT_THEME["muted"]),
                 "border": theme.get("border", DEFAULT_THEME["border"]),
                 "radius": theme.get("radius", DEFAULT_THEME["radius"]),
+                "font_family": theme.get("font_family", ""),
+                "heading_font": theme.get("heading_font", ""),
             },
         }
 

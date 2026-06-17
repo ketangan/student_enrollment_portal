@@ -18,12 +18,14 @@
         --muted:   {{ branding.theme.muted|default:"#6b7280" }};
         --border:  {{ branding.theme.border|default:"#e5e7eb" }};
         --radius:  {{ branding.theme.radius|default:"16px" }};
+        --font:    {{ branding.theme.font_family|default:"system-ui, -apple-system, sans-serif" }};
+        --heading-font: {{ branding.theme.heading_font|default:"var(--font)" }};
       }
       *, *::before, *::after { box-sizing: border-box; }
       body {
         background: {% if embed %}transparent{% else %}var(--bg){% endif %};
         color: var(--text);
-        font-family: system-ui, -apple-system, sans-serif;
+        font-family: var(--font);
         margin: 0;
         padding: {% if embed %}0{% else %}16px{% endif %};
       }
@@ -41,7 +43,7 @@
         padding: 28px 24px;
       }
       {% if embed %}.card { border: none; padding: 0; }{% endif %}
-      h1 { margin: 0 0 6px; font-size: 22px; font-weight: 700; color: var(--primary); }
+      h1 { margin: 0 0 6px; font-size: 22px; font-weight: 700; color: var(--primary); font-family: var(--heading-font); }
       .subtitle { color: var(--muted); font-size: 14px; margin: 0 0 24px; line-height: 1.5; }
       .field { margin-bottom: 18px; }
       label {
@@ -94,6 +96,9 @@
       }
       .success-msg { color: var(--muted); font-size: 15px; line-height: 1.6; }
     </style>
+    {% if branding.custom_css %}
+      <link rel="stylesheet" href="{% static branding.custom_css %}">
+    {% endif %}
   </head>
 
   <body>

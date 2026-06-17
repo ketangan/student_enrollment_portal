@@ -1,10 +1,16 @@
 /* Young Minds LA — make form feel closer to their website */
 /* Goal: cleaner, lighter, more editorial. Do not change layout or controls. */
 
+@import url('https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&family=Raleway:wght@500;600;700&display=swap');
+
 body {
   background: #fdfcf8 !important;
   color: #3a3a3a !important;
-  font-family: "Helvetica Neue", Arial, sans-serif !important;
+  font-family: 'PT Sans', Arial, Helvetica, sans-serif !important;
+}
+
+h1, h2, h3 {
+  font-family: Raleway, 'Helvetica Neue', sans-serif !important;
 }
 
 .page {
@@ -153,8 +159,8 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none !important;
-  border-color: #7fc7d8 !important;
-  box-shadow: 0 0 0 3px rgba(127, 199, 216, 0.14) !important;
+  border-color: #00bcd4 !important;
+  box-shadow: 0 0 0 3px rgba(0, 188, 212, 0.14) !important;
   background: #ffffff !important;
 }
 
@@ -167,19 +173,21 @@ input[readonly] {
 
 /* Required star */
 .required,
-.required-marker {
-  color: #7fc7d8 !important;
+.required-marker,
+.req {
+  color: #00bcd4 !important;
 }
 
 /* Buttons */
 .btn,
 button[type="submit"],
-input[type="submit"] {
-  background: #d8b15a !important;
-  border: 1px solid #d8b15a !important;
-  color: #ffffff !important;
-  border-radius: 999px !important;
-  font-weight: 500 !important;
+input[type="submit"],
+.btn-submit {
+  background: #fec96b !important;
+  border: 1px solid #fec96b !important;
+  color: #2a2a2a !important;
+  border-radius: 0 !important;
+  font-weight: 700 !important;
   letter-spacing: 0.02em !important;
   padding: 12px 24px !important;
   min-height: 46px !important;
@@ -188,9 +196,11 @@ input[type="submit"] {
 
 .btn:hover,
 button[type="submit"]:hover,
-input[type="submit"]:hover {
-  background: #c7a04b !important;
-  border-color: #c7a04b !important;
+input[type="submit"]:hover,
+.btn-submit:hover {
+  background: #f5bc55 !important;
+  border-color: #f5bc55 !important;
+  opacity: 1 !important;
 }
 
 /* Secondary buttons if present */

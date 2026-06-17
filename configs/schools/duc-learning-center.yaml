@@ -19,6 +19,8 @@ branding:
     muted: "#5e5e5e"
     border: "#e2e2e2"
     radius: "4px"
+    font_family: "'Open Sans', Arial, sans-serif"
+    heading_font: "'Playfair Display', Georgia, serif"
 
 program_field_key: "interested_in"
 
