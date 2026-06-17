@@ -1105,6 +1105,9 @@ def school_lead_form_view(request, school_slug):
         raise Http404
 
     branding = merge_branding(config.branding)
+    if not school.features.custom_branding_enabled:
+        branding["custom_css"] = None
+        branding["custom_js"] = None
     embed = request.GET.get("embed") == "1" or request.POST.get("embed") == "1"
 
     if school.is_trial_expired:
