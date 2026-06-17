@@ -125,4 +125,12 @@ form:
           label: "I consent to photo/video use (optional)."
           type: "checkbox"
           required: false
+
+leads:
+  form_title: "Ask About Dance Classes"
+  form_description: "Curious about our programs? Send us a note and we'll follow up with class options, schedules, and availability."
+  cta_text: "Ask About Classes"
+  success_message: "Thanks for your interest! We'll follow up soon with class options and availability."
+  confirmation_enabled: true
+  notify_to: ""
           

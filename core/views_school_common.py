@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
-from django.db.models import Case, Count, Exists, IntegerField, OuterRef, Q, Value, When
+from django.db.models import Avg, Case, Count, DurationField, Exists, ExpressionWrapper, F, IntegerField, OuterRef, Q, Value, When
 from django.db.models.functions import TruncDay, TruncWeek
 from django.http import Http404, HttpResponse, FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404
@@ -537,7 +537,7 @@ def school_reports_view(request, school_slug: str):
     - No Lead query executes when leads_enabled=False (§2)
     - Every rate shows its basis and scope (§3 R1, R3, R6)
     - Funnel is all-time and uses "of which" connectors, not a bare % (§3 R1)
-    - Avg Days to Enroll renders "— unavailable" — no trustworthy enrollment timestamp exists
+    - Avg Days to Enroll uses updated_at as proxy for enrolled submissions (last-save ≈ enrollment date)
     - All time-series buckets gap-filled so the chart never has holes
     """
     school = _get_accessible_school_for_admin(request, school_slug)
@@ -662,6 +662,29 @@ def school_reports_view(request, school_slug: str):
         _, lead_rate_delta_str, lead_rate_up = _rate_delta(lead_rate, p_lead_rate)
         _, leads_delta_str, leads_up = _count_delta(leads_t, p_leads_t)
 
+    # ── Avg days to enroll (updated_at proxy for enrolled submissions) ──────────
+    def _avg_days(qs):
+        result = (
+            qs.filter(status=STATUS_ENROLLED)
+            .annotate(dur=ExpressionWrapper(F("updated_at") - F("created_at"), output_field=DurationField()))
+            .aggregate(avg=Avg("dur"))["avg"]
+        )
+        if result is None:
+            return None
+        return round(result.total_seconds() / 86400, 1)
+
+    avg_days_enroll = _avg_days(apps_this_qs)
+    p_avg_days_enroll = _avg_days(apps_prev_qs)
+
+    def _days_delta(a, b):
+        if a is None or b is None:
+            return None, None, None
+        d = round(a - b, 1)
+        # lower is better for days
+        return d, f"{'+' if d >= 0 else ''}{d}d", d <= 0
+
+    _, adelta_str, adelta_up = _days_delta(avg_days_enroll, p_avg_days_enroll)
+
     # ── §4.1: KPI tiles ───────────────────────────────────────────────────────
     kpi_tiles = [
         {
@@ -690,11 +713,10 @@ def school_reports_view(request, school_slug: str):
         },
         {
             "label": "Avg Days to Enroll",
-            "value": None,
-            "basis": None,
-            "delta_str": None,
-            "delta_up": None,
-            "unavailable": True,
+            "value": f"{avg_days_enroll}d" if avg_days_enroll is not None else None,
+            "basis": "submission → enrollment" if avg_days_enroll is not None else None,
+            "delta_str": adelta_str,
+            "delta_up": adelta_up,
         },
     ])
 
@@ -742,11 +764,10 @@ def school_reports_view(request, school_slug: str):
         },
         {
             "label": "Avg Days to Enroll",
-            "this_val": "—",
-            "prev_val": "—",
-            "delta_str": None,
-            "delta_up": None,
-            "unavailable": True,
+            "this_val": f"{avg_days_enroll}d" if avg_days_enroll is not None else "—",
+            "prev_val": f"{p_avg_days_enroll}d" if p_avg_days_enroll is not None else "—",
+            "delta_str": adelta_str,
+            "delta_up": adelta_up,
         },
     ])
 

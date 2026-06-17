@@ -282,8 +282,12 @@ admin:
           status: archived
 
 leads:
+  form_title: "Request Tutoring Information"
+  form_description: "Tell us about your student's needs and we'll follow up with program options and availability within 1–2 business days."
+  cta_text: "Request Tutoring Info"
   success_message: "Thanks for your interest! DUC Learning Center will follow up with you soon."
-  cta_text: "Request enrollment information"
+  confirmation_enabled: true
+  notify_to: ""
 
 capacity:
   waitlist_message: "This program is currently full. You've been added to the waitlist and we'll contact you as space becomes available."

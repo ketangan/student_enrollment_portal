@@ -768,6 +768,74 @@ print('3 submissions + 1 converted lead created')
 
 ---
 
+## Lead Capture — Public Form + Webhook
+
+### Overview
+
+Two intake paths feed leads directly into the Leads admin without requiring manual entry:
+
+| Path | URL | Source label |
+|------|-----|--------------|
+| Public inquiry form | `/schools/<slug>/lead/` | `website_lead_form` |
+| Embeddable (iframe) | `/schools/<slug>/lead/?embed=1` | `website_lead_form` |
+| External webhook | `POST /webhooks/leads/<slug>/<token>/` | `webhook` |
+
+All leads created by either path appear immediately in `/schools/<slug>/admin/leads/`, update dashboard counts, and flow into the lead follow-up pipeline.
+
+### Public Inquiry Form
+
+A lightweight 5-field form: Name, Email, Phone (optional), Program Interest (optional), Message (optional).
+
+**YAML config** (`leads:` section):
+```yaml
+leads:
+  form_title: "Request Information"
+  form_description: "Tell us what you're looking for and we'll follow up."
+  cta_text: "Send My Request"
+  success_message: "Thanks! We'll follow up soon."
+  confirmation_enabled: true   # sends confirmation email to family
+  notify_to: "admin@school.com"  # blank = no admin notification
+```
+
+All keys are optional — defaults apply if absent (backward-compatible with existing YAMLs).
+
+If the school has DB-driven programs (`school.program_field_key` set), active programs appear as program interest options automatically.
+
+**Spam protection**: honeypot field silently discards bot submissions. Rate limit: 10 POSTs/minute/IP.
+
+### Webhook Lead Intake
+
+Allows schools to forward their existing Contact Us / inquiry form into Enrollify via Zapier, Make, WordPress, Wix, Squarespace, or custom HTML.
+
+**Setup**:
+1. Generate a token from the Django shell or admin: `from core.services.lead_intake import ensure_lead_webhook_token; ensure_lead_webhook_token(school)`
+2. Give the school the URL: `POST https://your-domain/webhooks/leads/<slug>/<token>/`
+3. School configures their form tool to POST to that URL
+
+**Payload**: JSON (`Content-Type: application/json`) or form-encoded. Common field aliases are mapped automatically:
+
+| Accepted names | Maps to |
+|----------------|---------|
+| `name`, `parent_name`, `contact_name`, `guardian_name` | Lead.name |
+| `email`, `parent_email`, `contact_email` | Lead.email |
+| `phone`, `parent_phone`, `contact_phone` | Lead.phone |
+| `student_name`, `child_name` | Lead.data["student_name"] |
+| `program`, `program_interest`, `interested_in` | Lead.interested_in_label/value |
+| `message`, `notes`, `comments` | Lead.data["message"] |
+
+Unknown fields are stored in `Lead.data["extra"]`.
+
+**Validation**: Name required; at least one of email or phone required.
+
+**Responses**:
+- `200 {"ok": true, "lead_id": "abc123"}` — success
+- `400 {"ok": false, "error": "..."}` — validation failure
+- `404 {"ok": false, "error": "Not found."}` — bad token or inactive school
+
+Payload cap: 50 KB. Larger bodies are rejected with 400.
+
+---
+
 ## Troubleshooting
 
 | Symptom | Check |
@@ -779,3 +847,6 @@ print('3 submissions + 1 converted lead created')
 | Webhook not processing | Stripe CLI forwarding active; signing secret matches; check logs for verification errors |
 | Email not sending | `RESEND_API_KEY` valid; `from_email` is verified sender in Resend |
 | No pricing options on billing page | Price ID env vars set to `price_xxx` IDs; `STRIPE_MODE` matches suffix |
+| Lead form 404 | School DB record exists and `is_active=True`; YAML config file present |
+| Webhook returns 404 | Token matches `school.lead_webhook_token`; school `is_active=True`; token not empty |
+| Webhook lead not appearing in admin | School `leads_enabled` feature flag active; check audit log for creation entry |

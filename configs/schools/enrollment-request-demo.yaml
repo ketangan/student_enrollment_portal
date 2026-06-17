@@ -227,9 +227,12 @@ admin:
 
 
 leads:
-  success_message: "Thanks for your interest! We'll follow up within 1–2 business days."
-  cta_text: "I'm interested"
-  # program_field_key: "interested_in"  # optional: explicit override for program field
+  form_title: "Request School Information"
+  form_description: "Interested in our programs? Leave your details and a member of our team will reach out with enrollment information and next steps."
+  cta_text: "Request Information"
+  success_message: "Thanks for your interest! A member of our team will follow up within 1–2 business days."
+  confirmation_enabled: true
+  notify_to: ""
 
 # Enrollment capacity limits (soft caps per program).
 # Submissions are always accepted; families see a waitlist message when a program is full.

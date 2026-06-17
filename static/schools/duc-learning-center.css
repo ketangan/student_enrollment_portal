@@ -31,7 +31,7 @@
 .form-section-heading {
   font-size: 15px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--text);
   letter-spacing: .03em;
   text-transform: uppercase;
   border-bottom: 2px solid #fcbf33;
@@ -42,7 +42,7 @@
 
 /* ── Field labels ── */
 .form-label {
-  color: #1a1a1a;
+  color: var(--text);
   font-weight: 600;
   font-size: 13px;
 }
@@ -56,8 +56,9 @@ input[type="date"],
 input[type="number"],
 select,
 textarea {
-  border-color: #e2e2e2;
-  background: #ffffff;
+  border-color: var(--border);
+  background: var(--card);
+  color: var(--text);
   border-radius: 4px;
   transition: border-color .15s ease, box-shadow .15s ease;
 }
@@ -132,7 +133,7 @@ input[type="checkbox"]:checked {
 }
 
 .success-heading {
-  color: #1a1a1a;
+  color: var(--text);
   font-family: 'Playfair Display', Georgia, serif;
 }
 

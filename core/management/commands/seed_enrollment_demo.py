@@ -137,18 +137,23 @@ class Command(BaseCommand):
         # ── Submissions ────────────────────────────────────────────────────────
 
         # (days_ago_min, days_ago_max, status, count)
+        # Spread across two 30-day windows so comparison tiles show a real delta.
         batches = [
-            (80, 90, "Enrolled",         3),
-            (65, 79, "Enrolled",         2),
-            (55, 64, "Closed",           2),
-            (45, 54, "Archived",         1),
-            (40, 54, "Contacted",        3),
-            (30, 44, "In Review",        4),
-            (25, 39, "Needs Follow Up",  3),
-            (18, 29, "In Review",        4),
-            (12, 24, "New",              5),
-            ( 5, 14, "Contacted",        3),
-            ( 1,  8, "New",              5),
+            # Previous period (31–60 days ago) — fills the comparison column
+            (50, 60, "Enrolled",         3),
+            (40, 55, "Closed",           2),
+            (35, 50, "Archived",         1),
+            (31, 48, "Contacted",        4),
+            (31, 45, "In Review",        4),
+            # Current period (0–30 days) — what the default view shows
+            (24, 30, "Enrolled",         3),
+            (18, 28, "Enrolled",         3),
+            (14, 25, "In Review",        5),
+            (10, 20, "Needs Follow Up",  3),
+            ( 5, 15, "Contacted",        4),
+            ( 3, 10, "In Review",        3),
+            ( 1,  7, "New",              5),
+            ( 0,  4, "New",              4),
         ]
 
         student_pool = list(STUDENTS)

@@ -156,6 +156,9 @@ class School(models.Model):
     # DB-driven programs: when set, this field key's options come from SchoolProgram records, not YAML.
     program_field_key = models.CharField(max_length=120, blank=True, default="")
 
+    # Webhook token for external lead intake. Generate via ensure_lead_webhook_token(); never auto-set in save().
+    lead_webhook_token = models.CharField(max_length=64, blank=True, default="")
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property
@@ -651,7 +654,9 @@ LEAD_SOURCE_CHOICES = [
     ("phone", "Phone"),
     ("event", "Event"),
     ("other", "Other"),
-    ("manual", "Manual Entry"),   # no migration needed — choices = display-only
+    ("manual", "Manual Entry"),
+    ("website_lead_form", "Lead Form"),   # public /lead/ form
+    ("webhook", "Webhook"),               # external webhook intake
 ]
 
 
@@ -708,6 +713,9 @@ class Lead(models.Model):
     last_contacted_at = models.DateTimeField(null=True, blank=True)
     next_follow_up_at = models.DateTimeField(null=True, blank=True)
     lost_reason = models.CharField(max_length=255, blank=True, default="")
+
+    # Extra data: message, student_name, src param, webhook extras
+    data = models.JSONField(default=dict, blank=True)
 
     # Conversion (Feature 6 will populate these)
     converted_submission = models.ForeignKey(

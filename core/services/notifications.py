@@ -702,3 +702,103 @@ def send_workflow_notification(
             "Failed to send %s workflow notification to %s", notification_type, to_email
         )
         return False
+
+
+# ── Lead intake notifications ─────────────────────────────────────────────────
+
+def send_lead_admin_notification(*, school, lead, config_raw: Dict[str, Any]) -> bool:
+    """
+    Notify the school admin when a new lead arrives via the public form or webhook.
+    Recipient: leads.notify_to → success.notifications.submission_email.to → skipped.
+    Never raises — caller must not let this block lead creation.
+    """
+    raw = config_raw or {}
+    leads_cfg = raw.get("leads") or {}
+
+    notify_to = (leads_cfg.get("notify_to") or "").strip()
+    if not notify_to:
+        notify_to = _get_nested(raw, ["success", "notifications", "submission_email", "to"], "") or ""
+        notify_to = notify_to.strip()
+    if not notify_to:
+        return False
+
+    from_email = _resolve_from_email(raw)
+    school_name = escape(school.display_name or school.slug)
+    program = escape(lead.interested_in_label or "")
+    admin_path = f"/schools/{school.slug}/admin/leads/{lead.id}/"
+
+    subject = f"New inquiry: {lead.name}" + (f" — {lead.interested_in_label}" if lead.interested_in_label else "")
+    text_body = "\n".join(filter(None, [
+        "New lead received",
+        f"Name: {lead.name}",
+        f"Email: {lead.email}",
+        f"Phone: {lead.phone}" if lead.phone else "",
+        f"Program: {lead.interested_in_label}" if lead.interested_in_label else "",
+        f"Source: {lead.source}",
+        "",
+        f"View lead: {admin_path}",
+        "",
+        "— Enrollify",
+    ]))
+    html_body = f"""
+    <p><strong>New inquiry received</strong></p>
+    <p>
+      <strong>Name:</strong> {escape(lead.name)}<br/>
+      <strong>Email:</strong> {escape(lead.email)}<br/>
+      {"<strong>Phone:</strong> " + escape(lead.phone) + "<br/>" if lead.phone else ""}
+      {"<strong>Program:</strong> " + program + "<br/>" if program else ""}
+      <strong>Source:</strong> {escape(lead.source)}<br/>
+    </p>
+    <p>
+      <a href="{admin_path}"
+         style="display:inline-block;padding:8px 14px;background:#2563eb;color:#fff;
+                text-decoration:none;border-radius:6px;font-weight:600;">
+        View in admin
+      </a>
+    </p>
+    <hr/><p style="color:#666;font-size:12px;">Enrollify &mdash; {school_name}</p>
+    """
+    try:
+        conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))
+        msg = EmailMultiAlternatives(subject, text_body, from_email, [notify_to], connection=conn)
+        msg.attach_alternative(html_body, "text/html")
+        msg.send(fail_silently=False)
+        return True
+    except Exception:
+        logger.exception("Non-blocking: lead admin notification failed for lead %s", lead.pk)
+        return False
+
+
+def send_lead_confirmation(*, lead, school_name: str, config_raw: Dict[str, Any]) -> bool:
+    """
+    Send a confirmation email to the lead contact.
+    Skipped if leads.confirmation_enabled is false or lead has no email.
+    Never raises — caller must not let this block lead creation.
+    """
+    if not lead.email:
+        return False
+    raw = config_raw or {}
+    leads_cfg = raw.get("leads") or {}
+    if not leads_cfg.get("confirmation_enabled", True):
+        return False
+
+    from_email = _resolve_from_email(raw)
+    success_message = (leads_cfg.get("success_message") or "").strip() or f"Thanks for your interest in {school_name}! We'll follow up soon."
+    subject = f"We received your request — {school_name}"
+
+    text_body = f"Hi {lead.name},\n\n{success_message}\n\n— {school_name}"
+    html_body = f"""
+    <p>Hi {escape(lead.name)},</p>
+    <p>{escape(success_message)}</p>
+    <p>— {escape(school_name)}</p>
+    <hr/><p style="color:#666;font-size:12px;">Enrollify</p>
+    """
+    try:
+        conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))
+        msg = EmailMultiAlternatives(subject, text_body, from_email, [lead.email], connection=conn)
+        msg.attach_alternative(html_body, "text/html")
+        msg.send(fail_silently=False)
+        return True
+    except Exception:
+        logger.exception("Non-blocking: lead confirmation failed for lead %s", lead.pk)
+        return False

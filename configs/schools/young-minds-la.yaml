@@ -401,8 +401,12 @@ admin:
           status: "Declined"
 
 leads:
+  form_title: "Interested in Young Minds?"
+  form_description: "Tell us about your child and we'll follow up with program details, open enrollment dates, and next steps."
+  cta_text: "I'm Interested"
   success_message: "Thanks for your interest in Young Minds Learning Academy! We'll be in touch within 1–2 business days."
-  cta_text: "I'm interested"
+  confirmation_enabled: true
+  notify_to: ""
 
 scheduling:
   url: "https://youngmindsla.com/contact/"

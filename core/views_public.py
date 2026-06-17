@@ -55,6 +55,7 @@ from .services.config_loader import (
     find_email_field_key,
     get_application_fee_config,
     get_forms,
+    get_lead_form_config,
     get_program_options,
     load_school_config,
     PROGRAM_FIELD_KEYS,
@@ -79,6 +80,8 @@ from .services.programs import inject_db_program_options, get_program_options, h
 from .services.validation import validate_submission
 from .services.notifications import (
     send_applicant_confirmation_email,
+    send_lead_admin_notification,
+    send_lead_confirmation,
     send_resume_link_email,
     send_submission_notification_email,
     send_admin_message,
@@ -1076,7 +1079,166 @@ def resume_draft_view(request, school_slug: str, token: str):
 
 
 # ---------------------------------------------------------------------------
-# Lead capture (public)
+# Public lead / inquiry form  (/schools/<slug>/lead/)
+# ---------------------------------------------------------------------------
+
+@xframe_options_exempt
+@ratelimit(key="ip", rate="10/m", method="POST", block=True)
+def school_lead_form_view(request, school_slug):
+    """
+    Lightweight public inquiry form. Embeddable via ?embed=1.
+    Fields: name, email, phone (opt), program_interest (opt), message (opt).
+    ?src=<value> captures attribution and is stored in lead.data.
+    """
+    from .services.lead_intake import create_or_update_lead
+
+    try:
+        config = load_school_config(school_slug)
+    except Exception:
+        logger.exception("Lead form: config load failed for %r", school_slug)
+        raise Http404
+    if not config:
+        raise Http404
+
+    school = _get_or_create_school_from_config(school_slug, config, merge_branding(config.branding))
+    if not school.is_active:
+        raise Http404
+
+    branding = merge_branding(config.branding)
+    embed = request.GET.get("embed") == "1" or request.POST.get("embed") == "1"
+
+    if school.is_trial_expired:
+        return render(request, "trial_expired.html", {
+            "school": school,
+            "branding": branding,
+            "billing_url": reverse("admin:billing"),
+        })
+
+    raw = config.raw
+    lead_cfg = get_lead_form_config(raw)
+    program_options = get_program_options(school)
+
+    src_param = request.GET.get("src", "").strip()[:100]
+    errors: dict = {}
+
+    if request.method == "POST":
+        if request.POST.get("trap_field"):
+            # Honeypot triggered — silent success (don't reward bots with an error)
+            return render(request, "lead_form.html", _lead_form_ctx(
+                school, config, branding, lead_cfg, program_options, embed,
+                success=True,
+            ))
+
+        name = request.POST.get("name", "").strip()
+        email = request.POST.get("email", "").strip()
+        phone = request.POST.get("phone", "").strip()
+        interested_in_value = request.POST.get("interested_in_value", "").strip()
+        interested_in_label = request.POST.get("interested_in_label", "").strip()
+        message = request.POST.get("message", "").strip()
+        src = request.POST.get("src", "").strip()[:100] or src_param
+        utm_source = request.POST.get("utm_source", "").strip()
+        utm_medium = request.POST.get("utm_medium", "").strip()
+        utm_campaign = request.POST.get("utm_campaign", "").strip()
+
+        if not name:
+            errors["name"] = "Name is required."
+        if not email:
+            errors["email"] = "Email is required."
+        elif "@" not in email or "." not in email.split("@")[-1]:
+            errors["email"] = "Enter a valid email address."
+
+        if not errors:
+            extra_data: dict = {}
+            if message:
+                extra_data["message"] = message
+            if src:
+                extra_data["src"] = src
+
+            lead, created = create_or_update_lead(
+                school=school,
+                name=name,
+                email=email,
+                phone=phone,
+                interested_in_label=interested_in_label,
+                interested_in_value=interested_in_value,
+                source="website_lead_form",
+                utm_source=utm_source,
+                utm_medium=utm_medium,
+                utm_campaign=utm_campaign,
+                data=extra_data,
+            )
+
+            log_admin_audit(
+                request=request,
+                action="add",
+                obj=lead,
+                changes={},
+                extra={
+                    "name": "lead_created_from_public_form",
+                    "created": created,
+                    "source": "website_lead_form",
+                    "src": src or None,
+                    "program": interested_in_label or None,
+                },
+            )
+
+            try:
+                send_lead_admin_notification(school=school, lead=lead, config_raw=raw)
+            except Exception:
+                logger.exception("Lead admin notification failed silently, lead=%s", lead.pk)
+            try:
+                send_lead_confirmation(lead=lead, school_name=config.display_name, config_raw=raw)
+            except Exception:
+                logger.exception("Lead confirmation failed silently, lead=%s", lead.pk)
+
+            return render(request, "lead_form.html", _lead_form_ctx(
+                school, config, branding, lead_cfg, program_options, embed,
+                success=True,
+            ))
+
+        # POST with validation errors — fall through to re-render with errors
+        utm_source = request.POST.get("utm_source", "")
+        utm_medium = request.POST.get("utm_medium", "")
+        utm_campaign = request.POST.get("utm_campaign", "")
+    else:
+        utm_source = request.GET.get("utm_source", "")
+        utm_medium = request.GET.get("utm_medium", "")
+        utm_campaign = request.GET.get("utm_campaign", "")
+
+    return render(request, "lead_form.html", {
+        **_lead_form_ctx(school, config, branding, lead_cfg, program_options, embed),
+        "errors": errors,
+        "form_data": request.POST if errors else {},
+        "src": src_param,
+        "utm_source": utm_source,
+        "utm_medium": utm_medium,
+        "utm_campaign": utm_campaign,
+    })
+
+
+def _lead_form_ctx(school, config, branding, lead_cfg, program_options, embed, *, success=False):
+    return {
+        "school": school,
+        "school_name": config.display_name,
+        "branding": branding,
+        "program_options": program_options,
+        "form_title": lead_cfg["form_title"],
+        "form_description": lead_cfg["form_description"],
+        "cta_text": lead_cfg["cta_text"],
+        "success_message": lead_cfg["success_message"],
+        "embed": embed,
+        "success": success,
+        "errors": {},
+        "form_data": {},
+        "src": "",
+        "utm_source": "",
+        "utm_medium": "",
+        "utm_campaign": "",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Lead capture (public)  — legacy /interest/ URL, kept for backward-compat
 # ---------------------------------------------------------------------------
 
 @xframe_options_exempt
