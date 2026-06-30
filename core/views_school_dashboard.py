@@ -104,9 +104,8 @@ def school_dashboard_view(request, school_slug: str):
     config = _safe_load_school_config(school_slug)
     label_map = build_option_label_map(config.form) if config else {}
 
-    # select_related("school") avoids N+1 from program_display_name() which
-    # accesses self.school.slug for the TSCA school check.
-    all_submissions = Submission.objects.filter(school=school).select_related("school")
+    # select_related school+program avoids N+1 from program_display_name().
+    all_submissions = Submission.objects.filter(school=school).select_related("school", "program")
 
     # Single aggregate query for all status counts (replaces 5 separate count() calls).
     counts = all_submissions.aggregate(

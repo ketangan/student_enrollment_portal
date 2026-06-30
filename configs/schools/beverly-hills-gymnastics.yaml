@@ -34,15 +34,15 @@ form:
 
   sections:
 
-    - title: "Gymnast Information"
+    - title: "Student Information"
       fields:
         - key: student_first_name
-          label: "Gymnast First Name"
+          label: "First Name"
           type: text
           required: true
 
         - key: student_last_name
-          label: "Gymnast Last Name"
+          label: "Last Name"
           type: text
           required: true
 
@@ -138,7 +138,7 @@ form:
           required: true
 
         - key: relationship
-          label: "Relationship to Gymnast"
+          label: "Relationship to Student"
           type: select
           required: false
           options:
@@ -204,7 +204,7 @@ success:
     scheduling, placement details, and next steps.
   response_time: "1–2 business days"
   next_steps:
-    - "We'll review your gymnast's age, experience level, and program interest."
+    - "We'll review your student's age, experience level, and program interest."
     - "For open-enrollment programs, we'll confirm your spot and class schedule."
     - "For placement-required programs, we'll arrange a brief evaluation with one of our coaches."
     - "You'll receive a follow-up with pricing, schedule options, and the registration waiver."

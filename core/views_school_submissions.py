@@ -145,11 +145,11 @@ def school_submissions_view(request, school_slug: str):
     status_filter = (request.GET.get("status") or "").strip()
     search_q = (request.GET.get("q") or "").strip()
 
-    # select_related("school") avoids N+1 from program_display_name() TSCA slug check.
+    # select_related school+program avoids N+1 from program_display_name().
     # Priority sort: overdue follow-up → upcoming follow-up → new (no follow-up) → rest.
     _now = timezone.now()
     qs = _apply_submission_filters(
-        Submission.objects.filter(school=school).select_related("school").annotate(
+        Submission.objects.filter(school=school).select_related("school", "program").annotate(
             has_files=Exists(SubmissionFile.objects.filter(submission=OuterRef("pk"))),
             _inbox_priority=Case(
                 When(next_follow_up_at__lte=_now, then=Value(0)),
@@ -308,7 +308,7 @@ def school_submission_export_view(request, school_slug: str):
     search_q = (request.GET.get("q") or "").strip()
 
     qs = _apply_submission_filters(
-        Submission.objects.filter(school=school).select_related("school").order_by("-created_at"),
+        Submission.objects.filter(school=school).select_related("school", "program").order_by("-created_at"),
         active_filter, status_filter, workflow_filters,
     )
 

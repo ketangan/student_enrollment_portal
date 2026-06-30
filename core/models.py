@@ -464,6 +464,10 @@ class Submission(models.Model):
         data = self.data or {}
         label_map = label_map or {}
 
+        # If the program FK is set, use it directly — most reliable for DB-backed programs.
+        if self.program_id and self.program:
+            return self.program.name
+
         # Kimberlas: class_name
         if data.get("class_name"):
             raw = data.get("class_name")
