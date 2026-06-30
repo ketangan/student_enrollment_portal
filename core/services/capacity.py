@@ -120,12 +120,17 @@ def count_active_submissions(school, program_value: str, field_key: Optional[str
         qs = qs.exclude(status__in=excluded_statuses)
 
     if program_value and field_key:
-        qs = qs.filter(**{f"data__{field_key}": program_value})
+        # Match bare value ("mini_tots") OR the "program:"-prefixed form ("program:mini_tots").
+        qs = qs.filter(
+            Q(**{f"data__{field_key}": program_value}) |
+            Q(**{f"data__{field_key}": f"program:{program_value}"})
+        )
     elif program_value:
-        # No explicit key — try all PROGRAM_FIELD_KEYS
+        # No explicit key — try all PROGRAM_FIELD_KEYS with both formats.
         q = Q()
         for k in PROGRAM_FIELD_KEYS:
             q |= Q(**{f"data__{k}": program_value})
+            q |= Q(**{f"data__{k}": f"program:{program_value}"})
         qs = qs.filter(q)
 
     return qs.count()
@@ -176,6 +181,13 @@ def get_capacity_summary(school, config_raw: dict) -> dict[str, dict]:
     excluded = get_excluded_statuses(cap_cfg)
     field_key = get_program_field_key(config_raw)
 
+    # Build a code→name lookup from DB programs (falls back to the code itself).
+    from core.models import SchoolProgram
+    name_map = {
+        p.code: p.name
+        for p in SchoolProgram.objects.filter(school=school, is_deleted=False).only("code", "name")
+    }
+
     result: dict[str, dict] = {}
     for program_value, max_cap in programs.items():
         if not isinstance(max_cap, int) or max_cap <= 0:
@@ -183,6 +195,7 @@ def get_capacity_summary(school, config_raw: dict) -> dict[str, dict]:
         pv = str(program_value)
         current = count_active_submissions(school, pv, field_key, excluded)
         result[pv] = {
+            "name": name_map.get(pv, pv),
             "max": max_cap,
             "current": current,
             "at_capacity": current >= max_cap,
