@@ -77,10 +77,8 @@ label,
 .form-label,
 .field-label {
   font-family: 'Montserrat', Helvetica, Arial, sans-serif !important;
-  font-size: 12px !important;
+  font-size: 13px !important;
   font-weight: 600 !important;
-  letter-spacing: 0.06em !important;
-  text-transform: uppercase !important;
   color: #111111 !important;
 }
 

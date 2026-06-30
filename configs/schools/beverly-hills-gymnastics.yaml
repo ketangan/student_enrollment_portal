@@ -165,21 +165,11 @@ form:
 
     - title: "Health & Medical"
       fields:
-        - key: has_medical_conditions
-          label: "Does your gymnast have any medical conditions, allergies, or physical limitations we should know about?"
-          type: select
-          required: false
-          options:
-            - label: "No"
-              value: "no"
-            - label: "Yes — please describe below"
-              value: "yes"
-
         - key: medical_notes
-          label: "Medical Details"
+          label: "Medical Conditions & Allergies"
           type: textarea
           required: false
-          help_text: "Include any conditions, allergies, or recent injuries relevant to gymnastics participation."
+          help_text: "List any conditions, allergies, or physical limitations relevant to gymnastics. Leave blank if none."
 
     - title: "Additional Information"
       fields:
