@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Classes | Beverly Hills Gymnastics Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Montserrat', Helvetica, Arial, sans-serif; color: #111111; background: #fff; -webkit-font-smoothing: antialiased; }
+  a { text-decoration: none; color: inherit; }
+
+  .top-bar { background: #111111; padding: 7px 40px; display: flex; justify-content: flex-end; gap: 24px; font-size: 11px; color: rgba(255,255,255,.55); letter-spacing: .04em; }
+
+  .site-header {
+    background: #fff; border-bottom: 1px solid #e8e8e8; padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between; height: 80px;
+    position: sticky; top: 0; z-index: 200; box-shadow: 0 1px 6px rgba(0,0,0,.05);
+  }
+  .logo-name { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; font-weight: 700; color: #111111; letter-spacing: .02em; line-height: 1.1; }
+  .logo-name em { color: #7F0200; font-style: normal; }
+  .logo-sub { font-size: 10px; color: #999; letter-spacing: .12em; text-transform: uppercase; margin-top: 2px; }
+  .site-nav { display: flex; gap: 28px; list-style: none; }
+  .site-nav a { font-size: 11px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: #111111; transition: color .15s; }
+  .site-nav a:hover, .site-nav .active a { color: #7F0200; }
+
+  .page-hero { background: #111111; padding: 44px 40px 34px; text-align: center; }
+  .page-hero h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 36px; color: #ffffff; font-weight: 600; }
+
+  .page-content { max-width: 1060px; margin: 0 auto; padding: 56px 24px 80px; }
+  .page-content h2 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 30px; color: #111111; font-weight: 600; margin-bottom: 32px; }
+  .page-content p { font-size: 14px; color: #555; line-height: 1.7; margin-bottom: 18px; }
+
+  .programs-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 40px; }
+  .prog-item { background: #f9f9f9; border: 1px solid #e8e8e8; border-radius: 4px; padding: 18px 16px; }
+  .prog-item h3 { font-size: 13px; font-weight: 700; color: #111111; margin-bottom: 4px; }
+  .prog-item .age { font-size: 11px; color: #7F0200; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+
+  .cta-row { display: flex; align-items: center; gap: 20px; margin-top: 12px; }
+  .btn-register {
+    display: inline-block; background: #7F0200; color: #fff;
+    padding: 14px 36px; border-radius: 35px; font-size: 11px;
+    font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+    cursor: pointer; border: none; font-family: inherit; transition: background .2s;
+  }
+  .btn-register:hover { background: #111111; }
+  .cta-note { font-size: 12px; color: #999; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    z-index: 1000; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: #fff; border-radius: 4px; width: 100%; max-width: 780px;
+    max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: 0 24px 64px rgba(0,0,0,.25);
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 24px; border-bottom: 1px solid #e0e0e0; flex-shrink: 0;
+  }
+  .modal-header h2 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; font-weight: 600; color: #111111; }
+  .modal-close {
+    background: none; border: none; font-size: 22px; color: #888; cursor: pointer;
+    line-height: 1; padding: 0 4px; transition: color .15s;
+  }
+  .modal-close:hover { color: #111111; }
+  .modal-body { overflow-y: auto; flex: 1; }
+  .modal-body iframe { display: block; width: 100%; height: 640px; border: none; }
+
+  .site-footer { background: #111111; color: rgba(255,255,255,.4); text-align: center; padding: 32px; font-size: 12px; letter-spacing: .02em; }
+  .site-footer a { color: #7F0200; }
+
+  @media (max-width: 700px) {
+    .top-bar, .site-nav { display: none; }
+    .site-header { padding: 0 18px; height: 68px; }
+    .page-hero { padding: 34px 18px 26px; }
+    .page-hero h1 { font-size: 28px; }
+    .programs-row { grid-template-columns: 1fr 1fr; }
+    .page-content { padding: 36px 18px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span>(310) 204-1980</span>
+  <span>info@beverlyhillsgymnastics.org</span>
+  <span>Mon–Thu 9am–8pm &nbsp;·&nbsp; Fri 9am–3pm &nbsp;·&nbsp; Sat–Sun 9am–12pm</span>
+</div>
+
+<header class="site-header">
+  <a href="https://www.beverlyhillsgymnastics.org/">
+    <div class="logo-name">Beverly Hills <em>Gymnastics</em> Center</div>
+    <div class="logo-sub">The First Gymnastics Center In Beverly Hills</div>
+  </a>
+  <nav>
+    <ul class="site-nav">
+      <li><a href="https://www.beverlyhillsgymnastics.org/">Home</a></li>
+      <li class="active"><a href="#">Classes</a></li>
+      <li><a href="https://www.beverlyhillsgymnastics.org/competition-team/">Competition</a></li>
+      <li><a href="https://www.beverlyhillsgymnastics.org/camps/">Camps</a></li>
+      <li><a href="https://www.beverlyhillsgymnastics.org/contact/">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="page-hero">
+  <h1>Classes &amp; Programs</h1>
+</div>
+
+<div class="page-content">
+  <h2>Programs for Every Level</h2>
+  <p>
+    Beverly Hills Gymnastics Center offers programs for ages 18 months to adult.
+    Open-enrollment classes are available immediately. Placement-required programs include a brief
+    coach evaluation to ensure your gymnast is placed at the right level.
+  </p>
+  <p>Classes are held Monday through Sunday. Pricing starts at $266/month (2-month minimum).</p>
+
+  <div class="programs-row">
+    <div class="prog-item"><div class="age">Ages 3–4</div><h3>Mini-Tots</h3></div>
+    <div class="prog-item"><div class="age">Ages 5–7</div><h3>Girls Beginning</h3></div>
+    <div class="prog-item"><div class="age">Ages 7–10</div><h3>Girls Intermediate</h3></div>
+    <div class="prog-item"><div class="age">Ages 10+</div><h3>Girls Advanced</h3></div>
+    <div class="prog-item"><div class="age">Ages 5–8</div><h3>Boys Beginning</h3></div>
+    <div class="prog-item"><div class="age">All Ages</div><h3>Tumbling</h3></div>
+    <div class="prog-item"><div class="age">Adults</div><h3>Adult Gymnastics</h3></div>
+    <div class="prog-item"><div class="age">Ages 3–7</div><h3>Pre-Team Bronze</h3></div>
+    <div class="prog-item"><div class="age">All Ages</div><h3>Private Lessons</h3></div>
+  </div>
+
+  <div class="cta-row">
+    <button class="btn-register" id="openModal">Register for a Class &rarr;</button>
+    <span class="cta-note">Opens a quick registration form</span>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Class Registration</h2>
+      <button class="modal-close" id="closeModal" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <iframe
+        id="regIframe"
+        src=""
+        data-src="{{ embed_form_url }}"
+        title="Beverly Hills Gymnastics Center Registration"
+        allow="payment"
+      ></iframe>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  &copy; 2025 Beverly Hills Gymnastics Center &nbsp;&mdash;&nbsp;
+  9135 W Olympic Blvd, Beverly Hills, CA 90212 &nbsp;&mdash;&nbsp;
+  <a href="https://www.beverlyhillsgymnastics.org/">(310) 204-1980</a>
+</footer>
+
+<script>
+  var overlay = document.getElementById("modalOverlay");
+  var iframe  = document.getElementById("regIframe");
+  var loaded  = false;
+
+  document.getElementById("openModal").addEventListener("click", function () {
+    if (!loaded) { iframe.src = iframe.dataset.src; loaded = true; }
+    overlay.classList.add("active");
+    document.body.style.overflow = "hidden";
+  });
+
+  function closeModal() {
+    overlay.classList.remove("active");
+    document.body.style.overflow = "";
+  }
+  document.getElementById("closeModal").addEventListener("click", closeModal);
+  overlay.addEventListener("click", function (e) { if (e.target === overlay) closeModal(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
+
+  window.addEventListener("message", function (e) {
+    if (e.data && e.data.type === "formSubmitted") closeModal();
+  });
+</script>
+</body>
+</html>

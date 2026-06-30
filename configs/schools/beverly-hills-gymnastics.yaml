@@ -1,0 +1,368 @@
+schema_version: "1.0"
+
+school:
+  slug: "beverly-hills-gymnastics"
+  display_name: "Beverly Hills Gymnastics Center"
+  website_url: "https://www.beverlyhillsgymnastics.org/"
+  source_url: "https://www.beverlyhillsgymnastics.org/"
+
+branding:
+  logo_url: "https://www.beverlyhillsgymnastics.org/wp-content/uploads/2023/06/logo.svg"
+  custom_css: "schools/beverly-hills-gymnastics.css"
+
+  theme:
+    primary_color: "#7F0200"
+    accent_color: "#7F0200"
+    background: "#ffffff"
+    card: "#ffffff"
+    text: "#111111"
+    muted: "#666666"
+    border: "#e0e0e0"
+    radius: "4px"
+    font_family: "'Montserrat', Helvetica, Arial, sans-serif"
+    heading_font: "'Cormorant Garamond', Georgia, serif"
+
+program_field_key: "interested_in"
+
+form:
+  title: "Class Registration"
+  description: >
+    Complete this form to register for open-enrollment classes or to request a placement evaluation.
+    Our team will follow up within 1–2 business days to confirm scheduling and next steps.
+    For placement-required programs, a brief evaluation with one of our coaches is part of the process.
+  submit_button_text: "Submit Registration"
+
+  sections:
+
+    - title: "Gymnast Information"
+      fields:
+        - key: student_first_name
+          label: "Gymnast First Name"
+          type: text
+          required: true
+
+        - key: student_last_name
+          label: "Gymnast Last Name"
+          type: text
+          required: true
+
+        - key: date_of_birth
+          label: "Date of Birth"
+          type: date
+          required: true
+
+        - key: gender
+          label: "Gender"
+          type: select
+          required: false
+          options:
+            - label: "Female"
+              value: female
+            - label: "Male"
+              value: male
+            - label: "Prefer not to say"
+              value: not_specified
+
+    - title: "Program Interest"
+      fields:
+        - key: interested_in
+          label: "Program of Interest"
+          type: select
+          required: true
+
+        - key: experience_level
+          label: "Gymnastics Experience"
+          type: select
+          required: true
+          options:
+            - label: "No prior experience — brand new to gymnastics"
+              value: none
+            - label: "Some experience — a few classes or recreational"
+              value: beginner
+            - label: "Intermediate — regular classes, basic skills"
+              value: intermediate
+            - label: "Advanced — competitive or pre-team background"
+              value: advanced
+
+    - title: "Schedule Preferences"
+      fields:
+        - key: preferred_days
+          label: "Preferred Days"
+          type: multiselect
+          required: false
+          options:
+            - label: "Monday"
+              value: mon
+            - label: "Tuesday"
+              value: tue
+            - label: "Wednesday"
+              value: wed
+            - label: "Thursday"
+              value: thu
+            - label: "Friday"
+              value: fri
+            - label: "Saturday"
+              value: sat
+            - label: "Sunday"
+              value: sun
+
+        - key: preferred_time
+          label: "Preferred Time of Day"
+          type: select
+          required: false
+          options:
+            - label: "Morning (9am – 12pm)"
+              value: morning
+            - label: "Afternoon (12pm – 4pm)"
+              value: afternoon
+            - label: "Evening (4pm – 8pm)"
+              value: evening
+            - label: "Flexible"
+              value: flexible
+
+    - title: "Parent / Guardian Information"
+      fields:
+        - key: guardian_name
+          label: "Parent / Guardian Full Name"
+          type: text
+          required: true
+
+        - key: guardian_email
+          label: "Parent / Guardian Email"
+          type: email
+          required: true
+
+        - key: guardian_phone
+          label: "Parent / Guardian Phone"
+          type: tel
+          required: true
+
+        - key: relationship
+          label: "Relationship to Gymnast"
+          type: select
+          required: false
+          options:
+            - label: "Mother"
+              value: mother
+            - label: "Father"
+              value: father
+            - label: "Guardian"
+              value: guardian
+            - label: "Other"
+              value: other
+
+    - title: "Emergency Contact"
+      fields:
+        - key: emergency_contact_name
+          label: "Emergency Contact Name"
+          type: text
+          required: false
+
+        - key: emergency_contact_phone
+          label: "Emergency Contact Phone"
+          type: tel
+          required: false
+
+    - title: "Health & Medical"
+      fields:
+        - key: has_medical_conditions
+          label: "Does your gymnast have any medical conditions, allergies, or physical limitations we should know about?"
+          type: select
+          required: false
+          options:
+            - label: "No"
+              value: "no"
+            - label: "Yes — please describe below"
+              value: "yes"
+
+        - key: medical_notes
+          label: "Medical Details"
+          type: textarea
+          required: false
+          help_text: "Include any conditions, allergies, or recent injuries relevant to gymnastics participation."
+
+    - title: "Additional Information"
+      fields:
+        - key: how_did_you_hear
+          label: "How did you hear about us?"
+          type: select
+          required: false
+          options:
+            - label: "Drove by / saw the facility"
+              value: drove_by
+            - label: "Google search"
+              value: google
+            - label: "Referred by a friend or family"
+              value: referral
+            - label: "Social media (Instagram, Facebook, etc.)"
+              value: social_media
+            - label: "Current or former student"
+              value: current_student
+            - label: "Other"
+              value: other
+
+        - key: notes
+          label: "Anything else you'd like us to know?"
+          type: textarea
+          required: false
+
+success:
+  title: "Registration Received!"
+  message: >
+    Thank you — we've received your registration request for Beverly Hills Gymnastics Center.
+    Our team will review your information and follow up within 1–2 business days to confirm
+    scheduling, placement details, and next steps.
+  response_time: "1–2 business days"
+  next_steps:
+    - "We'll review your gymnast's age, experience level, and program interest."
+    - "For open-enrollment programs, we'll confirm your spot and class schedule."
+    - "For placement-required programs, we'll arrange a brief evaluation with one of our coaches."
+    - "You'll receive a follow-up with pricing, schedule options, and the registration waiver."
+  contact:
+    name: "Beverly Hills Gymnastics Center"
+    email: "info@beverlyhillsgymnastics.org"
+    phone: "(310) 204-1980"
+  hours: "Mon–Thu 9am–8pm · Fri 9am–3pm · Sat 9am–1pm · Sun 9am–12pm"
+
+  notifications:
+    submission_email:
+      to: "info@beverlyhillsgymnastics.org"
+      cc: ""
+      bcc: ""
+      from_email: "noreply@enrollifyapp.com"
+      subject: "New class registration: {{student_name}}"
+
+    applicant_confirmation:
+      enabled: true
+      from_email: "noreply@enrollifyapp.com"
+      subject: "We received your registration, {{student_name}}!"
+
+admin:
+  submission_statuses:
+    - New
+    - In Review
+    - Contacted
+    - Placement Scheduled
+    - Placement Completed
+    - Needs Follow Up
+    - Enrolled
+    - Waitlisted
+    - Declined
+    - Archived
+  default_submission_status: New
+
+  submission_workflow:
+    filters:
+      new_registrations:
+        label: "New"
+        statuses: ["New"]
+      placement:
+        label: "Placement"
+        statuses: ["Placement Scheduled", "Placement Completed"]
+      in_review:
+        label: "In Review"
+        statuses: ["In Review", "Contacted", "Needs Follow Up"]
+      enrolled:
+        label: "Enrolled"
+        statuses: ["Enrolled"]
+      waitlisted:
+        label: "Waitlisted"
+        statuses: ["Waitlisted"]
+      closed:
+        label: "Closed"
+        statuses: ["Declined", "Archived"]
+
+    transitions:
+      New:
+        - label: "Mark Contacted"
+          status: "Contacted"
+        - label: "Schedule Placement"
+          status: "Placement Scheduled"
+        - label: "Enroll (Open Enrollment)"
+          status: "Enrolled"
+        - label: "Archive"
+          status: "Archived"
+      Contacted:
+        - label: "Schedule Placement"
+          status: "Placement Scheduled"
+        - label: "Enroll (Open Enrollment)"
+          status: "Enrolled"
+        - label: "Archive"
+          status: "Archived"
+      Placement Scheduled:
+        - label: "Mark Placement Completed"
+          status: "Placement Completed"
+        - label: "Archive"
+          status: "Archived"
+      Placement Completed:
+        - label: "Enroll"
+          status: "Enrolled"
+        - label: "Waitlist"
+          status: "Waitlisted"
+        - label: "Decline"
+          status: "Declined"
+      Needs Follow Up:
+        - label: "Mark Contacted"
+          status: "Contacted"
+        - label: "Schedule Placement"
+          status: "Placement Scheduled"
+        - label: "Archive"
+          status: "Archived"
+      Waitlisted:
+        - label: "Enroll"
+          status: "Enrolled"
+        - label: "Decline"
+          status: "Declined"
+
+  lead_workflow:
+    filters:
+      new_leads:
+        label: "New"
+        statuses: [new]
+      pipeline:
+        label: "In Pipeline"
+        statuses: [contacted, placement_scheduled]
+      won:
+        label: "Enrolled"
+        statuses: [enrolled]
+    transitions:
+      new:
+        - label: "Mark Contacted"
+          status: contacted
+        - label: "Archive"
+          status: archived
+      contacted:
+        - label: "Schedule Placement"
+          status: placement_scheduled
+        - label: "Archive"
+          status: archived
+      placement_scheduled:
+        - label: "Mark Enrolled"
+          status: enrolled
+        - label: "Archive"
+          status: archived
+
+leads:
+  form_title: "Inquire About Classes"
+  form_description: "Tell us your child's age and program interest — our team will follow up within 1–2 business days with scheduling, pricing, and availability."
+  cta_text: "Send My Inquiry"
+  success_message: "Thanks for reaching out! Beverly Hills Gymnastics Center will follow up with you soon."
+  confirmation_enabled: true
+  notify_to: ""
+
+capacity:
+  waitlist_message: "This program is currently at capacity. You've been added to our waitlist and we'll contact you as soon as a spot opens."
+  excluded_statuses:
+    - Archived
+    - Declined
+  programs:
+    girls_beginning: 12
+    girls_intermediate: 10
+    girls_advanced: 8
+    boys_beginning: 10
+    rhythmic: 8
+    competition_pre_team: 6
+    mini_tots: 10
+    tumbling: 15
+    adult_gymnastics: 12
+    private_lessons: 20

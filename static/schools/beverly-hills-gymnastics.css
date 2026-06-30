@@ -1,0 +1,183 @@
+/* Beverly Hills Gymnastics Center — Form Styles
+   Brand: deep red (#7F0200) accent, near-black (#111111) text,
+   Montserrat body, Cormorant Garamond headings, pill buttons (35px radius)
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+/* ── Base typography ── */
+body {
+  font-family: 'Montserrat', Helvetica, Arial, sans-serif;
+  color: #111111;
+  background: #ffffff;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, .success-title {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  color: #111111;
+  letter-spacing: 0.01em;
+}
+
+/* ── Inputs ── */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="date"],
+input[type="number"],
+select,
+textarea {
+  background: #fbfeff !important;
+  border: 1px solid #c7c7c7 !important;
+  border-radius: 4px !important;
+  color: #111111 !important;
+  font-family: 'Montserrat', Helvetica, Arial, sans-serif !important;
+  font-size: 14px !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="tel"]:focus,
+input[type="date"]:focus,
+input[type="number"]:focus,
+select:focus,
+textarea:focus {
+  border-color: #111111 !important;
+  box-shadow: 0 0 0 3px rgba(127, 2, 0, 0.08) !important;
+  outline: none !important;
+}
+
+/* ── Submit button ── */
+button[type="submit"],
+input[type="submit"],
+.btn-submit {
+  background: #7F0200 !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 35px !important;
+  font-family: 'Montserrat', Helvetica, Arial, sans-serif !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  font-size: 13px !important;
+  padding: 16px 40px !important;
+  transition: background 0.2s ease !important;
+}
+
+button[type="submit"]:hover,
+input[type="submit"]:hover,
+.btn-submit:hover {
+  background: #111111 !important;
+  opacity: 1 !important;
+}
+
+/* ── Labels ── */
+label,
+.form-label,
+.field-label {
+  font-family: 'Montserrat', Helvetica, Arial, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: #111111 !important;
+}
+
+/* ── Required star ── */
+.req,
+.required,
+.required-star,
+.required-marker {
+  color: #7F0200 !important;
+}
+
+/* ── Section headings ── */
+.form-section-heading,
+.section-title {
+  font-family: 'Cormorant Garamond', Georgia, serif !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  color: #111111 !important;
+  letter-spacing: 0.02em !important;
+  border-bottom: 1px solid #e0e0e0 !important;
+  padding-bottom: 10px !important;
+  margin-bottom: 20px !important;
+  text-transform: none !important;
+}
+
+/* ── Checkboxes ── */
+input[type="checkbox"]:checked {
+  accent-color: #7F0200;
+}
+
+/* ── Error states ── */
+.field-error input,
+.field-error select,
+.field-error textarea {
+  border-color: #b91c1c !important;
+}
+
+.error-msg,
+.field-error,
+.form-error,
+.errorlist {
+  color: #b91c1c !important;
+  font-size: 12px !important;
+  font-family: 'Montserrat', Helvetica, Arial, sans-serif !important;
+}
+
+/* ── Help text ── */
+.form-help-text,
+.help-text,
+small {
+  color: #666666 !important;
+  font-size: 12px !important;
+  font-family: 'Montserrat', Helvetica, Arial, sans-serif !important;
+}
+
+/* ── Success state ── */
+.success-icon {
+  color: #7F0200 !important;
+}
+
+.success-title {
+  font-family: 'Cormorant Garamond', Georgia, serif !important;
+  font-size: 26px !important;
+  font-weight: 600 !important;
+}
+
+/* ── Form header (apply_form.html) ── */
+.school-form-header {
+  background: #111111;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.school-form-header .school-name {
+  color: #ffffff;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.school-form-header .school-tagline {
+  color: rgba(255,255,255,0.55);
+  font-size: 11px;
+  margin-top: 2px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ── Mobile ── */
+@media (max-width: 640px) {
+  button[type="submit"],
+  input[type="submit"],
+  .btn-submit {
+    border-radius: 35px !important;
+    padding: 14px 28px !important;
+  }
+}

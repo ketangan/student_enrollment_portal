@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Classes & Registration | Beverly Hills Gymnastics Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Montserrat', Helvetica, Arial, sans-serif; color: #111111; background: #fff; -webkit-font-smoothing: antialiased; }
+  a { text-decoration: none; color: inherit; }
+
+  .top-bar { background: #111111; padding: 7px 40px; display: flex; justify-content: flex-end; gap: 24px; font-size: 11px; color: rgba(255,255,255,.55); letter-spacing: .04em; }
+
+  .site-header {
+    background: #fff; border-bottom: 1px solid #e8e8e8; padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between; height: 80px;
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 6px rgba(0,0,0,.05);
+  }
+  .logo-name { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; font-weight: 700; color: #111111; letter-spacing: .02em; line-height: 1.1; }
+  .logo-name em { color: #7F0200; font-style: normal; }
+  .logo-sub { font-size: 10px; color: #999; letter-spacing: .12em; text-transform: uppercase; margin-top: 2px; }
+  .site-nav { display: flex; gap: 28px; list-style: none; }
+  .site-nav a { font-size: 11px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: #111111; transition: color .15s; }
+  .site-nav a:hover, .site-nav .active a { color: #7F0200; }
+
+  .page-hero { background: #111111; padding: 44px 40px 34px; text-align: center; }
+  .page-hero h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 36px; color: #ffffff; font-weight: 600; }
+  .page-hero p { margin-top: 10px; font-size: 14px; color: rgba(255,255,255,.6); max-width: 560px; margin: 10px auto 0; line-height: 1.6; }
+
+  .programs-section { max-width: 1060px; margin: 0 auto; padding: 56px 24px 0; }
+  .programs-section h2 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 30px; color: #111111; font-weight: 600; margin-bottom: 32px; text-align: center; }
+
+  .programs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; margin-bottom: 48px; }
+  .program-card {
+    background: #f9f9f9; border: 1px solid #e8e8e8; border-radius: 4px;
+    padding: 22px 20px;
+  }
+  .program-card h3 { font-size: 15px; font-weight: 700; color: #111111; margin-bottom: 6px; }
+  .program-card .age { font-size: 12px; color: #7F0200; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 8px; }
+  .program-card p { font-size: 13px; color: #555; line-height: 1.6; }
+  .program-badge {
+    display: inline-block; margin-top: 10px; padding: 3px 8px;
+    font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    border-radius: 2px;
+  }
+  .badge-open { background: #e8f5e9; color: #2e7d32; }
+  .badge-placement { background: #fff3e0; color: #e65100; }
+
+  .divider { max-width: 1060px; margin: 0 auto; border: none; border-top: 1px solid #e0e0e0; }
+
+  .form-section { background: #f8f8f8; border-top: 3px solid #7F0200; padding: 60px 24px 80px; }
+  .form-section-inner { max-width: 940px; margin: 0 auto; }
+  .form-section h2 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 32px; color: #111111; font-weight: 600; text-align: center; margin-bottom: 10px; }
+  .form-section .form-sub { text-align: center; color: #666; font-size: 14px; margin-bottom: 36px; line-height: 1.6; max-width: 560px; margin-left: auto; margin-right: auto; }
+  .iframe-wrap { border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden; box-shadow: 0 8px 28px rgba(0,0,0,.06); }
+  .iframe-wrap iframe { display: block; width: 100%; height: 700px; border: none; }
+
+  .site-footer { background: #111111; color: rgba(255,255,255,.4); text-align: center; padding: 32px; font-size: 12px; letter-spacing: .02em; }
+  .site-footer a { color: #7F0200; }
+
+  @media (max-width: 700px) {
+    .top-bar, .site-nav { display: none; }
+    .site-header { padding: 0 18px; height: 68px; }
+    .page-hero { padding: 34px 18px 26px; }
+    .page-hero h1 { font-size: 28px; }
+    .programs-section { padding: 40px 18px 0; }
+    .programs-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span>(310) 204-1980</span>
+  <span>info@beverlyhillsgymnastics.org</span>
+  <span>Mon–Thu 9am–8pm &nbsp;·&nbsp; Fri 9am–3pm &nbsp;·&nbsp; Sat–Sun 9am–12pm</span>
+</div>
+
+<header class="site-header">
+  <a href="https://www.beverlyhillsgymnastics.org/">
+    <div class="logo-name">Beverly Hills <em>Gymnastics</em> Center</div>
+    <div class="logo-sub">The First Gymnastics Center In Beverly Hills</div>
+  </a>
+  <nav>
+    <ul class="site-nav">
+      <li><a href="https://www.beverlyhillsgymnastics.org/">Home</a></li>
+      <li class="active"><a href="#">Classes</a></li>
+      <li><a href="https://www.beverlyhillsgymnastics.org/competition-team/">Competition</a></li>
+      <li><a href="https://www.beverlyhillsgymnastics.org/camps/">Camps</a></li>
+      <li><a href="https://www.beverlyhillsgymnastics.org/contact/">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="page-hero">
+  <h1>Classes &amp; Programs</h1>
+  <p>Programs for ages 18 months to adult. Open enrollment and placement-required classes available year-round.</p>
+</div>
+
+<div class="programs-section">
+  <h2>Our Programs</h2>
+  <div class="programs-grid">
+
+    <div class="program-card">
+      <div class="age">Ages 3–4</div>
+      <h3>Mini-Tots</h3>
+      <p>An introductory gymnastics program for young children. No parent required in the gym. Focuses on body awareness, coordination, and fun.</p>
+      <span class="program-badge badge-open">Open Enrollment</span>
+    </div>
+
+    <div class="program-card">
+      <div class="age">Ages 5–7</div>
+      <h3>Girls Beginning Gymnastics</h3>
+      <p>Pre-Level 1 instruction following USAG guidelines. Cartwheels, rolls, balances, and introductory bar and beam work.</p>
+      <span class="program-badge badge-placement">Placement Evaluation</span>
+    </div>
+
+    <div class="program-card">
+      <div class="age">Ages 7–10</div>
+      <h3>Girls Intermediate Gymnastics</h3>
+      <p>For gymnasts with prior experience. Builds on foundational skills with increased time on apparatus. Min. 90 min/week.</p>
+      <span class="program-badge badge-placement">Placement Evaluation</span>
+    </div>
+
+    <div class="program-card">
+      <div class="age">Ages 10+</div>
+      <h3>Girls Advanced Gymnastics</h3>
+      <p>Final recreational level before joining the competitive team. Advanced skill development on all four apparatus.</p>
+      <span class="program-badge badge-placement">Placement Evaluation</span>
+    </div>
+
+    <div class="program-card">
+      <div class="age">Ages 5–8</div>
+      <h3>Boys Beginning Gymnastics</h3>
+      <p>Introduction to men's gymnastics — floor, rings, bars, and pommel horse foundations in a supportive group setting.</p>
+      <span class="program-badge badge-placement">Placement Evaluation</span>
+    </div>
+
+    <div class="program-card">
+      <div class="age">All Ages</div>
+      <h3>Tumbling For All Ages</h3>
+      <p>Standalone tumbling class for cheerleaders and athletes of all backgrounds. Cartwheels, handstands, round-offs, and back walkovers.</p>
+      <span class="program-badge badge-open">Open Enrollment</span>
+    </div>
+
+    <div class="program-card">
+      <div class="age">Adults</div>
+      <h3>Adult Gymnastics</h3>
+      <p>Co-ed classes for adults at all skill levels. A welcoming environment for those returning to gymnastics or trying it for the first time.</p>
+      <span class="program-badge badge-open">Open Enrollment</span>
+    </div>
+
+    <div class="program-card">
+      <div class="age">Ages 3–7</div>
+      <h3>Competition Pre-Team — Bronze</h3>
+      <p>For gymnasts showing competitive potential. 4 hours/week. USAG-track training with structured skill progression toward meets.</p>
+      <span class="program-badge badge-placement">Coach Recommendation Required</span>
+    </div>
+
+    <div class="program-card">
+      <div class="age">All Ages</div>
+      <h3>Private Lessons</h3>
+      <p>One-on-one coaching in the facility. Ideal for skill development, injury recovery, or personalized attention alongside a group program.</p>
+      <span class="program-badge badge-open">Open Enrollment</span>
+    </div>
+
+  </div>
+</div>
+
+<hr class="divider">
+
+<div class="form-section">
+  <div class="form-section-inner">
+    <h2>Register for a Class</h2>
+    <p class="form-sub">
+      Complete the form below. Our team will follow up within 1–2 business days
+      to confirm your gymnast's program, schedule, and next steps.
+    </p>
+    <div class="iframe-wrap">
+      <iframe
+        src="{{ embed_form_url }}"
+        title="Beverly Hills Gymnastics Center Registration Form"
+        allow="payment"
+      ></iframe>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  &copy; 2025 Beverly Hills Gymnastics Center &nbsp;&mdash;&nbsp;
+  9135 W Olympic Blvd, Beverly Hills, CA 90212 &nbsp;&mdash;&nbsp;
+  <a href="https://www.beverlyhillsgymnastics.org/">(310) 204-1980</a>
+</footer>
+
+<script>
+  window.addEventListener("message", function (e) {
+    if (e.data && e.data.type === "iframeResize") {
+      var iframe = document.querySelector(".iframe-wrap iframe");
+      if (iframe) iframe.style.height = e.data.height + "px";
+    }
+  });
+</script>
+</body>
+</html>

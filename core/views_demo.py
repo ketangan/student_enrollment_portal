@@ -28,6 +28,11 @@ DEMO_REGISTRY = {
         "template_dir": "demo/duc",
         "demos": ["dedicated-page", "modal", "bottom-section", "link-out", "standalone-form"],
     },
+    "bhg-demo": {
+        "school_slug": "beverly-hills-gymnastics",
+        "template_dir": "demo/bhg",
+        "demos": ["dedicated-page", "modal", "bottom-section", "link-out", "standalone-form"],
+    },
 }
 
 

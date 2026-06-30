@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Classes | Beverly Hills Gymnastics Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Montserrat', Helvetica, Arial, sans-serif; color: #111111; background: #fff; -webkit-font-smoothing: antialiased; }
+  a { text-decoration: none; color: inherit; }
+
+  .top-bar { background: #111111; padding: 7px 40px; display: flex; justify-content: flex-end; gap: 24px; font-size: 11px; color: rgba(255,255,255,.55); letter-spacing: .04em; }
+
+  .site-header {
+    background: #fff; border-bottom: 1px solid #e8e8e8; padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between; height: 80px;
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 6px rgba(0,0,0,.05);
+  }
+  .logo-name { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 22px; font-weight: 700; color: #111111; letter-spacing: .02em; line-height: 1.1; }
+  .logo-name em { color: #7F0200; font-style: normal; }
+  .logo-sub { font-size: 10px; color: #999; letter-spacing: .12em; text-transform: uppercase; margin-top: 2px; }
+  .site-nav { display: flex; gap: 28px; list-style: none; }
+  .site-nav a { font-size: 11px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: #111111; transition: color .15s; }
+  .site-nav a:hover, .site-nav .active a { color: #7F0200; }
+
+  .page-hero { background: #111111; padding: 44px 40px 34px; text-align: center; }
+  .page-hero h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 36px; color: #ffffff; font-weight: 600; }
+
+  .page-content { max-width: 1060px; margin: 0 auto; padding: 56px 24px 80px; }
+  .page-content h2 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 30px; color: #111111; font-weight: 600; margin-bottom: 24px; }
+  .page-content p { font-size: 14px; color: #555; line-height: 1.7; margin-bottom: 18px; }
+
+  .programs-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 44px; }
+  .prog-item { background: #f9f9f9; border: 1px solid #e8e8e8; border-radius: 4px; padding: 18px 16px; }
+  .prog-item h3 { font-size: 13px; font-weight: 700; color: #111111; margin-bottom: 4px; }
+  .prog-item .age { font-size: 11px; color: #7F0200; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+
+  .register-block {
+    background: #111111; border-radius: 4px; padding: 44px 40px; text-align: center; margin-top: 16px;
+  }
+  .register-block h3 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 28px; color: #ffffff; font-weight: 600; margin-bottom: 12px; }
+  .register-block p { font-size: 14px; color: rgba(255,255,255,.65); line-height: 1.7; margin-bottom: 28px; max-width: 500px; margin-left: auto; margin-right: auto; }
+  .btn-register {
+    display: inline-block; background: #7F0200; color: #fff;
+    padding: 15px 44px; border-radius: 35px; font-size: 11px;
+    font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+    transition: background .2s;
+  }
+  .btn-register:hover { background: #fff; color: #7F0200; }
+  .register-note { margin-top: 12px; color: rgba(255,255,255,.35); font-size: 12px; }
+
+  .site-footer { background: #111111; color: rgba(255,255,255,.4); text-align: center; padding: 32px; font-size: 12px; letter-spacing: .02em; }
+  .site-footer a { color: #7F0200; }
+
+  @media (max-width: 700px) {
+    .top-bar, .site-nav { display: none; }
+    .site-header { padding: 0 18px; height: 68px; }
+    .page-hero { padding: 34px 18px 26px; }
+    .page-hero h1 { font-size: 28px; }
+    .programs-row { grid-template-columns: 1fr 1fr; }
+    .page-content { padding: 36px 18px 60px; }
+    .register-block { padding: 32px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span>(310) 204-1980</span>
+  <span>info@beverlyhillsgymnastics.org</span>
+  <span>Mon–Thu 9am–8pm &nbsp;·&nbsp; Fri 9am–3pm &nbsp;·&nbsp; Sat–Sun 9am–12pm</span>
+</div>
+
+<header class="site-header">
+  <a href="https://www.beverlyhillsgymnastics.org/">
+    <div class="logo-name">Beverly Hills <em>Gymnastics</em> Center</div>
+    <div class="logo-sub">The First Gymnastics Center In Beverly Hills</div>
+  </a>
+  <nav>
+    <ul class="site-nav">
+      <li><a href="https://www.beverlyhillsgymnastics.org/">Home</a></li>
+      <li class="active"><a href="#">Classes</a></li>
+      <li><a href="https://www.beverlyhillsgymnastics.org/competition-team/">Competition</a></li>
+      <li><a href="https://www.beverlyhillsgymnastics.org/camps/">Camps</a></li>
+      <li><a href="https://www.beverlyhillsgymnastics.org/contact/">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="page-hero">
+  <h1>Classes &amp; Programs</h1>
+</div>
+
+<div class="page-content">
+  <h2>Programs for Every Level</h2>
+  <p>
+    Beverly Hills Gymnastics Center offers classes for ages 18 months to adult — year-round.
+    Open-enrollment programs start immediately. Placement-required programs include a brief coach evaluation.
+  </p>
+
+  <div class="programs-row">
+    <div class="prog-item"><div class="age">Ages 3–4</div><h3>Mini-Tots</h3></div>
+    <div class="prog-item"><div class="age">Ages 5–7</div><h3>Girls Beginning</h3></div>
+    <div class="prog-item"><div class="age">Ages 7–10</div><h3>Girls Intermediate</h3></div>
+    <div class="prog-item"><div class="age">Ages 10+</div><h3>Girls Advanced</h3></div>
+    <div class="prog-item"><div class="age">Ages 5–8</div><h3>Boys Beginning</h3></div>
+    <div class="prog-item"><div class="age">All Ages</div><h3>Tumbling For All Ages</h3></div>
+    <div class="prog-item"><div class="age">Adults</div><h3>Adult Gymnastics</h3></div>
+    <div class="prog-item"><div class="age">Ages 3–7</div><h3>Pre-Team Bronze</h3></div>
+    <div class="prog-item"><div class="age">All Ages</div><h3>Private Lessons</h3></div>
+  </div>
+
+  <div class="register-block">
+    <h3>Ready to Register?</h3>
+    <p>
+      Submit your class registration online. Our team will follow up within 1–2 business days
+      to confirm your gymnast's program, schedule, and next steps.
+    </p>
+    <a href="{{ form_url }}" target="_blank" rel="noopener" class="btn-register">
+      Register Now &rarr;
+    </a>
+    <div class="register-note">Opens the registration form in a new tab</div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  &copy; 2025 Beverly Hills Gymnastics Center &nbsp;&mdash;&nbsp;
+  9135 W Olympic Blvd, Beverly Hills, CA 90212 &nbsp;&mdash;&nbsp;
+  <a href="https://www.beverlyhillsgymnastics.org/">(310) 204-1980</a>
+</footer>
+
+</body>
+</html>
