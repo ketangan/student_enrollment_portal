@@ -239,10 +239,6 @@ def school_submissions_view(request, school_slug: str):
     )
 
     capacity_summary = get_capacity_summary(school, config_raw)
-    capacity_alerts = sorted(
-        [s for s in capacity_summary.values() if s["at_capacity"] or s["near_capacity"]],
-        key=lambda s: (not s["at_capacity"], s["name"]),
-    )
 
     ctx = _school_admin_base_context(request, school, "submissions")
     ctx.update(
@@ -271,7 +267,6 @@ def school_submissions_view(request, school_slug: str):
             "apply_url": apply_url,
             "smart_filters": _SMART_FILTERS,
             "capacity_summary": capacity_summary,
-            "capacity_alerts": capacity_alerts,
         }
     )
     return render(request, "school_admin/submissions.html", ctx)
