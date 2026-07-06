@@ -27,8 +27,8 @@ from core.models import Lead, School, SchoolAdminMembership, SchoolProgram, Subm
 User = get_user_model()
 
 SCHOOL_SLUG = "beverly-hills-gymnastics"
-ADMIN_USERNAME = "bhg_admin"
-ADMIN_PASSWORD = "BhgAdmin@123"
+ADMIN_USERNAME = "bhg_demo"
+ADMIN_PASSWORD = "DemoAccess@123"
 
 # (name, code, auto_enroll, waitlist_enabled)
 PROGRAMS = [
@@ -203,6 +203,9 @@ class Command(BaseCommand):
             self.stdout.write(f"  {verb}: {code} ({label})")
 
         # ── Admin user ───────────────────────────────────────────────────────
+        # Rename legacy bhg_admin → bhg_demo on re-runs so the membership is preserved.
+        User.objects.filter(username="bhg_admin").update(username=ADMIN_USERNAME)
+
         user, user_created = User.objects.get_or_create(
             username=ADMIN_USERNAME,
             defaults={
@@ -212,13 +215,11 @@ class Command(BaseCommand):
                 "is_active": True,
             },
         )
-        if user_created:
-            user.set_password(ADMIN_PASSWORD)
-            user.save()
-        else:
-            if not user.is_staff:
-                user.is_staff = True
-                user.save(update_fields=["is_staff"])
+        # Always sync password so re-runs keep credentials consistent.
+        user.set_password(ADMIN_PASSWORD)
+        if not user.is_staff:
+            user.is_staff = True
+        user.save(update_fields=["password", "is_staff"] if not user_created else None)
         SchoolAdminMembership.objects.get_or_create(user=user, school=school)
         self.stdout.write(f"  {'Created' if user_created else 'Exists'}: user {ADMIN_USERNAME}")
 

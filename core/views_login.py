@@ -2,8 +2,12 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.forms import AuthenticationForm
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
+
+DEMO_SESSION_TOKEN_KEY = "demo_token_id"
+DEMO_SESSION_PAGES_KEY = "demo_visited_pages"
 
 
 def _post_login_redirect(request, next_url=""):
@@ -40,3 +44,45 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect("login")
+
+
+def demo_access_view(request, token):
+    """Magic-link handler: validate token, log in as school's demo admin, redirect to dashboard."""
+    from core.models import DemoAccessToken, AdminAuditLog
+
+    try:
+        demo_token = DemoAccessToken.objects.select_related("school").get(token=token)
+    except DemoAccessToken.DoesNotExist:
+        return render(request, "demo_expired.html", {"reason": "not_found"}, status=404)
+
+    if demo_token.is_expired:
+        return render(request, "demo_expired.html", {
+            "reason": "expired",
+            "school": demo_token.school,
+        })
+
+    membership = demo_token.school.admin_memberships.select_related("user").first()
+    if not membership:
+        return render(request, "demo_expired.html", {
+            "reason": "no_user",
+            "school": demo_token.school,
+        })
+
+    user = membership.user
+    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    request.session[DEMO_SESSION_TOKEN_KEY] = demo_token.pk
+    request.session[DEMO_SESSION_PAGES_KEY] = []
+
+    demo_token.last_used_at = timezone.now()
+    demo_token.save(update_fields=["last_used_at"])
+
+    AdminAuditLog.objects.create(
+        actor=user,
+        action="action",
+        model_label="core.demoaccesstoken",
+        object_id=str(demo_token.pk),
+        object_repr=str(demo_token),
+        extra={"name": "demo_access", "school": demo_token.school.slug},
+    )
+
+    return redirect("school_dashboard", school_slug=demo_token.school.slug)

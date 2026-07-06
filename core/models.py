@@ -813,6 +813,43 @@ class AdminAuditLog(models.Model):
         return f"{self.created_at} {self.action} {self.model_label}#{self.object_id}"
 
 
+DEMO_TOKEN_DAYS = 14
+
+
+class DemoAccessToken(models.Model):
+    """
+    Magic-link token for sending prospects a one-click demo login.
+    Token is a UUID4; only the holder of the URL can use it.
+    Multiple tokens per school are allowed — generating a new one does not
+    invalidate old ones (they expire naturally).
+    """
+
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="demo_tokens")
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    pages_visited = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"DemoToken({self.school.slug}, expires {self.expires_at.date()})"
+
+    @property
+    def is_expired(self) -> bool:
+        return timezone.now() > self.expires_at
+
+    @property
+    def days_remaining(self) -> int:
+        delta = self.expires_at - timezone.now()
+        return max(0, delta.days)
+
+
 class AdminPreference(models.Model):
     """Per-user admin UI preferences (theme, etc.).
 

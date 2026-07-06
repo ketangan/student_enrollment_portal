@@ -175,6 +175,64 @@
     </form>
   </div>
 
+  <!-- Demo Access Link -->
+  <div class="dash-card" style="padding:24px;margin-bottom:16px;">
+    <h2 style="font-size:14px;font-weight:700;margin:0 0 16px;">Demo Access Link</h2>
+
+    {% if demo_token and not demo_token.is_expired %}
+    <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:14px 16px;margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#166534;margin-bottom:10px;">Active Link</div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+        <input type="text" id="demo-link-input" readonly value="{{ demo_link_url }}"
+               style="flex:1;font-size:11px;font-family:monospace;padding:7px 10px;
+                      border:1px solid #bbf7d0;border-radius:4px;background:#fff;color:#111;min-width:0;">
+        <button onclick="navigator.clipboard.writeText(document.getElementById('demo-link-input').value).then(function(){var b=this;b.textContent='Copied!';setTimeout(function(){b.textContent='Copy'},1500)}.bind(this))"
+                style="font-size:12px;padding:7px 14px;background:#16a34a;color:#fff;
+                       border:none;border-radius:4px;cursor:pointer;white-space:nowrap;font-weight:600;">
+          Copy
+        </button>
+      </div>
+      <div style="display:flex;gap:20px;font-size:12px;color:var(--dash-muted);flex-wrap:wrap;">
+        <span>Expires <strong style="color:var(--dash-text);">{{ demo_token.expires_at|date:"M j, Y" }}</strong></span>
+        <span>
+          <strong style="color:{% if demo_token.days_remaining <= 3 %}#dc2626{% elif demo_token.days_remaining <= 7 %}#d97706{% else %}var(--dash-text){% endif %};">
+            {{ demo_token.days_remaining }} day{{ demo_token.days_remaining|pluralize }}
+          </strong> remaining
+        </span>
+        {% if demo_token.last_used_at %}
+        <span>Last opened <strong style="color:var(--dash-text);">{{ demo_token.last_used_at|date:"M j, Y" }}</strong></span>
+        {% else %}
+        <span style="color:#d97706;font-weight:600;">Not opened yet</span>
+        {% endif %}
+        {% if demo_token.pages_visited %}
+        <span>Viewed: <strong style="color:var(--dash-text);">{{ demo_token.pages_visited|join:", " }}</strong></span>
+        {% endif %}
+      </div>
+    </div>
+
+    <form method="post" action="{% url 'ops_demo_token_extend' school.slug %}" style="display:inline;margin-right:8px;">
+      {% csrf_token %}
+      <button type="submit" class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;">Extend 14 Days</button>
+    </form>
+
+    {% elif demo_token and demo_token.is_expired %}
+    <p style="font-size:13px;color:#dc2626;margin:0 0 14px;">
+      Last link expired {{ demo_token.expires_at|date:"M j, Y" }}.
+      {% if demo_token.last_used_at %}Prospect opened it on {{ demo_token.last_used_at|date:"M j, Y" }}.{% else %}Never opened.{% endif %}
+    </p>
+
+    {% else %}
+    <p style="font-size:13px;color:var(--dash-muted);margin:0 0 14px;">No demo link yet.</p>
+    {% endif %}
+
+    <form method="post" action="{% url 'ops_demo_token_generate' school.slug %}">
+      {% csrf_token %}
+      <button type="submit" class="dash-action-btn dash-action-btn--primary" style="font-size:12px;">
+        {% if demo_token %}Generate New Link (14 days){% else %}Generate Demo Link{% endif %}
+      </button>
+    </form>
+  </div>
+
   <!-- Audit log -->
   <div class="dash-card" style="padding:24px;margin-bottom:24px;">
     <h2 style="font-size:14px;font-weight:700;margin:0 0 14px;">Recent Changes</h2>

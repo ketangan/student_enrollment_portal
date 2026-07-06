@@ -251,8 +251,25 @@ def _extract_contact_field(data: dict, keys: tuple) -> str:
 
 def _school_admin_base_context(request, school, active_nav: str) -> dict:
     """Shared context required by school_admin/base.html."""
+    from core.views_login import DEMO_SESSION_TOKEN_KEY, DEMO_SESSION_PAGES_KEY
+
     leads_enabled = school.features.leads_enabled
     user_initial = (request.user.get_full_name() or request.user.username)[0].upper()
+
+    is_demo_session = False
+    demo_token_id = request.session.get(DEMO_SESSION_TOKEN_KEY)
+    if demo_token_id:
+        is_demo_session = True
+        visited = request.session.get(DEMO_SESSION_PAGES_KEY, [])
+        if active_nav not in visited:
+            visited = visited + [active_nav]
+            request.session[DEMO_SESSION_PAGES_KEY] = visited
+            try:
+                from core.models import DemoAccessToken
+                DemoAccessToken.objects.filter(pk=demo_token_id).update(pages_visited=visited)
+            except Exception:
+                pass
+
     return {
         "school": school,
         "school_slug": school.slug,
@@ -260,6 +277,7 @@ def _school_admin_base_context(request, school, active_nav: str) -> dict:
         "user_initial": user_initial,
         "now": timezone.localtime(timezone.now()),
         "active_nav": active_nav,
+        "is_demo_session": is_demo_session,
     }
 
 

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Demo Link Expired</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+           background: #f8fafc; color: #1e293b; display: flex;
+           align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+    .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+            padding: 48px 40px; max-width: 480px; width: 100%; text-align: center;
+            box-shadow: 0 4px 24px rgba(0,0,0,.06); }
+    .icon { font-size: 40px; margin-bottom: 20px; }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 12px; }
+    p { font-size: 14px; color: #64748b; line-height: 1.7; margin-bottom: 8px; }
+    .school { font-weight: 600; color: #1e293b; }
+    .contact { margin-top: 28px; padding-top: 24px; border-top: 1px solid #e2e8f0;
+               font-size: 13px; color: #64748b; }
+    .contact a { color: #4f46e5; text-decoration: none; }
+    .contact a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🔒</div>
+    {% if reason == "expired" %}
+      <h1>This demo link has expired</h1>
+      {% if school %}<p class="school">{{ school.display_name }}</p>{% endif %}
+      <p>The preview link you used is no longer active. Demo links are valid for 14 days.</p>
+      <p>Reach out and we'll send you a fresh link.</p>
+    {% elif reason == "not_found" %}
+      <h1>Link not found</h1>
+      <p>This demo link doesn't exist or may have been copied incorrectly.</p>
+      <p>Reach out and we'll send you a valid link.</p>
+    {% else %}
+      <h1>Something went wrong</h1>
+      <p>We weren't able to log you in with this link. Please contact us and we'll sort it out.</p>
+    {% endif %}
+    <div class="contact">
+      Questions? <a href="mailto:kg.ketan@gmail.com">Get in touch</a>
+    </div>
+  </div>
+</body>
+</html>

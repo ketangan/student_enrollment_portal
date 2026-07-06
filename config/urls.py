@@ -21,7 +21,7 @@ from django.conf.urls.static import static
 
 from core.views import admin_download_submission_file, ratelimited_error_view
 from core.views_health import healthz
-from core.views_login import login_view, logout_view
+from core.views_login import login_view, logout_view, demo_access_view
 from core.views_webhooks import webhook_lead_intake_view
 
 handler429 = ratelimited_error_view
@@ -30,6 +30,7 @@ urlpatterns = [
     path("healthz/", healthz, name="healthz"),
     path("login/", login_view, name="login"),
     path("logout/", logout_view, name="logout"),
+    path("demo-access/<uuid:token>/", demo_access_view, name="demo_access"),
     path("ops/", include("core.urls_ops")),
     path("admin/uploads/<int:file_id>/", admin_download_submission_file, name="admin_download_submission_file"),
     path(settings.ADMIN_URL, admin.site.urls),

@@ -112,6 +112,17 @@
       </div>
     </div>
   </header>
+
+  {% if is_demo_session %}
+  <div style="background:#1e40af;color:#fff;text-align:center;padding:9px 16px;font-size:12px;
+              font-weight:600;letter-spacing:.01em;line-height:1.5;">
+    Built specifically for {{ school.display_name }}
+    &nbsp;·&nbsp; Programs configured
+    &nbsp;·&nbsp; Enrollment workflows set up
+    &nbsp;·&nbsp; Sample data loaded
+  </div>
+  {% endif %}
+
   <script>
   // ── Theme picker (3 themes, localStorage) ────────────────────────────────
   (function () {

@@ -16,4 +16,6 @@ urlpatterns = [
     path("submissions/", views_ops.ops_submissions_view, name="ops_submissions"),
     path("leads/", views_ops.ops_leads_view, name="ops_leads"),
     path("reports/", views_ops.ops_reports_view, name="ops_reports"),
+    path("schools/<slug:slug>/demo-token/generate/", views_ops.ops_demo_token_generate_view, name="ops_demo_token_generate"),
+    path("schools/<slug:slug>/demo-token/extend/", views_ops.ops_demo_token_extend_view, name="ops_demo_token_extend"),
 ]

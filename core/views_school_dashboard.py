@@ -387,6 +387,22 @@ def school_dashboard_view(request, school_slug: str):
         request.user.get_full_name() or request.user.username
     )[0].upper()
 
+    # Demo session tracking
+    from core.views_login import DEMO_SESSION_TOKEN_KEY, DEMO_SESSION_PAGES_KEY
+    is_demo_session = False
+    demo_token_id = request.session.get(DEMO_SESSION_TOKEN_KEY)
+    if demo_token_id:
+        is_demo_session = True
+        visited = request.session.get(DEMO_SESSION_PAGES_KEY, [])
+        if "dashboard" not in visited:
+            visited = visited + ["dashboard"]
+            request.session[DEMO_SESSION_PAGES_KEY] = visited
+            try:
+                from core.models import DemoAccessToken
+                DemoAccessToken.objects.filter(pk=demo_token_id).update(pages_visited=visited)
+            except Exception:
+                pass
+
     return render(
         request,
         "dashboard.html",
@@ -419,6 +435,7 @@ def school_dashboard_view(request, school_slug: str):
             "user_initial": user_initial,
             "now": timezone.localtime(timezone.now()),
             "active_nav": "dashboard",
+            "is_demo_session": is_demo_session,
         },
     )
 

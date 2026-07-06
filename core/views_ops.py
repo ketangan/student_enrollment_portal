@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from core.models import AdminAuditLog, Lead, School, SchoolAdminMembership, Submission
+from core.models import AdminAuditLog, DemoAccessToken, Lead, School, SchoolAdminMembership, Submission
 
 
 def ops_required(view_func):
@@ -172,6 +172,14 @@ def ops_school_detail_view(request, slug):
     submission_count = Submission.objects.filter(school=school).count()
     lead_count = Lead.objects.filter(school=school).count()
 
+    demo_token = DemoAccessToken.objects.filter(school=school).order_by("-created_at").first()
+    demo_link_url = (
+        request.build_absolute_uri(
+            reverse("demo_access", kwargs={"token": demo_token.token})
+        )
+        if demo_token else None
+    )
+
     return render(request, "ops/school_detail.html", {
         "active_nav": "schools",
         "school": school,
@@ -180,6 +188,8 @@ def ops_school_detail_view(request, slug):
         "recent_audit": recent_audit,
         "submission_count": submission_count,
         "lead_count": lead_count,
+        "demo_token": demo_token,
+        "demo_link_url": demo_link_url,
     })
 
 
@@ -557,3 +567,39 @@ def ops_reports_view(request):
         "school_rows": school_rows,
         "totals": totals,
     })
+
+
+# ── Demo access tokens ─────────────────────────────────────────────────────────
+
+@ops_required
+@require_POST
+def ops_demo_token_generate_view(request, slug):
+    school = get_object_or_404(School, slug=slug)
+    expires_at = timezone.now() + timezone.timedelta(days=14)
+    token = DemoAccessToken.objects.create(
+        school=school,
+        expires_at=expires_at,
+        created_by=request.user,
+    )
+    _log(request, "action", "core.demoaccesstoken", token.pk, str(token),
+         {"name": "generate_demo_token", "school": slug})
+    messages.success(request, f"Demo link generated — expires {expires_at.strftime('%b %d, %Y')}.")
+    return redirect("ops_school_detail", slug=slug)
+
+
+@ops_required
+@require_POST
+def ops_demo_token_extend_view(request, slug):
+    school = get_object_or_404(School, slug=slug)
+    token = DemoAccessToken.objects.filter(school=school).order_by("-created_at").first()
+    if not token:
+        messages.error(request, "No demo token exists for this school. Generate one first.")
+        return redirect("ops_school_detail", slug=slug)
+    base = max(token.expires_at, timezone.now())
+    token.expires_at = base + timezone.timedelta(days=14)
+    token.save(update_fields=["expires_at"])
+    _log(request, "action", "core.demoaccesstoken", token.pk, str(token),
+         {"name": "extend_demo_token", "school": slug,
+          "new_expires_at": token.expires_at.isoformat()})
+    messages.success(request, f"Demo link extended to {token.expires_at.strftime('%b %d, %Y')}.")
+    return redirect("ops_school_detail", slug=slug)
