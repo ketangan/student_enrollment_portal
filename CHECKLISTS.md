@@ -64,7 +64,7 @@ Goal: confirm what the school needs and what success looks like.
 - [ ] Include platform owner on BCC during pilot
 
 **Plan**
-- [ ] Trial (default — 14 days, then upgrade required)
+- [ ] Trial (default — 30 days, then upgrade required)
 - [ ] Starting on paid plan (Starter / Pro / Growth)
 
 ---

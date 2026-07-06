@@ -222,8 +222,8 @@ Key edge cases on downgrade:
 
 - New schools are created with `plan="trial"`
 - `trial_started_at` is auto-set to `timezone.now()` on the first save
-- Trial length: **14 days** (`TRIAL_LENGTH_DAYS = 14` in `core/models.py`)
-- After 14 days, `school.is_trial_expired` becomes `True`
+- Trial length: **30 days** (`TRIAL_LENGTH_DAYS = 30` in `core/models.py`)
+- After 30 days, `school.is_trial_expired` becomes `True`
 
 ### What Happens When a Trial Expires
 
@@ -246,10 +246,10 @@ School admins see a persistent **trial banner** in the Django admin:
 To extend a school's trial, update `trial_started_at` to a later date in `/admin/ → Schools`:
 
 ```
-trial_started_at = now - (desired_remaining_days - 14 days)
+trial_started_at = now - (desired_remaining_days - 30 days)
 ```
 
-Or set a future `trial_started_at` to give a fresh 14 days from that point.
+Or set a future `trial_started_at` to give a fresh 30 days from that point.
 
 ### Converting Trial to Paid
 
@@ -288,7 +288,7 @@ Price IDs come from Stripe Dashboard → Products → [Product] → Prices → c
 | State | Conditions | School Access | Billing UI |
 |:------|:-----------|:-------------|:-----------|
 | **Trial** | `plan="trial"`, `is_active=True`, no subscription | Active | Upgrade pricing cards shown |
-| **Trial Expired** | `plan="trial"`, `trial_started_at` + 14d in past | Intake blocked | Upgrade pricing cards + expired banner |
+| **Trial Expired** | `plan="trial"`, `trial_started_at` + 30d in past | Intake blocked | Upgrade pricing cards + expired banner |
 | **Active** | Subscription active/past_due/unpaid | Active | "Manage Subscription" portal button |
 | **Scheduled Cancel** | Subscription active, cancel scheduled | Active | "Manage Subscription" + cancel date banner |
 | **Ended/Locked** | `is_active=False` | Locked (billing page only) | "Account inactive" banner + "Re-subscribe" cards |
@@ -669,7 +669,7 @@ npx playwright test
 | **Pro** | $99/mo | Growing schools; adds custom branding, save & resume drafts, lead → submission conversion tracking, multi-form support |
 | **Growth** | $199/mo | High-volume schools; adds AI application summary for fast review, all Pro features |
 
-All plans start with a **14-day full-featured trial** — no credit card required.
+All plans start with a **30-day full-featured trial** — no credit card required.
 
 ### Customer Success Template
 
@@ -841,7 +841,7 @@ Payload cap: 50 KB. Larger bodies are rejected with 400.
 | Symptom | Check |
 |:--------|:------|
 | School admin sees no data | `SchoolAdminMembership` exists; user has `is_staff=True` |
-| Apply form shows "trial expired" | School's `trial_started_at` + 14 days has passed — upgrade plan or extend `trial_started_at` |
+| Apply form shows "trial expired" | School's `trial_started_at` + 30 days has passed — upgrade plan or extend `trial_started_at` |
 | Upload fails / 404 | `MEDIA_ROOT` reachable; file exists in `media/`; upload route exists |
 | Form fields not saving | YAML field keys unique; required fields present; restart server after YAML change |
 | Webhook not processing | Stripe CLI forwarding active; signing secret matches; check logs for verification errors |

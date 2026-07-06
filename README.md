@@ -216,7 +216,7 @@ Per-school feature flag overrides let you enable or disable any feature individu
 2. Visiting `/schools/<slug>/apply` shows that school's branded application form
 3. Submissions are validated, stored, and optionally trigger a confirmation email
 4. School admins log in to review submissions, manage leads, and view reports
-5. Schools start on a 14-day trial; after the trial they subscribe via Stripe to continue
+5. Schools start on a 30-day trial; after the trial they subscribe via Stripe to continue
 
 ---
 
@@ -247,7 +247,7 @@ Live feature set:
 - Application intake (dynamic YAML forms, file uploads, waivers, save & resume)
 - Lead capture, pipeline management, lead-to-submission conversion
 - Admin review, status tracking, audit log, reports, CSV export
-- Stripe billing with 14-day trial, plan tiers, and lifecycle enforcement
+- Stripe billing with 30-day trial, plan tiers, and lifecycle enforcement
 - AI-powered application summaries (Growth tier)
 - Per-school branding, embed snippet, scheduling link
 
