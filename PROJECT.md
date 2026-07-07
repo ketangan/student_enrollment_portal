@@ -134,6 +134,7 @@ JSON overrides in `School.feature_flags`. Superusers bypass most feature gates.
 - All views refactored — `core/views.py` is now a thin re-export facade
 - Ops Portal (Phases 1 + 2) complete — Django admin kept as raw escape hatch only
 - Custom login/logout flow in place (no longer through Django admin)
+- AI summary prompt hardened: summaries must stay evidence-based, avoid admission/enrollment recommendations, avoid protected-trait/sensitive inferences, and avoid medical/developmental/behavioral diagnosis.
 
 ---
 

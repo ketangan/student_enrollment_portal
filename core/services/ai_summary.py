@@ -136,6 +136,10 @@ def generate_ai_summary(
         "criteria_scores should be an empty array [] if no criteria were provided. "
         "Only state what is explicitly mentioned in the application. "
         "Do not infer facts not present. Say 'not mentioned' when information is absent. "
+        "Do not recommend admission, rejection, enrollment, placement, ranking, or eligibility decisions. "
+        "Do not infer protected or sensitive traits, diagnoses, family status, ability, finances, race, religion, immigration status, or socioeconomic status. "
+        "Do not diagnose medical, developmental, behavioral, or learning conditions; only summarize explicitly stated information neutrally when relevant. "
+        "Assess criteria only from explicit evidence in the application, and say 'not mentioned' when the evidence is absent. "
         "Be concise, factual, and professional."
     )
 
