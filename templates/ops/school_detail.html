@@ -183,7 +183,7 @@
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:14px 16px;margin-bottom:16px;">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#166534;margin-bottom:10px;">Active Link</div>
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
-        <input type="text" id="demo-link-input" readonly value="{{ demo_link_url }}"
+        <input type="text" id="demo-link-input" readonly
                style="flex:1;font-size:11px;font-family:monospace;padding:7px 10px;
                       border:1px solid #bbf7d0;border-radius:4px;background:#fff;color:#111;min-width:0;">
         <button onclick="navigator.clipboard.writeText(document.getElementById('demo-link-input').value).then(function(){var b=this;b.textContent='Copied!';setTimeout(function(){b.textContent='Copy'},1500)}.bind(this))"
@@ -192,6 +192,7 @@
           Copy
         </button>
       </div>
+      <script>document.getElementById('demo-link-input').value = window.location.origin + '{{ demo_link_path }}';</script>
       <div style="display:flex;gap:20px;font-size:12px;color:var(--dash-muted);flex-wrap:wrap;">
         <span>Expires <strong style="color:var(--dash-text);">{{ demo_token.expires_at|date:"M j, Y" }}</strong></span>
         <span>
