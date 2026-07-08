@@ -449,9 +449,8 @@ def _complete_submission_from_draft(
         try:
             _status_url = ""
             if school.features.family_portal_enabled:
-                _status_url = request.build_absolute_uri(
-                    reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
-                )
+                from core.services.url_builder import app_reverse
+                _status_url = app_reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
             send_applicant_confirmation_email(
                 config_raw=raw_config,
                 school_name=config.display_name,
@@ -654,9 +653,8 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 try:
                     _status_url = ""
                     if school.features.family_portal_enabled:
-                        _status_url = request.build_absolute_uri(
-                            reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
-                        )
+                        from core.services.url_builder import app_reverse
+                        _status_url = app_reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
                     send_applicant_confirmation_email(
                         config_raw=raw_config,
                         school_name=config.display_name,
@@ -867,9 +865,8 @@ def apply_payment_view(request, school_slug: str, draft_token: str):
             draft=draft, raw_config=raw_config, config=config, form_cfg=form_cfg,
         )
 
-    confirm_url = request.build_absolute_uri(
-        reverse("apply_payment_confirm", kwargs={"school_slug": school_slug, "draft_token": draft_token})
-    )
+    from core.services.url_builder import app_reverse
+    confirm_url = app_reverse("apply_payment_confirm", kwargs={"school_slug": school_slug, "draft_token": draft_token})
 
     return render(request, "apply_payment.html", {
         "school": school,
@@ -923,6 +920,7 @@ def apply_payment_confirm_view(request, school_slug: str, draft_token: str):
     if intent_status != "succeeded":
         raw_config = getattr(config, "raw", {}) or {}
         branding = merge_branding(getattr(config, "branding", None))
+        from core.services.url_builder import app_reverse
         return render(request, "apply_payment.html", {
             "school": school,
             "school_slug": school_slug,
@@ -931,9 +929,7 @@ def apply_payment_confirm_view(request, school_slug: str, draft_token: str):
             "fee_cfg": get_application_fee_config(raw_config, draft.last_form_key or draft.form_key or "default"),
             "stripe_public_key": school.app_fee_stripe_public_key,
             "client_secret": None,
-            "confirm_url": request.build_absolute_uri(
-                reverse("apply_payment_confirm", kwargs={"school_slug": school_slug, "draft_token": draft_token})
-            ),
+            "confirm_url": app_reverse("apply_payment_confirm", kwargs={"school_slug": school_slug, "draft_token": draft_token}),
             "student_name": "",
             "payment_error": "Payment was not completed. Please try again.",
             "embed_mode": request.GET.get("embed") == "1",

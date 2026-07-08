@@ -40,9 +40,10 @@ def demo_index(request, demo_slug):
     config = DEMO_REGISTRY.get(demo_slug)
     if not config:
         raise Http404
+    from core.services.url_builder import demo_url
     return render(request, f"{config['template_dir']}/index.html", {
         "demo_slug": demo_slug,
-        "base_url": request.build_absolute_uri(f"/demo/{demo_slug}/"),
+        "base_url": demo_url(f"/demo/{demo_slug}/"),
     })
 
 
@@ -51,9 +52,8 @@ def demo_detail(request, demo_slug, demo_name):
     if not config or demo_name not in config["demos"]:
         raise Http404
     school_slug = config["school_slug"]
-    form_url = request.build_absolute_uri(
-        reverse("apply", kwargs={"school_slug": school_slug})
-    )
+    from core.services.url_builder import app_reverse
+    form_url = app_reverse("apply", kwargs={"school_slug": school_slug})
     return render(request, f"{config['template_dir']}/{demo_name}.html", {
         "form_url": form_url,
         "embed_form_url": form_url + "?embed=1",

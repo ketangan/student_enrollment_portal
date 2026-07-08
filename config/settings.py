@@ -282,9 +282,13 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@example.com")
 # Always set DEFAULT_FROM_EMAIL explicitly in production/staging env vars.
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
 
-# Absolute base URL for building magic links in emails.
-# IMPORTANT: set this explicitly in production/staging. Wrong value = broken resume links.
+# Absolute base URL — fallback for local dev. In production set all three explicitly.
+# APP_BASE_URL  → production app  (e.g. https://app.enrollifyapp.com)
+# DEMO_BASE_URL → prospect demos  (e.g. https://demo.enrollifyapp.com)
+# BASE_URL      → fallback when the above are not set; also used by legacy references.
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+APP_BASE_URL = os.getenv("APP_BASE_URL", BASE_URL)
+DEMO_BASE_URL = os.getenv("DEMO_BASE_URL", BASE_URL)
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 

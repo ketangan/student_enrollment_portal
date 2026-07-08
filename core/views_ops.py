@@ -173,8 +173,9 @@ def ops_school_detail_view(request, slug):
     lead_count = Lead.objects.filter(school=school).count()
 
     demo_token = DemoAccessToken.objects.filter(school=school).order_by("-created_at").first()
-    demo_link_path = (
-        reverse("demo_access", kwargs={"token": demo_token.token})
+    from core.services.url_builder import demo_reverse
+    demo_link = (
+        demo_reverse("demo_access", kwargs={"token": demo_token.token})
         if demo_token else None
     )
 
@@ -187,7 +188,7 @@ def ops_school_detail_view(request, slug):
         "submission_count": submission_count,
         "lead_count": lead_count,
         "demo_token": demo_token,
-        "demo_link_path": demo_link_path,
+        "demo_link": demo_link,
     })
 
 

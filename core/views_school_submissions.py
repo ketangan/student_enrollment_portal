@@ -234,9 +234,8 @@ def school_submissions_view(request, school_slug: str):
         for profile_name in get_export_configs(config_raw)
     ]
 
-    apply_url = request.build_absolute_uri(
-        reverse("apply", kwargs={"school_slug": school_slug})
-    )
+    from core.services.url_builder import app_reverse
+    apply_url = app_reverse("apply", kwargs={"school_slug": school_slug})
 
     capacity_summary = get_capacity_summary(school, config_raw)
 
@@ -802,9 +801,8 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
     family_portal_enabled = school.features.family_portal_enabled
     family_status_url = ""
     if family_portal_enabled:
-        family_status_url = request.build_absolute_uri(
-            reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
-        )
+        from core.services.url_builder import app_reverse
+        family_status_url = app_reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
 
     ctx = _school_admin_base_context(request, school, "submissions")
     ctx.update({
@@ -1666,9 +1664,8 @@ def school_submission_resend_confirmation_view(request, school_slug: str, submis
 
     status_url = ""
     if school.features.family_portal_enabled:
-        status_url = request.build_absolute_uri(
-            reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
-        )
+        from core.services.url_builder import app_reverse
+        status_url = app_reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
 
     sent = send_applicant_confirmation_email(
         config_raw=getattr(config, "raw", {}),
@@ -1833,9 +1830,8 @@ def school_submission_resend_status_link_view(request, school_slug: str, submiss
         messages.error(request, "No parent email found on this submission.")
         return redirect(redirect_url)
 
-    status_url = request.build_absolute_uri(
-        reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
-    )
+    from core.services.url_builder import app_reverse
+    status_url = app_reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
 
     sent = send_status_link_email(
         to_email=parent_email,

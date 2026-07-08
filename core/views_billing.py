@@ -165,7 +165,8 @@ def billing_create_checkout(request):
         messages.error(request, "Invalid price selection.")
         return redirect(_billing_url(request, school))
 
-    billing_url = request.build_absolute_uri(_billing_url(request, school))
+    from core.services.url_builder import app_url
+    billing_url = app_url(_billing_url(request, school))
     success_url = billing_url + ("&" if "?" in billing_url else "?") + "status=success"
     cancel_url = billing_url + ("&" if "?" in billing_url else "?") + "status=canceled"
 
@@ -200,7 +201,8 @@ def billing_portal(request):
     if not school:
         raise Http404
 
-    return_url = request.build_absolute_uri(_billing_url(request, school))
+    from core.services.url_builder import app_url
+    return_url = app_url(_billing_url(request, school))
     portal_url = create_portal_session(school=school, return_url=return_url)
 
     if not portal_url:

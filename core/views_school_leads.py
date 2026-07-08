@@ -181,9 +181,8 @@ def school_leads_view(request, school_slug: str):
     lead_export_base = reverse("school_lead_export", kwargs={"school_slug": school_slug})
     lead_export_url = lead_export_base + ("?" + urlencode(_export_params) if _export_params else "")
 
-    lead_capture_url = request.build_absolute_uri(
-        reverse("lead_capture", kwargs={"school_slug": school_slug})
-    )
+    from core.services.url_builder import app_reverse
+    lead_capture_url = app_reverse("lead_capture", kwargs={"school_slug": school_slug})
 
     ctx = _school_admin_base_context(request, school, "leads")
     ctx.update(
@@ -589,9 +588,8 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
         )
         if existing_draft:
             form_url = reverse("apply", kwargs={"school_slug": school_slug})
-            resume_url = request.build_absolute_uri(
-                reverse("apply_resume", kwargs={"school_slug": school_slug, "token": existing_draft.token})
-            )
+            from core.services.url_builder import app_reverse
+            resume_url = app_reverse("apply_resume", kwargs={"school_slug": school_slug, "token": existing_draft.token})
 
     is_followup_overdue = bool(
         lead.next_follow_up_at and lead.next_follow_up_at < timezone.now()

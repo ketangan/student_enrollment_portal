@@ -370,9 +370,8 @@ def school_dashboard_view(request, school_slug: str):
         }
 
     # Apply URL and related links
-    apply_url = request.build_absolute_uri(
-        reverse("apply", kwargs={"school_slug": school_slug})
-    )
+    from core.services.url_builder import app_reverse
+    apply_url = app_reverse("apply", kwargs={"school_slug": school_slug})
     submissions_url = reverse("school_submissions", kwargs={"school_slug": school_slug})
     leads_url = reverse("school_leads", kwargs={"school_slug": school_slug}) if leads_enabled else ""
 
@@ -580,9 +579,8 @@ def school_settings_view(request, school_slug: str):
             messages.success(request, f'Display name updated to "{new_name}".')
         return redirect("school_settings", school_slug=school_slug)
 
-    apply_url = request.build_absolute_uri(
-        reverse("apply", kwargs={"school_slug": school_slug})
-    )
+    from core.services.url_builder import app_reverse
+    apply_url = app_reverse("apply", kwargs={"school_slug": school_slug})
     embed_snippet = (
         f'<iframe src="{apply_url}" width="100%" height="700" '
         f'frameborder="0" style="border:none;" title="Application Form"></iframe>'
@@ -734,9 +732,8 @@ def school_billing_checkout_view(request, school_slug: str):
         create_checkout_session, get_pricing_options, is_stripe_configured,
     )
     school = _get_accessible_school_for_admin(request, school_slug)
-    billing_url = request.build_absolute_uri(
-        reverse("school_billing", kwargs={"school_slug": school_slug})
-    )
+    from core.services.url_builder import app_reverse
+    billing_url = app_reverse("school_billing", kwargs={"school_slug": school_slug})
 
     if not is_stripe_configured():
         messages.error(request, "Billing is not configured.")
@@ -780,9 +777,8 @@ def school_billing_portal_view(request, school_slug: str):
     """
     from core.services.billing_stripe import create_portal_session
     school = _get_accessible_school_for_admin(request, school_slug)
-    billing_url = request.build_absolute_uri(
-        reverse("school_billing", kwargs={"school_slug": school_slug})
-    )
+    from core.services.url_builder import app_reverse
+    billing_url = app_reverse("school_billing", kwargs={"school_slug": school_slug})
     portal_url = create_portal_session(school=school, return_url=billing_url)
     if not portal_url:
         messages.error(request, "Could not open billing portal. Please try again.")

@@ -210,7 +210,7 @@ form:
           required: false
 
 branding:
-  logo_url: "https://student-enrollment-portal-tswx.onrender.com/static/logos/lessons-in-art/logo.png"
+  logo_url: "https://app.enrollifyapp.com/static/logos/lessons-in-art/logo.png"
   theme:
     primary_color: "#111827"
     accent_color: "#7c3aed"

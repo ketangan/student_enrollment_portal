@@ -64,20 +64,12 @@ def _format_submission_lines(submission_data: Dict[str, Any]) -> str:
         lines.append(f"{k}: {v}")
     return "\n".join(lines)
 
-def _build_admin_submission_url(*, request, submission_id: int | str) -> str:
-    """
-    Returns an absolute URL to the admin change page for this submission.
-    Works locally + Render because it uses the incoming request host.
-    """
-    path = reverse("admin:core_submission_change", args=[submission_id])
-    return request.build_absolute_uri(path)
-
 def _admin_url_for_submission(
     *, request: Optional[HttpRequest], submission_id: int | str
 ) -> str:
-    if request is None:
-        return f"/admin/core/submission/{submission_id}/change/"
-    return _build_admin_submission_url(request=request, submission_id=submission_id)
+    from core.services.url_builder import app_url
+    path = reverse("admin:core_submission_change", args=[submission_id])
+    return app_url(path)
 
 
 def _build_submission_email_subject(*, student_name: str, program: str) -> str:
@@ -446,10 +438,8 @@ def send_resume_link_email(*, draft, school) -> bool:
     if not draft.email:
         return False
 
-    base_url = getattr(settings, "BASE_URL", "http://localhost:8000").rstrip("/")
-    from django.urls import reverse as _reverse
-    resume_path = _reverse("apply_resume", args=[school.slug, draft.token])
-    resume_url = f"{base_url}{resume_path}"
+    from core.services.url_builder import app_reverse
+    resume_url = app_reverse("apply_resume", args=[school.slug, draft.token])
     school_name = school.display_name or school.slug
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "")
     if not from_email:
