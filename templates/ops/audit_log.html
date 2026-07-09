@@ -1,0 +1,149 @@
+{% extends "ops/base.html" %}
+{% block page_title %}Audit Log{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+    <div>
+      <h1 style="font-size:20px;font-weight:700;margin:0 0 4px;">Audit Log</h1>
+      <p style="font-size:13px;color:var(--dash-muted);margin:0;">
+        {{ total_count }} entr{{ total_count|pluralize:"y,ies" }} total
+      </p>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="dash-card" style="padding:16px 20px;margin-bottom:20px;">
+    <form method="get" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+      <div style="flex:1;min-width:160px;">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--dash-muted);margin-bottom:4px;">Search</label>
+        <input type="text" name="q" value="{{ search_q }}" placeholder="object, actor, path…"
+               class="dash-input" style="width:100%;">
+      </div>
+      <div style="min-width:130px;">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--dash-muted);margin-bottom:4px;">Actor</label>
+        <select name="actor" class="dash-input">
+          <option value="">All actors</option>
+          {% for u in actor_choices %}
+          <option value="{{ u }}" {% if actor_filter == u %}selected{% endif %}>{{ u }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="min-width:120px;">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--dash-muted);margin-bottom:4px;">Action</label>
+        <select name="action" class="dash-input">
+          <option value="">All actions</option>
+          {% for val, label in action_choices %}
+          <option value="{{ val }}" {% if action_filter == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="min-width:140px;">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--dash-muted);margin-bottom:4px;">Model</label>
+        <input type="text" name="model" value="{{ model_filter }}" placeholder="e.g. core.submission"
+               class="dash-input">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--dash-muted);margin-bottom:4px;">From</label>
+        <input type="date" name="date_from" value="{{ date_from }}" class="dash-input">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--dash-muted);margin-bottom:4px;">To</label>
+        <input type="date" name="date_to" value="{{ date_to }}" class="dash-input">
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button type="submit" class="dash-action-btn" style="height:36px;padding:0 16px;">Filter</button>
+        {% if actor_filter or action_filter or model_filter or date_from or date_to or search_q %}
+        <a href="{% url 'ops_audit_log' %}" class="dash-action-btn dash-action-btn--secondary" style="height:36px;padding:0 14px;display:flex;align-items:center;">Clear</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <!-- Table -->
+  <div class="dash-card" style="padding:0;overflow:hidden;">
+    {% if page_obj.object_list %}
+    <div style="overflow-x:auto;">
+      <table class="dash-table" style="margin:0;">
+        <thead>
+          <tr>
+            <th style="padding-left:20px;">When</th>
+            <th>Actor</th>
+            <th>Action</th>
+            <th>Model</th>
+            <th>Object</th>
+            <th>Detail</th>
+            <th>IP</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in page_obj %}
+          <tr>
+            <td style="padding-left:20px;font-size:11px;color:var(--dash-muted);white-space:nowrap;">
+              {{ entry.created_at|date:"M j, Y H:i:s" }}
+            </td>
+            <td style="font-size:12px;font-weight:600;">
+              {{ entry.actor.username|default:"—" }}
+            </td>
+            <td>
+              <span style="font-size:11px;text-transform:uppercase;font-weight:700;
+                {% if entry.action == 'add' %}color:#059669;
+                {% elif entry.action == 'delete' %}color:#dc2626;
+                {% elif entry.action == 'change' %}color:#d97706;
+                {% else %}color:#6366f1;{% endif %}">
+                {{ entry.get_action_display }}
+              </span>
+            </td>
+            <td style="font-size:11px;font-family:monospace;color:var(--dash-muted);">
+              {{ entry.model_label }}
+            </td>
+            <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                title="{{ entry.object_repr }}">
+              {{ entry.object_repr|default:"—"|truncatechars:40 }}
+            </td>
+            <td style="font-size:11px;color:var(--dash-muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                title="{% if entry.extra %}{{ entry.extra }}{% elif entry.changes %}{{ entry.changes }}{% endif %}">
+              {% if entry.extra.name %}
+                {{ entry.extra.name }}
+              {% elif entry.changes %}
+                {{ entry.changes|length }} field{{ entry.changes|length|pluralize }} changed
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td style="font-size:11px;color:var(--dash-muted);font-family:monospace;">
+              {{ entry.ip_address|default:"—" }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div style="padding:14px 20px;border-top:1px solid var(--dash-border);display:flex;gap:8px;align-items:center;font-size:13px;">
+      {% if page_obj.has_previous %}
+      <a href="?{% if search_q %}q={{ search_q }}&{% endif %}{% if actor_filter %}actor={{ actor_filter }}&{% endif %}{% if action_filter %}action={{ action_filter }}&{% endif %}{% if model_filter %}model={{ model_filter }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}page={{ page_obj.previous_page_number }}"
+         class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;padding:4px 12px;">← Prev</a>
+      {% endif %}
+      <span style="color:var(--dash-muted);">
+        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+      </span>
+      {% if page_obj.has_next %}
+      <a href="?{% if search_q %}q={{ search_q }}&{% endif %}{% if actor_filter %}actor={{ actor_filter }}&{% endif %}{% if action_filter %}action={{ action_filter }}&{% endif %}{% if model_filter %}model={{ model_filter }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}page={{ page_obj.next_page_number }}"
+         class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;padding:4px 12px;">Next →</a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div style="padding:32px 24px;text-align:center;color:var(--dash-muted);font-size:13px;">
+      No audit log entries match your filters.
+    </div>
+    {% endif %}
+  </div>
+
+</main>
+{% endblock %}

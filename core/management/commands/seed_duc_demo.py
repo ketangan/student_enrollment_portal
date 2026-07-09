@@ -111,6 +111,10 @@ class Command(BaseCommand):
             school.is_active = True
             school.save(update_fields=["is_active"])
 
+        if not school.is_demo:
+            school.is_demo = True
+            school.save(update_fields=["is_demo"])
+
         # ── Programs ─────────────────────────────────────────────────────────
         program_map = {}
         for name, code in PROGRAMS:

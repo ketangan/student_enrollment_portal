@@ -18,4 +18,8 @@ urlpatterns = [
     path("reports/", views_ops.ops_reports_view, name="ops_reports"),
     path("schools/<slug:slug>/demo-token/generate/", views_ops.ops_demo_token_generate_view, name="ops_demo_token_generate"),
     path("schools/<slug:slug>/demo-token/extend/", views_ops.ops_demo_token_extend_view, name="ops_demo_token_extend"),
+    path("schools/<slug:slug>/convert/", views_ops.ops_school_convert_view, name="ops_school_convert"),
+    path("schools/<slug:slug>/checklist/<str:item>/toggle/", views_ops.ops_checklist_toggle_view, name="ops_checklist_toggle"),
+    path("schools/<slug:slug>/welcome-email/", views_ops.ops_school_welcome_email_view, name="ops_school_welcome_email"),
+    path("audit/", views_ops.ops_audit_log_view, name="ops_audit_log"),
 ]

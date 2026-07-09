@@ -55,6 +55,11 @@ def demo_access_view(request, token):
     except DemoAccessToken.DoesNotExist:
         return render(request, "demo_expired.html", {"reason": "not_found"}, status=404)
 
+    # Old demo links to a converted school → redirect to their live enrollment form.
+    # Onboarding tokens always log in normally regardless of is_demo.
+    if not demo_token.school.is_demo and demo_token.purpose == demo_token.PURPOSE_DEMO:
+        return redirect("apply", school_slug=demo_token.school.slug)
+
     if demo_token.is_expired:
         return render(request, "demo_expired.html", {
             "reason": "expired",
@@ -70,8 +75,10 @@ def demo_access_view(request, token):
 
     user = membership.user
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-    request.session[DEMO_SESSION_TOKEN_KEY] = demo_token.pk
-    request.session[DEMO_SESSION_PAGES_KEY] = []
+    # Only set demo session for demo-purpose tokens — onboarding tokens skip the demo banner.
+    if demo_token.purpose == demo_token.PURPOSE_DEMO:
+        request.session[DEMO_SESSION_TOKEN_KEY] = demo_token.pk
+        request.session[DEMO_SESSION_PAGES_KEY] = []
 
     demo_token.last_used_at = timezone.now()
     demo_token.save(update_fields=["last_used_at"])

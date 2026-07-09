@@ -31,7 +31,9 @@ Run this before every production deploy. All items must be green before going li
 | `CSRF_TRUSTED_ORIGINS` | `https://yourdomain.com` | Required for CSRF to work behind proxy |
 | `DEFAULT_FROM_EMAIL` | `School Name <noreply@yourdomain.com>` | Must be a verified Resend sender |
 | `RESEND_EMAIL_API_KEY` | `re_xxx` | From Resend dashboard |
-| `BASE_URL` | `https://yourdomain.com` | Used for magic links in emails |
+| `BASE_URL` | `https://yourdomain.com` | Fallback base URL when APP_BASE_URL/DEMO_BASE_URL not set |
+| `APP_BASE_URL` | `https://app.enrollifyapp.com` | Base URL for production customer links (magic links, emails) |
+| `DEMO_BASE_URL` | `https://demo.enrollifyapp.com` | Base URL for prospect demo links |
 
 ### Recommended / Optional Variables
 
@@ -86,14 +88,33 @@ For higher traffic, configure a Redis cache backend to share state across worker
 
 ## Activating a New School
 
+### Option A — Converting a Demo (recommended for prospects who said yes)
+
+Use the Ops Portal:
+
+1. `/ops/schools/<slug>/` → **Convert to Customer →** button (only visible when `is_demo=True`)
+2. Fill in: real admin email, plan, trial length, whether to delete demo data
+3. Submit — the conversion handles everything atomically:
+   - Archives demo submissions/leads (rollback insurance)
+   - Optionally deletes sample data
+   - Expires demo access tokens
+   - Creates/assigns real admin user
+   - Flips `is_demo=False`, sets plan
+   - Creates onboarding magic link (7 days)
+   - Auto-completes first 4 checklist items
+4. Copy the magic link from the success panel and send it to the school admin
+5. Click **Send Welcome Email** to send the full onboarding package (magic link, enrollment URL, iframe snippet, QR code)
+
+### Option B — Brand-New School (no prior demo)
+
 1. Create YAML: copy `example-school.yaml`, rename to `<slug>.yaml`, edit content
-2. In `/admin/ → Core → Schools → Add`:
+2. In `/ops/schools/new/`:
    - Slug (must match YAML filename exactly)
    - Display name
    - Plan: `trial` for new schools (trial clock starts automatically on first save)
 3. Save — form is live at `/schools/<slug>/apply`
-4. Create admin user: `/admin/ → Users → Add`, fill in info, select school, save
-   - System sets `is_staff=True` and creates `SchoolAdminMembership`
+4. In `/ops/schools/<slug>/` → School Admins → Add by email
+5. From the same page, click **Send Welcome Email** to send the onboarding package
 
 ---
 
@@ -304,8 +325,8 @@ Price IDs come from Stripe Dashboard → Products → [Product] → Prices → c
 ### Local Testing with Stripe CLI
 
 ```bash
-# Forward webhooks to local server
-stripe listen --forward-to http://localhost:8000/stripe/webhook/
+# Forward webhooks to local server (dev server runs on 8001)
+stripe listen --forward-to http://localhost:8001/stripe/webhook/
 
 # Trigger events
 stripe trigger checkout.session.completed
@@ -410,7 +431,7 @@ Available in the Reports page (`/schools/<slug>/admin/reports`). Shows lead coun
 
 Email is sent via the [Resend](https://resend.com) API.
 
-Required env var: `RESEND_API_KEY`
+Required env var: `RESEND_EMAIL_API_KEY` (note: not `RESEND_API_KEY` — the env var name is `RESEND_EMAIL_API_KEY`)
 
 Emails sent:
 - **Submission confirmation** — sent to applicant on successful form submission (Starter+, `email_notifications_enabled`)
@@ -635,7 +656,7 @@ python -m pytest --cov=core --cov-report=term-missing
 npx playwright test
 ```
 
-578+ unit/integration tests passing. E2E tests cover billing flows, apply form, and admin interactions.
+1119 unit/integration tests passing. E2E tests cover billing flows, apply form, and admin interactions.
 
 ---
 
@@ -833,6 +854,46 @@ Unknown fields are stored in `Lead.data["extra"]`.
 - `404 {"ok": false, "error": "Not found."}` — bad token or inactive school
 
 Payload cap: 50 KB. Larger bodies are rejected with 400.
+
+---
+
+## Customer Onboarding (Ops Portal)
+
+The Ops Portal (`/ops/`) is the primary tool for activating new schools. All onboarding actions are logged to the audit trail.
+
+### Demo → Customer Conversion
+
+When a prospect demo converts, use `/ops/schools/<slug>/convert/`:
+
+| Step | What happens |
+|:-----|:------------|
+| Archive | Demo submissions/leads/config saved to `DemoArchive` (rollback available) |
+| Clean up | Sample submissions/leads optionally deleted |
+| Tokens | All demo access tokens expired immediately |
+| Access | Demo admin membership removed (user account preserved); new real admin created/assigned |
+| School | `is_demo=False`, plan updated, trial clock reset if applicable |
+| Magic link | 7-day onboarding token created (`purpose=onboarding`) — logs admin in without a password |
+| Checklist | First 4 items auto-completed: school_created, plan_configured, trial_configured, admin_invited |
+
+The operation is atomic and idempotent — safe to retry if interrupted.
+
+### Onboarding Checklist
+
+Each non-demo school has a 15-item fixed checklist in the Ops Portal school detail page. Items toggle on click. Completion is logged per-user.
+
+### Welcome Email
+
+The **Send Welcome Email** button (Ops Portal → school detail) sends the school admin:
+- Magic login link (7 days, no password needed)
+- Admin portal URL + enrollment form URL
+- iframe embed snippet + QR code (for flyers/signage)
+- Getting started steps
+
+Requires: at least one `SchoolAdminMembership` with an email address, and `RESEND_EMAIL_API_KEY` configured.
+
+### Demo Access Tokens After Conversion
+
+Old `purpose=demo` tokens for converted schools redirect to the live enrollment form (not an error page). New `purpose=onboarding` tokens log in the real admin with no demo banner.
 
 ---
 

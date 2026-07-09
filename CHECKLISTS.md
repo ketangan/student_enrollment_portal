@@ -89,13 +89,13 @@ Goal: YAML + Admin setup correct and consistent.
 - [ ] If save & resume: Pro+ plan confirmed (`save_resume_enabled`)
 
 **Admin setup**
-- [ ] School record created in `/admin/ → Schools`
+- [ ] School record created via `/ops/schools/new/` (or converted from demo via `/ops/schools/<slug>/convert/`)
   - [ ] Slug matches YAML filename
   - [ ] Plan set correctly
   - [ ] `is_active = True`
-- [ ] School admin user created and linked via `SchoolAdminMembership`
+- [ ] School admin user created and assigned via `/ops/schools/<slug>/` → School Admins → Add
 - [ ] School admin confirmed scoped correctly (cannot see other schools)
-- [ ] Trial start date confirmed in school record (`trial_started_at` set automatically)
+- [ ] Trial start date confirmed in school record (`trial_started_at` set automatically on first save)
 
 ---
 
@@ -148,7 +148,7 @@ Goal: move from demo to real usage safely.
 
 **Launch**
 - [ ] Apply page link sent to school
-- [ ] Admin login instructions sent (with `/admin/` URL)
+- [ ] **Send Welcome Email** sent from Ops Portal (`/ops/schools/<slug>/`) — includes magic login link, enrollment URL, embed snippet
 - [ ] One real submission completed by school staff
 - [ ] School confirms confirmation email received
 - [ ] School confirms admin access and can see submission
@@ -167,12 +167,18 @@ Goal: move from demo to real usage safely.
 
 ## F) Trial → Paid Conversion
 
-- [ ] School initiates upgrade from billing page in admin
+**Self-service (school-initiated):**
+- [ ] School initiates upgrade from billing page in their admin
 - [ ] Stripe Checkout completes
 - [ ] Webhook received: `checkout.session.completed`
-- [ ] School `plan` updated in admin (Starter / Pro / Growth)
+- [ ] School `plan` updated automatically (Starter / Pro / Growth)
 - [ ] Trial banner disappears from school admin
 - [ ] New features available immediately (reports, email, leads, etc. per plan)
+
+**Operator-initiated (demo → real customer):**
+- [ ] Use `/ops/schools/<slug>/convert/` → fills plan, creates admin, generates magic link
+- [ ] Send Welcome Email from Ops Portal school detail page
+- [ ] Complete onboarding checklist items as school gets set up
 
 ---
 

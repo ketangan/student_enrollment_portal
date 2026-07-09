@@ -144,6 +144,7 @@ class School(models.Model):
     stripe_subscription_id = models.CharField(max_length=255, blank=True, default="")
     stripe_subscription_status = models.CharField(max_length=50, blank=True, default="")
     is_active = models.BooleanField(default=True)
+    is_demo = models.BooleanField(default=False, db_index=True)
     stripe_cancel_at = models.DateTimeField(null=True, blank=True)
     stripe_cancel_at_period_end = models.BooleanField(default=False)
     stripe_current_period_end = models.DateTimeField(null=True, blank=True)
@@ -818,11 +819,14 @@ DEMO_TOKEN_DAYS = 14
 
 class DemoAccessToken(models.Model):
     """
-    Magic-link token for sending prospects a one-click demo login.
-    Token is a UUID4; only the holder of the URL can use it.
-    Multiple tokens per school are allowed — generating a new one does not
-    invalidate old ones (they expire naturally).
+    Magic-link token for one-click login.
+    purpose="demo": prospect demo access (uses demo domain, shows demo banner).
+    purpose="onboarding": real admin login after conversion (uses app domain, no banner).
     """
+
+    PURPOSE_DEMO = "demo"
+    PURPOSE_ONBOARDING = "onboarding"
+    PURPOSE_CHOICES = [(PURPOSE_DEMO, "Demo"), (PURPOSE_ONBOARDING, "Onboarding")]
 
     token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="demo_tokens")
@@ -833,12 +837,13 @@ class DemoAccessToken(models.Model):
     )
     last_used_at = models.DateTimeField(null=True, blank=True)
     pages_visited = models.JSONField(default=list, blank=True)
+    purpose = models.CharField(max_length=20, choices=PURPOSE_CHOICES, default=PURPOSE_DEMO)
 
     class Meta:
         ordering = ["-created_at"]
 
     def __str__(self) -> str:
-        return f"DemoToken({self.school.slug}, expires {self.expires_at.date()})"
+        return f"DemoToken({self.school.slug}, {self.purpose}, expires {self.expires_at.date()})"
 
     @property
     def is_expired(self) -> bool:
@@ -848,6 +853,62 @@ class DemoAccessToken(models.Model):
     def days_remaining(self) -> int:
         delta = self.expires_at - timezone.now()
         return max(0, delta.days)
+
+
+class OnboardingChecklistItem(models.Model):
+    ITEMS = [
+        ("school_created", "School created"),
+        ("plan_configured", "Plan configured"),
+        ("trial_configured", "Trial configured"),
+        ("admin_invited", "Admin user invited"),
+        ("branding_configured", "Branding configured"),
+        ("programs_configured", "Programs configured"),
+        ("workflows_configured", "Enrollment workflows configured"),
+        ("payment_configured", "Payment workflow configured"),
+        ("email_templates_reviewed", "Email templates reviewed"),
+        ("lead_capture_configured", "Lead capture configured"),
+        ("website_integration_complete", "Website integration complete"),
+        ("test_submission_completed", "Test submission completed"),
+        ("email_delivery_verified", "Email delivery verified"),
+        ("reports_verified", "Reports verified"),
+        ("school_marked_live", "School marked Live"),
+    ]
+    ITEM_LABELS = dict(ITEMS)
+
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="onboarding_items")
+    item = models.CharField(max_length=50, choices=ITEMS)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    completed_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(fields=["school", "item"], name="unique_school_onboarding_item")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.school.slug} — {self.item}"
+
+
+class DemoArchive(models.Model):
+    """Lightweight snapshot of demo data taken before conversion (rollback insurance)."""
+
+    school = models.OneToOneField(School, on_delete=models.CASCADE, related_name="demo_archive")
+    archived_at = models.DateTimeField(auto_now_add=True)
+    archived_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    submissions_json = models.JSONField(default=list)
+    leads_json = models.JSONField(default=list)
+    config_yaml = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Demo Archive"
+
+    def __str__(self) -> str:
+        return f"DemoArchive({self.school.slug}, {self.archived_at.date()})"
 
 
 class AdminPreference(models.Model):

@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from core.models import AdminAuditLog, DemoAccessToken, Lead, School, SchoolAdminMembership, Submission
+from core.models import AdminAuditLog, DemoAccessToken, Lead, OnboardingChecklistItem, School, SchoolAdminMembership, Submission
 
 
 def ops_required(view_func):
@@ -70,6 +70,12 @@ def ops_dashboard_view(request):
 
     recent_schools = School.objects.order_by("-created_at")[:5]
 
+    recent_activity = (
+        AdminAuditLog.objects
+        .select_related("actor")
+        .order_by("-created_at")[:15]
+    )
+
     return render(request, "ops/dashboard.html", {
         "active_nav": "dashboard",
         "total_schools": total_schools,
@@ -79,6 +85,7 @@ def ops_dashboard_view(request):
         "expired_trials": expired,
         "total_users": total_users,
         "recent_schools": recent_schools,
+        "recent_activity": recent_activity,
     })
 
 
@@ -173,11 +180,32 @@ def ops_school_detail_view(request, slug):
     lead_count = Lead.objects.filter(school=school).count()
 
     demo_token = DemoAccessToken.objects.filter(school=school).order_by("-created_at").first()
-    from core.services.url_builder import demo_reverse
+    from core.services.url_builder import demo_reverse, app_reverse
     demo_link = (
         demo_reverse("demo_access", kwargs={"token": demo_token.token})
-        if demo_token else None
+        if demo_token and demo_token.purpose == DemoAccessToken.PURPOSE_DEMO else None
     )
+    onboarding_link = (
+        app_reverse("demo_access", kwargs={"token": demo_token.token})
+        if demo_token and demo_token.purpose == DemoAccessToken.PURPOSE_ONBOARDING else None
+    )
+
+    from core.services.onboarding import get_or_create_checklist, qr_base64
+    checklist_items = get_or_create_checklist(school)
+    checklist_done = sum(1 for i in checklist_items if i.completed_at)
+    checklist_total = len(checklist_items)
+
+    enrollment_url = app_reverse("apply", kwargs={"school_slug": school.slug})
+    iframe_snippet = (
+        f'<iframe src="{enrollment_url}" width="100%" height="800" '
+        f'frameborder="0" style="border:none;"></iframe>'
+    )
+
+    welcome_sent = AdminAuditLog.objects.filter(
+        model_label="core.school",
+        object_id=str(school.pk),
+        extra__name="customer_welcome_email_sent",
+    ).exists()
 
     return render(request, "ops/school_detail.html", {
         "active_nav": "schools",
@@ -189,6 +217,13 @@ def ops_school_detail_view(request, slug):
         "lead_count": lead_count,
         "demo_token": demo_token,
         "demo_link": demo_link,
+        "onboarding_link": onboarding_link,
+        "checklist_items": checklist_items,
+        "checklist_done": checklist_done,
+        "checklist_total": checklist_total,
+        "enrollment_url": enrollment_url,
+        "iframe_snippet": iframe_snippet,
+        "welcome_sent": welcome_sent,
     })
 
 
@@ -586,6 +621,123 @@ def ops_demo_token_generate_view(request, slug):
     return redirect("ops_school_detail", slug=slug)
 
 
+# ── Onboarding: Convert Demo to Customer ─────────────────────────────────────
+
+@ops_required
+def ops_school_convert_view(request, slug):
+    from core.services.feature_flags import ALL_PLANS, PLAN_CHOICES
+    from core.services.onboarding import convert_demo_to_customer
+    from core.services.url_builder import app_reverse
+
+    school = get_object_or_404(School, slug=slug)
+    sub_count = Submission.objects.filter(school=school).count()
+    lead_count = Lead.objects.filter(school=school).count()
+
+    ctx = {
+        "active_nav": "schools",
+        "school": school,
+        "sub_count": sub_count,
+        "lead_count": lead_count,
+        "plan_choices": [(p, label) for p, label in PLAN_CHOICES if p != "trial" or True],
+        "errors": [],
+        "post": {},
+        "conversion_result": None,
+    }
+
+    if request.method != "POST":
+        return render(request, "ops/school_convert.html", ctx)
+
+    admin_email = request.POST.get("admin_email", "").strip()
+    admin_first_name = request.POST.get("admin_first_name", "").strip()
+    admin_last_name = request.POST.get("admin_last_name", "").strip()
+    plan = request.POST.get("plan", "trial").strip()
+    trial_days_raw = request.POST.get("trial_days", "30").strip()
+    delete_submissions = request.POST.get("delete_submissions") == "1"
+    delete_leads = request.POST.get("delete_leads") == "1"
+
+    errors = []
+    if not admin_email or "@" not in admin_email:
+        errors.append("Valid admin email is required.")
+    if plan not in ALL_PLANS:
+        errors.append(f"Invalid plan '{plan}'.")
+    trial_days = None
+    if plan == "trial":
+        try:
+            trial_days = int(trial_days_raw)
+            if not (1 <= trial_days <= 365):
+                raise ValueError
+        except (ValueError, TypeError):
+            errors.append("Trial days must be a number between 1 and 365.")
+
+    if errors:
+        ctx.update({"errors": errors, "post": request.POST})
+        return render(request, "ops/school_convert.html", ctx)
+
+    result = convert_demo_to_customer(
+        school=school,
+        plan=plan,
+        trial_days=trial_days,
+        admin_email=admin_email,
+        admin_first_name=admin_first_name,
+        admin_last_name=admin_last_name,
+        delete_submissions=delete_submissions,
+        delete_leads=delete_leads,
+        actor=request.user,
+    )
+
+    magic_link = app_reverse("demo_access", kwargs={"token": result["magic_token"].token})
+    enrollment_url = app_reverse("apply", kwargs={"school_slug": school.slug})
+    iframe_snippet = (
+        f'<iframe src="{enrollment_url}" width="100%" height="800" '
+        f'frameborder="0" style="border:none;"></iframe>'
+    )
+
+    ctx.update({
+        "conversion_result": result,
+        "magic_link": magic_link,
+        "enrollment_url": enrollment_url,
+        "iframe_snippet": iframe_snippet,
+        "sub_count": Submission.objects.filter(school=school).count(),
+        "lead_count": Lead.objects.filter(school=school).count(),
+    })
+    return render(request, "ops/school_convert.html", ctx)
+
+
+# ── Onboarding: Checklist Toggle ──────────────────────────────────────────────
+
+@ops_required
+@require_POST
+def ops_checklist_toggle_view(request, slug, item):
+    school = get_object_or_404(School, slug=slug)
+    if item not in OnboardingChecklistItem.ITEM_LABELS:
+        messages.error(request, f"Unknown checklist item '{item}'.")
+        return redirect("ops_school_detail", slug=slug)
+
+    from core.services.onboarding import mark_checklist_item, unmark_checklist_item
+    obj, _ = OnboardingChecklistItem.objects.get_or_create(school=school, item=item)
+    if obj.completed_at:
+        unmark_checklist_item(school, item, request.user)
+    else:
+        mark_checklist_item(school, item, request.user)
+
+    return redirect("ops_school_detail", slug=slug)
+
+
+# ── Onboarding: Welcome Email ─────────────────────────────────────────────────
+
+@ops_required
+@require_POST
+def ops_school_welcome_email_view(request, slug):
+    school = get_object_or_404(School, slug=slug)
+    from core.services.onboarding import send_welcome_email
+    ok = send_welcome_email(school, request.user)
+    if ok:
+        messages.success(request, "Welcome email sent.")
+    else:
+        messages.error(request, "Failed to send welcome email. Check that an admin with an email address exists and that email is configured.")
+    return redirect("ops_school_detail", slug=slug)
+
+
 @ops_required
 @require_POST
 def ops_demo_token_extend_view(request, slug):
@@ -602,3 +754,69 @@ def ops_demo_token_extend_view(request, slug):
           "new_expires_at": token.expires_at.isoformat()})
     messages.success(request, f"Demo link extended to {token.expires_at.strftime('%b %d, %Y')}.")
     return redirect("ops_school_detail", slug=slug)
+
+
+# ── Audit log ─────────────────────────────────────────────────────────────────
+
+@ops_required
+def ops_audit_log_view(request):
+    qs = AdminAuditLog.objects.select_related("actor").order_by("-created_at")
+
+    actor_filter = request.GET.get("actor", "").strip()
+    action_filter = request.GET.get("action", "").strip()
+    model_filter = request.GET.get("model", "").strip()
+    date_from = request.GET.get("date_from", "").strip()
+    date_to = request.GET.get("date_to", "").strip()
+    search_q = request.GET.get("q", "").strip()
+
+    if actor_filter:
+        qs = qs.filter(actor__username__icontains=actor_filter)
+    if action_filter:
+        qs = qs.filter(action=action_filter)
+    if model_filter:
+        qs = qs.filter(model_label__icontains=model_filter)
+    if date_from:
+        try:
+            from datetime import date
+            qs = qs.filter(created_at__date__gte=date.fromisoformat(date_from))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            from datetime import date
+            qs = qs.filter(created_at__date__lte=date.fromisoformat(date_to))
+        except ValueError:
+            pass
+    if search_q:
+        qs = qs.filter(
+            Q(object_repr__icontains=search_q)
+            | Q(actor__username__icontains=search_q)
+            | Q(extra__icontains=search_q)
+            | Q(path__icontains=search_q)
+        )
+
+    total_count = qs.count()
+    paginator = Paginator(qs, _OPS_PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    actor_choices = (
+        AdminAuditLog.objects
+        .exclude(actor__isnull=True)
+        .values_list("actor__username", flat=True)
+        .distinct()
+        .order_by("actor__username")
+    )
+
+    return render(request, "ops/audit_log.html", {
+        "active_nav": "audit",
+        "page_obj": page_obj,
+        "total_count": total_count,
+        "action_choices": AdminAuditLog.ACTION_CHOICES,
+        "actor_choices": actor_choices,
+        "actor_filter": actor_filter,
+        "action_filter": action_filter,
+        "model_filter": model_filter,
+        "date_from": date_from,
+        "date_to": date_to,
+        "search_q": search_q,
+    })

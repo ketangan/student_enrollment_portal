@@ -177,6 +177,10 @@ class Command(BaseCommand):
             school.program_field_key = "interested_in"
             school.save(update_fields=["program_field_key"])
 
+        if not school.is_demo:
+            school.is_demo = True
+            school.save(update_fields=["is_demo"])
+
         self.stdout.write(f"  {'Created' if created else 'Exists'}: school {school.slug}")
 
         # ── Programs ─────────────────────────────────────────────────────────

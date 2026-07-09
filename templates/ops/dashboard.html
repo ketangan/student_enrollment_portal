@@ -93,7 +93,7 @@
   </div>
 
   <!-- Recently added schools -->
-  <div class="dash-card" style="padding:20px 24px;margin-bottom:24px;">
+  <div class="dash-card" style="padding:20px 24px;margin-bottom:16px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
       <h2 style="font-size:14px;font-weight:700;margin:0;">Recently Added Schools</h2>
       <a href="{% url 'ops_schools_list' %}" style="font-size:12px;color:var(--dash-primary);">View all →</a>
@@ -127,6 +127,56 @@
     </table>
     {% else %}
     <p style="font-size:13px;color:var(--dash-muted);margin:0;">No schools yet.</p>
+    {% endif %}
+  </div>
+
+  <!-- Recent Activity -->
+  <div class="dash-card" style="padding:20px 24px;margin-bottom:24px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h2 style="font-size:14px;font-weight:700;margin:0;">Recent Activity</h2>
+      <a href="{% url 'ops_audit_log' %}" style="font-size:12px;color:var(--dash-primary);">View all →</a>
+    </div>
+    {% if recent_activity %}
+    <table class="dash-table">
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Actor</th>
+          <th>Action</th>
+          <th>Object</th>
+          <th>Detail</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in recent_activity %}
+        <tr>
+          <td style="font-size:11px;color:var(--dash-muted);white-space:nowrap;">
+            {{ entry.created_at|date:"M j, H:i" }}
+          </td>
+          <td style="font-size:12px;font-weight:600;">
+            {{ entry.actor.username|default:"—" }}
+          </td>
+          <td>
+            <span style="font-size:11px;text-transform:uppercase;font-weight:700;
+              {% if entry.action == 'add' %}color:#059669;
+              {% elif entry.action == 'delete' %}color:#dc2626;
+              {% elif entry.action == 'change' %}color:#d97706;
+              {% else %}color:#6366f1;{% endif %}">
+              {{ entry.get_action_display }}
+            </span>
+          </td>
+          <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            {{ entry.object_repr|default:entry.model_label }}
+          </td>
+          <td style="font-size:11px;color:var(--dash-muted);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            {% if entry.extra.name %}{{ entry.extra.name }}{% elif entry.changes %}{{ entry.changes|length }} field(s) changed{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="font-size:13px;color:var(--dash-muted);margin:0;">No activity logged yet.</p>
     {% endif %}
   </div>
 

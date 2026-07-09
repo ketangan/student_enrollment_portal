@@ -1,0 +1,206 @@
+{% extends "ops/base.html" %}
+{% block page_title %}Convert {{ school.display_name|default:school.slug }} to Customer{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <div style="margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <a href="{% url 'ops_school_detail' school.slug %}" style="font-size:13px;color:var(--dash-muted);text-decoration:none;">← {{ school.display_name|default:school.slug }}</a>
+    <h1 style="font-size:20px;font-weight:700;margin:0;flex:1;">Convert to Customer</h1>
+  </div>
+
+  {% if conversion_result %}
+  {# ── Success: Onboarding Summary ─────────────────────────────────────────── #}
+  <div style="background:#f0fdf4;border:2px solid #86efac;border-radius:10px;padding:24px;margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+      <span style="font-size:22px;">✓</span>
+      <h2 style="font-size:16px;font-weight:700;margin:0;color:#166534;">{{ school.display_name|default:school.slug }} converted successfully</h2>
+    </div>
+
+    <!-- Key details grid -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px;">
+      <div style="background:#fff;border:1px solid #bbf7d0;border-radius:6px;padding:12px 14px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#166534;margin-bottom:4px;">Admin Email</div>
+        <div style="font-size:13px;font-weight:600;">{{ conversion_result.user.email }}</div>
+      </div>
+      <div style="background:#fff;border:1px solid #bbf7d0;border-radius:6px;padding:12px 14px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#166534;margin-bottom:4px;">Plan</div>
+        <div style="font-size:13px;font-weight:600;text-transform:capitalize;">{{ school.plan }}</div>
+      </div>
+      {% if school.trial_end_date %}
+      <div style="background:#fff;border:1px solid #bbf7d0;border-radius:6px;padding:12px 14px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#166534;margin-bottom:4px;">Trial Ends</div>
+        <div style="font-size:13px;font-weight:600;">{{ school.trial_end_date|date:"M j, Y" }}</div>
+      </div>
+      {% endif %}
+      <div style="background:#fff;border:1px solid #bbf7d0;border-radius:6px;padding:12px 14px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#166534;margin-bottom:4px;">Demo Data</div>
+        <div style="font-size:13px;">
+          {{ conversion_result.deleted_submissions }} submissions removed<br>
+          {{ conversion_result.deleted_leads }} leads removed
+        </div>
+      </div>
+    </div>
+
+    <!-- Magic link -->
+    <div style="margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#166534;margin-bottom:6px;">Onboarding Magic Link (7 days)</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="magic-link-input" readonly value="{{ magic_link }}"
+               style="flex:1;font-size:11px;font-family:monospace;padding:8px 10px;
+                      border:1px solid #bbf7d0;border-radius:4px;background:#fff;color:#111;min-width:0;">
+        <button onclick="navigator.clipboard.writeText(document.getElementById('magic-link-input').value).then(function(){var b=this;b.textContent='Copied!';setTimeout(function(){b.textContent='Copy'},1500)}.bind(this))"
+                style="font-size:12px;padding:8px 14px;background:#16a34a;color:#fff;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;font-weight:600;">
+          Copy
+        </button>
+      </div>
+      <div style="font-size:11px;color:#4b5563;margin-top:5px;">Send this to the school admin — one click signs them in, no password needed yet.</div>
+    </div>
+
+    <!-- Enrollment URL -->
+    <div style="margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#166534;margin-bottom:6px;">Hosted Enrollment Form</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="text" id="enroll-url-input" readonly value="{{ enrollment_url }}"
+               style="flex:1;font-size:11px;font-family:monospace;padding:8px 10px;
+                      border:1px solid #bbf7d0;border-radius:4px;background:#fff;color:#111;min-width:0;">
+        <button onclick="navigator.clipboard.writeText(document.getElementById('enroll-url-input').value).then(function(){var b=this;b.textContent='Copied!';setTimeout(function(){b.textContent='Copy'},1500)}.bind(this))"
+                style="font-size:12px;padding:8px 14px;background:#16a34a;color:#fff;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;font-weight:600;">
+          Copy
+        </button>
+      </div>
+    </div>
+
+    <!-- iframe snippet -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#166534;margin-bottom:6px;">iframe Embed Snippet</div>
+      <div style="display:flex;gap:8px;align-items:flex-start;">
+        <textarea id="iframe-snippet-input" readonly rows="2"
+                  style="flex:1;font-size:11px;font-family:monospace;padding:8px 10px;
+                         border:1px solid #bbf7d0;border-radius:4px;background:#fff;color:#111;
+                         resize:none;min-width:0;">{{ iframe_snippet }}</textarea>
+        <button onclick="navigator.clipboard.writeText(document.getElementById('iframe-snippet-input').value).then(function(){var b=this;b.textContent='Copied!';setTimeout(function(){b.textContent='Copy'},1500)}.bind(this))"
+                style="font-size:12px;padding:8px 14px;background:#16a34a;color:#fff;border:none;border-radius:4px;cursor:pointer;white-space:nowrap;font-weight:600;margin-top:0;">
+          Copy
+        </button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <a href="{% url 'ops_school_detail' school.slug %}" class="dash-action-btn dash-action-btn--primary">Go to School Detail →</a>
+      <form method="post" action="{% url 'ops_school_welcome_email' school.slug %}">
+        {% csrf_token %}
+        <button type="submit" class="dash-action-btn dash-action-btn--secondary">Send Welcome Email</button>
+      </form>
+    </div>
+  </div>
+
+  {% else %}
+  {# ── Conversion Form ──────────────────────────────────────────────────────── #}
+
+  <!-- Warning banner -->
+  <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:14px 18px;margin-bottom:20px;font-size:13px;color:#92400e;">
+    <strong>Before you convert:</strong> This action will expire all demo access links, remove demo admin membership, and convert the school to a paid plan. Demo data removal is optional but irreversible. A rollback archive is saved first.
+  </div>
+
+  {% if errors %}
+  <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:12px 16px;margin-bottom:16px;">
+    {% for e in errors %}
+    <div style="font-size:13px;color:#991b1b;{% if not forloop.last %}margin-bottom:4px;{% endif %}">{{ e }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="dash-card" style="padding:24px;margin-bottom:16px;">
+    <h2 style="font-size:14px;font-weight:700;margin:0 0 20px;">Customer Setup</h2>
+
+    <form method="post">
+      {% csrf_token %}
+
+      <!-- Admin user -->
+      <fieldset style="border:none;padding:0;margin:0 0 24px;">
+        <legend style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:12px;display:block;">Real Admin User</legend>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+          <div style="grid-column:1/-1;">
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:5px;">
+              Email <span style="color:#dc2626;">*</span>
+            </label>
+            <input type="email" name="admin_email" required
+                   value="{{ post.admin_email|default:'' }}"
+                   placeholder="admin@theirschool.com"
+                   style="width:100%;padding:8px 10px;border:1px solid var(--dash-border);border-radius:6px;font-size:13px;box-sizing:border-box;background:var(--dash-bg);color:var(--dash-text);">
+            <div style="font-size:11px;color:var(--dash-muted);margin-top:4px;">If this email already has an account, we'll reuse it. Otherwise a new account is created.</div>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:5px;">First Name</label>
+            <input type="text" name="admin_first_name" value="{{ post.admin_first_name|default:'' }}"
+                   style="width:100%;padding:8px 10px;border:1px solid var(--dash-border);border-radius:6px;font-size:13px;box-sizing:border-box;background:var(--dash-bg);color:var(--dash-text);">
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:5px;">Last Name</label>
+            <input type="text" name="admin_last_name" value="{{ post.admin_last_name|default:'' }}"
+                   style="width:100%;padding:8px 10px;border:1px solid var(--dash-border);border-radius:6px;font-size:13px;box-sizing:border-box;background:var(--dash-bg);color:var(--dash-text);">
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Plan -->
+      <fieldset style="border:none;padding:0;margin:0 0 24px;">
+        <legend style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:12px;display:block;">Plan</legend>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+          {% for val, label in plan_choices %}
+          <label style="display:flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--dash-border);border-radius:6px;cursor:pointer;font-size:13px;">
+            <input type="radio" name="plan" value="{{ val }}"
+                   {% if post.plan == val or not post and val == 'trial' %}checked{% endif %}
+                   onchange="document.getElementById('trial-days-row').style.display=this.value==='trial'?'flex':'none'">
+            {{ label }}
+          </label>
+          {% endfor %}
+        </div>
+        <div id="trial-days-row" style="display:{% if not post or post.plan == 'trial' or not post.plan %}flex{% else %}none{% endif %};align-items:center;gap:10px;">
+          <label style="font-size:13px;white-space:nowrap;">Trial length:</label>
+          <input type="number" name="trial_days" min="1" max="365"
+                 value="{{ post.trial_days|default:'30' }}"
+                 style="width:80px;padding:7px 10px;border:1px solid var(--dash-border);border-radius:6px;font-size:13px;background:var(--dash-bg);color:var(--dash-text);">
+          <span style="font-size:13px;color:var(--dash-muted);">days</span>
+        </div>
+      </fieldset>
+
+      <!-- Demo data cleanup -->
+      <fieldset style="border:none;padding:0;margin:0 0 24px;">
+        <legend style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin-bottom:12px;display:block;">Demo Data Cleanup (optional)</legend>
+        <div style="font-size:12px;color:var(--dash-muted);margin-bottom:12px;">A full archive is saved before any deletion. You can safely check these.</div>
+
+        {% if sub_count > 0 %}
+        <label style="display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;cursor:pointer;">
+          <input type="checkbox" name="delete_submissions" value="1" checked
+                 style="width:16px;height:16px;cursor:pointer;">
+          Delete {{ sub_count }} demo submission{{ sub_count|pluralize }}
+        </label>
+        {% else %}
+        <div style="font-size:13px;color:var(--dash-muted);margin-bottom:10px;">No submissions to delete.</div>
+        {% endif %}
+
+        {% if lead_count > 0 %}
+        <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;">
+          <input type="checkbox" name="delete_leads" value="1" checked
+                 style="width:16px;height:16px;cursor:pointer;">
+          Delete {{ lead_count }} demo lead{{ lead_count|pluralize }}
+        </label>
+        {% else %}
+        <div style="font-size:13px;color:var(--dash-muted);">No leads to delete.</div>
+        {% endif %}
+      </fieldset>
+
+      <div style="display:flex;gap:12px;padding-top:4px;">
+        <button type="submit" class="dash-action-btn dash-action-btn--primary">
+          Convert to Customer →
+        </button>
+        <a href="{% url 'ops_school_detail' school.slug %}" class="dash-action-btn dash-action-btn--secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
+</main>
+{% endblock %}

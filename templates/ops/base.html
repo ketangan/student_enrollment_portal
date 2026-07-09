@@ -42,6 +42,10 @@
          class="dash-nav-link{% if active_nav == 'reports' %} dash-nav-link--active{% endif %}">
         Reports
       </a>
+      <a href="{% url 'ops_audit_log' %}"
+         class="dash-nav-link{% if active_nav == 'audit' %} dash-nav-link--active{% endif %}">
+        Audit Log
+      </a>
     </nav>
 
     <div class="dash-header-right">
