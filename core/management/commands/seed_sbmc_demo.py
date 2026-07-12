@@ -269,7 +269,10 @@ class Command(BaseCommand):
                     )
                     days_ago = rng.randint(days_min, days_max)
                     back_dated = now - timedelta(days=days_ago, hours=rng.randint(0, 10))
-                    Submission.objects.filter(pk=sub.pk).update(created_at=back_dated)
+                    update_fields = {"created_at": back_dated}
+                    if status == "Needs Follow Up":
+                        update_fields["next_follow_up_at"] = now - timedelta(days=rng.randint(1, 5))
+                    Submission.objects.filter(pk=sub.pk).update(**update_fields)
                     count += 1
 
             self.stdout.write(f"  Created {count} submissions.")
