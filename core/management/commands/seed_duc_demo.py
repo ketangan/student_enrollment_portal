@@ -192,7 +192,12 @@ class Command(BaseCommand):
                 count += 1
             self.stdout.write(f"  Created {count} submissions.")
 
+        from django.conf import settings
+        demo_base = getattr(settings, "DEMO_BASE_URL", "http://127.0.0.1:8001").rstrip("/")
         self.stdout.write(self.style.SUCCESS(
-            f"\nDone. Login at /schools/{SCHOOL_SLUG}/admin/ "
-            f"with {ADMIN_USERNAME} / {ADMIN_PASSWORD}"
+            f"\n✓ Done."
+            f"\n  Admin:   {demo_base}/schools/{SCHOOL_SLUG}/admin/"
+            f"\n  Login:   {ADMIN_USERNAME} / {ADMIN_PASSWORD}"
+            f"\n  Demo:    {demo_base}/demo/duc-learning-center-demo/"
+            f"\n  Form:    {demo_base}/schools/{SCHOOL_SLUG}/apply/"
         ))

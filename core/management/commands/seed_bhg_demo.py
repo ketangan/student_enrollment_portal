@@ -337,12 +337,11 @@ class Command(BaseCommand):
             self.stdout.write(f"  Created {leads_created} leads.")
 
         from django.conf import settings
-        base = getattr(settings, "APP_BASE_URL", "http://127.0.0.1:8001").rstrip("/")
-        demo_base = getattr(settings, "DEMO_BASE_URL", base).rstrip("/")
+        demo_base = getattr(settings, "DEMO_BASE_URL", "http://127.0.0.1:8001").rstrip("/")
         self.stdout.write(self.style.SUCCESS(
             f"\n✓ Done."
-            f"\n  Admin:   {base}/schools/{SCHOOL_SLUG}/admin/"
+            f"\n  Admin:   {demo_base}/schools/{SCHOOL_SLUG}/admin/"
             f"\n  Login:   {ADMIN_USERNAME} / {ADMIN_PASSWORD}"
             f"\n  Demo:    {demo_base}/demo/bhg-demo/"
-            f"\n  Form:    {base}/schools/{SCHOOL_SLUG}/apply/"
+            f"\n  Form:    {demo_base}/schools/{SCHOOL_SLUG}/apply/"
         ))
