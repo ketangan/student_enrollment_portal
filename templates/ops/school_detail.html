@@ -293,6 +293,29 @@
     </form>
   </div>
 
+  <!-- Activity Tracking -->
+  <div class="dash-card" style="padding:20px 24px;margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;">
+      <div>
+        <h2 style="font-size:14px;font-weight:700;margin:0 0 4px;">Activity Tracking</h2>
+        <p style="font-size:12px;color:var(--dash-muted);margin:0;">
+          {% if school.activity_tracking_enabled %}
+            Page views by the school admin are being logged to the audit trail.
+          {% else %}
+            Off — enable to record page views for this school's admin portal.
+          {% endif %}
+        </p>
+      </div>
+      <form method="post" action="{% url 'ops_activity_tracking_toggle' school.slug %}" style="flex-shrink:0;">
+        {% csrf_token %}
+        <button type="submit" class="dash-action-btn {% if school.activity_tracking_enabled %}dash-action-btn--danger{% else %}dash-action-btn--primary{% endif %}"
+                style="font-size:12px;white-space:nowrap;">
+          {% if school.activity_tracking_enabled %}Disable Tracking{% else %}Enable Tracking{% endif %}
+        </button>
+      </form>
+    </div>
+  </div>
+
   <!-- Demo Access Link (only shown for demo schools) -->
   {% if school.is_demo %}
   <div class="dash-card" style="padding:24px;margin-bottom:16px;">

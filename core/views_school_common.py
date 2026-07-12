@@ -230,6 +230,15 @@ def _get_accessible_school_for_admin(request, school_slug: str) -> School:
     return school
 
 
+def _log_page_view(request, school: School, page: str, **extra_fields) -> None:
+    """Log a page view to AdminAuditLog when activity_tracking_enabled is set on the school."""
+    if not school.activity_tracking_enabled:
+        return
+    extra = {"name": "page_view", "page": page}
+    extra.update(extra_fields)
+    log_admin_audit(request=request, action="action", obj=school, extra=extra)
+
+
 # ── School admin: submissions list ────────────────────────────────────────
 
 # TODO: Future — make these key lists YAML-configurable per school so that schools
@@ -559,6 +568,7 @@ def school_reports_view(request, school_slug: str):
     - All time-series buckets gap-filled so the chart never has holes
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    _log_page_view(request, school, "reports")
 
     if not request.user.is_superuser and not school.features.reports_enabled:
         return render(

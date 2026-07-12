@@ -181,6 +181,10 @@ class Command(BaseCommand):
             school.is_demo = True
             school.save(update_fields=["is_demo"])
 
+        if not school.activity_tracking_enabled:
+            school.activity_tracking_enabled = True
+            school.save(update_fields=["activity_tracking_enabled"])
+
         self.stdout.write(f"  {'Created' if created else 'Exists'}: school {school.slug}")
 
         # ── Programs ─────────────────────────────────────────────────────────

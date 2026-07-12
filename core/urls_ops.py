@@ -21,5 +21,6 @@ urlpatterns = [
     path("schools/<slug:slug>/convert/", views_ops.ops_school_convert_view, name="ops_school_convert"),
     path("schools/<slug:slug>/checklist/<str:item>/toggle/", views_ops.ops_checklist_toggle_view, name="ops_checklist_toggle"),
     path("schools/<slug:slug>/welcome-email/", views_ops.ops_school_welcome_email_view, name="ops_school_welcome_email"),
+    path("schools/<slug:slug>/activity-tracking/toggle/", views_ops.ops_activity_tracking_toggle_view, name="ops_activity_tracking_toggle"),
     path("audit/", views_ops.ops_audit_log_view, name="ops_audit_log"),
 ]

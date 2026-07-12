@@ -115,6 +115,10 @@ class Command(BaseCommand):
             school.is_demo = True
             school.save(update_fields=["is_demo"])
 
+        if not school.activity_tracking_enabled:
+            school.activity_tracking_enabled = True
+            school.save(update_fields=["activity_tracking_enabled"])
+
         # ── Programs ─────────────────────────────────────────────────────────
         program_map = {}
         for name, code in PROGRAMS:

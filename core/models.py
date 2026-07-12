@@ -145,6 +145,7 @@ class School(models.Model):
     stripe_subscription_status = models.CharField(max_length=50, blank=True, default="")
     is_active = models.BooleanField(default=True)
     is_demo = models.BooleanField(default=False, db_index=True)
+    activity_tracking_enabled = models.BooleanField(default=False)
     stripe_cancel_at = models.DateTimeField(null=True, blank=True)
     stripe_cancel_at_period_end = models.BooleanField(default=False)
     stripe_current_period_end = models.DateTimeField(null=True, blank=True)

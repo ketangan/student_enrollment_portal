@@ -756,6 +756,21 @@ def ops_demo_token_extend_view(request, slug):
     return redirect("ops_school_detail", slug=slug)
 
 
+# ── Activity tracking toggle ──────────────────────────────────────────────────
+
+@ops_required
+@require_POST
+def ops_activity_tracking_toggle_view(request, slug):
+    school = get_object_or_404(School, slug=slug)
+    school.activity_tracking_enabled = not school.activity_tracking_enabled
+    school.save(update_fields=["activity_tracking_enabled"])
+    state = "enabled" if school.activity_tracking_enabled else "disabled"
+    _log(request, "action", "core.school", school.pk, str(school),
+         {"name": f"activity_tracking_{state}"})
+    messages.success(request, f"Activity tracking {state} for {school.display_name or school.slug}.")
+    return redirect("ops_school_detail", slug=slug)
+
+
 # ── Audit log ─────────────────────────────────────────────────────────────────
 
 @ops_required

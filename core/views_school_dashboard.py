@@ -86,6 +86,7 @@ from .services.ai_summary import generate_ai_summary
 from .views_school_common import *  # noqa: F401,F403
 from .views_school_common import (  # noqa: F401 — private names not exported by *
     _get_accessible_school_for_admin,
+    _log_page_view,
     _safe_load_school_config,
     _school_admin_base_context,
     _TERMINAL_SUBMISSION_STATUSES,
@@ -100,6 +101,7 @@ def school_dashboard_view(request, school_slug: str):
     URL: /schools/<slug>/admin/
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    _log_page_view(request, school, "dashboard")
 
     config = _safe_load_school_config(school_slug)
     label_map = build_option_label_map(config.form) if config else {}

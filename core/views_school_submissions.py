@@ -89,6 +89,7 @@ from .services.capacity import get_capacity_summary, get_program_field_key, get_
 from .views_school_common import *  # noqa: F401,F403
 from .views_school_common import (  # noqa: F401 — private names not exported by *
     _get_accessible_school_for_admin,
+    _log_page_view,
     _safe_load_school_config,
     _safe_redirect_url,
     _school_admin_base_context,
@@ -133,6 +134,7 @@ def school_submissions_view(request, school_slug: str):
     status dropdown. Both parameters co-exist: ?filter= takes precedence.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    _log_page_view(request, school, "submissions_list")
 
     config = _safe_load_school_config(school_slug)
     config_raw = getattr(config, "raw", {}) or {}
@@ -724,6 +726,9 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
     """
     school = _get_accessible_school_for_admin(request, school_slug)
     submission = get_object_or_404(Submission, id=submission_id, school=school)
+    _log_page_view(request, school, "submission_detail",
+                   submission_id=submission.id,
+                   student=submission.student_display_name() or "")
 
     config = _safe_load_school_config(school_slug)
     config_raw = getattr(config, "raw", {}) or {}

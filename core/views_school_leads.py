@@ -86,6 +86,7 @@ from .services.ai_summary import generate_ai_summary
 from .views_school_common import *  # noqa: F401,F403
 from .views_school_common import (  # noqa: F401 — private names not exported by *
     _get_accessible_school_for_admin,
+    _log_page_view,
     _safe_load_school_config,
     _safe_redirect_url,
     _school_admin_base_context,
@@ -114,6 +115,7 @@ def school_leads_view(request, school_slug: str):
     status dropdown. Both parameters co-exist: ?filter= takes precedence.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    _log_page_view(request, school, "leads_list")
 
     if not school.features.leads_enabled and not request.user.is_superuser:
         return render(
