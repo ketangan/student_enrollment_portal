@@ -250,6 +250,19 @@ Include at minimum:
 - Skip lead re-seeding if >= 3 exist unless `--force` passed
 - All creates use `get_or_create` for school/programs/user
 
+**`next_follow_up_at` (required for overdue badge)**:
+- For every "Needs Follow Up" submission, set `next_follow_up_at` to a backdated datetime (1–5 days ago) via `Submission.objects.filter(pk=sub.pk).update(next_follow_up_at=...)`
+- Without this the overdue badge never fires in the admin
+
+**Output URLs — use `DEMO_BASE_URL` for everything**:
+- Demo schools live on `demo.enrollifyapp.com`, not `app.enrollifyapp.com`
+- Admin, form, and demo page URLs all use `demo_base`
+```python
+from django.conf import settings
+demo_base = getattr(settings, "DEMO_BASE_URL", "http://127.0.0.1:8001").rstrip("/")
+# then: f"{demo_base}/schools/{SCHOOL_SLUG}/admin/" etc.
+```
+
 ---
 
 ## Step 7 — Run seed locally
@@ -294,7 +307,13 @@ Verify the output shows all programs created and submission/lead counts.
 
 ---
 
-## Step 9 — Commit and push
+## Step 9 — Run tests, then commit and push
+
+```bash
+python -m pytest core/tests/ -q
+```
+
+All tests must pass before committing.
 
 ```bash
 git add configs/schools/<slug>.yaml static/schools/<slug>.css \
@@ -322,12 +341,14 @@ python manage.py seed_<slug>_demo
 After completing all steps, provide these to the prospect:
 
 ```
-Demo pages:   https://<your-render-domain>/demo/<demo-slug>/
-Admin portal: https://<your-render-domain>/schools/<slug>/admin/
-Username:     <slug_abbrev>_admin
-Password:     <PascalAbbrev>Admin@123
-Form (direct): https://<your-render-domain>/schools/<slug>/apply/
+Demo pages:    https://demo.enrollifyapp.com/demo/<demo-slug>/
+Admin portal:  https://demo.enrollifyapp.com/schools/<slug>/admin/
+Username:      <slug_abbrev>_admin
+Password:      <PascalAbbrev>Admin@123
+Form (direct): https://demo.enrollifyapp.com/schools/<slug>/apply/
 ```
+
+All URLs use `demo.enrollifyapp.com` — demo schools never use `app.enrollifyapp.com`.
 
 ---
 
