@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enrollment Form Integration Options | South Bay Music Conservatory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Lato:wght@300;400;700&display=swap">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Lato', Helvetica, Arial, sans-serif; color: #1A1A1A; background: #f8f8f8; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+
+  .top-bar {
+    background: #1A1A1A; padding: 8px 40px;
+    display: flex; align-items: center; justify-content: flex-end; gap: 24px;
+    font-size: 12px; color: rgba(255,255,255,.65); letter-spacing: .04em;
+  }
+  .top-bar span { display: flex; align-items: center; gap: 5px; }
+
+  .site-header {
+    background: #ffffff; border-bottom: 1px solid #e8e8e8; padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between; height: 80px;
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 6px rgba(0,0,0,.06);
+  }
+  .logo-block { display: flex; flex-direction: column; }
+  .logo-name {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 22px; font-weight: 700; color: #1A1A1A; letter-spacing: .02em; line-height: 1.1;
+  }
+  .logo-name em { color: #15B0CC; font-style: normal; }
+  .logo-sub { font-size: 10px; color: #888; letter-spacing: .12em; text-transform: uppercase; margin-top: 2px; }
+  .header-badge {
+    font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: #15B0CC; background: #e8f8fc; border: 1px solid #a8e0ec;
+    padding: 5px 12px; border-radius: 4px;
+  }
+
+  .hero {
+    background: #15B0CC; text-align: center; padding: 60px 24px 48px;
+  }
+  .hero h1 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 42px; color: #ffffff; font-weight: 600; letter-spacing: .01em; margin-bottom: 16px;
+  }
+  .hero p { font-size: 16px; color: rgba(255,255,255,.75); line-height: 1.7; max-width: 680px; margin: 0 auto; }
+  .hero-note { margin-top: 20px; font-size: 13px; color: rgba(255,255,255,.55); }
+  .hero-note strong { color: rgba(255,255,255,.85); }
+
+  .intro-strip { max-width: 1100px; margin: 32px auto 0; padding: 0 24px; }
+  .intro-box {
+    background: #fff; border: 1px solid #e8e8e8; border-radius: 6px;
+    padding: 24px 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+  }
+  .intro-box h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 18px; margin-bottom: 8px; color: #1A1A1A; font-weight: 600;
+  }
+  .intro-box p { font-size: 13px; line-height: 1.7; color: #555; }
+
+  .options-grid {
+    max-width: 1100px; margin: 28px auto 80px; padding: 0 24px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); gap: 24px;
+  }
+  .card {
+    background: #fff; border: 1px solid #e0e0e0; border-radius: 6px; padding: 32px 28px;
+    display: flex; flex-direction: column;
+    box-shadow: 0 2px 8px rgba(0,0,0,.03); transition: box-shadow .2s ease, transform .2s ease;
+  }
+  .card:hover { box-shadow: 0 8px 28px rgba(0,0,0,.07); transform: translateY(-1px); }
+
+  .card-badge {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: #15B0CC; background: #e8f8fc; border: 1px solid #a8e0ec;
+    padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; width: fit-content;
+  }
+  .card-recommended .card-badge { background: #15B0CC; color: #ffffff; border-color: #15B0CC; }
+  .card-recommended { border-color: #15B0CC; box-shadow: 0 4px 20px rgba(21,176,204,.12); }
+
+  .card h2 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 26px; color: #1A1A1A; margin-bottom: 10px; line-height: 1.2; font-weight: 600;
+  }
+  .card-subtitle { font-size: 13px; color: #15B0CC; font-weight: 700; margin-bottom: 14px; letter-spacing: .02em; }
+  .card p { font-size: 14px; color: #555; line-height: 1.7; }
+  .card ul { margin-top: 16px; padding-left: 18px; }
+  .card li { font-size: 13px; color: #555; line-height: 1.65; margin-bottom: 8px; }
+  .card-footer {
+    margin-top: 24px; display: flex; align-items: center;
+    justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  }
+  .btn-demo {
+    display: inline-block; background: #15B0CC; color: #ffffff;
+    padding: 12px 28px; border-radius: 6px; font-size: 12px;
+    font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    transition: background .2s ease;
+  }
+  .btn-demo:hover { background: #0d8fa8; }
+  .card-meta { font-size: 12px; color: #888; }
+
+  .recommendation { max-width: 1100px; margin: -36px auto 70px; padding: 0 24px; }
+  .recommendation-box {
+    background: #fff; border: 1px solid #e0e0e0; border-left: 4px solid #15B0CC;
+    border-radius: 6px; padding: 22px 26px;
+  }
+  .recommendation-box h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 20px; color: #1A1A1A; margin-bottom: 8px; font-weight: 600;
+  }
+  .recommendation-box p { font-size: 13px; color: #555; line-height: 1.7; }
+
+  .site-footer { background: #1A1A1A; color: rgba(255,255,255,.45); text-align: center; padding: 32px; font-size: 12px; letter-spacing: .03em; }
+  .site-footer a { color: #15B0CC; }
+
+  @media (max-width: 800px) {
+    .top-bar { display: none; }
+    .site-header { padding: 0 18px; height: 72px; }
+    .hero { padding: 44px 20px 36px; }
+    .hero h1 { font-size: 32px; }
+    .intro-box { grid-template-columns: 1fr; }
+    .options-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span>&#9742; 424-399-5816</span>
+  <span>&#9993; info@sbmusicconservatory.com</span>
+  <span>Torrance, California</span>
+</div>
+
+<header class="site-header">
+  <a href="https://www.sbmusicconservatory.com/">
+    <div class="logo-block">
+      <div class="logo-name">South Bay <em>Music</em> Conservatory</div>
+      <div class="logo-sub">Torrance, California</div>
+    </div>
+  </a>
+  <span class="header-badge">Integration Demo</span>
+</header>
+
+<section class="hero">
+  <h1>How the enrollment form can fit into your website</h1>
+  <p>
+    Below are four ways the South Bay Music Conservatory enrollment inquiry form can be added to your existing website.
+    Each option uses the same form and the same admissions workflow — the only difference is how families access it.
+  </p>
+  <div class="hero-note">
+    <strong>Most seamless parent experience:</strong> fully embedded on your Lessons or Enrollment page.<br>
+    <strong>Fastest setup:</strong> link out or dedicated page.
+  </div>
+</section>
+
+<section class="intro-strip">
+  <div class="intro-box">
+    <div>
+      <h3>What stays the same</h3>
+      <p>
+        Your branding, enrollment questions, student records, and follow-up workflow all stay the same.
+        These options only change how the form is presented to families on your website.
+      </p>
+    </div>
+    <div>
+      <h3>What this demo is showing</h3>
+      <p>
+        Each preview below shows the same SBMC enrollment form placed into the site in a different way,
+        so you can compare what feels most natural for families and easiest for your team to manage.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="options-grid">
+
+  <div class="card">
+    <span class="card-badge">Option 1</span>
+    <h2>Dedicated enrollment page</h2>
+    <div class="card-subtitle">Clean and distraction-free</div>
+    <p>
+      Families click "Enroll" and go straight to a full enrollment page.
+      Simple, focused, and easy to share directly from social media or email campaigns.
+    </p>
+    <ul>
+      <li>Best when you want the form on its own page</li>
+      <li>Simple to implement and maintain</li>
+      <li>Strong choice for mobile and direct links</li>
+    </ul>
+    <div class="card-footer">
+      <a href="{{ base_url }}dedicated-page/" class="btn-demo">View demo &rarr;</a>
+      <span class="card-meta">Best for: simplicity</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <span class="card-badge">Option 2</span>
+    <h2>Pop-up form on your existing page</h2>
+    <div class="card-subtitle">Minimal change to the current site</div>
+    <p>
+      Your current Lessons page stays mostly as-is.
+      Families click "Request a Trial Lesson" and the form opens in a modal overlay.
+    </p>
+    <ul>
+      <li>Keeps your current page content intact</li>
+      <li>Feels lighter than sending families to a new page</li>
+      <li>Good if you want minimal website edits</li>
+    </ul>
+    <div class="card-footer">
+      <a href="{{ base_url }}modal/" class="btn-demo">View demo &rarr;</a>
+      <span class="card-meta">Best for: minimal disruption</span>
+    </div>
+  </div>
+
+  <div class="card card-recommended">
+    <span class="card-badge">Recommended</span>
+    <h2>Fully embedded into the lesson page</h2>
+    <div class="card-subtitle">Most seamless experience for families</div>
+    <p>
+      The enrollment form appears directly within your Piano Lessons or Lessons page,
+      below your program descriptions. Families stay on one page and the form feels
+      like a natural extension of your site.
+    </p>
+    <ul>
+      <li>Feels the most native to the SBMC website</li>
+      <li>Best overall experience for parents</li>
+      <li>Strongest option for reducing friction and drop-off</li>
+    </ul>
+    <div class="card-footer">
+      <a href="{{ base_url }}bottom-section/" class="btn-demo">View demo &rarr;</a>
+      <span class="card-meta">Best for: parent experience</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <span class="card-badge">Option 4</span>
+    <h2>Open the form in a new tab</h2>
+    <div class="card-subtitle">Fastest technical implementation</div>
+    <p>
+      Your lessons page includes a button that opens the full form in a separate browser tab.
+      The fastest and lowest-effort option to get started.
+    </p>
+    <ul>
+      <li>Very easy to launch quickly</li>
+      <li>No embedded layout work needed</li>
+      <li>Works well across desktop and mobile</li>
+    </ul>
+    <div class="card-footer">
+      <a href="{{ base_url }}link-out/" class="btn-demo">View demo &rarr;</a>
+      <span class="card-meta">Best for: fastest rollout</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <span class="card-badge">Bonus Option</span>
+    <h2>Interest / Inquiry Form</h2>
+    <div class="card-subtitle">Capture families who aren't ready to enroll yet</div>
+    <p>
+      A lightweight inquiry form — name, email, instrument interest, message — for families
+      exploring options before they're ready to submit a full enrollment inquiry.
+      Responses appear instantly in your admin Leads pipeline for follow-up.
+    </p>
+    <ul>
+      <li>Much shorter than the full enrollment form</li>
+      <li>Embeddable on a Contact or Trial Lesson page</li>
+      <li>Feeds directly into the lead follow-up workflow</li>
+    </ul>
+    <div class="card-footer">
+      <a href="/schools/south-bay-music/lead/" class="btn-demo" target="_blank" rel="noopener">View inquiry form &rarr;</a>
+      <a href="/schools/south-bay-music/lead/?embed=1" class="btn-demo" style="background:#e8f8fc;color:#15B0CC;" target="_blank" rel="noopener">Embed preview &rarr;</a>
+      <span class="card-meta">Best for: top-of-funnel</span>
+    </div>
+  </div>
+
+</section>
+
+<section class="recommendation">
+  <div class="recommendation-box">
+    <h3>Recommendation for South Bay Music Conservatory</h3>
+    <p>
+      Based on the current site structure, the <strong>fully embedded option</strong> is the strongest fit.
+      It preserves your existing lesson descriptions and teacher bios, keeps families on one page,
+      and gives the enrollment form a permanent, professional home without requiring a separate application site.
+    </p>
+  </div>
+</section>
+
+<footer class="site-footer">
+  &copy; 2025 South Bay Music Conservatory &nbsp;&mdash;&nbsp;
+  Torrance, CA &nbsp;&mdash;&nbsp; info@sbmusicconservatory.com
+</footer>
+
+</body>
+</html>

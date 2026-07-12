@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enrollment Inquiry | South Bay Music Conservatory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Lato:wght@300;400;700&display=swap">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Lato', Helvetica, Arial, sans-serif; color: #1A1A1A; background: #fff; -webkit-font-smoothing: antialiased; }
+  a { text-decoration: none; color: inherit; }
+
+  .top-bar { background: #1A1A1A; padding: 7px 40px; display: flex; justify-content: flex-end; gap: 24px; font-size: 11px; color: rgba(255,255,255,.55); letter-spacing: .04em; }
+
+  .site-header {
+    background: #fff; border-bottom: 1px solid #e8e8e8; padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between; height: 80px;
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 6px rgba(0,0,0,.05);
+  }
+  .logo-name { font-family: 'Playfair Display', Georgia, serif; font-size: 22px; font-weight: 700; color: #1A1A1A; letter-spacing: .02em; line-height: 1.1; }
+  .logo-name em { color: #15B0CC; font-style: normal; }
+  .logo-sub { font-size: 10px; color: #999; letter-spacing: .12em; text-transform: uppercase; margin-top: 2px; }
+  .site-nav { display: flex; gap: 28px; list-style: none; }
+  .site-nav a { font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: #1A1A1A; transition: color .15s; }
+  .site-nav a:hover, .site-nav .active a { color: #15B0CC; }
+
+  .page-hero { background: #15B0CC; padding: 44px 40px 34px; text-align: center; }
+  .page-hero h1 { font-family: 'Playfair Display', Georgia, serif; font-size: 36px; color: #ffffff; font-weight: 600; letter-spacing: .01em; }
+  .page-hero .breadcrumb { margin-top: 10px; font-size: 12px; color: rgba(255,255,255,.5); }
+  .page-hero .breadcrumb a { color: rgba(255,255,255,.7); }
+  .page-hero .breadcrumb a:hover { color: #fff; }
+
+  .page-content { max-width: 860px; margin: 0 auto; padding: 52px 24px 80px; }
+  .section-heading { font-family: 'Playfair Display', Georgia, serif; font-size: 28px; color: #1A1A1A; font-weight: 600; margin-bottom: 32px; text-align: center; }
+
+  .steps-list { list-style: none; display: flex; flex-direction: column; gap: 30px; }
+  .step-item { display: flex; gap: 18px; align-items: flex-start; }
+  .step-num {
+    flex-shrink: 0; width: 34px; height: 34px; background: #15B0CC; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; margin-top: 2px;
+    font-size: 13px; font-weight: 700; color: #fff;
+  }
+  .step-body h3 { font-size: 17px; color: #1A1A1A; margin-bottom: 8px; font-weight: 700; }
+  .step-body p { font-size: 14px; color: #555; line-height: 1.7; }
+  .step-cta {
+    display: inline-block; margin-top: 16px; background: #15B0CC; color: #fff;
+    padding: 13px 32px; border-radius: 6px; font-size: 11px; font-weight: 700;
+    letter-spacing: .07em; text-transform: uppercase; transition: background .2s;
+  }
+  .step-cta:hover { background: #0d8fa8; }
+  .step-cta-note { display: block; margin-top: 8px; font-size: 11px; color: #999; }
+
+  .cta-banner { background: #15B0CC; padding: 56px 24px; text-align: center; }
+  .cta-banner h2 { font-family: 'Playfair Display', Georgia, serif; font-size: 34px; color: #fff; margin-bottom: 14px; font-weight: 600; }
+  .cta-banner p { color: rgba(255,255,255,.8); font-size: 15px; line-height: 1.7; margin-bottom: 32px; }
+  .btn-cta {
+    display: inline-block; background: #fff; color: #15B0CC;
+    padding: 16px 48px; border-radius: 6px; font-size: 12px;
+    font-weight: 700; letter-spacing: .07em; text-transform: uppercase; transition: all .2s;
+  }
+  .btn-cta:hover { background: #1A1A1A; color: #fff; }
+  .btn-note { margin-top: 14px; color: rgba(255,255,255,.5); font-size: 12px; }
+
+  .site-footer { background: #1A1A1A; color: rgba(255,255,255,.4); text-align: center; padding: 32px; font-size: 12px; letter-spacing: .02em; border-top: 1px solid rgba(255,255,255,.05); }
+  .site-footer a { color: #15B0CC; }
+
+  @media (max-width: 700px) {
+    .top-bar, .site-nav { display: none; }
+    .site-header { padding: 0 18px; height: 68px; }
+    .page-hero { padding: 34px 18px 26px; }
+    .page-hero h1 { font-size: 28px; }
+    .page-content { padding: 36px 18px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span>424-399-5816</span>
+  <span>info@sbmusicconservatory.com</span>
+  <span>Text or call anytime</span>
+</div>
+
+<header class="site-header">
+  <a href="https://www.sbmusicconservatory.com/">
+    <div class="logo-name">South Bay <em>Music</em> Conservatory</div>
+    <div class="logo-sub">Torrance, California</div>
+  </a>
+  <nav>
+    <ul class="site-nav">
+      <li><a href="https://www.sbmusicconservatory.com/">Home</a></li>
+      <li><a href="https://www.sbmusicconservatory.com/about/">About</a></li>
+      <li><a href="https://www.sbmusicconservatory.com/faculty/">Faculty</a></li>
+      <li><a href="https://www.sbmusicconservatory.com/tuition/">Tuition</a></li>
+      <li class="active"><a href="#">Trial Lesson</a></li>
+      <li><a href="https://www.sbmusicconservatory.com/contact/">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="page-hero">
+  <h1>Enrollment Inquiry</h1>
+  <div class="breadcrumb">
+    <a href="#">Home</a> &rsaquo;
+    <a href="#">Lessons</a> &rsaquo;
+    Enrollment Inquiry
+  </div>
+</div>
+
+<div class="page-content">
+  <h2 class="section-heading">How Enrollment Works</h2>
+
+  <ul class="steps-list">
+    <li class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Submit your inquiry</h3>
+        <p>Tell us about your student, instrument interest, and goals. It takes about 3 minutes.</p>
+        <a href="/demo/{{ demo_slug }}/standalone-form/" class="step-cta">Submit Inquiry &rarr;</a>
+        <span class="step-cta-note">Opens the full enrollment form on its own dedicated page</span>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>We'll reach out within 1–2 business days</h3>
+        <p>Our director will contact you to learn more and schedule a trial lesson.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Attend a 30-minute trial lesson ($30)</h3>
+        <p>Your student meets a teacher, tries the instrument, and we discuss fit and next steps.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h3>Enroll and begin lessons</h3>
+        <p>Once enrolled, monthly billing begins. Recitals, events, and support are all included.</p>
+      </div>
+    </li>
+  </ul>
+</div>
+
+<div class="cta-banner">
+  <h2>Ready to get started?</h2>
+  <p>
+    Submit your inquiry and our team will reach out within 1–2 business days.<br>
+    Piano, violin, viola, and cello lessons available for all ages and levels.
+  </p>
+  <a href="/demo/{{ demo_slug }}/standalone-form/" class="btn-cta">Submit Inquiry &rarr;</a>
+  <div class="btn-note">Opens on its own dedicated enrollment page</div>
+</div>
+
+<footer class="site-footer">
+  &copy; 2025 South Bay Music Conservatory &nbsp;&mdash;&nbsp;
+  Torrance, CA &nbsp;&mdash;&nbsp;
+  <a href="mailto:info@sbmusicconservatory.com">info@sbmusicconservatory.com</a>
+</footer>
+
+</body>
+</html>

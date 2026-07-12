@@ -33,6 +33,11 @@ DEMO_REGISTRY = {
         "template_dir": "demo/bhg",
         "demos": ["dedicated-page", "modal", "bottom-section", "link-out", "standalone-form"],
     },
+    "sbmc-demo": {
+        "school_slug": "south-bay-music",
+        "template_dir": "demo/sbmc",
+        "demos": ["dedicated-page", "modal", "bottom-section", "link-out", "standalone-form"],
+    },
 }
 
 

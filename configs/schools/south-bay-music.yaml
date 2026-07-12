@@ -1,0 +1,331 @@
+schema_version: "1.0"
+
+school:
+  slug: "south-bay-music"
+  display_name: "South Bay Music Conservatory"
+  website_url: "https://www.sbmusicconservatory.com/"
+  source_url: "https://www.sbmusicconservatory.com/"
+
+branding:
+  custom_css: "schools/south-bay-music.css"
+
+  theme:
+    primary_color: "#15B0CC"
+    accent_color: "#15B0CC"
+    background: "#ffffff"
+    card: "#ffffff"
+    text: "#1A1A1A"
+    muted: "#666666"
+    border: "#e0e0e0"
+    radius: "6px"
+    font_family: "'Lato', Helvetica, Arial, sans-serif"
+    heading_font: "'Playfair Display', Georgia, serif"
+
+program_field_key: "instrument"
+
+form:
+  title: "Enrollment Inquiry"
+  description: >
+    Tell us about your student and musical goals. Our team will reach out within 1–2 business days
+    to discuss scheduling, lesson options, and next steps.
+  submit_button_text: "Submit Inquiry"
+
+  sections:
+
+    - title: "Student Information"
+      fields:
+        - key: student_first_name
+          label: "First Name"
+          type: text
+          required: true
+
+        - key: student_last_name
+          label: "Last Name"
+          type: text
+          required: true
+
+        - key: date_of_birth
+          label: "Date of Birth"
+          type: date
+          required: true
+
+    - title: "Instrument & Program"
+      fields:
+        - key: instrument
+          label: "Instrument of Interest"
+          type: select
+          required: true
+
+        - key: lesson_length
+          label: "Preferred Lesson Length"
+          type: select
+          required: true
+          options:
+            - label: "15 minutes (youngest beginners)"
+              value: 15min
+            - label: "30 minutes"
+              value: 30min
+            - label: "45 minutes"
+              value: 45min
+            - label: "60 minutes"
+              value: 60min
+            - label: "Not sure yet"
+              value: unsure
+
+        - key: experience_level
+          label: "Experience Level"
+          type: select
+          required: true
+          options:
+            - label: "No prior experience — complete beginner"
+              value: none
+            - label: "Some experience — taken lessons before"
+              value: beginner
+            - label: "Intermediate — regular lessons, can read music"
+              value: intermediate
+            - label: "Advanced — serious study, performing"
+              value: advanced
+            - label: "Transfer student from another teacher"
+              value: transfer
+
+    - title: "Schedule Preferences"
+      fields:
+        - key: preferred_days
+          label: "Preferred Days"
+          type: multiselect
+          required: false
+          options:
+            - label: "Monday"
+              value: mon
+            - label: "Tuesday"
+              value: tue
+            - label: "Wednesday"
+              value: wed
+            - label: "Thursday"
+              value: thu
+            - label: "Friday"
+              value: fri
+            - label: "Saturday"
+              value: sat
+            - label: "Sunday"
+              value: sun
+
+        - key: preferred_time
+          label: "Preferred Time of Day"
+          type: select
+          required: false
+          options:
+            - label: "Morning (9am–12pm)"
+              value: morning
+            - label: "Afternoon (12pm–4pm)"
+              value: afternoon
+            - label: "Evening (4pm–7pm)"
+              value: evening
+            - label: "Flexible"
+              value: flexible
+
+    - title: "Parent / Guardian Information"
+      fields:
+        - key: guardian_name
+          label: "Parent / Guardian Full Name"
+          type: text
+          required: true
+
+        - key: guardian_email
+          label: "Parent / Guardian Email"
+          type: email
+          required: true
+
+        - key: guardian_phone
+          label: "Parent / Guardian Phone"
+          type: tel
+          required: true
+
+        - key: relationship
+          label: "Relationship to Student"
+          type: select
+          required: false
+          options:
+            - label: "Mother"
+              value: mother
+            - label: "Father"
+              value: father
+            - label: "Guardian"
+              value: guardian
+            - label: "Self (adult student)"
+              value: self
+
+    - title: "Additional Information"
+      fields:
+        - key: how_did_you_hear
+          label: "How did you hear about us?"
+          type: select
+          required: false
+          options:
+            - label: "Google search"
+              value: google
+            - label: "Referred by a friend or family"
+              value: referral
+            - label: "Social media"
+              value: social_media
+            - label: "Drove by / saw the location"
+              value: drove_by
+            - label: "Current or former student"
+              value: current_student
+            - label: "Other"
+              value: other
+
+        - key: notes
+          label: "Anything else you'd like us to know?"
+          type: textarea
+          required: false
+
+success:
+  title: "Inquiry Received!"
+  message: >
+    Thank you — we've received your inquiry for South Bay Music Conservatory.
+    Our team will review your student's information and reach out within 1–2 business days
+    to discuss scheduling, lesson options, and next steps.
+  response_time: "1–2 business days"
+  next_steps:
+    - "We'll review your student's age, experience level, and instrument interest."
+    - "We'll schedule a 30-minute trial lesson ($30) so your student can meet a teacher and try playing."
+    - "After the trial, we'll discuss lesson length, scheduling, and enrollment."
+    - "Monthly billing starts once you're enrolled — no long-term commitment required."
+  contact:
+    name: "South Bay Music Conservatory"
+    email: "info@sbmusicconservatory.com"
+    phone: "424-399-5816"
+  hours: "Text or call 424-399-5816 · info@sbmusicconservatory.com"
+
+  notifications:
+    submission_email:
+      to: "info@sbmusicconservatory.com"
+      cc: ""
+      bcc: ""
+      from_email: "noreply@enrollifyapp.com"
+      subject: "New enrollment inquiry: {{student_name}}"
+
+    applicant_confirmation:
+      enabled: true
+      from_email: "noreply@enrollifyapp.com"
+      subject: "We received your inquiry, {{student_name}}!"
+
+admin:
+  submission_statuses:
+    - New
+    - Trial Scheduled
+    - Trial Completed
+    - In Review
+    - Enrolled
+    - Waitlisted
+    - Needs Follow Up
+    - Declined
+    - Archived
+  default_submission_status: New
+
+  submission_workflow:
+    filters:
+      new_registrations:
+        label: "New"
+        statuses: ["New"]
+      trial:
+        label: "Trial"
+        statuses: ["Trial Scheduled", "Trial Completed"]
+      in_review:
+        label: "In Review"
+        statuses: ["In Review", "Needs Follow Up"]
+      enrolled:
+        label: "Enrolled"
+        statuses: ["Enrolled"]
+      waitlisted:
+        label: "Waitlisted"
+        statuses: ["Waitlisted"]
+      closed:
+        label: "Closed"
+        statuses: ["Declined", "Archived"]
+
+    transitions:
+      New:
+        - label: "Schedule Trial Lesson"
+          status: "Trial Scheduled"
+        - label: "Mark Needs Follow Up"
+          status: "Needs Follow Up"
+        - label: "Archive"
+          status: "Archived"
+      Trial Scheduled:
+        - label: "Mark Trial Completed"
+          status: "Trial Completed"
+        - label: "Archive"
+          status: "Archived"
+      Trial Completed:
+        - label: "Enroll"
+          status: "Enrolled"
+        - label: "Waitlist"
+          status: "Waitlisted"
+        - label: "Decline"
+          status: "Declined"
+      In Review:
+        - label: "Schedule Trial Lesson"
+          status: "Trial Scheduled"
+        - label: "Enroll"
+          status: "Enrolled"
+        - label: "Archive"
+          status: "Archived"
+      Needs Follow Up:
+        - label: "Schedule Trial Lesson"
+          status: "Trial Scheduled"
+        - label: "Archive"
+          status: "Archived"
+      Waitlisted:
+        - label: "Enroll"
+          status: "Enrolled"
+        - label: "Decline"
+          status: "Declined"
+
+  lead_workflow:
+    filters:
+      new_leads:
+        label: "New"
+        statuses: [new]
+      pipeline:
+        label: "In Pipeline"
+        statuses: [contacted, placement_scheduled]
+      won:
+        label: "Enrolled"
+        statuses: [enrolled]
+    transitions:
+      new:
+        - label: "Mark Contacted"
+          status: contacted
+        - label: "Archive"
+          status: archived
+      contacted:
+        - label: "Schedule Trial"
+          status: placement_scheduled
+        - label: "Archive"
+          status: archived
+      placement_scheduled:
+        - label: "Mark Enrolled"
+          status: enrolled
+        - label: "Archive"
+          status: archived
+
+leads:
+  form_title: "Express Interest"
+  form_description: "Tell us your child's age and instrument interest — our team will follow up within 1–2 business days."
+  cta_text: "Send My Inquiry"
+  success_message: "Thanks! South Bay Music Conservatory will be in touch soon."
+  confirmation_enabled: true
+  notify_to: ""
+
+capacity:
+  waitlist_message: "This program currently has limited availability. You've been added to our waitlist and we'll be in touch as soon as a spot opens."
+  excluded_statuses:
+    - Archived
+    - Declined
+  programs:
+    piano: 15
+    violin: 15
+    viola: 10
+    cello: 10

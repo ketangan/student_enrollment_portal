@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enrollment Inquiry | South Bay Music Conservatory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Lato:wght@300;400;700&display=swap">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Lato', Helvetica, Arial, sans-serif; color: #1A1A1A; background: #fff; -webkit-font-smoothing: antialiased; }
+  a { text-decoration: none; color: inherit; }
+
+  .top-bar { background: #1A1A1A; padding: 7px 40px; display: flex; justify-content: flex-end; gap: 24px; font-size: 11px; color: rgba(255,255,255,.55); letter-spacing: .04em; }
+
+  .site-header {
+    background: #fff; border-bottom: 1px solid #e8e8e8; padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between; height: 80px;
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 6px rgba(0,0,0,.05);
+  }
+  .logo-name { font-family: 'Playfair Display', Georgia, serif; font-size: 22px; font-weight: 700; color: #1A1A1A; letter-spacing: .02em; line-height: 1.1; }
+  .logo-name em { color: #15B0CC; font-style: normal; }
+  .logo-sub { font-size: 10px; color: #999; letter-spacing: .12em; text-transform: uppercase; margin-top: 2px; }
+  .site-nav { display: flex; gap: 28px; list-style: none; }
+  .site-nav a { font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: #1A1A1A; transition: color .15s; }
+  .site-nav a:hover, .site-nav .active a { color: #15B0CC; }
+
+  .page-hero { background: #15B0CC; padding: 44px 40px 34px; text-align: center; }
+  .page-hero h1 { font-family: 'Playfair Display', Georgia, serif; font-size: 36px; color: #ffffff; font-weight: 600; letter-spacing: .01em; }
+  .page-hero .breadcrumb { margin-top: 10px; font-size: 12px; color: rgba(255,255,255,.5); }
+  .page-hero .breadcrumb a { color: rgba(255,255,255,.7); }
+
+  .form-wrapper { max-width: 900px; margin: 0 auto; padding: 48px 24px 80px; }
+  .form-intro { text-align: center; margin-bottom: 32px; }
+  .form-intro p { font-size: 14px; color: #555; line-height: 1.7; max-width: 600px; margin: 0 auto; }
+
+  .iframe-container {
+    border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,.06);
+  }
+  .iframe-container iframe { display: block; width: 100%; height: 700px; border: none; }
+
+  .site-footer { background: #1A1A1A; color: rgba(255,255,255,.4); text-align: center; padding: 32px; font-size: 12px; letter-spacing: .02em; }
+  .site-footer a { color: #15B0CC; }
+
+  @media (max-width: 700px) {
+    .top-bar, .site-nav { display: none; }
+    .site-header { padding: 0 18px; height: 68px; }
+    .page-hero { padding: 34px 18px 26px; }
+    .page-hero h1 { font-size: 28px; }
+    .form-wrapper { padding: 32px 18px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span>424-399-5816</span>
+  <span>info@sbmusicconservatory.com</span>
+  <span>Text or call anytime</span>
+</div>
+
+<header class="site-header">
+  <a href="https://www.sbmusicconservatory.com/">
+    <div class="logo-name">South Bay <em>Music</em> Conservatory</div>
+    <div class="logo-sub">Torrance, California</div>
+  </a>
+  <nav>
+    <ul class="site-nav">
+      <li><a href="https://www.sbmusicconservatory.com/">Home</a></li>
+      <li><a href="https://www.sbmusicconservatory.com/about/">About</a></li>
+      <li><a href="https://www.sbmusicconservatory.com/faculty/">Faculty</a></li>
+      <li><a href="https://www.sbmusicconservatory.com/tuition/">Tuition</a></li>
+      <li class="active"><a href="#">Trial Lesson</a></li>
+      <li><a href="https://www.sbmusicconservatory.com/contact/">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="page-hero">
+  <h1>Enrollment Inquiry</h1>
+  <div class="breadcrumb">
+    <a href="#">Home</a> &rsaquo; <a href="#">Lessons</a> &rsaquo; Enrollment Inquiry
+  </div>
+</div>
+
+<div class="form-wrapper">
+  <div class="form-intro">
+    <p>
+      Please complete the inquiry form below. After submitting, our team will follow up within 1–2 business days
+      to discuss scheduling, lesson options, and next steps for your student.
+    </p>
+  </div>
+  <div class="iframe-container">
+    <iframe
+      src="{{ embed_form_url }}"
+      title="South Bay Music Conservatory Enrollment Inquiry"
+      allow="payment"
+    ></iframe>
+  </div>
+</div>
+
+<footer class="site-footer">
+  &copy; 2025 South Bay Music Conservatory &nbsp;&mdash;&nbsp;
+  Torrance, CA &nbsp;&mdash;&nbsp;
+  <a href="mailto:info@sbmusicconservatory.com">info@sbmusicconservatory.com</a>
+</footer>
+
+<script>
+  window.addEventListener("message", function (e) {
+    if (e.data && e.data.type === "iframeResize") {
+      var iframe = document.querySelector(".iframe-container iframe");
+      if (iframe) iframe.style.height = e.data.height + "px";
+    }
+  });
+</script>
+</body>
+</html>
