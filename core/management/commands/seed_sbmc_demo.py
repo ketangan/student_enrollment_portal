@@ -316,10 +316,13 @@ class Command(BaseCommand):
             leads_created = Lead.objects.filter(school=school).count()
             self.stdout.write(f"  Created {leads_created} leads.")
 
+        from django.conf import settings
+        base = getattr(settings, "APP_BASE_URL", "http://127.0.0.1:8001").rstrip("/")
+        demo_base = getattr(settings, "DEMO_BASE_URL", base).rstrip("/")
         self.stdout.write(self.style.SUCCESS(
             f"\n Done."
-            f"\n  Admin:   http://127.0.0.1:8001/schools/{SCHOOL_SLUG}/admin/"
+            f"\n  Admin:   {base}/schools/{SCHOOL_SLUG}/admin/"
             f"\n  Login:   {ADMIN_USERNAME} / {ADMIN_PASSWORD}"
-            f"\n  Demo:    http://127.0.0.1:8001/demo/sbmc-demo/"
-            f"\n  Form:    http://127.0.0.1:8001/schools/{SCHOOL_SLUG}/apply/"
+            f"\n  Demo:    {demo_base}/demo/sbmc-demo/"
+            f"\n  Form:    {base}/schools/{SCHOOL_SLUG}/apply/"
         ))
