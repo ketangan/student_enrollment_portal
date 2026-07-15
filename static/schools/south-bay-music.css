@@ -93,20 +93,56 @@ label,
 /* ── Section headings ── */
 .form-section-heading,
 .section-title {
-  font-family: 'Playfair Display', Georgia, serif !important;
-  font-size: 20px !important;
-  font-weight: 600 !important;
-  color: #1A1A1A !important;
-  letter-spacing: 0.02em !important;
-  border-bottom: 1px solid #e0e0e0 !important;
+  font-family: 'Lato', Helvetica, Arial, sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #888888 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  border-bottom: 1px solid #e8e8e8 !important;
   padding-bottom: 10px !important;
   margin-bottom: 20px !important;
-  text-transform: none !important;
 }
 
 /* ── Checkboxes ── */
 input[type="checkbox"]:checked {
   accent-color: #15B0CC;
+}
+
+.check-row {
+  border-radius: 6px !important;
+  border-color: #d8d8d8 !important;
+  background: #fafeff !important;
+}
+
+.check-label {
+  font-weight: 400 !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+  color: #333333 !important;
+}
+
+/* ── Waiver box ── */
+.waiver-box {
+  background: #f5fdff !important;
+  border: 1px solid #c4e8f0 !important;
+  border-radius: 6px !important;
+}
+
+.waiver-text {
+  color: #555555 !important;
+  font-size: 13px !important;
+}
+
+.waiver-link {
+  color: #15B0CC !important;
+}
+
+.waiver-box .check-row {
+  background: transparent !important;
+  border: none !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 
 /* ── Error states ── */

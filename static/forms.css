@@ -133,12 +133,17 @@ html, body {
 
 .check-row{
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: #fff;
+}
+
+.check-row .check {
+  margin-top: 2px;
+  flex-shrink: 0;
 }
 
 .check{
@@ -203,6 +208,32 @@ html, body {
 }
 
 textarea { min-height: 110px; resize: vertical; }
+
+.waiver-box {
+  background: #f9fafb;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.waiver-text {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.65;
+  margin: 0;
+}
+
+.waiver-link {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 .input:focus, select:focus, textarea:focus {
   border-color: var(--primary);
