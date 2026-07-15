@@ -614,8 +614,11 @@ def school_settings_view(request, school_slug: str):
         programs_create_url = reverse("school_program_create", kwargs={"school_slug": school_slug})
         programs_no_active_warning = not _SchoolProgram.objects.filter(school=school, is_active=True).exists()
 
-    from core.models import SchoolEmailTemplate
-    email_templates = list(SchoolEmailTemplate.objects.filter(school=school))
+    from core.models import SchoolCustomToken, SchoolEmailTemplate
+    _all_templates = SchoolEmailTemplate.objects.filter(school=school).order_by("name")
+    email_templates          = [t for t in _all_templates if t.is_active]
+    email_templates_inactive = [t for t in _all_templates if not t.is_active]
+    custom_tokens = list(SchoolCustomToken.objects.filter(school=school))
 
     ctx = _school_admin_base_context(request, school, "settings")
     ctx.update({
@@ -627,7 +630,10 @@ def school_settings_view(request, school_slug: str):
         "programs_no_active_warning": programs_no_active_warning,
         "program_field_key": school.program_field_key,
         "email_templates": email_templates,
+        "email_templates_inactive": email_templates_inactive,
         "email_template_create_url": reverse("school_email_template_create", kwargs={"school_slug": school_slug}),
+        "custom_tokens": custom_tokens,
+        "custom_token_create_url": reverse("school_custom_token_create", kwargs={"school_slug": school_slug}),
     })
     return render(request, "school_admin/settings.html", ctx)
 

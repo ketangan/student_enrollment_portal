@@ -271,11 +271,13 @@ if not _REDIS_URL:
 # ----------------------------------
 INSTALLED_APPS += ["anymail"]
 
-EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
-
-ANYMAIL = {
-    "RESEND_API_KEY": os.getenv("RESEND_EMAIL_API_KEY", "").strip(),
-}
+_RESEND_API_KEY = os.getenv("RESEND_EMAIL_API_KEY", "").strip()
+if _RESEND_API_KEY:
+    EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+    ANYMAIL = {"RESEND_API_KEY": _RESEND_API_KEY}
+else:
+    # No API key — print emails to the terminal in local dev instead of failing.
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@example.com")
 # WARNING: the fallback "noreply@example.com" is not a real verified sender.

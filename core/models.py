@@ -326,10 +326,11 @@ class SchoolEmailTemplate(models.Model):
     Token syntax: {{full_name}}, {{first_name}}, {{email}}, {{program}},
                   {{status}}, {{school_name}}
     """
-    school   = models.ForeignKey(School, on_delete=models.CASCADE, related_name="email_templates")
-    name     = models.CharField(max_length=120)
-    subject  = models.CharField(max_length=255)
-    body     = models.TextField()
+    school     = models.ForeignKey(School, on_delete=models.CASCADE, related_name="email_templates")
+    name       = models.CharField(max_length=120)
+    subject    = models.CharField(max_length=255)
+    body       = models.TextField()
+    is_active  = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -338,6 +339,20 @@ class SchoolEmailTemplate(models.Model):
 
     def __str__(self) -> str:
         return f"{self.school.slug} / {self.name}"
+
+
+class SchoolCustomToken(models.Model):
+    """School-defined placeholder tokens for email templates (e.g. teacher, price, day)."""
+    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="custom_tokens")
+    key    = models.CharField(max_length=50)   # used as {{key}} in templates
+    label  = models.CharField(max_length=120)  # display name shown in editor panel
+
+    class Meta:
+        unique_together = [("school", "key")]
+        ordering = ["key"]
+
+    def __str__(self) -> str:
+        return f"{self.school.slug} / {self.key}"
 
 
 def generate_public_id() -> str:

@@ -317,7 +317,35 @@
       No templates yet. <a href="{{ email_template_create_url }}" style="color:var(--dash-primary);">Add your first template →</a>
     </p>
     {% endif %}
+
+    {% if email_templates_inactive %}
+    <details style="margin-top:14px;">
+      <summary style="font-size:12px;color:var(--dash-muted);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px;">
+        <span>▸</span> {{ email_templates_inactive|length }} deactivated template{{ email_templates_inactive|length|pluralize }}
+      </summary>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;opacity:.7;">
+        <tbody>
+          {% for tmpl in email_templates_inactive %}
+          <tr style="border-bottom:1px solid var(--dash-border);">
+            <td style="padding:7px 8px 7px 0;color:var(--dash-muted);">{{ tmpl.name }}</td>
+            <td style="padding:7px 8px;color:var(--dash-muted);font-size:11px;">{{ tmpl.subject }}</td>
+            <td style="padding:7px 0 7px 8px;text-align:right;white-space:nowrap;">
+              <a href="{% url 'school_email_template_edit' school.slug tmpl.pk %}"
+                 style="font-size:11px;color:var(--dash-primary);text-decoration:none;margin-right:10px;">Edit</a>
+              <form method="post" action="{% url 'school_email_template_reactivate' school.slug tmpl.pk %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" style="font-size:11px;color:var(--dash-primary);background:none;border:none;cursor:pointer;padding:0;">Reactivate</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+    {% endif %}
   </div>
+
+
 
   <!-- ── Application Form ──────────────────────────────────────────────── -->
   <div class="dash-card" style="padding:24px;margin-bottom:40px;">

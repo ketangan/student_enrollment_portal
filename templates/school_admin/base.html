@@ -195,7 +195,7 @@
   {% if messages %}
   <div style="padding: 12px 20px 0;">
     {% for message in messages %}
-    <div style="
+    <div data-level="{{ message.level_tag }}" style="
       margin-bottom: 8px;
       padding: 10px 16px;
       border-radius: 8px;

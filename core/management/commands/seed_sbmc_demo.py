@@ -21,7 +21,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
-from core.models import Lead, School, SchoolAdminMembership, SchoolProgram, Submission
+from core.models import Lead, School, SchoolAdminMembership, SchoolCustomToken, SchoolEmailTemplate, SchoolProgram, Submission
 
 User = get_user_model()
 
@@ -127,6 +127,204 @@ LEADS = [
     ("Linda",  "Nguyen",    "website",  "linda.n@gmail.com",   "(424) 555-0518"),
     ("Thomas", "Okafor",    "drove_by", "t.okafor@yahoo.com",  "(310) 555-0634"),
 ]
+
+
+_EMAIL_TEMPLATES = [
+    {
+        "name": "Trial Lesson Confirmation",
+        "subject": "Looking forward to your trial lesson",
+        "body": (
+            "<p>Hi {{first_name}},</p>"
+            "<p>We're so glad you've scheduled a trial lesson with South Bay Music Conservatory "
+            "— we look forward to welcoming you and [Student Name] to the studio.</p>"
+            "<p>Before your visit, here's a quick overview of what to expect.</p>"
+            "<p>At SBMC, we focus on long-term musical growth within a supportive, thoughtful "
+            "learning environment. Trial lessons are designed to help us get to know each student, "
+            "assess musical readiness, and determine the best next steps.</p>"
+            "<p><b>During the trial lesson, the teacher will:</b></p>"
+            "<ul>"
+            "<li>Work directly with your child</li>"
+            "<li>Assess level and learning style</li>"
+            "<li>Answer questions</li>"
+            "<li>Offer recommendations for placement and next steps</li>"
+            "</ul>"
+            "<p>[For string students: an appropriately sized instrument will be available for use "
+            "during the trial, so there's nothing you need to bring.]</p>"
+            "<p><b>Location</b><br>"
+            "South Bay Music Conservatory<br>"
+            "1407 Crenshaw Blvd., Suite 100<br>"
+            "Torrance, CA 90501</p>"
+            "<p>Free parking is available in the large lot behind the building. We're located in "
+            "the smaller building directly across from Clare Skin Care.</p>"
+            "<p><b>Tuition &amp; Fees</b></p>"
+            "<ul>"
+            "<li>Trial lesson: $30</li>"
+            "<li>Weekly private lessons begin at $225/month for 30-minute lessons, which is the "
+            "standard starting length for beginners</li>"
+            "<li>Longer lesson times are available and may be recommended based on age, level, and goals</li>"
+            "<li>One-time Conservatory Enrollment &amp; Placement Fee (at enrollment): $125</li>"
+            "</ul>"
+            "<p>As a welcome to new families, we're currently offering $100 off your first month "
+            "of tuition following enrollment.</p>"
+            "<p>You'll receive a reminder from our scheduling system prior to your lesson with "
+            "timing and location details. If any questions come up before your visit, feel free to "
+            "reply to this email — our team is happy to help.</p>"
+            "<p>Warmly,<br>Emily Moore</p>"
+        ),
+    },
+    {
+        "name": "Trial Lesson Follow-Up",
+        "subject": "Trial Lesson Follow-Up & Placement Recommendation for {{full_name}}",
+        "body": (
+            "<p>Hi {{first_name}}!</p>"
+            "<p>Thank you again for coming in for your trial lesson at South Bay Music "
+            "Conservatory. It was a pleasure working with {{full_name}}, and we appreciated "
+            "the opportunity to learn more about [his/her] musical background and goals.</p>"
+            "<p><b>Trial Lesson Assessment</b></p>"
+            "<p>During the trial lesson, we focused on musical readiness, learning style, and "
+            "foundational technique.</p>"
+            "<p>[1–2 sentence personalized assessment: engagement, focus, enthusiasm, strengths, "
+            "potential fit.]</p>"
+            "<p><b>Placement Recommendation</b></p>"
+            "<p>Based on today's assessment, we recommend:</p>"
+            "<ul>"
+            "<li>[Lesson Length] weekly private lessons</li>"
+            "<li>A consistent weekly lesson time to support steady progress and continuity</li>"
+            "</ul>"
+            "<p><b>Tuition &amp; Enrollment Fees</b></p>"
+            "<p>Our recommended program includes the following:</p>"
+            "<ul>"
+            "<li>Monthly Tuition: $[Monthly Tuition Amount] / month</li>"
+            "<li>One-Time Conservatory Enrollment &amp; Placement Fee: $125</li>"
+            "<li>[Optional: Instrument Rental for $35/month]</li>"
+            "</ul>"
+            "<p>The Conservatory Enrollment &amp; Placement Fee covers initial student assessment "
+            "and level placement, teacher matching and schedule coordination, and enrollment "
+            "processing and studio onboarding. This fee is charged once per student at initial "
+            "enrollment.</p>"
+            "<p><b>Spring Enrollment Courtesy</b></p>"
+            "<p>To welcome new students enrolling for [Term / Start Period], we're currently "
+            "offering $100 off the first month of tuition.</p>"
+            "<p><b>Enrollment &amp; Scheduling</b></p>"
+            "<p>If you'd like to move forward, you may complete enrollment here.</p>"
+            "<p>And submit your scheduling preferences here.</p>"
+            "<p>Once enrolled, you'll automatically receive scheduling confirmation, onboarding "
+            "details, and your SBMC Welcome Packet.</p>"
+            "<p>If you'd prefer to talk through placement or scheduling options before enrolling, "
+            "feel free to reply to this email — I'm always happy to help.</p>"
+            "<p><b>Studio Policies</b></p>"
+            "<p>As part of enrollment, families review and sign our studio policies covering "
+            "scheduling, attendance, billing, and communication. You'll review and sign them "
+            "during enrollment, and may preview them in advance here.</p>"
+            "<p>We truly enjoyed meeting {{full_name}}, and would be delighted to continue "
+            "supporting [his/her] musical growth at SBMC.</p>"
+            "<p>Warm regards,<br>Emily</p>"
+            "<p>P.S., join us at our annual picnic on July 12th? Come see the studio in action!</p>"
+        ),
+    },
+    {
+        "name": "Registration Confirmation",
+        "subject": "Welcome to South Bay Music Conservatory!",
+        "body": (
+            "<p>Hi {{first_name}},</p>"
+            "<p>Welcome to South Bay Music Conservatory — we're so happy to have you join our "
+            "studio community! Your enrollment is complete, and we're looking forward to working "
+            "together as {{full_name}} begins [his/her] musical journey with us.</p>"
+            "<p>We are confirming [LENGTH] [INSTRUMENT] lessons with [TEACHER] on [DAY] at [TIME], "
+            "beginning [DATE].</p>"
+            "<p><b>Billing overview:</b></p>"
+            "<ul>"
+            "<li>Your card on file will be charged $125 for the one-time Conservatory Assessment "
+            "&amp; Placement Fee.</li>"
+            "<li>The lesson next week will be billed at the single-lesson rate of $50.</li>"
+            "<li>Ongoing monthly tuition of [PRICE] will begin on [DATE] and will be billed on "
+            "the 1st of each month moving forward.</li>"
+            "<li>The first-month 50% discount will be applied as a courtesy refund after the "
+            "second full month of tuition is paid.</li>"
+            "</ul>"
+            "<p>To help you get oriented, we've put together a Welcome Packet with everything "
+            "you need to know as you get started, including:</p>"
+            "<ul>"
+            "<li>Studio policies and expectations</li>"
+            "<li>Communication and scheduling guidelines</li>"
+            "<li>What to have ready at home for lessons</li>"
+            "<li>An overview of community and performance opportunities at SBMC</li>"
+            "</ul>"
+            "<p>Access the Welcome Packet here.</p>"
+            "<p>For planning purposes, please note that the most up-to-date Semester Calendar "
+            "— including recital dates, studio closures, and upcoming community events — lives on "
+            "our website and may be updated as needed throughout the term.</p>"
+            "<p>View the Semester Calendar here. We recommend bookmarking this page for easy "
+            "reference.</p>"
+            "<p>Please take a few minutes to review the Welcome Packet before your first lesson. "
+            "It will answer many common questions and help ensure a smooth start.</p>"
+            "<p>If anything comes up, or if you're unsure about next steps, you're always welcome "
+            "to reach out. We're here to support you and are excited to be part of your "
+            "musical growth.</p>"
+            "<p>Warmly,<br>Emily Moore</p>"
+        ),
+    },
+    {
+        "name": "Update Payment Method",
+        "subject": "Action Needed: Tuition Payment Update",
+        "body": (
+            "<p>Hi {{first_name}},</p>"
+            "<p>I hope you're doing well!</p>"
+            "<p>It looks like your recent tuition payment was unable to be processed. This is "
+            "often due to an expired card, a new card number, or a payment method that needs "
+            "to be updated.</p>"
+            "<p>When you have a moment, please log in to your account and update your payment "
+            "information. Once it's updated, the outstanding tuition balance will process "
+            "automatically.</p>"
+            "<p>If you've already taken care of this, thank you! No further action is needed.</p>"
+            "<p>If you have any questions or need assistance, please don't hesitate to reach out. "
+            "I'm always happy to help.</p>"
+            "<p>Thank you for your prompt attention, and I look forward to seeing you at the "
+            "studio!</p>"
+            "<p>Thanks,<br>Emily</p>"
+        ),
+    },
+]
+
+
+_CUSTOM_TOKENS = [
+    ("teacher",        "Teacher name"),
+    ("day",            "Lesson day"),
+    ("time",           "Lesson time"),
+    ("date",           "Start date"),
+    ("lesson_length",  "Lesson length"),
+    ("instrument",     "Instrument"),
+    ("price",          "Monthly tuition"),
+    ("enrollment_fee", "Enrollment fee"),
+]
+
+
+def _seed_custom_tokens(school, stdout=None):
+    created = 0
+    for key, label in _CUSTOM_TOKENS:
+        _, c = SchoolCustomToken.objects.get_or_create(
+            school=school, key=key, defaults={"label": label}
+        )
+        if c:
+            created += 1
+    if stdout:
+        verb = f"Created {created}" if created else "All already exist"
+        stdout.write(f"  {verb}: custom tokens ({len(_CUSTOM_TOKENS)} total).")
+
+
+def _seed_email_templates(school, stdout=None):
+    created_count = 0
+    for tmpl in _EMAIL_TEMPLATES:
+        _, created = SchoolEmailTemplate.objects.update_or_create(
+            school=school,
+            name=tmpl["name"],
+            defaults={"subject": tmpl["subject"], "body": tmpl["body"]},
+        )
+        if created:
+            created_count += 1
+    if stdout:
+        verb = f"Created {created_count}" if created_count else "All already exist"
+        stdout.write(f"  {verb}: email templates ({len(_EMAIL_TEMPLATES)} total).")
 
 
 class Command(BaseCommand):
@@ -322,6 +520,10 @@ class Command(BaseCommand):
 
             leads_created = Lead.objects.filter(school=school).count()
             self.stdout.write(f"  Created {leads_created} leads.")
+
+        # ── Email templates + custom tokens ─────────────────────────────────
+        _seed_custom_tokens(school, stdout=self.stdout)
+        _seed_email_templates(school, stdout=self.stdout)
 
         from django.conf import settings
         demo_base = getattr(settings, "DEMO_BASE_URL", "http://127.0.0.1:8001").rstrip("/")

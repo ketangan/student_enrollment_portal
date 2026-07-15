@@ -88,19 +88,83 @@
     </div>
 
     <!-- Token reference panel -->
-    <div class="dash-card" style="width:210px;flex-shrink:0;padding:18px;">
-      <div style="font-size:11px;font-weight:700;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">Available Tokens</div>
-      <div style="font-size:12px;color:var(--dash-muted);margin-bottom:12px;">Click to insert at cursor.</div>
+    <div class="dash-card" style="width:220px;flex-shrink:0;padding:18px;">
+
+      <!-- Built-in tokens -->
+      <div style="font-size:11px;font-weight:700;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Auto-filled Tokens</div>
+      <div style="font-size:11px;color:var(--dash-muted);margin-bottom:10px;">Click to insert at cursor.</div>
       {% for token, label in tokens %}
       <div style="margin-bottom:6px;">
         <button type="button"
-                onclick="insertToken('{{ token }}')"
+                data-token="{{ token }}"
+                onclick="insertToken(this.dataset.token)"
                 style="font-family:monospace;font-size:11px;padding:4px 8px;border:1px solid var(--dash-border);border-radius:4px;background:var(--dash-bg);color:var(--dash-primary,#4f46e5);cursor:pointer;width:100%;text-align:left;">
           &#123;&#123;{{ token }}&#125;&#125;
         </button>
         <div style="font-size:11px;color:var(--dash-muted);margin-top:2px;padding-left:2px;">{{ label }}</div>
       </div>
       {% endfor %}
+
+      <!-- Custom tokens -->
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--dash-border);">
+        <div style="font-size:11px;font-weight:700;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Custom Tokens</div>
+
+        {% for ct in custom_tokens %}
+        <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px;">
+          <button type="button"
+                  data-token="{{ ct.key }}"
+                  onclick="insertToken(this.dataset.token)"
+                  style="font-family:monospace;font-size:11px;padding:4px 8px;border:1px solid var(--dash-border);border-radius:4px;background:var(--dash-bg);color:var(--dash-primary,#4f46e5);cursor:pointer;flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                  title="{{ ct.label }}">
+            &#123;&#123;{{ ct.key }}&#125;&#125;
+          </button>
+          <form method="post" action="{% url 'school_custom_token_delete' school_slug ct.pk %}" style="margin:0;"
+                onsubmit="return confirm('Remove {{ ct.key }}?');">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <button type="submit"
+                    title="Remove {{ ct.key }}"
+                    style="width:20px;height:20px;border:none;background:none;cursor:pointer;color:var(--dash-muted);font-size:14px;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;">
+              &times;
+            </button>
+          </form>
+        </div>
+        <div style="font-size:11px;color:var(--dash-muted);margin:-2px 0 6px 2px;">{{ ct.label }}</div>
+        {% empty %}
+        <p style="font-size:11px;color:var(--dash-muted);margin:0 0 8px;">No custom tokens yet.</p>
+        {% endfor %}
+
+        <!-- Add token toggle -->
+        <button type="button" id="ct-add-btn"
+                onclick="document.getElementById('ct-add-panel').style.display='block';this.style.display='none';"
+                style="font-size:11px;color:var(--dash-primary,#4f46e5);background:none;border:none;cursor:pointer;padding:0;margin-top:2px;">
+          + Add token
+        </button>
+
+        <div id="ct-add-panel" style="display:none;margin-top:8px;">
+          <form method="post" action="{% url 'school_custom_token_create' school_slug %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.path }}">
+            <input type="text" name="key" placeholder="key (e.g. teacher)" maxlength="50"
+                   style="width:100%;padding:5px 8px;font-size:11px;font-family:monospace;border:1px solid var(--dash-border);border-radius:4px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;margin-bottom:5px;"
+                   id="ct-key-field">
+            <input type="text" name="label" placeholder="label (e.g. Teacher name)" maxlength="120"
+                   style="width:100%;padding:5px 8px;font-size:11px;border:1px solid var(--dash-border);border-radius:4px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;margin-bottom:6px;">
+            <div style="display:flex;gap:5px;">
+              <button type="submit"
+                      style="font-size:11px;padding:4px 10px;background:var(--dash-primary,#4f46e5);color:#fff;border:none;border-radius:4px;cursor:pointer;">
+                Add
+              </button>
+              <button type="button"
+                      onclick="document.getElementById('ct-add-panel').style.display='none';document.getElementById('ct-add-btn').style.display='';"
+                      style="font-size:11px;padding:4px 8px;background:none;border:1px solid var(--dash-border);border-radius:4px;cursor:pointer;color:var(--dash-muted);">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
     </div>
 
   </div>
@@ -112,17 +176,15 @@ var editor = document.getElementById('body-editor');
 
 function insertToken(token) {
   editor.focus();
-  var text = '{{' + token + '}}';
-  if (document.queryCommandSupported('insertText')) {
+  var text = '{' + '{' + token + '}' + '}';
+  var sel = window.getSelection();
+  if (sel && sel.rangeCount) {
+    var range = sel.getRangeAt(0);
+    range.deleteContents();
+    range.insertNode(document.createTextNode(text));
+    range.collapse(false);
+  } else if (document.queryCommandSupported('insertText')) {
     document.execCommand('insertText', false, text);
-  } else {
-    var sel = window.getSelection();
-    if (sel.rangeCount) {
-      var range = sel.getRangeAt(0);
-      range.deleteContents();
-      range.insertNode(document.createTextNode(text));
-      range.collapse(false);
-    }
   }
 }
 

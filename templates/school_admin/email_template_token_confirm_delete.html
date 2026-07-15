@@ -1,0 +1,62 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Remove Token — Email Templates{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <div style="margin-bottom:20px;">
+    <a href="{{ cancel_url }}" style="font-size:13px;color:var(--dash-muted);text-decoration:none;">← Back</a>
+    <h1 style="font-size:18px;font-weight:700;margin:8px 0 0;">Remove Custom Token</h1>
+  </div>
+
+  <div class="dash-card" style="max-width:560px;padding:28px;">
+
+    <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:22px;">
+      <div style="font-size:22px;line-height:1;">⚠️</div>
+      <div>
+        <div style="font-size:15px;font-weight:700;color:var(--dash-text);margin-bottom:6px;">
+          <code style="background:var(--dash-bg);border:1px solid var(--dash-border);border-radius:4px;padding:2px 8px;font-size:14px;">&#123;&#123;{{ token.key }}&#125;&#125;</code>
+          is used in {{ affected_templates|length }} template{{ affected_templates|length|pluralize }}
+        </div>
+        <p style="font-size:13px;color:var(--dash-muted);margin:0;">
+          Deleting this token won't remove it from those templates.
+          The placeholder will appear as-is in any email sent using them until it's manually replaced.
+        </p>
+      </div>
+    </div>
+
+    <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:14px;margin-bottom:22px;">
+      <div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">
+        Affected templates
+      </div>
+      {% for tmpl in affected_templates %}
+      <div style="font-size:13px;color:#78350f;padding:3px 0;display:flex;align-items:center;gap:6px;">
+        <span style="color:#d97706;">•</span>
+        <strong>{{ tmpl.name }}</strong>
+        {% if not tmpl.is_active %}
+        <span style="font-size:10px;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:3px;padding:1px 5px;">inactive</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <form method="post" action="{{ delete_url }}">
+      {% csrf_token %}
+      <input type="hidden" name="confirm" value="1">
+      <input type="hidden" name="next" value="{{ next_url }}">
+      <div style="display:flex;gap:10px;">
+        <button type="submit"
+                style="padding:8px 18px;font-size:13px;font-weight:600;background:#b91c1c;color:#fff;border:none;border-radius:6px;cursor:pointer;">
+          Delete anyway
+        </button>
+        <a href="{{ cancel_url }}"
+           style="padding:8px 18px;font-size:13px;font-weight:500;border:1px solid var(--dash-border);border-radius:6px;color:var(--dash-text);text-decoration:none;display:inline-block;">
+          Cancel
+        </a>
+      </div>
+    </form>
+
+  </div>
+
+</main>
+{% endblock %}
