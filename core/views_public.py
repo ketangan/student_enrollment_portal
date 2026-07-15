@@ -1132,7 +1132,7 @@ def school_lead_form_view(request, school_slug):
 
     raw = config.raw
     lead_cfg = get_lead_form_config(raw)
-    program_options = get_program_options(school)
+    program_options = [] if lead_cfg["hide_program_field"] else get_program_options(school)
 
     src_param = request.GET.get("src", "").strip()[:100]
     errors: dict = {}

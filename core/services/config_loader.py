@@ -212,6 +212,7 @@ def get_lead_form_config(config_raw: dict) -> dict:
             if k and v
         },
         "phone_required": bool(leads.get("phone_required", False)),
+        "hide_program_field": bool(leads.get("hide_program_field", False)),
         "fields": fields,
     }
 

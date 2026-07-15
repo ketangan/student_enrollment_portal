@@ -403,6 +403,7 @@ leads:
   confirmation_enabled: true
   notify_to: "info@sbmusicconservatory.com"
   phone_required: true
+  hide_program_field: true
   redirect_url: "https://fons.app/@southbaymusicconservatory/book/appointments/fdbecaae-ae97-11f0-a3de-cfe489961f8c?staff="
   redirect_url_map:
     piano: "https://fons.app/@southbaymusicconservatory/book/appointments/da4adf18-37fa-11f0-bba8-8b81bc8b90b7?staff="
@@ -436,23 +437,6 @@ leads:
           value: viola
         - label: "Cello"
           value: cello
-
-    - key: previous_experience
-      label: "Previous music experience (none is perfectly fine!)"
-      type: textarea
-      required: true
-      placeholder: "None, or describe any prior lessons / instruments…"
-
-    - key: trial_notes
-      label: "Anything we should know to provide a better trial experience?"
-      type: textarea
-      required: false
-      placeholder: "Optional"
-
-    - key: cancellation_policy
-      label: "I understand that appointments require at least 24 hours' notice to reschedule. Appointments canceled or rescheduled with less than 24 hours' notice will be charged a $30 fee."
-      type: checkbox
-      required: true
 
 capacity:
   waitlist_message: "This program currently has limited availability. You've been added to our waitlist and we'll be in touch as soon as a spot opens."
