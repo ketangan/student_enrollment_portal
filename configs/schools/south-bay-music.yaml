@@ -403,12 +403,12 @@ leads:
   confirmation_enabled: true
   notify_to: "info@sbmusicconservatory.com"
   phone_required: true
-  redirect_url: "https://fons.app/@southbaymusicconservatory/book/appointments"
+  redirect_url: "https://fons.app/@southbaymusicconservatory/book/appointments/fdbecaae-ae97-11f0-a3de-cfe489961f8c?staff="
   redirect_url_map:
     piano: "https://fons.app/@southbaymusicconservatory/book/appointments/da4adf18-37fa-11f0-bba8-8b81bc8b90b7?staff="
     violin: "https://fons.app/@southbaymusicconservatory/book/appointments/a07707bc-3665-11f0-9e33-8f8cd70f9854?staff="
     viola: "https://fons.app/@southbaymusicconservatory/book/appointments/d553c0f2-4d84-11f0-b29b-ef5d2665792c?staff="
-    cello: "https://fons.app/@southbaymusicconservatory/book/appointments"
+    cello: "https://fons.app/@southbaymusicconservatory/book/appointments/ea113b00-7c82-11f0-ac33-b7f9d14c4047?staff="
 
   fields:
     - key: student_name
