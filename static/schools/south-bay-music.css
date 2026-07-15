@@ -94,10 +94,10 @@ label,
 .form-section-heading,
 .section-title {
   font-family: 'Lato', Helvetica, Arial, sans-serif !important;
-  font-size: 11px !important;
+  font-size: 14px !important;
   font-weight: 700 !important;
-  color: #888888 !important;
-  letter-spacing: 0.1em !important;
+  color: #444444 !important;
+  letter-spacing: 0.04em !important;
   text-transform: uppercase !important;
   border-bottom: 1px solid #e8e8e8 !important;
   padding-bottom: 10px !important;
