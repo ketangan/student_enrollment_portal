@@ -514,10 +514,24 @@
       {% if email_enabled and parent_email %}
       <div class="dash-card no-print" style="padding:18px 22px;">
         <h2 class="sidebar-label">Send Message</h2>
-        <form method="post"
+        <form method="post" id="send-msg-form"
               action="{% url 'school_submission_send_message' school_slug=school_slug submission_id=submission.id %}">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ detail_url }}">
+          <input type="hidden" name="message_is_html" id="msg-is-html" value="0">
+
+          {% if email_templates_json != "[]" %}
+          <div style="margin-bottom:8px;">
+            <label style="font-size:11px;color:var(--dash-muted);display:block;margin-bottom:3px;">Template</label>
+            <select id="tmpl-select"
+                    style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                           border-radius:6px;font-size:13px;background:var(--dash-bg);color:var(--dash-text);"
+                    onchange="applyTemplate(this.value)">
+              <option value="">— No template —</option>
+            </select>
+          </div>
+          {% endif %}
+
           <div class="sub-send-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
             <div>
               <label style="font-size:11px;color:var(--dash-muted);display:block;margin-bottom:3px;">To</label>
@@ -527,26 +541,100 @@
             </div>
             <div>
               <label style="font-size:11px;color:var(--dash-muted);display:block;margin-bottom:3px;">Subject</label>
-              <input type="text" name="subject"
+              <input type="text" name="subject" id="msg-subject"
                      value="Regarding your enrollment application"
                      style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
                             border-radius:6px;font-size:13px;box-sizing:border-box;">
             </div>
           </div>
+
+          <!-- Body: contenteditable with toolbar -->
           <div style="margin-bottom:10px;">
             <label style="font-size:11px;color:var(--dash-muted);display:block;margin-bottom:3px;">Message</label>
-            <textarea name="message" rows="3" required
-                      placeholder="Write your message…"
-                      style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
-                             border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;
-                             box-sizing:border-box;"></textarea>
+            <div style="border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;overflow:hidden;">
+              <div style="display:flex;gap:2px;padding:4px 6px;border-bottom:1px solid var(--dash-border,#e2e8f0);background:var(--dash-bg);">
+                <button type="button" title="Bold" onclick="document.execCommand('bold')"
+                        style="width:24px;height:24px;border:1px solid var(--dash-border,#e2e8f0);border-radius:3px;background:#fff;cursor:pointer;font-weight:700;font-size:12px;">B</button>
+                <button type="button" title="Italic" onclick="document.execCommand('italic')"
+                        style="width:24px;height:24px;border:1px solid var(--dash-border,#e2e8f0);border-radius:3px;background:#fff;cursor:pointer;font-style:italic;font-size:12px;">I</button>
+                <button type="button" title="Underline" onclick="document.execCommand('underline')"
+                        style="width:24px;height:24px;border:1px solid var(--dash-border,#e2e8f0);border-radius:3px;background:#fff;cursor:pointer;text-decoration:underline;font-size:12px;">U</button>
+              </div>
+              <div id="msg-body-editor" contenteditable="true"
+                   style="min-height:80px;padding:8px;font-size:13px;line-height:1.6;outline:none;background:var(--dash-bg);color:var(--dash-text);"
+                   data-placeholder="Write your message…"></div>
+            </div>
+            <input type="hidden" name="message" id="msg-body-input">
           </div>
+
           <button type="submit" class="dash-action-btn dash-action-btn--primary"
                   style="font-size:12px;padding:6px 14px;">
             Send
           </button>
         </form>
       </div>
+
+      <script>
+      (function() {
+        var templates   = {{ email_templates_json|safe }};
+        var vars        = {{ template_vars_json|safe }};
+        var sel         = document.getElementById('tmpl-select');
+        var editor      = document.getElementById('msg-body-editor');
+        var subjectEl   = document.getElementById('msg-subject');
+        var bodyInput   = document.getElementById('msg-body-input');
+        var isHtmlInput = document.getElementById('msg-is-html');
+        var form        = document.getElementById('send-msg-form');
+
+        // Populate select options
+        if (sel && templates.length) {
+          templates.forEach(function(t) {
+            var opt = document.createElement('option');
+            opt.value = t.id;
+            opt.textContent = t.name;
+            sel.appendChild(opt);
+          });
+        }
+
+        function replaceTokens(str) {
+          return str.replace(/\{\{(\w+)\}\}/g, function(_, key) {
+            return vars[key] !== undefined ? vars[key] : '';
+          });
+        }
+
+        window.applyTemplate = function(id) {
+          var t = templates.find(function(x) { return String(x.id) === String(id); });
+          if (!t) {
+            editor.innerHTML = '';
+            subjectEl.value  = 'Regarding your enrollment application';
+            isHtmlInput.value = '0';
+            return;
+          }
+          subjectEl.value   = replaceTokens(t.subject);
+          editor.innerHTML  = replaceTokens(t.body);
+          isHtmlInput.value = '1';
+        };
+
+        // Capture HTML body on submit; validate not empty
+        form.addEventListener('submit', function(e) {
+          var html = editor.innerHTML.trim();
+          // Strip to check if there's real content
+          var plain = editor.innerText.trim();
+          if (!plain) {
+            e.preventDefault();
+            editor.style.border = '1px solid #ef4444';
+            editor.focus();
+            return;
+          }
+          bodyInput.value   = html;
+          isHtmlInput.value = isHtmlInput.value || (editor.querySelector('b,i,u,strong,em') ? '1' : '0');
+        });
+
+        // Placeholder behaviour
+        if (editor) {
+          editor.addEventListener('focus', function() { editor.style.border = ''; });
+        }
+      })();
+      </script>
       {% endif %}
 
       <!-- Family Status Page (family_portal_enabled) -->

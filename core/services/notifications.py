@@ -608,23 +608,38 @@ def send_admin_message(
     message: str,
     school_name: str,
     from_email: str | None = None,
+    is_html: bool = False,
 ) -> bool:
     """
     Sends a one-off admin-composed message to a family member.
+    When is_html=True the message is treated as trusted HTML (from the template
+    editor) \u2014 it is embedded directly rather than escaped.
     Returns True on success, False on failure (exception is logged).
     """
+    from django.utils.html import strip_tags as _strip_tags
+
     sender = from_email or getattr(settings, "DEFAULT_FROM_EMAIL", "")
-    safe_message = escape(message)
     safe_school = escape(school_name)
 
-    text_body = f"{message}\n\n\u2014 {school_name}"
-    html_body = (
-        "<div style=\"font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;\">"
-        f"<p style=\"font-size:15px;line-height:1.6;\">{safe_message}</p>"
-        "<hr style=\"border:none;border-top:1px solid #e2e8f0;margin:20px 0;\">"
-        f"<p style=\"font-size:13px;color:#64748b;\">{safe_school}</p>"
-        "</div>"
-    )
+    if is_html:
+        text_body = f"{_strip_tags(message)}\n\n\u2014 {school_name}"
+        html_body = (
+            "<div style=\"font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;\">"
+            f"<div style=\"font-size:15px;line-height:1.6;\">{message}</div>"
+            "<hr style=\"border:none;border-top:1px solid #e2e8f0;margin:20px 0;\">"
+            f"<p style=\"font-size:13px;color:#64748b;\">{safe_school}</p>"
+            "</div>"
+        )
+    else:
+        safe_message = escape(message)
+        text_body = f"{message}\n\n\u2014 {school_name}"
+        html_body = (
+            "<div style=\"font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;\">"
+            f"<p style=\"font-size:15px;line-height:1.6;\">{safe_message}</p>"
+            "<hr style=\"border:none;border-top:1px solid #e2e8f0;margin:20px 0;\">"
+            f"<p style=\"font-size:13px;color:#64748b;\">{safe_school}</p>"
+            "</div>"
+        )
 
     try:
         conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))

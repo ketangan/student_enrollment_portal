@@ -4,6 +4,7 @@ from . import views
 from .views_billing import stripe_webhook
 from . import views_demo
 from core import views_school_programs
+from core import views_school_email_templates
 
 urlpatterns = [
     # Demo pages (public, no auth)
@@ -73,6 +74,9 @@ urlpatterns = [
     path("schools/<slug:school_slug>/admin/programs/<int:program_id>/sessions/<int:session_id>/activate/", views_school_programs.school_session_activate_view, name="school_session_activate"),
     path("schools/<slug:school_slug>/admin/programs/<int:program_id>/sessions/<int:session_id>/deactivate/", views_school_programs.school_session_deactivate_view, name="school_session_deactivate"),
     path("schools/<slug:school_slug>/admin/programs/<int:program_id>/sessions/<int:session_id>/delete/", views_school_programs.school_session_delete_view, name="school_session_delete"),
+    path("schools/<slug:school_slug>/admin/email-templates/new/", views_school_email_templates.school_email_template_create_view, name="school_email_template_create"),
+    path("schools/<slug:school_slug>/admin/email-templates/<int:template_id>/edit/", views_school_email_templates.school_email_template_edit_view, name="school_email_template_edit"),
+    path("schools/<slug:school_slug>/admin/email-templates/<int:template_id>/delete/", views_school_email_templates.school_email_template_delete_view, name="school_email_template_delete"),
     path("schools/<slug:school_slug>/admin/reports/", views.school_reports_view, name="school_reports"),
     path("schools/<slug:school_slug>/admin/settings/", views.school_settings_view, name="school_settings"),
     path("schools/<slug:school_slug>/admin/password/", views.school_password_change_view, name="school_password_change"),

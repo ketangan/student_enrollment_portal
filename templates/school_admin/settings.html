@@ -280,6 +280,45 @@
   </div>
   {% endif %}
 
+  <!-- ── Email Templates ─────────────────────────────────────────────── -->
+  <div class="dash-card" style="padding:24px;margin-bottom:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div>
+        <h2 style="font-size:15px;font-weight:700;margin:0 0 2px;">Email Templates</h2>
+        <p style="font-size:12px;color:var(--dash-muted);margin:0;">Reusable templates for messaging families. Select one from a submission to pre-fill the compose form.</p>
+      </div>
+      <a href="{{ email_template_create_url }}" class="dash-action-btn dash-action-btn--primary" style="font-size:12px;padding:5px 12px;white-space:nowrap;">+ Add Template</a>
+    </div>
+
+    {% if email_templates %}
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--dash-border);">
+          <th style="text-align:left;padding:6px 8px 6px 0;font-size:11px;color:var(--dash-muted);font-weight:600;">Name</th>
+          <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--dash-muted);font-weight:600;">Subject</th>
+          <th style="text-align:right;padding:6px 0 6px 8px;font-size:11px;"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for tmpl in email_templates %}
+        <tr style="border-bottom:1px solid var(--dash-border);">
+          <td style="padding:8px 8px 8px 0;font-weight:500;color:var(--dash-text);">{{ tmpl.name }}</td>
+          <td style="padding:8px;color:var(--dash-muted);font-size:12px;">{{ tmpl.subject }}</td>
+          <td style="padding:8px 0 8px 8px;text-align:right;">
+            <a href="{% url 'school_email_template_edit' school.slug tmpl.pk %}"
+               style="font-size:12px;color:var(--dash-primary);text-decoration:none;">Edit</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="font-size:13px;color:var(--dash-muted);margin:0;">
+      No templates yet. <a href="{{ email_template_create_url }}" style="color:var(--dash-primary);">Add your first template →</a>
+    </p>
+    {% endif %}
+  </div>
+
   <!-- ── Application Form ──────────────────────────────────────────────── -->
   <div class="dash-card" style="padding:24px;margin-bottom:40px;">
     <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Application Form</h2>

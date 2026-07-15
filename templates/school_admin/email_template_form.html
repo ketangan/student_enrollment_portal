@@ -1,0 +1,133 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}{{ form_heading }} — Settings{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <div style="margin-bottom:20px;">
+    <a href="{{ back_url }}" style="font-size:13px;color:var(--dash-muted);text-decoration:none;">← Settings</a>
+    <h1 style="font-size:18px;font-weight:700;margin:8px 0 0;">{{ form_heading }}</h1>
+  </div>
+
+  <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+
+    <!-- Form -->
+    <div class="dash-card" style="flex:1;min-width:340px;padding:24px;">
+      <form method="post" action="{{ form_action }}" id="tmpl-form">
+        {% csrf_token %}
+
+        <!-- Name -->
+        <div style="margin-bottom:18px;">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"
+                 for="id_name">Template Name <span style="color:#ef4444;">*</span></label>
+          <input type="text" id="id_name" name="name" value="{{ values.name }}"
+                 placeholder="e.g. Trial Follow-up, Waitlist Notice"
+                 style="width:100%;padding:8px 12px;font-size:14px;border:1px solid {% if errors.name %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;"
+                 autofocus>
+          {% if errors.name %}<div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.name }}</div>{% endif %}
+        </div>
+
+        <!-- Subject -->
+        <div style="margin-bottom:18px;">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"
+                 for="id_subject">Subject Line <span style="color:#ef4444;">*</span></label>
+          <input type="text" id="id_subject" name="subject" value="{{ values.subject }}"
+                 placeholder="e.g. Following up on your trial lesson"
+                 style="width:100%;padding:8px 12px;font-size:14px;border:1px solid {% if errors.subject %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;">
+          {% if errors.subject %}<div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.subject }}</div>{% endif %}
+        </div>
+
+        <!-- Body editor -->
+        <div style="margin-bottom:18px;">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">
+            Body <span style="color:#ef4444;">*</span>
+          </label>
+
+          <!-- Toolbar -->
+          <div style="border:1px solid {% if errors.body %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;overflow:hidden;">
+            <div style="display:flex;gap:2px;padding:6px 8px;border-bottom:1px solid var(--dash-border);background:var(--dash-bg);">
+              <button type="button" title="Bold" onclick="document.execCommand('bold')"
+                      style="width:28px;height:28px;border:1px solid var(--dash-border);border-radius:4px;background:#fff;cursor:pointer;font-weight:700;font-size:13px;color:var(--dash-text);">B</button>
+              <button type="button" title="Italic" onclick="document.execCommand('italic')"
+                      style="width:28px;height:28px;border:1px solid var(--dash-border);border-radius:4px;background:#fff;cursor:pointer;font-style:italic;font-size:13px;color:var(--dash-text);">I</button>
+              <button type="button" title="Underline" onclick="document.execCommand('underline')"
+                      style="width:28px;height:28px;border:1px solid var(--dash-border);border-radius:4px;background:#fff;cursor:pointer;text-decoration:underline;font-size:13px;color:var(--dash-text);">U</button>
+            </div>
+            <div id="body-editor"
+                 contenteditable="true"
+                 style="min-height:180px;padding:12px;font-size:14px;line-height:1.6;color:var(--dash-text);outline:none;background:var(--dash-bg);">{{ values.body|safe }}</div>
+          </div>
+          <input type="hidden" name="body" id="body-input">
+          {% if errors.body %}<div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.body }}</div>{% endif %}
+          <div style="font-size:11px;color:var(--dash-muted);margin-top:6px;">
+            Use <code style="background:var(--dash-bg);padding:1px 4px;border-radius:3px;border:1px solid var(--dash-border);">&#123;&#123;token&#125;&#125;</code> for dynamic values. Click a token on the right to insert it.
+          </div>
+        </div>
+
+        <!-- Buttons -->
+        <div style="display:flex;gap:10px;">
+          <button type="submit" id="tmpl-submit" class="dash-action-btn dash-action-btn--primary" style="font-size:13px;padding:8px 20px;">
+            {% if is_edit %}Save Changes{% else %}Save Template{% endif %}
+          </button>
+          <a href="{{ back_url }}" class="dash-action-btn dash-action-btn--secondary" style="font-size:13px;padding:8px 20px;">Cancel</a>
+        </div>
+      </form>
+
+      {% if is_edit %}
+      <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--dash-border);">
+        <div style="font-size:11px;font-weight:700;color:#b91c1c;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Danger Zone</div>
+        <form method="post" action="{{ delete_url }}"
+              onsubmit="return confirm('Delete template \'{{ template.name }}\'? This cannot be undone.');">
+          {% csrf_token %}
+          <button type="submit" class="dash-action-btn dash-action-btn--danger" style="font-size:13px;padding:8px 16px;">
+            Delete Template
+          </button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Token reference panel -->
+    <div class="dash-card" style="width:210px;flex-shrink:0;padding:18px;">
+      <div style="font-size:11px;font-weight:700;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;">Available Tokens</div>
+      <div style="font-size:12px;color:var(--dash-muted);margin-bottom:12px;">Click to insert at cursor.</div>
+      {% for token, label in tokens %}
+      <div style="margin-bottom:6px;">
+        <button type="button"
+                onclick="insertToken('{{ token }}')"
+                style="font-family:monospace;font-size:11px;padding:4px 8px;border:1px solid var(--dash-border);border-radius:4px;background:var(--dash-bg);color:var(--dash-primary,#4f46e5);cursor:pointer;width:100%;text-align:left;">
+          &#123;&#123;{{ token }}&#125;&#125;
+        </button>
+        <div style="font-size:11px;color:var(--dash-muted);margin-top:2px;padding-left:2px;">{{ label }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+  </div>
+
+</main>
+
+<script>
+var editor = document.getElementById('body-editor');
+
+function insertToken(token) {
+  editor.focus();
+  var text = '{{' + token + '}}';
+  if (document.queryCommandSupported('insertText')) {
+    document.execCommand('insertText', false, text);
+  } else {
+    var sel = window.getSelection();
+    if (sel.rangeCount) {
+      var range = sel.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(document.createTextNode(text));
+      range.collapse(false);
+    }
+  }
+}
+
+document.getElementById('tmpl-form').addEventListener('submit', function() {
+  document.getElementById('body-input').value = editor.innerHTML;
+});
+</script>
+{% endblock %}

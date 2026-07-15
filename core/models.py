@@ -319,6 +319,27 @@ class SchoolSession(models.Model):
         return self.submissions.exists()
 
 
+class SchoolEmailTemplate(models.Model):
+    """
+    Reusable email templates scoped to a school.
+    Body is HTML from the contenteditable editor (bold/italic/underline only).
+    Token syntax: {{full_name}}, {{first_name}}, {{email}}, {{program}},
+                  {{status}}, {{school_name}}
+    """
+    school   = models.ForeignKey(School, on_delete=models.CASCADE, related_name="email_templates")
+    name     = models.CharField(max_length=120)
+    subject  = models.CharField(max_length=255)
+    body     = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return f"{self.school.slug} / {self.name}"
+
+
 def generate_public_id() -> str:
     """Short, URL-safe identifier for sharing with school admins.
 

@@ -809,6 +809,26 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
         from core.services.url_builder import app_reverse
         family_status_url = app_reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
 
+    # Email templates for the compose form
+    import json as _json
+    from core.models import SchoolEmailTemplate
+    _templates = SchoolEmailTemplate.objects.filter(school=school).order_by("name")
+    email_templates_json = _json.dumps([
+        {"id": t.pk, "name": t.name, "subject": t.subject, "body": t.body}
+        for t in _templates
+    ])
+    # Resolved token values for client-side substitution
+    _full_name  = submission.student_display_name() or ""
+    _first_name = _full_name.split()[0] if _full_name else ""
+    template_vars_json = _json.dumps({
+        "full_name":   _full_name,
+        "first_name":  _first_name,
+        "email":       _extract_contact_field(submission.data, _PARENT_EMAIL_KEYS),
+        "program":     program_display,
+        "status":      submission.status or "",
+        "school_name": school.display_name or "",
+    })
+
     ctx = _school_admin_base_context(request, school, "submissions")
     ctx.update({
         "submission": submission,
@@ -840,6 +860,8 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
         "next_label": f"Next #{next_sub.school_submission_number}" if next_sub and next_sub.school_submission_number else ("Next" if next_sub else None),
         "family_portal_enabled": family_portal_enabled,
         "family_status_url": family_status_url,
+        "email_templates_json": email_templates_json,
+        "template_vars_json": template_vars_json,
     })
     return render(request, "school_admin/submission_detail.html", ctx)
 
@@ -1618,6 +1640,8 @@ def school_submission_send_message_view(request, school_slug: str, submission_id
         messages.error(request, "Message cannot be empty.")
         return redirect(redirect_url)
 
+    is_html = request.POST.get("message_is_html") == "1"
+
     config = _safe_load_school_config(school_slug)
     subject = request.POST.get("subject", "").strip() or f"Message from {school.display_name}"
     from_email = _resolve_from_email(getattr(config, "raw", {}))
@@ -1628,6 +1652,7 @@ def school_submission_send_message_view(request, school_slug: str, submission_id
         message=message,
         school_name=school.display_name,
         from_email=from_email,
+        is_html=is_html,
     )
 
     if sent:
