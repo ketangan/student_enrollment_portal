@@ -405,6 +405,7 @@ leads:
   phone_required: true
   hide_program_field: true
   redirect_url: "https://fons.app/@southbaymusicconservatory/book/appointments/fdbecaae-ae97-11f0-a3de-cfe489961f8c?staff="
+  redirect_url_field: "instrument"
   redirect_url_map:
     piano: "https://fons.app/@southbaymusicconservatory/book/appointments/da4adf18-37fa-11f0-bba8-8b81bc8b90b7?staff="
     violin: "https://fons.app/@southbaymusicconservatory/book/appointments/a07707bc-3665-11f0-9e33-8f8cd70f9854?staff="

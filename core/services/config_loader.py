@@ -211,6 +211,7 @@ def get_lead_form_config(config_raw: dict) -> dict:
             for k, v in (leads.get("redirect_url_map") or {}).items()
             if k and v
         },
+        "redirect_url_field": (leads.get("redirect_url_field") or "").strip(),
         "phone_required": bool(leads.get("phone_required", False)),
         "hide_program_field": bool(leads.get("hide_program_field", False)),
         "fields": fields,

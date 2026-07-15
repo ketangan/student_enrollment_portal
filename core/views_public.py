@@ -1230,10 +1230,11 @@ def school_lead_form_view(request, school_slug):
 
             redirect_url = lead_cfg.get("redirect_url", "")
             redirect_url_map = lead_cfg.get("redirect_url_map", {})
-            if redirect_url_map:
-                instrument_val = custom_field_values.get("instrument", "")
-                if instrument_val and instrument_val in redirect_url_map:
-                    redirect_url = redirect_url_map[instrument_val]
+            redirect_url_field = lead_cfg.get("redirect_url_field", "")
+            if redirect_url_map and redirect_url_field:
+                field_val = custom_field_values.get(redirect_url_field, "")
+                if field_val and field_val in redirect_url_map:
+                    redirect_url = redirect_url_map[field_val]
             if redirect_url:
                 from django.http import HttpResponseRedirect
                 return HttpResponseRedirect(redirect_url)
