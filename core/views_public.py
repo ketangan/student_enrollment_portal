@@ -443,6 +443,7 @@ def _complete_submission_from_draft(
                 submission_public_id=submission.public_id,
                 student_name=submission.student_display_name(),
                 submission_data=submission.data or {},
+                school=school,
             )
         except Exception:
             logger.exception("Failed to send submission notification email")
@@ -458,6 +459,7 @@ def _complete_submission_from_draft(
                 student_name=submission.student_display_name(),
                 submission_data=submission.data or {},
                 status_url=_status_url,
+                school=school,
             )
         except Exception:
             logger.exception("Failed to send applicant confirmation email")
@@ -648,6 +650,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                         submission_public_id=submission.public_id,
                         student_name=submission.student_display_name(),
                         submission_data=submission.data or {},
+                        school=school,
                     )
                 except Exception:
                     logger.exception("Failed to send submission notification email")
@@ -663,6 +666,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                         student_name=submission.student_display_name(),
                         submission_data=submission.data or {},
                         status_url=_status_url,
+                        school=school,
                     )
                 except Exception:
                     logger.exception("Failed to send applicant confirmation email")
@@ -1158,6 +1162,25 @@ def school_lead_form_view(request, school_slug):
             errors["email"] = "Email is required."
         elif "@" not in email or "." not in email.split("@")[-1]:
             errors["email"] = "Enter a valid email address."
+        if lead_cfg["phone_required"] and not phone:
+            errors["phone"] = "Phone number is required."
+
+        # Validate custom fields
+        custom_field_values: dict = {}
+        for field in lead_cfg["fields"]:
+            key = field["key"]
+            ftype = field.get("type", "text")
+            required = bool(field.get("required", False))
+            if ftype == "checkbox":
+                val = request.POST.get(key) == "true"
+                custom_field_values[key] = val
+                if required and not val:
+                    errors[key] = "You must check this box to continue."
+            else:
+                val = request.POST.get(key, "").strip()
+                custom_field_values[key] = val
+                if required and not val:
+                    errors[key] = "This field is required."
 
         if not errors:
             extra_data: dict = {}
@@ -1165,6 +1188,8 @@ def school_lead_form_view(request, school_slug):
                 extra_data["message"] = message
             if src:
                 extra_data["src"] = src
+            if custom_field_values:
+                extra_data["form_fields"] = custom_field_values
 
             lead, created = create_or_update_lead(
                 school=school,
@@ -1199,9 +1224,14 @@ def school_lead_form_view(request, school_slug):
             except Exception:
                 logger.exception("Lead admin notification failed silently, lead=%s", lead.pk)
             try:
-                send_lead_confirmation(lead=lead, school_name=config.display_name, config_raw=raw)
+                send_lead_confirmation(lead=lead, school_name=config.display_name, config_raw=raw, school=school)
             except Exception:
                 logger.exception("Lead confirmation failed silently, lead=%s", lead.pk)
+
+            redirect_url = lead_cfg.get("redirect_url", "")
+            if redirect_url:
+                from django.http import HttpResponseRedirect
+                return HttpResponseRedirect(redirect_url)
 
             return render(request, "lead_form.html", _lead_form_ctx(
                 school, config, branding, lead_cfg, program_options, embed,
@@ -1238,6 +1268,8 @@ def _lead_form_ctx(school, config, branding, lead_cfg, program_options, embed, *
         "form_description": lead_cfg["form_description"],
         "cta_text": lead_cfg["cta_text"],
         "success_message": lead_cfg["success_message"],
+        "custom_fields": lead_cfg.get("fields") or [],
+        "phone_required": lead_cfg.get("phone_required", False),
         "embed": embed,
         "success": success,
         "errors": {},

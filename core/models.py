@@ -161,6 +161,15 @@ class School(models.Model):
     # Webhook token for external lead intake. Generate via ensure_lead_webhook_token(); never auto-set in save().
     lead_webhook_token = models.CharField(max_length=64, blank=True, default="")
 
+    # Per-school SMTP relay. When smtp_host is set, outbound emails use these credentials
+    # so they appear in the school's own sent folder rather than coming from Resend.
+    smtp_host = models.CharField(max_length=255, blank=True, default="")
+    smtp_port = models.PositiveIntegerField(null=True, blank=True)
+    smtp_username = models.CharField(max_length=255, blank=True, default="")
+    smtp_password = models.CharField(max_length=255, blank=True, default="")
+    smtp_from_email = models.EmailField(max_length=255, blank=True, default="")
+    smtp_use_tls = models.BooleanField(default=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property

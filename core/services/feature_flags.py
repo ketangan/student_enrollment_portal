@@ -9,12 +9,14 @@ PLAN_TRIAL = "trial"
 PLAN_STARTER = "starter"
 PLAN_PRO = "pro"
 PLAN_GROWTH = "growth"
+PLAN_CUSTOM = "custom"
 
 PLAN_RANK: dict[str, int] = {
     PLAN_TRIAL: 0,
     PLAN_STARTER: 1,
     PLAN_PRO: 2,
     PLAN_GROWTH: 3,
+    PLAN_CUSTOM: 3,
 }
 
 ALL_PLANS = list(PLAN_RANK.keys())
@@ -24,6 +26,7 @@ PLAN_CHOICES = [
     (PLAN_STARTER, "Starter"),
     (PLAN_PRO, "Pro"),
     (PLAN_GROWTH, "Growth"),
+    (PLAN_CUSTOM, "Custom"),
 ]
 
 

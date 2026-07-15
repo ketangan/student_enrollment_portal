@@ -235,6 +235,35 @@
   </div>
   {% endif %}
 
+  {% if school.plan == "custom" %}
+  <!-- Custom (Founder Pricing) plan card -->
+  <div class="dash-card" style="padding:24px 22px;margin-bottom:20px;
+              border:2px solid var(--dash-primary,#2563eb);border-radius:12px;position:relative;">
+    <div class="billing-current-badge" style="position:absolute;top:-11px;left:24px;transform:none;">
+      Your Plan — Founder Pricing
+    </div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-top:8px;">
+      <div>
+        <div class="billing-plan-name" style="font-size:18px;">Custom</div>
+        <div class="billing-plan-tagline">All features included — early-adopter pricing</div>
+        <ul class="billing-plan-features" style="margin-top:12px;">
+          <li><span class="feat-check">✓</span>Online enrollment forms with custom branding</li>
+          <li><span class="feat-check">✓</span>Lead tracking, conversion reports, and AI summaries</li>
+          <li><span class="feat-check">✓</span>Email notifications, save &amp; resume, family portal</li>
+          <li><span class="feat-check">✓</span>Every feature in the platform — nothing locked</li>
+        </ul>
+      </div>
+      <div style="text-align:right;min-width:140px;">
+        <div style="font-size:28px;font-weight:800;color:var(--dash-primary);">$24.99</div>
+        <div style="font-size:12px;color:var(--dash-muted);">per month</div>
+        <div style="font-size:12px;color:var(--dash-muted);margin-top:8px;">
+          To change your plan, contact us.
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Plan cards -->
   <div class="billing-plan-grid">
 
@@ -253,6 +282,8 @@
       <div class="billing-price-options">
         {% if school.plan == "starter" %}
           <div class="billing-plan-current-note">✓ You're on this plan</div>
+        {% elif billing_state == "custom" %}
+          <div class="billing-plan-current-note">Contact us to change plans</div>
         {% elif billing_state == "active" or billing_state == "scheduled_cancel" %}
           <div class="billing-plan-current-note">Use Manage Billing above to change plans</div>
         {% elif stripe_configured %}
@@ -298,6 +329,8 @@
       <div class="billing-price-options">
         {% if school.plan == "pro" %}
           <div class="billing-plan-current-note">✓ You're on this plan</div>
+        {% elif billing_state == "custom" %}
+          <div class="billing-plan-current-note">Contact us to change plans</div>
         {% elif billing_state == "active" or billing_state == "scheduled_cancel" %}
           <div class="billing-plan-current-note">Use Manage Billing above to change plans</div>
         {% elif stripe_configured %}
@@ -341,6 +374,8 @@
       <div class="billing-price-options">
         {% if school.plan == "growth" %}
           <div class="billing-plan-current-note">✓ You're on this plan</div>
+        {% elif billing_state == "custom" %}
+          <div class="billing-plan-current-note">Contact us to change plans</div>
         {% elif billing_state == "active" or billing_state == "scheduled_cancel" %}
           <div class="billing-plan-current-note">Use Manage Billing above to change plans</div>
         {% elif stripe_configured %}

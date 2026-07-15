@@ -1234,6 +1234,7 @@ def school_submission_mark_contacted_view(request, school_slug: str, submission_
                     notification_type="contacted",
                     config_raw=getattr(_config, "raw", {}),
                     from_email=_resolve_from_email(getattr(_config, "raw", {})),
+                    school=school,
                 )
                 if _sent:
                     log_admin_audit(
@@ -1323,6 +1324,7 @@ def school_submission_follow_up_set_view(request, school_slug: str, submission_i
                     notification_type="follow_up",
                     config_raw=getattr(_config, "raw", {}),
                     from_email=_resolve_from_email(getattr(_config, "raw", {})),
+                    school=school,
                 )
                 if _sent:
                     log_admin_audit(
@@ -1653,6 +1655,7 @@ def school_submission_send_message_view(request, school_slug: str, submission_id
         school_name=school.display_name,
         from_email=from_email,
         is_html=is_html,
+        school=school,
     )
 
     if sent:
@@ -1704,6 +1707,7 @@ def school_submission_resend_confirmation_view(request, school_slug: str, submis
         student_name=submission.student_display_name() or "",
         submission_data=submission.data or {},
         status_url=status_url,
+        school=school,
     )
 
     if sent:
@@ -1867,6 +1871,7 @@ def school_submission_resend_status_link_view(request, school_slug: str, submiss
         to_email=parent_email,
         status_url=status_url,
         school_name=school.display_name,
+        school=school,
     )
     if sent:
         messages.success(request, f"Status link sent to {parent_email}.")

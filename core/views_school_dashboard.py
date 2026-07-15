@@ -514,6 +514,7 @@ _PLAN_DISPLAY = {
     ff.PLAN_STARTER: "Starter",
     ff.PLAN_PRO:     "Pro",
     ff.PLAN_GROWTH:  "Growth",
+    ff.PLAN_CUSTOM:  "Custom",
 }
 
 
@@ -557,6 +558,61 @@ def school_settings_view(request, school_slug: str):
                 extra={"name": "update_trial_end_date", "old": str(old_end), "new": str(new_end)},
             )
             messages.success(request, f"Trial extended to {new_end.strftime('%B %-d, %Y')}.")
+        return redirect("school_settings", school_slug=school_slug)
+
+    if request.method == "POST" and request.POST.get("action") == "update_smtp":
+        smtp_host = request.POST.get("smtp_host", "").strip()
+        smtp_port_raw = request.POST.get("smtp_port", "").strip()
+        smtp_username = request.POST.get("smtp_username", "").strip()
+        smtp_password = request.POST.get("smtp_password", "")
+        smtp_from_email = request.POST.get("smtp_from_email", "").strip()
+        smtp_use_tls = request.POST.get("smtp_use_tls") == "1"
+
+        smtp_port = None
+        if smtp_port_raw:
+            try:
+                smtp_port = int(smtp_port_raw)
+                if smtp_port < 1 or smtp_port > 65535:
+                    raise ValueError
+            except ValueError:
+                messages.error(request, "SMTP port must be a valid number (1–65535).")
+                return redirect("school_settings", school_slug=school_slug)
+
+        school.smtp_host = smtp_host
+        school.smtp_port = smtp_port
+        school.smtp_username = smtp_username
+        if smtp_password:
+            school.smtp_password = smtp_password
+        school.smtp_from_email = smtp_from_email
+        school.smtp_use_tls = smtp_use_tls
+        school.save(update_fields=[
+            "smtp_host", "smtp_port", "smtp_username",
+            "smtp_from_email", "smtp_use_tls",
+            *( ["smtp_password"] if smtp_password else [] ),
+        ])
+        log_admin_audit(
+            request=request, action="action", obj=school, changes={},
+            extra={"name": "update_smtp", "host": smtp_host or "(cleared)"},
+        )
+        if smtp_host:
+            messages.success(request, f"SMTP settings saved — emails will route via {smtp_host}.")
+        else:
+            messages.success(request, "SMTP settings cleared — using default email service.")
+        return redirect("school_settings", school_slug=school_slug)
+
+    if request.method == "POST" and request.POST.get("action") == "clear_smtp":
+        school.smtp_host = ""
+        school.smtp_port = None
+        school.smtp_username = ""
+        school.smtp_password = ""
+        school.smtp_from_email = ""
+        school.smtp_use_tls = True
+        school.save(update_fields=["smtp_host", "smtp_port", "smtp_username", "smtp_password", "smtp_from_email", "smtp_use_tls"])
+        log_admin_audit(
+            request=request, action="action", obj=school, changes={},
+            extra={"name": "clear_smtp"},
+        )
+        messages.success(request, "SMTP settings cleared — using default email service.")
         return redirect("school_settings", school_slug=school_slug)
 
     if request.method == "POST" and request.POST.get("action") == "update_display_name":
@@ -639,6 +695,61 @@ def school_settings_view(request, school_slug: str):
 
 
 @login_required
+@require_http_methods(["POST"])
+def school_smtp_test_view(request, school_slug: str):
+    """POST /schools/<slug>/admin/settings/smtp-test/ — test SMTP credentials, return JSON."""
+    school = _get_accessible_school_for_admin(request, school_slug)
+
+    smtp_host = request.POST.get("smtp_host", "").strip()
+    smtp_port_raw = request.POST.get("smtp_port", "").strip()
+    smtp_username = request.POST.get("smtp_username", "").strip()
+    smtp_password = request.POST.get("smtp_password", "") or school.smtp_password
+    smtp_from_email = (request.POST.get("smtp_from_email", "").strip()
+                       or smtp_username
+                       or school.smtp_from_email)
+    smtp_use_tls = request.POST.get("smtp_use_tls") == "1"
+
+    if not smtp_host:
+        return JsonResponse({"success": False, "message": "Enter an SMTP host before testing."})
+
+    to_email = request.user.email
+    if not to_email:
+        return JsonResponse({"success": False, "message": "No email address on your account — add one to receive the test."})
+
+    try:
+        port = int(smtp_port_raw) if smtp_port_raw else 587
+    except ValueError:
+        return JsonResponse({"success": False, "message": "Invalid port number."})
+
+    try:
+        from django.core.mail.backends.smtp import EmailBackend as SMTPBackend
+        from django.core.mail import EmailMessage as _EmailMessage
+        conn = SMTPBackend(
+            host=smtp_host,
+            port=port,
+            username=smtp_username,
+            password=smtp_password,
+            use_tls=smtp_use_tls,
+            timeout=10,
+            fail_silently=False,
+        )
+        _EmailMessage(
+            subject=f"Enrollify SMTP test — {school.display_name}",
+            body=(
+                f"This is a test email from Enrollify.\n\n"
+                f"Your custom SMTP settings for {school.display_name} are working correctly.\n\n"
+                f"Host: {smtp_host}:{port}\nFrom: {smtp_from_email}"
+            ),
+            from_email=smtp_from_email,
+            to=[to_email],
+            connection=conn,
+        ).send(fail_silently=False)
+        return JsonResponse({"success": True, "message": f"Test email sent to {to_email}."})
+    except Exception as exc:
+        return JsonResponse({"success": False, "message": str(exc)})
+
+
+@login_required
 @require_http_methods(["GET", "POST"])
 def school_password_change_view(request, school_slug: str):
     """
@@ -703,6 +814,8 @@ def school_billing_view(request, school_slug: str):
 
     if is_locked:
         billing_state = "ended_locked"
+    elif school.plan == ff.PLAN_CUSTOM and school.is_active:
+        billing_state = "custom"
     elif not has_subscription and school.plan == "trial" and school.is_active:
         billing_state = "trial"
     elif has_subscription and status in ("active", "trialing", "past_due", "unpaid"):
@@ -710,7 +823,6 @@ def school_billing_view(request, school_slug: str):
     else:
         billing_state = "trial"
 
-    from core.services import feature_flags as ff
     plan_display = dict(ff.PLAN_CHOICES).get(school.plan, school.plan)
 
     from core.models import TRIAL_LENGTH_DAYS

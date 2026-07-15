@@ -1042,6 +1042,7 @@ def school_lead_mark_contacted_view(request, school_slug: str, lead_id: int):
                 notification_type="contacted",
                 config_raw=getattr(_config, "raw", {}),
                 from_email=_resolve_from_email(getattr(_config, "raw", {})),
+                school=school,
             )
             if _sent:
                 log_admin_audit(
@@ -1270,6 +1271,7 @@ def school_lead_send_message_view(request, school_slug: str, lead_id: int):
         message=message,
         school_name=school.display_name,
         from_email=from_email,
+        school=school,
     )
 
     if sent:

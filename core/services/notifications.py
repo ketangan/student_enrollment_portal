@@ -16,6 +16,28 @@ from django.urls import reverse
 logger = logging.getLogger(__name__)
 
 
+def get_school_email_connection(school=None):
+    """Return an email connection for the given school.
+
+    If the school has SMTP configured (smtp_host set), opens a direct SMTP
+    connection using the school's own credentials so emails arrive from their
+    mail server.  Falls back to the global Resend backend otherwise.
+    """
+    timeout = getattr(settings, "EMAIL_TIMEOUT", 10)
+    if school and getattr(school, "smtp_host", ""):
+        from django.core.mail.backends.smtp import EmailBackend
+        return EmailBackend(
+            host=school.smtp_host,
+            port=school.smtp_port or 587,
+            username=school.smtp_username or "",
+            password=school.smtp_password or "",
+            use_tls=school.smtp_use_tls,
+            timeout=timeout,
+            fail_silently=False,
+        )
+    return get_connection(timeout=timeout)
+
+
 # ----------------------------
 # Helpers
 # ----------------------------
@@ -316,6 +338,7 @@ def send_applicant_confirmation_email(
     student_name: str,
     submission_data: Dict[str, Any],
     status_url: str = "",
+    school=None,
 ) -> bool:
     """
     Sends a confirmation email to the applicant after successful submission.
@@ -364,7 +387,7 @@ def send_applicant_confirmation_email(
     )
 
     try:
-        conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))
+        conn = get_school_email_connection(school)
         msg = EmailMultiAlternatives(
             subject=subject,
             body=text_body,
@@ -457,7 +480,7 @@ def send_resume_link_email(*, draft, school) -> bool:
         f"— {school_name}"
     )
     try:
-        conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))
+        conn = get_school_email_connection(school)
         msg = EmailMessage(subject, body, from_email, [draft.email], connection=conn)
         msg.send(fail_silently=False)
         return True
@@ -466,7 +489,7 @@ def send_resume_link_email(*, draft, school) -> bool:
         return False
 
 
-def send_status_link_email(*, to_email: str, status_url: str, school_name: str) -> bool:
+def send_status_link_email(*, to_email: str, status_url: str, school_name: str, school=None) -> bool:
     """
     Email the parent a link to their application's family status page.
     Returns True if sent, False if skipped or failed.
@@ -484,7 +507,7 @@ def send_status_link_email(*, to_email: str, status_url: str, school_name: str) 
         f"— {school_name}"
     )
     try:
-        conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))
+        conn = get_school_email_connection(school)
         msg = EmailMessage(subject, body, from_email, [to_email], connection=conn)
         msg.send(fail_silently=False)
         return True
@@ -502,6 +525,7 @@ def send_submission_notification_email(
     submission_public_id: str,
     student_name: str,
     submission_data: Dict[str, Any],
+    school=None,
 ) -> bool:
     """
     Sends email notification on new submission.
@@ -522,7 +546,7 @@ def send_submission_notification_email(
     )
 
     try:
-        conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))
+        conn = get_school_email_connection(school)
 
         msg = EmailMultiAlternatives(
             subject=subject,
@@ -609,6 +633,7 @@ def send_admin_message(
     school_name: str,
     from_email: str | None = None,
     is_html: bool = False,
+    school=None,
 ) -> bool:
     """
     Sends a one-off admin-composed message to a family member.
@@ -642,7 +667,7 @@ def send_admin_message(
         )
 
     try:
-        conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))
+        conn = get_school_email_connection(school)
         msg = EmailMultiAlternatives(
             subject=subject,
             body=text_body,
@@ -666,6 +691,7 @@ def send_workflow_notification(
     notification_type: str,
     config_raw: dict,
     from_email: str | None = None,
+    school=None,
 ) -> bool:
     """
     Sends a workflow-triggered notification email ("we reached out" or "follow-up").
@@ -691,7 +717,7 @@ def send_workflow_notification(
     )
 
     try:
-        conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))
+        conn = get_school_email_connection(school)
         msg = EmailMultiAlternatives(
             subject=subject,
             body=body,
@@ -764,7 +790,7 @@ def send_lead_admin_notification(*, school, lead, config_raw: Dict[str, Any]) ->
     <hr/><p style="color:#666;font-size:12px;">Enrollify &mdash; {school_name}</p>
     """
     try:
-        conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))
+        conn = get_school_email_connection(school)
         msg = EmailMultiAlternatives(subject, text_body, from_email, [notify_to], connection=conn)
         msg.attach_alternative(html_body, "text/html")
         msg.send(fail_silently=False)
@@ -774,7 +800,7 @@ def send_lead_admin_notification(*, school, lead, config_raw: Dict[str, Any]) ->
         return False
 
 
-def send_lead_confirmation(*, lead, school_name: str, config_raw: Dict[str, Any]) -> bool:
+def send_lead_confirmation(*, lead, school_name: str, config_raw: Dict[str, Any], school=None) -> bool:
     """
     Send a confirmation email to the lead contact.
     Skipped if leads.confirmation_enabled is false or lead has no email.
@@ -799,7 +825,7 @@ def send_lead_confirmation(*, lead, school_name: str, config_raw: Dict[str, Any]
     <hr/><p style="color:#666;font-size:12px;">Enrollify</p>
     """
     try:
-        conn = get_connection(timeout=getattr(settings, "EMAIL_TIMEOUT", 10))
+        conn = get_school_email_connection(school)
         msg = EmailMultiAlternatives(subject, text_body, from_email, [lead.email], connection=conn)
         msg.attach_alternative(html_body, "text/html")
         msg.send(fail_silently=False)

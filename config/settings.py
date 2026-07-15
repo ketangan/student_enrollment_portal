@@ -319,6 +319,8 @@ STRIPE_PRICE_PRO_MONTHLY = os.getenv(f"STRIPE_PRICE_PRO_MONTHLY_{_stripe_env_suf
 STRIPE_PRICE_PRO_ANNUAL = os.getenv(f"STRIPE_PRICE_PRO_ANNUAL_{_stripe_env_suffix}", "").strip()
 STRIPE_PRICE_GROWTH_MONTHLY = os.getenv(f"STRIPE_PRICE_GROWTH_MONTHLY_{_stripe_env_suffix}", "").strip()
 STRIPE_PRICE_GROWTH_ANNUAL = os.getenv(f"STRIPE_PRICE_GROWTH_ANNUAL_{_stripe_env_suffix}", "").strip()
+STRIPE_PRICE_CUSTOM_MONTHLY = os.getenv(f"STRIPE_PRICE_CUSTOM_MONTHLY_{_stripe_env_suffix}", "").strip()
+STRIPE_PRICE_CUSTOM_ANNUAL = os.getenv(f"STRIPE_PRICE_CUSTOM_ANNUAL_{_stripe_env_suffix}", "").strip()
 
 JAZZMIN_SETTINGS = {
     "site_title": "Student Enrollment Portal",

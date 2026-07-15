@@ -24,124 +24,125 @@ branding:
 program_field_key: "instrument"
 
 form:
-  title: "Enrollment Inquiry"
+  title: "Student Registration"
   description: >
-    Tell us about your student and musical goals. Our team will reach out within 1–2 business days
-    to discuss scheduling, lesson options, and next steps.
-  submit_button_text: "Submit Inquiry"
+    Complete this form to register your student at South Bay Music Conservatory.
+    Our team will follow up within 1–2 business days to confirm scheduling and next steps.
+  submit_button_text: "Submit Registration"
 
   sections:
 
+    - title: "Enrollment Type"
+      fields:
+        - key: lesson_time_status
+          label: "Lesson Time Status"
+          type: select
+          required: true
+          options:
+            - label: "Returning student — I have a specific time slot I want to keep"
+              value: returning_keep_slot
+            - label: "Returning student — I need a new time slot"
+              value: returning_new_slot
+            - label: "New student"
+              value: new_student
+
     - title: "Student Information"
       fields:
-        - key: student_first_name
-          label: "First Name"
+        - key: student_last_name
+          label: "Student Last Name"
           type: text
           required: true
 
-        - key: student_last_name
+        - key: student_first_name
+          label: "Student First Name"
+          type: text
+          required: true
+
+        - key: student_age
+          label: "Student Age"
+          type: text
+          required: true
+
+        - key: student_birthday
+          label: "Student Birthday"
+          type: date
+          required: true
+
+        - key: instrument
+          label: "Instrument"
+          type: select
+          required: true
+
+    - title: "Main Contact"
+      fields:
+        - key: preferred_communication
+          label: "Preferred Communication Method"
+          type: select
+          required: true
+          options:
+            - label: "Text"
+              value: text
+            - label: "Email"
+              value: email
+            - label: "Call"
+              value: call
+
+        - key: main_contact_relationship
+          label: "Relationship to Student"
+          type: select
+          required: true
+          options:
+            - label: "Mother"
+              value: mother
+            - label: "Father"
+              value: father
+            - label: "Guardian"
+              value: guardian
+            - label: "Self (adult student)"
+              value: self
+            - label: "Other"
+              value: other
+
+        - key: main_contact_last_name
           label: "Last Name"
           type: text
           required: true
 
-        - key: date_of_birth
-          label: "Date of Birth"
-          type: date
-          required: true
-
-    - title: "Instrument & Program"
-      fields:
-        - key: instrument
-          label: "Instrument of Interest"
-          type: select
-          required: true
-
-        - key: lesson_length
-          label: "Preferred Lesson Length"
-          type: select
-          required: true
-          options:
-            - label: "15 minutes (youngest beginners)"
-              value: 15min
-            - label: "30 minutes"
-              value: 30min
-            - label: "45 minutes"
-              value: 45min
-            - label: "60 minutes"
-              value: 60min
-            - label: "Not sure yet"
-              value: unsure
-
-        - key: experience_level
-          label: "Experience Level"
-          type: select
-          required: true
-          options:
-            - label: "No prior experience — complete beginner"
-              value: none
-            - label: "Some experience — taken lessons before"
-              value: beginner
-            - label: "Intermediate — regular lessons, can read music"
-              value: intermediate
-            - label: "Advanced — serious study, performing"
-              value: advanced
-            - label: "Transfer student from another teacher"
-              value: transfer
-
-    - title: "Schedule Preferences"
-      fields:
-        - key: preferred_days
-          label: "Preferred Days"
-          type: multiselect
-          required: false
-          options:
-            - label: "Monday"
-              value: mon
-            - label: "Tuesday"
-              value: tue
-            - label: "Wednesday"
-              value: wed
-            - label: "Thursday"
-              value: thu
-            - label: "Friday"
-              value: fri
-            - label: "Saturday"
-              value: sat
-            - label: "Sunday"
-              value: sun
-
-        - key: preferred_time
-          label: "Preferred Time of Day"
-          type: select
-          required: false
-          options:
-            - label: "Morning (9am–12pm)"
-              value: morning
-            - label: "Afternoon (12pm–4pm)"
-              value: afternoon
-            - label: "Evening (4pm–7pm)"
-              value: evening
-            - label: "Flexible"
-              value: flexible
-
-    - title: "Parent / Guardian Information"
-      fields:
-        - key: guardian_name
-          label: "Parent / Guardian Full Name"
+        - key: main_contact_first_name
+          label: "First Name"
           type: text
           required: true
 
         - key: guardian_email
-          label: "Parent / Guardian Email"
+          label: "Email"
           type: email
           required: true
 
         - key: guardian_phone
-          label: "Parent / Guardian Phone"
-          type: tel
+          label: "Phone Number"
+          type: phone
           required: true
 
-        - key: relationship
+    - title: "Secondary Contact"
+      fields:
+        - key: secondary_contact_on_reminders
+          label: "Add a secondary contact for reminders?"
+          type: select
+          required: true
+          options:
+            - label: "No"
+              value: "no"
+            - label: "Yes"
+              value: "yes"
+            - label: "Not applicable"
+              value: not_applicable
+
+        - key: secondary_contact_name
+          label: "Secondary Contact Name"
+          type: text
+          required: false
+
+        - key: secondary_contact_relationship
           label: "Relationship to Student"
           type: select
           required: false
@@ -152,45 +153,128 @@ form:
               value: father
             - label: "Guardian"
               value: guardian
-            - label: "Self (adult student)"
+            - label: "Self"
               value: self
-
-    - title: "Additional Information"
-      fields:
-        - key: how_did_you_hear
-          label: "How did you hear about us?"
-          type: select
-          required: false
-          options:
-            - label: "Google search"
-              value: google
-            - label: "Referred by a friend or family"
-              value: referral
-            - label: "Social media"
-              value: social_media
-            - label: "Drove by / saw the location"
-              value: drove_by
-            - label: "Current or former student"
-              value: current_student
             - label: "Other"
               value: other
 
-        - key: notes
-          label: "Anything else you'd like us to know?"
+        - key: secondary_contact_phone
+          label: "Phone"
+          type: phone
+          required: false
+
+        - key: secondary_contact_email
+          label: "Email"
+          type: email
+          required: false
+
+    - title: "Address"
+      fields:
+        - key: street_address
+          label: "Street Address"
+          type: text
+          required: true
+
+        - key: city
+          label: "City"
+          type: text
+          required: true
+
+        - key: zipcode
+          label: "ZIP Code"
+          type: text
+          required: true
+
+    - title: "School & Grade"
+      fields:
+        - key: student_school
+          label: "Student's School Name"
+          type: text
+          required: true
+
+        - key: grade_level
+          label: "Grade Level"
+          type: text
+          required: true
+
+    - title: "Additional Information"
+      fields:
+        - key: allergies
+          label: "Allergies or Medical Conditions"
           type: textarea
           required: false
 
+        - key: additional_info
+          label: "Additional Information"
+          type: textarea
+          required: false
+
+    - title: "Studio Policies & Enrollment Acknowledgment"
+      fields:
+        - key: studio_policies
+          label: "Studio Policies"
+          type: waiver
+          text: "Please review the SBMC Studio Policies before completing your registration."
+          link_url: "https://drive.google.com/file/d/148ZfUV16hg_vW7RfRfa2F5u7fmydR8Tx/view"
+          link_text: "View Studio Policies HERE"
+          checkbox_label: "I have reviewed the SBMC Studio Policies"
+          required: false
+          full_width: true
+
+        - key: enrollment_fee_acknowledgment
+          label: "Enrollment Fee Acknowledgment"
+          type: select
+          required: true
+          full_width: true
+          options:
+            - label: "New Students: I understand that enrollment includes a one-time $125 Conservatory Assessment & Placement Fee (per student)"
+              value: new_student_fee
+            - label: "Returning Students: I understand that there is an annual $75 Conservatory Registration Fee per family. These fees are non-refundable and non-transferable."
+              value: returning_student_fee
+
+        - key: monthly_tuition_policy
+          label: "Monthly Tuition Policy"
+          type: checkbox
+          required: true
+          full_width: true
+          checkbox_label: "I understand that SBMC enrollment is ongoing and does not require re-enrollment each semester. The monthly tuition subscription will continue unless I notify SBMC to discontinue or pause lessons in accordance with studio policies."
+
+        - key: makeups_cancellations
+          label: "Makeups/Cancellations"
+          type: checkbox
+          required: true
+          full_width: true
+          checkbox_label: "I understand that tuition is billed monthly, reserves a weekly lesson time, and is not reduced or refunded for missed lessons. With advance notice (more than 24 hours), an asynchronous lesson will be provided via the Practice Space app."
+
+        - key: media_release
+          label: "Media Release and Use of Images"
+          type: select
+          required: true
+          full_width: true
+          options:
+            - label: "I grant permission for SBMC to use images and/or recordings of my child (or myself, if an adult student) for studio-related materials."
+              value: grant
+            - label: "I DO NOT grant permission for media use."
+              value: deny
+
+        - key: final_agreement
+          label: "Final Agreement"
+          type: checkbox
+          required: true
+          full_width: true
+          checkbox_label: "I have read and agree to abide by the SBMC Studio Policies and understand that continued enrollment constitutes agreement with current policies."
+
 success:
-  title: "Inquiry Received!"
+  title: "Registration Received!"
   message: >
-    Thank you — we've received your inquiry for South Bay Music Conservatory.
+    Thank you — we've received your registration for South Bay Music Conservatory.
     Our team will review your student's information and reach out within 1–2 business days
-    to discuss scheduling, lesson options, and next steps.
+    to confirm scheduling and next steps.
   response_time: "1–2 business days"
   next_steps:
-    - "We'll review your student's age, experience level, and instrument interest."
-    - "We'll schedule a 30-minute trial lesson ($30) so your student can meet a teacher and try playing."
-    - "After the trial, we'll discuss lesson length, scheduling, and enrollment."
+    - "We'll review your student's information and instrument selection."
+    - "We'll be in touch to schedule a 30-minute trial lesson ($30) so your student can meet a teacher."
+    - "After the trial, we'll confirm enrollment and set up a regular lesson schedule."
     - "Monthly billing starts once you're enrolled — no long-term commitment required."
   contact:
     name: "South Bay Music Conservatory"
@@ -204,12 +288,12 @@ success:
       cc: ""
       bcc: ""
       from_email: "noreply@enrollifyapp.com"
-      subject: "New enrollment inquiry: {{student_name}}"
+      subject: "New registration: {{student_name}}"
 
     applicant_confirmation:
       enabled: true
       from_email: "noreply@enrollifyapp.com"
-      subject: "We received your inquiry, {{student_name}}!"
+      subject: "We received your registration, {{student_name}}!"
 
 admin:
   submission_statuses:
@@ -290,7 +374,7 @@ admin:
         statuses: [new]
       pipeline:
         label: "In Pipeline"
-        statuses: [contacted, placement_scheduled]
+        statuses: [contacted, trial_scheduled]
       won:
         label: "Enrolled"
         statuses: [enrolled]
@@ -299,25 +383,57 @@ admin:
         - label: "Mark Contacted"
           status: contacted
         - label: "Archive"
-          status: archived
+          status: lost
       contacted:
-        - label: "Schedule Trial"
-          status: placement_scheduled
+        - label: "Trial Scheduled"
+          status: trial_scheduled
         - label: "Archive"
-          status: archived
-      placement_scheduled:
-        - label: "Mark Enrolled"
-          status: enrolled
-        - label: "Archive"
-          status: archived
+          status: lost
+      trial_scheduled:
+        - label: "Not Interested — Archive"
+          status: lost
 
 leads:
-  form_title: "Express Interest"
-  form_description: "Tell us your child's age and instrument interest — our team will follow up within 1–2 business days."
-  cta_text: "Send My Inquiry"
-  success_message: "Thanks! South Bay Music Conservatory will be in touch soon."
+  form_title: "Book a Trial Lesson"
+  form_description: >
+    Fill out this quick form and we'll redirect you to schedule your 30-minute trial lesson ($30) on our booking system.
+    A spot is not confirmed until you complete scheduling.
+  cta_text: "Continue to Scheduling →"
+  success_message: "Thanks! Redirecting you to schedule your trial lesson…"
   confirmation_enabled: true
-  notify_to: ""
+  notify_to: "info@sbmusicconservatory.com"
+  phone_required: true
+  redirect_url: "https://app.fons.io/sbmc"
+
+  fields:
+    - key: student_name
+      label: "Student Name"
+      type: text
+      required: true
+      placeholder: "First and last name"
+
+    - key: student_age
+      label: "Student Age"
+      type: text
+      required: true
+      placeholder: "e.g. 8"
+
+    - key: previous_experience
+      label: "Previous music experience (none is perfectly fine!)"
+      type: textarea
+      required: true
+      placeholder: "None, or describe any prior lessons / instruments…"
+
+    - key: trial_notes
+      label: "Anything we should know to provide a better trial experience?"
+      type: textarea
+      required: false
+      placeholder: "Optional"
+
+    - key: cancellation_policy
+      label: "I understand that appointments require at least 24 hours' notice to reschedule. Appointments canceled or rescheduled with less than 24 hours' notice will be charged a $30 fee."
+      type: checkbox
+      required: true
 
 capacity:
   waitlist_message: "This program currently has limited availability. You've been added to our waitlist and we'll be in touch as soon as a spot opens."

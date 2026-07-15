@@ -186,9 +186,18 @@ def get_lead_form_config(config_raw: dict) -> dict:
     """
     Returns merged lead form config with safe defaults. Backward-compatible:
     schools with no `leads:` section get sensible defaults.
+
+    Optional keys:
+      redirect_url  — if set, redirect to this URL after successful submission
+                      instead of showing the success page.
+      fields        — list of additional custom fields (text/textarea/checkbox)
+                      stored in lead.data under key "form_fields".
+      phone_required — if true, phone field is required on the lead form.
     """
     raw = config_raw or {}
     leads = raw.get("leads") or {}
+    raw_fields = leads.get("fields") or []
+    fields = [f for f in raw_fields if isinstance(f, dict) and f.get("key") and f.get("label")]
     return {
         "form_title": (leads.get("form_title") or "").strip() or "Request Information",
         "form_description": (leads.get("form_description") or "").strip() or "Tell us about your interest and we'll follow up with next steps.",
@@ -196,6 +205,9 @@ def get_lead_form_config(config_raw: dict) -> dict:
         "success_message": (leads.get("success_message") or "").strip() or "Thanks for your interest! We'll follow up soon.",
         "confirmation_enabled": bool(leads.get("confirmation_enabled", True)),
         "notify_to": (leads.get("notify_to") or "").strip(),
+        "redirect_url": (leads.get("redirect_url") or "").strip(),
+        "phone_required": bool(leads.get("phone_required", False)),
+        "fields": fields,
     }
 
 

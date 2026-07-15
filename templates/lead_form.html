@@ -1,4 +1,4 @@
-{% load static %}
+{% load static form_extras %}
 <!doctype html>
 <html lang="en">
   <head>
@@ -163,13 +163,15 @@
               {% if errors.email %}<div class="error-msg">{{ errors.email }}</div>{% endif %}
             </div>
 
-            {# Phone (optional) #}
-            <div class="field">
-              <label for="id_phone">Phone<span class="opt">(optional)</span></label>
+            {# Phone #}
+            <div class="field {% if errors.phone %}field-error{% endif %}">
+              <label for="id_phone">Phone{% if phone_required %}<span class="req">*</span>{% else %}<span class="opt">(optional)</span>{% endif %}</label>
               <input type="tel" id="id_phone" name="phone"
                      value="{{ form_data.phone|default:'' }}"
                      placeholder="(555) 000-0000"
-                     autocomplete="tel">
+                     autocomplete="tel"
+                     {% if phone_required %}required{% endif %}>
+              {% if errors.phone %}<div class="error-msg">{{ errors.phone }}</div>{% endif %}
             </div>
 
             {# Program interest (optional, shown only when options exist) #}
@@ -193,12 +195,52 @@
             </div>
             {% endif %}
 
-            {# Message (optional) #}
+            {# Message (optional) — hidden when custom fields are configured #}
+            {% if not custom_fields %}
             <div class="field">
               <label for="id_message">Message<span class="opt">(optional)</span></label>
               <textarea id="id_message" name="message"
                         placeholder="Tell us a bit about what you're looking for…">{{ form_data.message|default:'' }}</textarea>
             </div>
+            {% endif %}
+
+            {# Custom fields defined in school YAML leads.fields #}
+            {% for field in custom_fields %}
+            <div class="field {% if errors|get_item:field.key %}field-error{% endif %}">
+              {% if field.type == "checkbox" %}
+                <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;">
+                  <input type="checkbox"
+                         id="id_{{ field.key }}"
+                         name="{{ field.key }}"
+                         value="true"
+                         style="margin-top:3px;flex-shrink:0;width:18px;height:18px;cursor:pointer;"
+                         {% if form_data|get_item:field.key == "true" %}checked{% endif %}>
+                  <label for="id_{{ field.key }}"
+                         style="font-size:14px;font-weight:400;color:var(--text);cursor:pointer;line-height:1.5;">
+                    {{ field.label }}{% if field.required %}<span class="req" style="margin-left:2px;">*</span>{% endif %}
+                  </label>
+                </div>
+              {% elif field.type == "textarea" %}
+                <label for="id_{{ field.key }}">
+                  {{ field.label }}{% if field.required %}<span class="req">*</span>{% else %}<span class="opt">(optional)</span>{% endif %}
+                </label>
+                <textarea id="id_{{ field.key }}" name="{{ field.key }}"
+                          placeholder="{{ field.placeholder|default:'' }}"
+                          {% if field.required %}required{% endif %}>{{ form_data|get_item:field.key|default:'' }}</textarea>
+              {% else %}
+                <label for="id_{{ field.key }}">
+                  {{ field.label }}{% if field.required %}<span class="req">*</span>{% else %}<span class="opt">(optional)</span>{% endif %}
+                </label>
+                <input type="text"
+                       id="id_{{ field.key }}"
+                       name="{{ field.key }}"
+                       value="{{ form_data|get_item:field.key|default:'' }}"
+                       placeholder="{{ field.placeholder|default:'' }}"
+                       {% if field.required %}required{% endif %}>
+              {% endif %}
+              {% if errors|get_item:field.key %}<div class="error-msg">{{ errors|get_item:field.key }}</div>{% endif %}
+            </div>
+            {% endfor %}
 
             <button type="submit" class="btn-submit">{{ cta_text }}</button>
           </form>

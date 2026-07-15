@@ -56,6 +56,8 @@ _PRICE_SETTINGS = [
     ("STRIPE_PRICE_PRO_ANNUAL",      "pro_annual",      "Pro Annual",      "$990 / year",   "pro",     "year"),
     ("STRIPE_PRICE_GROWTH_MONTHLY",  "growth_monthly",  "Growth Monthly",  "$199 / month",  "growth",  "month"),
     ("STRIPE_PRICE_GROWTH_ANNUAL",   "growth_annual",   "Growth Annual",   "$1,990 / year", "growth",  "year"),
+    ("STRIPE_PRICE_CUSTOM_MONTHLY",  "custom_monthly",  "Custom Monthly",  "$24.99 / month", "custom", "month"),
+    ("STRIPE_PRICE_CUSTOM_ANNUAL",   "custom_annual",   "Custom Annual",   "$249 / year",   "custom",  "year"),
 ]
 
 
@@ -87,7 +89,8 @@ def price_to_plan(price_id: str) -> str | None:
     """Map a Stripe Price ID to an internal plan name, or None if unknown."""
     plan_map = {"starter": ["STRIPE_PRICE_STARTER_MONTHLY", "STRIPE_PRICE_STARTER_ANNUAL"],
                 "pro":     ["STRIPE_PRICE_PRO_MONTHLY",     "STRIPE_PRICE_PRO_ANNUAL"],
-                "growth":  ["STRIPE_PRICE_GROWTH_MONTHLY",  "STRIPE_PRICE_GROWTH_ANNUAL"]}
+                "growth":  ["STRIPE_PRICE_GROWTH_MONTHLY",  "STRIPE_PRICE_GROWTH_ANNUAL"],
+                "custom":  ["STRIPE_PRICE_CUSTOM_MONTHLY",  "STRIPE_PRICE_CUSTOM_ANNUAL"]}
     for plan, setting_names in plan_map.items():
         for sname in setting_names:
             pid = _price(sname)

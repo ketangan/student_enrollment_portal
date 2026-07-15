@@ -82,6 +82,7 @@ urlpatterns = [
     path("schools/<slug:school_slug>/admin/custom-tokens/<int:token_id>/delete/", views_school_email_templates.school_custom_token_delete_view, name="school_custom_token_delete"),
     path("schools/<slug:school_slug>/admin/reports/", views.school_reports_view, name="school_reports"),
     path("schools/<slug:school_slug>/admin/settings/", views.school_settings_view, name="school_settings"),
+    path("schools/<slug:school_slug>/admin/settings/smtp-test/", views.school_smtp_test_view, name="school_smtp_test"),
     path("schools/<slug:school_slug>/admin/password/", views.school_password_change_view, name="school_password_change"),
     # Backward-compat: old no-slash URL 301s to the canonical slash version.
     path("schools/<slug:school_slug>/admin/reports", RedirectView.as_view(pattern_name="school_reports", permanent=True)),

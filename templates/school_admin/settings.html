@@ -404,6 +404,148 @@
     </div>
   </div>
 
+  <!-- ── Email Delivery ───────────────────────────────────────────────── -->
+  <div class="dash-card" style="padding:24px;margin-bottom:20px;">
+    <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Email Delivery</h2>
+    <p style="font-size:12px;color:var(--dash-muted);margin:0 0 20px;">
+      Choose how Enrollify sends emails to families.
+    </p>
+
+    <form method="post" action="{% url 'school_settings' school.slug %}" id="smtp-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" id="smtp-action"
+             value="{% if school.smtp_host %}update_smtp{% else %}clear_smtp{% endif %}">
+
+      <!-- Source picker -->
+      <div style="display:inline-flex;border:1px solid var(--dash-border);border-radius:8px;
+                  overflow:hidden;margin-bottom:20px;">
+        <label id="tab-enrollify"
+               style="display:flex;align-items:center;gap:7px;padding:8px 18px;cursor:pointer;
+                      font-size:13px;font-weight:600;transition:background .12s,color .12s;user-select:none;
+                      {% if not school.smtp_host %}background:var(--dash-primary);color:#fff;{% else %}background:var(--dash-bg);color:var(--dash-muted);{% endif %}">
+          <input type="radio" name="_smtp_source" value="enrollify" style="display:none;"
+                 {% if not school.smtp_host %}checked{% endif %}
+                 onchange="smtpMode('enrollify')">
+          Enrollify email
+        </label>
+        <label id="tab-custom"
+               style="display:flex;align-items:center;gap:7px;padding:8px 18px;cursor:pointer;
+                      font-size:13px;font-weight:600;transition:background .12s,color .12s;user-select:none;
+                      border-left:1px solid var(--dash-border);
+                      {% if school.smtp_host %}background:var(--dash-primary);color:#fff;{% else %}background:var(--dash-bg);color:var(--dash-muted);{% endif %}">
+          <input type="radio" name="_smtp_source" value="custom" style="display:none;"
+                 {% if school.smtp_host %}checked{% endif %}
+                 onchange="smtpMode('custom')">
+          Custom SMTP
+        </label>
+      </div>
+
+      <!-- Enrollify description (shown in Enrollify mode) -->
+      <div id="smtp-enrollify-desc" style="{% if school.smtp_host %}display:none;{% endif %}margin-bottom:4px;">
+        <p style="font-size:13px;color:var(--dash-muted);margin:0 0 16px;">
+          Emails are sent from <strong>noreply@enrollifyapp.com</strong> via Enrollify's delivery service.
+          No configuration required.
+        </p>
+        {% if school.smtp_host %}
+        <p style="font-size:12px;color:#d97706;margin:0 0 16px;padding:8px 12px;
+                  background:#fffbeb;border:1px solid #fde68a;border-radius:6px;">
+          Custom SMTP is currently active. Save to switch back to Enrollify email.
+        </p>
+        {% endif %}
+      </div>
+
+      <!-- Custom SMTP fields (shown in Custom mode) -->
+      <div id="smtp-fields" style="{% if not school.smtp_host %}display:none;{% endif %}">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;margin-bottom:18px;">
+
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                          letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">SMTP Host</label>
+            <input type="text" name="smtp_host" id="smtp_host" value="{{ school.smtp_host }}"
+                   placeholder="smtp.gmail.com"
+                   style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          </div>
+
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                          letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">Port</label>
+            <input type="number" name="smtp_port" id="smtp_port"
+                   value="{{ school.smtp_port|default:'' }}" placeholder="587"
+                   style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          </div>
+
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                          letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">Username</label>
+            <input type="text" name="smtp_username" id="smtp_username" value="{{ school.smtp_username }}"
+                   placeholder="you@gmail.com" autocomplete="off"
+                   style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          </div>
+
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                          letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">
+              Password / App Password
+            </label>
+            <input type="password" name="smtp_password" id="smtp_password" autocomplete="new-password"
+                   placeholder="{% if school.smtp_password %}Saved — leave blank to keep{% else %}Enter password{% endif %}"
+                   style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          </div>
+
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                          letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">From Email</label>
+            <input type="email" name="smtp_from_email" id="smtp_from_email"
+                   value="{{ school.smtp_from_email }}" placeholder="info@yourschool.com"
+                   style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          </div>
+
+          <div style="display:flex;align-items:flex-end;padding-bottom:6px;">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+              <input type="checkbox" name="smtp_use_tls" id="smtp_use_tls" value="1"
+                     {% if school.smtp_use_tls %}checked{% endif %}
+                     style="width:15px;height:15px;cursor:pointer;">
+              Use TLS <span style="color:var(--dash-muted);font-size:12px;">(recommended)</span>
+            </label>
+          </div>
+
+        </div>
+
+        <!-- Test connection -->
+        <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <button type="button" id="btn-smtp-test"
+                  class="dash-action-btn dash-action-btn--secondary"
+                  style="font-size:12px;padding:6px 14px;"
+                  onclick="smtpTest()">
+            Test Connection
+          </button>
+          <span id="smtp-test-result" style="display:none;font-size:13px;font-weight:500;"></span>
+        </div>
+
+        {% if school.smtp_host %}
+        <p style="font-size:12px;color:#16a34a;margin:0 0 14px;display:flex;align-items:center;gap:5px;">
+          <span>✓</span>
+          <span>Custom SMTP active — {{ school.smtp_host }}</span>
+        </p>
+        {% endif %}
+
+      </div>
+
+      <!-- Save (always visible) -->
+      <button type="submit" class="dash-action-btn dash-action-btn--primary"
+              style="font-size:12px;padding:6px 14px;">
+        Save
+      </button>
+
+    </form>
+  </div>
+
 </main>
 
 <script>
@@ -425,6 +567,75 @@ function copyField(inputId, btnId, msg) {
     try { document.execCommand('copy'); } catch(e) {}
     if (btn) { btn.textContent = msg; setTimeout(function(){ btn.textContent = orig; }, 2000); }
   });
+}
+
+// SMTP delivery mode toggle
+function smtpMode(mode) {
+  var fields   = document.getElementById('smtp-fields');
+  var desc     = document.getElementById('smtp-enrollify-desc');
+  var action   = document.getElementById('smtp-action');
+  var tabE     = document.getElementById('tab-enrollify');
+  var tabC     = document.getElementById('tab-custom');
+  var primary  = getComputedStyle(document.documentElement).getPropertyValue('--dash-primary').trim() || '#2563eb';
+  var muted    = getComputedStyle(document.documentElement).getPropertyValue('--dash-muted').trim()   || '#6b7280';
+  var bg       = getComputedStyle(document.documentElement).getPropertyValue('--dash-bg').trim()      || '#f9fafb';
+
+  if (mode === 'enrollify') {
+    fields.style.display  = 'none';
+    desc.style.display    = '';
+    action.value          = 'clear_smtp';
+    tabE.style.background = primary;  tabE.style.color = '#fff';
+    tabC.style.background = bg;       tabC.style.color = muted;
+  } else {
+    fields.style.display  = '';
+    desc.style.display    = 'none';
+    action.value          = 'update_smtp';
+    tabE.style.background = bg;       tabE.style.color = muted;
+    tabC.style.background = primary;  tabC.style.color = '#fff';
+  }
+  // hide stale test result when switching modes
+  var r = document.getElementById('smtp-test-result');
+  if (r) { r.style.display = 'none'; }
+}
+
+// SMTP test connection (AJAX)
+function smtpTest() {
+  var btn    = document.getElementById('btn-smtp-test');
+  var result = document.getElementById('smtp-test-result');
+  var orig   = btn.textContent;
+
+  btn.textContent = 'Testing…';
+  btn.disabled    = true;
+  result.style.display = 'none';
+
+  var form = document.getElementById('smtp-form');
+  var csrf = form.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  var data = new FormData();
+  data.append('csrfmiddlewaretoken', csrf);
+  data.append('smtp_host',       document.getElementById('smtp_host').value);
+  data.append('smtp_port',       document.getElementById('smtp_port').value);
+  data.append('smtp_username',   document.getElementById('smtp_username').value);
+  data.append('smtp_password',   document.getElementById('smtp_password').value);
+  data.append('smtp_from_email', document.getElementById('smtp_from_email').value);
+  data.append('smtp_use_tls',    document.getElementById('smtp_use_tls').checked ? '1' : '0');
+
+  fetch('{% url "school_smtp_test" school.slug %}', { method: 'POST', body: data })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      result.style.display = 'inline';
+      result.style.color   = d.success ? '#16a34a' : '#dc2626';
+      result.textContent   = (d.success ? '✓ ' : '✗ ') + d.message;
+    })
+    .catch(function() {
+      result.style.display = 'inline';
+      result.style.color   = '#dc2626';
+      result.textContent   = '✗ Request failed — try again.';
+    })
+    .finally(function() {
+      btn.textContent = orig;
+      btn.disabled    = false;
+    });
 }
 </script>
 {% endblock %}
