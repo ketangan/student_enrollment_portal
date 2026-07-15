@@ -403,7 +403,12 @@ leads:
   confirmation_enabled: true
   notify_to: "info@sbmusicconservatory.com"
   phone_required: true
-  redirect_url: "https://app.fons.io/sbmc"
+  redirect_url: "https://fons.app/@southbaymusicconservatory/book/appointments"
+  redirect_url_map:
+    piano: "https://fons.app/@southbaymusicconservatory/book/appointments/da4adf18-37fa-11f0-bba8-8b81bc8b90b7?staff="
+    violin: "https://fons.app/@southbaymusicconservatory/book/appointments/a07707bc-3665-11f0-9e33-8f8cd70f9854?staff="
+    viola: "https://fons.app/@southbaymusicconservatory/book/appointments/d553c0f2-4d84-11f0-b29b-ef5d2665792c?staff="
+    cello: "https://fons.app/@southbaymusicconservatory/book/appointments"
 
   fields:
     - key: student_name
@@ -417,6 +422,20 @@ leads:
       type: text
       required: true
       placeholder: "e.g. 8"
+
+    - key: instrument
+      label: "Which instrument are you interested in?"
+      type: select
+      required: true
+      options:
+        - label: "Piano"
+          value: piano
+        - label: "Violin"
+          value: violin
+        - label: "Viola"
+          value: viola
+        - label: "Cello"
+          value: cello
 
     - key: previous_experience
       label: "Previous music experience (none is perfectly fine!)"

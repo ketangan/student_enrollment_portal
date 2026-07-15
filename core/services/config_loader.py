@@ -206,6 +206,11 @@ def get_lead_form_config(config_raw: dict) -> dict:
         "confirmation_enabled": bool(leads.get("confirmation_enabled", True)),
         "notify_to": (leads.get("notify_to") or "").strip(),
         "redirect_url": (leads.get("redirect_url") or "").strip(),
+        "redirect_url_map": {
+            str(k): str(v).strip()
+            for k, v in (leads.get("redirect_url_map") or {}).items()
+            if k and v
+        },
         "phone_required": bool(leads.get("phone_required", False)),
         "fields": fields,
     }

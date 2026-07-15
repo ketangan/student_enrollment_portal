@@ -1229,6 +1229,11 @@ def school_lead_form_view(request, school_slug):
                 logger.exception("Lead confirmation failed silently, lead=%s", lead.pk)
 
             redirect_url = lead_cfg.get("redirect_url", "")
+            redirect_url_map = lead_cfg.get("redirect_url_map", {})
+            if redirect_url_map:
+                instrument_val = custom_field_values.get("instrument", "")
+                if instrument_val and instrument_val in redirect_url_map:
+                    redirect_url = redirect_url_map[instrument_val]
             if redirect_url:
                 from django.http import HttpResponseRedirect
                 return HttpResponseRedirect(redirect_url)

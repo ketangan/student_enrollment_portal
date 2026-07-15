@@ -220,6 +220,18 @@
                     {{ field.label }}{% if field.required %}<span class="req" style="margin-left:2px;">*</span>{% endif %}
                   </label>
                 </div>
+              {% elif field.type == "select" %}
+                <label for="id_{{ field.key }}">
+                  {{ field.label }}{% if field.required %}<span class="req">*</span>{% else %}<span class="opt">(optional)</span>{% endif %}
+                </label>
+                <div class="select-wrap">
+                  <select id="id_{{ field.key }}" name="{{ field.key }}" {% if field.required %}required{% endif %}>
+                    <option value="">— Select —</option>
+                    {% for opt in field.options %}
+                    <option value="{{ opt.value }}" {% if form_data|get_item:field.key == opt.value %}selected{% endif %}>{{ opt.label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
               {% elif field.type == "textarea" %}
                 <label for="id_{{ field.key }}">
                   {{ field.label }}{% if field.required %}<span class="req">*</span>{% else %}<span class="opt">(optional)</span>{% endif %}
