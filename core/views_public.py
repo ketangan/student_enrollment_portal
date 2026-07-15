@@ -483,6 +483,7 @@ def _complete_submission_from_draft(
     else:
         _maybe_set_waitlist_flag(request, school, submission.data or {}, raw_config)
 
+    request.session["_enrollify_last_form_key"] = draft.last_form_key or draft.form_key or "default"
     return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
 
@@ -667,6 +668,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                     logger.exception("Failed to send applicant confirmation email")
 
             _maybe_set_waitlist_flag(request, school, submission.data or {}, raw_config)
+            request.session["_enrollify_last_form_key"] = form_key
             return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
         # GET: pre-populate from session draft
@@ -977,6 +979,17 @@ def apply_success_view(request, school_slug: str):
 
     # Pull success config from YAML (safe defaults)
     success_cfg = (getattr(config, "raw", None) or {}).get("success", {}) or {}
+
+    # Post-submit redirect: per-form key takes priority over top-level success.redirect_url
+    _last_form_key = request.session.pop("_enrollify_last_form_key", "default")
+    _forms_cfg = (getattr(config, "raw", None) or {}).get("forms", {}) or {}
+    _redirect_url = ""
+    if _last_form_key and _last_form_key != "default" and _last_form_key in _forms_cfg:
+        _redirect_url = ((_forms_cfg[_last_form_key].get("success") or {}).get("redirect_url") or "").strip()
+    if not _redirect_url:
+        _redirect_url = (success_cfg.get("redirect_url") or "").strip()
+    if _redirect_url:
+        return redirect(_redirect_url)
 
     title = success_cfg.get("title") or "Submitted!"
     message = success_cfg.get("message") or f"Thanks — your application for {config.display_name} has been received."

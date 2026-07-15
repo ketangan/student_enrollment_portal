@@ -149,7 +149,10 @@
     <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--dash-border);">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
         <div style="font-size:11px;font-weight:700;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;">Sessions / Cohorts</div>
-        <a href="{{ add_session_url }}" class="dash-action-btn dash-action-btn--primary" style="font-size:12px;padding:5px 12px;">+ Add Session</a>
+        <div style="display:flex;gap:8px;">
+          <a href="{{ add_session_url }}" class="dash-action-btn dash-action-btn--primary" style="font-size:12px;padding:5px 12px;">+ Add Session</a>
+          <a href="{{ generate_sessions_url }}" class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;padding:5px 12px;">Generate recurring</a>
+        </div>
       </div>
 
       {% if sessions %}

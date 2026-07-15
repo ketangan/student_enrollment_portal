@@ -68,6 +68,7 @@ urlpatterns = [
     path("schools/<slug:school_slug>/admin/programs/<int:program_id>/activate/", views_school_programs.school_program_activate_view, name="school_program_activate"),
     path("schools/<slug:school_slug>/admin/programs/<int:program_id>/delete/", views_school_programs.school_program_delete_view, name="school_program_delete"),
     path("schools/<slug:school_slug>/admin/programs/<int:program_id>/sessions/new/", views_school_programs.school_session_create_view, name="school_session_create"),
+    path("schools/<slug:school_slug>/admin/programs/<int:program_id>/sessions/generate/", views_school_programs.school_session_generate_view, name="school_session_generate"),
     path("schools/<slug:school_slug>/admin/programs/<int:program_id>/sessions/<int:session_id>/edit/", views_school_programs.school_session_edit_view, name="school_session_edit"),
     path("schools/<slug:school_slug>/admin/programs/<int:program_id>/sessions/<int:session_id>/activate/", views_school_programs.school_session_activate_view, name="school_session_activate"),
     path("schools/<slug:school_slug>/admin/programs/<int:program_id>/sessions/<int:session_id>/deactivate/", views_school_programs.school_session_deactivate_view, name="school_session_deactivate"),

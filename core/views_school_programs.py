@@ -261,6 +261,7 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
         "can_delete": can_delete,
         "sessions": sessions,
         "add_session_url": reverse("school_session_create", kwargs={"school_slug": school_slug, "program_id": program.pk}),
+        "generate_sessions_url": reverse("school_session_generate", kwargs={"school_slug": school_slug, "program_id": program.pk}),
         "deactivate_url": reverse("school_program_deactivate", kwargs={"school_slug": school_slug, "program_id": program.pk}),
         "activate_url": reverse("school_program_activate", kwargs={"school_slug": school_slug, "program_id": program.pk}),
         "delete_url": reverse("school_program_delete", kwargs={"school_slug": school_slug, "program_id": program.pk}),
@@ -350,6 +351,17 @@ def school_program_delete_view(request, school_slug: str, program_id: int):
 # ---------------------------------------------------------------------------
 # Session CRUD views
 # ---------------------------------------------------------------------------
+
+_DAYS_OF_WEEK = [
+    (0, "Monday"),
+    (1, "Tuesday"),
+    (2, "Wednesday"),
+    (3, "Thursday"),
+    (4, "Friday"),
+    (5, "Saturday"),
+    (6, "Sunday"),
+]
+
 
 def _program_edit_url(school_slug: str, program_id: int) -> str:
     return reverse("school_program_edit", kwargs={"school_slug": school_slug, "program_id": program_id})
@@ -724,3 +736,161 @@ def school_session_delete_view(request, school_slug: str, program_id: int, sessi
     )
     messages.success(request, f"Session '{name}' removed.")
     return redirect(_program_edit_url(school_slug, program_id))
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def school_session_generate_view(request, school_slug: str, program_id: int):
+    import datetime
+
+    school = _get_accessible_school_for_admin(request, school_slug)
+    program = get_object_or_404(SchoolProgram, id=program_id, school=school, is_deleted=False)
+    back_url = _program_edit_url(school_slug, program_id)
+
+    errors = {}
+    values = {
+        "day_of_week": "",
+        "time_label": "",
+        "start_date": "",
+        "end_date": "",
+        "capacity": "",
+        "auto_enroll": False,
+        "waitlist_enabled": False,
+    }
+
+    if request.method == "POST":
+        day_of_week_raw = request.POST.get("day_of_week", "").strip()
+        time_label = request.POST.get("time_label", "").strip()
+        start_date_raw = request.POST.get("start_date", "").strip()
+        end_date_raw = request.POST.get("end_date", "").strip()
+        capacity_raw = request.POST.get("capacity", "").strip()
+        auto_enroll = request.POST.get("auto_enroll") == "1"
+        waitlist_enabled = request.POST.get("waitlist_enabled") == "1"
+
+        values = {
+            "day_of_week": day_of_week_raw,
+            "time_label": time_label,
+            "start_date": start_date_raw,
+            "end_date": end_date_raw,
+            "capacity": capacity_raw,
+            "auto_enroll": auto_enroll,
+            "waitlist_enabled": waitlist_enabled,
+        }
+
+        day_of_week = None
+        if not day_of_week_raw:
+            errors["day_of_week"] = "Select a day."
+        else:
+            try:
+                day_of_week = int(day_of_week_raw)
+                if day_of_week not in range(7):
+                    raise ValueError
+            except (ValueError, TypeError):
+                errors["day_of_week"] = "Select a valid day."
+
+        if not time_label:
+            errors["time_label"] = "Enter a time (e.g. 10:00 AM)."
+
+        start_date = end_date = None
+        if not start_date_raw:
+            errors["start_date"] = "Start date is required."
+        else:
+            try:
+                start_date = datetime.date.fromisoformat(start_date_raw)
+            except ValueError:
+                errors["start_date"] = "Enter a valid date."
+
+        if not end_date_raw:
+            errors["end_date"] = "End date is required."
+        else:
+            try:
+                end_date = datetime.date.fromisoformat(end_date_raw)
+            except ValueError:
+                errors["end_date"] = "Enter a valid date."
+
+        if start_date and end_date and end_date < start_date:
+            errors["end_date"] = "End date must be on or after start date."
+
+        capacity = None
+        if capacity_raw:
+            try:
+                capacity = int(capacity_raw)
+                if capacity <= 0:
+                    errors["capacity"] = "Capacity must be a positive number."
+            except ValueError:
+                errors["capacity"] = "Capacity must be a whole number."
+
+        if not errors:
+            day_name = dict(_DAYS_OF_WEEK)[day_of_week]
+            day_abbr = day_name[:3].lower()
+
+            # Walk forward from start_date to find first occurrence of day_of_week
+            days_ahead = (day_of_week - start_date.weekday()) % 7
+            first = start_date + datetime.timedelta(days=days_ahead)
+
+            occurrences = []
+            current = first
+            while current <= end_date:
+                occurrences.append(current)
+                current += datetime.timedelta(weeks=1)
+
+            if not occurrences:
+                errors["end_date"] = f"No {day_name}s found between {start_date_raw} and {end_date_raw}."
+            else:
+                next_order = _next_session_display_order(program)
+                created_count = 0
+                skipped_count = 0
+                for occurrence in occurrences:
+                    code = f"{day_abbr}_{occurrence.strftime('%Y_%m_%d')}"
+                    if SchoolSession.objects.filter(program=program, code=code).exists():
+                        skipped_count += 1
+                        continue
+                    name = f"{day_name} {time_label} — {occurrence.strftime('%b')} {occurrence.day}"
+                    SchoolSession.objects.create(
+                        program=program,
+                        name=name,
+                        code=code,
+                        start_date=occurrence,
+                        end_date=occurrence,
+                        capacity=capacity,
+                        auto_enroll=auto_enroll,
+                        waitlist_enabled=waitlist_enabled,
+                        display_order=next_order,
+                    )
+                    created_count += 1
+                    next_order += 1
+
+                if created_count == 0:
+                    errors["end_date"] = "All sessions in this range already exist — nothing was created."
+                else:
+                    log_admin_audit(
+                        request=request,
+                        action="add",
+                        obj=program,
+                        changes={},
+                        extra={
+                            "name": "sessions_generated",
+                            "count": created_count,
+                            "day": day_name,
+                            "time_label": time_label,
+                            "start_date": start_date_raw,
+                            "end_date": end_date_raw,
+                        },
+                    )
+                    msg = f"{created_count} session{'s' if created_count != 1 else ''} created for {program.name}."
+                    if skipped_count:
+                        msg += f" ({skipped_count} already existed and were skipped.)"
+                    messages.success(request, msg)
+                    return redirect(back_url)
+
+    ctx = _school_admin_base_context(request, school, "settings")
+    ctx.update({
+        "form_heading": f"Generate Recurring Sessions — {program.name}",
+        "form_action": request.path,
+        "back_url": back_url,
+        "errors": errors,
+        "values": values,
+        "program": program,
+        "days_of_week": _DAYS_OF_WEEK,
+    })
+    return render(request, "school_admin/session_generate_form.html", ctx)

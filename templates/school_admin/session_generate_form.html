@@ -1,0 +1,129 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}{{ form_heading }} — Settings{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <div style="margin-bottom:20px;">
+    <a href="{{ back_url }}" style="font-size:13px;color:var(--dash-muted);text-decoration:none;">← {{ program.name }}</a>
+    <h1 style="font-size:18px;font-weight:700;margin:8px 0 0;">{{ form_heading }}</h1>
+    <p style="font-size:13px;color:var(--dash-muted);margin:6px 0 0;">
+      Creates one session per week for every occurrence of the selected day in the date range.
+    </p>
+  </div>
+
+  <div class="dash-card" style="max-width:520px;padding:24px;">
+    <form method="post" action="{{ form_action }}">
+      {% csrf_token %}
+
+      <!-- Day of week -->
+      <div style="margin-bottom:18px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"
+               for="id_day_of_week">Day of Week <span style="color:#ef4444;">*</span></label>
+        <select id="id_day_of_week"
+                name="day_of_week"
+                style="width:100%;padding:8px 12px;font-size:14px;border:1px solid {% if errors.day_of_week %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          <option value="">— Select day —</option>
+          {% for val, label in days_of_week %}
+          <option value="{{ val }}" {% if values.day_of_week == val|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        {% if errors.day_of_week %}<div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.day_of_week }}</div>{% endif %}
+      </div>
+
+      <!-- Time label -->
+      <div style="margin-bottom:18px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"
+               for="id_time_label">Time <span style="color:#ef4444;">*</span></label>
+        <input type="text"
+               id="id_time_label"
+               name="time_label"
+               value="{{ values.time_label }}"
+               style="width:100%;padding:8px 12px;font-size:14px;border:1px solid {% if errors.time_label %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;"
+               placeholder="e.g. 10:00 AM or 3:30 PM">
+        <div style="font-size:12px;color:var(--dash-muted);margin-top:4px;">Used in the session name, e.g. "Tuesday 3:00 PM — Aug 5".</div>
+        {% if errors.time_label %}<div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.time_label }}</div>{% endif %}
+      </div>
+
+      <!-- Date range -->
+      <div style="display:flex;gap:12px;margin-bottom:18px;">
+        <div style="flex:1;">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"
+                 for="id_start_date">Start Date <span style="color:#ef4444;">*</span></label>
+          <input type="date"
+                 id="id_start_date"
+                 name="start_date"
+                 value="{{ values.start_date }}"
+                 style="width:100%;padding:8px 12px;font-size:14px;border:1px solid {% if errors.start_date %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;">
+          {% if errors.start_date %}<div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.start_date }}</div>{% endif %}
+        </div>
+        <div style="flex:1;">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"
+                 for="id_end_date">End Date <span style="color:#ef4444;">*</span></label>
+          <input type="date"
+                 id="id_end_date"
+                 name="end_date"
+                 value="{{ values.end_date }}"
+                 style="width:100%;padding:8px 12px;font-size:14px;border:1px solid {% if errors.end_date %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;">
+          {% if errors.end_date %}<div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.end_date }}</div>{% endif %}
+        </div>
+      </div>
+
+      <!-- Capacity -->
+      <div style="margin-bottom:18px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;"
+               for="id_capacity">Capacity per Session</label>
+        <input type="number"
+               id="id_capacity"
+               name="capacity"
+               value="{{ values.capacity }}"
+               style="width:160px;padding:8px 12px;font-size:14px;border:1px solid {% if errors.capacity %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;background:var(--dash-bg);color:var(--dash-text);"
+               min="1"
+               placeholder="Unlimited">
+        <div style="font-size:12px;color:var(--dash-muted);margin-top:4px;">Leave blank for unlimited spots per session.</div>
+        {% if errors.capacity %}<div style="color:#ef4444;font-size:12px;margin-top:4px;">{{ errors.capacity }}</div>{% endif %}
+      </div>
+
+      <!-- Auto-Enroll -->
+      <div style="margin-bottom:20px;padding:14px 16px;background:var(--dash-bg);border-radius:8px;border:1px solid var(--dash-border);">
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
+          <input type="checkbox"
+                 id="id_auto_enroll"
+                 name="auto_enroll"
+                 value="1"
+                 style="margin-top:3px;flex-shrink:0;"
+                 {% if values.auto_enroll %}checked{% endif %}
+                 onchange="document.getElementById('waitlist-row').style.display=this.checked?'block':'none';">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--dash-text);">Auto-enroll on submit</div>
+            <div style="font-size:12px;color:var(--dash-muted);margin-top:2px;">Submissions are automatically marked Enrolled.</div>
+          </div>
+        </label>
+        <div id="waitlist-row" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--dash-border);{% if not values.auto_enroll %}display:none;{% endif %}">
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
+            <input type="checkbox"
+                   id="id_waitlist_enabled"
+                   name="waitlist_enabled"
+                   value="1"
+                   style="margin-top:3px;flex-shrink:0;"
+                   {% if values.waitlist_enabled %}checked{% endif %}>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--dash-text);">Enable waitlist when at capacity</div>
+              <div style="font-size:12px;color:var(--dash-muted);margin-top:2px;">Requires a capacity limit above.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div style="display:flex;gap:10px;">
+        <button type="submit" class="dash-action-btn dash-action-btn--primary" style="font-size:13px;padding:8px 20px;cursor:pointer;border:none;">
+          Generate Sessions
+        </button>
+        <a href="{{ back_url }}" class="dash-action-btn dash-action-btn--secondary" style="font-size:13px;padding:8px 20px;">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+</main>
+{% endblock %}
