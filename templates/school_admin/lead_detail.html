@@ -566,12 +566,6 @@
             <span style="font-size:10px;color:var(--dash-muted);display:block;">Lead ID</span>
             <span style="font-family:monospace;font-size:11px;color:var(--dash-muted);">{{ lead.public_id }}</span>
           </div>
-          {% if request.user.is_superuser %}
-          <a href="{{ django_admin_url }}"
-             style="font-size:11px;color:var(--dash-muted);text-decoration:none;padding-top:2px;">
-            Django admin ↗
-          </a>
-          {% endif %}
         </div>
       </div>
 

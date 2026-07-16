@@ -314,10 +314,7 @@
           {% else %}
           <p style="font-size:13px;color:var(--dash-muted);margin:0;">
             Form configuration unavailable.
-            {% if request.user.is_superuser %}
-            View raw data in <a href="{{ django_admin_url }}" style="color:var(--dash-primary);">Django admin</a>.
-            {% endif %}
-          </p>
+            </p>
           {% endif %}
 
         </div><!-- /snap-view -->
@@ -908,13 +905,6 @@
               Resend Confirmation
             </button>
           </form>
-          {% endif %}
-          {% if request.user.is_superuser %}
-          <a href="{{ django_admin_url }}"
-             style="font-size:11px;color:var(--dash-muted);text-decoration:none;
-                    text-align:center;display:block;padding:2px 0;">
-            Django admin ↗
-          </a>
           {% endif %}
         </div>
 
