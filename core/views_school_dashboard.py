@@ -81,6 +81,7 @@ from .services.notifications import (
 from .services.lead_conversion import try_convert_lead
 from .services.integrations import get_export_configs, normalize_csv_value, resolve_export_row
 from .services.ai_summary import generate_ai_summary
+from .services.school_permissions import require_school_role, get_school_membership
 
 from .views_school_common import *  # noqa: F401,F403
 from .views_school_common import (  # noqa: F401 — private names not exported by *
@@ -525,6 +526,7 @@ def school_settings_view(request, school_slug: str):
     POST /schools/<slug>/admin/settings/  (action=update_display_name)
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "owner")
 
     if request.method == "POST" and request.POST.get("action") == "update_trial_end_date":
         if not request.user.is_superuser:
@@ -748,6 +750,7 @@ def school_settings_view(request, school_slug: str):
 def school_smtp_test_view(request, school_slug: str):
     """POST /schools/<slug>/admin/settings/smtp-test/ — test SMTP credentials, return JSON."""
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "owner")
 
     smtp_host = request.POST.get("smtp_host", "").strip()
     smtp_port_raw = request.POST.get("smtp_port", "").strip()
@@ -809,6 +812,7 @@ def school_password_change_view(request, school_slug: str):
     from django.contrib.auth import update_session_auth_hash
 
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "owner")
 
     if request.method == "POST":
         form = PasswordChangeForm(user=request.user, data=request.POST)
@@ -837,6 +841,7 @@ def school_billing_view(request, school_slug: str):
         get_pricing_options, is_stripe_configured,
     )
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "owner")
     stripe_configured = is_stripe_configured()
     pricing_flat = get_pricing_options() if stripe_configured else []
 
@@ -906,6 +911,7 @@ def school_billing_checkout_view(request, school_slug: str):
         create_checkout_session, get_pricing_options, is_stripe_configured,
     )
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "owner")
     from core.services.url_builder import app_reverse
     billing_url = app_reverse("school_billing", kwargs={"school_slug": school_slug})
 
@@ -951,6 +957,7 @@ def school_billing_portal_view(request, school_slug: str):
     """
     from core.services.billing_stripe import create_portal_session
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "owner")
     from core.services.url_builder import app_reverse
     billing_url = app_reverse("school_billing", kwargs={"school_slug": school_slug})
     portal_url = create_portal_session(school=school, return_url=billing_url)
@@ -958,3 +965,149 @@ def school_billing_portal_view(request, school_slug: str):
         messages.error(request, "Could not open billing portal. Please try again.")
         return redirect(billing_url)
     return redirect(portal_url)
+
+
+# ── Team management ───────────────────────────────────────────────────────────
+
+from .models import SchoolAdminMembership as _Membership
+
+
+@login_required
+@require_http_methods(["POST"])
+def school_team_add_view(request, school_slug: str):
+    """POST /schools/<slug>/admin/team/add/ — add a team member."""
+    from django.contrib.auth.models import User as _User
+    school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "owner")
+    settings_url = reverse("school_settings", kwargs={"school_slug": school_slug})
+
+    email = request.POST.get("email", "").strip().lower()
+    role = request.POST.get("role", "").strip()
+
+    if role not in _Membership.Role.values:
+        messages.error(request, "Invalid role.")
+        return redirect(settings_url)
+    if not email:
+        messages.error(request, "Email is required.")
+        return redirect(settings_url)
+
+    try:
+        user = _User.objects.get(email__iexact=email)
+    except _User.DoesNotExist:
+        messages.error(
+            request,
+            f"No Enrollify account exists for {email}. "
+            "Ask the platform administrator to create it first.",
+        )
+        return redirect(settings_url)
+    except _User.MultipleObjectsReturned:
+        messages.error(request, f"Multiple accounts found for {email}. Contact support.")
+        return redirect(settings_url)
+
+    if not user.is_staff:
+        messages.error(
+            request,
+            f"{email} does not have staff access. Ask the platform administrator to enable it.",
+        )
+        return redirect(settings_url)
+
+    existing = _Membership.objects.filter(school=school, user=user).first()
+    if existing:
+        if existing.is_active:
+            messages.error(request, f"{email} is already a team member.")
+        else:
+            existing.is_active = True
+            existing.role = role
+            existing.save(update_fields=["is_active", "role"])
+            log_admin_audit(
+                request=request, action="action", obj=school, changes={},
+                extra={"name": "member_reactivated", "email": email, "role": role},
+            )
+            messages.success(request, f"{email} has been reactivated as {role}.")
+        return redirect(settings_url)
+
+    with transaction.atomic():
+        _Membership.objects.create(
+            school=school, user=user, role=role, created_by=request.user,
+        )
+        log_admin_audit(
+            request=request, action="action", obj=school, changes={},
+            extra={"name": "member_added", "email": email, "role": role},
+        )
+    messages.success(request, f"{user.get_full_name() or email} added as {role}.")
+    return redirect(settings_url)
+
+
+@login_required
+@require_http_methods(["POST"])
+def school_team_role_view(request, school_slug: str, membership_id: int):
+    """POST /schools/<slug>/admin/team/<id>/role/ — change a member's role."""
+    school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "owner")
+    settings_url = reverse("school_settings", kwargs={"school_slug": school_slug})
+
+    membership = get_object_or_404(_Membership, id=membership_id, school=school, is_active=True)
+    new_role = request.POST.get("role", "").strip()
+
+    if new_role not in _Membership.Role.values:
+        messages.error(request, "Invalid role.")
+        return redirect(settings_url)
+
+    # Prevent demoting the last owner.
+    if membership.role == "owner" and new_role != "owner":
+        owner_count = _Membership.objects.filter(
+            school=school, role="owner", is_active=True
+        ).count()
+        if owner_count <= 1:
+            messages.error(request, "Cannot demote the last owner. Promote another member first.")
+            return redirect(settings_url)
+
+    old_role = membership.role
+    membership.role = new_role
+    with transaction.atomic():
+        membership.save(update_fields=["role"])
+        log_admin_audit(
+            request=request, action="action", obj=school, changes={},
+            extra={
+                "name": "role_changed",
+                "email": membership.user.email,
+                "old_role": old_role,
+                "new_role": new_role,
+            },
+        )
+    messages.success(
+        request,
+        f"{membership.user.get_full_name() or membership.user.email} role changed to {new_role}.",
+    )
+    return redirect(settings_url)
+
+
+@login_required
+@require_http_methods(["POST"])
+def school_team_remove_view(request, school_slug: str, membership_id: int):
+    """POST /schools/<slug>/admin/team/<id>/remove/ — deactivate a team member."""
+    school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "owner")
+    settings_url = reverse("school_settings", kwargs={"school_slug": school_slug})
+
+    membership = get_object_or_404(_Membership, id=membership_id, school=school, is_active=True)
+
+    # Prevent removing the last owner.
+    if membership.role == "owner":
+        owner_count = _Membership.objects.filter(
+            school=school, role="owner", is_active=True
+        ).count()
+        if owner_count <= 1:
+            messages.error(request, "Cannot remove the last owner.")
+            return redirect(settings_url)
+
+    email = membership.user.email
+    with transaction.atomic():
+        membership.is_active = False
+        membership.save(update_fields=["is_active"])
+        log_admin_audit(
+            request=request, action="action", obj=school, changes={},
+            extra={"name": "member_removed", "email": email},
+        )
+    messages.success(request, f"{email} has been removed from the team.")
+    return redirect(settings_url)

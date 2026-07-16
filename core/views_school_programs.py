@@ -12,6 +12,7 @@ from django.contrib import messages
 from core.admin.audit import log_admin_audit
 from core.models import SchoolProgram, SchoolSession
 from core.services.programs import _auto_session_code
+from core.services.school_permissions import require_school_role
 from core.views_school_common import (
     STATUS_ENROLLED,
     _get_accessible_school_for_admin,
@@ -53,6 +54,7 @@ def school_programs_list_view(request, school_slug: str):
 @require_http_methods(["GET", "POST"])
 def school_program_create_view(request, school_slug: str):
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     settings_url = _settings_url(school_slug)
 
     errors = {}
@@ -128,6 +130,7 @@ def school_program_create_view(request, school_slug: str):
 @require_http_methods(["GET", "POST"])
 def school_program_edit_view(request, school_slug: str, program_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     program = get_object_or_404(SchoolProgram, id=program_id, school=school, is_deleted=False)
     settings_url = _settings_url(school_slug)
 
@@ -273,6 +276,7 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
 @require_http_methods(["POST"])
 def school_program_activate_view(request, school_slug: str, program_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     program = get_object_or_404(SchoolProgram, id=program_id, school=school, is_deleted=False)
 
     if not program.is_active:
@@ -294,6 +298,7 @@ def school_program_activate_view(request, school_slug: str, program_id: int):
 @require_http_methods(["POST"])
 def school_program_deactivate_view(request, school_slug: str, program_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     program = get_object_or_404(SchoolProgram, id=program_id, school=school, is_deleted=False)
 
     if program.is_active:
@@ -323,6 +328,7 @@ def school_program_deactivate_view(request, school_slug: str, program_id: int):
 @require_http_methods(["POST"])
 def school_program_delete_view(request, school_slug: str, program_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     program = get_object_or_404(SchoolProgram, id=program_id, school=school, is_deleted=False)
 
     if program.is_active:
@@ -377,6 +383,7 @@ def _next_session_display_order(program) -> int:
 @require_http_methods(["GET", "POST"])
 def school_session_create_view(request, school_slug: str, program_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     program = get_object_or_404(SchoolProgram, id=program_id, school=school, is_deleted=False)
     back_url = _program_edit_url(school_slug, program_id)
 
@@ -482,6 +489,7 @@ def school_session_create_view(request, school_slug: str, program_id: int):
 @require_http_methods(["GET", "POST"])
 def school_session_edit_view(request, school_slug: str, program_id: int, session_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     program = get_object_or_404(SchoolProgram, id=program_id, school=school, is_deleted=False)
     session = get_object_or_404(SchoolSession, id=session_id, program=program, is_deleted=False)
     back_url = _program_edit_url(school_slug, program_id)
@@ -661,6 +669,7 @@ def school_session_edit_view(request, school_slug: str, program_id: int, session
 @require_http_methods(["POST"])
 def school_session_activate_view(request, school_slug: str, program_id: int, session_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     program = get_object_or_404(SchoolProgram, id=program_id, school=school, is_deleted=False)
     session = get_object_or_404(SchoolSession, id=session_id, program=program, is_deleted=False)
 
@@ -683,6 +692,7 @@ def school_session_activate_view(request, school_slug: str, program_id: int, ses
 @require_http_methods(["POST"])
 def school_session_deactivate_view(request, school_slug: str, program_id: int, session_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     program = get_object_or_404(SchoolProgram, id=program_id, school=school, is_deleted=False)
     session = get_object_or_404(SchoolSession, id=session_id, program=program, is_deleted=False)
 
@@ -713,6 +723,7 @@ def school_session_deactivate_view(request, school_slug: str, program_id: int, s
 @require_http_methods(["POST"])
 def school_session_delete_view(request, school_slug: str, program_id: int, session_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     program = get_object_or_404(SchoolProgram, id=program_id, school=school, is_deleted=False)
     session = get_object_or_404(SchoolSession, id=session_id, program=program, is_deleted=False)
 
@@ -744,6 +755,7 @@ def school_session_generate_view(request, school_slug: str, program_id: int):
     import datetime
 
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     program = get_object_or_404(SchoolProgram, id=program_id, school=school, is_deleted=False)
     back_url = _program_edit_url(school_slug, program_id)
 

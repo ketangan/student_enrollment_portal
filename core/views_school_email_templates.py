@@ -12,6 +12,7 @@ import re as _re
 
 from core.admin.audit import log_admin_audit
 from core.models import SchoolCustomToken, SchoolEmailTemplate
+from core.services.school_permissions import require_school_role
 from core.views_school_common import _get_accessible_school_for_admin, _school_admin_base_context
 
 _SETTINGS_URL = lambda slug: reverse("school_settings", kwargs={"school_slug": slug})
@@ -48,6 +49,7 @@ def _validate_template(name, subject, body):
 @require_http_methods(["GET", "POST"])
 def school_email_template_create_view(request, school_slug: str):
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     back_url = _SETTINGS_URL(school_slug)
 
     errors = {}
@@ -89,6 +91,7 @@ def school_email_template_create_view(request, school_slug: str):
 @require_http_methods(["GET", "POST"])
 def school_email_template_edit_view(request, school_slug: str, template_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     tmpl   = get_object_or_404(SchoolEmailTemplate, id=template_id, school=school)
     back_url = _SETTINGS_URL(school_slug)
 
@@ -141,6 +144,7 @@ def school_email_template_edit_view(request, school_slug: str, template_id: int)
 def school_email_template_delete_view(request, school_slug: str, template_id: int):
     """Deactivate (soft-delete) a template so it no longer appears in compose dropdowns."""
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     tmpl   = get_object_or_404(SchoolEmailTemplate, id=template_id, school=school)
     name   = tmpl.name
     tmpl.is_active = False
@@ -157,6 +161,7 @@ def school_email_template_delete_view(request, school_slug: str, template_id: in
 @require_http_methods(["POST"])
 def school_email_template_reactivate_view(request, school_slug: str, template_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     tmpl   = get_object_or_404(SchoolEmailTemplate, id=template_id, school=school)
     name   = tmpl.name
     tmpl.is_active = True
@@ -193,6 +198,7 @@ def _templates_using_token(school, key: str) -> list:
 @require_http_methods(["POST"])
 def school_custom_token_create_view(request, school_slug: str):
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     key    = request.POST.get("key", "").strip().lower()
     label  = request.POST.get("label", "").strip()
 
@@ -224,6 +230,7 @@ def school_custom_token_create_view(request, school_slug: str):
 @require_http_methods(["POST"])
 def school_custom_token_delete_view(request, school_slug: str, token_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     token  = get_object_or_404(SchoolCustomToken, id=token_id, school=school)
     key    = token.key
     next_url = request.POST.get("next", "").strip()

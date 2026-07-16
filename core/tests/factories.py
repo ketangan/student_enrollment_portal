@@ -41,10 +41,11 @@ class SchoolAdminMembershipFactory(django.DjangoModelFactory):
 
     user = factory.SubFactory(UserFactory)
     school = factory.SubFactory(SchoolFactory)
+    role = "owner"
+    is_active = True
 
     @factory.post_generation
     def make_staff(obj, create, extracted, **kwargs):
-        # ensure user is staff
         obj.user.is_staff = True
         if create:
             obj.user.save()

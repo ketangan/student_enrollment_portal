@@ -245,15 +245,18 @@ def ops_school_member_add_view(request, slug):
         messages.error(request, f"No user found with email '{email}'. Create the user first.")
         return redirect("ops_school_detail", slug=slug)
 
-    if hasattr(user, "school_membership"):
-        existing = user.school_membership
-        if existing.school_id == school.pk:
+    existing = SchoolAdminMembership.objects.filter(user=user, school=school).first()
+    if existing:
+        if existing.is_active:
             messages.warning(request, f"{email} is already a member of this school.")
         else:
-            messages.error(request, f"{email} already belongs to '{existing.school}'. Remove them first.")
+            existing.is_active = True
+            existing.role = "owner"
+            existing.save(update_fields=["is_active", "role"])
+            messages.success(request, f"{email} reactivated as owner.")
         return redirect("ops_school_detail", slug=slug)
 
-    SchoolAdminMembership.objects.create(user=user, school=school)
+    SchoolAdminMembership.objects.create(user=user, school=school, role="owner")
     _log(request, "add", "core.schooladminmembership", user.pk, f"{user.email} → {school.slug}",
          {"name": "add_member", "email": email, "school": slug})
     messages.success(request, f"{email} added as school admin.")
@@ -277,7 +280,7 @@ def ops_school_member_remove_view(request, slug, user_id):
 
 @ops_required
 def ops_users_list_view(request):
-    qs = User.objects.select_related("school_membership__school").order_by("-date_joined")
+    qs = User.objects.prefetch_related("school_memberships__school").order_by("-date_joined")
 
     q = request.GET.get("q", "").strip()
     role_filter = request.GET.get("role", "").strip()
@@ -293,7 +296,7 @@ def ops_users_list_view(request):
     elif role_filter == "staff":
         qs = qs.filter(is_staff=True, is_superuser=False)
     elif role_filter == "school_admin":
-        qs = qs.filter(school_membership__isnull=False)
+        qs = qs.filter(school_memberships__is_active=True).distinct()
 
     if status_filter == "active":
         qs = qs.filter(is_active=True)
@@ -330,7 +333,9 @@ def ops_user_detail_view(request, user_id):
     else:
         form = OpsUserEditForm(instance=target_user)
 
-    membership = getattr(target_user, "school_membership", None)
+    membership = SchoolAdminMembership.objects.filter(
+        user=target_user, is_active=True
+    ).select_related("school").first()
     recent_audit = AdminAuditLog.objects.filter(
         model_label="auth.user", object_id=str(target_user.pk)
     ).order_by("-created_at")[:20]
@@ -359,10 +364,10 @@ def ops_user_create_view(request):
 
             school = form.cleaned_data.get("school")
             if school:
-                if hasattr(user, "school_membership"):
+                if SchoolAdminMembership.objects.filter(user=user, school=school).exists():
                     messages.warning(request, f"User already has a school assignment — skipped.")
                 else:
-                    SchoolAdminMembership.objects.create(user=user, school=school)
+                    SchoolAdminMembership.objects.create(user=user, school=school, role="owner")
                     _log(request, "add", "core.schooladminmembership", user.pk,
                          f"{user.email} → {school.slug}",
                          {"name": "add_member", "email": user.email, "school": school.slug})

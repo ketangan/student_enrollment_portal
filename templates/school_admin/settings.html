@@ -427,6 +427,122 @@
     </div>
   </div>
 
+  <!-- ── Team ────────────────────────────────────────────────────────── -->
+  <div class="dash-card" style="padding:24px;margin-bottom:20px;">
+    <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Team</h2>
+    <p style="font-size:12px;color:var(--dash-muted);margin:0 0 20px;">
+      People who can access this school's admin portal.
+    </p>
+
+    {# Member table #}
+    {% with members=school.admin_memberships.all %}
+    {% if members %}
+    <div class="dash-table-scroll" style="margin-bottom:20px;">
+      <table class="dash-table" style="font-size:13px;">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Added</th>
+            <th>Added by</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in members %}
+          <tr{% if not m.is_active %} style="opacity:.5;"{% endif %}>
+            <td style="font-weight:500;">{{ m.user.get_full_name|default:"—" }}</td>
+            <td style="color:var(--dash-muted);">{{ m.user.email }}</td>
+            <td>
+              {% if is_owner and m.is_active %}
+              <form method="post" action="{% url 'school_team_role' school.slug m.id %}" style="display:inline;">
+                {% csrf_token %}
+                <select name="role" onchange="this.form.submit()"
+                        style="font-size:12px;padding:3px 6px;border:1px solid var(--dash-border);
+                               border-radius:5px;background:var(--dash-bg);color:var(--dash-text);">
+                  {% for val, label in m.Role.choices %}
+                  <option value="{{ val }}"{% if m.role == val %} selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </form>
+              {% else %}
+                <span class="dash-badge {% if m.role == 'owner' %}dash-badge--green{% elif m.role == 'editor' %}dash-badge--blue{% else %}dash-badge--gray{% endif %}">
+                  {{ m.get_role_display }}
+                </span>
+              {% endif %}
+            </td>
+            <td>
+              {% if m.is_active %}
+                <span class="dash-badge dash-badge--green">Active</span>
+              {% else %}
+                <span class="dash-badge dash-badge--gray">Inactive</span>
+              {% endif %}
+            </td>
+            <td style="color:var(--dash-muted);white-space:nowrap;">
+              {% if m.created_at %}{{ m.created_at|date:"M j, Y" }}{% else %}—{% endif %}
+            </td>
+            <td style="color:var(--dash-muted);">
+              {% if m.created_by %}{{ m.created_by.get_full_name|default:m.created_by.username }}{% else %}—{% endif %}
+            </td>
+            <td style="text-align:right;white-space:nowrap;">
+              {% if is_owner and m.is_active and m.user != request.user %}
+              <form method="post" action="{% url 'school_team_remove' school.slug m.id %}"
+                    style="display:inline;"
+                    onsubmit="return confirm('Remove {{ m.user.get_full_name|default:m.user.email }} from the team?');">
+                {% csrf_token %}
+                <button type="submit" class="dash-action-btn dash-action-btn--danger"
+                        style="font-size:11px;padding:3px 8px;">Remove</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    {# Add member form — owner only #}
+    {% if is_owner %}
+    <div style="padding-top:16px;border-top:1px solid var(--dash-border);">
+      <h3 style="font-size:13px;font-weight:600;margin:0 0 12px;">Add Team Member</h3>
+      <form method="post" action="{% url 'school_team_add' school.slug %}"
+            style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+        {% csrf_token %}
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
+            Email
+          </label>
+          <input type="email" name="email" required placeholder="colleague@example.com"
+                 style="padding:6px 10px;font-size:13px;min-width:240px;
+                        border:1px solid var(--dash-border);border-radius:6px;
+                        background:var(--dash-bg);color:var(--dash-text);">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
+            Role
+          </label>
+          <select name="role"
+                  style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                         border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+            <option value="editor">Editor</option>
+            <option value="viewer">Viewer</option>
+            <option value="owner">Owner</option>
+          </select>
+        </div>
+        <button type="submit" class="dash-action-btn dash-action-btn--primary"
+                style="font-size:12px;padding:6px 14px;">Add</button>
+      </form>
+      <p style="font-size:11px;color:var(--dash-muted);margin:8px 0 0;">
+        The person must already have an Enrollify account. Contact your platform administrator to create one.
+      </p>
+    </div>
+    {% endif %}
+  </div>
+
   <!-- ── Email Delivery ───────────────────────────────────────────────── -->
   <div class="dash-card" style="padding:24px;margin-bottom:20px;">
     <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Email Delivery</h2>

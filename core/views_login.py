@@ -15,7 +15,10 @@ def _post_login_redirect(request, next_url=""):
         return redirect(next_url)
     if request.user.is_superuser:
         return redirect("ops_dashboard")
-    membership = getattr(request.user, "school_membership", None)
+    from core.models import SchoolAdminMembership
+    membership = SchoolAdminMembership.objects.filter(
+        user=request.user, is_active=True
+    ).select_related("school").first()
     if membership:
         return redirect("school_dashboard", school_slug=membership.school.slug)
     return redirect("/")

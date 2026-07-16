@@ -31,8 +31,11 @@ def _is_superuser(user) -> bool:
 
 
 def _membership_school_id(user):
-    m = getattr(user, "school_membership", None)
-    return getattr(m, "school_id", None) if m else None
+    from core.models import SchoolAdminMembership
+    if not user or not getattr(user, "is_authenticated", False):
+        return None
+    m = SchoolAdminMembership.objects.filter(user=user, is_active=True).first()
+    return m.school_id if m else None
 
 
 def _has_school_membership(user) -> bool:

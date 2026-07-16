@@ -256,11 +256,38 @@ class School(models.Model):
 
 
 class SchoolAdminMembership(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="school_membership")
-    school = models.ForeignKey(School, on_delete=models.CASCADE, related_name="admin_memberships")
+    class Role(models.TextChoices):
+        OWNER  = "owner",  "Owner"
+        EDITOR = "editor", "Editor"
+        VIEWER = "viewer", "Viewer"
+
+    # Rank used for >= comparisons; higher = more permissions.
+    ROLE_RANK: dict[str, int] = {"owner": 3, "editor": 2, "viewer": 1}
+
+    user       = models.ForeignKey(User, on_delete=models.CASCADE, related_name="school_memberships")
+    school     = models.ForeignKey(School, on_delete=models.CASCADE, related_name="admin_memberships")
+    role       = models.CharField(max_length=10, choices=Role.choices, default=Role.OWNER)
+    is_active  = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        User, null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="created_memberships",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["school", "user"],
+                name="unique_school_admin_membership",
+            ),
+        ]
 
     def __str__(self) -> str:
-        return f"{self.user.username} -> {self.school.slug}"
+        return f"{self.user.username} -> {self.school.slug} ({self.role})"
+
+    def has_role(self, minimum_role: str) -> bool:
+        return self.ROLE_RANK.get(self.role, 0) >= self.ROLE_RANK.get(minimum_role, 0)
 
 
 class SchoolProgram(models.Model):

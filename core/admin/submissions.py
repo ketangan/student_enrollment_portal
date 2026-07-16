@@ -217,7 +217,7 @@ class SubmissionAdmin(admin.ModelAdmin):
         if _is_superuser(request.user):
             return True
 
-        school_id = getattr(request.user.school_membership, "school_id", None)
+        school_id = _membership_school_id(request.user)
         return obj.school_id == school_id
 
 

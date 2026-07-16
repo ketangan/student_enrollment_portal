@@ -84,6 +84,7 @@ from .services.lead_conversion import try_convert_lead
 from .services.integrations import get_export_configs, normalize_csv_value, resolve_export_row
 from .services.ai_summary import generate_ai_summary
 from .services.capacity import get_capacity_summary, get_program_field_key, get_program_value
+from .services.school_permissions import require_school_role
 
 from .views_school_common import *  # noqa: F401,F403
 from .views_school_common import (  # noqa: F401 — private names not exported by *
@@ -296,6 +297,7 @@ def school_submission_export_view(request, school_slug: str):
       log_admin_audit             — audit trail for every export
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
 
     config = _safe_load_school_config(school_slug)
     config_raw = getattr(config, "raw", {}) or {}
@@ -394,6 +396,7 @@ def school_submission_profile_export_view(request, school_slug: str, profile_nam
     Uses resolve_export_row() to map submission data → profile columns.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
 
     config = _safe_load_school_config(school_slug)
     config_raw = getattr(config, "raw", {}) or {}
@@ -480,6 +483,7 @@ def school_submission_status_update_view(request, school_slug: str, submission_i
       4. The transition from submission.status → new_status is explicitly allowed.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
 
     new_status = (request.POST.get("new_status") or "").strip()
     next_url   = (request.POST.get("next") or "").strip()
@@ -561,6 +565,7 @@ def school_submission_bulk_status_update_view(request, school_slug: str):
       - Flash message reports updated/skipped counts.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
 
     new_status = (request.POST.get("new_status") or "").strip()
     next_url   = (request.POST.get("next") or "").strip()
@@ -662,6 +667,7 @@ def school_submission_inline_status_view(request, school_slug: str, submission_i
     behaviour so admins can correct status mistakes regardless of configured workflow.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     new_status = (request.POST.get("new_status") or "").strip()
     next_url = request.POST.get("next", "").strip()
     fallback = reverse("school_submissions", kwargs={"school_slug": school_slug})
@@ -877,6 +883,7 @@ def school_submission_update_view(request, school_slug: str, submission_id: int)
       next           — redirect target after save (validated via _safe_redirect_url)
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     submission = get_object_or_404(Submission, id=submission_id, school=school)
 
     next_url = request.POST.get("next", "").strip()
@@ -922,6 +929,7 @@ def school_submission_create_view(request, school_slug: str):
     POST /schools/<slug>/admin/submissions/new/  → validate → create → redirect to detail
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
 
     config = _safe_load_school_config(school_slug)
     available_forms = get_forms(config) if config else {}
@@ -1021,6 +1029,7 @@ def school_submission_edit_view(request, school_slug: str, submission_id: int):
     POST /schools/<slug>/admin/submissions/<id>/edit/  → validate → merge → save → redirect to detail
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     submission = get_object_or_404(Submission, id=submission_id, school=school)
 
     config = _safe_load_school_config(school_slug)
@@ -1182,6 +1191,7 @@ def school_submission_mark_contacted_view(request, school_slug: str, submission_
     POST /schools/<slug>/admin/submissions/<id>/mark-contacted/
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     submission = get_object_or_404(Submission, id=submission_id, school=school)
 
     next_url = request.POST.get("next", "").strip()
@@ -1239,6 +1249,7 @@ def school_submission_follow_up_set_view(request, school_slug: str, submission_i
       next              — redirect target
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     submission = get_object_or_404(Submission, id=submission_id, school=school)
 
     next_url = request.POST.get("next", "").strip()
@@ -1299,6 +1310,7 @@ def school_submission_bulk_mark_contacted_view(request, school_slug: str):
     POST /schools/<slug>/admin/submissions/bulk-mark-contacted/
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
 
     next_url = request.POST.get("next", "").strip()
     raw_ids = request.POST.getlist("submission_ids")
@@ -1363,6 +1375,7 @@ def school_submission_bulk_follow_up_view(request, school_slug: str):
     Accepts: submission_ids (repeated), follow_up_date (YYYY-MM-DD), next.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
 
     next_url = request.POST.get("next", "").strip()
     raw_ids = request.POST.getlist("submission_ids")
@@ -1427,6 +1440,7 @@ def school_submission_bulk_download_view(request, school_slug: str):
     Submissions with no files are silently skipped.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
 
     fallback = reverse("school_submissions", kwargs={"school_slug": school_slug})
     next_url = request.POST.get("next", "").strip()
@@ -1496,6 +1510,7 @@ def school_submission_bulk_print_view(request, school_slug: str):
     Limit: 20 submissions max.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
 
     raw_ids = request.POST.getlist("submission_ids")
     ids = []
@@ -1566,6 +1581,7 @@ def school_submission_send_message_view(request, school_slug: str, submission_id
     POST /schools/<slug>/admin/submissions/<id>/send-message/
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     submission = get_object_or_404(Submission, id=submission_id, school=school)
 
     next_url = request.POST.get("next", "").strip()
@@ -1633,6 +1649,7 @@ def school_submission_resend_confirmation_view(request, school_slug: str, submis
     POST /schools/<slug>/admin/submissions/<id>/resend-confirmation/
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     submission = get_object_or_404(Submission, id=submission_id, school=school)
 
     next_url = request.POST.get("next", "").strip()
@@ -1687,6 +1704,7 @@ def school_submission_generate_summary_view(request, school_slug: str, submissio
     POST /schools/<slug>/admin/submissions/<id>/generate-summary/
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     submission = get_object_or_404(Submission, id=submission_id, school=school)
 
     detail_url = reverse(
@@ -1752,6 +1770,7 @@ def school_submission_post_public_note_view(request, school_slug: str, submissio
     POST /schools/<slug>/admin/submissions/<id>/public-note/
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     if not school.features.family_portal_enabled:
         raise Http404
 
@@ -1795,6 +1814,7 @@ def school_submission_resend_status_link_view(request, school_slug: str, submiss
     POST /schools/<slug>/admin/submissions/<id>/resend-status-link/
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     submission = get_object_or_404(Submission, id=submission_id, school=school)
 
     next_url = request.POST.get("next", "").strip()

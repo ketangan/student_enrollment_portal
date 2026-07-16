@@ -81,6 +81,7 @@ from .services.notifications import (
 from .services.lead_conversion import try_convert_lead
 from .services.integrations import get_export_configs, normalize_csv_value, resolve_export_row
 from .services.ai_summary import generate_ai_summary
+from .services.school_permissions import require_school_role
 
 from .views_school_common import *  # noqa: F401,F403
 from .views_school_common import (  # noqa: F401 — private names not exported by *
@@ -250,6 +251,7 @@ def school_lead_export_view(request, school_slug: str):
       log_admin_audit       — audit trail for every export
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
 
     if not school.features.leads_enabled and not request.user.is_superuser:
         return render(
@@ -336,6 +338,7 @@ def school_lead_status_update_view(request, school_slug: str, lead_id: int):
       3. The transition from lead.status → new_status is explicitly allowed.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
 
     new_status   = (request.POST.get("new_status") or "").strip()
     next_url     = (request.POST.get("next") or "").strip()
@@ -406,6 +409,7 @@ def school_lead_inline_status_view(request, school_slug: str, lead_id: int):
     can correct mistakes regardless of configured workflow.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     new_status = (request.POST.get("new_status") or "").strip()
     next_url = request.POST.get("next", "").strip()
     fallback = reverse("school_leads", kwargs={"school_slug": school_slug})
@@ -450,6 +454,7 @@ def school_lead_bulk_status_update_view(request, school_slug: str):
     ineligible → skip + count. Flash message reports both counts.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
 
     new_status = (request.POST.get("new_status") or "").strip()
     next_url   = (request.POST.get("next") or "").strip()
@@ -667,6 +672,7 @@ def school_lead_start_enrollment_view(request, school_slug: str, lead_id: int):
     creates drafts — it only reads.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     lead = get_object_or_404(Lead, id=lead_id, school=school)
     detail_url = reverse(
         "school_lead_detail",
@@ -743,6 +749,7 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
       next               — redirect target after save (validated via _safe_redirect_url)
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     lead = get_object_or_404(Lead, id=lead_id, school=school)
 
     next_url = request.POST.get("next", "").strip()
@@ -899,6 +906,7 @@ def school_lead_create_view(request, school_slug: str):
     Feature-gated: requires leads_enabled or superuser.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
 
     if not school.features.leads_enabled and not request.user.is_superuser:
         return render(
@@ -1014,6 +1022,7 @@ def school_lead_mark_contacted_view(request, school_slug: str, lead_id: int):
     contacted, enrolled, or lost.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     lead = get_object_or_404(Lead, id=lead_id, school=school)
 
     next_url = request.POST.get("next", "").strip()
@@ -1059,6 +1068,7 @@ def school_lead_bulk_mark_contacted_view(request, school_slug: str):
     POST /schools/<slug>/admin/leads/bulk-mark-contacted/
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
 
     next_url = request.POST.get("next", "").strip()
     raw_ids = request.POST.getlist("lead_ids")
@@ -1116,6 +1126,7 @@ def school_lead_bulk_follow_up_view(request, school_slug: str):
     Accepts: lead_ids (repeated), follow_up_date (YYYY-MM-DD), next.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
 
     next_url = request.POST.get("next", "").strip()
     raw_ids = request.POST.getlist("lead_ids")
@@ -1176,6 +1187,7 @@ def school_lead_bulk_clear_follow_up_view(request, school_slug: str):
     POST /schools/<slug>/admin/leads/bulk-clear-follow-up/
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
 
     next_url = request.POST.get("next", "").strip()
     raw_ids = request.POST.getlist("lead_ids")
@@ -1232,6 +1244,7 @@ def school_lead_send_message_view(request, school_slug: str, lead_id: int):
     POST /schools/<slug>/admin/leads/<id>/send-message/
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     lead = get_object_or_404(Lead, id=lead_id, school=school)
 
     next_url = request.POST.get("next", "").strip()
@@ -1290,6 +1303,7 @@ def school_lead_resend_resume_link_view(request, school_slug: str, lead_id: int)
     POST /schools/<slug>/admin/leads/<id>/resend-resume-link/
     """
     school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
     lead = get_object_or_404(Lead, id=lead_id, school=school)
 
     next_url = request.POST.get("next", "").strip()

@@ -38,10 +38,10 @@ class SchoolAdminRedirectMiddleware:
             and request.user.is_staff
             and not request.user.is_superuser
         ):
-            try:
-                membership = request.user.school_membership
-            except ObjectDoesNotExist:
-                membership = None
+            from core.models import SchoolAdminMembership
+            membership = SchoolAdminMembership.objects.filter(
+                user=request.user, is_active=True
+            ).select_related("school").first()
             if membership:
                 return redirect(
                     reverse(

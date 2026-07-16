@@ -84,25 +84,28 @@ from .views_public import (
 
 
 def _can_view_school_admin_page(request, school: School) -> bool:
+    from core.services.school_permissions import get_school_membership
     user = request.user
     if not user or not user.is_authenticated:
         return False
     if user.is_superuser:
         return True
-
-    membership = getattr(user, "school_membership", None)
-    return bool(user.is_staff and membership and membership.school_id == school.id)
+    if not user.is_staff:
+        return False
+    membership = get_school_membership(user, school)
+    return membership is not None
 
 
 @staff_member_required
 def admin_download_submission_file(request, file_id: int):
     sf = get_object_or_404(SubmissionFile, id=file_id)
 
-    # Superuser OK, otherwise enforce same-school access
+    # Superuser OK, otherwise enforce same-school access + at least viewer role
     user = request.user
     if not user.is_superuser:
-        membership = getattr(user, "school_membership", None)
-        if not (membership and membership.school_id == sf.submission.school_id):
+        from core.services.school_permissions import get_school_membership
+        membership = get_school_membership(user, sf.submission.school)
+        if not membership:
             raise Http404("Not found")
 
         # Block inactive schools from downloading files
@@ -261,6 +264,7 @@ def _extract_contact_field(data: dict, keys: tuple) -> str:
 def _school_admin_base_context(request, school, active_nav: str) -> dict:
     """Shared context required by school_admin/base.html."""
     from core.views_login import DEMO_SESSION_TOKEN_KEY, DEMO_SESSION_PAGES_KEY
+    from core.services.school_permissions import get_school_membership
 
     leads_enabled = school.features.leads_enabled
     user_initial = (request.user.get_full_name() or request.user.username)[0].upper()
@@ -279,6 +283,12 @@ def _school_admin_base_context(request, school, active_nav: str) -> dict:
             except Exception:
                 pass
 
+    current_membership = (
+        None if request.user.is_superuser
+        else get_school_membership(request.user, school)
+    )
+    current_role = current_membership.role if current_membership else ("owner" if request.user.is_superuser else None)
+
     return {
         "school": school,
         "school_slug": school.slug,
@@ -287,6 +297,10 @@ def _school_admin_base_context(request, school, active_nav: str) -> dict:
         "now": timezone.localtime(timezone.now()),
         "active_nav": active_nav,
         "is_demo_session": is_demo_session,
+        "current_membership": current_membership,
+        "current_role": current_role,
+        "is_owner": current_role == "owner",
+        "is_editor": current_role in ("owner", "editor"),
     }
 
 
