@@ -82,22 +82,22 @@
 
     /* Change request form */
     .change-form { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px; }
-    .change-form h3 { margin: 0 0 12px; font-size: 14px; font-weight: 700; color: var(--text); }
+    .change-form h3 { margin: 0 0 12px; font-size: 14px; font-weight: 700; color: var(--text); font-family: var(--font); }
     .field { margin-bottom: 14px; }
-    .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: var(--text); }
+    .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: var(--text); font-family: var(--font); }
     .field input[type="text"], .field input[type="date"] {
       width: 100%; padding: 10px 12px;
       border: 1px solid var(--border); border-radius: 8px;
       font-size: 14px; color: var(--text); background: var(--card);
-      font-family: inherit; outline: none; transition: border-color 0.15s;
+      font-family: var(--font); outline: none; transition: border-color 0.15s;
     }
     .field input:focus { border-color: var(--accent); }
     .checkbox-group { display: flex; gap: 16px; flex-wrap: wrap; }
-    .checkbox-group label { font-weight: 400; font-size: 14px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .checkbox-group label { font-weight: 400; font-size: 14px; display: flex; align-items: center; gap: 6px; cursor: pointer; font-family: var(--font); }
     .btn-change {
       background: var(--accent); color: #fff; border: none;
       border-radius: 8px; padding: 11px 20px;
-      font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+      font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font);
       transition: opacity 0.15s;
     }
     .btn-change:hover { opacity: 0.88; }
@@ -105,7 +105,7 @@
       background: none; border: 1px solid var(--border);
       border-radius: 8px; padding: 9px 16px;
       font-size: 13px; font-weight: 600; color: var(--text);
-      cursor: pointer; font-family: inherit; transition: background 0.15s;
+      cursor: pointer; font-family: var(--font); transition: background 0.15s;
     }
     .btn-toggle:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
 
