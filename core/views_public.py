@@ -867,6 +867,13 @@ def apply_payment_view(request, school_slug: str, draft_token: str):
     student_last = (draft.data or {}).get("student_last_name", "")
     student_name = f"{student_first} {student_last}".strip() or draft.email or "Applicant"
 
+    # Back URL: last form step the user came from.
+    last_key = draft.last_form_key or draft.form_key or "default"
+    if last_key and last_key not in ("default", "multi"):
+        back_url = reverse("apply_form", kwargs={"school_slug": school_slug, "form_key": last_key})
+    else:
+        back_url = reverse("apply", kwargs={"school_slug": school_slug})
+
     # Dev bypass: show the payment page UI without creating a Stripe PaymentIntent.
     if settings.DEV_SKIP_PAYMENT and not school.app_fee_stripe_public_key:
         bypass_url = reverse("apply_payment_bypass", kwargs={"school_slug": school_slug, "draft_token": draft_token})
@@ -883,6 +890,7 @@ def apply_payment_view(request, school_slug: str, draft_token: str):
             "embed_mode": request.GET.get("embed") == "1",
             "dev_bypass_mode": True,
             "bypass_url": bypass_url,
+            "back_url": back_url,
         })
 
     try:
@@ -920,6 +928,7 @@ def apply_payment_view(request, school_slug: str, draft_token: str):
         "embed_mode": request.GET.get("embed") == "1",
         "dev_bypass_mode": False,
         "bypass_url": "",
+        "back_url": back_url,
     })
 
 

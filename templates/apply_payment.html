@@ -68,22 +68,37 @@
 
       #payment-submit {
         width: 100%;
-        padding: 13px 1rem;
-        background: var(--primary);
-        color: #fff;
-        border: none;
-        border-radius: 8px;
-        font-size: 16px;
-        font-weight: 600;
-        cursor: pointer;
-        font-family: var(--font);
+        padding: 13px 1rem !important;
+        background: var(--primary) !important;
+        color: #fff !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-size: 16px !important;
+        font-weight: 600 !important;
+        letter-spacing: normal !important;
+        text-transform: none !important;
+        cursor: pointer !important;
+        font-family: var(--font) !important;
         transition: opacity 0.15s;
       }
 
       #payment-submit:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
+        opacity: 0.6 !important;
+        cursor: not-allowed !important;
       }
+
+      .payment-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: var(--muted);
+        text-decoration: none;
+        margin-bottom: 16px;
+        font-family: var(--font);
+        transition: color 0.15s;
+      }
+      .payment-back:hover { color: var(--text); }
 
       #payment-message {
         margin-top: 10px;
@@ -134,6 +149,12 @@
             <span class="logo-text">{{ school.display_name|default:school.slug }}</span>
           {% endif %}
         </div>
+        {% endif %}
+
+        {% if back_url and not embed_mode %}
+        <a href="{{ back_url }}" class="payment-back">
+          ← Back to form
+        </a>
         {% endif %}
 
         {% if payment_error %}
@@ -197,12 +218,16 @@
         var stripe = Stripe("{{ stripe_public_key|escapejs }}");
         var elements = stripe.elements({
           clientSecret: "{{ client_secret|escapejs }}",
+          fonts: [{% if branding.custom_css %}
+            { cssSrc: "https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Playfair+Display:wght@400;700&display=swap" }
+          {% endif %}],
           appearance: {
             theme: "stripe",
             variables: {
               colorPrimary: "{{ branding.theme.accent_color|default:'#2563eb'|escapejs }}",
               borderRadius: "8px",
               fontFamily: "{{ branding.theme.font_family|default:'system-ui'|escapejs }}",
+              fontSizeBase: "14px",
             },
           },
         });
