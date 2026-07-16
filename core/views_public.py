@@ -680,6 +680,8 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
 
         # GET: pre-populate from session draft
         active_draft = _resolve_active_draft(request, school, school_slug)
+        _fee_cfg_get = get_application_fee_config(raw_config, form_key)
+        _stripe_ready_get = bool(school.app_fee_stripe_public_key) or settings.DEV_SKIP_PAYMENT
         ctx = _apply_form_context(
             school=school,
             branding=branding,
@@ -692,6 +694,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
         )
         ctx["save_resume_enabled"] = save_resume_enabled
         ctx["embed_mode"] = request.GET.get("embed") == "1"
+        ctx["fee_is_pending"] = _fee_cfg_get["enabled"] and not _fee_cfg_get["waived"] and _stripe_ready_get
         return render(request, "apply_form.html", ctx)
 
     # ----------------------------
@@ -799,6 +802,12 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
         )
 
     # GET render
+    _stripe_ready_get = bool(school.app_fee_stripe_public_key) or settings.DEV_SKIP_PAYMENT
+    if not next_key:
+        _fee_cfg_get = get_application_fee_config(raw_config, form_key)
+        _fee_is_pending = _fee_cfg_get["enabled"] and not _fee_cfg_get["waived"] and _stripe_ready_get
+    else:
+        _fee_is_pending = False
     ctx = _apply_form_context(
         school=school,
         branding=branding,
@@ -811,6 +820,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
     )
     ctx["save_resume_enabled"] = save_resume_enabled
     ctx["embed_mode"] = request.GET.get("embed") == "1"
+    ctx["fee_is_pending"] = _fee_is_pending
     return render(request, "apply_form.html", ctx)
 
 

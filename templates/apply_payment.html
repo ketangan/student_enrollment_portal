@@ -16,60 +16,67 @@
         --muted: {{ branding.theme.muted }};
         --border: {{ branding.theme.border }};
         --radius: {{ branding.theme.radius }};
+        --font: {{ branding.theme.font_family|default:"ui-sans-serif, system-ui, -apple-system, sans-serif" }};
+        --heading-font: {{ branding.theme.heading_font|default:"var(--font)" }};
       }
+      body { font-family: var(--font); }
 
       .payment-card {
-        background: var(--card, #fff);
-        border: 1px solid var(--border, #e5e7eb);
-        border-radius: var(--radius, 16px);
-        padding: 2rem;
-        max-width: 480px;
-        margin: 0 auto;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 28px 28px 24px;
+        margin-bottom: 16px;
       }
 
       .payment-title {
-        font-size: 1.25rem;
+        font-size: 22px;
         font-weight: 700;
-        color: var(--text, #111827);
-        margin: 0 0 0.25rem;
+        color: var(--primary);
+        font-family: var(--heading-font);
+        margin: 0 0 6px;
+        line-height: 1.25;
       }
 
       .payment-subtitle {
-        font-size: 0.875rem;
-        color: var(--muted, #6b7280);
-        margin: 0 0 1.5rem;
+        font-size: 14px;
+        color: var(--muted);
+        margin: 0 0 20px;
+        line-height: 1.55;
       }
 
       .fee-row {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 0.75rem 0;
-        border-bottom: 1px solid var(--border, #e5e7eb);
-        margin-bottom: 1.5rem;
-        font-size: 0.95rem;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 20px;
+        font-size: 15px;
+        color: var(--text);
       }
 
       .fee-amount {
-        font-size: 1.5rem;
+        font-size: 22px;
         font-weight: 700;
-        color: var(--text, #111827);
+        color: var(--text);
       }
 
       #payment-element {
-        margin-bottom: 1.25rem;
+        margin-bottom: 16px;
       }
 
       #payment-submit {
         width: 100%;
-        padding: 0.75rem 1rem;
-        background: var(--primary, #2563eb);
+        padding: 13px 1rem;
+        background: var(--primary);
         color: #fff;
         border: none;
         border-radius: 8px;
-        font-size: 1rem;
+        font-size: 16px;
         font-weight: 600;
         cursor: pointer;
+        font-family: var(--font);
         transition: opacity 0.15s;
       }
 
@@ -79,8 +86,8 @@
       }
 
       #payment-message {
-        margin-top: 0.75rem;
-        font-size: 0.875rem;
+        margin-top: 10px;
+        font-size: 14px;
         color: #dc2626;
         min-height: 1.25rem;
       }
@@ -88,10 +95,10 @@
       .secure-note {
         display: flex;
         align-items: center;
-        gap: 0.4rem;
-        font-size: 0.75rem;
-        color: var(--muted, #6b7280);
-        margin-top: 0.75rem;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 12px;
         justify-content: center;
       }
 
@@ -109,6 +116,10 @@
 
       @keyframes spin { to { transform: rotate(360deg); } }
     </style>
+
+    {% if branding.custom_css %}
+      <link rel="stylesheet" href="{% static branding.custom_css %}">
+    {% endif %}
   </head>
 
   <body>
@@ -116,18 +127,12 @@
       <div class="container">
 
         {% if not embed_mode %}
-        <div class="header">
-          <div class="school-logo">
-            {% if branding.logo_url %}
-              <img src="{{ branding.logo_url }}" alt="logo" style="width:100%;height:100%;object-fit:cover;" />
-            {% else %}
-              <span aria-hidden="true">🏫</span>
-            {% endif %}
-          </div>
-          <div>
-            <div class="school-title">{{ school.display_name|default:school.slug }}</div>
-            <div class="school-subtitle">Application Fee</div>
-          </div>
+        <div class="logo">
+          {% if branding.logo_url %}
+            <img src="{{ branding.logo_url }}" alt="{{ school.display_name }}">
+          {% else %}
+            <span class="logo-text">{{ school.display_name|default:school.slug }}</span>
+          {% endif %}
         </div>
         {% endif %}
 
@@ -138,9 +143,9 @@
         {% endif %}
 
         <div class="payment-card">
-          <p class="payment-title">Complete your application</p>
+          <p class="payment-title">Complete your registration</p>
           <p class="payment-subtitle">
-            {% if student_name %}For {{ student_name }} — {% endif %}a non-refundable application fee is required.
+            {% if student_name %}For {{ student_name }} — {% endif %}a non-refundable fee is required to complete your registration.
           </p>
 
           <div class="fee-row">
@@ -150,13 +155,13 @@
 
           {% if dev_bypass_mode %}
           <div style="background:#fefce8;border:1px solid #fde047;border-radius:8px;
-                      padding:12px 14px;margin-bottom:16px;font-size:13px;color:#854d0e;">
-            <strong>Dev mode</strong> — payment bypassed. No card needed. This button does not appear in production.
+                      padding:12px 14px;margin-bottom:16px;font-size:13px;color:#854d0e;font-family:var(--font);">
+            <strong>Dev mode</strong> — payment bypassed (no card needed). Does not appear in production.
           </div>
           <form method="post" action="{{ bypass_url }}">
             {% csrf_token %}
             <button type="submit" id="payment-submit">
-              Complete Application (Dev Bypass — ${{ fee_cfg.amount }} skipped)
+              Complete Registration (Dev — ${{ fee_cfg.amount }} skipped)
             </button>
           </form>
           {% elif client_secret %}
@@ -164,7 +169,7 @@
             <div id="payment-element"></div>
             <div id="payment-message"></div>
             <button id="payment-submit" type="submit">
-              Pay ${{ fee_cfg.amount }} and Submit Application
+              Pay ${{ fee_cfg.amount }} and Complete Registration
             </button>
           </form>
 
@@ -175,7 +180,7 @@
             Secured by Stripe — we never store your card details
           </div>
           {% else %}
-          <p style="color:#dc2626;font-size:0.875rem;">
+          <p style="color:#dc2626;font-size:14px;font-family:var(--font);">
             Payment is temporarily unavailable. Please contact
             <strong>{{ school.display_name }}</strong> directly.
           </p>
@@ -197,6 +202,7 @@
             variables: {
               colorPrimary: "{{ branding.theme.accent_color|default:'#2563eb'|escapejs }}",
               borderRadius: "8px",
+              fontFamily: "{{ branding.theme.font_family|default:'system-ui'|escapejs }}",
             },
           },
         });
@@ -223,7 +229,7 @@
             if (result.error) {
               msgEl.textContent = result.error.message || "Payment failed. Please try again.";
               submitBtn.disabled = false;
-              submitBtn.textContent = "Pay ${{ fee_cfg.amount }} and Submit Application";
+              submitBtn.textContent = "Pay ${{ fee_cfg.amount }} and Complete Registration";
             }
           });
         });

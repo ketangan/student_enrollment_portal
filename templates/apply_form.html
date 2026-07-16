@@ -379,7 +379,7 @@
           <!-- Submit (not its own card) -->
           <div class="actions">
             <button class="btn btn-primary" type="submit">
-              {% if next_key %}Next{% else %}{{ form.submit_button_text|default:"Submit" }}{% endif %}
+              {% if next_key %}Next{% elif fee_is_pending %}Continue to Payment →{% else %}{{ form.submit_button_text|default:"Submit" }}{% endif %}
             </button>
             {% if save_resume_enabled %}
             <button class="btn btn-secondary" type="submit" name="_action" value="save_draft"
