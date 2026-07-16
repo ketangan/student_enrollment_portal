@@ -73,17 +73,6 @@
       line-height: 1.6;
     }
 
-    /* Scheduling summary */
-    .sched-grid { display: flex; flex-direction: column; gap: 0; }
-    .sched-row {
-      display: grid; grid-template-columns: 160px 1fr;
-      gap: 8px; padding: 10px 0;
-      border-bottom: 1px solid var(--border);
-      align-items: baseline;
-    }
-    .sched-row:last-child { border-bottom: none; }
-    .sched-label { font-size: 13px; color: var(--muted); }
-    .sched-value { font-size: 14px; color: var(--text); font-weight: 500; }
     .sched-pill {
       display: inline-block; padding: 2px 10px;
       background: color-mix(in srgb, var(--accent) 10%, transparent);
@@ -181,17 +170,15 @@
     <div class="card__title">Lesson Scheduling Preferences</div>
 
     {% if sched_fields %}
-    <div class="sched-grid">
+    <div class="meta-row" style="flex-direction:column;gap:10px;">
       {% for f in sched_fields %}
-      <div class="sched-row">
-        <div class="sched-label">{{ f.label }}</div>
-        <div class="sched-value">
-          {% if f.items %}
-            {% for v in f.items %}<span class="sched-pill">{{ v|title }}</span>{% endfor %}
-          {% else %}
-            {{ f.value }}
-          {% endif %}
-        </div>
+      <div class="meta-item">
+        {{ f.label }}:
+        {% if f.items %}
+          {% for v in f.items %}<span class="sched-pill">{{ v|title }}</span>{% endfor %}
+        {% else %}
+          <strong>{{ f.value }}</strong>
+        {% endif %}
       </div>
       {% endfor %}
     </div>

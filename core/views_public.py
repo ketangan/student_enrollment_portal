@@ -1574,11 +1574,11 @@ def _extract_student_info(data: dict, submission) -> list[dict]:
 def _extract_sched_fields(data: dict) -> list[dict]:
     """Return a list of {label, value} dicts for sched_* keys that have a value."""
     _labels = {
-        "sched_day_preference": "Weekday / Weekend preference",
-        "sched_preferred_timing": "Preferred time of day",
-        "sched_days_unavailable": "Days that don't work",
-        "sched_preferred_slot": "Ideal day and time",
-        "sched_preferred_start_week": "Preferred start week",
+        "sched_day_preference": "Day preference",
+        "sched_preferred_timing": "Preferred time",
+        "sched_days_unavailable": "Days unavailable",
+        "sched_preferred_slot": "Ideal slot",
+        "sched_preferred_start_week": "Start week",
     }
     result = []
     for key, label in _labels.items():
