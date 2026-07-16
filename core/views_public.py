@@ -1097,11 +1097,11 @@ def resume_draft_view(request, school_slug: str, token: str):
 
 @xframe_options_exempt
 @ratelimit(key="ip", rate="10/m", method="POST", block=True)
-def school_lead_form_view(request, school_slug):
+def school_lead_form_view(request, school_slug, form_key=None):
     """
     Lightweight public inquiry form. Embeddable via ?embed=1.
-    Fields: name, email, phone (opt), program_interest (opt), message (opt).
-    ?src=<value> captures attribution and is stored in lead.data.
+    form_key=None  → legacy /lead/ route, reads from leads: YAML section.
+    form_key="foo" → named variant at /lead/foo/, reads from lead_forms.foo.
     """
     from .services.lead_intake import create_or_update_lead
 
@@ -1131,7 +1131,9 @@ def school_lead_form_view(request, school_slug):
         })
 
     raw = config.raw
-    lead_cfg = get_lead_form_config(raw)
+    lead_cfg = get_lead_form_config(raw, form_key)
+    if lead_cfg is None:
+        raise Http404  # named variant not defined in YAML
     program_options = [] if lead_cfg["hide_program_field"] else get_program_options(school)
 
     src_param = request.GET.get("src", "").strip()[:100]
@@ -1190,6 +1192,11 @@ def school_lead_form_view(request, school_slug):
                 extra_data["src"] = src
             if custom_field_values:
                 extra_data["form_fields"] = custom_field_values
+            # Store classification on the data dict for audit/reporting
+            if form_key:
+                extra_data["form_key"] = form_key
+                extra_data["category"] = lead_cfg["category"]
+                extra_data["pipeline_visible"] = lead_cfg["pipeline_visible"]
 
             lead, created = create_or_update_lead(
                 school=school,
@@ -1203,6 +1210,7 @@ def school_lead_form_view(request, school_slug):
                 utm_medium=utm_medium,
                 utm_campaign=utm_campaign,
                 data=extra_data,
+                form_key=form_key or "",
             )
 
             log_admin_audit(
@@ -1216,15 +1224,17 @@ def school_lead_form_view(request, school_slug):
                     "source": "website_lead_form",
                     "src": src or None,
                     "program": interested_in_label or None,
+                    "form_key": form_key or None,
+                    "category": lead_cfg["category"] if form_key else None,
                 },
             )
 
             try:
-                send_lead_admin_notification(school=school, lead=lead, config_raw=raw)
+                send_lead_admin_notification(school=school, lead=lead, config_raw=raw, lead_cfg=lead_cfg)
             except Exception:
                 logger.exception("Lead admin notification failed silently, lead=%s", lead.pk)
             try:
-                send_lead_confirmation(lead=lead, school_name=config.display_name, config_raw=raw, school=school)
+                send_lead_confirmation(lead=lead, school_name=config.display_name, config_raw=raw, school=school, lead_cfg=lead_cfg)
             except Exception:
                 logger.exception("Lead confirmation failed silently, lead=%s", lead.pk)
 

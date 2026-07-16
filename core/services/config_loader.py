@@ -182,20 +182,30 @@ def get_program_options(config: "SchoolConfig") -> list[dict]:
     return []
 
 
-def get_lead_form_config(config_raw: dict) -> dict:
+def get_lead_form_config(config_raw: dict, form_key: str | None = None) -> dict | None:
     """
-    Returns merged lead form config with safe defaults. Backward-compatible:
-    schools with no `leads:` section get sensible defaults.
+    Returns merged lead form config with safe defaults.
 
-    Optional keys:
-      redirect_url  — if set, redirect to this URL after successful submission
-                      instead of showing the success page.
-      fields        — list of additional custom fields (text/textarea/checkbox)
-                      stored in lead.data under key "form_fields".
-      phone_required — if true, phone field is required on the lead form.
+    form_key=None  → reads from top-level `leads:` section (legacy /lead/ route).
+    form_key="foo" → reads from `lead_forms.foo`; returns None if the key is not
+                     defined in the YAML (caller should 404).
+
+    Keys parsed per variant:
+      pipeline_visible — if False, this form's leads are excluded from the
+                         default prospect pipeline view (default: True).
+      category         — classification tag stored on the lead (default: "lead").
+      confirmation_subject — per-variant email subject override (default: "").
     """
     raw = config_raw or {}
-    leads = raw.get("leads") or {}
+
+    if form_key:
+        lead_forms = raw.get("lead_forms") or {}
+        if form_key not in lead_forms:
+            return None
+        leads = lead_forms[form_key] or {}
+    else:
+        leads = raw.get("leads") or {}
+
     raw_fields = leads.get("fields") or []
     fields = [f for f in raw_fields if isinstance(f, dict) and f.get("key") and f.get("label")]
     return {
@@ -204,6 +214,7 @@ def get_lead_form_config(config_raw: dict) -> dict:
         "cta_text": (leads.get("cta_text") or "").strip() or "Send My Request",
         "success_message": (leads.get("success_message") or "").strip() or "Thanks for your interest! We'll follow up soon.",
         "confirmation_enabled": bool(leads.get("confirmation_enabled", True)),
+        "confirmation_subject": (leads.get("confirmation_subject") or "").strip(),
         "notify_to": (leads.get("notify_to") or "").strip(),
         "redirect_url": (leads.get("redirect_url") or "").strip(),
         "redirect_url_map": {
@@ -214,6 +225,8 @@ def get_lead_form_config(config_raw: dict) -> dict:
         "redirect_url_field": (leads.get("redirect_url_field") or "").strip(),
         "phone_required": bool(leads.get("phone_required", False)),
         "hide_program_field": bool(leads.get("hide_program_field", False)),
+        "pipeline_visible": bool(leads.get("pipeline_visible", True)),
+        "category": (leads.get("category") or "lead").strip(),
         "fields": fields,
     }
 

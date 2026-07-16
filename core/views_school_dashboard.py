@@ -644,6 +644,31 @@ def school_settings_view(request, school_slug: str):
         f'frameborder="0" style="border:none;" title="Application Form"></iframe>'
     )
 
+    # All lead/intake form links: default leads: form first, then named lead_forms: variants.
+    lead_form_variants = []
+    try:
+        from core.services.config_loader import load_school_config as _load_cfg
+        _cfg = _load_cfg(school_slug)
+        _raw = (_cfg.raw or {}) if _cfg else {}
+
+        # Default lead form (/lead/) — shown if the school has a leads: section
+        _leads_cfg = _raw.get("leads") or {}
+        if _leads_cfg:
+            _default_title = _leads_cfg.get("form_title") or "Lead Form"
+            _default_url = app_reverse("school_lead_form", kwargs={"school_slug": school_slug})
+            lead_form_variants.append({"key": "_default", "title": _default_title, "url": _default_url})
+
+        # Named variants (/lead/<form_key>/) from lead_forms:
+        for _key, _form_cfg in (_raw.get("lead_forms") or {}).items():
+            _url = app_reverse("school_lead_form_variant", kwargs={"school_slug": school_slug, "form_key": _key})
+            lead_form_variants.append({
+                "key": _key,
+                "title": (_form_cfg or {}).get("form_title") or _key,
+                "url": _url,
+            })
+    except Exception:
+        pass
+
     # Build feature list: enabled on current plan vs locked at a higher tier.
     current_flags = ff.merge_flags(plan=school.plan, overrides=school.feature_flags)
     school_plan_rank = ff.PLAN_RANK.get(school.plan, 0)
@@ -680,6 +705,7 @@ def school_settings_view(request, school_slug: str):
     ctx.update({
         "apply_url": apply_url,
         "embed_snippet": embed_snippet,
+        "lead_form_variants": lead_form_variants,
         "features": features,
         "programs_summary": programs_summary,
         "programs_create_url": programs_create_url,

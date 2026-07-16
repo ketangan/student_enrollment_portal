@@ -232,6 +232,31 @@
                     {% endfor %}
                   </select>
                 </div>
+              {% elif field.type == "multiselect" %}
+                <label>
+                  {{ field.label }}{% if field.required %}<span class="req">*</span>{% else %}<span class="opt">(optional)</span>{% endif %}
+                </label>
+                <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px;">
+                  {% for opt in field.options %}
+                  <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:400;cursor:pointer;">
+                    <input type="checkbox"
+                           name="{{ field.key }}"
+                           value="{{ opt.value }}"
+                           style="width:16px;height:16px;flex-shrink:0;"
+                           {% if form_data|get_item:field.key and opt.value in form_data|get_item:field.key %}checked{% endif %}>
+                    {{ opt.label }}
+                  </label>
+                  {% endfor %}
+                </div>
+              {% elif field.type == "date" %}
+                <label for="id_{{ field.key }}">
+                  {{ field.label }}{% if field.required %}<span class="req">*</span>{% else %}<span class="opt">(optional)</span>{% endif %}
+                </label>
+                <input type="date"
+                       id="id_{{ field.key }}"
+                       name="{{ field.key }}"
+                       value="{{ form_data|get_item:field.key|default:'' }}"
+                       {% if field.required %}required{% endif %}>
               {% elif field.type == "textarea" %}
                 <label for="id_{{ field.key }}">
                   {{ field.label }}{% if field.required %}<span class="req">*</span>{% else %}<span class="opt">(optional)</span>{% endif %}

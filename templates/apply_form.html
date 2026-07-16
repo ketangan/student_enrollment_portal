@@ -18,6 +18,22 @@
         --muted: {{ branding.theme.muted }};
         --border: {{ branding.theme.border }};
         --radius: {{ branding.theme.radius }};
+        --font: {{ branding.theme.font_family|default:"ui-sans-serif, system-ui, -apple-system, sans-serif" }};
+        --heading-font: {{ branding.theme.heading_font|default:"var(--font)" }};
+      }
+      .form-page-title {
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--primary);
+        font-family: var(--heading-font);
+        margin: 0 0 6px;
+        line-height: 1.25;
+      }
+      .form-page-subtitle {
+        font-size: 14px;
+        color: var(--muted);
+        margin: 0 0 20px;
+        line-height: 1.55;
       }
     </style>
 
@@ -44,12 +60,14 @@
 
           <div>
             <div class="school-title">{{ school.display_name|default:school.slug }}</div>
-            <div class="school-subtitle">{{ form.title }}</div>
           </div>
         </div>
 
+        {% if form.title %}
+          <h1 class="form-page-title">{{ form.title }}</h1>
+        {% endif %}
         {% if form.description %}
-          <div class="notice">{{ form.description }}</div>
+          <p class="form-page-subtitle">{{ form.description }}</p>
         {% endif %}
         {% endif %}
 

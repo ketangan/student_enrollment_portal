@@ -143,11 +143,22 @@ def school_leads_view(request, school_slug: str):
     active_filter = (request.GET.get("filter") or "").strip()
     status_filter = (request.GET.get("status") or "").strip()
     search_q = (request.GET.get("q") or "").strip()
+    # ?category=scheduling shows only non-pipeline variant submissions
+    category_filter = (request.GET.get("category") or "").strip()
 
-    # Priority sort: overdue follow-up → upcoming follow-up → new (no follow-up) → rest.
+    # Base queryset: non-pipeline variant submissions (e.g. scheduling) are
+    # excluded by default. ?category=<form_key> switches to that bucket.
     _now = timezone.now()
+    base_qs = Lead.objects.filter(school=school).select_related("school")
+    if category_filter:
+        base_qs = base_qs.filter(form_key=category_filter)
+    else:
+        # Default pipeline: only legacy/direct leads (form_key="").
+        # Named-variant submissions (e.g. scheduling) always have form_key set.
+        base_qs = base_qs.filter(form_key="")
+
     qs = _apply_lead_filters(
-        Lead.objects.filter(school=school).select_related("school").annotate(
+        base_qs.annotate(
             _inbox_priority=Case(
                 When(next_follow_up_at__lte=_now, then=Value(0)),
                 When(next_follow_up_at__isnull=False, then=Value(1)),
@@ -162,16 +173,20 @@ def school_leads_view(request, school_slug: str):
     leads_raw, lead_display_cap_hit = fetch_queryset_with_cap(qs, 200)
     leads = [_build_lead_row(lead, workflow_transitions, school_slug=school_slug) for lead in leads_raw]
 
-    # Metrics — school-wide status counts (not affected by active filter/search).
+    # Metrics — pipeline leads only (form_key="" excludes named-variant submissions)
     leads_by_status = {
         row["status"]: row["n"]
-        for row in Lead.objects.filter(school=school).values("status").annotate(n=Count("id"))
+        for row in Lead.objects.filter(school=school, form_key="")
+        .values("status").annotate(n=Count("id"))
     }
     leads_metrics = {
         "new": leads_by_status.get(LEAD_STATUS_NEW, 0),
         "contacted": leads_by_status.get("contacted", 0),
         "enrolled": leads_by_status.get(LEAD_STATUS_ENROLLED, 0),
     }
+
+    # Count variant-form submissions (any form_key set) so the template can show a tab
+    scheduling_count = Lead.objects.filter(school=school).exclude(form_key="").count()
 
     _export_params = {}
     if active_filter:
@@ -207,6 +222,8 @@ def school_leads_view(request, school_slug: str):
             "export_url": lead_export_url,
             "lead_capture_url": lead_capture_url,
             "smart_filters": _SMART_FILTERS,
+            "category_filter": category_filter,
+            "scheduling_count": scheduling_count,
         }
     )
     return render(request, "school_admin/leads.html", ctx)

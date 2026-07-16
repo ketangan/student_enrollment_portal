@@ -347,17 +347,18 @@
 
 
 
-  <!-- ── Application Form ──────────────────────────────────────────────── -->
+  <!-- ── Form Links ───────────────────────────────────────────────────── -->
   <div class="dash-card" style="padding:24px;margin-bottom:40px;">
-    <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Application Form</h2>
-    <p style="font-size:13px;color:var(--dash-muted);margin:0 0 20px;">
-      Share this link with families or embed the form directly on your website.
+    <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Form Links</h2>
+    <p style="font-size:13px;color:var(--dash-muted);margin:0 0 24px;">
+      Share these links with families. Each form can also be embedded on your website.
     </p>
 
-    <div style="margin-bottom:20px;">
+    {# ── Enrollment form ── #}
+    <div style="padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--dash-border);">
       <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
                     letter-spacing:.06em;color:var(--dash-muted);margin-bottom:6px;">
-        Hosted Link
+        Enrollment Form
       </label>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <input type="text" readonly value="{{ apply_url }}" id="apply-url-input"
@@ -378,13 +379,42 @@
       </div>
     </div>
 
+    {# ── Named lead form variants (scheduling, trial, etc.) ── #}
+    {% for v in lead_form_variants %}
+    <div style="padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--dash-border);">
+      <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                    letter-spacing:.06em;color:var(--dash-muted);margin-bottom:6px;">
+        {{ v.title }}
+      </label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input type="text" readonly value="{{ v.url }}" id="lead-form-{{ v.key }}-input"
+               onclick="this.select()"
+               style="flex:1;min-width:260px;padding:8px 12px;font-size:12px;
+                      border:1px solid var(--dash-border);border-radius:6px;
+                      background:var(--dash-bg);color:var(--dash-text);
+                      font-family:monospace;">
+        <button type="button"
+                onclick="copyField('lead-form-{{ v.key }}-input','copy-lead-{{ v.key }}-btn','Copied!')"
+                id="copy-lead-{{ v.key }}-btn"
+                class="dash-action-btn dash-action-btn--primary" style="font-size:13px;">
+          Copy Link
+        </button>
+        <a href="{{ v.url }}" target="_blank"
+           class="dash-action-btn dash-action-btn--secondary" style="font-size:13px;">
+          Open ↗
+        </a>
+      </div>
+    </div>
+    {% endfor %}
+
+    {# ── Embed snippet (enrollment form) ── #}
     <div>
       <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
                     letter-spacing:.06em;color:var(--dash-muted);margin-bottom:6px;">
-        Embed Snippet
+        Embed Snippet (Enrollment Form)
       </label>
       <p style="font-size:12px;color:var(--dash-muted);margin:0 0 8px;">
-        Paste into your website HTML to embed the form inline.
+        Paste into your website HTML to embed the enrollment form inline.
       </p>
       <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
         <textarea id="embed-snippet-input" readonly rows="3" onclick="this.select()"

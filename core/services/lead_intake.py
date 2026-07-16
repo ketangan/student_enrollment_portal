@@ -38,6 +38,7 @@ def create_or_update_lead(
     utm_medium: str = "",
     utm_campaign: str = "",
     data: dict | None = None,
+    form_key: str = "",
 ) -> tuple[Lead, bool]:
     """
     Create a new Lead or merge into an existing one for the same school+email.
@@ -91,6 +92,7 @@ def create_or_update_lead(
                 utm_medium=utm_medium,
                 utm_campaign=utm_campaign,
                 data=data,
+                form_key=form_key,
             )
             return lead, True
     except IntegrityError:

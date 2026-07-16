@@ -737,34 +737,53 @@ def send_workflow_notification(
 
 # ── Lead intake notifications ─────────────────────────────────────────────────
 
-def send_lead_admin_notification(*, school, lead, config_raw: Dict[str, Any]) -> bool:
+def send_lead_admin_notification(
+    *, school, lead, config_raw: Dict[str, Any], lead_cfg: Dict[str, Any] | None = None
+) -> bool:
     """
     Notify the school admin when a new lead arrives via the public form or webhook.
-    Recipient: leads.notify_to → success.notifications.submission_email.to → skipped.
+    Recipient: lead_cfg.notify_to → leads.notify_to → submission_email.to → skipped.
+
+    lead_cfg: pre-parsed config dict from get_lead_form_config(). When provided,
+    used directly so named-variant context (form_title, notify_to) is included.
     Never raises — caller must not let this block lead creation.
     """
     raw = config_raw or {}
-    leads_cfg = raw.get("leads") or {}
+    cfg = lead_cfg or {}
 
-    notify_to = (leads_cfg.get("notify_to") or "").strip()
+    notify_to = (cfg.get("notify_to") or "").strip()
+    if not notify_to:
+        notify_to = ((raw.get("leads") or {}).get("notify_to") or "").strip()
     if not notify_to:
         notify_to = _get_nested(raw, ["success", "notifications", "submission_email", "to"], "") or ""
         notify_to = notify_to.strip()
     if not notify_to:
         return False
 
+    form_title = (cfg.get("form_title") or "").strip()
+    category = (cfg.get("category") or "lead").strip()
     from_email = _resolve_from_email(raw)
     school_name = escape(school.display_name or school.slug)
     program = escape(lead.interested_in_label or "")
     admin_path = f"/schools/{school.slug}/admin/leads/{lead.id}/"
 
-    subject = f"New inquiry: {lead.name}" + (f" — {lead.interested_in_label}" if lead.interested_in_label else "")
+    # Subject reflects the form type so Emily knows what she's looking at
+    if form_title and form_title != "Request Information":
+        subject = f"{form_title}: {lead.name}"
+    else:
+        subject = f"New inquiry: {lead.name}" + (f" — {lead.interested_in_label}" if lead.interested_in_label else "")
+
+    form_line = f"Form: {escape(form_title)} [{escape(lead.form_key)}]" if lead.form_key else ""
+    category_line = f"Category: {escape(category)}" if category != "lead" else ""
+
     text_body = "\n".join(filter(None, [
-        "New lead received",
+        form_title or "New lead received",
         f"Name: {lead.name}",
         f"Email: {lead.email}",
         f"Phone: {lead.phone}" if lead.phone else "",
         f"Program: {lead.interested_in_label}" if lead.interested_in_label else "",
+        form_line,
+        category_line,
         f"Source: {lead.source}",
         "",
         f"View lead: {admin_path}",
@@ -772,12 +791,14 @@ def send_lead_admin_notification(*, school, lead, config_raw: Dict[str, Any]) ->
         "— Enrollify",
     ]))
     html_body = f"""
-    <p><strong>New inquiry received</strong></p>
+    <p><strong>{escape(form_title) if form_title else "New lead received"}</strong></p>
     <p>
       <strong>Name:</strong> {escape(lead.name)}<br/>
       <strong>Email:</strong> {escape(lead.email)}<br/>
       {"<strong>Phone:</strong> " + escape(lead.phone) + "<br/>" if lead.phone else ""}
       {"<strong>Program:</strong> " + program + "<br/>" if program else ""}
+      {"<strong>Form:</strong> " + escape(form_title) + " [" + escape(lead.form_key) + "]<br/>" if lead.form_key else ""}
+      {"<strong>Category:</strong> " + escape(category) + "<br/>" if category != "lead" else ""}
       <strong>Source:</strong> {escape(lead.source)}<br/>
     </p>
     <p>
@@ -800,22 +821,30 @@ def send_lead_admin_notification(*, school, lead, config_raw: Dict[str, Any]) ->
         return False
 
 
-def send_lead_confirmation(*, lead, school_name: str, config_raw: Dict[str, Any], school=None) -> bool:
+def send_lead_confirmation(
+    *, lead, school_name: str, config_raw: Dict[str, Any], school=None,
+    lead_cfg: Dict[str, Any] | None = None,
+) -> bool:
     """
     Send a confirmation email to the lead contact.
-    Skipped if leads.confirmation_enabled is false or lead has no email.
+    Skipped if confirmation_enabled is false or lead has no email.
+
+    lead_cfg: pre-parsed config dict. When provided, confirmation_enabled,
+    confirmation_subject, and success_message are read from it directly so
+    named variants can configure these independently.
     Never raises — caller must not let this block lead creation.
     """
     if not lead.email:
         return False
     raw = config_raw or {}
-    leads_cfg = raw.get("leads") or {}
-    if not leads_cfg.get("confirmation_enabled", True):
+    cfg = lead_cfg or (raw.get("leads") or {})
+
+    if not cfg.get("confirmation_enabled", True):
         return False
 
     from_email = _resolve_from_email(raw)
-    success_message = (leads_cfg.get("success_message") or "").strip() or f"Thanks for your interest in {school_name}! We'll follow up soon."
-    subject = f"We received your request — {school_name}"
+    success_message = (cfg.get("success_message") or "").strip() or f"Thanks for your interest in {school_name}! We'll follow up soon."
+    subject = (cfg.get("confirmation_subject") or "").strip() or f"We received your request — {school_name}"
 
     text_body = f"Hi {lead.name},\n\n{success_message}\n\n— {school_name}"
     html_body = f"""

@@ -765,6 +765,9 @@ class Lead(models.Model):
     next_follow_up_at = models.DateTimeField(null=True, blank=True)
     lost_reason = models.CharField(max_length=255, blank=True, default="")
 
+    # Which named lead form produced this record ("" = legacy /lead/ route)
+    form_key = models.CharField(max_length=100, blank=True, default="", db_index=True)
+
     # Extra data: message, student_name, src param, webhook extras
     data = models.JSONField(default=dict, blank=True)
 
