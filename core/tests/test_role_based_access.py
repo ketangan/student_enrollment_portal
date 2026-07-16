@@ -162,12 +162,12 @@ def test_editor_can_update_submission_status(client):
 
 
 @pytest.mark.django_db
-def test_editor_blocked_on_settings(client):
+def test_editor_can_access_settings(client):
     school = SchoolFactory()
     user, _ = _membership(school, role="editor")
     client.force_login(user)
     resp = client.get(_settings_url(school))
-    assert resp.status_code == 404
+    assert resp.status_code == 200
 
 
 @pytest.mark.django_db
@@ -227,7 +227,7 @@ def test_user_can_belong_to_multiple_schools(client):
     assert resp_a.status_code == 200  # owner on school_a
 
     resp_b = client.get(_settings_url(school_b))
-    assert resp_b.status_code == 404  # only editor on school_b
+    assert resp_b.status_code == 200  # editor on school_b can access settings
 
 
 @pytest.mark.django_db
@@ -301,52 +301,136 @@ def test_can_remove_owner_when_another_owner_exists(client):
     assert m2.is_active is False
 
 
-# ── Team add ──────────────────────────────────────────────────────────────────
+# ── Team add: creates new user account ───────────────────────────────────────
 
 @pytest.mark.django_db
-def test_team_add_existing_user(client):
+def test_team_add_creates_user_and_membership(client):
+    from django.contrib.auth.models import User
     school = SchoolFactory()
     owner, _ = _membership(school, role="owner")
-    new_user = UserFactory(is_staff=True)
     client.force_login(owner)
 
     resp = client.post(
         reverse("school_team_add", kwargs={"school_slug": school.slug}),
-        {"email": new_user.email, "role": "editor"},
+        {"username": "jsmith", "first_name": "Jane", "last_name": "Smith",
+         "password": "temppass123", "role": "editor"},
     )
     assert resp.status_code == 302
+    user = User.objects.get(username="jsmith")
+    assert user.is_staff is True
+    assert user.first_name == "Jane"
+    assert user.last_name == "Smith"
     assert SchoolAdminMembership.objects.filter(
-        school=school, user=new_user, role="editor", is_active=True
+        school=school, user=user, role="editor", is_active=True
     ).exists()
 
 
 @pytest.mark.django_db
-def test_team_add_unknown_email_gives_explicit_error(client):
+def test_team_add_duplicate_username_gives_error(client):
+    from django.contrib.auth.models import User
+    school = SchoolFactory()
+    owner, _ = _membership(school, role="owner")
+    User.objects.create_user(username="taken", password="x")
+    client.force_login(owner)
+
+    resp = client.post(
+        reverse("school_team_add", kwargs={"school_slug": school.slug}),
+        {"username": "taken", "password": "temppass123", "role": "editor"},
+    )
+    assert resp.status_code == 302
+    msgs = list(resp.wsgi_request._messages)
+    assert any("already taken" in str(m).lower() for m in msgs)
+    assert SchoolAdminMembership.objects.filter(school=school).count() == 1  # only the owner
+
+
+@pytest.mark.django_db
+def test_team_add_short_password_gives_error(client):
     school = SchoolFactory()
     owner, _ = _membership(school, role="owner")
     client.force_login(owner)
 
     resp = client.post(
         reverse("school_team_add", kwargs={"school_slug": school.slug}),
-        {"email": "nobody@example.com", "role": "editor"},
+        {"username": "newuser", "password": "short", "role": "editor"},
     )
     assert resp.status_code == 302
     msgs = list(resp.wsgi_request._messages)
-    assert any("no enrollify account" in str(m).lower() for m in msgs)
+    assert any("8 characters" in str(m).lower() for m in msgs)
 
 
 @pytest.mark.django_db
 def test_team_add_blocked_for_non_owner(client):
     school = SchoolFactory()
     editor, _ = _membership(school, role="editor")
-    new_user = UserFactory(is_staff=True)
     client.force_login(editor)
 
     resp = client.post(
         reverse("school_team_add", kwargs={"school_slug": school.slug}),
-        {"email": new_user.email, "role": "viewer"},
+        {"username": "newuser", "password": "temppass123", "role": "viewer"},
     )
     assert resp.status_code == 404
+
+
+# ── Team name update ──────────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+def test_owner_can_update_member_name(client):
+    from django.contrib.auth.models import User
+    school = SchoolFactory()
+    owner, _ = _membership(school, role="owner")
+    member_user = UserFactory(is_staff=True, first_name="Old", last_name="Name")
+    member, _ = _membership(school, role="editor", user=member_user), None
+    # _membership returns (user, membership) so grab membership separately
+    m = SchoolAdminMembership.objects.get(school=school, user=member_user)
+    client.force_login(owner)
+
+    resp = client.post(
+        reverse("school_team_update_name", kwargs={"school_slug": school.slug, "membership_id": m.id}),
+        {"first_name": "New", "last_name": "Person"},
+    )
+    assert resp.status_code == 302
+    member_user.refresh_from_db()
+    assert member_user.first_name == "New"
+    assert member_user.last_name == "Person"
+
+
+@pytest.mark.django_db
+def test_non_owner_cannot_update_member_name(client):
+    school = SchoolFactory()
+    editor, editor_m = _membership(school, role="editor")
+    client.force_login(editor)
+
+    resp = client.post(
+        reverse("school_team_update_name", kwargs={"school_slug": school.slug, "membership_id": editor_m.id}),
+        {"first_name": "Hack", "last_name": "Attempt"},
+    )
+    assert resp.status_code == 404
+
+
+# ── Password change accessible to non-owners ─────────────────────────────────
+
+@pytest.mark.django_db
+def test_editor_can_access_password_change(client):
+    school = SchoolFactory()
+    editor, _ = _membership(school, role="editor")
+    client.force_login(editor)
+
+    resp = client.get(
+        reverse("school_password_change", kwargs={"school_slug": school.slug})
+    )
+    assert resp.status_code == 200
+
+
+@pytest.mark.django_db
+def test_viewer_can_access_password_change(client):
+    school = SchoolFactory()
+    viewer, _ = _membership(school, role="viewer")
+    client.force_login(viewer)
+
+    resp = client.get(
+        reverse("school_password_change", kwargs={"school_slug": school.slug})
+    )
+    assert resp.status_code == 200
 
 
 # ── Existing memberships: migration correctness ───────────────────────────────

@@ -31,7 +31,8 @@
       {% endif %}
     </div>
 
-    {# Editable fields in a 2-column grid #}
+    {# Editable fields — owner only; editors see read-only values #}
+    {% if is_owner %}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:680px;">
 
       <!-- Display name -->
@@ -70,9 +71,24 @@
       </form>
 
     </div>
+    {% else %}
+    <div style="display:flex;gap:32px;flex-wrap:wrap;font-size:13px;">
+      <div>
+        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                     letter-spacing:.04em;display:block;margin-bottom:3px;">Display Name</span>
+        <span>{{ school.display_name }}</span>
+      </div>
+      <div>
+        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                     letter-spacing:.04em;display:block;margin-bottom:3px;">Follow-up Window</span>
+        <span>{{ school.default_follow_up_days }} day{{ school.default_follow_up_days|pluralize }}</span>
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   <!-- ── Plan & Billing ────────────────────────────────────────────────── -->
+  {% if is_owner %}
   <div class="dash-card" style="padding:24px;margin-bottom:20px;">
     <h2 style="font-size:15px;font-weight:700;margin:0 0 16px;">Plan &amp; Billing</h2>
 
@@ -165,6 +181,7 @@
     {% endif %}
 
   </div>
+  {% endif %}{# is_owner — Plan & Billing #}
 
   <!-- ── Features ──────────────────────────────────────────────────────── -->
   <div class="dash-card" style="padding:24px;margin-bottom:20px;">
@@ -428,6 +445,7 @@
   </div>
 
   <!-- ── Team ────────────────────────────────────────────────────────── -->
+  {% if is_owner %}
   <div class="dash-card" style="padding:24px;margin-bottom:20px;">
     <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Team</h2>
     <p style="font-size:12px;color:var(--dash-muted);margin:0 0 20px;">
@@ -441,8 +459,8 @@
       <table class="dash-table" style="font-size:13px;">
         <thead>
           <tr>
+            <th>Username</th>
             <th>Name</th>
-            <th>Email</th>
             <th>Role</th>
             <th>Status</th>
             <th>Added</th>
@@ -453,8 +471,25 @@
         <tbody>
           {% for m in members %}
           <tr{% if not m.is_active %} style="opacity:.5;"{% endif %}>
-            <td style="font-weight:500;">{{ m.user.get_full_name|default:"—" }}</td>
-            <td style="color:var(--dash-muted);">{{ m.user.email }}</td>
+            <td style="font-weight:500;white-space:nowrap;">{{ m.user.username }}</td>
+            <td>
+              {% if is_owner and m.is_active %}
+              <form method="post" action="{% url 'school_team_update_name' school.slug m.id %}"
+                    style="display:flex;gap:4px;align-items:center;">
+                {% csrf_token %}
+                <input type="text" name="first_name" value="{{ m.user.first_name }}" placeholder="First"
+                       style="width:80px;padding:3px 6px;font-size:12px;border:1px solid var(--dash-border);
+                              border-radius:5px;background:var(--dash-bg);color:var(--dash-text);">
+                <input type="text" name="last_name" value="{{ m.user.last_name }}" placeholder="Last"
+                       style="width:80px;padding:3px 6px;font-size:12px;border:1px solid var(--dash-border);
+                              border-radius:5px;background:var(--dash-bg);color:var(--dash-text);">
+                <button type="submit" class="dash-action-btn"
+                        style="font-size:11px;padding:3px 8px;">Save</button>
+              </form>
+              {% else %}
+                <span style="color:var(--dash-muted);">{{ m.user.get_full_name|default:"—" }}</span>
+              {% endif %}
+            </td>
             <td>
               {% if is_owner and m.is_active %}
               <form method="post" action="{% url 'school_team_role' school.slug m.id %}" style="display:inline;">
@@ -490,7 +525,7 @@
               {% if is_owner and m.is_active and m.user != request.user %}
               <form method="post" action="{% url 'school_team_remove' school.slug m.id %}"
                     style="display:inline;"
-                    onsubmit="return confirm('Remove {{ m.user.get_full_name|default:m.user.email }} from the team?');">
+                    onsubmit="return confirm('Remove {{ m.user.username }} from the team?');">
                 {% csrf_token %}
                 <button type="submit" class="dash-action-btn dash-action-btn--danger"
                         style="font-size:11px;padding:3px 8px;">Remove</button>
@@ -505,25 +540,50 @@
     {% endif %}
     {% endwith %}
 
-    {# Add member form — owner only #}
+    {# Create team member form — owner only #}
     {% if is_owner %}
     <div style="padding-top:16px;border-top:1px solid var(--dash-border);">
       <h3 style="font-size:13px;font-weight:600;margin:0 0 12px;">Add Team Member</h3>
       <form method="post" action="{% url 'school_team_add' school.slug %}"
-            style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+            style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;align-items:end;">
         {% csrf_token %}
         <div style="display:flex;flex-direction:column;gap:4px;">
           <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
-            Email
+            First Name
           </label>
-          <input type="email" name="email" required placeholder="colleague@example.com"
-                 style="padding:6px 10px;font-size:13px;min-width:240px;
-                        border:1px solid var(--dash-border);border-radius:6px;
-                        background:var(--dash-bg);color:var(--dash-text);">
+          <input type="text" name="first_name" placeholder="First"
+                 style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;">
           <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
-            Role
+            Last Name
+          </label>
+          <input type="text" name="last_name" placeholder="Last"
+                 style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
+            Username <span style="color:var(--dash-danger);">*</span>
+          </label>
+          <input type="text" name="username" required placeholder="jsmith"
+                 autocomplete="off"
+                 style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
+            Temp Password <span style="color:var(--dash-danger);">*</span>
+          </label>
+          <input type="text" name="password" required placeholder="min 8 chars"
+                 autocomplete="new-password"
+                 style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
+            Role <span style="color:var(--dash-danger);">*</span>
           </label>
           <select name="role"
                   style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
@@ -533,17 +593,22 @@
             <option value="owner">Owner</option>
           </select>
         </div>
-        <button type="submit" class="dash-action-btn dash-action-btn--primary"
-                style="font-size:12px;padding:6px 14px;">Add</button>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:11px;opacity:0;">&#8203;</label>
+          <button type="submit" class="dash-action-btn dash-action-btn--primary"
+                  style="font-size:12px;padding:6px 14px;white-space:nowrap;">Create &amp; Add</button>
+        </div>
       </form>
-      <p style="font-size:11px;color:var(--dash-muted);margin:8px 0 0;">
-        The person must already have an Enrollify account. Contact your platform administrator to create one.
+      <p style="font-size:11px;color:var(--dash-muted);margin:10px 0 0;">
+        The new account will be created with staff access. Share the username and temp password with them — they can change their password after logging in.
       </p>
     </div>
     {% endif %}
   </div>
+  {% endif %}{# is_owner — Team #}
 
   <!-- ── Email Delivery ───────────────────────────────────────────────── -->
+  {% if is_owner %}
   <div class="dash-card" style="padding:24px;margin-bottom:20px;">
     <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Email Delivery</h2>
     <p style="font-size:12px;color:var(--dash-muted);margin:0 0 20px;">
@@ -684,6 +749,7 @@
 
     </form>
   </div>
+  {% endif %}{# is_owner — Email Delivery #}
 
 </main>
 

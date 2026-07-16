@@ -95,7 +95,7 @@
 
   <!-- Action bar: create + export -->
   <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:10px;">
-    {% if leads_enabled %}
+    {% if leads_enabled and can_mutate %}
     <a href="{% url 'school_lead_create' school_slug=school.slug %}"
        class="dash-action-btn dash-action-btn--primary"
        style="font-size:12px;padding:5px 12px;">+ New Lead</a>
@@ -114,7 +114,7 @@
       <table class="dash-table">
         <thead>
           <tr>
-            {% if workflow_actions_enabled %}<th style="width:32px;padding-right:0;"><input type="checkbox" id="select-all-checkbox" style="cursor:pointer;"></th>{% endif %}
+            {% if workflow_actions_enabled and can_mutate %}<th style="width:32px;padding-right:0;"><input type="checkbox" id="select-all-checkbox" style="cursor:pointer;"></th>{% endif %}
             <th>Name</th>
             <th>Program</th>
             <th>Status</th>
@@ -128,13 +128,14 @@
         <tbody>
           {% for lead in leads %}
           <tr>
-            {% if workflow_actions_enabled %}<td style="padding-right:0;"><input type="checkbox" class="lead-checkbox" value="{{ lead.id }}" style="cursor:pointer;"></td>{% endif %}
+            {% if workflow_actions_enabled and can_mutate %}<td style="padding-right:0;"><input type="checkbox" class="lead-checkbox" value="{{ lead.id }}" style="cursor:pointer;"></td>{% endif %}
             <td>
               <a href="{{ lead.school_admin_url }}" class="dash-student-name">{{ lead.name }}</a>
               {% if lead.has_notes %}<span title="Has notes" style="font-size:10px;padding:1px 5px;border-radius:3px;background:#ede9fe;color:#6d28d9;margin-left:5px;white-space:nowrap;flex-shrink:0;">Notes</span>{% endif %}
             </td>
             <td style="color: var(--dash-muted); font-size: 13px;">{{ lead.program }}</td>
             <td>
+              {% if can_mutate %}
               <form method="post"
                     action="{% url 'school_lead_inline_status' school_slug=school.slug lead_id=lead.id %}"
                     style="display:inline;">
@@ -151,6 +152,9 @@
                   {% endfor %}
                 </select>
               </form>
+              {% else %}
+              <span class="dash-badge" style="font-size:11px;">{{ lead.get_status_display }}</span>
+              {% endif %}
             </td>
             <td class="dash-col-contact" style="font-size: 12px; color: var(--dash-muted);">
               {% if lead.email %}<div>{{ lead.email }}</div>{% endif %}
@@ -177,7 +181,7 @@
             <td>
               <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
 
-                {% if lead.quick_actions %}
+                {% if can_mutate and lead.quick_actions %}
                   {% for t in lead.quick_actions %}
                   {% if t.status == "contacted" %}
                   <!-- "contacted" transition → mark_contacted to properly track last_contacted_at -->
@@ -267,7 +271,7 @@
     {% endif %}
   </div>
 
-  {% if workflow_actions_enabled %}
+  {% if workflow_actions_enabled and can_mutate %}
   <!-- Bulk action bar (fixed bottom, visible when ≥1 checkbox checked) -->
   <div id="bulk-action-bar"
        style="display:none;position:fixed;bottom:0;left:0;right:0;

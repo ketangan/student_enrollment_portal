@@ -161,6 +161,7 @@
         </div>
         {% endif %}
         {% if status_choices %}
+        {% if can_mutate %}
         <form method="post" class="no-print"
               action="{% url 'school_submission_status_update' school_slug=school_slug submission_id=submission.id %}">
           {% csrf_token %}
@@ -186,6 +187,18 @@
             {% endfor %}
           </div>
         </form>
+        {% else %}
+        <div class="sub-pipeline">
+          {% for s in status_choices %}
+            {% if not forloop.first %}<span class="sub-pipeline__arrow">›</span>{% endif %}
+            {% if s == submission.status %}
+              <span class="sub-pipeline__step sub-pipeline__step--active">{{ s }}</span>
+            {% else %}
+              <span class="sub-pipeline__step" style="opacity:0.35;cursor:default;">{{ s }}</span>
+            {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
         {% endif %}
         </div>
         {% endif %}
@@ -204,6 +217,7 @@
       <div class="dash-card" style="padding:18px 22px;border-left:4px solid var(--dash-primary,#2563eb);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <h2 class="sidebar-label" style="margin:0;">AI Summary</h2>
+          {% if can_mutate %}
           <form method="post" class="no-print"
                 action="{% url 'school_submission_generate_summary' school_slug=school_slug submission_id=submission.id %}">
             {% csrf_token %}
@@ -212,6 +226,7 @@
               {% if ai_summary_text %}Regenerate{% else %}Generate{% endif %}
             </button>
           </form>
+          {% endif %}
         </div>
         {% if ai_summary_text %}
         <p style="font-size:13px;color:var(--dash-text);margin:0;white-space:pre-line;line-height:1.65;">{{ ai_summary_text }}</p>
@@ -231,7 +246,7 @@
         <div id="snap-view">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
             <h2 class="sidebar-label" style="margin:0;">Application</h2>
-            {% if yaml_sections %}
+            {% if yaml_sections and can_mutate %}
             <button onclick="toggleEdit(true)"
                     class="dash-action-btn dash-action-btn--secondary no-print"
                     style="font-size:11px;padding:3px 10px;">
@@ -319,7 +334,8 @@
 
         </div><!-- /snap-view -->
 
-        <!-- EDIT MODE (inline) -->
+        <!-- EDIT MODE (inline) — only rendered for editors/owners -->
+        {% if can_mutate %}
         <div id="snap-edit" style="display:none;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
             <h2 class="sidebar-label" style="margin:0;">Edit Application</h2>
@@ -475,6 +491,7 @@
           <p style="font-size:13px;color:var(--dash-muted);">No form configuration available for inline editing.</p>
           {% endif %}
         </div><!-- /snap-edit -->
+        {% endif %}{# can_mutate #}
 
       </div><!-- /Application card -->
 
@@ -508,7 +525,7 @@
       {% endif %}
 
       <!-- Send Message (left column, directly below Application) -->
-      {% if email_enabled and parent_email %}
+      {% if can_mutate and email_enabled and parent_email %}
       <div class="dash-card no-print" style="padding:18px 22px;">
         <h2 class="sidebar-label">Send Message</h2>
         <form method="post" id="send-msg-form"
@@ -747,6 +764,7 @@
           {% else %}
           <p style="font-size:12px;color:var(--dash-muted);margin:0 0 12px;">No notes posted yet. Families see a generic status message until you add one.</p>
           {% endif %}
+          {% if can_mutate %}
           <form method="post"
                 action="{% url 'school_submission_post_public_note' school_slug=school_slug submission_id=submission.id %}">
             {% csrf_token %}
@@ -762,6 +780,7 @@
               Post Note
             </button>
           </form>
+          {% endif %}
         </div>
       </div>
       {% endif %}
@@ -857,6 +876,7 @@
             {{ submission.next_follow_up_at|date:"M j, Y" }}
           </div>
           {% endif %}
+          {% if can_mutate %}
           <form method="post" class="no-print"
                 action="{% url 'school_submission_follow_up_set' school_slug=school_slug submission_id=submission.id %}"
                 style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
@@ -875,6 +895,9 @@
                     class="dash-action-btn dash-action-btn--secondary"
                     style="font-size:11px;padding:4px 8px;">+7d</button>
           </form>
+          {% elif not submission.next_follow_up_at %}
+          <span style="font-size:12px;color:var(--dash-muted);">None set</span>
+          {% endif %}
         </div>
 
         <!-- Tools -->
@@ -885,6 +908,7 @@
                   style="font-size:12px;width:100%;text-align:center;">
             Print / PDF
           </button>
+          {% if can_mutate %}
           {% if ai_summary_enabled %}
           <form method="post" class="no-print"
                 action="{% url 'school_submission_generate_summary' school_slug=school_slug submission_id=submission.id %}">
@@ -906,6 +930,7 @@
             </button>
           </form>
           {% endif %}
+          {% endif %}{# can_mutate #}
         </div>
 
         <!-- Linked lead -->
@@ -951,6 +976,7 @@
                     word-break:break-word;color:var(--dash-text);
                     max-height:160px;overflow-y:auto;">{{ submission.internal_notes }}</pre>
         {% endif %}
+        {% if can_mutate %}
         <form method="post" class="no-print"
               action="{% url 'school_submission_update' school_slug=school_slug submission_id=submission.id %}">
           {% csrf_token %}
@@ -964,6 +990,7 @@
             Add Note
           </button>
         </form>
+        {% endif %}
       </div>
 
     </div><!-- /RIGHT -->

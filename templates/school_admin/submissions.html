@@ -98,9 +98,11 @@
 
   <!-- Action bar: create + export -->
   <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:10px;">
+    {% if can_mutate %}
     <a href="{% url 'school_submission_create' school_slug=school.slug %}"
        class="dash-action-btn dash-action-btn--primary"
        style="font-size:12px;padding:5px 12px;">+ New Submission</a>
+    {% endif %}
     <a href="{{ export_url }}"
        style="font-size:12px;color:var(--dash-muted);text-decoration:none;padding:5px 10px;
               border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;background:#fff;">
@@ -129,7 +131,7 @@
       <table class="dash-table">
         <thead>
           <tr>
-            {% if workflow_actions_enabled %}<th style="width:32px;padding-right:0;"><input type="checkbox" id="select-all-checkbox" style="cursor:pointer;"></th>{% endif %}
+            {% if workflow_actions_enabled and can_mutate %}<th style="width:32px;padding-right:0;"><input type="checkbox" id="select-all-checkbox" style="cursor:pointer;"></th>{% endif %}
             <th>Student</th>
             <th>Program</th>
             <th>Status</th>
@@ -142,7 +144,7 @@
         <tbody>
           {% for s in submissions %}
           <tr{% if s.is_new %} class="dash-table-row--new"{% endif %}>
-            {% if workflow_actions_enabled %}<td style="padding-right:0;"><input type="checkbox" class="submission-checkbox" value="{{ s.id }}" style="cursor:pointer;"></td>{% endif %}
+            {% if workflow_actions_enabled and can_mutate %}<td style="padding-right:0;"><input type="checkbox" class="submission-checkbox" value="{{ s.id }}" style="cursor:pointer;"></td>{% endif %}
             <td>
               <div class="dash-student-cell">
                 <div class="dash-initials">{{ s.initials }}</div>
@@ -153,6 +155,7 @@
             </td>
             <td style="color: var(--dash-muted); font-size: 13px;">{{ s.program }}</td>
             <td>
+              {% if can_mutate %}
               <form method="post"
                     action="{% url 'school_submission_inline_status' school_slug=request.resolver_match.kwargs.school_slug submission_id=s.id %}"
                     style="display:inline;">
@@ -170,6 +173,9 @@
                   {% endfor %}
                 </select>
               </form>
+              {% else %}
+              <span class="dash-badge {{ s.status_css|default:'' }}" style="font-size:11px;">{{ s.status }}</span>
+              {% endif %}
               {% if s.is_new %}<div style="font-size:10px;color:#92400e;margin-top:2px;">Needs review</div>{% endif %}
             </td>
             <td style="color: var(--dash-muted); font-size: 12px; white-space: nowrap;">
@@ -234,7 +240,7 @@
     {% endif %}
   </div>
 
-  {% if workflow_actions_enabled %}
+  {% if workflow_actions_enabled and can_mutate %}
   <!-- Bulk action bar (fixed bottom, visible when ≥1 checkbox checked) -->
   <div id="bulk-action-bar"
        style="display:none;position:fixed;bottom:0;left:0;right:0;

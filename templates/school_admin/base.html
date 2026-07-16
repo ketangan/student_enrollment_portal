@@ -30,8 +30,10 @@
       {% endif %}
       <a href="{% url 'school_reports' school.slug %}"
          class="dash-nav-link{% if active_nav == 'reports' %} dash-nav-link--active{% endif %}">Reports</a>
+      {% if is_editor %}
       <a href="{% url 'school_settings' school.slug %}"
          class="dash-nav-link{% if active_nav == 'settings' or active_nav == 'programs' %} dash-nav-link--active{% endif %}">Settings</a>
+      {% endif %}
     </nav>
 
     <div class="dash-header-right">

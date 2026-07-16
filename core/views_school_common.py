@@ -301,6 +301,7 @@ def _school_admin_base_context(request, school, active_nav: str) -> dict:
         "current_role": current_role,
         "is_owner": current_role == "owner",
         "is_editor": current_role in ("owner", "editor"),
+        "can_mutate": current_role in ("owner", "editor"),
     }
 
 

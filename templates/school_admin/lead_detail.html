@@ -115,6 +115,7 @@
       </p>
       <!-- Clickable pipeline breadcrumb -->
       {% if lead_pipeline %}
+      {% if can_mutate %}
       <form method="post" class="no-print"
             action="{% url 'school_lead_status_update' school_slug=school_slug lead_id=lead.id %}">
         {% csrf_token %}
@@ -133,6 +134,18 @@
           {% endfor %}
         </div>
       </form>
+      {% else %}
+      <div class="sub-pipeline">
+        {% for step in lead_pipeline %}
+          {% if not forloop.first %}<span class="sub-pipeline__arrow">›</span>{% endif %}
+          {% if step.value == lead.status %}
+            <span class="sub-pipeline__step sub-pipeline__step--active">{{ step.label }}</span>
+          {% else %}
+            <span class="sub-pipeline__step" style="opacity:0.35;cursor:default;">{{ step.label }}</span>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
       {% endif %}
     </div>
   </div>
@@ -226,6 +239,7 @@
       {% endwith %}
 
       <!-- Edit Details -->
+      {% if can_mutate %}
       <div class="dash-card" style="padding:18px 22px;">
         <h2 class="sidebar-label">Edit Details</h2>
         <form method="post"
@@ -293,8 +307,10 @@
           </button>
         </form>
       </div>
+      {% endif %}{# can_mutate — Edit Details #}
 
       <!-- Enrollment -->
+      {% if can_mutate %}
       <div class="dash-card" style="padding:18px 22px;">
         <h2 class="sidebar-label">Enrollment</h2>
         {% if lead.converted_submission_id %}
@@ -384,9 +400,10 @@
           {% endif %}
         {% endif %}
       </div>
+      {% endif %}{# can_mutate — Enrollment #}
 
       <!-- Send Message -->
-      {% if email_enabled and lead.email %}
+      {% if can_mutate and email_enabled and lead.email %}
       <div class="dash-card no-print" style="padding:18px 22px;">
         <h2 class="sidebar-label">Send Message</h2>
         <form method="post"
@@ -498,6 +515,7 @@
             {{ lead.next_follow_up_at|date:"M j, Y" }}
           </div>
           {% endif %}
+          {% if can_mutate %}
           <form method="post" class="no-print"
                 action="{% url 'school_lead_update' school_slug=school_slug lead_id=lead.id %}"
                 style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
@@ -518,10 +536,13 @@
                     class="dash-action-btn dash-action-btn--secondary"
                     style="font-size:11px;padding:4px 8px;">+7d</button>
           </form>
+          {% elif not lead.next_follow_up_at %}
+          <span style="font-size:12px;color:var(--dash-muted);">None set</span>
+          {% endif %}
         </div>
 
         <!-- Mark Contacted -->
-        {% if lead.status != "enrolled" and lead.status != "lost" %}
+        {% if can_mutate and lead.status != "enrolled" and lead.status != "lost" %}
         <div style="padding-top:12px;border-top:1px solid var(--dash-border,#e2e8f0);
                     margin-bottom:14px;">
           <form method="post" class="no-print"
