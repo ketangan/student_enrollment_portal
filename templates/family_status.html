@@ -196,7 +196,7 @@
     </div>
     {% else %}
 
-    <div style="margin-top:18px;">
+    <div style="margin-top:18px;" id="js-toggle-wrapper">
       <button type="button" class="btn-toggle" id="js-toggle-form">
         {% if sched_fields %}Request a Change{% else %}Submit Scheduling Preferences{% endif %}
       </button>
@@ -251,7 +251,10 @@
                  value="{% for f in sched_fields %}{% if f.key == 'sched_preferred_start_week' %}{{ f.value }}{% endif %}{% endfor %}">
         </div>
 
-        <button type="submit" class="btn-change">Send Change Request</button>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:4px;">
+          <button type="submit" class="btn-change">Send Change Request</button>
+          <button type="button" class="btn-toggle" id="js-cancel-btn">Cancel</button>
+        </div>
       </form>
     </div>
     {% endif %}
@@ -273,15 +276,23 @@
 
 <script>
   (function () {
-    var btn = document.getElementById("js-toggle-form");
-    var form = document.getElementById("js-change-form");
-    if (!btn || !form) return;
-    btn.addEventListener("click", function () {
-      var open = form.style.display !== "none";
-      form.style.display = open ? "none" : "block";
-      btn.textContent = open ? btn.dataset.labelOpen || btn.textContent : "Cancel";
-      if (!open) btn.dataset.labelOpen = btn.textContent.replace("Cancel", "").trim() || btn.textContent;
-    });
+    var toggleBtn  = document.getElementById("js-toggle-form");
+    var wrapper    = document.getElementById("js-toggle-wrapper");
+    var form       = document.getElementById("js-change-form");
+    var cancelBtn  = document.getElementById("js-cancel-btn");
+
+    function openForm() {
+      form.style.display = "block";
+      wrapper.style.display = "none";
+    }
+
+    function closeForm() {
+      form.style.display = "none";
+      wrapper.style.display = "block";
+    }
+
+    if (toggleBtn) toggleBtn.addEventListener("click", openForm);
+    if (cancelBtn) cancelBtn.addEventListener("click", closeForm);
   })();
 </script>
 </body>
