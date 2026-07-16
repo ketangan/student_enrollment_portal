@@ -177,12 +177,9 @@
               {% if not forloop.first or status_is_system %}<span class="sub-pipeline__arrow">›</span>{% endif %}
               {% if s == submission.status %}
                 <span class="sub-pipeline__step sub-pipeline__step--active">{{ s }}</span>
-              {% elif not has_workflow_transitions or s in status_transition_keys or s not in yaml_status_choices %}
-                {# Steps not in yaml_status_choices (Enrolled/Waitlisted on DB-program schools) bypass the transition graph #}
+              {% else %}
                 <button type="submit" name="new_status" value="{{ s }}"
                         class="sub-pipeline__step--clickable" title="Move to {{ s }}">{{ s }}</button>
-              {% else %}
-                <span class="sub-pipeline__step" style="opacity:0.45;">{{ s }}</span>
               {% endif %}
             {% endfor %}
           </div>
