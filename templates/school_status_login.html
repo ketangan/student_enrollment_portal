@@ -1,0 +1,96 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Check Application Status — {{ school_name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="robots" content="noindex, nofollow"/>
+  <link rel="stylesheet" href="{% static 'forms.css' %}">
+  <style>
+    :root {
+      --primary: {{ branding.theme.primary_color|default:"#111827" }};
+      --accent:  {{ branding.theme.accent_color|default:"#2563eb" }};
+      --bg:      {{ branding.theme.background|default:"#f7f7fb" }};
+      --card:    {{ branding.theme.card|default:"#ffffff" }};
+      --text:    {{ branding.theme.text|default:"#111827" }};
+      --muted:   {{ branding.theme.muted|default:"#6b7280" }};
+      --border:  {{ branding.theme.border|default:"#e5e7eb" }};
+      --radius:  {{ branding.theme.radius|default:"16px" }};
+      --font:    {{ branding.theme.font_family|default:"system-ui,-apple-system,sans-serif" }};
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); margin: 0; padding: 24px 16px; }
+    .wrap { max-width: 440px; margin: 48px auto; }
+    .school-name { font-size: 16px; font-weight: 700; color: var(--primary); margin-bottom: 32px; text-align: center; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 28px;
+    }
+    h1 { margin: 0 0 8px; font-size: 20px; font-weight: 700; color: var(--text); }
+    .subtitle { color: var(--muted); font-size: 14px; margin: 0 0 28px; line-height: 1.5; }
+    .field { margin-bottom: 18px; }
+    label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    input[type="text"] {
+      width: 100%; padding: 11px 14px;
+      border: 1px solid var(--border); border-radius: 10px;
+      font-size: 15px; color: var(--text); background: var(--card);
+      outline: none; font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus { border-color: var(--accent); }
+    .error-box {
+      background: #fef2f2; border: 1px solid #fca5a5;
+      border-radius: 8px; padding: 12px 14px;
+      font-size: 14px; color: #b91c1c; margin-bottom: 20px;
+    }
+    .btn-submit {
+      width: 100%; padding: 13px; background: var(--accent);
+      color: #fff; border: none; border-radius: 10px;
+      font-size: 15px; font-weight: 600; cursor: pointer;
+      margin-top: 4px; font-family: inherit;
+      transition: opacity 0.15s;
+    }
+    .btn-submit:hover { opacity: 0.88; }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 5px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="school-name">{{ school_name }}</div>
+
+  <div class="card">
+    <h1>Check Application Status</h1>
+    <p class="subtitle">Enter your Application ID and student last name to view your application.</p>
+
+    {% if error %}
+    <div class="error-box">{{ error }}</div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="field">
+        <label for="id_application_id">Application ID</label>
+        <input type="text" id="id_application_id" name="application_id"
+               placeholder="e.g. A1B2C3D4E5F6G7H8"
+               autocomplete="off" autocapitalize="characters" spellcheck="false"
+               required>
+        <div class="hint">Your Application ID was included in your confirmation email and on the submission confirmation page.</div>
+      </div>
+
+      <div class="field">
+        <label for="id_last_name">Student Last Name</label>
+        <input type="text" id="id_last_name" name="last_name"
+               placeholder="Student's last name"
+               autocomplete="family-name" required>
+      </div>
+
+      <button type="submit" class="btn-submit">View Status →</button>
+    </form>
+  </div>
+</div>
+</body>
+</html>

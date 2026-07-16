@@ -490,6 +490,10 @@ class Submission(models.Model):
     status_token = models.CharField(max_length=64, unique=True, default=generate_submission_status_token)
     public_notes = models.TextField(blank=True, default="")
 
+    # Schedule change request — set when a family submits updated scheduling preferences.
+    schedule_change_requested = models.BooleanField(default=False)
+    schedule_change_requested_at = models.DateTimeField(null=True, blank=True)
+
     class Meta:
         unique_together = [("school", "school_submission_number")]
 

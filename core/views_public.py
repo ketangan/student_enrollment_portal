@@ -485,6 +485,7 @@ def _complete_submission_from_draft(
         _maybe_set_waitlist_flag(request, school, submission.data or {}, raw_config)
 
     request.session["_enrollify_last_form_key"] = draft.last_form_key or draft.form_key or "default"
+    request.session["_enrollify_submission_public_id"] = submission.public_id
     return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
 
@@ -672,6 +673,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
 
             _maybe_set_waitlist_flag(request, school, submission.data or {}, raw_config)
             request.session["_enrollify_last_form_key"] = form_key
+            request.session["_enrollify_submission_public_id"] = submission.public_id
             return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
         # GET: pre-populate from session draft
@@ -1017,6 +1019,7 @@ def apply_success_view(request, school_slug: str):
 
     # Waitlist flag — set by submit flow when program is at capacity.
     on_waitlist = request.session.pop(_WAITLIST_SESSION_KEY, False)
+    submission_public_id = request.session.pop("_enrollify_submission_public_id", "")
     waitlist_message = ""
     if on_waitlist:
         raw_config = getattr(config, "raw", None) or {}
@@ -1043,6 +1046,7 @@ def apply_success_view(request, school_slug: str):
             "on_waitlist": on_waitlist,
             "waitlist_message": waitlist_message,
             "hide_resubmit": hide_resubmit,
+            "submission_public_id": submission_public_id,
         },
     )
 
@@ -1521,6 +1525,11 @@ def family_status_view(request, school_slug: str, token: str):
     # submission.status is already the human-readable string (matches YAML list entries).
     status_label = submission.status or "Pending"
 
+    # Scheduling preferences stored in submission.data under sched_* keys.
+    sched_fields = _extract_sched_fields(submission.data or {})
+
+    change_requested = submission.schedule_change_requested
+
     return render(request, "family_status.html", {
         "school": school,
         "school_name": school_name,
@@ -1528,4 +1537,180 @@ def family_status_view(request, school_slug: str, token: str):
         "submission": submission,
         "status_label": status_label,
         "public_notes": submission.public_notes or "",
+        "sched_fields": sched_fields,
+        "change_requested": change_requested,
     })
+
+
+def _extract_sched_fields(data: dict) -> list[dict]:
+    """Return a list of {label, value} dicts for sched_* keys that have a value."""
+    _labels = {
+        "sched_day_preference": "Weekday / Weekend preference",
+        "sched_preferred_timing": "Preferred time of day",
+        "sched_days_unavailable": "Days that don't work",
+        "sched_preferred_slot": "Ideal day and time",
+        "sched_preferred_start_week": "Preferred start week",
+    }
+    result = []
+    for key, label in _labels.items():
+        raw = data.get(key)
+        if raw:
+            if isinstance(raw, list):
+                value = ", ".join(str(v) for v in raw)
+            else:
+                value = str(raw)
+            result.append({"key": key, "label": label, "value": value})
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Family status login — last name + application ID → redirect to token URL
+# ---------------------------------------------------------------------------
+
+@xframe_options_exempt
+def school_status_login_view(request, school_slug: str):
+    school = get_object_or_404(School, slug=school_slug)
+
+    if not school.features.family_portal_enabled:
+        raise Http404
+
+    config = None
+    try:
+        config = load_school_config(school_slug)
+    except Exception:
+        pass
+    branding = merge_branding(getattr(config, "branding", None) if config else None)
+    school_name = (getattr(config, "display_name", None) if config else None) or school.display_name or school.slug
+
+    error = None
+
+    if request.method == "POST":
+        raw_id = (request.POST.get("application_id") or "").strip().upper()
+        raw_last = (request.POST.get("last_name") or "").strip().lower()
+
+        if not raw_id or not raw_last:
+            error = "Please enter both your Application ID and last name."
+        else:
+            try:
+                submission = Submission.objects.get(school=school, public_id__iexact=raw_id)
+                # Accept match against any *last_name* key in submission.data (case-insensitive).
+                data = submission.data or {}
+                last_name_values = [
+                    str(v).strip().lower()
+                    for k, v in data.items()
+                    if "last_name" in k and v
+                ]
+                if raw_last in last_name_values:
+                    return redirect(
+                        reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
+                    )
+                else:
+                    error = "We couldn't find a match. Please check your Application ID and last name."
+            except Submission.DoesNotExist:
+                error = "We couldn't find a match. Please check your Application ID and last name."
+
+    return render(request, "school_status_login.html", {
+        "school": school,
+        "school_name": school_name,
+        "branding": branding,
+        "error": error,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Schedule change request — POST from family_status page
+# ---------------------------------------------------------------------------
+
+@require_http_methods(["POST"])
+@xframe_options_exempt
+def school_status_change_request_view(request, school_slug: str, token: str):
+    school = get_object_or_404(School, slug=school_slug)
+
+    if not school.features.family_portal_enabled:
+        raise Http404
+
+    submission = get_object_or_404(Submission, school=school, status_token=token)
+
+    # Update sched_* fields in submission.data.
+    sched_keys = [
+        "sched_day_preference",
+        "sched_preferred_timing",
+        "sched_days_unavailable",
+        "sched_preferred_slot",
+        "sched_preferred_start_week",
+    ]
+    data = dict(submission.data or {})
+    for key in sched_keys:
+        val = request.POST.getlist(key)
+        if len(val) == 1:
+            data[key] = val[0]
+        elif len(val) > 1:
+            data[key] = val
+        else:
+            data[key] = ""
+
+    submission.data = data
+    submission.schedule_change_requested = True
+    submission.schedule_change_requested_at = timezone.now()
+    submission.save(update_fields=["data", "schedule_change_requested", "schedule_change_requested_at", "updated_at"])
+
+    # Email Emily (to address from YAML notifications config).
+    _notify_schedule_change(school, school_slug, submission)
+
+    return redirect(
+        reverse("family_status", kwargs={"school_slug": school_slug, "token": token})
+        + "?change=requested"
+    )
+
+
+def _notify_schedule_change(school, school_slug: str, submission):
+    """Send email to school's submission notification address about the schedule change request."""
+    from core.services.notifications import send_admin_message
+
+    try:
+        config = load_school_config(school_slug)
+    except Exception:
+        return
+
+    notify_to = ""
+    try:
+        notify_to = (
+            config.raw.get("success", {})
+            .get("notifications", {})
+            .get("submission_email", {})
+            .get("to", "")
+        ) or ""
+    except Exception:
+        pass
+
+    if not notify_to:
+        return
+
+    school_name = getattr(config, "display_name", None) or school.display_name or school.slug
+    student = submission.student_display_name() or submission.public_id
+    admin_url = ""
+    try:
+        from core.services.url_builder import app_reverse
+        admin_url = app_reverse(
+            "school_submission_detail",
+            kwargs={"school_slug": school_slug, "submission_id": submission.id},
+        )
+    except Exception:
+        pass
+
+    sched_fields = _extract_sched_fields(submission.data or {})
+    prefs_text = "\n".join(f"  • {f['label']}: {f['value']}" for f in sched_fields) if sched_fields else "  (no preferences provided)"
+
+    message = (
+        f"A family has submitted a scheduling change request for {student}.\n\n"
+        f"Updated preferences:\n{prefs_text}\n\n"
+        f"View submission: {admin_url}"
+    )
+
+    send_admin_message(
+        to_email=notify_to,
+        subject=f"Scheduling change request — {student}",
+        message=message,
+        school_name=school_name,
+        school=school,
+    )

@@ -51,6 +51,13 @@
     <div class="wrap">
       <div class="card">
         <h1>{{ success_title|default:"Submitted!" }}</h1>
+        {% if submission_public_id %}
+        <div style="margin-top:10px;padding:10px 14px;background:#f0fdf4;border:1px solid #86efac;
+                    border-radius:8px;font-size:13px;color:#166534;">
+          Your <strong>Application ID</strong> is <strong style="font-family:monospace;letter-spacing:0.04em;">{{ submission_public_id }}</strong>
+          — save this to <a href="{% url 'school_status_login' school_slug=school_slug %}" style="color:#166534;">check your application status</a>.
+        </div>
+        {% endif %}
         {% if on_waitlist %}
         <div style="margin-top:10px;padding:12px 16px;background:#fffbeb;border:1px solid #fcd34d;
                     border-radius:10px;font-size:14px;font-weight:500;color:#92400e;">

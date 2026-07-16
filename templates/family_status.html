@@ -17,20 +17,19 @@
       --muted:   {{ branding.theme.muted|default:"#6b7280" }};
       --border:  {{ branding.theme.border|default:"#e5e7eb" }};
       --radius:  {{ branding.theme.radius|default:"16px" }};
+      --font:    {{ branding.theme.font_family|default:"system-ui,-apple-system,sans-serif" }};
     }
-    * { box-sizing: border-box; }
-    body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; margin: 0; }
-
+    *, *::before, *::after { box-sizing: border-box; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); margin: 0; }
     .wrap { max-width: 680px; margin: 0 auto; padding: 32px 20px; }
 
-    /* School header */
     .school-header {
       display: flex; align-items: center; gap: 12px;
       margin-bottom: 28px;
     }
     .school-logo { width: 40px; height: 40px; border-radius: 8px; overflow: hidden; }
     .school-logo img { width: 100%; height: 100%; object-fit: cover; }
-    .school-name { font-size: 18px; font-weight: 700; color: var(--text); }
+    .school-name-text { font-size: 18px; font-weight: 700; color: var(--text); }
 
     .card {
       background: var(--card);
@@ -74,7 +73,53 @@
       line-height: 1.6;
     }
 
-    /* Footer */
+    /* Scheduling */
+    .sched-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+    .sched-row:last-child { margin-bottom: 0; }
+    .sched-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .sched-value { font-size: 14px; color: var(--text); }
+
+    /* Change request form */
+    .change-form { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px; }
+    .change-form h3 { margin: 0 0 12px; font-size: 14px; font-weight: 700; color: var(--text); }
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: var(--text); }
+    .field input[type="text"], .field input[type="date"] {
+      width: 100%; padding: 10px 12px;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: 14px; color: var(--text); background: var(--card);
+      font-family: inherit; outline: none; transition: border-color 0.15s;
+    }
+    .field input:focus { border-color: var(--accent); }
+    .checkbox-group { display: flex; gap: 16px; flex-wrap: wrap; }
+    .checkbox-group label { font-weight: 400; font-size: 14px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .btn-change {
+      background: var(--accent); color: #fff; border: none;
+      border-radius: 8px; padding: 11px 20px;
+      font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+      transition: opacity 0.15s;
+    }
+    .btn-change:hover { opacity: 0.88; }
+    .btn-toggle {
+      background: none; border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 16px;
+      font-size: 13px; font-weight: 600; color: var(--text);
+      cursor: pointer; font-family: inherit; transition: background 0.15s;
+    }
+    .btn-toggle:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+
+    /* Alerts */
+    .alert-pending {
+      background: #fffbeb; border: 1px solid #fcd34d;
+      border-radius: 8px; padding: 12px 14px;
+      font-size: 13px; color: #92400e; margin-top: 16px;
+    }
+    .alert-success {
+      background: #f0fdf4; border: 1px solid #86efac;
+      border-radius: 8px; padding: 12px 14px;
+      font-size: 13px; color: #166534;
+    }
+
     .footer { margin-top: 28px; font-size: 12px; color: var(--muted); text-align: center; }
   </style>
 </head>
@@ -86,26 +131,26 @@
     {% if branding.logo_url %}
       <div class="school-logo"><img src="{{ branding.logo_url }}" alt="{{ school_name }}"></div>
     {% endif %}
-    <div class="school-name">{{ school_name }}</div>
+    <div class="school-name-text">{{ school_name }}</div>
   </div>
+
+  {% if request.GET.change == "requested" %}
+  <div class="alert-success" style="margin-bottom:16px;">
+    Your scheduling change request has been sent. Emily will be in touch to confirm.
+  </div>
+  {% endif %}
 
   <!-- Status card -->
   <div class="card">
     <div class="card__title">Application Status</div>
-
     <div class="status-badge">{{ status_label }}</div>
-
     <div class="meta-row">
-      <div class="meta-item">
-        Application ID: <strong>{{ submission.public_id }}</strong>
-      </div>
-      <div class="meta-item">
-        Submitted: <strong>{{ submission.created_at|date:"M j, Y" }}</strong>
-      </div>
+      <div class="meta-item">Application ID: <strong>{{ submission.public_id }}</strong></div>
+      <div class="meta-item">Submitted: <strong>{{ submission.created_at|date:"M j, Y" }}</strong></div>
     </div>
   </div>
 
-  <!-- Notes from the school (only shown when present) -->
+  <!-- Notes from the school -->
   {% if public_notes %}
   <div class="card">
     <div class="card__title">Message from {{ school_name }}</div>
@@ -113,7 +158,91 @@
   </div>
   {% endif %}
 
-  <!-- What happens next (generic) -->
+  <!-- Scheduling preferences -->
+  <div class="card">
+    <div class="card__title">Lesson Scheduling Preferences</div>
+
+    {% if sched_fields %}
+      {% for f in sched_fields %}
+      <div class="sched-row">
+        <div class="sched-label">{{ f.label }}</div>
+        <div class="sched-value">{{ f.value }}</div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p style="margin:0;font-size:14px;color:var(--muted);">No scheduling preferences recorded yet.</p>
+    {% endif %}
+
+    {% if change_requested %}
+    <div class="alert-pending">
+      A scheduling change request is pending — the school has been notified and will follow up.
+    </div>
+    {% else %}
+
+    <!-- Toggle button to show/hide change request form -->
+    <div style="margin-top:16px;">
+      <button type="button" class="btn-toggle" id="js-toggle-form">
+        {% if sched_fields %}Edit Scheduling Preferences{% else %}Submit Scheduling Preferences{% endif %}
+      </button>
+    </div>
+
+    <!-- Change request form (hidden by default) -->
+    <div class="change-form" id="js-change-form" style="display:none;">
+      <h3>{% if sched_fields %}Update your scheduling preferences{% else %}Enter your scheduling preferences{% endif %}</h3>
+      <form method="post" action="{% url 'school_status_change_request' school_slug=school.slug token=submission.status_token %}">
+        {% csrf_token %}
+
+        <div class="field">
+          <label>Weekday or Weekend? (check all that apply)</label>
+          <div class="checkbox-group">
+            <label>
+              <input type="checkbox" name="sched_day_preference" value="weekday"
+                {% for f in sched_fields %}{% if f.key == "sched_day_preference" and "weekday" in f.value %}checked{% endif %}{% endfor %}>
+              Weekday
+            </label>
+            <label>
+              <input type="checkbox" name="sched_day_preference" value="weekend"
+                {% for f in sched_fields %}{% if f.key == "sched_day_preference" and "weekend" in f.value %}checked{% endif %}{% endfor %}>
+              Weekend
+            </label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="id_sched_preferred_timing">Preferred time of day</label>
+          <input type="text" id="id_sched_preferred_timing" name="sched_preferred_timing"
+                 placeholder="e.g. only after 5pm, mornings preferred"
+                 value="{% for f in sched_fields %}{% if f.key == 'sched_preferred_timing' %}{{ f.value }}{% endif %}{% endfor %}">
+        </div>
+
+        <div class="field">
+          <label for="id_sched_days_unavailable">Days that absolutely don't work</label>
+          <input type="text" id="id_sched_days_unavailable" name="sched_days_unavailable"
+                 placeholder="e.g. Monday mornings, all day Friday"
+                 value="{% for f in sched_fields %}{% if f.key == 'sched_days_unavailable' %}{{ f.value }}{% endif %}{% endfor %}">
+        </div>
+
+        <div class="field">
+          <label for="id_sched_preferred_slot">Ideal day and time (if you have one)</label>
+          <input type="text" id="id_sched_preferred_slot" name="sched_preferred_slot"
+                 placeholder="e.g. Tuesday 4pm"
+                 value="{% for f in sched_fields %}{% if f.key == 'sched_preferred_slot' %}{{ f.value }}{% endif %}{% endfor %}">
+        </div>
+
+        <div class="field">
+          <label for="id_sched_preferred_start_week">Preferred start week</label>
+          <input type="date" id="id_sched_preferred_start_week" name="sched_preferred_start_week"
+                 value="{% for f in sched_fields %}{% if f.key == 'sched_preferred_start_week' %}{{ f.value }}{% endif %}{% endfor %}">
+        </div>
+
+        <button type="submit" class="btn-change">Send Change Request</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- What happens next -->
+  {% if not sched_fields and not change_requested %}
   <div class="card">
     <div class="card__title">What Happens Next</div>
     <p style="margin:0;font-size:14px;line-height:1.6;color:var(--muted);">
@@ -121,8 +250,23 @@
       If you have questions, please contact us directly.
     </p>
   </div>
+  {% endif %}
 
   <div class="footer">{{ school_name }}</div>
 </div>
+
+<script>
+  (function () {
+    var btn = document.getElementById("js-toggle-form");
+    var form = document.getElementById("js-change-form");
+    if (!btn || !form) return;
+    btn.addEventListener("click", function () {
+      var open = form.style.display !== "none";
+      form.style.display = open ? "none" : "block";
+      btn.textContent = open ? btn.dataset.labelOpen || btn.textContent : "Cancel";
+      if (!open) btn.dataset.labelOpen = btn.textContent.replace("Cancel", "").trim() || btn.textContent;
+    });
+  })();
+</script>
 </body>
 </html>

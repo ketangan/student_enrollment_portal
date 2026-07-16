@@ -45,6 +45,7 @@ urlpatterns = [
     path("schools/<slug:school_slug>/admin/submissions/<int:submission_id>/generate-summary/", views.school_submission_generate_summary_view, name="school_submission_generate_summary"),
     path("schools/<slug:school_slug>/admin/submissions/<int:submission_id>/public-note/", views.school_submission_post_public_note_view, name="school_submission_post_public_note"),
     path("schools/<slug:school_slug>/admin/submissions/<int:submission_id>/resend-status-link/", views.school_submission_resend_status_link_view, name="school_submission_resend_status_link"),
+    path("schools/<slug:school_slug>/admin/submissions/<int:submission_id>/ack-schedule-change/", views.school_submission_acknowledge_schedule_change_view, name="school_submission_ack_schedule_change"),
     # bulk/ paths must be BEFORE <int:lead_id>/ to avoid URL collision
     path("schools/<slug:school_slug>/admin/leads/bulk-status/", views.school_lead_bulk_status_update_view, name="school_lead_bulk_status_update"),
     path("schools/<slug:school_slug>/admin/leads/bulk-mark-contacted/", views.school_lead_bulk_mark_contacted_view, name="school_lead_bulk_mark_contacted"),
@@ -92,7 +93,9 @@ urlpatterns = [
     path("schools/<slug:school_slug>/admin/reports", RedirectView.as_view(pattern_name="school_reports", permanent=True)),
     path("schools/<slug:school_slug>/reports", RedirectView.as_view(pattern_name="school_reports", permanent=False)),
 
+    path("schools/<slug:school_slug>/status/", views.school_status_login_view, name="school_status_login"),
     path("schools/<slug:school_slug>/status/<str:token>/", views.family_status_view, name="family_status"),
+    path("schools/<slug:school_slug>/status/<str:token>/change-request/", views.school_status_change_request_view, name="school_status_change_request"),
 
     path("schools/<slug:school_slug>/lead/", views.school_lead_form_view, name="school_lead_form"),
     path("schools/<slug:school_slug>/lead/<slug:form_key>/", views.school_lead_form_view, name="school_lead_form_variant"),

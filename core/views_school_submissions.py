@@ -104,6 +104,26 @@ from .views_school_common import (  # noqa: F401 — private names not exported 
 from .views_public import _strip_file_fields, _plain_post_values  # noqa: F401
 
 
+_SCHED_FIELD_LABELS = {
+    "sched_day_preference": "Weekday / Weekend preference",
+    "sched_preferred_timing": "Preferred time of day",
+    "sched_days_unavailable": "Days that don't work",
+    "sched_preferred_slot": "Ideal day and time",
+    "sched_preferred_start_week": "Preferred start week",
+}
+
+
+def _extract_sched_fields_from_submission(submission) -> list[dict]:
+    data = submission.data or {}
+    result = []
+    for key, label in _SCHED_FIELD_LABELS.items():
+        raw = data.get(key)
+        if raw:
+            value = ", ".join(str(v) for v in raw) if isinstance(raw, list) else str(raw)
+            result.append({"key": key, "label": label, "value": value})
+    return result
+
+
 def _get_display_form_dict(forms: dict, form_key: str) -> dict:
     """
     Return the form dict (with a 'sections' key) to use for admin display/edit.
@@ -867,6 +887,9 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
         "family_status_url": family_status_url,
         "email_templates_json": email_templates_json,
         "template_vars_json": template_vars_json,
+        "schedule_change_requested": submission.schedule_change_requested,
+        "schedule_change_requested_at": submission.schedule_change_requested_at,
+        "sched_fields": _extract_sched_fields_from_submission(submission),
     })
     return render(request, "school_admin/submission_detail.html", ctx)
 
@@ -1858,3 +1881,31 @@ def school_submission_resend_status_link_view(request, school_slug: str, submiss
         messages.error(request, "Failed to send email. Check email configuration.")
 
     return redirect(redirect_url)
+
+
+@login_required
+@require_http_methods(["POST"])
+def school_submission_acknowledge_schedule_change_view(request, school_slug: str, submission_id: int):
+    """Admin acknowledges a family scheduling change request — clears the flag."""
+    school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
+    submission = get_object_or_404(Submission, id=submission_id, school=school)
+
+    if submission.schedule_change_requested:
+        submission.schedule_change_requested = False
+        submission.save(update_fields=["schedule_change_requested", "updated_at"])
+        log_admin_audit(
+            request=request,
+            action="action",
+            obj=submission,
+            changes={},
+            extra={"name": "acknowledge_schedule_change"},
+        )
+        messages.success(request, "Scheduling change request marked as acknowledged.")
+
+    fallback = reverse(
+        "school_submission_detail",
+        kwargs={"school_slug": school_slug, "submission_id": submission_id},
+    )
+    next_url = request.POST.get("next") or fallback
+    return redirect(_safe_redirect_url(request, next_url, fallback))

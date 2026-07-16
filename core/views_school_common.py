@@ -444,6 +444,7 @@ def _build_submission_row(
             timezone.localtime(s.next_follow_up_at) if s.next_follow_up_at else None
         ),
         "is_overdue": is_overdue,
+        "schedule_change_requested": bool(getattr(s, "schedule_change_requested", False)),
     }
 
 

@@ -151,6 +151,7 @@
                 <a href="{{ s.school_admin_url }}" class="dash-student-name">{{ s.student|default:"—" }}</a>
                 {% if s.has_notes %}<span title="Has internal notes" style="font-size:10px;padding:1px 5px;border-radius:3px;background:#ede9fe;color:#6d28d9;margin-left:5px;white-space:nowrap;flex-shrink:0;">Notes</span>{% endif %}
                 {% if s.has_files %}<span title="Has attachments" style="font-size:10px;padding:1px 5px;border-radius:3px;background:#fef9c3;color:#92400e;margin-left:3px;white-space:nowrap;flex-shrink:0;">📎</span>{% endif %}
+                {% if s.schedule_change_requested %}<span title="Schedule change requested by family" style="font-size:10px;padding:1px 5px;border-radius:3px;background:#fef2f2;color:#b91c1c;margin-left:3px;white-space:nowrap;flex-shrink:0;">Scheduling</span>{% endif %}
               </div>
             </td>
             <td style="color: var(--dash-muted); font-size: 13px;">{{ s.program }}</td>
