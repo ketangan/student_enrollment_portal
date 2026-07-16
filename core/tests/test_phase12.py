@@ -244,34 +244,6 @@ def test_submission_send_message_no_email(client, monkeypatch):
     assert any("email" in str(m).lower() for m in messages)
 
 
-@pytest.mark.django_db
-def test_mark_contacted_optional_email_lead(client, monkeypatch):
-    """POST mark-contacted with send_email=1 triggers send_workflow_notification."""
-    school = _email_school()
-    user = _school_admin(school)
-    lead = LeadFactory(school=school, status=LEAD_STATUS_NEW, email="parent@example.com")
-    client.force_login(user)
-
-    notif_calls = []
-
-    def fake_notif(**kw):
-        notif_calls.append(kw)
-        return True
-
-    monkeypatch.setattr("core.views_school_leads.send_workflow_notification", fake_notif)
-    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: MagicMock(raw={}))
-    monkeypatch.setattr("core.views_school_leads._resolve_from_email", lambda raw: "from@school.test")
-
-    resp = client.post(
-        _lead_mc_url(school, lead.id),
-        {"send_email": "1", "next": ""},
-    )
-    assert resp.status_code == 302
-    assert len(notif_calls) == 1
-    assert notif_calls[0]["notification_type"] == "contacted"
-    assert notif_calls[0]["to_email"] == "parent@example.com"
-
-
 # ── Fix #6: backend feature flag enforcement ───────────────────────────────
 
 
@@ -311,53 +283,3 @@ def test_lead_send_message_flag_disabled(client):
     assert any("not enabled" in str(m).lower() or "email" in str(m).lower() for m in msgs)
 
 
-# ── Fix #1: email failures must not block core actions ─────────────────────
-
-
-@pytest.mark.django_db
-def test_mark_contacted_email_exception_non_blocking(client, monkeypatch):
-    """If send_workflow_notification raises, mark-contacted still succeeds."""
-    school = _email_school()
-    user = _school_admin(school)
-    lead = LeadFactory(school=school, status=LEAD_STATUS_NEW, email="parent@example.com")
-    client.force_login(user)
-
-    def boom(**kw):
-        raise RuntimeError("smtp down")
-
-    monkeypatch.setattr("core.views_school_leads.send_workflow_notification", boom)
-    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: MagicMock(raw={}))
-    monkeypatch.setattr("core.views_school_leads._resolve_from_email", lambda raw: "from@school.test")
-
-    resp = client.post(
-        _lead_mc_url(school, lead.id),
-        {"send_email": "1", "next": ""},
-    )
-    # Core action (mark contacted) must still succeed → 302 + success flash
-    assert resp.status_code == 302
-    msgs = list(resp.wsgi_request._messages)
-    assert any("contacted" in str(m).lower() for m in msgs)
-    # DB state updated despite email failure
-    lead.refresh_from_db()
-    assert lead.last_contacted_at is not None
-
-
-# ── Fix #3: get_communication_template fallback ────────────────────────────
-
-
-def test_get_communication_template_unknown_key():
-    """Unknown template_key returns non-empty fallback strings, never empty/None."""
-    from core.services.notifications import get_communication_template
-
-    subject, body = get_communication_template({}, "nonexistent_key")
-    assert subject and isinstance(subject, str)
-    assert body and isinstance(body, str)
-
-
-def test_get_communication_template_malformed_config():
-    """Non-dict config_raw returns hardcoded defaults without raising."""
-    from core.services.notifications import get_communication_template
-
-    subject, body = get_communication_template("not-a-dict", "contacted")
-    assert subject and isinstance(subject, str)
-    assert body and isinstance(body, str)

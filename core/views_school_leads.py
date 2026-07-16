@@ -76,7 +76,6 @@ from .services.notifications import (
     send_resume_link_email,
     send_submission_notification_email,
     send_admin_message,
-    send_workflow_notification,
     _resolve_from_email,
 )
 from .services.lead_conversion import try_convert_lead
@@ -1047,31 +1046,6 @@ def school_lead_mark_contacted_view(request, school_slug: str, lead_id: int):
             changes={},
             extra={"name": "mark_contacted", "follow_up_date": lead.next_follow_up_at.date().isoformat(), "status_changed": "status" in update_fields},
         )
-
-    if (request.POST.get("send_email") == "1"
-            and school.features.email_notifications_enabled
-            and lead.email.strip()):
-        try:
-            _config = _safe_load_school_config(school_slug)
-            _sent = send_workflow_notification(
-                to_email=lead.email.strip(),
-                student_name=lead.name,
-                school_name=school.display_name,
-                notification_type="contacted",
-                config_raw=getattr(_config, "raw", {}),
-                from_email=_resolve_from_email(getattr(_config, "raw", {})),
-                school=school,
-            )
-            if _sent:
-                log_admin_audit(
-                    request=request,
-                    action="action",
-                    obj=lead,
-                    changes={},
-                    extra={"name": "workflow_email_sent", "type": "contacted", "to": lead.email.strip()},
-                )
-        except Exception:
-            logger.exception("Non-blocking: workflow email failed for lead %s", lead.pk)
 
     messages.success(request, "Lead marked as contacted.")
     return redirect(redirect_url)

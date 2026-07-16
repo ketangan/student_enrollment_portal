@@ -85,7 +85,6 @@ from .services.notifications import (
     send_resume_link_email,
     send_submission_notification_email,
     send_admin_message,
-    send_workflow_notification,
     _resolve_from_email,
 )
 from .services.lead_conversion import try_convert_lead

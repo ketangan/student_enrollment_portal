@@ -78,7 +78,6 @@ from .services.notifications import (
     send_status_link_email,
     send_submission_notification_email,
     send_admin_message,
-    send_workflow_notification,
     _resolve_from_email,
 )
 from .services.lead_conversion import try_convert_lead
@@ -1223,33 +1222,6 @@ def school_submission_mark_contacted_view(request, school_slug: str, submission_
             extra={"name": "mark_contacted", "follow_up_date": submission.next_follow_up_at.date().isoformat(), "status_changed": "status" in update_fields},
         )
 
-    if request.POST.get("send_email") == "1" and school.features.email_notifications_enabled:
-        _to = _extract_contact_field(submission.data, _PARENT_EMAIL_KEYS).strip()
-        if _to:
-            try:
-                _config = _safe_load_school_config(school_slug)
-                _sent = send_workflow_notification(
-                    to_email=_to,
-                    student_name=submission.student_display_name() or "",
-                    school_name=school.display_name,
-                    notification_type="contacted",
-                    config_raw=getattr(_config, "raw", {}),
-                    from_email=_resolve_from_email(getattr(_config, "raw", {})),
-                    school=school,
-                )
-                if _sent:
-                    log_admin_audit(
-                        request=request,
-                        action="action",
-                        obj=submission,
-                        changes={},
-                        extra={"name": "workflow_email_sent", "type": "contacted", "to": _to},
-                    )
-            except Exception:
-                logger.exception(
-                    "Non-blocking: workflow email failed for submission %s", submission.pk
-                )
-
     messages.success(request, "Submission marked as contacted.")
     return redirect(redirect_url)
 
@@ -1312,33 +1284,6 @@ def school_submission_follow_up_set_view(request, school_slug: str, submission_i
             changes={},
             extra={"name": "follow_up_set", "date": new_follow_up.date().isoformat()},
         )
-
-    if request.POST.get("send_email") == "1" and school.features.email_notifications_enabled:
-        _to = _extract_contact_field(submission.data, _PARENT_EMAIL_KEYS).strip()
-        if _to:
-            try:
-                _config = _safe_load_school_config(school_slug)
-                _sent = send_workflow_notification(
-                    to_email=_to,
-                    student_name=submission.student_display_name() or "",
-                    school_name=school.display_name,
-                    notification_type="follow_up",
-                    config_raw=getattr(_config, "raw", {}),
-                    from_email=_resolve_from_email(getattr(_config, "raw", {})),
-                    school=school,
-                )
-                if _sent:
-                    log_admin_audit(
-                        request=request,
-                        action="action",
-                        obj=submission,
-                        changes={},
-                        extra={"name": "workflow_email_sent", "type": "follow_up", "to": _to},
-                    )
-            except Exception:
-                logger.exception(
-                    "Non-blocking: workflow email failed for submission %s", submission.pk
-                )
 
     messages.success(request, "Follow-up date set.")
     return redirect(redirect_url)

@@ -528,13 +528,6 @@
                 action="{% url 'school_lead_mark_contacted' school_slug=school_slug lead_id=lead.id %}">
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ detail_url }}">
-            {% if email_enabled and lead.email %}
-            <label style="font-size:12px;display:flex;align-items:center;gap:6px;
-                          margin-bottom:8px;cursor:pointer;">
-              <input type="checkbox" name="send_email" value="1">
-              Send "we reached out" email
-            </label>
-            {% endif %}
             <button type="submit" class="dash-action-btn dash-action-btn--secondary"
                     style="font-size:12px;width:100%;text-align:center;">
               Mark Contacted
