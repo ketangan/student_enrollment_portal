@@ -408,6 +408,7 @@ leads:
   notify_to: "info@sbmusicconservatory.com"
   phone_required: true
   hide_program_field: true
+  name_field_key: "student_name"
   redirect_url: "https://fons.app/@southbaymusicconservatory/book/appointments/fdbecaae-ae97-11f0-a3de-cfe489961f8c?staff="
   redirect_url_field: "instrument"
   redirect_url_map:
@@ -426,7 +427,7 @@ leads:
     - key: student_age
       label: "Student Age"
       type: text
-      required: true
+      required: false
       placeholder: "e.g. 8"
 
     - key: instrument

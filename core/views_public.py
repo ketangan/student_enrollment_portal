@@ -1157,7 +1157,7 @@ def school_lead_form_view(request, school_slug, form_key=None):
         utm_medium = request.POST.get("utm_medium", "").strip()
         utm_campaign = request.POST.get("utm_campaign", "").strip()
 
-        if not name:
+        if not lead_cfg.get("name_field_key") and not name:
             errors["name"] = "Name is required."
         if not email:
             errors["email"] = "Email is required."
@@ -1184,6 +1184,25 @@ def school_lead_form_view(request, school_slug, form_key=None):
                     errors[key] = "This field is required."
 
         if not errors:
+            # When name_field_key is set, use that custom field as the lead name
+            name_field_key = lead_cfg.get("name_field_key", "")
+            if name_field_key:
+                name = custom_field_values.get(name_field_key, "").strip()
+
+            # Auto-map redirect_url_field value → program when hide_program_field is set
+            if not interested_in_value and lead_cfg.get("redirect_url_field"):
+                ruf = lead_cfg["redirect_url_field"]
+                field_val = custom_field_values.get(ruf, "")
+                if field_val:
+                    interested_in_value = field_val
+                    for f in lead_cfg["fields"]:
+                        if f["key"] == ruf:
+                            for opt in f.get("options", []):
+                                if opt.get("value") == field_val:
+                                    interested_in_label = opt.get("label", field_val)
+                                    break
+                            break
+
             extra_data: dict = {}
             if message:
                 extra_data["message"] = message
@@ -1284,6 +1303,7 @@ def _lead_form_ctx(school, config, branding, lead_cfg, program_options, embed, *
         "cta_text": lead_cfg["cta_text"],
         "success_message": lead_cfg["success_message"],
         "custom_fields": lead_cfg.get("fields") or [],
+        "name_field_key": lead_cfg.get("name_field_key", ""),
         "phone_required": lead_cfg.get("phone_required", False),
         "embed": embed,
         "success": success,

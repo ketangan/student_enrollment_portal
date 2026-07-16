@@ -141,7 +141,8 @@
             <input type="hidden" name="utm_medium"   value="{{ utm_medium }}">
             <input type="hidden" name="utm_campaign" value="{{ utm_campaign }}">
 
-            {# Name #}
+            {# Name — hidden when a custom field is used as the lead name #}
+            {% if not name_field_key %}
             <div class="field {% if errors.name %}field-error{% endif %}">
               <label for="id_name">Name<span class="req">*</span></label>
               <input type="text" id="id_name" name="name"
@@ -151,6 +152,7 @@
                      required>
               {% if errors.name %}<div class="error-msg">{{ errors.name }}</div>{% endif %}
             </div>
+            {% endif %}
 
             {# Email #}
             <div class="field {% if errors.email %}field-error{% endif %}">

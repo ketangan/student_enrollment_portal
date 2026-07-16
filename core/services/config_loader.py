@@ -225,6 +225,7 @@ def get_lead_form_config(config_raw: dict, form_key: str | None = None) -> dict 
         "redirect_url_field": (leads.get("redirect_url_field") or "").strip(),
         "phone_required": bool(leads.get("phone_required", False)),
         "hide_program_field": bool(leads.get("hide_program_field", False)),
+        "name_field_key": (leads.get("name_field_key") or "").strip(),
         "pipeline_visible": bool(leads.get("pipeline_visible", True)),
         "category": (leads.get("category") or "lead").strip(),
         "fields": fields,
