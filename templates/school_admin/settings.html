@@ -39,6 +39,27 @@
         </div>
       </form>
 
+      <!-- Follow-up reminder window -->
+      <form method="post" action="{% url 'school_settings' school.slug %}"
+            style="display:flex;flex-direction:column;gap:4px;">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_follow_up_days">
+        <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                      letter-spacing:.04em;">Default Follow-up Window (days)</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="number" name="follow_up_days" value="{{ school.default_follow_up_days }}"
+                 min="1" max="30" required
+                 style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);
+                        width:80px;">
+          <button type="submit" class="dash-action-btn dash-action-btn--primary"
+                  style="font-size:12px;padding:6px 14px;">Save</button>
+        </div>
+        <span style="font-size:11px;color:var(--dash-muted);">
+          After marking a lead or submission as contacted, a follow-up reminder is set this many days later.
+        </span>
+      </form>
+
       {% if school.website_url %}
       <div>
         <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;

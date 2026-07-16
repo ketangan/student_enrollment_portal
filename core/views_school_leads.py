@@ -1029,8 +1029,9 @@ def school_lead_mark_contacted_view(request, school_slug: str, lead_id: int):
         messages.success(request, "Lead marked as contacted.")
         return redirect(redirect_url)
 
+    _follow_up_days = school.default_follow_up_days or 2
     lead.last_contacted_at = now
-    lead.next_follow_up_at = now + timedelta(days=2)
+    lead.next_follow_up_at = now + timedelta(days=_follow_up_days)
     update_fields = ["last_contacted_at", "next_follow_up_at"]
 
     if lead.status not in {"contacted", LEAD_STATUS_ENROLLED, LEAD_STATUS_LOST}:
@@ -1107,11 +1108,12 @@ def school_lead_bulk_mark_contacted_view(request, school_slug: str):
         return redirect(redirect_url)
 
     now = timezone.now()
+    _follow_up_days = school.default_follow_up_days or 2
     updated = 0
     with transaction.atomic():
         for lead in leads:
             lead.last_contacted_at = now
-            lead.next_follow_up_at = now + timedelta(days=2)
+            lead.next_follow_up_at = now + timedelta(days=_follow_up_days)
             update_fields = ["last_contacted_at", "next_follow_up_at"]
             if lead.status not in {"contacted", LEAD_STATUS_ENROLLED, LEAD_STATUS_LOST}:
                 lead.status = "contacted"
@@ -1122,7 +1124,7 @@ def school_lead_bulk_mark_contacted_view(request, school_slug: str):
                 action="action",
                 obj=lead,
                 changes={},
-                extra={"name": "bulk_mark_contacted", "follow_up_date": (now + timedelta(days=2)).date().isoformat(), "status_changed": "status" in update_fields},
+                extra={"name": "bulk_mark_contacted", "follow_up_date": lead.next_follow_up_at.date().isoformat(), "status_changed": "status" in update_fields},
             )
             updated += 1
 

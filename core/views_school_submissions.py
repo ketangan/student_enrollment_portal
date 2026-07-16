@@ -1197,8 +1197,9 @@ def school_submission_mark_contacted_view(request, school_slug: str, submission_
         messages.success(request, "Submission marked as contacted.")
         return redirect(redirect_url)
 
+    _follow_up_days = school.default_follow_up_days or 2
     submission.last_contacted_at = now
-    submission.next_follow_up_at = now + timedelta(days=2)
+    submission.next_follow_up_at = now + timedelta(days=_follow_up_days)
     update_fields = ["last_contacted_at", "next_follow_up_at", "updated_at"]
 
     # Advance status to the school's "Contacted" status if one exists and the
@@ -1219,7 +1220,7 @@ def school_submission_mark_contacted_view(request, school_slug: str, submission_
             action="action",
             obj=submission,
             changes={},
-            extra={"name": "mark_contacted", "follow_up_date": (now + timedelta(days=2)).date().isoformat(), "status_changed": "status" in update_fields},
+            extra={"name": "mark_contacted", "follow_up_date": submission.next_follow_up_at.date().isoformat(), "status_changed": "status" in update_fields},
         )
 
     if request.POST.get("send_email") == "1" and school.features.email_notifications_enabled:
@@ -1381,11 +1382,12 @@ def school_submission_bulk_mark_contacted_view(request, school_slug: str):
     _terminal = {s for s in _allowed if s.lower() in {"enrolled", "closed", "archived"}}
 
     now = timezone.now()
+    _follow_up_days = school.default_follow_up_days or 2
     updated = 0
     with transaction.atomic():
         for submission in submissions:
             submission.last_contacted_at = now
-            submission.next_follow_up_at = now + timedelta(days=2)
+            submission.next_follow_up_at = now + timedelta(days=_follow_up_days)
             _fields = ["last_contacted_at", "next_follow_up_at", "updated_at"]
             if (_contacted_status
                     and submission.status != _contacted_status
@@ -1398,7 +1400,7 @@ def school_submission_bulk_mark_contacted_view(request, school_slug: str):
                 action="action",
                 obj=submission,
                 changes={},
-                extra={"name": "bulk_mark_contacted", "follow_up_date": (now + timedelta(days=2)).date().isoformat(), "status_changed": "status" in _fields},
+                extra={"name": "bulk_mark_contacted", "follow_up_date": submission.next_follow_up_at.date().isoformat(), "status_changed": "status" in _fields},
             )
             updated += 1
 
@@ -1665,7 +1667,12 @@ def school_submission_send_message_view(request, school_slug: str, submission_id
             action="action",
             obj=submission,
             changes={},
-            extra={"name": "manual_message_sent", "to": to_email},
+            extra={
+                "name": "manual_message_sent",
+                "to": to_email,
+                "subject": subject,
+                "body": message[:500] + ("…" if len(message) > 500 else ""),
+            },
         )
     else:
         messages.error(request, "Message could not be sent. Please try again.")

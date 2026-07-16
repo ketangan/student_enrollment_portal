@@ -798,7 +798,7 @@
               {% elif entry.extra.name == "resend_status_link" %}
                 sent status page link{% if entry.extra.to %} &rarr; {{ entry.extra.to }}{% endif %}
               {% elif entry.extra.name == "manual_message_sent" %}
-                sent message to parent{% if entry.extra.to %} ({{ entry.extra.to }}){% endif %}
+                sent message to parent{% if entry.extra.to %} &rarr; {{ entry.extra.to }}{% endif %}{% if entry.extra.subject %}<br><span style="font-size:11px;color:var(--dash-muted);"><strong>Subject:</strong> {{ entry.extra.subject }}</span>{% endif %}{% if entry.extra.body %}<br><span style="font-size:11px;color:var(--dash-muted);white-space:pre-wrap;">{{ entry.extra.body }}</span>{% endif %}
               {% elif entry.extra.name == "mark_contacted" %}
                 marked as contacted{% if entry.extra.follow_up_date %} &mdash; follow-up set for {{ entry.extra.follow_up_date }}{% endif %}
               {% elif entry.extra.name == "follow_up_set" %}

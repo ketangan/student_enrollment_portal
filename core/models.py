@@ -170,6 +170,9 @@ class School(models.Model):
     smtp_from_email = models.EmailField(max_length=255, blank=True, default="")
     smtp_use_tls = models.BooleanField(default=True)
 
+    # Default days before a follow-up is due after marking a lead/submission contacted.
+    default_follow_up_days = models.PositiveSmallIntegerField(default=2)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property

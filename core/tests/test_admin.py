@@ -466,6 +466,7 @@ def test_school_admin_form_valid_feature_flags():
             "logo_url": "",
             "theme_primary_color": "",
             "theme_accent_color": "",
+            "default_follow_up_days": 2,
         },
     )
     assert form.is_valid(), form.errors
@@ -489,6 +490,7 @@ def test_school_admin_form_empty_flags_returns_empty_dict():
             "logo_url": "",
             "theme_primary_color": "",
             "theme_accent_color": "",
+            "default_follow_up_days": 2,
         },
     )
     assert form.is_valid(), form.errors
@@ -511,6 +513,7 @@ def test_school_admin_form_rejects_invalid_json():
             "logo_url": "",
             "theme_primary_color": "",
             "theme_accent_color": "",
+            "default_follow_up_days": 2,
         },
     )
     assert not form.is_valid()
@@ -533,6 +536,7 @@ def test_school_admin_form_rejects_non_dict_json():
             "logo_url": "",
             "theme_primary_color": "",
             "theme_accent_color": "",
+            "default_follow_up_days": 2,
         },
     )
     assert not form.is_valid()
@@ -555,6 +559,7 @@ def test_school_admin_form_rejects_non_boolean_values():
             "logo_url": "",
             "theme_primary_color": "",
             "theme_accent_color": "",
+            "default_follow_up_days": 2,
         },
     )
     assert not form.is_valid()
@@ -626,6 +631,7 @@ def test_school_admin_form_rejects_non_string_keys():
             "logo_url": "",
             "theme_primary_color": "",
             "theme_accent_color": "",
+            "default_follow_up_days": 2,
         },
     )
     # Valid case should pass
@@ -704,6 +710,7 @@ def test_school_admin_form_clean_stores_overrides_only():
             "logo_url": "",
             "theme_primary_color": "",
             "theme_accent_color": "",
+            "default_follow_up_days": 2,
         },
     )
     assert form.is_valid(), form.errors
@@ -733,6 +740,7 @@ def test_school_admin_form_clean_all_defaults_returns_empty():
             "logo_url": "",
             "theme_primary_color": "",
             "theme_accent_color": "",
+            "default_follow_up_days": 2,
         },
     )
     assert form.is_valid(), form.errors

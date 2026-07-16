@@ -637,6 +637,30 @@ def school_settings_view(request, school_slug: str):
             messages.success(request, f'Display name updated to "{new_name}".')
         return redirect("school_settings", school_slug=school_slug)
 
+    if action == "update_follow_up_days":
+        try:
+            days = int(request.POST.get("follow_up_days", ""))
+            if not (1 <= days <= 30):
+                raise ValueError
+        except (ValueError, TypeError):
+            messages.error(request, "Follow-up window must be between 1 and 30 days.")
+        else:
+            old_days = school.default_follow_up_days
+            if days == old_days:
+                messages.info(request, "No change — already set to that.")
+            else:
+                school.default_follow_up_days = days
+                school.save(update_fields=["default_follow_up_days"])
+                log_admin_audit(
+                    request=request,
+                    action="action",
+                    obj=school,
+                    changes={},
+                    extra={"name": "update_follow_up_days", "old": old_days, "new": days},
+                )
+                messages.success(request, f"Follow-up window updated to {days} day{'s' if days != 1 else ''}.")
+        return redirect("school_settings", school_slug=school_slug)
+
     from core.services.url_builder import app_reverse
     apply_url = app_reverse("apply", kwargs={"school_slug": school_slug})
     embed_snippet = (
