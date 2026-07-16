@@ -13,53 +13,14 @@
   <!-- ── School Info ────────────────────────────────────────────────────── -->
   <div class="dash-card" style="padding:24px;margin-bottom:20px;">
     <h2 style="font-size:15px;font-weight:700;margin:0 0 16px;">School Info</h2>
-    <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:flex-end;font-size:13px;">
 
+    {# Static read-only fields #}
+    <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:center;font-size:13px;margin-bottom:20px;">
       <div>
         <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
                      letter-spacing:.04em;display:block;margin-bottom:3px;">ID / Slug</span>
         <span style="font-family:monospace;font-size:12px;">{{ school.slug }}</span>
       </div>
-
-      <!-- Editable display name -->
-      <form method="post" action="{% url 'school_settings' school.slug %}"
-            style="display:flex;flex-direction:column;gap:4px;">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="update_display_name">
-        <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
-                      letter-spacing:.04em;">Display Name</label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="text" name="display_name" value="{{ school.display_name }}"
-                 required maxlength="120"
-                 style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
-                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);
-                        min-width:220px;">
-          <button type="submit" class="dash-action-btn dash-action-btn--primary"
-                  style="font-size:12px;padding:6px 14px;">Save</button>
-        </div>
-      </form>
-
-      <!-- Follow-up reminder window -->
-      <form method="post" action="{% url 'school_settings' school.slug %}"
-            style="display:flex;flex-direction:column;gap:4px;">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="update_follow_up_days">
-        <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
-                      letter-spacing:.04em;">Default Follow-up Window (days)</label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="number" name="follow_up_days" value="{{ school.default_follow_up_days }}"
-                 min="1" max="30" required
-                 style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
-                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);
-                        width:80px;">
-          <button type="submit" class="dash-action-btn dash-action-btn--primary"
-                  style="font-size:12px;padding:6px 14px;">Save</button>
-        </div>
-        <span style="font-size:11px;color:var(--dash-muted);">
-          After marking a lead or submission as contacted, a follow-up reminder is set this many days later.
-        </span>
-      </form>
-
       {% if school.website_url %}
       <div>
         <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
@@ -68,6 +29,45 @@
            style="color:var(--dash-primary);">{{ school.website_url }}</a>
       </div>
       {% endif %}
+    </div>
+
+    {# Editable fields in a 2-column grid #}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:680px;">
+
+      <!-- Display name -->
+      <form method="post" action="{% url 'school_settings' school.slug %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_display_name">
+        <label style="display:block;font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                      letter-spacing:.04em;margin-bottom:4px;">Display Name</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" name="display_name" value="{{ school.display_name }}"
+                 required maxlength="120"
+                 style="flex:1;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          <button type="submit" class="dash-action-btn dash-action-btn--primary"
+                  style="font-size:12px;padding:6px 14px;">Save</button>
+        </div>
+      </form>
+
+      <!-- Follow-up window -->
+      <form method="post" action="{% url 'school_settings' school.slug %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_follow_up_days">
+        <label style="display:block;font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                      letter-spacing:.04em;margin-bottom:4px;">Follow-up Window (days)</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="number" name="follow_up_days" value="{{ school.default_follow_up_days }}"
+                 min="1" max="30" required
+                 style="width:80px;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          <button type="submit" class="dash-action-btn dash-action-btn--primary"
+                  style="font-size:12px;padding:6px 14px;">Save</button>
+        </div>
+        <span style="display:block;font-size:11px;color:var(--dash-muted);margin-top:4px;">
+          Days until follow-up reminder after marking as contacted.
+        </span>
+      </form>
 
     </div>
   </div>
@@ -141,34 +141,6 @@
               background:#fef2f2;border-radius:6px;border:1px solid #fca5a5;">
       Subscription cancels at end of billing period.
     </p>
-    {% endif %}
-
-    <!-- Superadmin: extend trial end date -->
-    {% if request.user.is_superuser and school.is_trial_plan %}
-    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--dash-border);">
-      <form method="post" action="{% url 'school_settings' school.slug %}"
-            style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="update_trial_end_date">
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:11px;font-weight:700;text-transform:uppercase;
-                        letter-spacing:.05em;color:var(--dash-muted);">
-            Trial End Date <span style="color:#7c3aed;">(superadmin)</span>
-          </label>
-          <input type="date" name="trial_end_date"
-                 value="{{ school.trial_end_date|date:'Y-m-d'|default:'' }}"
-                 style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
-                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
-        </div>
-        <button type="submit" class="dash-action-btn dash-action-btn--primary"
-                style="font-size:12px;padding:6px 14px;">Save</button>
-        {% if school.trial_end_date %}
-        <button type="submit" name="trial_end_date" value=""
-                class="dash-action-btn dash-action-btn--secondary"
-                style="font-size:12px;padding:6px 14px;">Clear override</button>
-        {% endif %}
-      </form>
-    </div>
     {% endif %}
 
     <!-- Stripe IDs (collapsed, secondary) -->
