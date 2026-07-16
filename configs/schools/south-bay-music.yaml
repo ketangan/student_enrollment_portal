@@ -260,19 +260,18 @@ form:
 
         - key: enrollment_fee_acknowledgment
           label: "Enrollment Fee Acknowledgment"
-          type: select
+          type: auto_label
           required: true
           full_width: true
-          auto_select_from:
-            field: lesson_time_status
-            mapping:
-              new_student: new_student_fee
-              returning_student: returning_student_fee
+          source_field: lesson_time_status
+          default_text: "Select your enrollment type above to see the applicable fee."
           options:
-            - label: "New Students: I understand that enrollment includes a one-time $125 Conservatory Assessment & Placement Fee (per student)"
+            - label: "New Students: I understand that enrollment includes a one-time $125 Conservatory Assessment & Placement Fee (per student). This fee is non-refundable and non-transferable."
               value: new_student_fee
+              source_value: new_student
             - label: "Returning Students: I understand that there is an annual $75 Conservatory Registration Fee per family. These fees are non-refundable and non-transferable."
               value: returning_student_fee
+              source_value: returning_student
 
         - key: monthly_tuition_policy
           label: "Monthly Tuition Policy"
@@ -290,13 +289,14 @@ form:
 
         - key: media_release
           label: "Media Release and Use of Images"
-          type: select
+          type: radio
           required: true
           full_width: true
+          description: "South Bay Music Conservatory may photograph or record students for use in studio-related promotional materials, social media, and other communications. Please indicate your preference below."
           options:
             - label: "I grant permission for SBMC to use images and/or recordings of my child (or myself, if an adult student) for studio-related materials."
               value: grant
-            - label: "I DO NOT grant permission for media use."
+            - label: "I do not grant permission for media use."
               value: deny
 
         - key: final_agreement

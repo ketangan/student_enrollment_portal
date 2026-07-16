@@ -107,8 +107,8 @@
                     {% if field.full_width %}span-2{% endif %}
                   ">
 
-                    {# Standard label (not for checkbox, multiselect checkboxes, waiver, or radio — those render their own label) #}
-                    {% if field.type != "checkbox" and field.type != "multiselect" and field.type != "waiver" and field.type != "radio" %}
+                    {# Standard label (not for checkbox, multiselect checkboxes, waiver, radio, or auto_label — those render their own label) #}
+                    {% if field.type != "checkbox" and field.type != "multiselect" and field.type != "waiver" and field.type != "radio" and field.type != "auto_label" %}
                     <label class="label" for="{{ field.key }}">
                         {{ field.label }}
                         {% if field.required %}<span class="required">*</span>{% endif %}
@@ -228,6 +228,9 @@
                         {{ field.label }}
                         {% if field.required %}<span class="required">*</span>{% endif %}
                       </div>
+                      {% if field.description %}
+                      <p style="font-size:14px;line-height:1.6;color:var(--muted);margin:0 0 12px;">{{ field.description }}</p>
+                      {% endif %}
                       <div class="checklist">
                         {% for opt in field.options %}
                           <label class="check-item">
@@ -242,6 +245,50 @@
                           </label>
                         {% endfor %}
                       </div>
+
+                    {# --- AUTO LABEL (dynamic text driven by another field) --- #}
+                    {% elif field.type == "auto_label" %}
+                      <div class="label" style="margin-bottom:8px;">
+                        {{ field.label }}
+                        {% if field.required %}<span class="required">*</span>{% endif %}
+                      </div>
+                      <div id="auto_label_{{ field.key }}"
+                           style="padding:14px 16px;
+                                  background:color-mix(in srgb,var(--accent) 6%,var(--bg));
+                                  border:1px solid color-mix(in srgb,var(--accent) 22%,var(--border));
+                                  border-radius:8px;font-size:14px;line-height:1.6;
+                                  color:var(--muted);min-height:48px;">
+                        {{ field.default_text|default:"Select above to see applicable fee." }}
+                      </div>
+                      <input type="hidden" name="{{ field.key }}" id="auto_label_input_{{ field.key }}"
+                             value="{{ values|get_item:field.key }}">
+                      <script>
+                      (function(){
+                        var opts={};
+                        {% for opt in field.options %}opts["{{ opt.source_value }}"]={label:"{{ opt.label|escapejs }}",value:"{{ opt.value }}"};
+                        {% endfor %}
+                        var display=document.getElementById("auto_label_{{ field.key }}");
+                        var hidden=document.getElementById("auto_label_input_{{ field.key }}");
+                        var defaultText="{{ field.default_text|default:'Select above to see applicable fee.'|escapejs }}";
+                        function sync(){
+                          var checked=document.querySelector('input[name="{{ field.source_field }}"]:checked');
+                          if(checked&&opts[checked.value]){
+                            display.textContent=opts[checked.value].label;
+                            display.style.color="var(--text)";
+                            hidden.value=opts[checked.value].value;
+                          } else if(!hidden.value){
+                            display.textContent=defaultText;
+                            display.style.color="var(--muted)";
+                          }
+                        }
+                        document.querySelectorAll('input[name="{{ field.source_field }}"]').forEach(function(el){el.addEventListener('change',sync);});
+                        var saved=hidden.value;
+                        if(saved){
+                          {% for opt in field.options %}if(saved=="{{ opt.value }}"){display.textContent="{{ opt.label|escapejs }}";display.style.color="var(--text)";}
+                          {% endfor %}
+                        } else { sync(); }
+                      })();
+                      </script>
 
                     {# --- CHECKBOX --- #}
                     {% elif field.type == "checkbox" %}
