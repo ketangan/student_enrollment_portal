@@ -3,147 +3,191 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>{{ school_name }} - Submitted</title>
+    <title>{{ school_name }} - Registration Received</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="{% static 'forms.css' %}">
     <style>
       :root{
-        --primary: {{ branding.theme.primary_color|default:"#111827" }};
-        --accent: {{ branding.theme.accent_color|default:"#ea580c" }};
+        --primary: {{ branding.theme.accent_color|default:"#111827" }};
         --bg: {{ branding.theme.background|default:"#f7f7fb" }};
         --card: {{ branding.theme.card|default:"#ffffff" }};
         --text: {{ branding.theme.text|default:"#111827" }};
         --muted: {{ branding.theme.muted|default:"#6b7280" }};
         --border: {{ branding.theme.border|default:"#e5e7eb" }};
         --radius: {{ branding.theme.radius|default:"16px" }};
+        --font: {{ branding.theme.font_family|default:"ui-sans-serif, system-ui, -apple-system, sans-serif" }};
+        --heading-font: {{ branding.theme.heading_font|default:"var(--font)" }};
       }
-      body { background: var(--bg); color: var(--text); }
-      .wrap { max-width: 900px; margin: 0 auto; padding: 24px; }
-      .card {
+      body { font-family: var(--font); }
+
+      .success-card {
         background: var(--card);
         border: 1px solid var(--border);
         border-radius: var(--radius);
-        padding: 18px;
+        padding: 28px;
+        margin-bottom: 16px;
       }
-      h1 { margin: 0 0 6px; font-size: 26px; }
-      .muted { color: var(--muted); }
-      .pill {
-        display:inline-block; padding:2px 8px; border:1px solid var(--border);
-        border-radius:999px; font-size:12px; color: var(--muted);
+
+      .success-title {
+        margin: 0 0 16px;
+        font-size: 26px;
+        font-family: var(--heading-font);
+        font-weight: 700;
+        color: var(--text);
       }
-      .grid { display:grid; grid-template-columns: 1.2fr 0.8fr; gap: 12px; margin-top: 12px; }
-      @media (max-width: 900px){ .grid { grid-template-columns: 1fr; } }
-      ul { margin: 10px 0 0; padding-left: 18px; }
-      a { color: var(--accent); }
-      .cta { margin-top: 14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-      .btn {
-        display:inline-flex; align-items:center; gap:8px;
-        padding: 10px 12px; border-radius: 12px;
+
+      .success-message {
+        font-size: 15px;
+        line-height: 1.6;
+        color: var(--muted);
+        margin: 0 0 20px;
+      }
+
+      .info-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 12px;
+        margin-top: 4px;
+      }
+      @media (max-width: 640px) { .info-grid { grid-template-columns: 1fr; } }
+
+      .info-card {
+        background: var(--bg);
         border: 1px solid var(--border);
-        text-decoration:none; color: var(--text);
-        background: rgba(255,255,255,0.02);
+        border-radius: calc(var(--radius) * 0.6);
+        padding: 16px;
       }
-      .btn:hover { opacity: 0.92; }
+      .info-card-label {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+      .info-card ul {
+        margin: 0;
+        padding-left: 18px;
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--text);
+      }
+      .info-card li { margin-bottom: 4px; }
+      .info-card a { color: var(--primary); }
+
+      .response-time {
+        margin-top: 12px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .resubmit-link {
+        display: inline-block;
+        margin-top: 20px;
+        font-size: 13px;
+        color: var(--muted);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      .resubmit-link:hover { color: var(--text); }
     </style>
+
+    {% if branding.custom_css %}
+      <link rel="stylesheet" href="{% static branding.custom_css %}">
+    {% endif %}
   </head>
 
   <body>
-    <div class="wrap">
-      <div class="card">
-        <h1>{{ success_title|default:"Submitted!" }}</h1>
-        {% if submission_public_id %}
-        <div style="margin-top:10px;padding:10px 14px;background:#f0fdf4;border:1px solid #86efac;
-                    border-radius:8px;font-size:13px;color:#166534;">
-          Your <strong>Application ID</strong> is <strong style="font-family:monospace;letter-spacing:0.04em;">{{ submission_public_id }}</strong>
-          — save this to <a href="{% url 'school_status_login' school_slug=school_slug %}" style="color:#166534;">check your application status</a>.
-        </div>
-        {% endif %}
-        {% if on_waitlist %}
-        <div style="margin-top:10px;padding:12px 16px;background:#fffbeb;border:1px solid #fcd34d;
-                    border-radius:10px;font-size:14px;font-weight:500;color:#92400e;">
-          {{ waitlist_message }}
-        </div>
-        {% else %}
-        <div class="muted" style="margin-top:6px;">
-          {{ success_message }}
-        </div>
-        {% endif %}
+    <div class="page">
+      <div class="container">
 
-        <div class="grid">
-          <div class="card" style="padding:14px;">
-            <div class="muted" style="font-size:12px; text-transform:uppercase; letter-spacing:0.06em;">
-              Next steps
-            </div>
-
-            {% if next_steps %}
-              <ul>
-                {% for step in next_steps %}
-                  <li>{{ step }}</li>
-                {% endfor %}
-              </ul>
-            {% else %}
-              <div class="muted" style="margin-top:8px;">
-                We’ll review your submission and follow up with next steps.
-              </div>
-            {% endif %}
-
-            {% if response_time %}
-              <div class="muted" style="margin-top:10px;">
-                Typical response time: <strong>{{ response_time }}</strong>
-              </div>
-            {% endif %}
-          </div>
-
-          <div class="card" style="padding:14px;">
-            <div class="muted" style="font-size:12px; text-transform:uppercase; letter-spacing:0.06em;">
-              Contact
-            </div>
-
-            {% if contact_name %}
-              <div style="margin-top:8px;"><strong>{{ contact_name }}</strong></div>
-            {% endif %}
-
-            {% if contact_email %}
-              <div style="margin-top:8px;">
-                Email: <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>
-              </div>
-            {% endif %}
-
-            {% if contact_phone %}
-              <div style="margin-top:8px;">
-                Phone: <a href="tel:{{ contact_phone }}">{{ contact_phone }}</a>
-              </div>
-            {% endif %}
-
-            {% if hours %}
-              <div class="muted" style="margin-top:10px;">
-                Hours: {{ hours }}
-              </div>
-            {% endif %}
-          </div>
-        </div>
-
-        <div class="cta">
-          {% if not hide_resubmit %}<a class="btn" href="{% url 'apply' school_slug=school_slug %}">Submit another response</a>{% endif %}
-          {% if scheduling_url %}
-            <a class="btn" href="{{ scheduling_url }}" target="_blank" rel="noopener noreferrer">{{ scheduling_label }}</a>
+        <div class="logo">
+          {% if branding.logo_url %}
+            <img src="{{ branding.logo_url }}" alt="{{ school_name }}">
+          {% else %}
+            <span class="logo-text">{{ school_name }}</span>
           {% endif %}
         </div>
+
+        <div class="success-card">
+          <h1 class="success-title">{{ success_title|default:"Registration Received!" }}</h1>
+
+          {% if submission_public_id %}
+          <div style="margin-bottom:16px;padding:12px 16px;background:#f0fdf4;border:1px solid #86efac;
+                      border-radius:8px;font-size:14px;color:#166534;">
+            Your <strong>Application ID</strong> is
+            <strong style="font-family:monospace;letter-spacing:0.05em;">{{ submission_public_id }}</strong>
+            — save this to <a href="{% url 'school_status_login' school_slug=school_slug %}" style="color:#166534;">check your application status</a>.
+          </div>
+          {% endif %}
+
+          {% if on_waitlist %}
+          <div style="margin-bottom:16px;padding:12px 16px;background:#fffbeb;border:1px solid #fcd34d;
+                      border-radius:8px;font-size:14px;font-weight:500;color:#92400e;">
+            {{ waitlist_message }}
+          </div>
+          {% endif %}
+
+          <p class="success-message">{{ success_message }}</p>
+
+          <div class="info-grid">
+            <div class="info-card">
+              <div class="info-card-label">Next Steps</div>
+              {% if next_steps %}
+                <ul>
+                  {% for step in next_steps %}
+                    <li>{{ step }}</li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <p style="margin:0;font-size:14px;color:var(--muted);">
+                  We'll review your submission and follow up with next steps.
+                </p>
+              {% endif %}
+              {% if response_time %}
+              <div class="response-time">Typical response time: <strong>{{ response_time }}</strong></div>
+              {% endif %}
+            </div>
+
+            <div class="info-card">
+              <div class="info-card-label">Contact</div>
+              {% if contact_name %}<div style="font-weight:700;font-size:14px;margin-bottom:6px;">{{ contact_name }}</div>{% endif %}
+              {% if contact_email %}<div style="font-size:14px;margin-bottom:4px;">Email: <a href="mailto:{{ contact_email }}">{{ contact_email }}</a></div>{% endif %}
+              {% if contact_phone %}<div style="font-size:14px;margin-bottom:4px;">Phone: <a href="tel:{{ contact_phone }}">{{ contact_phone }}</a></div>{% endif %}
+              {% if hours %}<div style="font-size:13px;color:var(--muted);margin-top:8px;">Hours: {{ hours }}</div>{% endif %}
+            </div>
+          </div>
+
+          {% if scheduling_url %}
+          <div style="margin-top:16px;">
+            <a href="{{ scheduling_url }}" target="_blank" rel="noopener noreferrer"
+               class="btn btn-primary" style="display:inline-flex;align-items:center;gap:6px;">
+              {{ scheduling_label }}
+            </a>
+          </div>
+          {% endif %}
+
+          {% if not hide_resubmit %}
+          <a href="{% url 'apply' school_slug=school_slug %}" class="resubmit-link">Submit another response</a>
+          {% endif %}
+        </div>
+
       </div>
     </div>
-  <script>
-    (function () {
-      function emitHeight() {
-        if (window.parent !== window) {
-          window.parent.postMessage(
-            { type: "iframeResize", height: document.body.scrollHeight },
-            "*"
-          );
+
+    <script>
+      (function () {
+        function emitHeight() {
+          if (window.parent !== window) {
+            window.parent.postMessage(
+              { type: "iframeResize", height: document.body.scrollHeight },
+              "*"
+            );
+          }
         }
-      }
-      emitHeight();
-      window.addEventListener("load", emitHeight);
-    })();
-  </script>
+        emitHeight();
+        window.addEventListener("load", emitHeight);
+      })();
+    </script>
   </body>
 </html>
