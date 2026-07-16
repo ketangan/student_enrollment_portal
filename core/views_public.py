@@ -1525,9 +1525,9 @@ def family_status_view(request, school_slug: str, token: str):
     # submission.status is already the human-readable string (matches YAML list entries).
     status_label = submission.status or "Pending"
 
-    # Scheduling preferences stored in submission.data under sched_* keys.
-    sched_fields = _extract_sched_fields(submission.data or {})
-
+    data = submission.data or {}
+    sched_fields = _extract_sched_fields(data)
+    student_info = _extract_student_info(data, submission)
     change_requested = submission.schedule_change_requested
 
     return render(request, "family_status.html", {
@@ -1538,8 +1538,31 @@ def family_status_view(request, school_slug: str, token: str):
         "status_label": status_label,
         "public_notes": submission.public_notes or "",
         "sched_fields": sched_fields,
+        "student_info": student_info,
         "change_requested": change_requested,
     })
+
+
+def _extract_student_info(data: dict, submission) -> list[dict]:
+    """Return key student fields for display on the family status page."""
+    rows = []
+    first = str(data.get("student_first_name") or "").strip()
+    last = str(data.get("student_last_name") or "").strip()
+    name = " ".join(filter(None, [first, last]))
+    if not name:
+        name = submission.student_display_name() or ""
+    if name:
+        rows.append({"label": "Student Name", "value": name})
+    for key, label in [
+        ("instrument", "Instrument"),
+        ("student_age", "Age"),
+        ("grade_level", "Grade Level"),
+        ("enrollment_type", "Enrollment Type"),
+    ]:
+        val = str(data.get(key) or "").strip()
+        if val:
+            rows.append({"label": label, "value": val})
+    return rows
 
 
 def _extract_sched_fields(data: dict) -> list[dict]:

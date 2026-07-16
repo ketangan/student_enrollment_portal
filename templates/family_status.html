@@ -150,6 +150,18 @@
     </div>
   </div>
 
+  <!-- Student information -->
+  {% if student_info %}
+  <div class="card">
+    <div class="card__title">Student Information</div>
+    <div class="meta-row" style="flex-direction:column;gap:8px;">
+      {% for item in student_info %}
+      <div class="meta-item">{{ item.label }}: <strong>{{ item.value }}</strong></div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Notes from the school -->
   {% if public_notes %}
   <div class="card">
