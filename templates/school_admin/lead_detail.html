@@ -406,11 +406,31 @@
       {% if can_mutate and email_enabled and lead.email %}
       <div class="dash-card no-print" style="padding:18px 22px;">
         <h2 class="sidebar-label">Send Message</h2>
-        <form method="post"
+        <form method="post" id="lead-send-msg-form"
               action="{% url 'school_lead_send_message' school_slug=school_slug lead_id=lead.id %}">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ detail_url }}">
-          <div class="lead-send-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+          <input type="hidden" name="message_is_html" id="lead-msg-is-html" value="0">
+
+          {% if email_templates_json != "[]" %}
+          <div style="margin-bottom:8px;">
+            <label style="font-size:11px;color:var(--dash-muted);display:block;margin-bottom:3px;">Template</label>
+            <select id="lead-tmpl-select"
+                    style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                           border-radius:6px;font-size:13px;background:var(--dash-bg);color:var(--dash-text);"
+                    onchange="leadApplyTemplate(this.value)">
+              <option value="">— No template —</option>
+            </select>
+          </div>
+          {% endif %}
+
+          <!-- Unfilled token warning -->
+          <div id="lead-token-warning" style="display:none;margin-bottom:8px;padding:8px 12px;
+               background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;font-size:12px;color:#92400e;">
+            <strong>Unfilled placeholders:</strong> <span id="lead-token-warning-list"></span> — replace them before sending.
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
             <div>
               <label style="font-size:11px;color:var(--dash-muted);display:block;margin-bottom:3px;">To</label>
               <input type="email" name="to_email" value="{{ lead.email }}"
@@ -419,22 +439,144 @@
             </div>
             <div>
               <label style="font-size:11px;color:var(--dash-muted);display:block;margin-bottom:3px;">Subject</label>
-              <input type="text" name="subject" placeholder="Subject (optional)"
+              <input type="text" name="subject" id="lead-msg-subject"
+                     value="Regarding your inquiry"
                      style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
                             border-radius:6px;font-size:13px;box-sizing:border-box;">
             </div>
           </div>
+
           <div style="margin-bottom:10px;">
             <label style="font-size:11px;color:var(--dash-muted);display:block;margin-bottom:3px;">Message</label>
-            <textarea name="message" rows="3" required placeholder="Write your message…"
-                      style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
-                             border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;
-                             box-sizing:border-box;"></textarea>
+            <div style="border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;overflow:hidden;">
+              <div style="display:flex;gap:2px;padding:4px 6px;border-bottom:1px solid var(--dash-border,#e2e8f0);background:var(--dash-bg);">
+                <button type="button" title="Bold" onclick="document.execCommand('bold')"
+                        style="width:24px;height:24px;border:1px solid var(--dash-border,#e2e8f0);border-radius:3px;background:#fff;cursor:pointer;font-weight:700;font-size:12px;">B</button>
+                <button type="button" title="Italic" onclick="document.execCommand('italic')"
+                        style="width:24px;height:24px;border:1px solid var(--dash-border,#e2e8f0);border-radius:3px;background:#fff;cursor:pointer;font-style:italic;font-size:12px;">I</button>
+                <button type="button" title="Underline" onclick="document.execCommand('underline')"
+                        style="width:24px;height:24px;border:1px solid var(--dash-border,#e2e8f0);border-radius:3px;background:#fff;cursor:pointer;text-decoration:underline;font-size:12px;">U</button>
+              </div>
+              <div id="lead-msg-body-editor" contenteditable="true"
+                   style="min-height:80px;padding:8px;font-size:13px;line-height:1.6;outline:none;background:var(--dash-bg);color:var(--dash-text);"
+                   data-placeholder="Write your message…"></div>
+            </div>
+            <input type="hidden" name="message" id="lead-msg-body-input">
           </div>
+
           <button type="submit" class="dash-action-btn dash-action-btn--primary"
                   style="font-size:12px;padding:6px 14px;">Send</button>
         </form>
       </div>
+
+      <script>
+      (function() {
+        var templates   = {{ email_templates_json|safe }};
+        var vars        = {{ template_vars_json|safe }};
+        var sel         = document.getElementById('lead-tmpl-select');
+        var editor      = document.getElementById('lead-msg-body-editor');
+        var subjectEl   = document.getElementById('lead-msg-subject');
+        var bodyInput   = document.getElementById('lead-msg-body-input');
+        var isHtmlInput = document.getElementById('lead-msg-is-html');
+        var form        = document.getElementById('lead-send-msg-form');
+
+        if (sel && templates.length) {
+          templates.forEach(function(t) {
+            var opt = document.createElement('option');
+            opt.value = t.id;
+            opt.textContent = t.name;
+            sel.appendChild(opt);
+          });
+        }
+
+        function replaceTokens(str) {
+          return str.replace(/\{\{(\w+)\}\}/g, function(match, key) {
+            return key in vars ? vars[key] : match;
+          });
+        }
+
+        var tokenWarningEl   = document.getElementById('lead-token-warning');
+        var tokenWarningList = document.getElementById('lead-token-warning-list');
+
+        function findUnresolvedTokens(body, subject) {
+          var found = {}, re = /\{\{(\w+)\}\}/g, m;
+          while ((m = re.exec(body))    !== null) found[m[0]] = true;
+          re.lastIndex = 0;
+          while ((m = re.exec(subject)) !== null) found[m[0]] = true;
+          return Object.keys(found);
+        }
+
+        function updateTokenWarning() {
+          if (!tokenWarningEl) return;
+          var unresolved = findUnresolvedTokens(
+            editor ? editor.innerHTML : '',
+            subjectEl ? subjectEl.value : ''
+          );
+          if (unresolved.length > 0) {
+            tokenWarningList.textContent = unresolved.join(', ');
+            tokenWarningEl.style.display = '';
+          } else {
+            tokenWarningEl.style.display = 'none';
+          }
+        }
+
+        window.leadApplyTemplate = function(id) {
+          var t = templates.find(function(x) { return String(x.id) === String(id); });
+          if (!t) {
+            editor.innerHTML = '';
+            subjectEl.value  = 'Regarding your inquiry';
+            isHtmlInput.value = '0';
+            updateTokenWarning();
+            return;
+          }
+          subjectEl.value   = replaceTokens(t.subject);
+          editor.innerHTML  = replaceTokens(t.body);
+          isHtmlInput.value = '1';
+          updateTokenWarning();
+        };
+
+        if (editor)    { editor.addEventListener('input', updateTokenWarning); }
+        if (subjectEl) { subjectEl.addEventListener('input', updateTokenWarning); }
+
+        form.addEventListener('submit', function(e) {
+          var html  = editor.innerHTML.trim();
+          var plain = editor.innerText.trim();
+          if (!plain) {
+            e.preventDefault();
+            editor.style.border = '1px solid #ef4444';
+            editor.focus();
+            return;
+          }
+          var storageKey = 'send_lead_msg_draft_{{ lead.id }}';
+          sessionStorage.setItem(storageKey, JSON.stringify({
+            subject: subjectEl.value,
+            body: html,
+            isHtml: isHtmlInput.value,
+          }));
+          bodyInput.value   = html;
+          isHtmlInput.value = isHtmlInput.value || (editor.querySelector('b,i,u,strong,em') ? '1' : '0');
+        });
+
+        (function() {
+          var storageKey = 'send_lead_msg_draft_{{ lead.id }}';
+          var hasError = document.querySelector('[data-level="error"]');
+          var draft = sessionStorage.getItem(storageKey);
+          if (draft && hasError) {
+            try {
+              var d = JSON.parse(draft);
+              if (d.body && editor)       { editor.innerHTML = d.body; }
+              if (d.subject && subjectEl) { subjectEl.value = d.subject; }
+              if (d.isHtml && isHtmlInput) { isHtmlInput.value = d.isHtml; }
+            } catch(e) {}
+          }
+          if (!hasError) { sessionStorage.removeItem(storageKey); }
+        })();
+
+        if (editor) {
+          editor.addEventListener('focus', function() { editor.style.border = ''; });
+        }
+      })();
+      </script>
       {% endif %}
 
       <!-- Activity -->

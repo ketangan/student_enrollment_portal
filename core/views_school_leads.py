@@ -632,6 +632,25 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
     prev_lead = Lead.objects.filter(school=school, id__lt=lead.id).order_by("-id").first()
     next_lead = Lead.objects.filter(school=school, id__gt=lead.id).order_by("id").first()
 
+    # Email templates for the compose form
+    import json as _json
+    from core.models import SchoolEmailTemplate
+    _templates = SchoolEmailTemplate.objects.filter(school=school, is_active=True).order_by("name")
+    email_templates_json = _json.dumps([
+        {"id": t.pk, "name": t.name, "subject": t.subject, "body": t.body}
+        for t in _templates
+    ])
+    _full_name = lead.name or ""
+    _first_name = _full_name.split()[0] if _full_name else ""
+    template_vars_json = _json.dumps({
+        "full_name":   _full_name,
+        "first_name":  _first_name,
+        "email":       lead.email or "",
+        "program":     lead.interested_in_label or "",
+        "status":      lead.status or "",
+        "school_name": school.display_name or "",
+    })
+
     ctx = _school_admin_base_context(request, school, "leads")
     ctx.update({
         "lead": lead,
@@ -648,6 +667,8 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
         "program_options": program_options,
         "django_admin_url": reverse("admin:core_lead_change", args=[lead.id]),
         "email_enabled": school.features.email_notifications_enabled,
+        "email_templates_json": email_templates_json,
+        "template_vars_json": template_vars_json,
         "lead_pipeline": lead_pipeline,
         "status_transition_keys": status_transition_keys,
         "has_workflow_transitions": has_workflow_transitions,
@@ -1267,6 +1288,8 @@ def school_lead_send_message_view(request, school_slug: str, lead_id: int):
         messages.error(request, "Message cannot be empty.")
         return redirect(redirect_url)
 
+    is_html = request.POST.get("message_is_html") == "1"
+
     config = _safe_load_school_config(school_slug)
     subject = request.POST.get("subject", "").strip() or f"Message from {school.display_name}"
     from_email = _resolve_from_email(getattr(config, "raw", {}))
@@ -1277,6 +1300,7 @@ def school_lead_send_message_view(request, school_slug: str, lead_id: int):
         message=message,
         school_name=school.display_name,
         from_email=from_email,
+        is_html=is_html,
         school=school,
     )
 

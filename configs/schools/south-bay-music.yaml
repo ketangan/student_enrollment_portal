@@ -348,8 +348,6 @@ success:
 admin:
   submission_statuses:
     - New
-    - Trial Scheduled
-    - Trial Completed
     - In Review
     - Enrolled
     - Waitlisted
@@ -363,9 +361,6 @@ admin:
       new_registrations:
         label: "New"
         statuses: ["New"]
-      trial:
-        label: "Trial"
-        statuses: ["Trial Scheduled", "Trial Completed"]
       in_review:
         label: "In Review"
         statuses: ["In Review", "Needs Follow Up"]
@@ -381,34 +376,18 @@ admin:
 
     transitions:
       New:
-        - label: "Schedule Trial Lesson"
-          status: "Trial Scheduled"
         - label: "Mark Needs Follow Up"
           status: "Needs Follow Up"
         - label: "Archive"
           status: "Archived"
-      Trial Scheduled:
-        - label: "Mark Trial Completed"
-          status: "Trial Completed"
-        - label: "Archive"
-          status: "Archived"
-      Trial Completed:
-        - label: "Enroll"
-          status: "Enrolled"
-        - label: "Waitlist"
-          status: "Waitlisted"
-        - label: "Decline"
-          status: "Declined"
       In Review:
-        - label: "Schedule Trial Lesson"
-          status: "Trial Scheduled"
         - label: "Enroll"
           status: "Enrolled"
         - label: "Archive"
           status: "Archived"
       Needs Follow Up:
-        - label: "Schedule Trial Lesson"
-          status: "Trial Scheduled"
+        - label: "Mark In Review"
+          status: "In Review"
         - label: "Archive"
           status: "Archived"
       Waitlisted:
