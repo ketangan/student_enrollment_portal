@@ -263,6 +263,11 @@ form:
           type: select
           required: true
           full_width: true
+          auto_select_from:
+            field: lesson_time_status
+            mapping:
+              new_student: new_student_fee
+              returning_student: returning_student_fee
           options:
             - label: "New Students: I understand that enrollment includes a one-time $125 Conservatory Assessment & Placement Fee (per student)"
               value: new_student_fee
@@ -300,6 +305,16 @@ form:
           required: true
           full_width: true
           checkbox_label: "I have read and agree to abide by the SBMC Studio Policies and understand that continued enrollment constitutes agreement with current policies."
+
+application_fee:
+  enabled: true
+  description: "Conservatory Registration Fee"
+  amount_from_field:
+    field: lesson_time_status
+    amounts:
+      new_student: 125
+      returning_student: 75
+    default: 125
 
 success:
   title: "Registration Received!"

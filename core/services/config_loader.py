@@ -261,18 +261,44 @@ def find_email_field_key(config_raw: dict) -> Optional[str]:
     return required_key or optional_key
 
 
-def get_application_fee_config(config_raw: dict, form_key: str) -> dict:
+def get_application_fee_config(config_raw: dict, form_key: str, form_data: dict | None = None) -> dict:
     """
     Returns fee metadata for the given form_key from the school's YAML config.
     Always safe to call — returns enabled=False when no fee block is configured.
+
+    Supports conditional amounts via ``amount_from_field``:
+      application_fee:
+        enabled: true
+        amount_from_field:
+          field: lesson_time_status
+          amounts:
+            new_student: 125
+            returning_student: 75
+          default: 0
     """
     fee = config_raw.get("application_fee") or {}
     enabled = bool(fee.get("enabled", False))
     waived_for = fee.get("waived_for_forms") or []
+
+    amount = 0
+    if enabled:
+        if "amount_from_field" in fee:
+            cfg = fee["amount_from_field"]
+            field_key = cfg.get("field", "")
+            amounts_map = cfg.get("amounts") or {}
+            default_amt = int(cfg.get("default", 0))
+            if form_data and field_key:
+                field_val = str(form_data.get(field_key) or "")
+                amount = int(amounts_map.get(field_val, default_amt))
+            else:
+                amount = default_amt
+        else:
+            amount = int(fee.get("amount", 0))
+
     return {
         "enabled": enabled,
-        "amount": int(fee.get("amount", 0)) if enabled else 0,
-        "description": fee.get("description", "Application fee"),
+        "amount": amount,
+        "description": fee.get("description", "Registration fee"),
         "waived": form_key in waived_for,
     }
 

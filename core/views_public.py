@@ -589,7 +589,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
             # --- Application fee gate ---
             # Use URL form_key for waiver check (single-form schools use "default"; multi-key
             # schools with multi_form_enabled=False still route each key through this branch).
-            fee_cfg = get_application_fee_config(raw_config, form_key)
+            fee_cfg = get_application_fee_config(raw_config, form_key, form_data=cleaned)
             if fee_cfg["enabled"] and not fee_cfg["waived"] and school.app_fee_stripe_public_key:
                 active_draft = _resolve_active_draft(request, school, school_slug)
                 draft = _save_draft(
@@ -776,7 +776,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
             return redirect(reverse("apply_form", kwargs={"school_slug": school_slug, "form_key": next_key}))
 
         # Final step — check application fee before creating Submission
-        fee_cfg = get_application_fee_config(raw_config, form_key)
+        fee_cfg = get_application_fee_config(raw_config, form_key, form_data=draft.data or {})
         if fee_cfg["enabled"] and not fee_cfg["waived"] and school.app_fee_stripe_public_key:
             return redirect(reverse(
                 "apply_payment",
@@ -838,7 +838,7 @@ def apply_payment_view(request, school_slug: str, draft_token: str):
     raw_config = getattr(config, "raw", {}) or {}
     # Use last_form_key (multi-form) or form_key (single-form) for fee lookup
     effective_form_key = draft.last_form_key or draft.form_key or "default"
-    fee_cfg = get_application_fee_config(raw_config, effective_form_key)
+    fee_cfg = get_application_fee_config(raw_config, effective_form_key, form_data=draft.data or {})
 
     if not (fee_cfg["enabled"] and not fee_cfg["waived"] and school.app_fee_stripe_public_key):
         # No fee applicable — complete directly
@@ -933,7 +933,7 @@ def apply_payment_confirm_view(request, school_slug: str, draft_token: str):
             "school_slug": school_slug,
             "config": config,
             "branding": branding,
-            "fee_cfg": get_application_fee_config(raw_config, draft.last_form_key or draft.form_key or "default"),
+            "fee_cfg": get_application_fee_config(raw_config, draft.last_form_key or draft.form_key or "default", form_data=draft.data or {}),
             "stripe_public_key": school.app_fee_stripe_public_key,
             "client_secret": None,
             "confirm_url": app_reverse("apply_payment_confirm", kwargs={"school_slug": school_slug, "draft_token": draft_token}),

@@ -168,6 +168,24 @@
                       </select>
                       {% endif %}
 
+                    {% if field.auto_select_from %}
+                    <script>
+                    (function(){
+                      var mapping={};
+                      {% for k,v in field.auto_select_from.mapping.items %}mapping["{{ k }}"]="{{ v }}";
+                      {% endfor %}
+                      var dst=document.querySelector('select[name="{{ field.key }}"]');
+                      if(!dst) return;
+                      function sync(){
+                        var checked=document.querySelector('input[name="{{ field.auto_select_from.field }}"]:checked');
+                        if(checked && mapping[checked.value]) dst.value=mapping[checked.value];
+                      }
+                      document.querySelectorAll('input[name="{{ field.auto_select_from.field }}"]').forEach(function(el){el.addEventListener('change',sync);});
+                      sync();
+                    })();
+                    </script>
+                    {% endif %}
+
                     {# --- MULTISELECT (checkbox list) --- #}
                     {% elif field.type == "multiselect" and field.ui == "checkboxes" %}
                       <div class="label" style="margin-bottom:8px;">
