@@ -29,6 +29,10 @@ form:
     Complete this form to register your student at South Bay Music Conservatory.
     Our team will follow up within 1–2 business days to confirm scheduling and next steps.
   submit_button_text: "Submit Registration"
+  notice:
+    text: "Don't have a confirmed lesson time yet, or need to change your current time? Please fill out the Lesson Scheduling Form before submitting this registration."
+    link_text: "Open Lesson Scheduling Form →"
+    link_url: "/schools/south-bay-music/lead/scheduling/"
 
   sections:
 

@@ -48,19 +48,12 @@
       <div class="container">
 
         {% if not embed_mode %}
-        <!-- Header -->
-        <div class="header">
-          <div class="school-logo">
-            {% if branding.logo_url %}
-              <img src="{{ branding.logo_url }}" alt="logo" style="width:100%; height:100%; object-fit:cover;" />
-            {% else %}
-              <span aria-hidden="true">🏫</span>
-            {% endif %}
-          </div>
-
-          <div>
-            <div class="school-title">{{ school.display_name|default:school.slug }}</div>
-          </div>
+        <div class="logo">
+          {% if branding.logo_url %}
+            <img src="{{ branding.logo_url }}" alt="{{ school.display_name }}">
+          {% else %}
+            <span class="logo-text">{{ school.display_name|default:school.slug }}</span>
+          {% endif %}
         </div>
 
         {% if form.title %}
@@ -68,6 +61,12 @@
         {% endif %}
         {% if form.description %}
           <p class="form-page-subtitle">{{ form.description }}</p>
+        {% endif %}
+
+        {% if form.notice %}
+          <div class="form-notice">
+            <p>{{ form.notice.text }}{% if form.notice.link_url %} <a href="{{ form.notice.link_url }}" target="_blank" rel="noopener">{{ form.notice.link_text|default:"Learn more →" }}</a>{% endif %}</p>
+          </div>
         {% endif %}
         {% endif %}
 

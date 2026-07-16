@@ -64,6 +64,25 @@ html, body {
   margin-top: 2px;
 }
 
+/* Shared logo header (enrollment form + lead form) */
+.logo { text-align: center; margin-bottom: 20px; }
+.logo img { max-height: 56px; width: auto; }
+.logo-text { font-size: 20px; font-weight: 700; color: var(--primary); }
+
+/* Informational callout above form sections */
+.form-notice {
+  background: #eff8ff;
+  border-left: 3px solid #3b82f6;
+  color: #1e3a5f;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+.form-notice p { margin: 0; }
+.form-notice a { color: #2563eb; font-weight: 600; }
+
 .notice {
   background: #fff7ed;
   border: 1px solid #fed7aa;
