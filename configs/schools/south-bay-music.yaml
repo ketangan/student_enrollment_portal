@@ -29,22 +29,24 @@ form:
     Complete this form to register your student at South Bay Music Conservatory.
     Our team will follow up within 1–2 business days to confirm scheduling and next steps.
   submit_button_text: "Submit Registration"
+  notice:
+    text: "Already registered? Check your application status."
+    link_url: "/schools/south-bay-music/status/"
+    link_text: "View status →"
 
   sections:
 
     - title: "Enrollment Type"
       fields:
         - key: lesson_time_status
-          label: "Lesson Time Status"
-          type: select
+          label: "Are you a new or returning student?"
+          type: radio
           required: true
           options:
-            - label: "Returning student — I have a specific time slot I want to keep"
-              value: returning_keep_slot
-            - label: "Returning student — I need a new time slot"
-              value: returning_new_slot
             - label: "New student"
               value: new_student
+            - label: "Returning student"
+              value: returning_student
 
     - title: "Lesson Scheduling Preferences"
       description: "If you need a new time slot or are a new student, let us know your scheduling preferences below. We'll do our best to match your request."

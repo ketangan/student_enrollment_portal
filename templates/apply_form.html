@@ -102,11 +102,12 @@
                     {% if field.type == 'textarea' %}span-2{% endif %}
                     {% if field.type == 'file' %}span-2{% endif %}
                     {% if field.type == 'waiver' %}span-2{% endif %}
+                    {% if field.type == 'radio' %}span-2{% endif %}
                     {% if field.full_width %}span-2{% endif %}
                   ">
 
-                    {# Standard label (not for checkbox) #}
-                    {% if field.type != "checkbox" and field.type != "multiselect" and field.type != "waiver" %}
+                    {# Standard label (not for checkbox, multiselect checkboxes, waiver, or radio — those render their own label) #}
+                    {% if field.type != "checkbox" and field.type != "multiselect" and field.type != "waiver" and field.type != "radio" %}
                     <label class="label" for="{{ field.key }}">
                         {{ field.label }}
                         {% if field.required %}<span class="required">*</span>{% endif %}
@@ -201,6 +202,27 @@
                         {% endfor %}
                       </select>
                       <div class="help">Hold ⌘ (Mac) / Ctrl (Windows) to select multiple.</div>
+
+                    {# --- RADIO --- #}
+                    {% elif field.type == "radio" %}
+                      <div class="label" style="margin-bottom:8px;">
+                        {{ field.label }}
+                        {% if field.required %}<span class="required">*</span>{% endif %}
+                      </div>
+                      <div class="checklist">
+                        {% for opt in field.options %}
+                          <label class="check-item">
+                            <input
+                              class="check"
+                              type="radio"
+                              name="{{ field.key }}"
+                              value="{{ opt.value }}"
+                              {% if values|get_item:field.key == opt.value %}checked{% endif %}
+                            />
+                            <span>{{ opt.label }}</span>
+                          </label>
+                        {% endfor %}
+                      </div>
 
                     {# --- CHECKBOX --- #}
                     {% elif field.type == "checkbox" %}
