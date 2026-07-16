@@ -73,11 +73,23 @@
       line-height: 1.6;
     }
 
-    /* Scheduling */
-    .sched-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
-    .sched-row:last-child { margin-bottom: 0; }
-    .sched-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
-    .sched-value { font-size: 14px; color: var(--text); }
+    /* Scheduling summary */
+    .sched-grid { display: flex; flex-direction: column; gap: 0; }
+    .sched-row {
+      display: grid; grid-template-columns: 160px 1fr;
+      gap: 8px; padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      align-items: baseline;
+    }
+    .sched-row:last-child { border-bottom: none; }
+    .sched-label { font-size: 13px; color: var(--muted); }
+    .sched-value { font-size: 14px; color: var(--text); font-weight: 500; }
+    .sched-pill {
+      display: inline-block; padding: 2px 10px;
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+      color: var(--accent); border-radius: 999px;
+      font-size: 13px; font-weight: 500; margin-right: 4px;
+    }
 
     /* Change request form */
     .change-form { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px; }
@@ -175,26 +187,33 @@
     <div class="card__title">Lesson Scheduling Preferences</div>
 
     {% if sched_fields %}
+    <div class="sched-grid">
       {% for f in sched_fields %}
       <div class="sched-row">
         <div class="sched-label">{{ f.label }}</div>
-        <div class="sched-value">{{ f.value }}</div>
+        <div class="sched-value">
+          {% if f.items %}
+            {% for v in f.items %}<span class="sched-pill">{{ v|title }}</span>{% endfor %}
+          {% else %}
+            {{ f.value }}
+          {% endif %}
+        </div>
       </div>
       {% endfor %}
+    </div>
     {% else %}
-      <p style="margin:0;font-size:14px;color:var(--muted);">No scheduling preferences recorded yet.</p>
+      <p style="margin:0;font-size:14px;color:var(--muted);">No scheduling preferences on file.</p>
     {% endif %}
 
     {% if change_requested %}
-    <div class="alert-pending">
-      A scheduling change request is pending — the school has been notified and will follow up.
+    <div class="alert-pending" style="margin-top:16px;">
+      Your change request is pending — we'll be in touch to confirm.
     </div>
     {% else %}
 
-    <!-- Toggle button to show/hide change request form -->
-    <div style="margin-top:16px;">
+    <div style="margin-top:18px;">
       <button type="button" class="btn-toggle" id="js-toggle-form">
-        {% if sched_fields %}Edit Scheduling Preferences{% else %}Submit Scheduling Preferences{% endif %}
+        {% if sched_fields %}Request a Change{% else %}Submit Scheduling Preferences{% endif %}
       </button>
     </div>
 

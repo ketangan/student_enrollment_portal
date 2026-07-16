@@ -1511,7 +1511,7 @@ def family_status_view(request, school_slug: str, token: str):
     if not school.features.family_portal_enabled:
         raise Http404
 
-    submission = get_object_or_404(Submission, school=school, status_token=token)
+    submission = get_object_or_404(Submission.objects.select_related("program"), school=school, status_token=token)
 
     config = None
     try:
@@ -1552,13 +1552,19 @@ def _extract_student_info(data: dict, submission) -> list[dict]:
     if not name:
         name = submission.student_display_name() or ""
     if name:
-        rows.append({"label": "Student Name", "value": name})
-    for key, label in [
-        ("instrument", "Instrument"),
-        ("student_age", "Age"),
-        ("grade_level", "Grade Level"),
-        ("enrollment_type", "Enrollment Type"),
-    ]:
+        rows.append({"label": "Student", "value": name})
+
+    # Instrument: prefer DB program name, fall back to stripping internal prefix
+    if submission.program_id and submission.program:
+        rows.append({"label": "Instrument", "value": submission.program.name})
+    else:
+        raw = str(data.get("instrument") or "").strip()
+        if raw:
+            if raw.startswith("program:"):
+                raw = raw[len("program:"):].replace("-", " ").title()
+            rows.append({"label": "Instrument", "value": raw})
+
+    for key, label in [("enrollment_type", "Enrollment Type")]:
         val = str(data.get(key) or "").strip()
         if val:
             rows.append({"label": label, "value": val})
@@ -1580,9 +1586,9 @@ def _extract_sched_fields(data: dict) -> list[dict]:
         if raw:
             if isinstance(raw, list):
                 value = ", ".join(str(v) for v in raw)
+                result.append({"key": key, "label": label, "value": value, "items": [str(v) for v in raw]})
             else:
-                value = str(raw)
-            result.append({"key": key, "label": label, "value": value})
+                result.append({"key": key, "label": label, "value": str(raw), "items": None})
     return result
 
 
