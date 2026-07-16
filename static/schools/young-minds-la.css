@@ -23,30 +23,20 @@ h1, h2, h3 {
 }
 
 /* Header */
-.header {
-  align-items: center !important;
-  gap: 28px !important;
+.logo {
+  text-align: left !important;
   padding-bottom: 18px !important;
   margin-bottom: 24px !important;
   border-bottom: 1px solid #e9e3d6 !important;
 }
 
-.school-logo {
+.logo img {
+  max-height: none !important;
   width: 120px !important;
-  height: auto !important;
-  min-width: 120px !important;
-  background: transparent !important;
-  border-radius: 0 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-.school-logo img {
   object-fit: contain !important;
 }
 
-.school-title {
+.logo-text {
   font-size: 15px !important;
   font-weight: 400 !important;
   letter-spacing: 0.08em !important;
@@ -252,17 +242,11 @@ input[type="checkbox"] + label {
     padding-top: 22px !important;
   }
 
-  .header {
-    gap: 16px !important;
-    align-items: flex-start !important;
-  }
-
-  .school-logo {
+  .logo img {
     width: 92px !important;
-    min-width: 92px !important;
   }
 
-  .school-title {
+  .logo-text {
     font-size: 13px !important;
   }
 

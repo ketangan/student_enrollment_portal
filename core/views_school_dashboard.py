@@ -637,7 +637,7 @@ def school_settings_view(request, school_slug: str):
             messages.success(request, f'Display name updated to "{new_name}".')
         return redirect("school_settings", school_slug=school_slug)
 
-    if action == "update_follow_up_days":
+    if request.method == "POST" and request.POST.get("action") == "update_follow_up_days":
         try:
             days = int(request.POST.get("follow_up_days", ""))
             if not (1 <= days <= 30):

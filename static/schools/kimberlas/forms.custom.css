@@ -1,10 +1,5 @@
 /* Kimberlas per-school overrides (Phase 9 test) */
 
-/* Make the header slightly more “brand-y” */
-.header {
-  padding-bottom: 6px;
-}
-
 /* Slightly tighten checklist spacing */
 .checklist {
   padding: 10px;
