@@ -146,12 +146,6 @@
     <div class="school-name-text">{{ school_name }}</div>
   </div>
 
-  {% if request.GET.change == "requested" %}
-  <div class="alert-success" style="margin-bottom:16px;">
-    Your scheduling change request has been sent. Emily will be in touch to confirm.
-  </div>
-  {% endif %}
-
   <!-- Status card -->
   <div class="card">
     <div class="card__title">Application Status</div>
@@ -206,8 +200,12 @@
     {% endif %}
 
     {% if change_requested %}
-    <div class="alert-pending" style="margin-top:16px;">
-      Your change request is pending — we'll be in touch to confirm.
+    <div class="{% if request.GET.change == 'requested' %}alert-success{% else %}alert-pending{% endif %}" style="margin-top:16px;">
+      {% if request.GET.change == "requested" %}
+        Your request has been received. The school will be in touch to confirm your new schedule.
+      {% else %}
+        A scheduling change request is pending — the school will be in touch to confirm.
+      {% endif %}
     </div>
     {% else %}
 
