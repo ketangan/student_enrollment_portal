@@ -799,14 +799,14 @@
         </h2>
 
         {% if sched_fields %}
-        <div style="margin-bottom:12px;">
+        <table class="snapshot-table" style="width:100%;margin-bottom:12px;">
           {% for f in sched_fields %}
-          <div style="margin-bottom:8px;">
-            <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--dash-muted);margin-bottom:2px;">{{ f.label }}</div>
-            <div style="font-size:13px;color:var(--dash-text);">{{ f.value }}</div>
-          </div>
+          <tr>
+            <td>{{ f.label }}</td>
+            <td style="font-size:13px;color:var(--dash-text);">{{ f.value }}</td>
+          </tr>
           {% endfor %}
-        </div>
+        </table>
         {% else %}
         <p style="font-size:12px;color:var(--dash-muted);margin:0 0 12px;">No scheduling preferences recorded.</p>
         {% endif %}
