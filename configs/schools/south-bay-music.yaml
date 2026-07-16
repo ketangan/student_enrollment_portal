@@ -25,9 +25,6 @@ program_field_key: "instrument"
 
 form:
   title: "Student Registration"
-  description: >
-    Complete this form to register your student at South Bay Music Conservatory.
-    Our team will follow up within 1–2 business days to confirm scheduling and next steps.
   submit_button_text: "Submit Registration"
   notice:
     text: "If you do not have a confirmed lesson time or need to change a previous time, please visit your"
