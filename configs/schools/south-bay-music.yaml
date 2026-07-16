@@ -30,9 +30,11 @@ form:
     Our team will follow up within 1–2 business days to confirm scheduling and next steps.
   submit_button_text: "Submit Registration"
   notice:
-    text: "Already registered? Check your application status."
+    text: "If you do not have a confirmed lesson time or need to change a previous time, please visit your"
     link_url: "/schools/south-bay-music/status/"
-    link_text: "View status →"
+    link_text: "Application Status page"
+    text_after: " to update your scheduling preferences."
+    body: "This form can be updated as summer and fall scheduling becomes clear. We appreciate everyone's cooperation and flexibility with finding preferred lesson times. Thank you!"
 
   sections:
 

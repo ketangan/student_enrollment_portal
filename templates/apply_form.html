@@ -65,7 +65,8 @@
 
         {% if form.notice %}
           <div class="form-notice">
-            <p>{{ form.notice.text }}{% if form.notice.link_url %} <a href="{{ form.notice.link_url }}" target="_blank" rel="noopener">{{ form.notice.link_text|default:"Learn more →" }}</a>{% endif %}</p>
+            <p>{{ form.notice.text }}{% if form.notice.link_url %} <a href="{{ form.notice.link_url }}" target="_blank" rel="noopener">{{ form.notice.link_text|default:"Learn more →" }}</a>{% if form.notice.text_after %}{{ form.notice.text_after }}{% endif %}{% endif %}</p>
+            {% if form.notice.body %}<p style="margin-top:6px;">{{ form.notice.body }}</p>{% endif %}
           </div>
         {% endif %}
         {% endif %}
