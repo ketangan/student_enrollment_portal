@@ -44,6 +44,10 @@ if IS_PROD and (not os.getenv("DJANGO_SECRET_KEY")):
 
 IS_TESTING = ("pytest" in sys.modules) or (os.getenv("PYTEST_RUNNING") == "1")
 
+# When True, the application-fee payment step is skipped entirely (dev/CI use only).
+# Never set this in production — the gate in views_public.py checks IS_PROD first.
+DEV_SKIP_PAYMENT = (not IS_PROD) and (os.getenv("DEV_SKIP_PAYMENT", "False") == "True")
+
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",") if os.getenv("ALLOWED_HOSTS") else []
 
 # Django admin URL prefix (must include trailing slash, e.g. "admin/" or "internal-admin/").

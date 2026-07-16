@@ -18,6 +18,7 @@ urlpatterns = [
     path("schools/<slug:school_slug>/apply/resume/<str:token>/", views.resume_draft_view, name="apply_resume"),
     path("schools/<slug:school_slug>/apply/pay/<str:draft_token>/", views.apply_payment_view, name="apply_payment"),
     path("schools/<slug:school_slug>/apply/pay/<str:draft_token>/confirm/", views.apply_payment_confirm_view, name="apply_payment_confirm"),
+    path("schools/<slug:school_slug>/apply/pay/<str:draft_token>/bypass/", views.apply_payment_bypass_view, name="apply_payment_bypass"),
 
     path("schools/<slug:school_slug>/apply/<slug:form_key>/", views.apply_view, name="apply_form"),
 

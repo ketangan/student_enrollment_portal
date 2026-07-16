@@ -16,6 +16,7 @@ Coverage:
 from unittest import mock
 
 import pytest
+from django.test import override_settings
 from django.urls import reverse
 
 from core.models import DraftSubmission, School, Submission
@@ -136,6 +137,7 @@ def test_apply_view_wizard_creates_draft_before_payment_redirect(client, maplewo
 
 
 @pytest.mark.django_db
+@override_settings(DEV_SKIP_PAYMENT=False)
 def test_apply_view_wizard_skips_payment_when_no_stripe_keys(client, maplewood_school):
     """
     School has fee enabled in YAML but no Stripe keys configured in DB.

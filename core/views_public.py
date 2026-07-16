@@ -8,6 +8,7 @@ from collections import Counter
 from datetime import date, datetime, timedelta
 from urllib.parse import urlencode
 
+from django.conf import settings
 from django.utils.http import url_has_allowed_host_and_scheme
 
 logger = logging.getLogger(__name__)
@@ -590,7 +591,8 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
             # Use URL form_key for waiver check (single-form schools use "default"; multi-key
             # schools with multi_form_enabled=False still route each key through this branch).
             fee_cfg = get_application_fee_config(raw_config, form_key, form_data=cleaned)
-            if fee_cfg["enabled"] and not fee_cfg["waived"] and school.app_fee_stripe_public_key:
+            _stripe_ready = bool(school.app_fee_stripe_public_key) or settings.DEV_SKIP_PAYMENT
+            if fee_cfg["enabled"] and not fee_cfg["waived"] and _stripe_ready:
                 active_draft = _resolve_active_draft(request, school, school_slug)
                 draft = _save_draft(
                     school=school, form_key=form_key, cleaned=cleaned,
@@ -777,7 +779,8 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
 
         # Final step — check application fee before creating Submission
         fee_cfg = get_application_fee_config(raw_config, form_key, form_data=draft.data or {})
-        if fee_cfg["enabled"] and not fee_cfg["waived"] and school.app_fee_stripe_public_key:
+        _stripe_ready = bool(school.app_fee_stripe_public_key) or settings.DEV_SKIP_PAYMENT
+        if fee_cfg["enabled"] and not fee_cfg["waived"] and _stripe_ready:
             return redirect(reverse(
                 "apply_payment",
                 kwargs={"school_slug": school_slug, "draft_token": draft.token},
@@ -840,7 +843,8 @@ def apply_payment_view(request, school_slug: str, draft_token: str):
     effective_form_key = draft.last_form_key or draft.form_key or "default"
     fee_cfg = get_application_fee_config(raw_config, effective_form_key, form_data=draft.data or {})
 
-    if not (fee_cfg["enabled"] and not fee_cfg["waived"] and school.app_fee_stripe_public_key):
+    _stripe_ready = bool(school.app_fee_stripe_public_key) or settings.DEV_SKIP_PAYMENT
+    if not (fee_cfg["enabled"] and not fee_cfg["waived"] and _stripe_ready):
         # No fee applicable — complete directly
         form_cfg = config.form if hasattr(config, "form") else {}
         return _complete_submission_from_draft(
@@ -852,6 +856,24 @@ def apply_payment_view(request, school_slug: str, draft_token: str):
     student_first = (draft.data or {}).get("student_first_name", "")
     student_last = (draft.data or {}).get("student_last_name", "")
     student_name = f"{student_first} {student_last}".strip() or draft.email or "Applicant"
+
+    # Dev bypass: show the payment page UI without creating a Stripe PaymentIntent.
+    if settings.DEV_SKIP_PAYMENT and not school.app_fee_stripe_public_key:
+        bypass_url = reverse("apply_payment_bypass", kwargs={"school_slug": school_slug, "draft_token": draft_token})
+        return render(request, "apply_payment.html", {
+            "school": school,
+            "school_slug": school_slug,
+            "config": config,
+            "branding": branding,
+            "fee_cfg": fee_cfg,
+            "stripe_public_key": "",
+            "client_secret": None,
+            "confirm_url": "",
+            "student_name": student_name,
+            "embed_mode": request.GET.get("embed") == "1",
+            "dev_bypass_mode": True,
+            "bypass_url": bypass_url,
+        })
 
     try:
         client_secret, _pi_id = create_application_fee_intent(
@@ -886,6 +908,8 @@ def apply_payment_view(request, school_slug: str, draft_token: str):
         "confirm_url": confirm_url,
         "student_name": student_name,
         "embed_mode": request.GET.get("embed") == "1",
+        "dev_bypass_mode": False,
+        "bypass_url": "",
     })
 
 
@@ -954,6 +978,44 @@ def apply_payment_confirm_view(request, school_slug: str, draft_token: str):
         form_cfg=form_cfg,
         payment_intent_id=payment_intent_id,
         payment_status="paid",
+    )
+
+
+@xframe_options_exempt
+@require_http_methods(["POST"])
+def apply_payment_bypass_view(request, school_slug: str, draft_token: str):
+    """
+    Dev-only endpoint: completes a submission without Stripe when DEV_SKIP_PAYMENT=True.
+    Hard 404 in production — the settings guard ensures IS_PROD=False before this is reachable.
+    """
+    if not settings.DEV_SKIP_PAYMENT:
+        raise Http404("Not available")
+
+    try:
+        config = load_school_config(school_slug)
+    except Exception:
+        raise Http404("School configuration unavailable.")
+    if config is None:
+        raise Http404("School config not found")
+
+    branding = merge_branding(getattr(config, "branding", None))
+    school = _get_or_create_school_from_config(school_slug, config, branding)
+    draft = get_object_or_404(DraftSubmission, token=draft_token, school=school)
+
+    if draft.submitted_at:
+        return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
+
+    raw_config = getattr(config, "raw", {}) or {}
+    form_cfg = config.form if hasattr(config, "form") else {}
+    return _complete_submission_from_draft(
+        request=request,
+        school=school,
+        school_slug=school_slug,
+        draft=draft,
+        raw_config=raw_config,
+        config=config,
+        form_cfg=form_cfg,
+        payment_status="dev_bypass",
     )
 
 
