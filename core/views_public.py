@@ -1009,6 +1009,7 @@ def apply_success_view(request, school_slug: str):
 
     hours = success_cfg.get("hours") or ""
     response_time = success_cfg.get("response_time") or ""
+    hide_resubmit = bool(success_cfg.get("hide_resubmit", False))
 
     scheduling_cfg = (getattr(config, "raw", None) or {}).get("scheduling") or {}
     scheduling_url = (scheduling_cfg.get("url") or "").strip()
@@ -1041,6 +1042,7 @@ def apply_success_view(request, school_slug: str):
             "scheduling_label": scheduling_label,
             "on_waitlist": on_waitlist,
             "waitlist_message": waitlist_message,
+            "hide_resubmit": hide_resubmit,
         },
     )
 

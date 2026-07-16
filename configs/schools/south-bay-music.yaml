@@ -272,19 +272,17 @@ success:
   title: "Registration Received!"
   message: >
     Thank you — we've received your registration for South Bay Music Conservatory.
-    Our team will review your student's information and reach out within 1–2 business days
-    to confirm scheduling and next steps.
+    We'll be in touch within 1–2 business days to confirm your lesson schedule and next steps.
   response_time: "1–2 business days"
   next_steps:
-    - "We'll review your student's information and instrument selection."
-    - "We'll be in touch to schedule a 30-minute trial lesson ($30) so your student can meet a teacher."
-    - "After the trial, we'll confirm enrollment and set up a regular lesson schedule."
-    - "Monthly billing starts once you're enrolled — no long-term commitment required."
+    - "We'll review your registration and confirm your lesson schedule."
+    - "Monthly tuition billing begins once enrollment is confirmed — no long-term commitment required."
   contact:
     name: "South Bay Music Conservatory"
     email: "info@sbmusicconservatory.com"
     phone: "424-399-5816"
   hours: "Text or call 424-399-5816 · info@sbmusicconservatory.com"
+  hide_resubmit: true
 
   notifications:
     submission_email:
