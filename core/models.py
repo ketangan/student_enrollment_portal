@@ -268,7 +268,7 @@ class SchoolAdminMembership(models.Model):
     school     = models.ForeignKey(School, on_delete=models.CASCADE, related_name="admin_memberships")
     role       = models.CharField(max_length=10, choices=Role.choices, default=Role.OWNER)
     is_active  = models.BooleanField(default=True, db_index=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
     created_by = models.ForeignKey(
         User, null=True, blank=True,
         on_delete=models.SET_NULL,
@@ -720,6 +720,7 @@ class DraftSubmission(models.Model):
 LEAD_STATUS_NEW = "new"
 LEAD_STATUS_CONTACTED = "contacted"
 LEAD_STATUS_TRIAL_SCHEDULED = "trial_scheduled"
+LEAD_STATUS_TRIAL_COMPLETED = "trial_completed"
 LEAD_STATUS_ENROLLED = "enrolled"
 LEAD_STATUS_LOST = "lost"
 
@@ -727,6 +728,7 @@ LEAD_STATUS_CHOICES = [
     (LEAD_STATUS_NEW, "New"),
     (LEAD_STATUS_CONTACTED, "Contacted"),
     (LEAD_STATUS_TRIAL_SCHEDULED, "Trial Scheduled"),
+    (LEAD_STATUS_TRIAL_COMPLETED, "Trial Completed"),
     (LEAD_STATUS_ENROLLED, "Enrolled"),
     (LEAD_STATUS_LOST, "Lost"),
 ]

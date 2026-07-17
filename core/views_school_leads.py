@@ -639,6 +639,31 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
     # label in form_fields_labeled — suppress the generic "Interested in" row in Contact
     show_interested_in = bool(lead.interested_in_label and not redirect_url_field)
 
+    # Editable form fields for the combined Edit Details card (excludes name_field_key)
+    form_fields_editable = []
+    for _f in yaml_fields:
+        if not isinstance(_f, dict) or "key" not in _f:
+            continue
+        _key = _f["key"]
+        if _key == name_field_key:
+            continue
+        _ftype = _f.get("type", "text")
+        _fopts = []
+        if _ftype in ("select", "multiselect"):
+            for _opt in (_f.get("options") or []):
+                if isinstance(_opt, dict):
+                    _fopts.append({"value": _opt.get("value", ""), "label": _opt.get("label", _opt.get("value", ""))})
+                elif isinstance(_opt, str):
+                    _fopts.append({"value": _opt, "label": _opt})
+        form_fields_editable.append({
+            "key": _key,
+            "label": _f.get("label", _key),
+            "type": _ftype,
+            "value": form_fields_raw.get(_key, ""),
+            "options": _fopts,
+            "required": bool(_f.get("required", False)),
+        })
+
     # Email templates for the compose form
     import json as _json
     from core.models import SchoolEmailTemplate
@@ -685,6 +710,8 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
         "next_label": "Next",
         "form_fields_labeled": form_fields_labeled,
         "show_interested_in": show_interested_in,
+        "form_fields_editable": form_fields_editable,
+        "redirect_url_field": redirect_url_field,
     })
     return render(request, "school_admin/lead_detail.html", ctx)
 
@@ -757,7 +784,9 @@ def school_lead_start_enrollment_view(request, school_slug: str, lead_id: int):
             extra={"name": "start_enrollment", "draft_id": draft.pk},
         )
 
-    return redirect(detail_url)
+    from core.services.url_builder import app_reverse
+    form_url = app_reverse("apply_resume", kwargs={"school_slug": school_slug, "token": draft.token})
+    return redirect(form_url)
 
 
 @login_required
@@ -813,6 +842,58 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
     label_map = {opt["value"]: opt["label"] for opt in program_options}
     new_interested_in_label = label_map.get(new_interested_in_value, new_interested_in_value)
 
+    # Custom YAML form fields — read posted field__<key> values and build diff.
+    _config_raw = getattr(config, "raw", {}) or {}
+    _lead_cfg = _config_raw.get("leads", {}) if _config_raw else {}
+    _yaml_name_field_key = _lead_cfg.get("name_field_key", "")
+    _yaml_redirect_url_field = _lead_cfg.get("redirect_url_field", "")
+    _yaml_fields_def = _lead_cfg.get("fields", []) if isinstance(_lead_cfg.get("fields"), list) else []
+    _current_data = lead.data if isinstance(lead.data, dict) else {}
+    _current_form_fields = (
+        _current_data.get("form_fields", {})
+        if isinstance(_current_data.get("form_fields"), dict)
+        else {}
+    )
+    _new_form_fields = dict(_current_form_fields)
+    for _ff in _yaml_fields_def:
+        if not isinstance(_ff, dict) or "key" not in _ff:
+            continue
+        _fk = _ff["key"]
+        if _fk == _yaml_name_field_key:
+            continue
+        _new_form_fields[_fk] = request.POST.get(f"field__{_fk}", "").strip()
+
+    # If redirect_url_field is configured, override interested_in from that custom field
+    # so lead.interested_in_value/label stay in sync with the YAML instrument field.
+    if _yaml_redirect_url_field and _yaml_redirect_url_field in _new_form_fields:
+        new_interested_in_value = _new_form_fields[_yaml_redirect_url_field]
+        _rfd = next(
+            (_f for _f in _yaml_fields_def if isinstance(_f, dict) and _f.get("key") == _yaml_redirect_url_field),
+            None,
+        )
+        if _rfd:
+            _opt_lmap = {}
+            for _o in (_rfd.get("options") or []):
+                if isinstance(_o, dict):
+                    _opt_lmap[_o.get("value", "")] = _o.get("label", _o.get("value", ""))
+                elif isinstance(_o, str):
+                    _opt_lmap[_o] = _o
+            new_interested_in_label = _opt_lmap.get(new_interested_in_value, new_interested_in_value)
+        else:
+            new_interested_in_label = label_map.get(new_interested_in_value, new_interested_in_value)
+
+    # Diff custom fields for no-op detection and audit log.
+    _form_fields_diff = []
+    for _fk, _nv in _new_form_fields.items():
+        _ov = _current_form_fields.get(_fk, "")
+        if str(_ov) != str(_nv):
+            _fdef = next(
+                (_f for _f in _yaml_fields_def if isinstance(_f, dict) and _f.get("key") == _fk),
+                None,
+            )
+            _flabel = _fdef.get("label", _fk) if _fdef else _fk
+            _form_fields_diff.append({"field": _flabel, "from": str(_ov), "to": str(_nv)})
+
     new_note = request.POST.get("new_note", "").strip()
     if new_note:
         ts = timezone.localtime(timezone.now()).strftime("%-m/%-d/%Y %-I:%M %p")
@@ -863,6 +944,8 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
     new_follow_up_date = new_follow_up.date() if new_follow_up else None
     if existing_follow_up_date != new_follow_up_date:
         changed_fields.append("next_follow_up_at")
+    if _form_fields_diff:
+        changed_fields.append("form_fields")
 
     if not changed_fields:
         messages.info(request, "No changes made.")
@@ -890,6 +973,9 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
     }
     changed_detail = []
     for field in changed_fields:
+        if field == "form_fields":
+            changed_detail.extend(_form_fields_diff)
+            continue
         label = _LEAD_FIELD_LABELS.get(field, field)
         if field in _old_values:
             changed_detail.append({"field": label, "from": _old_values[field], "to": _new_values[field]})
@@ -903,6 +989,9 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
     lead.interested_in_label = new_interested_in_label
     lead.notes = notes_to_save
     lead.next_follow_up_at = new_follow_up
+    _new_data = dict(_current_data)
+    _new_data["form_fields"] = _new_form_fields
+    lead.data = _new_data
     # normalized_email and normalized_phone are set by Lead.save() — include them so
     # generated columns stay in sync when contact fields change.
     with transaction.atomic():
@@ -910,6 +999,7 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
             "name", "email", "phone",
             "interested_in_value", "interested_in_label",
             "notes", "next_follow_up_at",
+            "data",
             "normalized_email", "normalized_phone",
             "updated_at",
         ])

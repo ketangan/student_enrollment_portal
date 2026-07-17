@@ -392,6 +392,7 @@ _LEAD_STATUS_CSS: dict = {
     "new": "dash-badge--blue",
     "contacted": "dash-badge--orange",
     "trial_scheduled": "dash-badge--purple",
+    "trial_completed": "dash-badge--teal",
     "enrolled": "dash-badge--green",
     "lost": "dash-badge--gray",
 }
@@ -454,11 +455,28 @@ _NAME_LAST_KEYS = frozenset({"student_last_name", "last_name", "child_last_name"
 
 
 def _find_program_field_key(config_raw: dict) -> str | None:
-    """Return the first field key matching known program field names in the YAML form."""
+    """Return the best program field key from the YAML form.
+
+    First checks the top-level program_field_key override (e.g. "instrument"),
+    then falls back to scanning form sections for keys in PROGRAM_FIELD_KEYS.
+    """
+    explicit = (config_raw or {}).get("program_field_key")
+    if explicit and isinstance(explicit, str) and explicit.strip():
+        return explicit.strip()
     form = (config_raw or {}).get("form") or {}
     for section in form.get("sections", []):
         for f in section.get("fields", []):
             if f.get("key", "") in PROGRAM_FIELD_KEYS:
+                return f["key"]
+    return None
+
+
+def _find_phone_field_key(config_raw: dict) -> str | None:
+    """Return the first phone-type field key in the YAML form, or None."""
+    form = (config_raw or {}).get("form") or {}
+    for section in form.get("sections", []):
+        for f in section.get("fields", []):
+            if (f.get("type") or "").strip().lower() == "phone" and f.get("key"):
                 return f["key"]
     return None
 
@@ -492,15 +510,26 @@ def _build_lead_name_prefill(lead_name: str, config_raw: dict) -> dict:
 def _build_lead_prefill_data(lead: Lead, config_raw: dict) -> dict:
     """Build DraftSubmission.data prefill dict from Lead fields."""
     prefill: dict = {}
+
+    # Copy all custom lead form_fields first so more specific overrides below take precedence.
+    if isinstance(lead.data, dict):
+        _form_fields = lead.data.get("form_fields")
+        if isinstance(_form_fields, dict):
+            prefill.update(_form_fields)
+
     email_key = find_email_field_key(config_raw)
     if email_key and lead.email:
         prefill[email_key] = lead.email
+
+    phone_key = _find_phone_field_key(config_raw) or "contact_phone"
     if lead.phone:
-        prefill["contact_phone"] = lead.phone
+        prefill[phone_key] = lead.phone
+
     if lead.interested_in_value:
         prog_key = _find_program_field_key(config_raw)
         if prog_key:
             prefill[prog_key] = lead.interested_in_value
+
     prefill.update(_build_lead_name_prefill(lead.name, config_raw))
     return prefill
 

@@ -216,6 +216,7 @@ form:
         - key: sched_day_preference
           label: "Weekday or Weekend? (check all that apply)"
           type: multiselect
+          ui: checkboxes
           required: false
           options:
             - label: "Weekday"
@@ -409,7 +410,7 @@ admin:
         statuses: [new]
       pipeline:
         label: "In Pipeline"
-        statuses: [contacted, trial_scheduled]
+        statuses: [contacted, trial_scheduled, trial_completed]
       won:
         label: "Enrolled"
         statuses: [enrolled]
@@ -417,15 +418,26 @@ admin:
       new:
         - label: "Mark Contacted"
           status: contacted
+        - label: "Trial Scheduled"
+          status: trial_scheduled
+        - label: "Trial Completed"
+          status: trial_completed
         - label: "Archive"
           status: lost
       contacted:
         - label: "Trial Scheduled"
           status: trial_scheduled
+        - label: "Trial Completed"
+          status: trial_completed
         - label: "Archive"
           status: lost
       trial_scheduled:
-        - label: "Not Interested — Archive"
+        - label: "Trial Completed"
+          status: trial_completed
+        - label: "Archive"
+          status: lost
+      trial_completed:
+        - label: "Archive"
           status: lost
 
 leads:

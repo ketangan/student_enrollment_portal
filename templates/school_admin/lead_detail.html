@@ -203,29 +203,6 @@
         </table>
       </div>
 
-      <!-- Form Responses (custom fields from leads.fields YAML, with labels) -->
-      {% if form_fields_labeled %}
-      <div class="dash-card" style="padding:18px 22px;">
-        <h2 class="sidebar-label">Form Responses</h2>
-        <table class="snapshot-table">
-          {% for field in form_fields_labeled %}
-          <tr>
-            <td style="font-size:11px;color:var(--dash-muted);width:40%;padding-right:10px;vertical-align:top;padding-bottom:6px;">{{ field.label }}</td>
-            <td style="font-size:13px;vertical-align:top;padding-bottom:6px;word-break:break-word;">
-              {% if field.value == True %}
-                <span style="color:#16a34a;font-weight:600;">✓ Yes</span>
-              {% elif field.value == False %}
-                <span style="color:var(--dash-muted);">—</span>
-              {% else %}
-                {{ field.value }}
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </table>
-      </div>
-      {% endif %}
-
       <!-- Message (legacy) -->
       {% with msg=lead.data.message %}
       {% if msg %}
@@ -236,8 +213,8 @@
       {% endif %}
       {% endwith %}
 
-      <!-- Edit Details -->
-      {% if can_mutate %}
+      <!-- Edit Details — hidden once lead is converted (submission exists) -->
+      {% if can_mutate and not lead.converted_submission_id %}
       <div class="dash-card" style="padding:18px 22px;">
         <h2 class="sidebar-label">Edit Details</h2>
         <form method="post"
@@ -268,7 +245,7 @@
                      style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
                             border-radius:6px;font-size:13px;box-sizing:border-box;">
             </div>
-            {% if program_options %}
+            {% if program_options and not redirect_url_field %}
             <div>
               <label style="display:block;font-size:11px;color:var(--dash-muted);margin-bottom:3px;">Program Interest</label>
               <select name="interested_in_value"
@@ -282,6 +259,35 @@
             </div>
             {% endif %}
           </div>
+
+          {% if form_fields_editable %}
+          <div style="margin-top:10px;margin-bottom:10px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;">
+              {% for field in form_fields_editable %}
+              <div>
+                <label style="display:block;font-size:11px;color:var(--dash-muted);margin-bottom:3px;">
+                  {{ field.label }}{% if field.required %} <span style="color:#dc2626;">*</span>{% endif %}
+                </label>
+                {% if field.type == "select" %}
+                <select name="field__{{ field.key }}"
+                        style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                               border-radius:6px;font-size:13px;background:#fff;box-sizing:border-box;">
+                  <option value="">— Select —</option>
+                  {% for opt in field.options %}
+                  <option value="{{ opt.value }}" {% if field.value == opt.value %}selected{% endif %}>{{ opt.label }}</option>
+                  {% endfor %}
+                </select>
+                {% else %}
+                <input type="text" name="field__{{ field.key }}" value="{{ field.value|default:'' }}"
+                       {% if field.required %}required{% endif %}
+                       style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                              border-radius:6px;font-size:13px;box-sizing:border-box;">
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
 
           <!-- Notes -->
           {% if lead.notes %}
@@ -367,33 +373,44 @@
             {% endif %}
           </div>
         {% elif start_enrollment_url %}
-          <form method="post" action="{{ start_enrollment_url }}">
+          <form method="post" action="{{ start_enrollment_url }}" target="_blank">
             {% csrf_token %}
             <button type="submit" class="dash-action-btn dash-action-btn--primary" style="font-size:13px;">
               Start Enrollment
             </button>
             <span style="font-size:12px;color:var(--dash-muted);margin-left:10px;">
-              Pre-fills the form with this lead's details.
+              Opens a pre-filled form in a new tab.
             </span>
           </form>
           {% if email_enabled and lead.email %}
           <div style="border-top:1px solid var(--dash-border,#e2e8f0);padding-top:14px;margin-top:14px;">
             <p style="font-size:13px;font-weight:600;margin:0 0 4px;">Send link to family</p>
-            <p style="font-size:12px;color:var(--dash-muted);margin:0 0 8px;">
-              Sends a pre-filled form link to the family's email.
+            <p style="font-size:12px;color:var(--dash-muted);margin:0 0 10px;">
+              Email the pre-filled form link, or generate it first to review and copy.
             </p>
-            <form method="post"
-                  action="{% url 'school_lead_resend_resume_link' school_slug=school_slug lead_id=lead.id %}">
-              {% csrf_token %}
-              <input type="hidden" name="next" value="{{ detail_url }}">
-              <button type="submit"
-                      style="padding:6px 14px;background:var(--dash-primary,#4f46e5);color:#fff;
-                             border:none;border-radius:6px;font-size:12px;font-weight:600;
-                             cursor:pointer;white-space:nowrap;">
-                Email form link →
-              </button>
-              <span style="font-size:11px;color:var(--dash-muted);margin-left:8px;">Sends to {{ lead.email }}</span>
-            </form>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <form method="post"
+                    action="{% url 'school_lead_resend_resume_link' school_slug=school_slug lead_id=lead.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ detail_url }}">
+                <button type="submit"
+                        style="padding:6px 14px;background:var(--dash-primary,#4f46e5);color:#fff;
+                               border:none;border-radius:6px;font-size:12px;font-weight:600;
+                               cursor:pointer;white-space:nowrap;">
+                  Email form link →
+                </button>
+              </form>
+              <form method="post" action="{{ start_enrollment_url }}" target="_blank">
+                {% csrf_token %}
+                <button type="submit"
+                        style="padding:6px 14px;background:#f1f5f9;border:1px solid var(--dash-border,#e2e8f0);
+                               border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;
+                               white-space:nowrap;color:var(--dash-text);">
+                  Generate link (copy)
+                </button>
+              </form>
+              <span style="font-size:11px;color:var(--dash-muted);">to {{ lead.email }}</span>
+            </div>
           </div>
           {% endif %}
         {% endif %}
