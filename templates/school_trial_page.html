@@ -19,9 +19,7 @@
     }
 
     /* ── Nav ── */
-    nav {
-      background: #fff;
-    }
+    nav { background: #fff; }
     .nav-inner {
       max-width: 1200px;
       margin: 0 auto;
@@ -38,11 +36,7 @@
       color: #000;
       text-decoration: none;
     }
-    .nav-links {
-      display: flex;
-      gap: 0;
-      list-style: none;
-    }
+    .nav-links { display: flex; gap: 0; list-style: none; }
     .nav-links a {
       display: block;
       padding: 4px 14px;
@@ -53,16 +47,13 @@
       text-decoration: none;
       color: #000;
     }
-    .nav-links a.active {
-      text-decoration: underline;
-      text-underline-offset: 4px;
-    }
+    .nav-links a.active { text-decoration: underline; text-underline-offset: 4px; }
 
-    /* ── Page content centered column ── */
+    /* ── Page ── */
     .page {
-      max-width: 800px;
+      max-width: 1100px;
       margin: 0 auto;
-      padding: 80px 40px 100px;
+      padding: 72px 40px 100px;
     }
 
     /* ── Heading ── */
@@ -73,30 +64,35 @@
       text-align: center;
       line-height: 1.15;
       color: #000;
-      margin-bottom: 20px;
+      margin-bottom: 48px;
       letter-spacing: .01em;
     }
 
-    /* ── Italic subheading ── */
+    /* ── Two-column layout ── */
+    .two-col {
+      display: flex;
+      gap: 64px;
+      align-items: flex-start;
+    }
+    .col-text { flex: 0 0 42%; }
+    .col-form  { flex: 1; }
+
+    /* ── Left column text ── */
     .trial-subheading {
       font-family: 'Gloock', Georgia, serif;
       font-size: 18px;
       font-style: italic;
       font-weight: 400;
-      text-align: left;
       color: #000;
-      margin-bottom: 52px;
+      margin-bottom: 28px;
       line-height: 1.5;
     }
-
-    /* ── Body content ── */
     .about-label {
       font-family: 'Gloock', Georgia, serif;
       font-size: 16px;
       font-style: italic;
       margin-bottom: 10px;
     }
-
     .body-list {
       list-style: disc;
       padding-left: 20px;
@@ -107,40 +103,20 @@
       line-height: 1.65;
       margin-bottom: 4px;
     }
-
     .important-text {
       font-family: 'Gloock', Georgia, serif;
       font-size: 15px;
       font-style: italic;
       color: #000;
-      margin-bottom: 60px;
       line-height: 1.6;
     }
 
-    /* ── Form section ── */
-    .form-section {
-      border-top: 1px solid #ddd;
-      padding-top: 48px;
-    }
-
-    .form-heading {
-      font-family: 'Gloock', Georgia, serif;
-      font-size: 22px;
-      font-weight: 400;
-      margin-bottom: 6px;
-    }
-
-    .form-sub {
-      font-size: 14px;
-      color: #555;
-      margin-bottom: 28px;
-    }
-
+    /* ── Right column form ── */
     .form-embed iframe {
       display: block;
       width: 100%;
       border: none;
-      min-height: 380px;
+      min-height: 420px;
     }
 
     /* ── Footer ── */
@@ -157,10 +133,7 @@
       color: #000;
       margin-bottom: 10px;
     }
-    .footer-contact {
-      font-size: 13px;
-      color: #555;
-    }
+    .footer-contact { font-size: 13px; color: #555; }
     .footer-contact a { color: #000; text-decoration: none; }
     .footer-links {
       display: flex;
@@ -179,9 +152,11 @@
     }
     .footer-copy { font-size: 11px; color: #bbb; margin-top: 10px; }
 
-    @media (max-width: 640px) {
+    @media (max-width: 768px) {
       .page { padding: 48px 24px 72px; }
       .nav-links { display: none; }
+      .two-col { flex-direction: column; gap: 40px; }
+      .col-text { flex: none; width: 100%; }
     }
   </style>
 </head>
@@ -206,28 +181,31 @@
 <div class="page">
 
   <h1 class="trial-heading">TRIAL LESSONS</h1>
-  <p class="trial-subheading">Considering Lessons? Start with a $30 Trial!</p>
 
-  <p class="about-label">About:</p>
-  <ul class="body-list">
-    <li>We accept students of all ages and levels, beginner through pre-professional. Transfer students are welcome.</li>
-    <li>Trial lessons are a 30 minutes and give you the chance to meet a teacher, play a little, and chat about your goals.</li>
-    <li><strong>String students</strong> (violin, viola, cello): Don't have an instrument? We'll provide one for the trial!</li>
-  </ul>
+  <div class="two-col">
 
-  <p class="important-text">IMPORTANT: Your $30 fee must be paid in advance to confirm your spot. Only paid for lessons will be taught.</p>
-
-  <div class="form-section">
-    <h2 class="form-heading">Book Your Trial Lesson</h2>
-    <p class="form-sub">Fill in your details below — we'll take you straight to scheduling on our booking system.</p>
-    <div class="form-embed">
-      <iframe
-        id="trial-form-iframe"
-        src="{{ lead_form_url }}"
-        scrolling="no"
-        title="Trial lesson booking form"
-      ></iframe>
+    <div class="col-text">
+      <p class="trial-subheading">Considering Lessons? Start with a $30 Trial!</p>
+      <p class="about-label">About:</p>
+      <ul class="body-list">
+        <li>We accept students of all ages and levels, beginner through pre-professional. Transfer students are welcome.</li>
+        <li>Trial lessons are a 30 minutes and give you the chance to meet a teacher, play a little, and chat about your goals.</li>
+        <li><strong>String students</strong> (violin, viola, cello): Don't have an instrument? We'll provide one for the trial!</li>
+      </ul>
+      <p class="important-text">IMPORTANT: Your $30 fee must be paid in advance to confirm your spot. Only paid for lessons will be taught.</p>
     </div>
+
+    <div class="col-form">
+      <div class="form-embed">
+        <iframe
+          id="trial-form-iframe"
+          src="{{ lead_form_url }}"
+          scrolling="no"
+          title="Trial lesson booking form"
+        ></iframe>
+      </div>
+    </div>
+
   </div>
 
 </div>

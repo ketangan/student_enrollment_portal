@@ -1369,6 +1369,17 @@ def school_lead_form_view(request, school_slug, form_key=None):
                 if field_val and field_val in redirect_url_map:
                     redirect_url = redirect_url_map[field_val]
             if redirect_url:
+                if embed:
+                    # Break out of the iframe and replace history so back-button skips the trial
+                    # page (avoids re-triggering this redirect on back navigation)
+                    from django.http import HttpResponse
+                    safe_url = redirect_url.replace('"', '%22')
+                    return HttpResponse(
+                        f'<!doctype html><html><body>'
+                        f'<script>window.top.location.replace("{safe_url}");</script>'
+                        f'</body></html>',
+                        content_type="text/html",
+                    )
                 from django.http import HttpResponseRedirect
                 return HttpResponseRedirect(redirect_url)
 
