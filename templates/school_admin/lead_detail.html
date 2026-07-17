@@ -188,7 +188,7 @@
             </td>
           </tr>
           {% endif %}
-          {% if lead.interested_in_label %}
+          {% if show_interested_in %}
           <tr>
             <td>Interested in</td>
             <td>{{ lead.interested_in_label }}</td>
@@ -203,22 +203,21 @@
         </table>
       </div>
 
-      <!-- Form Responses (custom fields from leads.fields YAML) -->
-      {% with ff=lead.data.form_fields %}
-      {% if ff %}
+      <!-- Form Responses (custom fields from leads.fields YAML, with labels) -->
+      {% if form_fields_labeled %}
       <div class="dash-card" style="padding:18px 22px;">
         <h2 class="sidebar-label">Form Responses</h2>
         <table class="snapshot-table">
-          {% for key, val in ff.items %}
+          {% for field in form_fields_labeled %}
           <tr>
-            <td style="font-size:11px;color:var(--dash-muted);width:40%;padding-right:10px;vertical-align:top;padding-bottom:6px;">{{ key }}</td>
+            <td style="font-size:11px;color:var(--dash-muted);width:40%;padding-right:10px;vertical-align:top;padding-bottom:6px;">{{ field.label }}</td>
             <td style="font-size:13px;vertical-align:top;padding-bottom:6px;word-break:break-word;">
-              {% if val == True %}
+              {% if field.value == True %}
                 <span style="color:#16a34a;font-weight:600;">✓ Yes</span>
-              {% elif val == False %}
+              {% elif field.value == False %}
                 <span style="color:var(--dash-muted);">—</span>
               {% else %}
-                {{ val }}
+                {{ field.value }}
               {% endif %}
             </td>
           </tr>
@@ -226,7 +225,6 @@
         </table>
       </div>
       {% endif %}
-      {% endwith %}
 
       <!-- Message (legacy) -->
       {% with msg=lead.data.message %}

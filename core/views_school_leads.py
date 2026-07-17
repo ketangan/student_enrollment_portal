@@ -148,7 +148,6 @@ def school_leads_view(request, school_slug: str):
 
     # Base queryset: non-pipeline variant submissions (e.g. scheduling) are
     # excluded by default. ?category=<form_key> switches to that bucket.
-    _now = timezone.now()
     base_qs = Lead.objects.filter(school=school).select_related("school")
     if category_filter:
         base_qs = base_qs.filter(form_key=category_filter)
@@ -158,15 +157,7 @@ def school_leads_view(request, school_slug: str):
         base_qs = base_qs.filter(form_key="")
 
     qs = _apply_lead_filters(
-        base_qs.annotate(
-            _inbox_priority=Case(
-                When(next_follow_up_at__lte=_now, then=Value(0)),
-                When(next_follow_up_at__isnull=False, then=Value(1)),
-                When(status=LEAD_STATUS_NEW, then=Value(2)),
-                default=Value(3),
-                output_field=IntegerField(),
-            )
-        ).order_by("_inbox_priority", "-created_at"),
+        base_qs.order_by("-created_at"),
         active_filter, status_filter, search_q, workflow_filters,
     )
 
@@ -632,6 +623,22 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
     prev_lead = Lead.objects.filter(school=school, id__lt=lead.id).order_by("-id").first()
     next_lead = Lead.objects.filter(school=school, id__gt=lead.id).order_by("id").first()
 
+    # Build labeled form fields — deduplicate against header name and Contact card
+    lead_cfg = config_raw.get("leads", {}) if config_raw else {}
+    name_field_key = lead_cfg.get("name_field_key", "")
+    redirect_url_field = lead_cfg.get("redirect_url_field", "")
+    yaml_fields = lead_cfg.get("fields", []) if isinstance(lead_cfg.get("fields"), list) else []
+    label_map = {f["key"]: f.get("label", f["key"]) for f in yaml_fields if isinstance(f, dict) and "key" in f}
+    form_fields_raw = (lead.data or {}).get("form_fields", {}) if isinstance(lead.data, dict) else {}
+    form_fields_labeled = [
+        {"label": label_map.get(k, k), "value": v}
+        for k, v in form_fields_raw.items()
+        if k != name_field_key  # already shown as lead.name in header
+    ]
+    # If redirect_url_field is set, the instrument/interest is shown with its full
+    # label in form_fields_labeled — suppress the generic "Interested in" row in Contact
+    show_interested_in = bool(lead.interested_in_label and not redirect_url_field)
+
     # Email templates for the compose form
     import json as _json
     from core.models import SchoolEmailTemplate
@@ -676,6 +683,8 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
         "next_url": _lead_url(next_lead) if next_lead else None,
         "prev_label": "Prev",
         "next_label": "Next",
+        "form_fields_labeled": form_fields_labeled,
+        "show_interested_in": show_interested_in,
     })
     return render(request, "school_admin/lead_detail.html", ctx)
 
