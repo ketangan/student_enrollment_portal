@@ -1,0 +1,259 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Trial Lesson — {{ school.display_name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Gloock&family=Questrial&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #fff;
+      color: #000;
+      font-family: 'Questrial', Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    /* ── Nav ── */
+    nav {
+      background: #fff;
+    }
+    .nav-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 70px;
+    }
+    .nav-logo {
+      font-family: 'Questrial', Arial, sans-serif;
+      font-size: 13px;
+      letter-spacing: .06em;
+      color: #000;
+      text-decoration: none;
+    }
+    .nav-links {
+      display: flex;
+      gap: 0;
+      list-style: none;
+    }
+    .nav-links a {
+      display: block;
+      padding: 4px 14px;
+      font-family: 'Questrial', Arial, sans-serif;
+      font-size: 12px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      color: #000;
+    }
+    .nav-links a.active {
+      text-decoration: underline;
+      text-underline-offset: 4px;
+    }
+
+    /* ── Page content centered column ── */
+    .page {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 80px 40px 100px;
+    }
+
+    /* ── Heading ── */
+    .trial-heading {
+      font-family: 'Gloock', Georgia, serif;
+      font-size: 38px;
+      font-weight: 400;
+      text-align: center;
+      line-height: 1.15;
+      color: #000;
+      margin-bottom: 20px;
+      letter-spacing: .01em;
+    }
+
+    /* ── Italic subheading ── */
+    .trial-subheading {
+      font-family: 'Gloock', Georgia, serif;
+      font-size: 18px;
+      font-style: italic;
+      font-weight: 400;
+      text-align: left;
+      color: #000;
+      margin-bottom: 52px;
+      line-height: 1.5;
+    }
+
+    /* ── Body content ── */
+    .about-label {
+      font-family: 'Gloock', Georgia, serif;
+      font-size: 16px;
+      font-style: italic;
+      margin-bottom: 10px;
+    }
+
+    .body-list {
+      list-style: disc;
+      padding-left: 20px;
+      margin-bottom: 24px;
+    }
+    .body-list li {
+      font-size: 15px;
+      line-height: 1.65;
+      margin-bottom: 4px;
+    }
+
+    .important-text {
+      font-family: 'Gloock', Georgia, serif;
+      font-size: 15px;
+      font-style: italic;
+      color: #000;
+      margin-bottom: 60px;
+      line-height: 1.6;
+    }
+
+    /* ── Form section ── */
+    .form-section {
+      border-top: 1px solid #ddd;
+      padding-top: 48px;
+    }
+
+    .form-heading {
+      font-family: 'Gloock', Georgia, serif;
+      font-size: 22px;
+      font-weight: 400;
+      margin-bottom: 6px;
+    }
+
+    .form-sub {
+      font-size: 14px;
+      color: #555;
+      margin-bottom: 28px;
+    }
+
+    .form-embed iframe {
+      display: block;
+      width: 100%;
+      border: none;
+      min-height: 380px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid #e8e8e8;
+      padding: 40px;
+      text-align: center;
+    }
+    .footer-name {
+      font-family: 'Questrial', Arial, sans-serif;
+      font-size: 11px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: #000;
+      margin-bottom: 10px;
+    }
+    .footer-contact {
+      font-size: 13px;
+      color: #555;
+    }
+    .footer-contact a { color: #000; text-decoration: none; }
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      list-style: none;
+      gap: 0;
+      margin-top: 12px;
+    }
+    .footer-links li:not(:last-child)::after { content: '·'; margin: 0 12px; color: #ccc; }
+    .footer-links a {
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #999;
+      text-decoration: none;
+    }
+    .footer-copy { font-size: 11px; color: #bbb; margin-top: 10px; }
+
+    @media (max-width: 640px) {
+      .page { padding: 48px 24px 72px; }
+      .nav-links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="{{ school.website_url|default:'#' }}" class="nav-logo">South Bay Music Conservatory</a>
+    <ul class="nav-links">
+      <li><a href="{{ school.website_url|default:'#' }}">Home</a></li>
+      <li><a href="#">About</a></li>
+      <li><a href="#">Faculty</a></li>
+      <li><a href="#">Tuition</a></li>
+      <li><a href="#" class="active">Trial Lesson</a></li>
+      <li><a href="#">Calendar</a></li>
+      <li><a href="#">Rentals</a></li>
+      <li><a href="#">Contact</a></li>
+    </ul>
+  </div>
+</nav>
+
+<div class="page">
+
+  <h1 class="trial-heading">TRIAL LESSONS</h1>
+  <p class="trial-subheading">Considering Lessons? Start with a $30 Trial!</p>
+
+  <p class="about-label">About:</p>
+  <ul class="body-list">
+    <li>We accept students of all ages and levels, beginner through pre-professional. Transfer students are welcome.</li>
+    <li>Trial lessons are a 30 minutes and give you the chance to meet a teacher, play a little, and chat about your goals.</li>
+    <li><strong>String students</strong> (violin, viola, cello): Don't have an instrument? We'll provide one for the trial!</li>
+  </ul>
+
+  <p class="important-text">IMPORTANT: Your $30 fee must be paid in advance to confirm your spot. Only paid for lessons will be taught.</p>
+
+  <div class="form-section">
+    <h2 class="form-heading">Book Your Trial Lesson</h2>
+    <p class="form-sub">Fill in your details below — we'll take you straight to scheduling on our booking system.</p>
+    <div class="form-embed">
+      <iframe
+        id="trial-form-iframe"
+        src="{{ lead_form_url }}"
+        scrolling="no"
+        title="Trial lesson booking form"
+      ></iframe>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="footer-name">South Bay Music Conservatory</div>
+  <p class="footer-contact">
+    <a href="mailto:info@sbmusicconservatory.com">info@sbmusicconservatory.com</a>
+    &nbsp;·&nbsp;
+    <a href="tel:4243995816">424-399-5816</a> text/call
+  </p>
+  <ul class="footer-links">
+    <li><a href="#">Privacy Policy</a></li>
+    <li><a href="#">Accessibility Statement</a></li>
+  </ul>
+  <div class="footer-copy">© 2026 by South Bay Music Conservatory</div>
+</footer>
+
+<script>
+  var iframe = document.getElementById("trial-form-iframe");
+  window.addEventListener("message", function (e) {
+    if (e.data && e.data.type === "iframeResize" && e.data.height) {
+      iframe.style.height = (e.data.height + 8) + "px";
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -82,6 +82,12 @@
           {% endfor %}
         {% endif %}
 
+        {% if errors %}
+        <div id="error-banner" style="margin-bottom:16px;padding:12px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;font-size:14px;color:#b91c1c;font-weight:600;">
+          Please complete all required fields highlighted below.
+        </div>
+        {% endif %}
+
         <form method="post"
             enctype="multipart/form-data"
             novalidate
@@ -105,6 +111,7 @@
                     {% if field.type == 'waiver' %}span-2{% endif %}
                     {% if field.type == 'radio' %}span-2{% endif %}
                     {% if field.full_width %}span-2{% endif %}
+                    {% if errors|get_item:field.key %}has-error{% endif %}
                   ">
 
                     {# Standard label (not for checkbox, multiselect checkboxes, waiver, radio, or auto_label — those render their own label) #}
@@ -550,6 +557,14 @@
 
             // On load
             maybeUpdateAge();
+        })();
+
+        // Scroll to first error on page load (post-submit validation)
+        (function () {
+            var banner = document.getElementById("error-banner");
+            if (banner) {
+                banner.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
         })();
     </script>
 

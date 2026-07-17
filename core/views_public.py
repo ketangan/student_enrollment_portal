@@ -1181,6 +1181,24 @@ def resume_draft_view(request, school_slug: str, token: str):
 # Public lead / inquiry form  (/schools/<slug>/lead/)
 # ---------------------------------------------------------------------------
 
+
+def school_trial_page_view(request, school_slug):
+    """Marketing-style trial page wrapper with the lead form embedded via iframe."""
+    school = get_object_or_404(School, slug=school_slug)
+    config = load_school_config(school_slug)
+    branding = config.raw.get("branding", {})
+    lead_cfg = config.raw.get("leads", {})
+    lead_form_url = f"/schools/{school_slug}/lead/?embed=1"
+    return render(request, "school_trial_page.html", {
+        "school": school,
+        "branding": branding,
+        "lead_cfg": lead_cfg,
+        "lead_form_url": lead_form_url,
+    })
+
+
+# ---------------------------------------------------------------------------
+
 @xframe_options_exempt
 @ratelimit(key="ip", rate="10/m", method="POST", block=True)
 def school_lead_form_view(request, school_slug, form_key=None):
@@ -1782,9 +1800,9 @@ def _notify_schedule_change(school, school_slug: str, submission):
     except Exception:
         return
 
-    notify_to = ""
+    raw_to = ""
     try:
-        notify_to = (
+        raw_to = (
             config.raw.get("success", {})
             .get("notifications", {})
             .get("submission_email", {})
@@ -1793,7 +1811,8 @@ def _notify_schedule_change(school, school_slug: str, submission):
     except Exception:
         pass
 
-    if not notify_to:
+    recipients = [r.strip() for r in raw_to.split(",") if r.strip()]
+    if not recipients:
         return
 
     school_name = getattr(config, "display_name", None) or school.display_name or school.slug
@@ -1817,10 +1836,11 @@ def _notify_schedule_change(school, school_slug: str, submission):
         f"View submission: {admin_url}"
     )
 
-    send_admin_message(
-        to_email=notify_to,
-        subject=f"Scheduling change request — {student}",
-        message=message,
-        school_name=school_name,
-        school=school,
-    )
+    for recipient in recipients:
+        send_admin_message(
+            to_email=recipient,
+            subject=f"Scheduling change request — {student}",
+            message=message,
+            school_name=school_name,
+            school=school,
+        )

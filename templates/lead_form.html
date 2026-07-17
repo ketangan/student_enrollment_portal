@@ -121,9 +121,11 @@
             <p class="success-msg">{{ success_message }}</p>
           </div>
         {% else %}
+          {% if not embed %}
           <h1>{{ form_title }}</h1>
           {% if form_description %}
             <p class="subtitle">{{ form_description }}</p>
+          {% endif %}
           {% endif %}
 
           <form method="post">

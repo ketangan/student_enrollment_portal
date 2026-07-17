@@ -47,42 +47,6 @@ form:
             - label: "Returning student"
               value: returning_student
 
-    - title: "Lesson Scheduling Preferences"
-      description: "If you need a new time slot or are a new student, let us know your scheduling preferences below. We'll do our best to match your request."
-      fields:
-        - key: sched_day_preference
-          label: "Weekday or Weekend? (check all that apply)"
-          type: multiselect
-          required: false
-          options:
-            - label: "Weekday"
-              value: weekday
-            - label: "Weekend"
-              value: weekend
-
-        - key: sched_preferred_timing
-          label: "Preferred time of day"
-          type: text
-          required: false
-          placeholder: "e.g. only after 5pm, mornings preferred"
-
-        - key: sched_days_unavailable
-          label: "Days that absolutely don't work"
-          type: text
-          required: false
-          placeholder: "e.g. Monday mornings, all day Friday"
-
-        - key: sched_preferred_slot
-          label: "Ideal day and time (if you have one)"
-          type: text
-          required: false
-          placeholder: "e.g. Tuesday 4pm"
-
-        - key: sched_preferred_start_week
-          label: "Preferred start week"
-          type: date
-          required: false
-
     - title: "Student Information"
       fields:
         - key: student_last_name
@@ -244,6 +208,42 @@ form:
         - key: additional_info
           label: "Additional Information"
           type: textarea
+          required: false
+
+    - title: "Lesson Scheduling Preferences"
+      description: "If you need a new time slot or are a new student, let us know your scheduling preferences below. We'll do our best to match your request."
+      fields:
+        - key: sched_day_preference
+          label: "Weekday or Weekend? (check all that apply)"
+          type: multiselect
+          required: false
+          options:
+            - label: "Weekday"
+              value: weekday
+            - label: "Weekend"
+              value: weekend
+
+        - key: sched_preferred_timing
+          label: "Preferred time of day"
+          type: text
+          required: false
+          placeholder: "e.g. only after 5pm, mornings preferred"
+
+        - key: sched_days_unavailable
+          label: "Days that absolutely don't work"
+          type: text
+          required: false
+          placeholder: "e.g. Monday mornings, all day Friday"
+
+        - key: sched_preferred_slot
+          label: "Ideal day and time (if you have one)"
+          type: text
+          required: false
+          placeholder: "e.g. Tuesday 4pm"
+
+        - key: sched_preferred_start_week
+          label: "Preferred start week"
+          type: date
           required: false
 
     - title: "Studio Policies & Enrollment Acknowledgment"

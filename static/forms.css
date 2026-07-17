@@ -183,11 +183,8 @@ html, body {
 .checklist{
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 16px;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #fff;
+  gap: 6px 14px;
+  padding: 4px 0;
 }
 
 .check-item{
@@ -331,6 +328,30 @@ textarea { min-height: 110px; resize: vertical; }
   margin-top: 8px;
   font-size: 13px;
   color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 7px 12px;
+  display: inline-block;
+}
+
+.has-error .input,
+.has-error select,
+.has-error textarea {
+  border-color: #dc2626;
+  background: #fff8f8;
+}
+
+.has-error .radio-pills {
+  outline: 1.5px solid #dc2626;
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.has-error .checklist {
+  outline: 1.5px solid #dc2626;
+  outline-offset: 3px;
+  border-radius: 8px;
 }
 
 .actions {

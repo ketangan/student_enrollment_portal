@@ -98,6 +98,7 @@ urlpatterns = [
     path("schools/<slug:school_slug>/status/<str:token>/", views.family_status_view, name="family_status"),
     path("schools/<slug:school_slug>/status/<str:token>/change-request/", views.school_status_change_request_view, name="school_status_change_request"),
 
+    path("schools/<slug:school_slug>/trial/", views.school_trial_page_view, name="school_trial_page"),
     path("schools/<slug:school_slug>/lead/", views.school_lead_form_view, name="school_lead_form"),
     path("schools/<slug:school_slug>/lead/<slug:form_key>/", views.school_lead_form_view, name="school_lead_form_variant"),
     path("schools/<slug:school_slug>/interest/", views.lead_capture_view, name="lead_capture"),
