@@ -84,25 +84,31 @@ class OpsSchoolEditForm(forms.ModelForm):
         model = School
         fields = [
             "display_name", "website_url",
-            "plan", "is_active",
+            "plan", "is_active", "is_demo",
             "trial_end_date",
             "feature_flags",
             "stripe_customer_id", "stripe_subscription_id",
             "stripe_subscription_status",
             "stripe_cancel_at_period_end", "stripe_current_period_end",
             "app_fee_stripe_public_key", "app_fee_stripe_secret_key",
+            "smtp_host", "smtp_port", "smtp_username", "smtp_password",
+            "smtp_from_email", "smtp_use_tls",
         ]
         widgets = {
             "feature_flags": forms.Textarea(attrs={"rows": 8, "style": "font-family:monospace;font-size:12px;"}),
             "trial_end_date": forms.DateInput(attrs={"type": "date"}),
             "stripe_current_period_end": forms.DateTimeInput(attrs={"type": "datetime-local"}),
             "app_fee_stripe_secret_key": forms.PasswordInput(render_value=True),
+            "smtp_password": forms.PasswordInput(render_value=True),
         }
         help_texts = {
+            "is_demo": "Demo schools show the Demo Access Link card and magic-link generator.",
             "feature_flags": "JSON overrides on top of plan defaults. Leave {} to use plan defaults.",
             "trial_end_date": "Superadmin override for trial end. Clears itself when plan changes off trial.",
             "app_fee_stripe_public_key": "School's own Stripe publishable key (pk_live_… or pk_test_…). Required for application fee collection.",
             "app_fee_stripe_secret_key": "School's own Stripe secret key (sk_live_… or sk_test_…). Stored encrypted-at-rest. Never share.",
+            "smtp_host": "Custom SMTP host (e.g. smtp.gmail.com). Leave blank to use Enrollify's default email service.",
+            "smtp_password": "SMTP password or app password. Stored as-is — not hashed.",
         }
 
     def __init__(self, *args, **kwargs):

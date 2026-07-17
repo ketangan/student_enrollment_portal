@@ -751,6 +751,93 @@
   </div>
   {% endif %}{# is_owner — Email Delivery #}
 
+  {% if is_owner %}
+  <!-- ── Stripe Payment Collection ─────────────────────────────────────── -->
+  <div class="dash-card" style="padding:24px;margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+      <h2 style="font-size:15px;font-weight:700;margin:0;">Payment Collection (Stripe)</h2>
+      {% if school.app_fee_stripe_public_key %}
+      <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;
+                   background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;">Active</span>
+      {% else %}
+      <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;
+                   background:var(--dash-surface,#f8fafc);color:var(--dash-muted);
+                   border:1px solid var(--dash-border);">Not configured</span>
+      {% endif %}
+    </div>
+    <p style="font-size:12px;color:var(--dash-muted);margin:0 0 20px;">
+      Connect your school's Stripe account to collect application fees directly.
+      Keys are in your <strong>Stripe Dashboard → Developers → API keys</strong>.
+    </p>
+
+    {# Fields form — button lives outside via form= attribute #}
+    <form id="stripe-save-form" method="post" action="{% url 'school_settings' school.slug %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="update_stripe">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;margin-bottom:18px;">
+
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                        letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">
+            Publishable Key <span style="color:#dc2626;">*</span>
+          </label>
+          <input type="text" name="app_fee_stripe_public_key"
+                 value="{{ school.app_fee_stripe_public_key|default:'' }}"
+                 placeholder="pk_live_… or pk_test_…"
+                 style="width:100%;padding:6px 10px;font-size:13px;font-family:monospace;
+                        border:1px solid var(--dash-border);border-radius:6px;
+                        background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;">
+          <span style="display:block;font-size:11px;color:var(--dash-muted);margin-top:3px;">
+            Starts with <code>pk_live_</code> or <code>pk_test_</code>
+          </span>
+        </div>
+
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                        letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">
+            Secret Key
+          </label>
+          <input type="password" name="app_fee_stripe_secret_key" autocomplete="new-password"
+                 placeholder="{% if school.app_fee_stripe_secret_key %}Saved — leave blank to keep current key{% else %}sk_live_… or sk_test_…{% endif %}"
+                 style="width:100%;padding:6px 10px;font-size:13px;font-family:monospace;
+                        border:1px solid var(--dash-border);border-radius:6px;
+                        background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;">
+          <span style="display:block;font-size:11px;color:var(--dash-muted);margin-top:3px;">
+            Starts with <code>sk_live_</code> or <code>sk_test_</code>
+          </span>
+        </div>
+
+      </div>
+    </form>
+
+    {# Clear form — button lives in the shared row below via form= attribute #}
+    {% if school.app_fee_stripe_public_key %}
+    <form id="stripe-clear-form" method="post" action="{% url 'school_settings' school.slug %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="clear_stripe">
+    </form>
+    {% endif %}
+
+    {# Button row — both buttons are outside their forms, linked via form= #}
+    <div style="display:flex;gap:10px;align-items:center;">
+      <button type="submit" form="stripe-save-form"
+              class="dash-action-btn dash-action-btn--primary"
+              style="font-size:12px;padding:6px 14px;">
+        Save Keys
+      </button>
+      {% if school.app_fee_stripe_public_key %}
+      <button type="submit" form="stripe-clear-form"
+              class="dash-action-btn dash-action-btn--danger"
+              style="font-size:12px;padding:6px 14px;"
+              onclick="return confirm('Remove Stripe keys? Payment collection will be disabled.');">
+        Remove Keys
+      </button>
+      {% endif %}
+    </div>
+
+  </div>
+  {% endif %}{# is_owner — Stripe #}
+
 </main>
 
 <script>

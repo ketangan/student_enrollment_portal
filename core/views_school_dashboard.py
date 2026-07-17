@@ -628,6 +628,38 @@ def school_settings_view(request, school_slug: str):
         messages.success(request, "SMTP settings cleared — using default email service.")
         return redirect("school_settings", school_slug=school_slug)
 
+    if request.method == "POST" and request.POST.get("action") == "update_stripe":
+        require_school_role(request, school, "owner")
+        new_pub = request.POST.get("app_fee_stripe_public_key", "").strip()
+        new_sec = request.POST.get("app_fee_stripe_secret_key", "").strip()
+        if not new_pub:
+            messages.error(request, "Publishable key is required.")
+            return redirect("school_settings", school_slug=school_slug)
+        update_fields = ["app_fee_stripe_public_key"]
+        school.app_fee_stripe_public_key = new_pub
+        if new_sec:
+            school.app_fee_stripe_secret_key = new_sec
+            update_fields.append("app_fee_stripe_secret_key")
+        school.save(update_fields=update_fields)
+        log_admin_audit(
+            request=request, action="action", obj=school, changes={},
+            extra={"name": "update_stripe_keys", "public_key_prefix": new_pub[:8]},
+        )
+        messages.success(request, "Stripe keys saved — payment collection is now active.")
+        return redirect("school_settings", school_slug=school_slug)
+
+    if request.method == "POST" and request.POST.get("action") == "clear_stripe":
+        require_school_role(request, school, "owner")
+        school.app_fee_stripe_public_key = ""
+        school.app_fee_stripe_secret_key = ""
+        school.save(update_fields=["app_fee_stripe_public_key", "app_fee_stripe_secret_key"])
+        log_admin_audit(
+            request=request, action="action", obj=school, changes={},
+            extra={"name": "clear_stripe_keys"},
+        )
+        messages.success(request, "Stripe keys removed — payment collection disabled.")
+        return redirect("school_settings", school_slug=school_slug)
+
     if request.method == "POST" and request.POST.get("action") == "update_display_name":
         require_school_role(request, school, "owner")
         new_name = request.POST.get("display_name", "").strip()
