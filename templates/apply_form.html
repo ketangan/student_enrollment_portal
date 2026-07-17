@@ -229,62 +229,105 @@
                         {% if field.required %}<span class="required">*</span>{% endif %}
                       </div>
                       {% if field.description %}
-                      <p style="font-size:14px;line-height:1.6;color:var(--muted);margin:0 0 12px;">{{ field.description }}</p>
+                      <p style="font-size:13px;line-height:1.6;color:var(--muted);margin:0 0 14px;">{{ field.description }}</p>
                       {% endif %}
-                      <div class="checklist">
+                      <div class="radio-pills">
                         {% for opt in field.options %}
-                          <label class="check-item">
+                          <label class="radio-pill">
                             <input
-                              class="check"
                               type="radio"
                               name="{{ field.key }}"
                               value="{{ opt.value }}"
                               {% if values|get_item:field.key == opt.value %}checked{% endif %}
                             />
-                            <span>{{ opt.label }}</span>
+                            {{ opt.label }}
                           </label>
                         {% endfor %}
                       </div>
 
-                    {# --- AUTO LABEL (dynamic text driven by another field) --- #}
+                    {# --- AUTO LABEL (dynamic fee card driven by another field) --- #}
                     {% elif field.type == "auto_label" %}
                       <div class="label" style="margin-bottom:8px;">
                         {{ field.label }}
                         {% if field.required %}<span class="required">*</span>{% endif %}
                       </div>
-                      <div id="auto_label_{{ field.key }}"
-                           style="padding:14px 16px;
-                                  background:color-mix(in srgb,var(--accent) 6%,var(--bg));
-                                  border:1px solid color-mix(in srgb,var(--accent) 22%,var(--border));
-                                  border-radius:8px;font-size:14px;line-height:1.6;
-                                  color:var(--muted);min-height:48px;">
+
+                      {# Placeholder — shown until source field is selected #}
+                      <div id="auto_label_placeholder_{{ field.key }}"
+                           style="padding:14px 16px;border:1px dashed var(--border);border-radius:10px;
+                                  font-size:13px;color:var(--muted);text-align:center;line-height:1.5;">
                         {{ field.default_text|default:"Select above to see applicable fee." }}
                       </div>
+
+                      {# Fee card — hidden until source field is selected #}
+                      <div id="auto_label_card_{{ field.key }}"
+                           style="display:none;border:1px solid color-mix(in srgb,var(--primary) 30%,var(--border));
+                                  border-radius:10px;overflow:hidden;">
+                        {# Accent top zone: type label + fee name + amount #}
+                        <div style="background:color-mix(in srgb,var(--primary) 10%,#fff);
+                                    padding:16px 20px;
+                                    display:flex;align-items:center;justify-content:space-between;gap:16px;">
+                          <div style="min-width:0;">
+                            <div id="auto_label_type_label_{{ field.key }}"
+                                 style="font-size:10px;font-weight:700;letter-spacing:0.12em;
+                                        text-transform:uppercase;color:var(--primary);margin-bottom:4px;"></div>
+                            <div id="auto_label_fee_name_{{ field.key }}"
+                                 style="font-size:14px;font-weight:600;color:var(--text);line-height:1.3;"></div>
+                          </div>
+                          <div id="auto_label_fee_amount_{{ field.key }}"
+                               style="font-size:38px;font-weight:700;color:var(--primary);
+                                      font-variant-numeric:tabular-nums;line-height:1;
+                                      letter-spacing:-0.02em;flex-shrink:0;white-space:nowrap;"></div>
+                        </div>
+                        {# White bottom zone: acknowledgment text #}
+                        <div style="padding:12px 20px;
+                                    border-top:1px solid color-mix(in srgb,var(--primary) 20%,var(--border));
+                                    background:#fff;">
+                          <p id="auto_label_{{ field.key }}"
+                             style="margin:0;font-size:13px;line-height:1.6;color:var(--muted);"></p>
+                        </div>
+                      </div>
+
                       <input type="hidden" name="{{ field.key }}" id="auto_label_input_{{ field.key }}"
                              value="{{ values|get_item:field.key }}">
                       <script>
                       (function(){
                         var opts={};
-                        {% for opt in field.options %}opts["{{ opt.source_value }}"]={label:"{{ opt.label|escapejs }}",value:"{{ opt.value }}"};
+                        {% for opt in field.options %}opts["{{ opt.source_value }}"]={
+                          label:"{{ opt.label|escapejs }}",
+                          value:"{{ opt.value }}",
+                          amountDisplay:"{{ opt.amount_display|default:''|escapejs }}",
+                          amountLabel:"{{ opt.amount_label|default:''|escapejs }}",
+                          typeLabel:"{{ opt.type_label|default:''|escapejs }}"
+                        };
                         {% endfor %}
+                        var placeholder=document.getElementById("auto_label_placeholder_{{ field.key }}");
+                        var card=document.getElementById("auto_label_card_{{ field.key }}");
+                        var typeLabel=document.getElementById("auto_label_type_label_{{ field.key }}");
+                        var feeName=document.getElementById("auto_label_fee_name_{{ field.key }}");
+                        var feeAmt=document.getElementById("auto_label_fee_amount_{{ field.key }}");
                         var display=document.getElementById("auto_label_{{ field.key }}");
                         var hidden=document.getElementById("auto_label_input_{{ field.key }}");
-                        var defaultText="{{ field.default_text|default:'Select above to see applicable fee.'|escapejs }}";
+                        function applyOpt(o){
+                          display.textContent=o.label;
+                          hidden.value=o.value;
+                          if(o.amountDisplay){
+                            feeAmt.textContent=o.amountDisplay;
+                            feeName.textContent=o.amountLabel;
+                            typeLabel.textContent=o.typeLabel;
+                          }
+                          placeholder.style.display="none";
+                          card.style.display="block";
+                        }
                         function sync(){
                           var checked=document.querySelector('input[name="{{ field.source_field }}"]:checked');
-                          if(checked&&opts[checked.value]){
-                            display.textContent=opts[checked.value].label;
-                            display.style.color="var(--text)";
-                            hidden.value=opts[checked.value].value;
-                          } else if(!hidden.value){
-                            display.textContent=defaultText;
-                            display.style.color="var(--muted)";
-                          }
+                          if(checked&&opts[checked.value]){ applyOpt(opts[checked.value]); }
+                          else if(!hidden.value){ placeholder.style.display="block"; card.style.display="none"; }
                         }
                         document.querySelectorAll('input[name="{{ field.source_field }}"]').forEach(function(el){el.addEventListener('change',sync);});
                         var saved=hidden.value;
                         if(saved){
-                          {% for opt in field.options %}if(saved=="{{ opt.value }}"){display.textContent="{{ opt.label|escapejs }}";display.style.color="var(--text)";}
+                          {% for opt in field.options %}if(saved=="{{ opt.value }}")applyOpt(opts["{{ opt.source_value }}"]);
                           {% endfor %}
                         } else { sync(); }
                       })();

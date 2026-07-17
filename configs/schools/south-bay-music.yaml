@@ -266,12 +266,18 @@ form:
           source_field: lesson_time_status
           default_text: "Select your enrollment type above to see the applicable fee."
           options:
-            - label: "New Students: I understand that enrollment includes a one-time $125 Conservatory Assessment & Placement Fee (per student). This fee is non-refundable and non-transferable."
+            - label: "I understand that enrollment includes a one-time Conservatory Assessment & Placement Fee (per student). This fee is non-refundable and non-transferable."
               value: new_student_fee
               source_value: new_student
-            - label: "Returning Students: I understand that there is an annual $75 Conservatory Registration Fee per family. These fees are non-refundable and non-transferable."
+              amount_display: "$125"
+              amount_label: "Conservatory Assessment & Placement Fee"
+              type_label: "New Student Fee"
+            - label: "I understand that there is an annual Conservatory Registration Fee per family. This fee is non-refundable and non-transferable."
               value: returning_student_fee
               source_value: returning_student
+              amount_display: "$75"
+              amount_label: "Annual Conservatory Registration Fee"
+              type_label: "Returning Student Fee"
 
         - key: monthly_tuition_policy
           label: "Monthly Tuition Policy"
@@ -292,11 +298,11 @@ form:
           type: radio
           required: true
           full_width: true
-          description: "South Bay Music Conservatory may photograph or record students for use in studio-related promotional materials, social media, and other communications. Please indicate your preference below."
+          description: "SBMC may photograph or record students at lessons, recitals, and studio events for use on our website, social media, and promotional materials. Do you grant permission to use images or recordings of your child (or yourself, if an adult student)?"
           options:
-            - label: "I grant permission for SBMC to use images and/or recordings of my child (or myself, if an adult student) for studio-related materials."
+            - label: "Yes, I grant permission"
               value: grant
-            - label: "I do not grant permission for media use."
+            - label: "No, I do not grant permission"
               value: deny
 
         - key: final_agreement
