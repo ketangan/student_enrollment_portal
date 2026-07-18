@@ -14,7 +14,7 @@
     note.style.fontSize = "12px";
     note.style.color = "var(--muted)";
     note.style.textAlign = "right";
-    note.textContent = "Powered by Student Enrollment Portal";
+    note.textContent = "Powered by Pontora";
 
     container.appendChild(note);
   });

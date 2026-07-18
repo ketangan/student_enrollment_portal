@@ -327,11 +327,11 @@ STRIPE_PRICE_CUSTOM_MONTHLY = os.getenv(f"STRIPE_PRICE_CUSTOM_MONTHLY_{_stripe_e
 STRIPE_PRICE_CUSTOM_ANNUAL = os.getenv(f"STRIPE_PRICE_CUSTOM_ANNUAL_{_stripe_env_suffix}", "").strip()
 
 JAZZMIN_SETTINGS = {
-    "site_title": "Student Enrollment Portal",
-    "site_header": "Student Enrollment Portal",
-    "site_brand": "Enrollment Admin",
+    "site_title": "Pontora",
+    "site_header": "Pontora",
+    "site_brand": "Pontora Admin",
     "welcome_sign": "Welcome",
-    "copyright": "Student Enrollment Portal",
+    "copyright": "Pontora",
 
     "topmenu_links": [],
 
