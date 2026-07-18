@@ -383,6 +383,8 @@ admin:
 
     transitions:
       New:
+        - label: "Mark In Review"
+          status: "In Review"
         - label: "Mark Needs Follow Up"
           status: "Needs Follow Up"
         - label: "Archive"

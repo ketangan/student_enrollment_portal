@@ -515,7 +515,7 @@ def _build_lead_prefill_data(lead: Lead, config_raw: dict) -> dict:
     if isinstance(lead.data, dict):
         _form_fields = lead.data.get("form_fields")
         if isinstance(_form_fields, dict):
-            prefill.update(_form_fields)
+            prefill.update({k: v for k, v in _form_fields.items() if v != "" and v is not None})
 
     email_key = find_email_field_key(config_raw)
     if email_key and lead.email:
