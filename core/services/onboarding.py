@@ -312,8 +312,8 @@ def send_welcome_email(school: School, actor: User) -> bool:
     )
     qr_img = qr_base64(enrollment_url)
 
-    subject = f"Welcome to Enrollify — {school_name} is ready!"
-    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@enrollifyapp.com")
+    subject = f"Welcome to Pontora — {school_name} is ready!"
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@mypontora.com")
 
     text_body = _welcome_text(
         admin=admin, school_name=school_name,
@@ -354,7 +354,7 @@ def _welcome_text(*, admin, school_name, login_url, magic_link, enrollment_url, 
     first = admin.first_name or "there"
     return f"""Hi {first},
 
-{school_name} is now live on Enrollify. Here's everything you need.
+{school_name} is now live on Pontora. Here's everything you need.
 
 ────────────────────────────────────────────
 QUICK START
@@ -383,7 +383,7 @@ NEXT STEPS
 
 Questions? Reply to this email anytime.
 
-— Ketan at Enrollify
+— Ketan at Pontora
 """
 
 
@@ -405,11 +405,11 @@ def _welcome_html(*, admin, school_name, login_url, magic_link, enrollment_url, 
 
     return f"""<!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><title>Welcome to Enrollify</title></head>
+<head><meta charset="UTF-8"><title>Welcome to Pontora</title></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#111;">
 
   <div style="margin-bottom:24px;">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;">Enrollify</div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#6b7280;">Pontora</div>
     <h1 style="font-size:22px;font-weight:700;margin:8px 0 4px;">{school_name} is live!</h1>
     <p style="font-size:14px;color:#4b5563;margin:0;">Hi {first}, your school is ready. Here&rsquo;s everything you need.</p>
   </div>
@@ -450,7 +450,7 @@ def _welcome_html(*, admin, school_name, login_url, magic_link, enrollment_url, 
 
   <div style="font-size:12px;color:#9ca3af;margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;">
     Questions? Reply to this email anytime.<br>
-    <strong style="color:#374151;">Ketan at Enrollify</strong>
+    <strong style="color:#374151;">Ketan at Pontora</strong>
   </div>
 
 </body>

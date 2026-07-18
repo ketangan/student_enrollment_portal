@@ -32,8 +32,8 @@ Run this before every production deploy. All items must be green before going li
 | `DEFAULT_FROM_EMAIL` | `School Name <noreply@yourdomain.com>` | Must be a verified Resend sender |
 | `RESEND_EMAIL_API_KEY` | `re_xxx` | From Resend dashboard |
 | `BASE_URL` | `https://yourdomain.com` | Fallback base URL when APP_BASE_URL/DEMO_BASE_URL not set |
-| `APP_BASE_URL` | `https://app.enrollifyapp.com` | Base URL for production customer links (magic links, emails) |
-| `DEMO_BASE_URL` | `https://demo.enrollifyapp.com` | Base URL for prospect demo links |
+| `APP_BASE_URL` | `https://app.mypontora.com` | Base URL for production customer links (magic links, emails) |
+| `DEMO_BASE_URL` | `https://demo.mypontora.com` | Base URL for prospect demo links |
 
 ### Recommended / Optional Variables
 
@@ -826,7 +826,7 @@ If the school has DB-driven programs (`school.program_field_key` set), active pr
 
 ### Webhook Lead Intake
 
-Allows schools to forward their existing Contact Us / inquiry form into Enrollify via Zapier, Make, WordPress, Wix, Squarespace, or custom HTML.
+Allows schools to forward their existing Contact Us / inquiry form into Pontora via Zapier, Make, WordPress, Wix, Squarespace, or custom HTML.
 
 **Setup**:
 1. Generate a token from the Django shell or admin: `from core.services.lead_intake import ensure_lead_webhook_token; ensure_lead_webhook_token(school)`

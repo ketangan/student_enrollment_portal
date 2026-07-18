@@ -230,12 +230,12 @@ success:
       to: "Duclearningcenter.olucas@gmail.com"
       cc: ""
       bcc: ""
-      from_email: "noreply@enrollifyapp.com"
+      from_email: "noreply@mypontora.com"
       subject: "New enrollment interest: {{student_name}}"
 
     applicant_confirmation:
       enabled: true
-      from_email: "noreply@enrollifyapp.com"
+      from_email: "noreply@mypontora.com"
       subject: "We received your enrollment request, {{student_name}}!"
 
 admin:

@@ -612,7 +612,7 @@
   <div class="dash-card" style="padding:24px;margin-bottom:20px;">
     <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Email Delivery</h2>
     <p style="font-size:12px;color:var(--dash-muted);margin:0 0 20px;">
-      Choose how Enrollify sends emails to families.
+      Choose how Pontora sends emails to families.
     </p>
 
     <form method="post" action="{% url 'school_settings' school.slug %}" id="smtp-form">
@@ -630,7 +630,7 @@
           <input type="radio" name="_smtp_source" value="enrollify" style="display:none;"
                  {% if not school.smtp_host %}checked{% endif %}
                  onchange="smtpMode('enrollify')">
-          Enrollify email
+          Pontora email
         </label>
         <label id="tab-custom"
                style="display:flex;align-items:center;gap:7px;padding:8px 18px;cursor:pointer;
@@ -647,13 +647,13 @@
       <!-- Enrollify description (shown in Enrollify mode) -->
       <div id="smtp-enrollify-desc" style="{% if school.smtp_host %}display:none;{% endif %}margin-bottom:4px;">
         <p style="font-size:13px;color:var(--dash-muted);margin:0 0 16px;">
-          Emails are sent from <strong>noreply@enrollifyapp.com</strong> via Enrollify's delivery service.
+          Emails are sent from <strong>noreply@mypontora.com</strong> via Pontora's delivery service.
           No configuration required.
         </p>
         {% if school.smtp_host %}
         <p style="font-size:12px;color:#d97706;margin:0 0 16px;padding:8px 12px;
                   background:#fffbeb;border:1px solid #fde68a;border-radius:6px;">
-          Custom SMTP is currently active. Save to switch back to Enrollify email.
+          Custom SMTP is currently active. Save to switch back to Pontora email.
         </p>
         {% endif %}
       </div>

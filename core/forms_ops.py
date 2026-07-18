@@ -107,7 +107,7 @@ class OpsSchoolEditForm(forms.ModelForm):
             "trial_end_date": "Superadmin override for trial end. Clears itself when plan changes off trial.",
             "app_fee_stripe_public_key": "School's own Stripe publishable key (pk_live_… or pk_test_…). Required for application fee collection.",
             "app_fee_stripe_secret_key": "School's own Stripe secret key (sk_live_… or sk_test_…). Stored encrypted-at-rest. Never share.",
-            "smtp_host": "Custom SMTP host (e.g. smtp.gmail.com). Leave blank to use Enrollify's default email service.",
+            "smtp_host": "Custom SMTP host (e.g. smtp.gmail.com). Leave blank to use Pontora's default email service.",
             "smtp_password": "SMTP password or app password. Stored as-is — not hashed.",
         }
 

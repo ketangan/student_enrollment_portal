@@ -832,9 +832,9 @@ def school_smtp_test_view(request, school_slug: str):
             fail_silently=False,
         )
         _EmailMessage(
-            subject=f"Enrollify SMTP test — {school.display_name}",
+            subject=f"Pontora SMTP test — {school.display_name}",
             body=(
-                f"This is a test email from Enrollify.\n\n"
+                f"This is a test email from Pontora.\n\n"
                 f"Your custom SMTP settings for {school.display_name} are working correctly.\n\n"
                 f"Host: {smtp_host}:{port}\nFrom: {smtp_from_email}"
             ),

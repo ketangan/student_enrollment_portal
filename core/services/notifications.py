@@ -694,7 +694,7 @@ def send_lead_admin_notification(
         "",
         f"View lead: {admin_path}",
         "",
-        "— Enrollify",
+        "— Pontora",
     ]))
     html_body = f"""
     <p><strong>{escape(form_title) if form_title else "New lead received"}</strong></p>
@@ -714,7 +714,7 @@ def send_lead_admin_notification(
         View in admin
       </a>
     </p>
-    <hr/><p style="color:#666;font-size:12px;">Enrollify &mdash; {school_name}</p>
+    <hr/><p style="color:#666;font-size:12px;">Pontora &mdash; {school_name}</p>
     """
     try:
         conn = get_school_email_connection(school)
@@ -757,7 +757,7 @@ def send_lead_confirmation(
     <p>Hi {escape(lead.name)},</p>
     <p>{escape(success_message)}</p>
     <p>— {escape(school_name)}</p>
-    <hr/><p style="color:#666;font-size:12px;">Enrollify</p>
+    <hr/><p style="color:#666;font-size:12px;">Pontora</p>
     """
     try:
         conn = get_school_email_connection(school)

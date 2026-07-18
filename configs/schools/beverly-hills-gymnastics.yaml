@@ -219,12 +219,12 @@ success:
       to: "info@beverlyhillsgymnastics.org"
       cc: ""
       bcc: ""
-      from_email: "noreply@enrollifyapp.com"
+      from_email: "noreply@mypontora.com"
       subject: "New class registration: {{student_name}}"
 
     applicant_confirmation:
       enabled: true
-      from_email: "noreply@enrollifyapp.com"
+      from_email: "noreply@mypontora.com"
       subject: "We received your registration, {{student_name}}!"
 
 admin:

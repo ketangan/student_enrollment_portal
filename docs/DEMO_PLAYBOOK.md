@@ -255,7 +255,7 @@ Include at minimum:
 - Without this the overdue badge never fires in the admin
 
 **Output URLs — use `DEMO_BASE_URL` for everything**:
-- Demo schools live on `demo.enrollifyapp.com`, not `app.enrollifyapp.com`
+- Demo schools live on `demo.mypontora.com`, not `app.mypontora.com`
 - Admin, form, and demo page URLs all use `demo_base`
 ```python
 from django.conf import settings
@@ -341,14 +341,14 @@ python manage.py seed_<slug>_demo
 After completing all steps, provide these to the prospect:
 
 ```
-Demo pages:    https://demo.enrollifyapp.com/demo/<demo-slug>/
-Admin portal:  https://demo.enrollifyapp.com/schools/<slug>/admin/
+Demo pages:    https://demo.mypontora.com/demo/<demo-slug>/
+Admin portal:  https://demo.mypontora.com/schools/<slug>/admin/
 Username:      <slug_abbrev>_admin
 Password:      <PascalAbbrev>Admin@123
-Form (direct): https://demo.enrollifyapp.com/schools/<slug>/apply/
+Form (direct): https://demo.mypontora.com/schools/<slug>/apply/
 ```
 
-All URLs use `demo.enrollifyapp.com` — demo schools never use `app.enrollifyapp.com`.
+All URLs use `demo.mypontora.com` — demo schools never use `app.mypontora.com`.
 
 ---
 

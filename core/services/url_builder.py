@@ -4,8 +4,8 @@ Centralized absolute URL construction.
 All code that needs an absolute URL must go through here — never call
 request.build_absolute_uri() or concatenate BASE_URL manually.
 
-  app_url(path)  → https://app.enrollifyapp.com<path>
-  demo_url(path) → https://demo.enrollifyapp.com<path>
+  app_url(path)  → https://app.mypontora.com<path>
+  demo_url(path) → https://demo.mypontora.com<path>
 
 Both fall back to BASE_URL in local dev so a single env var is enough.
 
