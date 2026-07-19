@@ -440,6 +440,15 @@
 
       <!-- Send Message -->
       {% if can_mutate and email_enabled and lead.email %}
+      {% if lead.converted_submission_id %}
+      <div class="dash-card no-print" style="padding:18px 22px;opacity:0.6;">
+        <h2 class="sidebar-label">Send Message</h2>
+        <p style="font-size:13px;color:var(--dash-muted);margin:0;">
+          This lead has been enrolled — manage communication from the
+          {% if converted_submission_url %}<a href="{{ converted_submission_url }}" style="color:var(--dash-primary,#4f46e5);font-weight:600;">submission →</a>{% else %}submission screen{% endif %}
+        </p>
+      </div>
+      {% else %}
       <div class="dash-card no-print" style="padding:18px 22px;">
         <h2 class="sidebar-label">Send Message</h2>
         <form method="post" id="lead-send-msg-form"
@@ -535,7 +544,12 @@
         var tokenWarningList = document.getElementById('lead-token-warning-list');
 
         function findUnresolvedTokens(body, subject) {
-          var found = {}, re = /\{\{(\w+)\}\}/g, m;
+          var found = {}, re, m;
+          re = /\{\{(\w+)\}\}/g;
+          while ((m = re.exec(body))    !== null) found[m[0]] = true;
+          re.lastIndex = 0;
+          while ((m = re.exec(subject)) !== null) found[m[0]] = true;
+          re = /\[[A-Z][^\]]{0,50}\]/g;
           while ((m = re.exec(body))    !== null) found[m[0]] = true;
           re.lastIndex = 0;
           while ((m = re.exec(subject)) !== null) found[m[0]] = true;
@@ -613,7 +627,8 @@
         }
       })();
       </script>
-      {% endif %}
+      {% endif %}{# enrolled vs form #}
+      {% endif %}{# can_mutate and email_enabled #}
 
       <!-- Activity -->
       <div class="dash-card" style="padding:18px 22px;">

@@ -372,3 +372,60 @@ def test_draft_creation_is_idempotent(client):
     assert DraftSubmission.objects.filter(
         school=school, lead=lead, submitted_at__isnull=True
     ).count() == 1
+
+
+# ── Enrolled lead: email sending blocked ──────────────────────────────────────
+
+
+@pytest.mark.django_db
+def test_enrolled_lead_send_message_blocked(client, monkeypatch):
+    """
+    POST to send-message for an enrolled lead (converted_submission set) must be
+    rejected with an error flash. send_admin_message must never be called.
+    """
+    school = _email_school()
+    user = _school_admin_user(school)
+    submission = SubmissionFactory(school=school)
+    lead = LeadFactory(school=school, email="parent@example.com")
+    lead.converted_submission = submission
+    lead.save(update_fields=["converted_submission"])
+    client.force_login(user)
+
+    send_called = []
+    monkeypatch.setattr(
+        "core.views_school_leads.send_admin_message",
+        lambda **kw: send_called.append(kw) or True,
+    )
+
+    response = client.post(
+        _lead_send_msg_url(school, lead.id),
+        {"message": "Hello", "next": ""},
+    )
+
+    assert response.status_code == 302
+    assert not send_called
+    msgs = list(response.wsgi_request._messages)
+    assert any("enrolled" in str(m).lower() or "submission" in str(m).lower() for m in msgs)
+
+
+@pytest.mark.django_db
+def test_enrolled_lead_detail_shows_disabled_email_notice(client, monkeypatch):
+    """
+    Lead detail page for an enrolled lead shows the disabled email notice instead
+    of the send-message form.
+    """
+    school = _email_school()
+    user = _school_admin_user(school)
+    submission = SubmissionFactory(school=school)
+    lead = LeadFactory(school=school, email="parent@example.com")
+    lead.converted_submission = submission
+    lead.save(update_fields=["converted_submission"])
+    client.force_login(user)
+
+    monkeypatch.setattr("core.views_school_common.load_school_config", lambda slug: None)
+
+    response = client.get(_lead_detail_url(school, lead.id))
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert "lead-send-msg-form" not in content
+    assert "enrolled" in content.lower()

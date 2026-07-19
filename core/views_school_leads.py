@@ -1409,6 +1409,10 @@ def school_lead_send_message_view(request, school_slug: str, lead_id: int):
         reverse("school_lead_detail", kwargs={"school_slug": school_slug, "lead_id": lead_id}),
     )
 
+    if lead.converted_submission_id:
+        messages.error(request, "This lead has been enrolled. Send messages from the submission screen.")
+        return redirect(redirect_url)
+
     if not school.features.email_notifications_enabled:
         messages.error(request, "Email is not enabled for this school.")
         return redirect(redirect_url)

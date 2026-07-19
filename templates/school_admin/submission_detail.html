@@ -622,7 +622,12 @@
         var tokenWarningList = document.getElementById('token-warning-list');
 
         function findUnresolvedTokens(body, subject) {
-          var found = {}, re = /\{\{(\w+)\}\}/g, m;
+          var found = {}, re, m;
+          re = /\{\{(\w+)\}\}/g;
+          while ((m = re.exec(body))    !== null) found[m[0]] = true;
+          re.lastIndex = 0;
+          while ((m = re.exec(subject)) !== null) found[m[0]] = true;
+          re = /\[[A-Z][^\]]{0,50}\]/g;
           while ((m = re.exec(body))    !== null) found[m[0]] = true;
           re.lastIndex = 0;
           while ((m = re.exec(subject)) !== null) found[m[0]] = true;
