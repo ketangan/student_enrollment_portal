@@ -16,13 +16,25 @@ Do this once per environment (local, staging, production).
 - [ ] Resend API key set (`RESEND_API_KEY`) and sender domain verified
 - [ ] Sentry connected and capturing errors
 - [ ] Stripe env vars configured:
-  - [ ] `STRIPE_MODE` set (`test` or `live`)
-  - [ ] `STRIPE_SECRET_KEY_<MODE>` set
-  - [ ] `STRIPE_PUBLISHABLE_KEY_<MODE>` set
-  - [ ] `STRIPE_WEBHOOK_SECRET_<MODE>` set
-  - [ ] At least `STRIPE_PRICE_STARTER_MONTHLY_<MODE>` and `STRIPE_PRICE_STARTER_ANNUAL_<MODE>` set
+  - [ ] `STRIPE_MODE` set — keep `test` until you're ready to charge schools real money for Enrollify subscriptions; flip to `live` only when enabling self-service billing (see note below)
+  - [ ] `STRIPE_SECRET_KEY_TEST` and `STRIPE_SECRET_KEY_LIVE` both set
+  - [ ] `STRIPE_PUBLISHABLE_KEY_TEST` and `STRIPE_PUBLISHABLE_KEY_LIVE` both set
+  - [ ] `STRIPE_WEBHOOK_SECRET_TEST` and `STRIPE_WEBHOOK_SECRET_LIVE` both set
+  - [ ] `STRIPE_PRICE_STARTER_MONTHLY_TEST` / `STRIPE_PRICE_STARTER_MONTHLY_LIVE`
+  - [ ] `STRIPE_PRICE_STARTER_ANNUAL_TEST` / `STRIPE_PRICE_STARTER_ANNUAL_LIVE`
+  - [ ] `STRIPE_PRICE_PRO_MONTHLY_TEST` / `STRIPE_PRICE_PRO_MONTHLY_LIVE`
+  - [ ] `STRIPE_PRICE_PRO_ANNUAL_TEST` / `STRIPE_PRICE_PRO_ANNUAL_LIVE`
+  - [ ] `STRIPE_PRICE_GROWTH_MONTHLY_TEST` / `STRIPE_PRICE_GROWTH_MONTHLY_LIVE`
+  - [ ] `STRIPE_PRICE_GROWTH_ANNUAL_TEST` / `STRIPE_PRICE_GROWTH_ANNUAL_LIVE`
+  - [ ] `STRIPE_PRICE_CUSTOM_MONTHLY_TEST` / `STRIPE_PRICE_CUSTOM_MONTHLY_LIVE` (for custom/founder plan schools)
+  - [ ] `STRIPE_PRICE_CUSTOM_ANNUAL_TEST` / `STRIPE_PRICE_CUSTOM_ANNUAL_LIVE`
   - [ ] Stripe webhook endpoint registered: `https://<host>/stripe/webhook/`
   - [ ] Webhook subscribes to: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
+
+> **STRIPE_MODE note:** `STRIPE_MODE` controls Enrollify's own billing to its school customers (subscriptions). It has **no effect** on per-school application fee collection — those use each school's own Stripe keys set in their admin settings page.
+> - Keep `STRIPE_MODE=test` as long as you are manually assigning plans (e.g. custom plan). No self-service billing = no reason to flip.
+> - Flip to `live` only when you're ready for schools to self-subscribe and be charged real money via Stripe Checkout.
+> - Before flipping: verify all `*_LIVE` price IDs exist in your Stripe Dashboard → Products, and register a live-mode webhook endpoint.
 
 ---
 
@@ -145,6 +157,16 @@ Goal: move from demo to real usage safely.
 - [ ] Mobile rendering verified on apply form
 - [ ] No obvious permission leaks (school admin cannot see other schools)
 - [ ] Trial status confirmed or school on paid plan
+
+**Stripe (per-school application fee — if applicable)**
+- [ ] School has a Stripe account and is ready to collect real money
+- [ ] School provides their live Stripe publishable key and secret key
+- [ ] Enter live keys in school admin settings: `/schools/<slug>/admin/settings/` → Stripe card
+- [ ] Verify keys start with `pk_live_` and `sk_live_` (not `pk_test_`)
+- [ ] Send a real test enrollment to confirm fee appears in the school's Stripe Dashboard
+- [ ] Confirm school receives the payment in their Stripe account
+
+> **Note:** Per-school Stripe keys are independent of the platform `STRIPE_MODE`. Even when the platform is in `test` mode, a school can collect real application fees if their own live keys are set in their admin settings.
 
 **Launch**
 - [ ] Apply page link sent to school
