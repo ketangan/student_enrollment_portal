@@ -93,9 +93,7 @@
     .dash-card { box-shadow:none !important; border:1px solid #ccc !important; break-inside:avoid; }
     body, .dash-text { color:#000 !important; }
     a { color:#000 !important; text-decoration:none; }
-    details.full-app { display:block; }
     details.full-app summary { display:none; }
-    details.full-app > *:not(summary) { display:block !important; }
   }
 </style>
 {% endblock %}
@@ -727,7 +725,70 @@
             '<a href="' + url.replace(/"/g, '&quot;') + '">' + text + '</a>');
         }
       };
+
+      // Link popover: click a link in the editor to see/edit/remove its URL
+      (function() {
+        var pop = document.getElementById('sub-link-popover');
+        var popUrl = document.getElementById('sub-link-pop-url');
+        var activeA = null;
+        function showPop(a) {
+          activeA = a;
+          popUrl.textContent = a.href;
+          var r = a.getBoundingClientRect();
+          pop.style.top = (r.bottom + window.scrollY + 4) + 'px';
+          pop.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.innerWidth - 330)) + 'px';
+          pop.style.display = 'block';
+        }
+        function hidePop() { pop.style.display = 'none'; activeA = null; }
+        document.addEventListener('click', function(e) {
+          if (pop && pop.contains(e.target)) return;
+          var editor = document.getElementById('msg-body-editor');
+          var a = e.target.closest ? e.target.closest('a') : null;
+          if (a && editor && editor.contains(a)) { e.preventDefault(); showPop(a); return; }
+          hidePop();
+        });
+        var editBtn = document.getElementById('sub-link-pop-edit');
+        editBtn && editBtn.addEventListener('click', function() {
+          if (!activeA) return;
+          var nu = prompt('Edit link URL:', activeA.href);
+          if (nu) { if (!/^https?:\/\//i.test(nu)) nu = 'https://' + nu; activeA.href = nu; popUrl.textContent = nu; }
+          hidePop();
+        });
+        var rmBtn = document.getElementById('sub-link-pop-remove');
+        rmBtn && rmBtn.addEventListener('click', function() {
+          if (!activeA) return;
+          activeA.parentNode.replaceChild(document.createTextNode(activeA.textContent), activeA);
+          hidePop();
+        });
+        var closeBtn = document.getElementById('sub-link-pop-close');
+        closeBtn && closeBtn.addEventListener('click', hidePop);
+      })();
       </script>
+
+      <!-- Link-preview popover (fixed, shared by email editor) -->
+      <div id="sub-link-popover" style="display:none;position:absolute;z-index:1000;
+        background:#fff;border:1px solid var(--dash-border,#e2e8f0);border-radius:8px;
+        box-shadow:0 4px 14px rgba(0,0,0,.12);padding:10px 12px;width:300px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+          <span style="font-size:10px;color:var(--dash-muted);flex-shrink:0;">URL:</span>
+          <span id="sub-link-pop-url" style="font-size:11px;font-family:monospace;color:#4f46e5;
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;"></span>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button id="sub-link-pop-edit" type="button"
+                  style="flex:1;padding:4px 8px;font-size:11px;font-weight:600;
+                         background:var(--dash-primary,#4f46e5);color:#fff;
+                         border:none;border-radius:4px;cursor:pointer;">Edit URL</button>
+          <button id="sub-link-pop-remove" type="button"
+                  style="flex:1;padding:4px 8px;font-size:11px;font-weight:600;
+                         background:#fee2e2;color:#b91c1c;
+                         border:1px solid #fecaca;border-radius:4px;cursor:pointer;">Remove link</button>
+          <button id="sub-link-pop-close" type="button"
+                  style="padding:4px 8px;font-size:11px;
+                         background:#f1f5f9;color:var(--dash-text);
+                         border:1px solid var(--dash-border,#e2e8f0);border-radius:4px;cursor:pointer;">✕</button>
+        </div>
+      </div>
       {% endif %}
 
       <!-- Family Status Page (family_portal_enabled) -->
@@ -882,7 +943,7 @@
               {% elif entry.extra.name == "resend_status_link" %}
                 sent status page link{% if entry.extra.to %} &rarr; {{ entry.extra.to }}{% endif %}
               {% elif entry.extra.name == "manual_message_sent" %}
-                sent message to parent{% if entry.extra.to %} &rarr; {{ entry.extra.to }}{% endif %}{% if entry.extra.subject %}<br><span style="font-size:11px;color:var(--dash-muted);"><strong>Subject:</strong> {{ entry.extra.subject }}</span>{% endif %}{% if entry.extra.body %}<br><span style="font-size:11px;color:var(--dash-muted);white-space:pre-wrap;">{{ entry.extra.body }}</span>{% endif %}
+                sent message to parent{% if entry.extra.to %} &rarr; {{ entry.extra.to }}{% endif %}{% if entry.extra.subject %}<br><span style="font-size:11px;color:var(--dash-muted);"><strong>Subject:</strong> {{ entry.extra.subject }}</span>{% endif %}{% if entry.extra.body %}<br><span style="font-size:11px;color:var(--dash-muted);white-space:pre-wrap;">{{ entry.extra.body|striptags }}</span>{% endif %}
               {% elif entry.extra.name == "mark_contacted" %}
                 marked as contacted{% if entry.extra.follow_up_date %} &mdash; follow-up set for {{ entry.extra.follow_up_date }}{% endif %}
               {% elif entry.extra.name == "follow_up_set" %}
@@ -1099,6 +1160,17 @@ function copyText(text) {
     document.body.removeChild(ta);
   }
 }
+
+// Expand all <details> before printing so the full application prints even if collapsed.
+(function() {
+  function openAll() {
+    document.querySelectorAll('details').forEach(function(d) { d.open = true; });
+  }
+  if (window.matchMedia) {
+    window.matchMedia('print').addEventListener('change', function(e) { if (e.matches) openAll(); });
+  }
+  window.addEventListener('beforeprint', openAll);
+})();
 </script>
 
 {% endblock %}

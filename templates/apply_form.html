@@ -93,6 +93,7 @@
             novalidate
             action="{% if is_multi %}{% url 'apply_form' school_slug=school.slug form_key=form_key %}{% else %}{% url 'apply' school_slug=school.slug %}{% endif %}">
           {% csrf_token %}
+          {% if draft_token %}<input type="hidden" name="_draft_token" value="{{ draft_token }}">{% endif %}
 
           {% for section in form.sections %}
             <div class="card">

@@ -125,6 +125,9 @@
             {% if not forloop.first %}<span class="sub-pipeline__arrow">›</span>{% endif %}
             {% if step.value == lead.status %}
               <span class="sub-pipeline__step sub-pipeline__step--active">{{ step.label }}</span>
+            {% elif step.value == "enrolled" %}
+              {# Enrolled is system-only — set when the lead submits the enrollment form #}
+              <span class="sub-pipeline__step" style="opacity:0.35;cursor:default;" title="Set automatically when the family submits the enrollment form">{{ step.label }}</span>
             {% else %}
               <button type="submit" name="new_status" value="{{ step.value }}"
                       class="sub-pipeline__step--clickable" title="Move to {{ step.label }}">{{ step.label }}</button>
@@ -351,87 +354,87 @@
         {% elif lead.status == "lost" %}
           <p style="font-size:13px;color:var(--dash-muted);margin:0;">This lead is marked as lost. No enrollment action needed.</p>
         {% elif form_url %}
-          <div>
+          {# Draft exists — show form link + shareable URL #}
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
             <a href="{{ form_url }}" target="_blank"
                class="dash-action-btn dash-action-btn--primary" style="font-size:13px;">
               Open Form &rarr;
             </a>
-            <span style="font-size:12px;color:var(--dash-muted);margin-left:10px;">Opens a pre-filled form in a new tab.</span>
+            <span style="font-size:12px;color:var(--dash-muted);">Opens the pre-filled form in a new tab.</span>
           </div>
-          <div style="border-top:1px solid var(--dash-border,#e2e8f0);padding-top:14px;margin-top:14px;">
-            <p style="font-size:13px;font-weight:600;margin:0 0 4px;">Send link to family</p>
-            <p style="font-size:12px;color:var(--dash-muted);margin:0 0 8px;">
-              Pre-filled form link — family can complete on their own device.
-            </p>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <input id="resume-link" type="text" readonly value="{{ resume_url }}"
-                     style="flex:1;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
-                            border-radius:6px;font-size:11px;font-family:monospace;
-                            color:var(--dash-text);background:#f8fafc;min-width:0;">
-              <button type="button"
-                      onclick="(function(btn){navigator.clipboard.writeText(document.getElementById('resume-link').value).then(function(){btn.textContent='Copied!';setTimeout(function(){btn.textContent='Copy';},2000);}).catch(function(){var i=document.getElementById('resume-link');i.select();document.execCommand('copy');btn.textContent='Copied!';setTimeout(function(){btn.textContent='Copy';},2000);});})( this)"
-                      style="padding:6px 14px;background:#f1f5f9;border:1px solid var(--dash-border,#e2e8f0);
-                             border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
-                Copy
+          <p style="font-size:12px;font-weight:600;margin:0 0 6px;color:var(--dash-text);">Enrollment link</p>
+          <p style="font-size:11px;color:var(--dash-muted);margin:0 0 8px;">
+            Share this link with the family — they can complete the form on their own device.
+          </p>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input id="resume-link" type="text" readonly value="{{ resume_url }}"
+                   style="flex:1;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
+                          border-radius:6px;font-size:11px;font-family:monospace;
+                          color:var(--dash-text);background:#f8fafc;min-width:0;"
+                   onclick="this.select()">
+            <button type="button"
+                    onclick="(function(btn){var v=document.getElementById('resume-link').value;navigator.clipboard.writeText(v).then(function(){btn.textContent='Copied!';setTimeout(function(){btn.textContent='Copy';},2000);}).catch(function(){var i=document.getElementById('resume-link');i.select();document.execCommand('copy');btn.textContent='Copied!';setTimeout(function(){btn.textContent='Copy';},2000);});})( this)"
+                    style="padding:6px 14px;background:#f1f5f9;border:1px solid var(--dash-border,#e2e8f0);
+                           border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">
+              Copy
+            </button>
+          </div>
+          {% if email_enabled and lead.email %}
+          <form method="post"
+                action="{% url 'school_lead_resend_resume_link' school_slug=school_slug lead_id=lead.id %}"
+                style="margin-top:10px;">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ detail_url }}">
+            <button type="submit"
+                    style="padding:6px 14px;background:var(--dash-primary,#4f46e5);color:#fff;
+                           border:none;border-radius:6px;font-size:12px;font-weight:600;
+                           cursor:pointer;white-space:nowrap;">
+              Email this link →
+            </button>
+            <span style="font-size:11px;color:var(--dash-muted);margin-left:8px;">Sends to {{ lead.email }}</span>
+          </form>
+          {% endif %}
+        {% elif start_enrollment_url %}
+          {# No draft yet — primary action creates a draft and opens the form #}
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+            <form method="post" action="{{ start_enrollment_url }}" target="_blank">
+              {% csrf_token %}
+              <button type="submit" class="dash-action-btn dash-action-btn--primary" style="font-size:13px;">
+                Start Enrollment
               </button>
-            </div>
+            </form>
+            <span style="font-size:12px;color:var(--dash-muted);">Opens a pre-filled form in a new tab.</span>
+          </div>
+          <p style="font-size:12px;font-weight:600;margin:0 0 6px;color:var(--dash-text);">Enrollment link</p>
+          <p style="font-size:11px;color:var(--dash-muted);margin:0 0 8px;">
+            Generate a shareable link to send to the family, or email it directly.
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <form method="post" action="{{ start_enrollment_url }}">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="copy">
+              <button type="submit"
+                      style="padding:6px 14px;background:#f1f5f9;border:1px solid var(--dash-border,#e2e8f0);
+                             border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;
+                             white-space:nowrap;color:var(--dash-text);">
+                Generate link
+              </button>
+            </form>
             {% if email_enabled and lead.email %}
             <form method="post"
-                  action="{% url 'school_lead_resend_resume_link' school_slug=school_slug lead_id=lead.id %}"
-                  style="margin-top:10px;">
+                  action="{% url 'school_lead_resend_resume_link' school_slug=school_slug lead_id=lead.id %}">
               {% csrf_token %}
               <input type="hidden" name="next" value="{{ detail_url }}">
               <button type="submit"
                       style="padding:6px 14px;background:var(--dash-primary,#4f46e5);color:#fff;
                              border:none;border-radius:6px;font-size:12px;font-weight:600;
                              cursor:pointer;white-space:nowrap;">
-                Email this link →
+                Email form link →
               </button>
-              <span style="font-size:11px;color:var(--dash-muted);margin-left:8px;">Sends to {{ lead.email }}</span>
             </form>
+            <span style="font-size:11px;color:var(--dash-muted);">to {{ lead.email }}</span>
             {% endif %}
           </div>
-        {% elif start_enrollment_url %}
-          <form method="post" action="{{ start_enrollment_url }}" target="_blank">
-            {% csrf_token %}
-            <button type="submit" class="dash-action-btn dash-action-btn--primary" style="font-size:13px;">
-              Start Enrollment
-            </button>
-            <span style="font-size:12px;color:var(--dash-muted);margin-left:10px;">
-              Opens a pre-filled form in a new tab.
-            </span>
-          </form>
-          {% if email_enabled and lead.email %}
-          <div style="border-top:1px solid var(--dash-border,#e2e8f0);padding-top:14px;margin-top:14px;">
-            <p style="font-size:13px;font-weight:600;margin:0 0 4px;">Send link to family</p>
-            <p style="font-size:12px;color:var(--dash-muted);margin:0 0 10px;">
-              Email the pre-filled form link, or generate it first to review and copy.
-            </p>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <form method="post"
-                    action="{% url 'school_lead_resend_resume_link' school_slug=school_slug lead_id=lead.id %}">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{{ detail_url }}">
-                <button type="submit"
-                        style="padding:6px 14px;background:var(--dash-primary,#4f46e5);color:#fff;
-                               border:none;border-radius:6px;font-size:12px;font-weight:600;
-                               cursor:pointer;white-space:nowrap;">
-                  Email form link →
-                </button>
-              </form>
-              <form method="post" action="{{ start_enrollment_url }}" target="_blank">
-                {% csrf_token %}
-                <button type="submit"
-                        style="padding:6px 14px;background:#f1f5f9;border:1px solid var(--dash-border,#e2e8f0);
-                               border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;
-                               white-space:nowrap;color:var(--dash-text);">
-                  Generate link (copy)
-                </button>
-              </form>
-              <span style="font-size:11px;color:var(--dash-muted);">to {{ lead.email }}</span>
-            </div>
-          </div>
-          {% endif %}
         {% endif %}
       </div>
       {% endif %}{# can_mutate — Enrollment #}
@@ -641,7 +644,70 @@
             '<a href="' + url.replace(/"/g, '&quot;') + '">' + text + '</a>');
         }
       };
+
+      // Link popover: click a link inside the editor to preview/edit/remove its URL
+      (function() {
+        var pop = document.getElementById('lead-link-popover');
+        var popUrl = document.getElementById('lead-link-pop-url');
+        var activeA = null;
+        function showPop(a) {
+          activeA = a;
+          popUrl.textContent = a.href;
+          var r = a.getBoundingClientRect();
+          pop.style.top = (r.bottom + window.scrollY + 4) + 'px';
+          pop.style.left = Math.max(8, Math.min(r.left + window.scrollX, window.innerWidth - 330)) + 'px';
+          pop.style.display = 'block';
+        }
+        function hidePop() { pop.style.display = 'none'; activeA = null; }
+        document.addEventListener('click', function(e) {
+          if (pop && pop.contains(e.target)) return;
+          var editor = document.getElementById('lead-msg-body-editor');
+          var a = e.target.closest ? e.target.closest('a') : null;
+          if (a && editor && editor.contains(a)) { e.preventDefault(); showPop(a); return; }
+          hidePop();
+        });
+        var editBtn = document.getElementById('lead-link-pop-edit');
+        editBtn && editBtn.addEventListener('click', function() {
+          if (!activeA) return;
+          var nu = prompt('Edit link URL:', activeA.href);
+          if (nu) { if (!/^https?:\/\//i.test(nu)) nu = 'https://' + nu; activeA.href = nu; popUrl.textContent = nu; }
+          hidePop();
+        });
+        var rmBtn = document.getElementById('lead-link-pop-remove');
+        rmBtn && rmBtn.addEventListener('click', function() {
+          if (!activeA) return;
+          activeA.parentNode.replaceChild(document.createTextNode(activeA.textContent), activeA);
+          hidePop();
+        });
+        var closeBtn = document.getElementById('lead-link-pop-close');
+        closeBtn && closeBtn.addEventListener('click', hidePop);
+      })();
       </script>
+
+      <!-- Link-preview popover (fixed, shared by email editor) -->
+      <div id="lead-link-popover" style="display:none;position:absolute;z-index:1000;
+        background:#fff;border:1px solid var(--dash-border,#e2e8f0);border-radius:8px;
+        box-shadow:0 4px 14px rgba(0,0,0,.12);padding:10px 12px;width:300px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+          <span style="font-size:10px;color:var(--dash-muted);flex-shrink:0;">URL:</span>
+          <span id="lead-link-pop-url" style="font-size:11px;font-family:monospace;color:#4f46e5;
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;"></span>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button id="lead-link-pop-edit" type="button"
+                  style="flex:1;padding:4px 8px;font-size:11px;font-weight:600;
+                         background:var(--dash-primary,#4f46e5);color:#fff;
+                         border:none;border-radius:4px;cursor:pointer;">Edit URL</button>
+          <button id="lead-link-pop-remove" type="button"
+                  style="flex:1;padding:4px 8px;font-size:11px;font-weight:600;
+                         background:#fee2e2;color:#b91c1c;
+                         border:1px solid #fecaca;border-radius:4px;cursor:pointer;">Remove link</button>
+          <button id="lead-link-pop-close" type="button"
+                  style="padding:4px 8px;font-size:11px;
+                         background:#f1f5f9;color:var(--dash-text);
+                         border:1px solid var(--dash-border,#e2e8f0);border-radius:4px;cursor:pointer;">✕</button>
+        </div>
+      </div>
       {% endif %}{# enrolled vs form #}
       {% endif %}{# can_mutate and email_enabled #}
 

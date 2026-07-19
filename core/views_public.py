@@ -414,15 +414,29 @@ def _complete_submission_from_draft(
     Finalise a DraftSubmission → Submission, run post-processing, and redirect to success.
     Used by both the normal (no-fee) submit path and the payment confirm path.
     """
-    submission = Submission.objects.create(
-        school=school,
-        form_key=draft.form_key or "default",
-        data=dict(draft.data or {}),
-        payment_intent_id=payment_intent_id,
-        payment_status=payment_status,
-    )
-    draft.submitted_at = timezone.now()
-    draft.save(update_fields=["submitted_at"])
+    # Duplicate guard: lock the draft and verify it hasn't been submitted yet.
+    # Two browser tabs submitting the same form concurrently must produce only one Submission.
+    with transaction.atomic():
+        _locked = (
+            DraftSubmission.objects
+            .select_for_update()
+            .filter(pk=draft.pk, submitted_at__isnull=True)
+            .first()
+        )
+        if not _locked:
+            # Already submitted (race or payment double-confirm) — redirect silently.
+            return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
+
+        submission = Submission.objects.create(
+            school=school,
+            form_key=draft.form_key or "default",
+            data=dict(draft.data or {}),
+            payment_intent_id=payment_intent_id,
+            payment_status=payment_status,
+        )
+        _locked.submitted_at = timezone.now()
+        _locked.save(update_fields=["submitted_at"])
+
     request.session.pop(_draft_session_key(school_slug), None)
 
     try:
@@ -604,13 +618,51 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                     kwargs={"school_slug": school_slug, "draft_token": draft.token},
                 ))
 
-            # No fee (or fee not configured) — create submission immediately
-            submission = Submission.objects.create(
-                school=school,
-                form_key="default",
-                data=cleaned,
-                payment_status="waived" if (fee_cfg["enabled"] and fee_cfg["waived"]) else "",
-            )
+            # No fee (or fee not configured) — create submission immediately.
+            # Duplicate-submission guard: two browser tabs opening the same resume URL
+            # and submitting sequentially or concurrently must not produce two Submissions.
+            _hidden_draft_token = request.POST.get("_draft_token", "").strip()
+            active_draft = _resolve_active_draft(request, school, school_slug)
+
+            with transaction.atomic():
+                if active_draft:
+                    # Re-fetch under a lock so a truly-concurrent second tab must wait.
+                    # If it was submitted while we waited, the NULL filter drops it.
+                    active_draft = (
+                        DraftSubmission.objects
+                        .select_for_update()
+                        .filter(pk=active_draft.pk, school=school, submitted_at__isnull=True)
+                        .first()
+                    )
+                    if not active_draft:
+                        # Another tab won the race and already submitted.
+                        return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
+                elif _hidden_draft_token:
+                    # Session was cleared (a prior tab already submitted this draft).
+                    # Use the hidden token to detect the duplicate.
+                    _prior = (
+                        DraftSubmission.objects
+                        .select_for_update()
+                        .filter(token=_hidden_draft_token, school=school)
+                        .first()
+                    )
+                    if _prior and _prior.is_submitted():
+                        return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
+
+                submission = Submission.objects.create(
+                    school=school,
+                    form_key="default",
+                    data=cleaned,
+                    payment_status="waived" if (fee_cfg["enabled"] and fee_cfg["waived"]) else "",
+                )
+
+                # Mark draft submitted inside the same transaction so no second tab
+                # can create a Submission between now and the committed mark.
+                if active_draft:
+                    active_draft.submitted_at = timezone.now()
+                    active_draft.save(update_fields=["submitted_at"])
+
+            request.session.pop(_draft_session_key(school_slug), None)
 
             # Resolve program/session FK + apply auto-enrollment for DB-driven program schools.
             if school.program_field_key:
@@ -627,13 +679,6 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                     submission.refresh_from_db(fields=["status"])
                     if submission.status == "Waitlisted":
                         request.session[_WAITLIST_SESSION_KEY] = True
-
-            # Mark draft submitted (do NOT delete — magic link shows "already submitted" page)
-            active_draft = _resolve_active_draft(request, school, school_slug)
-            if active_draft:
-                active_draft.submitted_at = timezone.now()
-                active_draft.save(update_fields=["submitted_at"])
-            request.session.pop(_draft_session_key(school_slug), None)
 
             try:
                 draft_lead = active_draft.lead if active_draft else None
@@ -695,6 +740,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
         ctx["save_resume_enabled"] = save_resume_enabled
         ctx["embed_mode"] = request.GET.get("embed") == "1"
         ctx["fee_is_pending"] = _fee_cfg_get["enabled"] and not _fee_cfg_get["waived"] and _stripe_ready_get
+        ctx["draft_token"] = active_draft.token if active_draft else ""
         return render(request, "apply_form.html", ctx)
 
     # ----------------------------
@@ -821,6 +867,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
     ctx["save_resume_enabled"] = save_resume_enabled
     ctx["embed_mode"] = request.GET.get("embed") == "1"
     ctx["fee_is_pending"] = _fee_is_pending
+    ctx["draft_token"] = active_draft.token if active_draft else ""
     return render(request, "apply_form.html", ctx)
 
 

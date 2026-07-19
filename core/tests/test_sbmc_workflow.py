@@ -532,8 +532,8 @@ def test_lead_transition_full_pipeline(client):
 
 
 @pytest.mark.django_db
-def test_lead_transition_to_enrolled_allowed(client):
-    """Any valid status is now directly reachable — no transition graph enforcement."""
+def test_lead_transition_to_enrolled_blocked(client):
+    """Enrolled is a system-only status — manual POST must be rejected."""
     school = _sbmc_school()
     lead = _sbmc_lead(school)
     user = _owner(school)
@@ -541,7 +541,7 @@ def test_lead_transition_to_enrolled_allowed(client):
 
     client.post(_lead_status_url(school, lead), {"new_status": "enrolled"})
     lead.refresh_from_db()
-    assert lead.status == "enrolled"
+    assert lead.status == LEAD_STATUS_NEW, "Manual enrolled transition must be blocked"
 
 
 @pytest.mark.django_db
@@ -1792,3 +1792,228 @@ def test_admin_new_lead_missing_required_yaml_field_blocks_create(client):
     })
     assert resp2.status_code == 200, "Missing required instrument must re-render form"
     assert not Lead.objects.filter(school=school, email="missinginstrument@example.com").exists()
+
+
+# ===========================================================================
+# Duplicate submission prevention
+# ===========================================================================
+
+
+@pytest.mark.django_db
+@override_settings(DEV_SKIP_PAYMENT=False)
+def test_duplicate_submission_via_draft_token_blocked(client):
+    """
+    Submitting the same form twice using the _draft_token hidden field
+    must not create a second Submission.
+    """
+    school = _sbmc_school()
+    _sbmc_programs(school)
+    lead = _sbmc_lead(school)
+    admin = _owner(school)
+
+    # Admin starts enrollment
+    client.force_login(admin)
+    client.post(_start_enrollment_url(school, lead))
+    draft = DraftSubmission.objects.filter(school=school, lead=lead).first()
+    assert draft is not None
+
+    # Family fills and submits form (tab 1)
+    client.logout()
+    client.get(_resume_url(school, draft.token))
+    post_data = _enrollment_post_data()
+    post_data["_draft_token"] = draft.token
+    resp1 = client.post(_apply_url(school), data=post_data)
+    assert resp1.status_code in (200, 302)
+
+    draft.refresh_from_db()
+    assert draft.submitted_at is not None, "Draft should be marked submitted after first POST"
+
+    sub_count_after_first = Submission.objects.filter(school=school).count()
+    assert sub_count_after_first == 1
+
+    # Family submits again from another tab (session cleared, but _draft_token still in form)
+    # Session key was popped by the first submit, so active_draft resolves to None.
+    # The _draft_token guard should catch it.
+    resp2 = client.post(_apply_url(school), data=post_data)
+    # Must redirect to success — NOT create another submission
+    assert resp2.status_code == 302
+    assert Submission.objects.filter(school=school).count() == 1, (
+        "Second submit with same draft token must not create a duplicate Submission"
+    )
+
+
+@pytest.mark.django_db
+@override_settings(DEV_SKIP_PAYMENT=False)
+def test_duplicate_submission_no_draft_token_creates_fresh(client):
+    """
+    A second form submit WITHOUT _draft_token and without any session draft
+    is treated as a fresh standalone submission (no draft to guard against).
+    This covers the rare self-service path with no resume token.
+    """
+    school = _sbmc_school()
+    _sbmc_programs(school)
+    before = Submission.objects.filter(school=school).count()
+
+    post_data = _enrollment_post_data()
+    # No _draft_token — pure fresh form
+    resp = client.post(_apply_url(school), data=post_data)
+    assert resp.status_code == 302
+    assert Submission.objects.filter(school=school).count() == before + 1
+
+
+# ===========================================================================
+# Lead "enrolled" status is system-only (backend + template)
+# ===========================================================================
+
+
+@pytest.mark.django_db
+def test_lead_status_update_enrolled_blocked_by_backend(client):
+    """
+    POST to school_lead_status_update with new_status=enrolled must be rejected.
+    Enrolled is set only by the system (try_convert_lead).
+    """
+    school = _sbmc_school()
+    lead = _sbmc_lead(school)
+    admin = _editor(school)
+
+    client.force_login(admin)
+    url = _lead_status_url(school, lead)
+    resp = client.post(url, {"new_status": "enrolled", "next": "/"})
+
+    # Must redirect without changing the lead status
+    assert resp.status_code == 302
+    lead.refresh_from_db()
+    assert lead.status == LEAD_STATUS_NEW, "Backend must reject manual enrolled status change"
+
+
+@pytest.mark.django_db
+def test_lead_detail_enrolled_step_not_a_button(client):
+    """
+    The 'enrolled' step in the lead pipeline bar must render as a disabled
+    span, not a clickable <button> — confirmed via page content check.
+    """
+    school = _sbmc_school()
+    lead = _sbmc_lead(school)
+    admin = _owner(school)
+
+    client.force_login(admin)
+    url = reverse("school_lead_detail", kwargs={"school_slug": school.slug, "lead_id": lead.id})
+    resp = client.get(url)
+    assert resp.status_code == 200
+    content = resp.content.decode()
+
+    # The enrolled step must NOT appear as a submit button
+    assert 'name="new_status" value="enrolled"' not in content, (
+        "Enrolled step must not be a clickable pipeline button"
+    )
+    # But it should still appear in the pipeline bar as a disabled element
+    assert "Enrolled" in content
+
+
+@pytest.mark.django_db
+def test_submission_detail_email_audit_log_strips_html(client):
+    """
+    Email body stored as HTML in AdminAuditLog.extra['body'] must be displayed
+    with tags stripped (|striptags) — raw <p>/<b> must not leak into the page.
+    """
+    school = _sbmc_school()
+    admin = _owner(school)
+    sub = SubmissionFactory(school=school, data={"email": "parent@example.com", "first_name": "Test"})
+
+    AdminAuditLog.objects.create(
+        action="action",
+        model_label="core.submission",
+        object_id=str(sub.id),
+        object_repr=str(sub),
+        extra={"name": "manual_message_sent", "subject": "Test", "body": "<p>Hello <b>World</b></p>"},
+    )
+
+    client.force_login(admin)
+    url = reverse("school_submission_detail", kwargs={"school_slug": school.slug, "submission_id": sub.id})
+    resp = client.get(url)
+    assert resp.status_code == 200
+    content = resp.content.decode()
+
+    assert "<p>Hello <b>World</b></p>" not in content, "Raw HTML must be stripped by |striptags"
+    assert "Hello" in content and "World" in content, "Plain text content must still appear"
+
+
+@pytest.mark.django_db
+def test_submission_detail_has_beforeprint_js(client):
+    """
+    submission_detail must include the beforeprint listener that opens all
+    <details> elements before printing, so the PDF includes the full form.
+    """
+    school = _sbmc_school()
+    admin = _owner(school)
+    sub = SubmissionFactory(school=school)
+
+    client.force_login(admin)
+    url = reverse("school_submission_detail", kwargs={"school_slug": school.slug, "submission_id": sub.id})
+    resp = client.get(url)
+    assert resp.status_code == 200
+    content = resp.content.decode()
+
+    assert "beforeprint" in content, "beforeprint event listener must be present"
+    assert "d.open = true" in content, "Details open-all logic must be present"
+
+
+@pytest.mark.django_db
+def test_lead_detail_has_link_popover(client):
+    """lead_detail must include the link-edit popover for the email composer."""
+    school = _sbmc_school()
+    lead = _sbmc_lead(school)
+    admin = _owner(school)
+
+    client.force_login(admin)
+    url = reverse("school_lead_detail", kwargs={"school_slug": school.slug, "lead_id": lead.id})
+    resp = client.get(url)
+    assert resp.status_code == 200
+    content = resp.content.decode()
+
+    assert "lead-link-popover" in content
+    assert "lead-link-pop-edit" in content
+
+
+@pytest.mark.django_db
+def test_submission_detail_has_link_popover(client):
+    """submission_detail must include the link-edit popover for the email composer."""
+    school = _sbmc_school()
+    admin = _owner(school)
+    # email in data required for the Send Message section (and popover) to render
+    sub = SubmissionFactory(school=school, data={"email": "parent@example.com", "first_name": "Test"})
+
+    client.force_login(admin)
+    url = reverse("school_submission_detail", kwargs={"school_slug": school.slug, "submission_id": sub.id})
+    resp = client.get(url)
+    assert resp.status_code == 200
+    content = resp.content.decode()
+
+    assert "sub-link-popover" in content
+    assert "sub-link-pop-edit" in content
+
+
+@pytest.mark.django_db
+@override_settings(
+    ALLOWED_HOSTS=["testserver"],
+    APP_BASE_URL="http://testserver",
+    DEMO_BASE_URL="http://testserver",
+)
+def test_start_enrollment_action_copy_redirects_to_lead(client):
+    """
+    POSTing to start-enrollment with action=copy must redirect back to the
+    lead detail page (so the admin can copy the URL) instead of opening the form.
+    """
+    school = _sbmc_school()
+    lead = _sbmc_lead(school)
+    admin = _owner(school)
+
+    client.force_login(admin)
+    url = reverse("school_lead_start_enrollment", kwargs={"school_slug": school.slug, "lead_id": lead.id})
+    resp = client.post(url, {"action": "copy"})
+
+    expected = reverse("school_lead_detail", kwargs={"school_slug": school.slug, "lead_id": lead.id})
+    assert resp.status_code == 302
+    assert resp["Location"] == expected, (
+        f"action=copy should redirect to lead detail, got {resp['Location']}"
+    )

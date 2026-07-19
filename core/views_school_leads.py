@@ -347,6 +347,11 @@ def school_lead_status_update_view(request, school_slug: str, lead_id: int):
         messages.error(request, f"'{new_status}' is not a valid lead status.")
         return redirect(redirect_url)
 
+    # "Enrolled" is system-only — set automatically when the family submits the enrollment form.
+    if new_status == LEAD_STATUS_ENROLLED:
+        messages.error(request, "Enrolled status is set automatically when the family submits the enrollment form.")
+        return redirect(redirect_url)
+
     old_status = lead.status
     lead.status = new_status
     auto_fields: list[str] = []
@@ -764,6 +769,11 @@ def school_lead_start_enrollment_view(request, school_slug: str, lead_id: int):
 
     from core.services.url_builder import app_reverse
     form_url = app_reverse("apply_resume", kwargs={"school_slug": school_slug, "token": draft.token})
+
+    # "copy" action: stay on lead detail so admin can see/copy the URL.
+    if request.POST.get("action") == "copy":
+        return redirect(detail_url)
+
     return redirect(form_url)
 
 
