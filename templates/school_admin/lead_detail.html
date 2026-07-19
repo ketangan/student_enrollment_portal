@@ -501,6 +501,8 @@
                         style="width:24px;height:24px;border:1px solid var(--dash-border,#e2e8f0);border-radius:3px;background:#fff;cursor:pointer;font-style:italic;font-size:12px;">I</button>
                 <button type="button" title="Underline" onclick="document.execCommand('underline')"
                         style="width:24px;height:24px;border:1px solid var(--dash-border,#e2e8f0);border-radius:3px;background:#fff;cursor:pointer;text-decoration:underline;font-size:12px;">U</button>
+                <button type="button" title="Insert link" onclick="insertLeadEmailLink()"
+                        style="height:24px;padding:0 6px;border:1px solid var(--dash-border,#e2e8f0);border-radius:3px;background:#fff;cursor:pointer;font-size:11px;color:#4f46e5;">🔗</button>
               </div>
               <div id="lead-msg-body-editor" contenteditable="true"
                    style="min-height:80px;padding:8px;font-size:13px;line-height:1.6;outline:none;background:var(--dash-bg);color:var(--dash-text);"
@@ -626,6 +628,21 @@
           editor.addEventListener('focus', function() { editor.style.border = ''; });
         }
       })();
+
+      window.insertLeadEmailLink = function() {
+        var url = prompt('Link URL (e.g. https://example.com):');
+        if (!url) return;
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+        var sel = window.getSelection();
+        if (sel && sel.toString().length > 0) {
+          document.execCommand('createLink', false, url);
+        } else {
+          var text = prompt('Link text:');
+          if (!text) return;
+          document.execCommand('insertHTML', false,
+            '<a href="' + url.replace(/"/g, '&quot;') + '">' + text + '</a>');
+        }
+      };
       </script>
       {% endif %}{# enrolled vs form #}
       {% endif %}{# can_mutate and email_enabled #}
