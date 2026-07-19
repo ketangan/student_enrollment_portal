@@ -154,6 +154,7 @@ def _enrollment_post_data(instrument: str = "piano") -> dict:
         # auto_label: any non-empty value satisfies required check
         "enrollment_fee_acknowledgment": "new_student_fee",
         # checkboxes
+        "fee_payment_acknowledgment": "on",
         "monthly_tuition_policy": "on",
         "makeups_cancellations": "on",
         # radio
@@ -331,7 +332,9 @@ def test_lead_prefill_copies_real_form_fields():
     prefill = _build_lead_prefill_data(lead, raw)
 
     assert prefill.get("student_age") == "7"
-    assert prefill.get("instrument") == "violin"
+    # DB-backed program field: bare lead code must be normalized to "program:<code>"
+    # so the enrollment form's select option pre-selects correctly.
+    assert prefill.get("instrument") == "program:violin"
     assert prefill.get("guardian_email") == "parent@example.com"
     assert prefill.get("guardian_phone") == "3105550101"
 
@@ -351,8 +354,75 @@ def test_lead_prefill_interested_in_value_overwrites_empty_instrument():
     raw = _load_yaml()
     prefill = _build_lead_prefill_data(lead, raw)
 
-    # interested_in_value provides the instrument after form_fields empty strings are skipped
-    assert prefill.get("instrument") == "cello"
+    # interested_in_value provides the instrument, normalized to "program:<code>"
+    assert prefill.get("instrument") == "program:cello"
+
+
+@pytest.mark.django_db
+def test_start_enrollment_renders_instrument_preselected(client):
+    """
+    Regression: Start Enrollment must produce a draft whose prefilled instrument value
+    is in "program:<code>" format so the enrollment form's DB-backed select pre-selects it.
+
+    Before the fix, _build_lead_prefill_data stored a bare "piano" value which never
+    matched any rendered <option value="program:piano">, so the dropdown appeared blank.
+    This test catches that at the HTTP layer by loading the resume URL and checking that
+    the correct option is marked selected in the rendered HTML.
+    """
+    school = _sbmc_school()
+    _sbmc_programs(school)
+    admin = _owner(school)
+    lead = LeadFactory(
+        school=school,
+        name="Ava Kim",
+        email="ava@example.com",
+        interested_in_value="piano",
+    )
+
+    # Admin triggers Start Enrollment
+    client.force_login(admin)
+    client.post(_start_enrollment_url(school, lead))
+    draft = DraftSubmission.objects.filter(school=school, lead=lead).first()
+    assert draft is not None
+
+    # Assert the draft already carries the normalized value
+    assert draft.data.get("instrument") == "program:piano", (
+        f"Draft instrument must be 'program:piano', got {draft.data.get('instrument')!r}"
+    )
+
+    # Load the enrollment form via the resume URL (sets session, then redirects to apply).
+    client.logout()
+    client.get(_resume_url(school, draft.token))  # sets draft session
+    form_resp = client.get(_apply_url(school))
+    assert form_resp.status_code == 200
+
+    # The rendered <option value="program:piano" ...> must be selected
+    content = form_resp.content.decode()
+    assert 'value="program:piano" selected' in content or \
+           "program:piano\" selected" in content, (
+        "Expected instrument option to be pre-selected in the rendered enrollment form"
+    )
+
+
+@pytest.mark.django_db
+def test_lead_prefill_form_fields_instrument_also_normalized(client):
+    """
+    Regression: instrument in lead.data.form_fields (bare code) must also be normalized
+    to 'program:<code>' — not just the interested_in_value path.
+    """
+    school = _sbmc_school()
+    lead = LeadFactory(
+        school=school,
+        name="Ben Wu",
+        email="ben@example.com",
+        interested_in_value="",  # not set
+        data={"form_fields": {"instrument": "violin"}},
+    )
+    raw = _load_yaml()
+    prefill = _build_lead_prefill_data(lead, raw)
+    assert prefill.get("instrument") == "program:violin", (
+        "form_fields bare code must be normalized to 'program:<code>' for DB-backed fields"
+    )
 
 
 @pytest.mark.django_db
@@ -492,10 +562,9 @@ def test_start_enrollment_draft_prefills_lead_data(client):
     assert draft is not None
     assert draft.data.get("guardian_email") == lead.email
     assert draft.data.get("guardian_phone") == lead.phone
-    assert draft.data.get("instrument") == "violin"
+    # DB-backed program field: bare code normalized to "program:<code>"
+    assert draft.data.get("instrument") == "program:violin"
     assert draft.data.get("student_age") == "7"
-    # Empty strings must NOT be copied
-    assert draft.data.get("instrument") != ""
 
 
 @pytest.mark.django_db

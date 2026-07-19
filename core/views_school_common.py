@@ -531,6 +531,20 @@ def _build_lead_prefill_data(lead: Lead, config_raw: dict) -> dict:
             prefill[prog_key] = lead.interested_in_value
 
     prefill.update(_build_lead_name_prefill(lead.name, config_raw))
+
+    # Normalize program field value for schools that use DB-backed program options.
+    # Schools with a top-level `program_field_key` render the enrollment form's program
+    # select with "program:<code>" or "session:<pk>" values (via inject_db_program_options).
+    # Lead forms store bare codes from their own YAML options. Without this step the
+    # prefilled value ("piano") never matches any rendered option ("program:piano")
+    # so the dropdown always appears blank. This covers both the form_fields copy path
+    # and the interested_in_value path above.
+    _prog_key = _find_program_field_key(config_raw)
+    if _prog_key and (config_raw or {}).get("program_field_key") and _prog_key in prefill:
+        _val = prefill[_prog_key]
+        if isinstance(_val, str) and _val and not _val.startswith("program:") and not _val.startswith("session:"):
+            prefill[_prog_key] = f"program:{_val}"
+
     return prefill
 
 

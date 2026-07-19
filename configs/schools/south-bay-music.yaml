@@ -267,18 +267,25 @@ form:
           source_field: lesson_time_status
           default_text: "Select your enrollment type above to see the applicable fee."
           options:
-            - label: "I understand that enrollment includes a one-time Conservatory Assessment & Placement Fee (per student). This fee is non-refundable and non-transferable."
+            - label: "A Conservatory Assessment & Placement Fee of $125 will be charged by SBMC via Studio. For each additional student or instrument: $50. This fee is non-refundable and non-transferable."
               value: new_student_fee
               source_value: new_student
               amount_display: "$125"
               amount_label: "Conservatory Assessment & Placement Fee"
               type_label: "New Student Fee"
-            - label: "I understand that there is an annual Conservatory Registration Fee per family. This fee is non-refundable and non-transferable."
+            - label: "An Annual Conservatory Registration Fee of $75 per student will be charged by SBMC via Studio. For each additional student or instrument: $25. This fee is non-refundable and non-transferable."
               value: returning_student_fee
               source_value: returning_student
               amount_display: "$75"
               amount_label: "Annual Conservatory Registration Fee"
               type_label: "Returning Student Fee"
+
+        - key: fee_payment_acknowledgment
+          label: "Payment Acknowledgment"
+          type: checkbox
+          required: true
+          full_width: true
+          checkbox_label: "I acknowledge that the registration fee shown above will be collected by South Bay Music Conservatory via Studio, and is non-refundable and non-transferable."
 
         - key: monthly_tuition_policy
           label: "Monthly Tuition Policy"
@@ -314,14 +321,7 @@ form:
           checkbox_label: "I have read and agree to abide by the SBMC Studio Policies and understand that continued enrollment constitutes agreement with current policies."
 
 application_fee:
-  enabled: true
-  description: "Conservatory Registration Fee"
-  amount_from_field:
-    field: lesson_time_status
-    amounts:
-      new_student: 125
-      returning_student: 75
-    default: 125
+  enabled: false
 
 success:
   title: "Registration Received!"
@@ -351,6 +351,9 @@ success:
       enabled: true
       from_email: "noreply@mypontora.com"
       subject: "We received your registration, {{student_name}}!"
+      message: >
+        Thank you for registering with South Bay Music Conservatory. We'll be in touch
+        within 1–2 business days to confirm your lesson schedule and next steps.
 
 admin:
   submission_statuses:
