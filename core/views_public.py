@@ -848,6 +848,9 @@ def apply_payment_view(request, school_slug: str, draft_token: str):
     if draft.submitted_at:
         return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
+    if draft.is_expired():
+        return render(request, "apply_expired.html", {"school": school, "branding": branding})
+
     raw_config = getattr(config, "raw", {}) or {}
     # Use last_form_key (multi-form) or form_key (single-form) for fee lookup
     effective_form_key = draft.last_form_key or draft.form_key or "default"
@@ -952,6 +955,9 @@ def apply_payment_confirm_view(request, school_slug: str, draft_token: str):
 
     if draft.submitted_at:
         return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
+
+    if draft.is_expired():
+        return render(request, "apply_expired.html", {"school": school, "branding": branding})
 
     payment_intent_id = request.GET.get("payment_intent", "").strip()
     redirect_status = request.GET.get("redirect_status", "")

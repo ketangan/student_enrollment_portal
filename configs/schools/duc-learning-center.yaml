@@ -249,8 +249,7 @@ admin:
     - Waitlisted
     - Archived
     - Closed
-  default_submission_status:
-    - New
+  default_submission_status: New
   lead_workflow:
     filters:
       new_leads:
@@ -261,7 +260,7 @@ admin:
         label: "In Pipeline"
         statuses:
           - contacted
-          - consultation_scheduled
+          - trial_scheduled
       won:
         label: "Enrolled"
         statuses:
@@ -271,17 +270,17 @@ admin:
         - label: "Mark Contacted"
           status: contacted
         - label: "Archive"
-          status: archived
+          status: lost
       contacted:
         - label: "Schedule Consultation"
-          status: consultation_scheduled
+          status: trial_scheduled
         - label: "Archive"
-          status: archived
-      consultation_scheduled:
+          status: lost
+      trial_scheduled:
         - label: "Mark Enrolled"
           status: enrolled
         - label: "Archive"
-          status: archived
+          status: lost
 
 leads:
   form_title: "Request Tutoring Information"

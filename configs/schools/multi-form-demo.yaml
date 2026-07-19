@@ -1,4 +1,5 @@
 school:
+  slug: "multi-form-demo"
   display_name: "MultiForm Demo Studio"
   website_url: "https://example.com"
   source_url: "https://example.com"

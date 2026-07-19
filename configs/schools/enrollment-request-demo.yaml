@@ -192,8 +192,7 @@ admin:
     - Archived
     - Enrolled
     - Closed
-  default_submission_status:
-    - New
+  default_submission_status: New
   lead_workflow:
     filters:
       new_leads:

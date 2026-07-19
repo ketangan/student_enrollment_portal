@@ -537,7 +537,8 @@ def send_submission_notification_email(
 
     program = _pick_program_label(submission_data)
     admin_url = _admin_url_for_submission(request=request, submission_id=submission_id)
-    subject = _build_submission_email_subject(student_name=student_name, program=program)
+    raw_subject = cfg.subject or _build_submission_email_subject(student_name=student_name, program=program)
+    subject = _render_template(raw_subject, {"student_name": student_name, "program": program})
     text_body, html_body = _build_submission_email_bodies(
         submission_public_id=submission_public_id,
         student_name=student_name,

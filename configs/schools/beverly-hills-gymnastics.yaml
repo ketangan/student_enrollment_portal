@@ -311,7 +311,7 @@ admin:
         statuses: [new]
       pipeline:
         label: "In Pipeline"
-        statuses: [contacted, placement_scheduled]
+        statuses: [contacted, trial_scheduled]
       won:
         label: "Enrolled"
         statuses: [enrolled]
@@ -320,17 +320,17 @@ admin:
         - label: "Mark Contacted"
           status: contacted
         - label: "Archive"
-          status: archived
+          status: lost
       contacted:
         - label: "Schedule Placement"
-          status: placement_scheduled
+          status: trial_scheduled
         - label: "Archive"
-          status: archived
-      placement_scheduled:
+          status: lost
+      trial_scheduled:
         - label: "Mark Enrolled"
           status: enrolled
         - label: "Archive"
-          status: archived
+          status: lost
 
 leads:
   form_title: "Inquire About Classes"
