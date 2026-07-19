@@ -5,6 +5,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
+from django_ratelimit.decorators import ratelimit
 
 DEMO_SESSION_TOKEN_KEY = "demo_token_id"
 DEMO_SESSION_PAGES_KEY = "demo_visited_pages"
@@ -24,6 +25,7 @@ def _post_login_redirect(request, next_url=""):
     return redirect("/")
 
 
+@ratelimit(key="ip", rate="10/m", method="POST", block=True)
 def login_view(request):
     if request.user.is_authenticated:
         return _post_login_redirect(request)

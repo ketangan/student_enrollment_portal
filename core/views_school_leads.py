@@ -54,6 +54,7 @@ from .services.admin_themes import (
 from .services.config_loader import (
     find_email_field_key,
     get_forms,
+    get_lead_form_config,
     get_program_options,
     load_school_config,
     PROGRAM_FIELD_KEYS,
@@ -601,9 +602,12 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
             .first()
         )
         if existing_draft:
-            form_url = reverse("apply", kwargs={"school_slug": school_slug})
             from core.services.url_builder import app_reverse
             resume_url = app_reverse("apply_resume", kwargs={"school_slug": school_slug, "token": existing_draft.token})
+            # Open Form must use the token URL, not the bare apply URL.
+            # The bare URL resolves the draft via session, which may hold a different
+            # lead's draft if the admin previously started enrollment for someone else.
+            form_url = resume_url
 
     is_followup_overdue = bool(
         lead.next_follow_up_at and lead.next_follow_up_at < timezone.now()
@@ -1044,29 +1048,65 @@ def school_lead_create_view(request, school_slug: str):
         )
 
     config = _safe_load_school_config(school_slug)
-    program_options = get_program_options(config) if config else []
+    raw = config.raw if config else {}
+    lead_cfg = get_lead_form_config(raw) if config else None
+    program_options = get_program_options(config) if config and not (lead_cfg and lead_cfg.get("hide_program_field")) else []
 
     leads_url = reverse("school_leads", kwargs={"school_slug": school_slug})
 
-    if request.method == "GET":
+    def _render_form(values=None, errors=None):
         ctx = _school_admin_base_context(request, school, "leads")
         ctx.update({
             "form_heading": "New Lead",
             "form_action": request.path,
             "cancel_url": leads_url,
             "program_options": program_options,
-            "values": {},
+            "lead_cfg": lead_cfg,
+            "values": values or {},
+            "errors": errors or {},
         })
         return render(request, "school_admin/lead_form.html", ctx)
 
-    # POST: validate and create.
-    new_name = request.POST.get("name", "").strip()
+    if request.method == "GET":
+        return _render_form()
+
+    # POST: collect fields
     new_email = request.POST.get("email", "").strip()
     new_phone = request.POST.get("phone", "").strip()
-    new_interested_in_value = request.POST.get("interested_in_value", "").strip()
     notes = request.POST.get("notes", "")
 
-    errors = {}
+    # Collect YAML custom field values (when lead_cfg available) or fall back to simple fields
+    custom_field_values: dict = {}
+    if lead_cfg and lead_cfg["fields"]:
+        for field in lead_cfg["fields"]:
+            key = field["key"]
+            ftype = field.get("type", "text")
+            if ftype == "checkbox":
+                custom_field_values[key] = request.POST.get(key) == "true"
+            else:
+                custom_field_values[key] = request.POST.get(key, "").strip()
+        # Resolve lead name from name_field_key or fallback to generic name field
+        name_field_key = lead_cfg.get("name_field_key", "")
+        new_name = (custom_field_values.get(name_field_key) or request.POST.get("name", "")).strip()
+        # Resolve interested_in from redirect_url_field or direct select
+        ruf = lead_cfg.get("redirect_url_field", "")
+        new_interested_in_value = (custom_field_values.get(ruf) or request.POST.get("interested_in_value", "")).strip()
+        # Build label from field options
+        new_interested_in_label = ""
+        for f in lead_cfg["fields"]:
+            if f["key"] == ruf:
+                for opt in f.get("options", []):
+                    if opt.get("value") == new_interested_in_value:
+                        new_interested_in_label = opt.get("label", new_interested_in_value)
+                        break
+                break
+    else:
+        new_name = request.POST.get("name", "").strip()
+        new_interested_in_value = request.POST.get("interested_in_value", "").strip()
+        label_map = {opt["value"]: opt["label"] for opt in program_options}
+        new_interested_in_label = label_map.get(new_interested_in_value, new_interested_in_value)
+
+    errors: dict = {}
     if not new_name:
         errors["name"] = "Name is required."
     if not new_email:
@@ -1076,21 +1116,19 @@ def school_lead_create_view(request, school_slug: str):
             _validate_email(new_email)
         except _ValidationError:
             errors["email"] = "Enter a valid email address."
+    # Required YAML custom field validation
+    if lead_cfg and lead_cfg["fields"]:
+        for field in lead_cfg["fields"]:
+            key = field["key"]
+            if field.get("required") and not custom_field_values.get(key):
+                errors[key] = "This field is required."
 
     if errors:
-        ctx = _school_admin_base_context(request, school, "leads")
-        ctx.update({
-            "form_heading": "New Lead",
-            "form_action": request.path,
-            "cancel_url": leads_url,
-            "program_options": program_options,
-            "values": request.POST,
-            "errors": errors,
-        })
-        return render(request, "school_admin/lead_form.html", ctx)
+        return _render_form(values=request.POST, errors=errors)
 
-    label_map = {opt["value"]: opt["label"] for opt in program_options}
-    new_interested_in_label = label_map.get(new_interested_in_value, new_interested_in_value)
+    lead_data: dict = {}
+    if custom_field_values:
+        lead_data["form_fields"] = custom_field_values
 
     try:
         with transaction.atomic():
@@ -1103,6 +1141,7 @@ def school_lead_create_view(request, school_slug: str):
                 interested_in_label=new_interested_in_label,
                 notes=notes,
                 source="manual",
+                data=lead_data,
             )
             log_admin_audit(
                 request=request,
@@ -1113,16 +1152,10 @@ def school_lead_create_view(request, school_slug: str):
             )
     except IntegrityError:
         logger.warning("Duplicate lead email for school %r: %s", school_slug, new_email)
-        ctx = _school_admin_base_context(request, school, "leads")
-        ctx.update({
-            "form_heading": "New Lead",
-            "form_action": request.path,
-            "cancel_url": leads_url,
-            "program_options": program_options,
-            "values": request.POST,
-            "errors": {"email": "A lead with this email already exists for this school."},
-        })
-        return render(request, "school_admin/lead_form.html", ctx)
+        return _render_form(
+            values=request.POST,
+            errors={"email": "A lead with this email already exists for this school."},
+        )
 
     messages.success(request, f'Lead "{lead.name}" created successfully.')
     return redirect(reverse("school_lead_detail", kwargs={"school_slug": school_slug, "lead_id": lead.id}))

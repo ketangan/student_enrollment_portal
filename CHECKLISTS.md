@@ -99,6 +99,7 @@ Goal: YAML + Admin setup correct and consistent.
 - [ ] If scheduling link: `scheduling.url` set in YAML
 - [ ] If lead capture: `leads:` block present
 - [ ] If save & resume: Pro+ plan confirmed (`save_resume_enabled`)
+- [ ] If program select field uses `inject_db_program_options` (no YAML options list): `SchoolProgram` records exist in DB for this school — verify dropdown is populated on the form
 
 **Admin setup**
 - [ ] School record created via `/ops/schools/new/` (or converted from demo via `/ops/schools/<slug>/convert/`)
@@ -131,8 +132,8 @@ Goal: clean 10–15 minute demo, no surprises.
 - [ ] Student name and program populated
 - [ ] Submission editable and saves correctly
 - [ ] Audit log entry created
-- [ ] Submission confirmation email received (applicant)
-- [ ] Staff notification email received
+- [ ] Submission confirmation email received (applicant) — verify body is personalized (includes student name, application ID); if generic, add `message:` key to `applicant_confirmation` in YAML
+- [ ] Staff notification email received — verify subject includes student name (requires `subject:` key in YAML; default is bare "New submission" with no name)
 - [ ] Reports page loads with data
 - [ ] CSV export works
 - [ ] Lead appears in admin leads inbox (if lead captured)
@@ -184,6 +185,9 @@ Goal: move from demo to real usage safely.
 - [ ] Verify submissions appear as expected
 - [ ] Verify Stripe webhooks delivering (Stripe Dashboard → Developers → Webhooks)
 - [ ] Collect initial feedback from school
+
+**Known post-launch dev tasks (platform-wide, not per-school)**
+- [ ] Fix `trial_expired.html` billing link — currently points to `/admin/billing/` (old Django Admin). Change to `{% url 'school_billing' school.slug %}`. Low risk, 4-line fix. Affects any trial school whose admin clicks the "upgrade" link on the expired public enrollment page.
 
 ---
 

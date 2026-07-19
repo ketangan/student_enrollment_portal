@@ -1712,6 +1712,7 @@ def _extract_sched_fields(data: dict) -> list[dict]:
 # Family status login — last name + application ID → redirect to token URL
 # ---------------------------------------------------------------------------
 
+@ratelimit(key="ip", rate="10/m", method="POST", block=True)
 @xframe_options_exempt
 def school_status_login_view(request, school_slug: str):
     school = get_object_or_404(School, slug=school_slug)

@@ -1,4 +1,5 @@
 {% extends "school_admin/base.html" %}
+{% load form_extras %}
 
 {% block page_title %}{{ form_heading }}{% endblock %}
 
@@ -11,70 +12,173 @@
     <form method="post" action="{{ form_action }}">
       {% csrf_token %}
 
-      <!-- Name -->
-      <div style="margin-bottom:16px;">
-        <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
-          Name <span style="color:#dc2626;">*</span>
-        </label>
-        <input type="text" name="name"
-               value="{{ values.name|default:'' }}"
-               style="width:100%;padding:8px 10px;border:1px solid {% if errors.name %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
-                      border-radius:6px;font-size:13px;box-sizing:border-box;"
-               placeholder="Full name">
-        {% if errors.name %}
-        <div style="color:#dc2626;font-size:12px;margin-top:4px;">{{ errors.name }}</div>
+      {% if lead_cfg and lead_cfg.fields %}
+        {# ── YAML-driven lead form fields (matches the public trial/lead form) ── #}
+
+        {# Name field (only shown when name_field_key is not set — the YAML custom field handles it) #}
+        {% if not lead_cfg.name_field_key %}
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
+            Name <span style="color:#dc2626;">*</span>
+          </label>
+          <input type="text" name="name"
+                 value="{{ values.name|default:'' }}"
+                 style="width:100%;padding:8px 10px;border:1px solid {% if errors.name %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
+                        border-radius:6px;font-size:13px;box-sizing:border-box;"
+                 placeholder="Full name">
+          {% if errors.name %}
+          <div style="color:#dc2626;font-size:12px;margin-top:4px;">{{ errors.name }}</div>
+          {% endif %}
+        </div>
         {% endif %}
-      </div>
 
-      <!-- Email -->
-      <div style="margin-bottom:16px;">
-        <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
-          Email <span style="color:#dc2626;">*</span>
-        </label>
-        <input type="email" name="email"
-               value="{{ values.email|default:'' }}"
-               style="width:100%;padding:8px 10px;border:1px solid {% if errors.email %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
-                      border-radius:6px;font-size:13px;box-sizing:border-box;"
-               placeholder="email@example.com">
-        {% if errors.email %}
-        <div style="color:#dc2626;font-size:12px;margin-top:4px;">{{ errors.email }}</div>
+        {# Email — always required #}
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
+            Email <span style="color:#dc2626;">*</span>
+          </label>
+          <input type="email" name="email"
+                 value="{{ values.email|default:'' }}"
+                 style="width:100%;padding:8px 10px;border:1px solid {% if errors.email %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
+                        border-radius:6px;font-size:13px;box-sizing:border-box;"
+                 placeholder="email@example.com">
+          {% if errors.email %}
+          <div style="color:#dc2626;font-size:12px;margin-top:4px;">{{ errors.email }}</div>
+          {% endif %}
+        </div>
+
+        {# Phone #}
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
+            Phone{% if lead_cfg.phone_required %} <span style="color:#dc2626;">*</span>{% endif %}
+          </label>
+          <input type="text" name="phone"
+                 value="{{ values.phone|default:'' }}"
+                 style="width:100%;padding:8px 10px;border:1px solid var(--dash-border,#e2e8f0);
+                        border-radius:6px;font-size:13px;box-sizing:border-box;"
+                 placeholder="Optional">
+        </div>
+
+        {# YAML custom fields (student_name, student_age, instrument, etc.) #}
+        {% for field in lead_cfg.fields %}
+        <div style="margin-bottom:16px;">
+          {% if field.type == "checkbox" %}
+            <div style="display:flex;align-items:flex-start;gap:10px;">
+              <input type="checkbox"
+                     id="id_{{ field.key }}"
+                     name="{{ field.key }}"
+                     value="true"
+                     style="margin-top:3px;flex-shrink:0;width:16px;height:16px;"
+                     {% if values|get_item:field.key == "true" %}checked{% endif %}>
+              <label for="id_{{ field.key }}"
+                     style="font-size:13px;font-weight:400;color:var(--dash-text);cursor:pointer;">
+                {{ field.label }}{% if field.required %} <span style="color:#dc2626;">*</span>{% endif %}
+              </label>
+            </div>
+          {% elif field.type == "select" %}
+            <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
+              {{ field.label }}{% if field.required %} <span style="color:#dc2626;">*</span>{% endif %}
+            </label>
+            <select name="{{ field.key }}"
+                    style="width:100%;padding:8px 10px;border:1px solid {% if errors|get_item:field.key %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
+                           border-radius:6px;font-size:13px;background:#fff;color:var(--dash-text);box-sizing:border-box;">
+              <option value="">— Select —</option>
+              {% for opt in field.options %}
+              <option value="{{ opt.value }}"
+                      {% if values|get_item:field.key == opt.value %}selected{% endif %}>
+                {{ opt.label }}
+              </option>
+              {% endfor %}
+            </select>
+          {% elif field.type == "textarea" %}
+            <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
+              {{ field.label }}{% if field.required %} <span style="color:#dc2626;">*</span>{% endif %}
+            </label>
+            <textarea name="{{ field.key }}" rows="3"
+                      style="width:100%;padding:8px 10px;border:1px solid {% if errors|get_item:field.key %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
+                             border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;"
+                      placeholder="{{ field.placeholder|default:'' }}">{{ values|get_item:field.key|default:'' }}</textarea>
+          {% else %}
+            <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
+              {{ field.label }}{% if field.required %} <span style="color:#dc2626;">*</span>{% endif %}
+            </label>
+            <input type="text" name="{{ field.key }}"
+                   value="{{ values|get_item:field.key|default:'' }}"
+                   style="width:100%;padding:8px 10px;border:1px solid {% if errors|get_item:field.key %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
+                          border-radius:6px;font-size:13px;box-sizing:border-box;"
+                   placeholder="{{ field.placeholder|default:'' }}">
+          {% endif %}
+          {% if errors|get_item:field.key %}
+          <div style="color:#dc2626;font-size:12px;margin-top:4px;">{{ errors|get_item:field.key }}</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+
+      {% else %}
+        {# ── Fallback: generic fields for schools without a YAML leads config ── #}
+
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
+            Name <span style="color:#dc2626;">*</span>
+          </label>
+          <input type="text" name="name"
+                 value="{{ values.name|default:'' }}"
+                 style="width:100%;padding:8px 10px;border:1px solid {% if errors.name %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
+                        border-radius:6px;font-size:13px;box-sizing:border-box;"
+                 placeholder="Full name">
+          {% if errors.name %}
+          <div style="color:#dc2626;font-size:12px;margin-top:4px;">{{ errors.name }}</div>
+          {% endif %}
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
+            Email <span style="color:#dc2626;">*</span>
+          </label>
+          <input type="email" name="email"
+                 value="{{ values.email|default:'' }}"
+                 style="width:100%;padding:8px 10px;border:1px solid {% if errors.email %}#dc2626{% else %}var(--dash-border,#e2e8f0){% endif %};
+                        border-radius:6px;font-size:13px;box-sizing:border-box;"
+                 placeholder="email@example.com">
+          {% if errors.email %}
+          <div style="color:#dc2626;font-size:12px;margin-top:4px;">{{ errors.email }}</div>
+          {% endif %}
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
+            Phone
+          </label>
+          <input type="text" name="phone"
+                 value="{{ values.phone|default:'' }}"
+                 style="width:100%;padding:8px 10px;border:1px solid var(--dash-border,#e2e8f0);
+                        border-radius:6px;font-size:13px;box-sizing:border-box;"
+                 placeholder="Optional">
+        </div>
+
+        {% if program_options %}
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
+            Program Interest
+          </label>
+          <select name="interested_in_value"
+                  style="width:100%;padding:8px 10px;border:1px solid var(--dash-border,#e2e8f0);
+                         border-radius:6px;font-size:13px;background:#fff;color:var(--dash-text);
+                         box-sizing:border-box;">
+            <option value="">— Select program —</option>
+            {% for opt in program_options %}
+            <option value="{{ opt.value }}"
+                    {% if values.interested_in_value == opt.value %}selected{% endif %}>
+              {{ opt.label }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
         {% endif %}
-      </div>
 
-      <!-- Phone -->
-      <div style="margin-bottom:16px;">
-        <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
-          Phone
-        </label>
-        <input type="text" name="phone"
-               value="{{ values.phone|default:'' }}"
-               style="width:100%;padding:8px 10px;border:1px solid var(--dash-border,#e2e8f0);
-                      border-radius:6px;font-size:13px;box-sizing:border-box;"
-               placeholder="Optional">
-      </div>
-
-      <!-- Program Interest -->
-      {% if program_options %}
-      <div style="margin-bottom:16px;">
-        <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
-          Program Interest
-        </label>
-        <select name="interested_in_value"
-                style="width:100%;padding:8px 10px;border:1px solid var(--dash-border,#e2e8f0);
-                       border-radius:6px;font-size:13px;background:#fff;color:var(--dash-text);
-                       box-sizing:border-box;">
-          <option value="">— Select program —</option>
-          {% for opt in program_options %}
-          <option value="{{ opt.value }}"
-                  {% if values.interested_in_value == opt.value %}selected{% endif %}>
-            {{ opt.label }}
-          </option>
-          {% endfor %}
-        </select>
-      </div>
       {% endif %}
 
-      <!-- Notes -->
+      {# Notes — admin-only field always shown #}
       <div style="margin-bottom:20px;">
         <label style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:6px;">
           Notes

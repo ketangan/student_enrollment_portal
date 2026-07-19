@@ -437,6 +437,66 @@ def test_lead_prefill_name_split_into_first_last():
     assert prefill.get("student_last_name") == "Rodriguez"
 
 
+@pytest.mark.django_db
+def test_start_enrollment_renders_all_prefill_fields(client):
+    """
+    HTTP-layer regression: ALL lead fields must appear pre-filled in the rendered enrollment form.
+
+    Covers:
+      - student_first_name / student_last_name (split from lead.name)
+      - guardian_email (from lead.email)
+      - guardian_phone (from lead.phone)
+      - student_age (from lead.data.form_fields)
+      - instrument (from interested_in_value, normalized to program:<code>)
+
+    This test catches any regression where a field is mapped into draft.data correctly but
+    the template fails to render it, or where the mapping silently breaks for a field type.
+    """
+    school = _sbmc_school()
+    _sbmc_programs(school)
+    admin = _owner(school)
+    lead = LeadFactory(
+        school=school,
+        name="Clara Osei",
+        email="clara.osei@example.com",
+        phone="3105559876",
+        interested_in_value="violin",
+        data={"form_fields": {"student_name": "Clara Osei", "student_age": "11", "instrument": "violin"}},
+    )
+
+    client.force_login(admin)
+    resp = client.post(_start_enrollment_url(school, lead))
+    assert resp.status_code == 302
+
+    draft = DraftSubmission.objects.filter(school=school, lead=lead).first()
+    assert draft is not None, "Draft must be created"
+
+    # Verify draft.data before hitting the template
+    assert draft.data.get("student_first_name") == "Clara", f"Got {draft.data.get('student_first_name')!r}"
+    assert draft.data.get("student_last_name") == "Osei", f"Got {draft.data.get('student_last_name')!r}"
+    assert draft.data.get("guardian_email") == "clara.osei@example.com", f"Got {draft.data.get('guardian_email')!r}"
+    assert draft.data.get("guardian_phone") == "3105559876", f"Got {draft.data.get('guardian_phone')!r}"
+    assert draft.data.get("student_age") == "11", f"Got {draft.data.get('student_age')!r}"
+    assert draft.data.get("instrument") == "program:violin", f"Got {draft.data.get('instrument')!r}"
+
+    # Load the rendered form via the resume → apply path
+    client.logout()
+    client.get(_resume_url(school, draft.token))  # sets draft session
+    form_resp = client.get(_apply_url(school))
+    assert form_resp.status_code == 200
+    content = form_resp.content.decode()
+
+    # Each value must appear somewhere in the rendered HTML
+    assert "Clara" in content, "student_first_name not rendered"
+    assert "Osei" in content, "student_last_name not rendered"
+    assert "clara.osei@example.com" in content, "guardian_email not rendered"
+    assert "3105559876" in content, "guardian_phone not rendered"
+    assert 'value="11"' in content or ">11<" in content, "student_age not rendered"
+    assert 'value="program:violin" selected' in content or 'program:violin" selected' in content, (
+        "instrument not pre-selected in enrollment form"
+    )
+
+
 # ===========================================================================
 # 3. Lead pipeline transitions
 # ===========================================================================
@@ -1334,3 +1394,366 @@ def test_yaml_scheduling_fields_defined_in_both_form_and_lead_form():
     }
     missing = expected_sched_keys - all_keys
     assert not missing, f"sched_* keys missing from enrollment form: {missing}"
+
+# ===========================================================================
+# 10. Multi-lead isolation — session, data, status, notes must never cross
+# ===========================================================================
+#
+# These tests simulate an admin working multiple leads simultaneously.
+# The core risk: the draft session key is per-school, not per-lead.
+# Starting enrollment for lead A overwrites the session, so "Open Form" on
+# lead B (if it still used the bare apply URL) would have loaded lead A's draft.
+# Every test here verifies that isolation holds end-to-end.
+
+
+def _lead_detail_url(school: School, lead: Lead) -> str:
+    return reverse("school_lead_detail", kwargs={"school_slug": school.slug, "lead_id": lead.id})
+
+
+def _lead_update_url(school: School, lead: Lead) -> str:
+    return reverse("school_lead_update", kwargs={"school_slug": school.slug, "lead_id": lead.id})
+
+
+def _make_lead(school, name, instrument, email=None):
+    return LeadFactory(
+        school=school,
+        name=name,
+        email=email or f"{name.split()[0].lower()}@example.com",
+        interested_in_value=instrument,
+        interested_in_label=instrument.title(),
+        status=LEAD_STATUS_NEW,
+        data={"form_fields": {"instrument": instrument, "student_name": name}},
+    )
+
+
+@pytest.mark.django_db
+def test_open_form_uses_token_not_session(client):
+    """
+    Regression: 'Open Form' must use the token URL so it is immune to session
+    state from a previously started enrollment on a different lead.
+
+    Before the fix, the button linked to /apply/ (session-based). Starting
+    enrollment for lead A wrote the session; opening form for lead B then loaded
+    lead A's draft — wrong student's data.
+    """
+    school = _sbmc_school()
+    _sbmc_programs(school)
+    admin = _owner(school)
+    client.force_login(admin)
+
+    lead_a = _make_lead(school, "Alice Wang", "piano")
+    lead_b = _make_lead(school, "Ben Kim", "violin")
+
+    # Start enrollment for A — session now holds draft_A
+    client.post(_start_enrollment_url(school, lead_a))
+    draft_a = DraftSubmission.objects.filter(school=school, lead=lead_a).first()
+    assert draft_a is not None
+
+    # Start enrollment for B
+    client.post(_start_enrollment_url(school, lead_b))
+    draft_b = DraftSubmission.objects.filter(school=school, lead=lead_b).first()
+    assert draft_b is not None
+
+    # The session now holds draft_B's PK (last Start Enrollment wins).
+    # Visiting lead_a's detail page must show form_url pointing to draft_A's token,
+    # not the bare apply URL that would load draft_B from session.
+    resp = client.get(_lead_detail_url(school, lead_a))
+    assert resp.status_code == 200
+
+    content = resp.content.decode()
+    # The "Open Form" href must contain draft_A's token, not draft_B's
+    assert draft_a.token in content, "Lead A's detail page must link to draft_A's token"
+    assert draft_b.token not in content, "Lead A's detail page must NOT reference draft_B's token"
+
+
+@pytest.mark.django_db
+def test_enrollment_form_shows_correct_student_after_multiple_start_enrollments(client):
+    """
+    After starting enrollment for leads A then B, opening lead A's form must
+    show A's prefilled data (instrument, name), not B's.
+    """
+    school = _sbmc_school()
+    _sbmc_programs(school)
+    admin = _owner(school)
+    client.force_login(admin)
+
+    lead_a = _make_lead(school, "Alice Wang", "piano", "alice@example.com")
+    lead_b = _make_lead(school, "Ben Kim", "violin", "ben@example.com")
+    lead_c = _make_lead(school, "Clara Diaz", "cello", "clara@example.com")
+
+    # Start enrollment for all three in sequence
+    for lead in (lead_a, lead_b, lead_c):
+        client.post(_start_enrollment_url(school, lead))
+
+    # Session now holds lead_c's draft — the last one started.
+    draft_a = DraftSubmission.objects.filter(school=school, lead=lead_a).first()
+    draft_b = DraftSubmission.objects.filter(school=school, lead=lead_b).first()
+    draft_c = DraftSubmission.objects.filter(school=school, lead=lead_c).first()
+    assert draft_a and draft_b and draft_c
+
+    # Open lead A's form via the token — must load A's data
+    client.logout()
+    client.get(_resume_url(school, draft_a.token))
+    form_resp = client.get(_apply_url(school))
+    assert form_resp.status_code == 200
+    content = form_resp.content.decode()
+    assert "program:piano" in content, "Lead A's form must prefill piano (A's instrument)"
+    assert "program:violin" not in content or \
+           'value="program:violin" selected' not in content, \
+        "Lead A's form must NOT pre-select violin (B's instrument)"
+
+    # Open lead B's form — independent resume
+    client.get(_resume_url(school, draft_b.token))
+    form_resp_b = client.get(_apply_url(school))
+    content_b = form_resp_b.content.decode()
+    assert 'value="program:violin" selected' in content_b, \
+        "Lead B's form must prefill violin"
+
+    # Open lead C's form — independent resume
+    client.get(_resume_url(school, draft_c.token))
+    form_resp_c = client.get(_apply_url(school))
+    content_c = form_resp_c.content.decode()
+    assert 'value="program:cello" selected' in content_c, \
+        "Lead C's form must prefill cello"
+
+
+@pytest.mark.django_db
+def test_status_update_only_affects_target_lead(client):
+    """
+    Updating status for lead B must not change lead A or lead C.
+    """
+    school = _sbmc_school()
+    admin = _owner(school)
+    client.force_login(admin)
+
+    lead_a = _make_lead(school, "Alice Wang", "piano")
+    lead_b = _make_lead(school, "Ben Kim", "violin")
+    lead_c = _make_lead(school, "Clara Diaz", "cello")
+
+    # Update only lead B to "contacted"
+    client.post(
+        _lead_status_url(school, lead_b),
+        {"new_status": "contacted"},
+    )
+
+    lead_a.refresh_from_db()
+    lead_b.refresh_from_db()
+    lead_c.refresh_from_db()
+
+    assert lead_a.status == LEAD_STATUS_NEW, "Lead A status must not change"
+    assert lead_b.status == "contacted", "Lead B status must be updated"
+    assert lead_c.status == LEAD_STATUS_NEW, "Lead C status must not change"
+
+
+@pytest.mark.django_db
+def test_notes_update_only_affects_target_lead(client):
+    """
+    Adding a note to lead B must not modify lead A or lead C.
+    """
+    school = _sbmc_school()
+    admin = _owner(school)
+    client.force_login(admin)
+
+    lead_a = _make_lead(school, "Alice Wang", "piano")
+    lead_a.notes = "A's existing note"
+    lead_a.save(update_fields=["notes"])
+
+    lead_b = _make_lead(school, "Ben Kim", "violin")
+    lead_c = _make_lead(school, "Clara Diaz", "cello")
+
+    client.post(
+        _lead_update_url(school, lead_b),
+        {
+            "name": lead_b.name,
+            "email": lead_b.email,
+            "phone": "",
+            "new_note": "B's note — private to Ben",
+        },
+    )
+
+    lead_a.refresh_from_db()
+    lead_b.refresh_from_db()
+    lead_c.refresh_from_db()
+
+    assert lead_a.notes == "A's existing note", "Lead A notes must be untouched"
+    assert "B's note" in lead_b.notes, "Lead B notes must be updated"
+    assert not lead_c.notes, "Lead C notes must remain empty"
+
+
+@pytest.mark.django_db
+def test_draft_data_isolation_between_leads(client):
+    """
+    Three concurrent drafts must carry independent prefill data.
+    Draft A has piano, B has violin, C has cello.
+    Each draft's data must match only its own lead.
+    """
+    school = _sbmc_school()
+    _sbmc_programs(school)
+    admin = _owner(school)
+    client.force_login(admin)
+
+    lead_a = _make_lead(school, "Alice Wang", "piano", "alice@example.com")
+    lead_b = _make_lead(school, "Ben Kim", "violin", "ben@example.com")
+    lead_c = _make_lead(school, "Clara Diaz", "cello", "clara@example.com")
+
+    for lead in (lead_a, lead_b, lead_c):
+        client.post(_start_enrollment_url(school, lead))
+
+    draft_a = DraftSubmission.objects.get(school=school, lead=lead_a, submitted_at__isnull=True)
+    draft_b = DraftSubmission.objects.get(school=school, lead=lead_b, submitted_at__isnull=True)
+    draft_c = DraftSubmission.objects.get(school=school, lead=lead_c, submitted_at__isnull=True)
+
+    assert draft_a.data.get("instrument") == "program:piano"
+    assert draft_b.data.get("instrument") == "program:violin"
+    assert draft_c.data.get("instrument") == "program:cello"
+
+    # Emails must also be isolated
+    assert draft_a.data.get("guardian_email") == "alice@example.com"
+    assert draft_b.data.get("guardian_email") == "ben@example.com"
+    assert draft_c.data.get("guardian_email") == "clara@example.com"
+
+    # No cross-contamination
+    assert draft_a.data.get("instrument") != draft_b.data.get("instrument")
+    assert draft_b.data.get("instrument") != draft_c.data.get("instrument")
+
+
+@pytest.mark.django_db
+def test_lead_detail_page_shows_correct_lead_data(client):
+    """
+    The lead detail page for lead B must show B's name and email,
+    not A's, even if A was accessed immediately before.
+    """
+    school = _sbmc_school()
+    admin = _owner(school)
+    client.force_login(admin)
+
+    lead_a = _make_lead(school, "Alice Wang", "piano", "alice@example.com")
+    lead_b = _make_lead(school, "Ben Kim", "violin", "ben@example.com")
+
+    # Visit A then immediately B
+    client.get(_lead_detail_url(school, lead_a))
+    resp_b = client.get(_lead_detail_url(school, lead_b))
+    assert resp_b.status_code == 200
+
+    content = resp_b.content.decode()
+    assert "Ben Kim" in content, "Lead B detail page must show Ben Kim"
+    assert "Alice Wang" not in content, "Lead B detail page must not show Alice Wang"
+    assert "ben@example.com" in content
+    assert "alice@example.com" not in content
+
+
+# ===========================================================================
+# 11. Admin "New Lead" form must match the YAML leads.fields config
+# ===========================================================================
+#
+# The admin "New Lead" button must render the same fields as the school's
+# public-facing trial/lead form (YAML leads.fields), so manually-created leads
+# have the same data structure as public-submitted ones — which the enrollment
+# form prefill depends on.
+
+
+def _lead_create_url(school: School) -> str:
+    return reverse("school_lead_create", kwargs={"school_slug": school.slug})
+
+
+@pytest.mark.django_db
+def test_admin_new_lead_form_renders_yaml_fields(client):
+    """
+    GET /schools/<slug>/admin/leads/new/ must render the YAML leads.fields.
+    For SBMC: student_name, student_age, instrument — not hardcoded Name/Program.
+    """
+    school = _sbmc_school()
+    _sbmc_programs(school)
+    admin = _owner(school)
+    client.force_login(admin)
+
+    resp = client.get(_lead_create_url(school))
+    assert resp.status_code == 200
+    content = resp.content.decode()
+
+    # YAML field labels for SBMC leads.fields
+    assert "Student Name" in content, "YAML field 'student_name' label must appear"
+    assert "Student Age" in content, "YAML field 'student_age' label must appear"
+    assert 'name="student_name"' in content, "input for student_name must be present"
+    assert 'name="student_age"' in content, "input for student_age must be present"
+    assert 'name="instrument"' in content, "select for instrument must be present"
+
+    # Instrument options from YAML must be present
+    assert "Piano" in content
+    assert "Violin" in content
+    assert "Viola" in content
+    assert "Cello" in content
+
+    # Email is always shown
+    assert 'name="email"' in content
+
+
+@pytest.mark.django_db
+def test_admin_new_lead_creates_lead_with_form_fields(client):
+    """
+    POST to New Lead with YAML-driven fields must create a Lead whose
+    data.form_fields mirrors what the public lead form would store.
+    This is required so 'Start Enrollment' prefill works correctly.
+    """
+    school = _sbmc_school()
+    _sbmc_programs(school)
+    admin = _owner(school)
+    client.force_login(admin)
+
+    resp = client.post(_lead_create_url(school), {
+        "email": "newstudent@example.com",
+        "phone": "3105550001",
+        "student_name": "Sofia Reyes",
+        "student_age": "10",
+        "instrument": "cello",
+    })
+    assert resp.status_code == 302, "Successful create must redirect"
+
+    lead = Lead.objects.filter(school=school, email="newstudent@example.com").first()
+    assert lead is not None, "Lead must be created"
+    assert lead.name == "Sofia Reyes", f"lead.name must be 'Sofia Reyes', got {lead.name!r}"
+    assert lead.interested_in_value == "cello", f"interested_in_value must be 'cello', got {lead.interested_in_value!r}"
+    assert lead.phone == "3105550001"
+
+    form_fields = (lead.data or {}).get("form_fields", {})
+    assert form_fields.get("student_name") == "Sofia Reyes", "form_fields.student_name must be stored"
+    assert form_fields.get("student_age") == "10", "form_fields.student_age must be stored"
+    assert form_fields.get("instrument") == "cello", "form_fields.instrument must be stored"
+
+
+@pytest.mark.django_db
+def test_admin_new_lead_then_start_enrollment_prefills_all_fields(client):
+    """
+    End-to-end: admin creates a lead via the New Lead form, then starts
+    enrollment. The enrollment form draft must have all YAML fields prefilled,
+    identical to a lead submitted through the public form.
+    """
+    school = _sbmc_school()
+    _sbmc_programs(school)
+    admin = _owner(school)
+    client.force_login(admin)
+
+    # Create lead via admin form
+    client.post(_lead_create_url(school), {
+        "email": "endtoend@example.com",
+        "phone": "3105550002",
+        "student_name": "Lena Park",
+        "student_age": "8",
+        "instrument": "violin",
+    })
+    lead = Lead.objects.get(school=school, email="endtoend@example.com")
+
+    # Start enrollment
+    client.post(_start_enrollment_url(school, lead))
+    draft = DraftSubmission.objects.filter(school=school, lead=lead).first()
+    assert draft is not None
+
+    # All enrollment form fields must be prefilled
+    assert draft.data.get("student_first_name") == "Lena"
+    assert draft.data.get("student_last_name") == "Park"
+    assert draft.data.get("guardian_email") == "endtoend@example.com"
+    assert draft.data.get("guardian_phone") == "3105550002"
+    assert draft.data.get("student_age") == "8"
+    assert draft.data.get("instrument") == "program:violin", (
+        f"instrument must be normalized to 'program:violin', got {draft.data.get('instrument')!r}"
+    )
