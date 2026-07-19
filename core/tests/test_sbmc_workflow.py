@@ -1757,3 +1757,73 @@ def test_admin_new_lead_then_start_enrollment_prefills_all_fields(client):
     assert draft.data.get("instrument") == "program:violin", (
         f"instrument must be normalized to 'program:violin', got {draft.data.get('instrument')!r}"
     )
+
+
+@pytest.mark.django_db
+def test_admin_new_lead_same_student_different_instrument_creates_separate_leads(client):
+    """
+    Regression: same student name + same guardian email + different instrument must
+    create two separate leads — not deduplicate. A student enrolled in piano AND
+    violin simultaneously is a real SBMC scenario.
+    """
+    school = _sbmc_school()
+    _sbmc_programs(school)
+    admin = _owner(school)
+    client.force_login(admin)
+
+    client.post(_lead_create_url(school), {
+        "email": "multilesson@example.com",
+        "phone": "3105550003",
+        "student_name": "Sofia Reyes",
+        "student_age": "10",
+        "instrument": "piano",
+    })
+    client.post(_lead_create_url(school), {
+        "email": "multilesson@example.com",
+        "phone": "3105550003",
+        "student_name": "Sofia Reyes",
+        "student_age": "10",
+        "instrument": "violin",
+    })
+
+    leads = Lead.objects.filter(school=school, email="multilesson@example.com").order_by("created_at")
+    assert leads.count() == 2, f"Expected 2 leads, got {leads.count()}"
+    instruments = {l.interested_in_value for l in leads}
+    assert instruments == {"piano", "violin"}, f"Expected piano+violin, got {instruments}"
+
+
+@pytest.mark.django_db
+def test_admin_new_lead_missing_required_yaml_field_blocks_create(client):
+    """
+    Regression: YAML fields marked required: true must be enforced on the admin
+    New Lead form. For SBMC, student_name and instrument are both required.
+    Submitting without them must re-render the form (200) and not create a lead.
+    """
+    school = _sbmc_school()
+    _sbmc_programs(school)
+    admin = _owner(school)
+    client.force_login(admin)
+
+    # Missing student_name (required in SBMC leads.fields)
+    resp = client.post(_lead_create_url(school), {
+        "email": "missing@example.com",
+        "phone": "3105550004",
+        "student_age": "9",
+        "instrument": "piano",
+        # student_name deliberately omitted
+    })
+    assert resp.status_code == 200, "Missing required field must re-render form, not redirect"
+    assert not Lead.objects.filter(school=school, email="missing@example.com").exists(), (
+        "No lead must be created when a required YAML field is missing"
+    )
+
+    # Missing instrument (required in SBMC leads.fields)
+    resp2 = client.post(_lead_create_url(school), {
+        "email": "missinginstrument@example.com",
+        "phone": "3105550005",
+        "student_name": "Clara Park",
+        "student_age": "7",
+        # instrument deliberately omitted
+    })
+    assert resp2.status_code == 200, "Missing required instrument must re-render form"
+    assert not Lead.objects.filter(school=school, email="missinginstrument@example.com").exists()
