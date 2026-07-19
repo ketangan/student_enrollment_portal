@@ -73,7 +73,7 @@
 
         {% if messages %}
           {% for message in messages %}
-            <div class="notice" style="
+            <div id="form-message-banner" class="notice" style="
               {% if message.tags == 'success' %}background:#d1fae5;border-left:4px solid #10b981;{% endif %}
               {% if message.tags == 'info' %}background:#dbeafe;border-left:4px solid #3b82f6;{% endif %}
               {% if message.tags == 'warning' %}background:#fef9c3;border-left:4px solid #f59e0b;{% endif %}
@@ -559,9 +559,9 @@
             maybeUpdateAge();
         })();
 
-        // Scroll to first error on page load (post-submit validation)
+        // Scroll to top on page load when there are errors or a draft-saved message
         (function () {
-            var banner = document.getElementById("error-banner");
+            var banner = document.getElementById("error-banner") || document.getElementById("form-message-banner");
             if (banner) {
                 banner.scrollIntoView({ behavior: "smooth", block: "center" });
             }
