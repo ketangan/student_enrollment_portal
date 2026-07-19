@@ -401,16 +401,10 @@ _LEAD_STATUS_CSS: dict = {
 def _build_submission_row(
     s: Submission,
     label_map: dict,
-    workflow_transitions: dict | None = None,
     *,
     school_slug: str = "",
 ) -> dict:
     """Serialize one Submission into a display dict for school-admin list templates.
-
-    workflow_transitions: {from_status: [{label, status}]} from YAML config.
-    When provided, row["transitions"] is populated so the template can render
-    inline action buttons. Empty list when no transitions are defined for this
-    submission's current status (or when workflow_transitions is None/empty).
 
     school_slug: when provided, school_admin_url points to the school-admin detail
     page; otherwise falls back to the Django admin change page.
@@ -437,7 +431,6 @@ def _build_submission_row(
         "created_at": timezone.localtime(s.created_at),
         "parent_email": _extract_contact_field(s.data, _PARENT_EMAIL_KEYS),
         "parent_phone": _extract_contact_field(s.data, _PARENT_PHONE_KEYS),
-        "transitions": (workflow_transitions or {}).get(status, []),
         "last_activity": timezone.localtime(s.created_at),
         "has_notes": bool(s.internal_notes),
         "has_files": getattr(s, "has_files", False),
@@ -558,6 +551,8 @@ def _build_lead_row(
 
     school_slug: when provided, school_admin_url and converted_submission_url
     point to school-admin pages; otherwise fall back to Django admin URLs.
+    workflow_transitions: {from_status: [{label, status}]} used only for
+    quick-action buttons in the list view; does NOT enforce transitions.
     """
     transitions = list(workflow_transitions.get(lead.status, [])) if workflow_transitions else []
     django_admin_url = reverse("admin:core_lead_change", args=[lead.id])

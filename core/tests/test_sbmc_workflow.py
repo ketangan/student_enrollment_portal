@@ -532,17 +532,16 @@ def test_lead_transition_full_pipeline(client):
 
 
 @pytest.mark.django_db
-def test_lead_transition_enrolled_is_blocked_by_yaml(client):
-    """Enrolled is a terminal status — no YAML transition reaches it directly from 'new'."""
+def test_lead_transition_to_enrolled_allowed(client):
+    """Any valid status is now directly reachable — no transition graph enforcement."""
     school = _sbmc_school()
     lead = _sbmc_lead(school)
     user = _owner(school)
     client.force_login(user)
 
-    resp = client.post(_lead_status_url(school, lead), {"new_status": "enrolled"})
-    # View returns 302 on redirect but lead should still be 'new' if transition is blocked
+    client.post(_lead_status_url(school, lead), {"new_status": "enrolled"})
     lead.refresh_from_db()
-    assert lead.status == LEAD_STATUS_NEW, "Lead should not be enrolled via direct status update"
+    assert lead.status == "enrolled"
 
 
 @pytest.mark.django_db
@@ -807,8 +806,8 @@ def test_submission_transition_full_chain(client):
 
 
 @pytest.mark.django_db
-def test_submission_transition_new_to_enrolled_directly_blocked(client):
-    """New → Enrolled directly is NOT a valid SBMC transition (must go through In Review)."""
+def test_submission_transition_new_to_enrolled_directly_allowed(client):
+    """New → Enrolled directly is now allowed — no transition graph enforcement."""
     school = _sbmc_school()
     sub = SubmissionFactory(school=school, status="New")
     user = _owner(school)
@@ -816,7 +815,7 @@ def test_submission_transition_new_to_enrolled_directly_blocked(client):
 
     client.post(_submission_status_url(school, sub), {"new_status": "Enrolled"})
     sub.refresh_from_db()
-    assert sub.status == "New", "Should not jump New→Enrolled without going through In Review"
+    assert sub.status == "Enrolled"
 
 
 @pytest.mark.django_db
@@ -1282,40 +1281,6 @@ def test_yaml_default_submission_status_in_statuses():
     default = admin.get("default_submission_status", "New")
     assert default in admin["submission_statuses"], (
         f"default_submission_status '{default}' not in submission_statuses"
-    )
-
-
-def test_yaml_all_submission_transition_sources_in_statuses():
-    """Every 'from' status in submission_workflow.transitions appears in submission_statuses."""
-    raw = _load_yaml()
-    statuses = set(raw["admin"]["submission_statuses"])
-    transitions = raw["admin"]["submission_workflow"].get("transitions", {})
-    for from_status in transitions:
-        assert from_status in statuses, (
-            f"Transition source '{from_status}' not in submission_statuses"
-        )
-
-
-def test_yaml_all_submission_transition_targets_in_statuses():
-    """Every 'to' status in submission_workflow.transitions appears in submission_statuses."""
-    raw = _load_yaml()
-    statuses = set(raw["admin"]["submission_statuses"])
-    transitions = raw["admin"]["submission_workflow"].get("transitions", {})
-    for from_status, actions in transitions.items():
-        for action in actions:
-            to_status = action["status"]
-            assert to_status in statuses, (
-                f"Transition target '{to_status}' (from '{from_status}') not in submission_statuses"
-            )
-
-
-def test_yaml_new_status_has_in_review_transition():
-    """'New' has a transition to 'In Review' — the bug that was caught in E2E testing."""
-    raw = _load_yaml()
-    transitions = raw["admin"]["submission_workflow"]["transitions"]
-    new_targets = [t["status"] for t in transitions.get("New", [])]
-    assert "In Review" in new_targets, (
-        "Missing 'New → In Review' transition — this was caught as a real bug"
     )
 
 

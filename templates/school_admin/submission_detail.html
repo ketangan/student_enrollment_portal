@@ -177,8 +177,6 @@
               {% if not forloop.first or status_is_system %}<span class="sub-pipeline__arrow">›</span>{% endif %}
               {% if s == submission.status %}
                 <span class="sub-pipeline__step sub-pipeline__step--active">{{ s }}</span>
-              {% elif has_workflow_transitions and s not in status_transition_keys %}
-                <span class="sub-pipeline__step" style="opacity:0.35;cursor:default;" title="{{ s }} is not a valid next step from {{ submission.status }}">{{ s }}</span>
               {% else %}
                 <button type="submit" name="new_status" value="{{ s }}"
                         class="sub-pipeline__step--clickable" title="Move to {{ s }}">{{ s }}</button>

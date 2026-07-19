@@ -376,32 +376,6 @@ admin:
         label: "Declined"
         statuses: ["Declined"]
 
-    transitions:
-      New:
-        - label: "Mark Tour Scheduled"
-          status: "Tour Scheduled"
-        - label: "Mark Tour Completed"
-          status: "Tour Completed"
-        - label: "Decline"
-          status: "Declined"
-      Tour Scheduled:
-        - label: "Mark Tour Completed"
-          status: "Tour Completed"
-        - label: "Decline"
-          status: "Declined"
-      Tour Completed:
-        - label: "Enroll"
-          status: "Enrolled"
-        - label: "Waitlist"
-          status: "Waitlisted"
-        - label: "Decline"
-          status: "Declined"
-      Waitlisted:
-        - label: "Enroll"
-          status: "Enrolled"
-        - label: "Decline"
-          status: "Declined"
-
 leads:
   form_title: "Interested in Young Minds?"
   form_description: "Tell us about your child and we'll follow up with program details, open enrollment dates, and next steps."

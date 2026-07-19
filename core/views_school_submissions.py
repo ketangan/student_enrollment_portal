@@ -161,7 +161,6 @@ def school_submissions_view(request, school_slug: str):
     label_map = build_option_label_map(config.form) if (config and config.form) else {}
 
     workflow_filters = get_submission_workflow_filters(config_raw)
-    workflow_transitions = get_submission_workflow_transitions(config_raw)
 
     active_filter = (request.GET.get("filter") or "").strip()
     status_filter = (request.GET.get("status") or "").strip()
@@ -209,7 +208,7 @@ def school_submissions_view(request, school_slug: str):
     display_rows, display_cap_hit = slice_list_with_cap(filtered, 200)
     result_count = len(filtered)
 
-    submissions = [_build_submission_row(s, label_map, workflow_transitions, school_slug=school_slug) for s in display_rows]
+    submissions = [_build_submission_row(s, label_map, school_slug=school_slug) for s in display_rows]
 
     # Distinct statuses for the fallback dropdown (only rendered when no workflow_filters).
     status_choices = list(
@@ -517,26 +516,10 @@ def school_submission_status_update_view(request, school_slug: str, submission_i
     config = _safe_load_school_config(school_slug)
     config_raw = getattr(config, "raw", {}) or {}
 
-    # 1. Target status must be in this school's effective status list.
-    #    For DB-program schools this includes Enrolled and Waitlisted even when absent from YAML.
     effective_statuses, _ = get_effective_submission_status_choices(config_raw, school)
-    yaml_statuses, _ = get_submission_status_choices(config_raw)
     if new_status not in effective_statuses:
         messages.error(request, f"'{new_status}' is not a valid status for this school.")
         return redirect(redirect_url)
-
-    # 2. Enforce transition graph ONLY when BOTH current AND target are YAML statuses.
-    #    Enrolled / Waitlisted (added by effective choices but absent from YAML) bypass
-    #    the graph entirely — they have no nodes — so admins can always manually enroll.
-    transitions = get_submission_workflow_transitions(config_raw)
-    if transitions and submission.status in yaml_statuses and new_status in yaml_statuses:
-        allowed_next = [t["status"] for t in transitions.get(submission.status, [])]
-        if new_status not in allowed_next:
-            messages.error(
-                request,
-                f"Cannot transition from \"{submission.status}\" to \"{new_status}\".",
-            )
-            return redirect(redirect_url)
 
     old_status = submission.status
     submission.status = new_status
@@ -601,17 +584,12 @@ def school_submission_bulk_status_update_view(request, school_slug: str):
     config = _safe_load_school_config(school_slug)
     config_raw = getattr(config, "raw", {}) or {}
 
-    # 1. Target status must be in school's effective statuses (YAML + Enrolled/Waitlisted for DB-program schools).
     effective_statuses, _ = get_effective_submission_status_choices(config_raw, school)
-    yaml_statuses, _ = get_submission_status_choices(config_raw)
     if new_status not in effective_statuses:
         messages.error(request, f"'{new_status}' is not a valid status for this school.")
         return redirect(redirect_url)
 
-    # 2. If workflow configured, enforce transitions only between YAML statuses.
-    transitions = get_submission_workflow_transitions(config_raw)
-
-    # 3. Parse IDs — ignore non-integer values silently.
+    # Parse IDs — ignore non-integer values silently.
     ids = []
     for sid in raw_ids:
         try:
@@ -630,13 +608,7 @@ def school_submission_bulk_status_update_view(request, school_slug: str):
         return redirect(redirect_url)
 
     updated = 0
-    skipped = 0
     for sub in submissions:
-        if transitions and sub.status in yaml_statuses and new_status in yaml_statuses:
-            allowed_next = [t["status"] for t in transitions.get(sub.status, [])]
-            if new_status not in allowed_next:
-                skipped += 1
-                continue
         old_status = sub.status
         sub.status = new_status
         sub.save(update_fields=["status", "updated_at"])
@@ -658,20 +630,10 @@ def school_submission_bulk_status_update_view(request, school_slug: str):
         updated += 1
 
     noun = "submission" if updated == 1 else "submissions"
-    if updated and not skipped:
+    if updated:
         messages.success(request, f"{updated} {noun} updated to \"{new_status}\".")
-    elif updated and skipped:
-        messages.success(
-            request,
-            f"{updated} {noun} updated to \"{new_status}\". "
-            f"{skipped} skipped — current status does not allow this transition.",
-        )
     else:
-        messages.warning(
-            request,
-            f"No submissions updated. {skipped} skipped — "
-            "current status does not allow this transition.",
-        )
+        messages.warning(request, "No submissions found to update.")
 
     return redirect(redirect_url)
 
@@ -680,10 +642,8 @@ def school_submission_bulk_status_update_view(request, school_slug: str):
 @require_http_methods(["POST"])
 def school_submission_inline_status_view(request, school_slug: str, submission_id: int):
     """
-    Unconstrained inline status override from the submissions list.
+    Inline status override from the submissions list.
     POST /schools/<slug>/admin/submissions/<id>/inline-status/
-
-    Does NOT enforce workflow transitions — mirrors Django admin list_editable
     behaviour so admins can correct status mistakes regardless of configured workflow.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
@@ -703,15 +663,6 @@ def school_submission_inline_status_view(request, school_slug: str, submission_i
 
     if new_status == submission.status:
         return redirect(redirect_url)
-
-    # Enforce workflow transitions for YAML-to-YAML moves; system statuses bypass graph.
-    yaml_statuses, _ = get_submission_status_choices(config_raw)
-    transitions = get_submission_workflow_transitions(config_raw)
-    if transitions and submission.status in yaml_statuses and new_status in yaml_statuses:
-        allowed_next = [t["status"] for t in transitions.get(submission.status, [])]
-        if new_status not in allowed_next:
-            messages.error(request, f"Cannot transition from \"{submission.status}\" to \"{new_status}\".")
-            return redirect(redirect_url)
 
     old_status = submission.status
     submission.status = new_status
@@ -780,10 +731,7 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
         .order_by("-created_at")[:50]
     )
 
-    # Workflow transitions for inline status buttons.
-    transitions = get_submission_workflow_transitions(config_raw)
     status = submission.status or STATUS_NEW
-    status_transitions = transitions.get(status, [])
     yaml_status_choices, _ = get_submission_status_choices(config_raw)
     status_choices, _ = get_effective_submission_status_choices(config_raw, school)
     # status_is_system only fires for truly unknown values — Enrolled/Waitlisted are
@@ -860,7 +808,6 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
         "yaml_sections": yaml_sections,
         "linked_lead": linked_lead,
         "audit_log": audit_log,
-        "status_transitions": status_transitions,
         "status_choices": status_choices,
         "yaml_status_choices": yaml_status_choices,
         "status_is_system": status_is_system,
@@ -879,8 +826,6 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
         "is_multi_form": len(forms) > 1,
         "prev_url": _sub_url(prev_sub) if prev_sub else None,
         "next_url": _sub_url(next_sub) if next_sub else None,
-        "status_transition_keys": [t["status"] for t in status_transitions],
-        "has_workflow_transitions": bool(status_transitions),
         "prev_label": f"Prev #{prev_sub.school_submission_number}" if prev_sub and prev_sub.school_submission_number else ("Prev" if prev_sub else None),
         "next_label": f"Next #{next_sub.school_submission_number}" if next_sub and next_sub.school_submission_number else ("Next" if next_sub else None),
         "family_portal_enabled": family_portal_enabled,

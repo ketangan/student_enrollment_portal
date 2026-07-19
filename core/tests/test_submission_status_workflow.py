@@ -248,8 +248,8 @@ def test_status_update_rejects_invalid_status_not_in_statuses(client):
 
 
 @pytest.mark.django_db
-def test_status_update_rejects_invalid_transition_from_current_state(client):
-    """Enrolled → Tour Scheduled is not in the workflow transitions."""
+def test_status_update_allows_any_valid_status_regardless_of_transitions(client):
+    """Transition graph is no longer enforced — any status in the school's list is reachable."""
     school = SchoolFactory()
     user = _school_admin_user(school)
     client.force_login(user)
@@ -263,7 +263,7 @@ def test_status_update_rejects_invalid_transition_from_current_state(client):
 
     assert resp.status_code == 302
     sub.refresh_from_db()
-    assert sub.status == "Enrolled"  # unchanged
+    assert sub.status == "Tour Scheduled"  # now allowed
 
 
 @pytest.mark.django_db
@@ -455,30 +455,29 @@ def test_bulk_update_happy_path_all_eligible(client):
 
 
 @pytest.mark.django_db
-def test_bulk_update_partial_skip_ineligible_reports_counts(client):
-    """Mix of eligible + ineligible from-statuses: eligible updated, ineligible skipped."""
+def test_bulk_update_updates_all_selected_regardless_of_current_status(client):
+    """All selected submissions are updated — no transition graph enforcement."""
     school = SchoolFactory()
     user = _school_admin_user(school)
     client.force_login(user)
 
-    eligible = SubmissionFactory(school=school, status="New")
-    ineligible = SubmissionFactory(school=school, status="Enrolled")  # no transition to Tour Scheduled
+    sub_a = SubmissionFactory(school=school, status="New")
+    sub_b = SubmissionFactory(school=school, status="Enrolled")
 
     with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_WORKFLOW_CONFIG)):
         resp = client.post(
             _bulk_url(school),
-            {"new_status": "Tour Scheduled", "submission_ids": [eligible.id, ineligible.id]},
+            {"new_status": "Tour Scheduled", "submission_ids": [sub_a.id, sub_b.id]},
         )
 
     assert resp.status_code == 302
-    eligible.refresh_from_db()
-    ineligible.refresh_from_db()
-    assert eligible.status == "Tour Scheduled"
-    assert ineligible.status == "Enrolled"  # unchanged
+    sub_a.refresh_from_db()
+    sub_b.refresh_from_db()
+    assert sub_a.status == "Tour Scheduled"
+    assert sub_b.status == "Tour Scheduled"  # now allowed
 
-    # Flash message should mention 1 skipped
     msgs = list(resp.wsgi_request._messages)
-    assert any("1 skipped" in str(m) for m in msgs)
+    assert any("2 submissions" in str(m) for m in msgs)
 
 
 @pytest.mark.django_db

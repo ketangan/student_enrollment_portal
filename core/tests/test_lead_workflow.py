@@ -217,8 +217,8 @@ def test_lead_status_update_allows_any_status_when_no_workflow_configured(client
 
 
 @pytest.mark.django_db
-def test_lead_status_update_disallowed_transition_rejected(client):
-    """enrolled → new is not in the YAML transitions."""
+def test_lead_status_update_any_valid_status_allowed(client):
+    """Transition graph is no longer enforced — any valid status is directly reachable."""
     school = SchoolFactory()
     user = _school_admin_user(school)
     client.force_login(user)
@@ -232,7 +232,7 @@ def test_lead_status_update_disallowed_transition_rejected(client):
 
     assert resp.status_code == 302
     lead.refresh_from_db()
-    assert lead.status == "enrolled"  # unchanged
+    assert lead.status == "new"  # now allowed
 
 
 @pytest.mark.django_db
@@ -308,29 +308,29 @@ def test_bulk_lead_update_all_eligible(client):
 
 
 @pytest.mark.django_db
-def test_bulk_lead_update_partial_skip_reports_counts(client):
-    """Mix of eligible + ineligible: eligible updated, ineligible skipped."""
+def test_bulk_lead_update_updates_all_selected(client):
+    """All selected leads are updated regardless of current status — no transition enforcement."""
     school = SchoolFactory()
     user = _school_admin_user(school)
     client.force_login(user)
 
-    eligible   = LeadFactory(school=school, status="new")
-    ineligible = LeadFactory(school=school, status="enrolled")  # no transition to contacted
+    lead_a = LeadFactory(school=school, status="new")
+    lead_b = LeadFactory(school=school, status="enrolled")
 
     with patch("core.views_school_common.load_school_config", return_value=_make_mock_config(_LEAD_WORKFLOW_CONFIG)):
         resp = client.post(
             _bulk_url(school),
-            {"new_status": "contacted", "lead_ids": [eligible.id, ineligible.id]},
+            {"new_status": "contacted", "lead_ids": [lead_a.id, lead_b.id]},
         )
 
     assert resp.status_code == 302
-    eligible.refresh_from_db()
-    ineligible.refresh_from_db()
-    assert eligible.status == "contacted"
-    assert ineligible.status == "enrolled"  # unchanged
+    lead_a.refresh_from_db()
+    lead_b.refresh_from_db()
+    assert lead_a.status == "contacted"
+    assert lead_b.status == "contacted"  # now allowed
 
     msgs = list(resp.wsgi_request._messages)
-    assert any("1 skipped" in str(m) for m in msgs)
+    assert any("2 leads" in str(m) for m in msgs)
 
 
 @pytest.mark.django_db

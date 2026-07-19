@@ -262,48 +262,6 @@ admin:
         label: "Closed"
         statuses: ["Declined", "Archived"]
 
-    transitions:
-      New:
-        - label: "Mark Contacted"
-          status: "Contacted"
-        - label: "Schedule Placement"
-          status: "Placement Scheduled"
-        - label: "Enroll (Open Enrollment)"
-          status: "Enrolled"
-        - label: "Archive"
-          status: "Archived"
-      Contacted:
-        - label: "Schedule Placement"
-          status: "Placement Scheduled"
-        - label: "Enroll (Open Enrollment)"
-          status: "Enrolled"
-        - label: "Archive"
-          status: "Archived"
-      Placement Scheduled:
-        - label: "Mark Placement Completed"
-          status: "Placement Completed"
-        - label: "Archive"
-          status: "Archived"
-      Placement Completed:
-        - label: "Enroll"
-          status: "Enrolled"
-        - label: "Waitlist"
-          status: "Waitlisted"
-        - label: "Decline"
-          status: "Declined"
-      Needs Follow Up:
-        - label: "Mark Contacted"
-          status: "Contacted"
-        - label: "Schedule Placement"
-          status: "Placement Scheduled"
-        - label: "Archive"
-          status: "Archived"
-      Waitlisted:
-        - label: "Enroll"
-          status: "Enrolled"
-        - label: "Decline"
-          status: "Declined"
-
   lead_workflow:
     filters:
       new_leads:

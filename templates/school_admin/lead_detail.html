@@ -125,11 +125,9 @@
             {% if not forloop.first %}<span class="sub-pipeline__arrow">›</span>{% endif %}
             {% if step.value == lead.status %}
               <span class="sub-pipeline__step sub-pipeline__step--active">{{ step.label }}</span>
-            {% elif not has_workflow_transitions or step.value in status_transition_keys %}
+            {% else %}
               <button type="submit" name="new_status" value="{{ step.value }}"
                       class="sub-pipeline__step--clickable" title="Move to {{ step.label }}">{{ step.label }}</button>
-            {% else %}
-              <span class="sub-pipeline__step" style="opacity:0.45;">{{ step.label }}</span>
             {% endif %}
           {% endfor %}
         </div>

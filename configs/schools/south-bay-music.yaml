@@ -384,30 +384,6 @@ admin:
         label: "Closed"
         statuses: ["Declined", "Archived"]
 
-    transitions:
-      New:
-        - label: "Mark In Review"
-          status: "In Review"
-        - label: "Mark Needs Follow Up"
-          status: "Needs Follow Up"
-        - label: "Archive"
-          status: "Archived"
-      In Review:
-        - label: "Enroll"
-          status: "Enrolled"
-        - label: "Archive"
-          status: "Archived"
-      Needs Follow Up:
-        - label: "Mark In Review"
-          status: "In Review"
-        - label: "Archive"
-          status: "Archived"
-      Waitlisted:
-        - label: "Enroll"
-          status: "Enrolled"
-        - label: "Decline"
-          status: "Declined"
-
   lead_workflow:
     filters:
       new_leads:

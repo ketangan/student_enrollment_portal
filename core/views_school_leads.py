@@ -347,18 +347,6 @@ def school_lead_status_update_view(request, school_slug: str, lead_id: int):
         messages.error(request, f"'{new_status}' is not a valid lead status.")
         return redirect(redirect_url)
 
-    # 2. If a lead workflow is configured, enforce allowed transitions.
-    #    If no workflow configured, any valid status is allowed (free-for-all).
-    transitions = get_lead_workflow_transitions(config_raw)
-    if transitions:
-        allowed_next = [t["status"] for t in transitions.get(lead.status, [])]
-        if new_status not in allowed_next:
-            messages.error(
-                request,
-                f'Cannot transition from "{lead.status}" to "{new_status}".',
-            )
-            return redirect(redirect_url)
-
     old_status = lead.status
     lead.status = new_status
     auto_fields: list[str] = []
@@ -467,11 +455,7 @@ def school_lead_bulk_status_update_view(request, school_slug: str):
         messages.error(request, f"'{new_status}' is not a valid lead status.")
         return redirect(redirect_url)
 
-    # 2. If a lead workflow is configured, enforce allowed transitions per lead.
-    #    If no workflow configured, any valid status is allowed (free-for-all).
-    transitions = get_lead_workflow_transitions(config_raw)
-
-    # 3. Parse IDs — ignore non-integer values silently.
+    # Parse IDs — ignore non-integer values silently.
     ids = []
     for sid in raw_ids:
         try:
@@ -490,14 +474,8 @@ def school_lead_bulk_status_update_view(request, school_slug: str):
         return redirect(redirect_url)
 
     updated = 0
-    skipped = 0
     _now = timezone.now()
     for lead in leads:
-        if transitions:
-            allowed_next = [t["status"] for t in transitions.get(lead.status, [])]
-            if new_status not in allowed_next:
-                skipped += 1
-                continue
         old_status = lead.status
         lead.status = new_status
         update_fields = ["status"]
@@ -526,20 +504,10 @@ def school_lead_bulk_status_update_view(request, school_slug: str):
         updated += 1
 
     noun = "lead" if updated == 1 else "leads"
-    if updated and not skipped:
+    if updated:
         messages.success(request, f'{updated} {noun} updated to "{new_status}".')
-    elif updated and skipped:
-        messages.success(
-            request,
-            f'{updated} {noun} updated to "{new_status}". '
-            f'{skipped} skipped — current status does not allow this transition.',
-        )
     else:
-        messages.warning(
-            request,
-            f'No leads updated. {skipped} skipped — '
-            'current status does not allow this transition.',
-        )
+        messages.warning(request, "No leads found to update.")
     return redirect(redirect_url)
 
 
@@ -617,8 +585,6 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
 
     # Breadcrumb pipeline — ordered list of (value, label) pairs.
     lead_pipeline = [{"value": v, "label": l} for v, l in LEAD_STATUS_CHOICES]
-    status_transition_keys = [t["status"] for t in status_transitions]
-    has_workflow_transitions = bool(status_transitions)
 
     # Prev/Next navigation by lead id (leads have no sequential number field).
     def _lead_url(l):
@@ -715,8 +681,6 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
         "email_templates_json": email_templates_json,
         "template_vars_json": template_vars_json,
         "lead_pipeline": lead_pipeline,
-        "status_transition_keys": status_transition_keys,
-        "has_workflow_transitions": has_workflow_transitions,
         "prev_url": _lead_url(prev_lead) if prev_lead else None,
         "next_url": _lead_url(next_lead) if next_lead else None,
         "prev_label": "Prev",
