@@ -78,19 +78,24 @@ def test_quick_add_missing_email_no_create(client):
 
 
 @pytest.mark.django_db
-def test_quick_add_duplicate_email_no_create(client):
+def test_quick_add_same_email_creates_new_lead(client):
+    """
+    Submitting quick_add with an email that already has a lead must create
+    a second lead — not block. The same guardian email can have multiple students.
+    Admins see a duplicate hint on the lead detail page instead.
+    """
     school = SchoolFactory(plan="starter", slug="qa-dup-email")
     _staff_client(client, school)
-    LeadFactory(school=school, email="dup@example.com")
+    LeadFactory(school=school, email="dup@example.com", name="Sofia Reyes")
 
     response = client.post(QUICK_ADD_URL, {
-        "name": "Dupe Person",
+        "name": "Lucas Reyes",
         "email": "dup@example.com",
         "source": "referral",
     })
 
     assert response.status_code == 302
-    assert Lead.objects.filter(school=school, email="dup@example.com").count() == 1
+    assert Lead.objects.filter(school=school, email="dup@example.com").count() == 2
 
 
 @pytest.mark.django_db

@@ -7,9 +7,7 @@ from __future__ import annotations
 
 import secrets
 
-from django.db import IntegrityError, transaction
-
-from core.models import Lead, LEAD_STATUS_LOST, LEAD_STATUS_NEW
+from core.models import Lead
 
 
 def ensure_lead_webhook_token(school) -> str:
@@ -41,68 +39,27 @@ def create_or_update_lead(
     form_key: str = "",
 ) -> tuple[Lead, bool]:
     """
-    Create a new Lead or merge into an existing one for the same school+email.
+    Always creates a new Lead record.
 
-    Dedup key: school + normalized_email (DB UniqueConstraint).
-    Uses select_for_update to prevent concurrent-update races.
+    Multiple leads per email per school are allowed — a guardian email can represent
+    multiple students (different children) or the same student enrolling in multiple
+    programs (e.g. piano + guitar). Deduplication is surfaced to admins via a hint
+    on the lead detail page rather than enforced at the DB level.
 
-    Returns (lead, created_bool).
+    Returns (lead, True) always. The second value is kept for API compatibility.
     """
-    data = data or {}
-    normalized = email.lower().strip()
-
-    def _apply(lead: Lead) -> None:
-        lead.name = name
-        if phone:
-            lead.phone = phone
-        if interested_in_label:
-            lead.interested_in_label = interested_in_label
-            lead.interested_in_value = interested_in_value
-        lead.utm_source = utm_source or lead.utm_source
-        lead.utm_medium = utm_medium or lead.utm_medium
-        lead.utm_campaign = utm_campaign or lead.utm_campaign
-        if data:
-            merged = dict(lead.data or {})
-            merged.update(data)
-            lead.data = merged
-        if lead.status == LEAD_STATUS_LOST:
-            lead.status = LEAD_STATUS_NEW
-        lead.save()
-
-    try:
-        with transaction.atomic():
-            existing = (
-                Lead.objects.select_for_update()
-                .filter(school=school, normalized_email=normalized)
-                .order_by("-created_at")
-                .first()
-            )
-            if existing:
-                _apply(existing)
-                return existing, False
-            lead = Lead.objects.create(
-                school=school,
-                name=name,
-                email=email,
-                phone=phone,
-                interested_in_label=interested_in_label,
-                interested_in_value=interested_in_value,
-                source=source,
-                utm_source=utm_source,
-                utm_medium=utm_medium,
-                utm_campaign=utm_campaign,
-                data=data,
-                form_key=form_key,
-            )
-            return lead, True
-    except IntegrityError:
-        # Two concurrent inserts; the loser catches the winner's row.
-        existing = (
-            Lead.objects.filter(school=school, normalized_email=normalized)
-            .order_by("-created_at")
-            .first()
-        )
-        if existing:
-            _apply(existing)
-            return existing, False
-        raise
+    lead = Lead.objects.create(
+        school=school,
+        name=name,
+        email=email,
+        phone=phone,
+        interested_in_label=interested_in_label,
+        interested_in_value=interested_in_value,
+        source=source,
+        utm_source=utm_source,
+        utm_medium=utm_medium,
+        utm_campaign=utm_campaign,
+        data=data or {},
+        form_key=form_key,
+    )
+    return lead, True

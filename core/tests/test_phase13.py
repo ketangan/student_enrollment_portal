@@ -281,31 +281,30 @@ def test_mark_contacted_within_30s_skips_duplicate_save(client):
 
 
 @pytest.mark.django_db
-def test_lead_create_duplicate_email_shows_form_error(client):
-    """POSTing a duplicate email re-renders the create form; Lead count unchanged."""
+def test_lead_create_same_email_creates_second_lead(client):
+    """
+    POSTing the same email as an existing lead must create a new lead (redirect),
+    not block. Multiple leads per guardian email are allowed — different students,
+    or the same student in different programs.
+    """
     school = SchoolFactory()
     user = _school_admin_user(school)
     client.force_login(user)
 
-    LeadFactory(school=school, email="dup@example.com")
-    lead_count_before = school.leads.count()
+    LeadFactory(school=school, email="dup@example.com", name="Sofia Reyes")
 
     response = client.post(
         _lead_create_url(school),
         {
-            "name": "Duplicate Parent",
+            "name": "Lucas Reyes",
             "email": "dup@example.com",
             "phone": "555-9999",
-            "interested_in_value": "beginner",
-            "interested_in_label": "Beginner Program",
             "notes": "",
         },
     )
 
-    # Form re-rendered (not a redirect), no new lead in DB
-    assert response.status_code == 200
-    assert school.leads.count() == lead_count_before
-    assert "already exists" in response.content.decode().lower()
+    assert response.status_code == 302
+    assert school.leads.filter(email="dup@example.com").count() == 2
 
 
 # ── Empty message validation (existing gap) ───────────────────────────────────

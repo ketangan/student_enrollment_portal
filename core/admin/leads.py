@@ -220,30 +220,24 @@ class LeadAdmin(admin.ModelAdmin):
             messages.error(request, "Name, email, and source are required.")
             return redirect("../")
 
-        try:
-            with transaction.atomic():
-                lead = Lead.objects.create(
-                    school=school,
-                    name=name,
-                    email=email,
-                    phone=(request.POST.get("phone") or "").strip(),
-                    interested_in_label=(request.POST.get("interested_in_label") or "").strip(),
-                    source=source,
-                    notes=(request.POST.get("notes") or "").strip(),
-                    status=LEAD_STATUS_NEW,
-                )
-            messages.success(request, f"Lead '{lead.name}' added.")
-            # Intentional omission: failed creates (IntegrityError) are NOT logged
-            # because no Lead object exists to reference. Future: log to extra with no obj.
-            if lead.school.features.audit_log_enabled:
-                log_admin_audit(
-                    request=request,
-                    action="add",
-                    obj=lead,
-                    extra={"name": "quick_add", "source": lead.source},
-                )
-        except IntegrityError:
-            messages.error(request, f"A lead with email '{email}' already exists for this school.")
+        lead = Lead.objects.create(
+            school=school,
+            name=name,
+            email=email,
+            phone=(request.POST.get("phone") or "").strip(),
+            interested_in_label=(request.POST.get("interested_in_label") or "").strip(),
+            source=source,
+            notes=(request.POST.get("notes") or "").strip(),
+            status=LEAD_STATUS_NEW,
+        )
+        messages.success(request, f"Lead '{lead.name}' added.")
+        if lead.school.features.audit_log_enabled:
+            log_admin_audit(
+                request=request,
+                action="add",
+                obj=lead,
+                extra={"name": "quick_add", "source": lead.source},
+            )
 
         return redirect("../")
 

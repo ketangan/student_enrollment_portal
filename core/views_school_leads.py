@@ -687,6 +687,15 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
         "school_name": school.display_name or "",
     })
 
+    # Other leads for the same guardian email at this school (duplicate hint).
+    same_email_leads = (
+        Lead.objects
+        .filter(school=school, normalized_email=lead.normalized_email)
+        .exclude(pk=lead.pk)
+        .order_by("-created_at")
+        .values("id", "name", "interested_in_label", "status", "created_at")[:10]
+    )
+
     ctx = _school_admin_base_context(request, school, "leads")
     ctx.update({
         "lead": lead,
@@ -716,6 +725,7 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
         "show_interested_in": show_interested_in,
         "form_fields_editable": form_fields_editable,
         "redirect_url_field": redirect_url_field,
+        "same_email_leads": list(same_email_leads),
     })
     return render(request, "school_admin/lead_detail.html", ctx)
 
@@ -1130,31 +1140,24 @@ def school_lead_create_view(request, school_slug: str):
     if custom_field_values:
         lead_data["form_fields"] = custom_field_values
 
-    try:
-        with transaction.atomic():
-            lead = Lead.objects.create(
-                school=school,
-                name=new_name,
-                email=new_email,
-                phone=new_phone,
-                interested_in_value=new_interested_in_value,
-                interested_in_label=new_interested_in_label,
-                notes=notes,
-                source="manual",
-                data=lead_data,
-            )
-            log_admin_audit(
-                request=request,
-                action="add",
-                obj=lead,
-                changes={},
-                extra={"name": "lead_created", "source": lead.source or "manual", "email": lead.email or "", "lead_name": lead.name or ""},
-            )
-    except IntegrityError:
-        logger.warning("Duplicate lead email for school %r: %s", school_slug, new_email)
-        return _render_form(
-            values=request.POST,
-            errors={"email": "A lead with this email already exists for this school."},
+    with transaction.atomic():
+        lead = Lead.objects.create(
+            school=school,
+            name=new_name,
+            email=new_email,
+            phone=new_phone,
+            interested_in_value=new_interested_in_value,
+            interested_in_label=new_interested_in_label,
+            notes=notes,
+            source="manual",
+            data=lead_data,
+        )
+        log_admin_audit(
+            request=request,
+            action="add",
+            obj=lead,
+            changes={},
+            extra={"name": "lead_created", "source": lead.source or "manual", "email": lead.email or "", "lead_name": lead.name or ""},
         )
 
     messages.success(request, f'Lead "{lead.name}" created successfully.')

@@ -4,7 +4,6 @@ Tests for Feature 3: Lead Capture Form + Lead Model.
 from __future__ import annotations
 
 import pytest
-from django.db import IntegrityError
 from django.urls import reverse
 
 from core.models import Lead, LEAD_STATUS_CONTACTED, LEAD_STATUS_LOST, LEAD_STATUS_NEW
@@ -60,12 +59,17 @@ def test_lead_status_defaults_to_new():
 
 
 @pytest.mark.django_db
-def test_lead_unique_constraint_prevents_duplicate_email():
-    """DB-level constraint must reject a second lead with the same school+email."""
+def test_multiple_leads_same_email_allowed():
+    """
+    Multiple leads with the same guardian email are allowed per school.
+    One household can have multiple students (different instruments/programs)
+    or the same student enrolled in multiple programs simultaneously.
+    """
     school = SchoolFactory(plan="starter")
-    LeadFactory(school=school, email="alice@example.com")
-    with pytest.raises(IntegrityError):
-        LeadFactory(school=school, email="ALICE@example.com")  # normalises to same
+    lead1 = LeadFactory(school=school, email="alice@example.com", name="Sofia Reyes", interested_in_value="piano")
+    lead2 = LeadFactory(school=school, email="ALICE@example.com", name="Lucas Reyes", interested_in_value="violin")
+    assert lead1.pk != lead2.pk
+    assert Lead.objects.filter(school=school, normalized_email="alice@example.com").count() == 2
 
 
 # ---------------------------------------------------------------------------

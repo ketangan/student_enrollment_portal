@@ -281,3 +281,91 @@ def test_webhook_extra_fields_stored_in_data(client):
     client.post(url, json.dumps(payload), content_type="application/json")
     lead = Lead.objects.get(school=school, normalized_email="extra@example.com")
     assert lead.data.get("extra", {}).get("custom_field") == "custom_value"
+
+
+# ---------------------------------------------------------------------------
+# Multi-student / multi-program — same guardian email creates separate leads
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_public_form_creates_separate_leads_for_same_email(client):
+    """
+    Submitting the public lead form twice with the same guardian email but
+    different student names must create two separate Lead records.
+    A family with two kids should not merge into one lead.
+    """
+    school = _school()
+    url = reverse("school_lead_form", kwargs={"school_slug": SLUG})
+
+    client.post(url, {"name": "Sofia Reyes", "email": "family@example.com", "phone": "5550001"})
+    client.post(url, {"name": "Lucas Reyes", "email": "family@example.com", "phone": "5550001"})
+
+    leads = Lead.objects.filter(school=school, normalized_email="family@example.com").order_by("created_at")
+    assert leads.count() == 2, f"Expected 2 leads, got {leads.count()}"
+    names = {l.name for l in leads}
+    assert names == {"Sofia Reyes", "Lucas Reyes"}
+
+
+@pytest.mark.django_db
+def test_webhook_creates_separate_leads_for_same_email(client):
+    """
+    Two webhook calls with the same email but different programs must each
+    create a new lead — not update the first.
+    """
+    school = _school()
+    token = ensure_lead_webhook_token(school)
+    url = f"/webhooks/leads/{SLUG}/{token}/"
+
+    client.post(url, json.dumps({"name": "Sofia Reyes", "email": "fam2@example.com", "program_interest": "Ballet"}), content_type="application/json")
+    client.post(url, json.dumps({"name": "Sofia Reyes", "email": "fam2@example.com", "program_interest": "Jazz"}), content_type="application/json")
+
+    leads = Lead.objects.filter(school=school, normalized_email="fam2@example.com").order_by("created_at")
+    assert leads.count() == 2
+    programs = {l.interested_in_label for l in leads}
+    assert programs == {"Ballet", "Jazz"}
+
+
+@pytest.mark.django_db
+def test_lead_detail_shows_same_email_hint(client):
+    """
+    Lead detail page must show a warning when another lead with the same
+    guardian email exists at the same school.
+    """
+    from core.tests.factories import LeadFactory, SchoolAdminMembershipFactory, UserFactory
+
+    school = _school()
+    user = UserFactory()
+    SchoolAdminMembershipFactory(school=school, user=user, role="owner")
+
+    lead1 = LeadFactory(school=school, email="hint@example.com", name="Sofia Reyes", interested_in_value="piano")
+    lead2 = LeadFactory(school=school, email="hint@example.com", name="Lucas Reyes", interested_in_value="violin")
+
+    client.force_login(user)
+    url = reverse("school_lead_detail", kwargs={"school_slug": SLUG, "lead_id": lead1.id})
+    resp = client.get(url)
+    assert resp.status_code == 200
+
+    content = resp.content.decode()
+    # Warning must mention the other lead's name
+    assert "Lucas Reyes" in content, "Hint must link to the other lead by name"
+    # Sofia must not appear in the hint (that's the current lead's own name)
+    # The warning banner text must be present
+    assert "same guardian email" in content.lower() or "Same guardian email" in content
+
+
+@pytest.mark.django_db
+def test_lead_detail_no_hint_when_only_one_lead(client):
+    """Lead detail must NOT show the duplicate hint when the email is unique."""
+    from core.tests.factories import LeadFactory, SchoolAdminMembershipFactory, UserFactory
+
+    school = _school()
+    user = UserFactory()
+    SchoolAdminMembershipFactory(school=school, user=user, role="owner")
+
+    lead = LeadFactory(school=school, email="unique@example.com", name="Only Child")
+
+    client.force_login(user)
+    url = reverse("school_lead_detail", kwargs={"school_slug": SLUG, "lead_id": lead.id})
+    resp = client.get(url)
+    assert resp.status_code == 200
+    assert "same guardian email" not in resp.content.decode().lower()
