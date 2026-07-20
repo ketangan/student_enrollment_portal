@@ -1888,6 +1888,47 @@ def test_lead_status_update_enrolled_blocked_by_backend(client):
 
 
 @pytest.mark.django_db
+def test_lead_inline_status_enrolled_blocked(client):
+    """
+    POST to school_lead_inline_status (the unconstrained list dropdown) with
+    new_status=enrolled must be rejected — enrolled is system-only.
+    """
+    school = _sbmc_school()
+    lead = _sbmc_lead(school)
+    admin = _editor(school)
+
+    client.force_login(admin)
+    url = reverse(
+        "school_lead_inline_status",
+        kwargs={"school_slug": school.slug, "lead_id": lead.id},
+    )
+    resp = client.post(url, {"new_status": "enrolled", "next": "/"})
+
+    assert resp.status_code == 302
+    lead.refresh_from_db()
+    assert lead.status == LEAD_STATUS_NEW, "Inline status update must reject enrolled"
+
+
+@pytest.mark.django_db
+def test_lead_bulk_status_enrolled_blocked(client):
+    """
+    POST to school_lead_bulk_status_update with new_status=enrolled must be
+    rejected for ALL selected leads — enrolled is system-only.
+    """
+    school = _sbmc_school()
+    lead = _sbmc_lead(school)
+    admin = _editor(school)
+
+    client.force_login(admin)
+    url = reverse("school_lead_bulk_status_update", kwargs={"school_slug": school.slug})
+    resp = client.post(url, {"new_status": "enrolled", "lead_ids": [str(lead.id)], "next": "/"})
+
+    assert resp.status_code == 302
+    lead.refresh_from_db()
+    assert lead.status == LEAD_STATUS_NEW, "Bulk status update must reject enrolled"
+
+
+@pytest.mark.django_db
 def test_lead_detail_enrolled_step_not_a_button(client):
     """
     The 'enrolled' step in the lead pipeline bar must render as a disabled

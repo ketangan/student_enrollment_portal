@@ -86,14 +86,46 @@
     .sub-form-grid > [style*="grid-column"] { grid-column: 1 !important; }
   }
 
+  /* ── Print-only elements hidden on screen ─────────────────────── */
+  .print-only { display:none; }
+
   /* ── Print ───────────────────────────────────────────────────── */
   @media print {
-    .dash-nav, .no-print, .sub-cmd-bar { display:none !important; }
-    .dash-main { padding:0 !important; }
-    .dash-card { box-shadow:none !important; border:1px solid #ccc !important; break-inside:avoid; }
+    @page { margin:0.65in 0.6in; }
+
+    /* Hide all UI chrome — including the top nav bar which was eating page 1 */
+    .dash-header,
+    .dash-nav,
+    .no-print,
+    .sub-cmd-bar,
+    .activity-card { display:none !important; }
+
+    /* Remove max-width / centering / padding so content fills the full printable area */
+    body  { background:#fff !important; }
+    .dash-main { padding:0 !important; max-width:none !important; margin:0 !important; }
+
+    /* Collapse the 2-column detail grid — the ghost 280px right column was
+       shifting the left content toward the centre of the page */
+    .dash-detail-grid { display:block !important; }
+
+    /* Cards: clean borders, no shadows, let content flow across page breaks */
+    .dash-card {
+      box-shadow:none !important;
+      border:1px solid #d0d0d0 !important;
+      margin-bottom:14px !important;
+      page-break-inside:auto;
+    }
+
+    /* Typography */
     body, .dash-text { color:#000 !important; }
     a { color:#000 !important; text-decoration:none; }
-    details.full-app summary { display:none; }
+
+    /* Full application: always expanded — belt-and-suspenders alongside the JS */
+    details.full-app summary { display:none !important; }
+    details.full-app > div   { display:block !important; }
+
+    /* Show print-only header */
+    .print-only { display:block !important; }
   }
 </style>
 {% endblock %}
@@ -103,8 +135,27 @@
 {% block content %}
 <main class="dash-main">
 
-  <!-- ── Header ────────────────────────────────────────────────── -->
-  <div class="dash-card" style="padding:10px 20px 14px;margin-bottom:12px;">
+  <!-- ── Print-only application header ────────────────────────── -->
+  <div class="print-only" style="padding:0 0 14px;margin-bottom:16px;
+                                  border-bottom:2px solid #111;">
+    <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+                color:#555;margin-bottom:4px;">
+      {{ school.display_name }}
+    </div>
+    <div style="font-size:22px;font-weight:700;color:#000;line-height:1.2;margin-bottom:4px;">
+      {{ submission.student_display_name|default:"Application" }}
+    </div>
+    <div style="font-size:11px;color:#444;display:flex;flex-wrap:wrap;gap:14px;">
+      <span>Submitted {{ submission.created_at|date:"M j, Y" }}</span>
+      {% if submission.school_submission_number %}
+      <span>#{{ submission.school_submission_number }}</span>
+      {% endif %}
+      <span>Status: <strong>{{ submission.status }}</strong></span>
+    </div>
+  </div>
+
+  <!-- ── Header (screen only) ──────────────────────────────────── -->
+  <div class="dash-card no-print" style="padding:10px 20px 14px;margin-bottom:12px;">
     <!-- Nav row: back + prev/next -->
     <div class="no-print" style="display:flex;align-items:center;justify-content:space-between;
                 margin-bottom:10px;padding-bottom:10px;
@@ -915,7 +966,7 @@
       {% endif %}
 
       <!-- Activity -->
-      <div class="dash-card activity-card" style="padding:18px 22px;">
+      <div class="dash-card activity-card no-print" style="padding:18px 22px;">
         <h2 class="sidebar-label">Activity</h2>
         {% if audit_log %}
         <div>

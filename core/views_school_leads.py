@@ -406,6 +406,11 @@ def school_lead_inline_status_view(request, school_slug: str, lead_id: int):
         messages.error(request, f"'{new_status}' is not a valid lead status.")
         return redirect(redirect_url)
 
+    # "Enrolled" is system-only — set automatically when the family submits the enrollment form.
+    if new_status == LEAD_STATUS_ENROLLED:
+        messages.error(request, "Enrolled status is set automatically when the family submits the enrollment form.")
+        return redirect(redirect_url)
+
     if new_status == lead.status:
         return redirect(redirect_url)
 
@@ -458,6 +463,11 @@ def school_lead_bulk_status_update_view(request, school_slug: str):
     # 1. Target status must be a valid Lead model status.
     if new_status not in {c[0] for c in LEAD_STATUS_CHOICES}:
         messages.error(request, f"'{new_status}' is not a valid lead status.")
+        return redirect(redirect_url)
+
+    # "Enrolled" is system-only — set automatically when the family submits the enrollment form.
+    if new_status == LEAD_STATUS_ENROLLED:
+        messages.error(request, "Enrolled status is set automatically when the family submits the enrollment form.")
         return redirect(redirect_url)
 
     # Parse IDs — ignore non-integer values silently.

@@ -135,7 +135,7 @@
             </td>
             <td style="color: var(--dash-muted); font-size: 13px;">{{ lead.program }}</td>
             <td>
-              {% if can_mutate %}
+              {% if can_mutate and lead.status_raw != "enrolled" %}
               <form method="post"
                     action="{% url 'school_lead_inline_status' school_slug=school.slug lead_id=lead.id %}"
                     style="display:inline;">
@@ -146,9 +146,11 @@
                                border:1px solid var(--dash-border);background:var(--dash-bg);
                                color:var(--dash-text);cursor:pointer;">
                   {% for val, label in lead_status_choices %}
+                  {% if val != "enrolled" %}
                   <option value="{{ val }}" {% if val == lead.status_raw %}selected{% endif %}>
                     {{ label }}
                   </option>
+                  {% endif %}
                   {% endfor %}
                 </select>
               </form>
@@ -284,7 +286,9 @@
                      background:#fff;color:#1e293b;">
         <option value="">— select status —</option>
         {% for val, label in lead_status_choices %}
+        {% if val != "enrolled" %}
         <option value="{{ val }}">{{ label }}</option>
+        {% endif %}
         {% endfor %}
       </select>
       <button type="button" onclick="bulkSubmit()"
