@@ -354,17 +354,17 @@
         {% elif lead.status == "lost" %}
           <p style="font-size:13px;color:var(--dash-muted);margin:0;">This lead is marked as lost. No enrollment action needed.</p>
         {% elif form_url %}
-          {# Draft exists — show form link + shareable URL #}
+          {# Draft always pre-created on page load — URL is immediately available #}
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
             <a href="{{ form_url }}" target="_blank"
                class="dash-action-btn dash-action-btn--primary" style="font-size:13px;">
-              Open Form &rarr;
+              Start Enrollment &rarr;
             </a>
             <span style="font-size:12px;color:var(--dash-muted);">Opens the pre-filled form in a new tab.</span>
           </div>
-          <p style="font-size:12px;font-weight:600;margin:0 0 6px;color:var(--dash-text);">Enrollment link</p>
+          <p style="font-size:12px;font-weight:600;margin:0 0 4px;color:var(--dash-text);">Enrollment link</p>
           <p style="font-size:11px;color:var(--dash-muted);margin:0 0 8px;">
-            Share this link with the family — they can complete the form on their own device.
+            Copy and send to the family, or email it directly below.
           </p>
           <div style="display:flex;gap:8px;align-items:center;">
             <input id="resume-link" type="text" readonly value="{{ resume_url }}"
@@ -389,52 +389,11 @@
                     style="padding:6px 14px;background:var(--dash-primary,#4f46e5);color:#fff;
                            border:none;border-radius:6px;font-size:12px;font-weight:600;
                            cursor:pointer;white-space:nowrap;">
-              Email this link →
+              Email this link &rarr;
             </button>
-            <span style="font-size:11px;color:var(--dash-muted);margin-left:8px;">Sends to {{ lead.email }}</span>
+            <span style="font-size:11px;color:var(--dash-muted);margin-left:8px;">to {{ lead.email }}</span>
           </form>
           {% endif %}
-        {% elif start_enrollment_url %}
-          {# No draft yet — primary action creates a draft and opens the form #}
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
-            <form method="post" action="{{ start_enrollment_url }}" target="_blank">
-              {% csrf_token %}
-              <button type="submit" class="dash-action-btn dash-action-btn--primary" style="font-size:13px;">
-                Start Enrollment
-              </button>
-            </form>
-            <span style="font-size:12px;color:var(--dash-muted);">Opens a pre-filled form in a new tab.</span>
-          </div>
-          <p style="font-size:12px;font-weight:600;margin:0 0 6px;color:var(--dash-text);">Enrollment link</p>
-          <p style="font-size:11px;color:var(--dash-muted);margin:0 0 8px;">
-            Generate a shareable link to send to the family, or email it directly.
-          </p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <form method="post" action="{{ start_enrollment_url }}">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="copy">
-              <button type="submit"
-                      style="padding:6px 14px;background:#f1f5f9;border:1px solid var(--dash-border,#e2e8f0);
-                             border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;
-                             white-space:nowrap;color:var(--dash-text);">
-                Generate link
-              </button>
-            </form>
-            {% if email_enabled and lead.email %}
-            <form method="post"
-                  action="{% url 'school_lead_resend_resume_link' school_slug=school_slug lead_id=lead.id %}">
-              {% csrf_token %}
-              <input type="hidden" name="next" value="{{ detail_url }}">
-              <button type="submit"
-                      style="padding:6px 14px;background:var(--dash-primary,#4f46e5);color:#fff;
-                             border:none;border-radius:6px;font-size:12px;font-weight:600;
-                             cursor:pointer;white-space:nowrap;">
-                Email form link →
-              </button>
-            </form>
-            <span style="font-size:11px;color:var(--dash-muted);">to {{ lead.email }}</span>
-            {% endif %}
-          </div>
         {% endif %}
       </div>
       {% endif %}{# can_mutate — Enrollment #}

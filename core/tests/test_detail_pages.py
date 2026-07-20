@@ -254,17 +254,34 @@ def test_lead_detail_active_lead_shows_start_enrollment(client):
 
 
 @pytest.mark.django_db
-def test_lead_detail_get_does_not_create_draft(client):
-    """GET on the lead detail page must never create a DraftSubmission."""
+def test_lead_detail_get_auto_creates_draft_and_shows_link(client):
+    """
+    GET on the lead detail page auto-creates a draft so the enrollment URL
+    is immediately visible without requiring a 'Generate link' click.
+    A second GET must reuse the same draft (no duplicates).
+    """
     school = SchoolFactory()
     user = _school_admin_user(school)
     lead = LeadFactory(school=school, status=LEAD_STATUS_NEW)
     client.force_login(user)
 
-    client.get(_lead_detail_url(school, lead.id))
-    client.get(_lead_detail_url(school, lead.id))
+    resp1 = client.get(_lead_detail_url(school, lead.id))
+    assert resp1.status_code == 200
+    assert DraftSubmission.objects.filter(school=school, lead=lead).count() == 1, (
+        "First GET must create exactly one draft"
+    )
 
-    assert DraftSubmission.objects.filter(school=school, lead=lead).count() == 0
+    # Second GET must reuse — not create a second draft
+    resp2 = client.get(_lead_detail_url(school, lead.id))
+    assert resp2.status_code == 200
+    assert DraftSubmission.objects.filter(school=school, lead=lead).count() == 1, (
+        "Subsequent GETs must reuse the existing draft"
+    )
+
+    # Enrollment URL must be visible immediately (no generate step needed)
+    content = resp2.content.decode()
+    assert "Start Enrollment" in content
+    assert "resume-link" in content, "Resume URL input must be present on page load"
 
 
 @pytest.mark.django_db
@@ -284,7 +301,7 @@ def test_start_enrollment_creates_draft_and_detail_shows_open_form(client):
     assert DraftSubmission.objects.filter(school=school, lead=lead).count() == 1
 
     detail_response = client.get(_lead_detail_url(school, lead.id))
-    assert "Open Form" in detail_response.content.decode()
+    assert "Start Enrollment" in detail_response.content.decode()
 
 
 @pytest.mark.django_db

@@ -106,7 +106,7 @@
   <!-- ── Header ────────────────────────────────────────────────── -->
   <div class="dash-card" style="padding:10px 20px 14px;margin-bottom:12px;">
     <!-- Nav row: back + prev/next -->
-    <div style="display:flex;align-items:center;justify-content:space-between;
+    <div class="no-print" style="display:flex;align-items:center;justify-content:space-between;
                 margin-bottom:10px;padding-bottom:10px;
                 border-bottom:1px solid var(--dash-border,#e2e8f0);">
       <a href="{{ submissions_url }}"
@@ -209,7 +209,7 @@
 
       <!-- AI Summary -->
       {% if ai_summary_enabled %}
-      <div class="dash-card" style="padding:18px 22px;border-left:4px solid var(--dash-primary,#2563eb);">
+      <div class="dash-card{% if not ai_summary_text %} no-print{% endif %}" style="padding:18px 22px;border-left:4px solid var(--dash-primary,#2563eb);">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
           <h2 class="sidebar-label" style="margin:0;">AI Summary</h2>
           {% if can_mutate %}
@@ -986,7 +986,7 @@
     </div><!-- /LEFT -->
 
     <!-- ── RIGHT sidebar ─────────────────────────────────────────── -->
-    <div style="display:flex;flex-direction:column;gap:14px;">
+    <div class="no-print" style="display:flex;flex-direction:column;gap:14px;">
 
       <!-- 1. Actions (follow-up + tools + meta — consolidated) -->
       <div class="dash-card" style="padding:18px 22px;">

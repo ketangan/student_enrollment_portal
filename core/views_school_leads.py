@@ -550,7 +550,7 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
     leads_url = reverse("school_leads", kwargs={"school_slug": school_slug})
     detail_url = request.path
 
-    # Enrollment section context — read-only, no side effects.
+    # Enrollment section context.
     converted_submission_url = None
     form_url = None
     resume_url = None
@@ -566,7 +566,7 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
             "school_lead_start_enrollment",
             kwargs={"school_slug": school_slug, "lead_id": lead_id},
         )
-        # Read-only: check for an existing active draft (no creation, no session, no audit).
+        # Find active draft; auto-create if none so the resume URL is always visible.
         existing_draft = (
             DraftSubmission.objects
             .filter(school=school, lead=lead, submitted_at__isnull=True)
@@ -574,13 +574,18 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
             .order_by("-created_at")
             .first()
         )
-        if existing_draft:
-            from core.services.url_builder import app_reverse
-            resume_url = app_reverse("apply_resume", kwargs={"school_slug": school_slug, "token": existing_draft.token})
-            # Open Form must use the token URL, not the bare apply URL.
-            # The bare URL resolves the draft via session, which may hold a different
-            # lead's draft if the admin previously started enrollment for someone else.
-            form_url = resume_url
+        if not existing_draft:
+            prefill = _build_lead_prefill_data(lead, config_raw)
+            existing_draft = DraftSubmission.objects.create(
+                school=school,
+                lead=lead,
+                data=prefill,
+                email=lead.email,
+            )
+        from core.services.url_builder import app_reverse
+        resume_url = app_reverse("apply_resume", kwargs={"school_slug": school_slug, "token": existing_draft.token})
+        # Use token URL, not bare /apply/ — session may hold a different lead's draft.
+        form_url = resume_url
 
     is_followup_overdue = bool(
         lead.next_follow_up_at and lead.next_follow_up_at < timezone.now()

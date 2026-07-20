@@ -415,14 +415,14 @@
                         value="{{ values|get_item:field.key }}"
                       />
 
-                    {# --- NUMBER (special: age readonly + auto-populate) --- #}
-                    {% elif field.type == "number" and field.key == "age" %}
+                    {# --- AGE (readonly + auto-populate from DOB; supports key="age" or key="student_age") --- #}
+                    {% elif field.key == "age" or field.key == "student_age" %}
                         <input
                             class="input input-readonly"
-                            id="age"
-                            name="age"
-                            type="number"
-                            value="{{ values|get_item:'age' }}"
+                            id="{{ field.key }}"
+                            name="{{ field.key }}"
+                            type="{{ field.type }}"
+                            value="{{ values|get_item:field.key }}"
                             readonly
                             tabindex="-1"
                         />
@@ -493,8 +493,8 @@
 
     <script>
         (function () {
-            const dob = document.getElementById("date_of_birth");
-            const age = document.getElementById("age");
+            const dob = document.getElementById("date_of_birth") || document.getElementById("student_birthday");
+            const age = document.getElementById("age") || document.getElementById("student_age");
             if (!dob || !age) return;
 
             // Optional: constrain picker; does not block typing reliably but helps picker users
