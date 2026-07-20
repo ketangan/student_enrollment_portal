@@ -256,7 +256,7 @@ form:
           link_url: "https://drive.google.com/file/d/148ZfUV16hg_vW7RfRfa2F5u7fmydR8Tx/view"
           link_text: "View Studio Policies HERE"
           checkbox_label: "I have reviewed the SBMC Studio Policies"
-          required: false
+          required: true
           full_width: true
 
         - key: enrollment_fee_acknowledgment

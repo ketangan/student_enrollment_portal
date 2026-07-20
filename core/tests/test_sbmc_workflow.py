@@ -154,6 +154,7 @@ def _enrollment_post_data(instrument: str = "piano") -> dict:
         # auto_label: any non-empty value satisfies required check
         "enrollment_fee_acknowledgment": "new_student_fee",
         # checkboxes
+        "studio_policies": "on",
         "fee_payment_acknowledgment": "on",
         "monthly_tuition_policy": "on",
         "makeups_cancellations": "on",

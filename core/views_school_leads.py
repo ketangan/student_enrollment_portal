@@ -566,7 +566,9 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
             "school_lead_start_enrollment",
             kwargs={"school_slug": school_slug, "lead_id": lead_id},
         )
-        # Find active draft; auto-create if none so the resume URL is always visible.
+        # Build prefill from current lead data — always reflects latest lead edits.
+        prefill = _build_lead_prefill_data(lead, config_raw)
+
         existing_draft = (
             DraftSubmission.objects
             .filter(school=school, lead=lead, submitted_at__isnull=True)
@@ -575,13 +577,19 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
             .first()
         )
         if not existing_draft:
-            prefill = _build_lead_prefill_data(lead, config_raw)
             existing_draft = DraftSubmission.objects.create(
                 school=school,
                 lead=lead,
                 data=prefill,
                 email=lead.email,
             )
+        else:
+            # Merge: lead-sourced keys always win (keeps admin corrections in sync).
+            # Family-entered keys not in prefill are preserved untouched.
+            merged = {**(existing_draft.data or {}), **prefill}
+            if merged != existing_draft.data:
+                existing_draft.data = merged
+                existing_draft.save(update_fields=["data", "updated_at"])
         from core.services.url_builder import app_reverse
         resume_url = app_reverse("apply_resume", kwargs={"school_slug": school_slug, "token": existing_draft.token})
         # Use token URL, not bare /apply/ — session may hold a different lead's draft.
