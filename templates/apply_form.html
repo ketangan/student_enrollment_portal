@@ -537,6 +537,11 @@
             function maybeUpdateAge() {
             const iso = dob.value;
 
+            if (!iso) {
+                // DOB empty — leave any pre-filled age value intact
+                return;
+            }
+
             if (!isValidISODate(iso)) {
                 // user is mid-typing / incomplete
                 age.value = "";
