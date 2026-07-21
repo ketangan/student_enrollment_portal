@@ -101,6 +101,7 @@ from .views_school_common import (  # noqa: F401 — private names not exported 
     _SMART_FILTER_KEYS,
 )
 from .views_public import _strip_file_fields, _plain_post_values, _draft_session_key
+from .services.programs import inject_db_opts_into_lead_fields
 
 
 @login_required
@@ -625,7 +626,10 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
     lead_cfg = config_raw.get("leads", {}) if config_raw else {}
     name_field_key = lead_cfg.get("name_field_key", "")
     redirect_url_field = lead_cfg.get("redirect_url_field", "")
-    yaml_fields = lead_cfg.get("fields", []) if isinstance(lead_cfg.get("fields"), list) else []
+    yaml_fields = inject_db_opts_into_lead_fields(
+        lead_cfg.get("fields", []) if isinstance(lead_cfg.get("fields"), list) else [],
+        school,
+    )
     label_map = {f["key"]: f.get("label", f["key"]) for f in yaml_fields if isinstance(f, dict) and "key" in f}
     form_fields_raw = (lead.data or {}).get("form_fields", {}) if isinstance(lead.data, dict) else {}
     form_fields_labeled = [
@@ -858,7 +862,10 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
     _lead_cfg = _config_raw.get("leads", {}) if _config_raw else {}
     _yaml_name_field_key = _lead_cfg.get("name_field_key", "")
     _yaml_redirect_url_field = _lead_cfg.get("redirect_url_field", "")
-    _yaml_fields_def = _lead_cfg.get("fields", []) if isinstance(_lead_cfg.get("fields"), list) else []
+    _yaml_fields_def = inject_db_opts_into_lead_fields(
+        _lead_cfg.get("fields", []) if isinstance(_lead_cfg.get("fields"), list) else [],
+        school,
+    )
     _current_data = lead.data if isinstance(lead.data, dict) else {}
     _current_form_fields = (
         _current_data.get("form_fields", {})
@@ -1057,6 +1064,8 @@ def school_lead_create_view(request, school_slug: str):
     config = _safe_load_school_config(school_slug)
     raw = config.raw if config else {}
     lead_cfg = get_lead_form_config(raw) if config else None
+    if lead_cfg and school.program_field_key:
+        lead_cfg["fields"] = inject_db_opts_into_lead_fields(lead_cfg["fields"], school)
     program_options = get_program_options(config) if config and not (lead_cfg and lead_cfg.get("hide_program_field")) else []
 
     leads_url = reverse("school_leads", kwargs={"school_slug": school_slug})

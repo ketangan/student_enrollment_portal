@@ -185,6 +185,27 @@ def inject_db_program_options(form_cfg: dict, school, form_key: str = "default")
     return form_cfg
 
 
+def inject_db_opts_into_lead_fields(fields: list, school) -> list:
+    """
+    Return a copy of a lead form fields list with DB program options injected
+    for the field matching school.program_field_key.
+
+    Used by the admin lead views (New Lead form, lead detail edit card, inline
+    edit POST) so that newly added programs appear without YAML changes.
+    """
+    field_key = getattr(school, "program_field_key", "") or ""
+    if not field_key or not fields:
+        return fields
+    db_opts = get_program_options(school)
+    if not db_opts:
+        return fields
+    result = copy.deepcopy(fields)
+    for field in result:
+        if isinstance(field, dict) and field.get("key") == field_key:
+            field["options"] = db_opts
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Submission resolver
 # ---------------------------------------------------------------------------
