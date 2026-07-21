@@ -112,3 +112,63 @@ def test_admin_lead_detail_edit_card_shows_db_program(admin_client, sbmc_school,
     r = admin_client.get(url)
     assert r.status_code == 200
     assert b"Guitar" in r.content
+
+
+# ---------------------------------------------------------------------------
+# 4. Lead update — instrument change saves correct label
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_lead_update_resolves_new_program_label(admin_client, sbmc_school, guitar_program):
+    lead = LeadFactory(school=sbmc_school, email="update@example.com", interested_in_value="", interested_in_label="")
+    url = reverse("school_lead_update", kwargs={"school_slug": SLUG, "lead_id": lead.pk})
+    r = admin_client.post(url, {
+        "name": lead.name,
+        "email": lead.email,
+        "phone": "",
+        "field__instrument": "guitar",
+        "field__student_age": "",
+    })
+    assert r.status_code == 302
+    lead.refresh_from_db()
+    assert lead.interested_in_value == "guitar"
+    assert lead.interested_in_label == "Guitar"
+
+
+# ---------------------------------------------------------------------------
+# 5. Inactive program excluded from admin new lead form
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_admin_new_lead_form_excludes_inactive_program(admin_client, sbmc_school, guitar_program):
+    guitar_program.is_active = False
+    guitar_program.save(update_fields=["is_active"])
+    url = reverse("school_lead_create", kwargs={"school_slug": SLUG})
+    r = admin_client.get(url)
+    assert r.status_code == 200
+    assert b"Guitar" not in r.content
+
+
+# ---------------------------------------------------------------------------
+# 6. Zero active programs — forms must not 500
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_public_lead_form_no_programs_no_500(client, sbmc_school):
+    url = reverse("school_lead_form", kwargs={"school_slug": SLUG})
+    r = client.get(url)
+    assert r.status_code == 200
+
+
+@pytest.mark.django_db
+def test_admin_new_lead_form_no_programs_no_500(admin_client, sbmc_school):
+    url = reverse("school_lead_create", kwargs={"school_slug": SLUG})
+    r = admin_client.get(url)
+    assert r.status_code == 200
+
+
+@pytest.mark.django_db
+def test_enrollment_form_no_programs_no_500(client, sbmc_school):
+    url = reverse("apply", kwargs={"school_slug": SLUG})
+    r = client.get(url)
+    assert r.status_code == 200
