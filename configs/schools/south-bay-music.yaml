@@ -427,7 +427,7 @@ leads:
     Fill out this quick form and we'll redirect you to schedule your 30-minute trial lesson ($30) on our booking system.
     A spot is not confirmed until you complete scheduling.
   cta_text: "Continue to Scheduling →"
-  success_message: "Thanks! Redirecting you to schedule your trial lesson…"
+  success_message: "We've received your information — we look forward to meeting you at your trial lesson!"
   confirmation_enabled: true
   notify_to: "info@sbmusicconservatory.com"
   phone_required: true
