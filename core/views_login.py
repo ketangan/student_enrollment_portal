@@ -22,7 +22,7 @@ def _post_login_redirect(request, next_url=""):
     ).select_related("school").first()
     if membership:
         return redirect("school_dashboard", school_slug=membership.school.slug)
-    return redirect("/")
+    return redirect("login")
 
 
 @ratelimit(key="ip", rate="10/m", method="POST", block=True)

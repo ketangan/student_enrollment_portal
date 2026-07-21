@@ -24,7 +24,7 @@ def ops_required(view_func):
             from django.urls import reverse
             return redirect(f"/login/?next={request.path}")
         if not request.user.is_superuser:
-            raise PermissionError("Superuser access required.")
+            return redirect(f"/login/?next={request.path}")
         return view_func(request, *args, **kwargs)
     return wrapper
 
