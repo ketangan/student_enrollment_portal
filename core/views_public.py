@@ -1291,6 +1291,12 @@ def school_lead_form_view(request, school_slug, form_key=None):
     lead_cfg = get_lead_form_config(raw, form_key)
     if lead_cfg is None:
         raise Http404  # named variant not defined in YAML
+    if school.program_field_key:
+        db_opts = get_program_options(school)
+        if db_opts:
+            for field in lead_cfg["fields"]:
+                if field.get("key") == school.program_field_key:
+                    field["options"] = db_opts
     program_options = [] if lead_cfg["hide_program_field"] else get_program_options(school)
 
     src_param = request.GET.get("src", "").strip()[:100]
