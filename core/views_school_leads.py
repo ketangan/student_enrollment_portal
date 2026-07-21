@@ -102,6 +102,7 @@ from .views_school_common import (  # noqa: F401 — private names not exported 
 )
 from .views_public import _strip_file_fields, _plain_post_values, _draft_session_key
 from .services.programs import inject_db_opts_into_lead_fields
+from .services.programs import get_program_options as get_db_program_options
 
 
 @login_required
@@ -610,7 +611,7 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
         lead.next_follow_up_at and lead.next_follow_up_at < timezone.now()
     )
 
-    program_options = get_program_options(config) if config else []
+    program_options = get_db_program_options(school) if school.program_field_key else (get_program_options(config) if config else [])
 
     # Breadcrumb pipeline — ordered list of (value, label) pairs.
     lead_pipeline = [{"value": v, "label": l} for v, l in LEAD_STATUS_CHOICES]
@@ -853,7 +854,7 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
 
     # Resolve label for interested_in from config program options.
     config = _safe_load_school_config(school_slug)
-    program_options = get_program_options(config) if config else []
+    program_options = get_db_program_options(school) if school.program_field_key else (get_program_options(config) if config else [])
     label_map = {opt["value"]: opt["label"] for opt in program_options}
     new_interested_in_label = label_map.get(new_interested_in_value, new_interested_in_value)
 
@@ -1066,7 +1067,10 @@ def school_lead_create_view(request, school_slug: str):
     lead_cfg = get_lead_form_config(raw) if config else None
     if lead_cfg and school.program_field_key:
         lead_cfg["fields"] = inject_db_opts_into_lead_fields(lead_cfg["fields"], school)
-    program_options = get_program_options(config) if config and not (lead_cfg and lead_cfg.get("hide_program_field")) else []
+    if school.program_field_key:
+        program_options = [] if (lead_cfg and lead_cfg.get("hide_program_field")) else get_db_program_options(school)
+    else:
+        program_options = get_program_options(config) if config and not (lead_cfg and lead_cfg.get("hide_program_field")) else []
 
     leads_url = reverse("school_leads", kwargs={"school_slug": school_slug})
 
