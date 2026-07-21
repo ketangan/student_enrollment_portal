@@ -938,6 +938,7 @@ class OnboardingChecklistItem(models.Model):
         ("plan_configured", "Plan configured"),
         ("trial_configured", "Trial configured"),
         ("admin_invited", "Admin user invited"),
+        ("team_access_configured", "Team access configured"),
         ("branding_configured", "Branding configured"),
         ("programs_configured", "Programs configured"),
         ("workflows_configured", "Enrollment workflows configured"),
