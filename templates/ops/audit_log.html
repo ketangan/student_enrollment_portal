@@ -40,7 +40,7 @@
         </select>
       </div>
       <div style="min-width:140px;">
-        <label style="display:block;font-size:11px;font-weight:600;color:var(--dash-muted);margin-bottom:4px;">Model</label>
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--dash-muted);margin-bottom:4px;">Resource</label>
         <input type="text" name="model" value="{{ model_filter }}" placeholder="e.g. core.submission"
                class="dash-input">
       </div>
@@ -59,27 +59,43 @@
         {% endif %}
       </div>
     </form>
+    <!-- Quick filters -->
+    <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
+      <span style="font-size:11px;color:var(--dash-muted);line-height:26px;">Quick:</span>
+      <a href="?q=page_view" class="dash-action-btn dash-action-btn--secondary"
+         style="font-size:11px;padding:2px 10px;height:26px;display:flex;align-items:center;">Page views only</a>
+      <a href="{% url 'ops_audit_log' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}&{% else %}?{% endif %}hide_page_views=1"
+         class="dash-action-btn dash-action-btn--secondary"
+         style="font-size:11px;padding:2px 10px;height:26px;display:flex;align-items:center;">
+        {% if hide_page_views %}✓ {% endif %}Hide page views
+      </a>
+      <a href="?action=action" class="dash-action-btn dash-action-btn--secondary"
+         style="font-size:11px;padding:2px 10px;height:26px;display:flex;align-items:center;">Actions only</a>
+      <a href="?action=change" class="dash-action-btn dash-action-btn--secondary"
+         style="font-size:11px;padding:2px 10px;height:26px;display:flex;align-items:center;">Edits only</a>
+    </div>
   </div>
 
   <!-- Table -->
   <div class="dash-card" style="padding:0;overflow:hidden;">
     {% if page_obj.object_list %}
     <div style="overflow-x:auto;">
-      <table class="dash-table" style="margin:0;">
+      <table class="dash-table" style="margin:0;" id="audit-table">
         <thead>
           <tr>
-            <th style="padding-left:20px;">When</th>
-            <th>Actor</th>
-            <th>Action</th>
-            <th>Model</th>
-            <th>Object</th>
-            <th>Detail</th>
-            <th>IP</th>
+            <th style="padding-left:20px;width:140px;">When</th>
+            <th style="width:110px;">Actor</th>
+            <th style="width:70px;">Action</th>
+            <th style="width:110px;">Resource</th>
+            <th style="width:200px;">Object</th>
+            <th>What happened</th>
+            <th style="width:110px;">IP</th>
           </tr>
         </thead>
         <tbody>
           {% for entry in page_obj %}
-          <tr>
+          {# Main row #}
+          <tr class="audit-main-row" data-pk="{{ entry.pk }}" style="cursor:pointer;" title="Click to expand">
             <td style="padding-left:20px;font-size:11px;color:var(--dash-muted);white-space:nowrap;">
               {{ entry.created_at|date:"M j, Y H:i:s" }}
             </td>
@@ -87,7 +103,7 @@
               {{ entry.actor.username|default:"—" }}
             </td>
             <td>
-              <span style="font-size:11px;text-transform:uppercase;font-weight:700;
+              <span style="font-size:11px;text-transform:uppercase;font-weight:700;letter-spacing:.03em;
                 {% if entry.action == 'add' %}color:#059669;
                 {% elif entry.action == 'delete' %}color:#dc2626;
                 {% elif entry.action == 'change' %}color:#d97706;
@@ -95,25 +111,126 @@
                 {{ entry.get_action_display }}
               </span>
             </td>
-            <td style="font-size:11px;font-family:monospace;color:var(--dash-muted);">
-              {{ entry.model_label }}
+            <td style="font-size:11px;color:var(--dash-muted);">
+              {{ entry.human_model_label }}
             </td>
-            <td style="font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+            <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
                 title="{{ entry.object_repr }}">
-              {{ entry.object_repr|default:"—"|truncatechars:40 }}
+              {{ entry.object_repr|default:"—"|truncatechars:45 }}
             </td>
-            <td style="font-size:11px;color:var(--dash-muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
-                title="{% if entry.extra %}{{ entry.extra }}{% elif entry.changes %}{{ entry.changes }}{% endif %}">
-              {% if entry.extra.name %}
-                {{ entry.extra.name }}
-              {% elif entry.changes %}
-                {{ entry.changes|length }} field{{ entry.changes|length|pluralize }} changed
-              {% else %}
-                —
-              {% endif %}
+            <td style="font-size:12px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+              {{ entry.human_summary }}
             </td>
             <td style="font-size:11px;color:var(--dash-muted);font-family:monospace;">
               {{ entry.ip_address|default:"—" }}
+            </td>
+          </tr>
+          {# Expandable detail row — hidden by default #}
+          <tr class="audit-detail-row" id="detail-{{ entry.pk }}" style="display:none;background:#f8f9fc;">
+            <td colspan="7" style="padding:12px 20px 16px 36px;border-bottom:2px solid var(--dash-border);">
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;">
+
+                {# Event context #}
+                {% if entry.extra %}
+                <div>
+                  <div style="font-size:10px;font-weight:700;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Context</div>
+                  <table style="font-size:11px;border-collapse:collapse;width:100%;">
+                    {% for k, v in entry.extra.items %}
+                    {% if k != 'name' and v %}
+                    <tr>
+                      <td style="padding:2px 10px 2px 0;color:var(--dash-muted);white-space:nowrap;vertical-align:top;font-weight:500;">{{ k }}</td>
+                      <td style="padding:2px 0;word-break:break-word;max-width:260px;">
+                        {% if v|length > 200 %}
+                          <span title="{{ v }}">{{ v|truncatechars:200 }}</span>
+                        {% else %}
+                          {{ v }}
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                  </table>
+                </div>
+                {% endif %}
+
+                {# Field-level diffs from extra.changed (lead_update style) #}
+                {% if entry.extra.changed %}
+                <div>
+                  <div style="font-size:10px;font-weight:700;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Fields changed</div>
+                  <table style="font-size:11px;border-collapse:collapse;width:100%;">
+                    {% for c in entry.extra.changed %}
+                    <tr>
+                      <td style="padding:2px 10px 2px 0;color:var(--dash-muted);white-space:nowrap;vertical-align:top;font-weight:500;">{{ c.field }}</td>
+                      <td style="padding:2px 0;word-break:break-word;">
+                        {% if c.from %}
+                          <span style="color:#dc2626;text-decoration:line-through;margin-right:4px;">{{ c.from }}</span>
+                        {% else %}
+                          <span style="color:var(--dash-muted);margin-right:4px;">(empty)</span>
+                        {% endif %}
+                        →
+                        <span style="color:#059669;margin-left:4px;">{{ c.to|default:"(empty)" }}</span>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </table>
+                </div>
+                {% endif %}
+
+                {# Model-level changes (change action) #}
+                {% if entry.changes %}
+                <div>
+                  <div style="font-size:10px;font-weight:700;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Fields changed</div>
+                  <table style="font-size:11px;border-collapse:collapse;width:100%;">
+                    {% for field, diff in entry.changes.items %}
+                    <tr>
+                      <td style="padding:2px 10px 2px 0;color:var(--dash-muted);white-space:nowrap;vertical-align:top;font-weight:500;">{{ field }}</td>
+                      <td style="padding:2px 0;word-break:break-word;">
+                        {% if diff.from %}
+                          <span style="color:#dc2626;text-decoration:line-through;margin-right:4px;">{{ diff.from }}</span>
+                        {% else %}
+                          <span style="color:var(--dash-muted);margin-right:4px;">(empty)</span>
+                        {% endif %}
+                        →
+                        <span style="color:#059669;margin-left:4px;">{{ diff.to|default:"(empty)" }}</span>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </table>
+                </div>
+                {% endif %}
+
+                {# Request metadata #}
+                <div>
+                  <div style="font-size:10px;font-weight:700;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Request</div>
+                  <table style="font-size:11px;border-collapse:collapse;width:100%;">
+                    <tr>
+                      <td style="padding:2px 10px 2px 0;color:var(--dash-muted);white-space:nowrap;font-weight:500;">Time</td>
+                      <td>{{ entry.created_at|date:"N j, Y, g:i:s a" }}</td>
+                    </tr>
+                    {% if entry.path %}
+                    <tr>
+                      <td style="padding:2px 10px 2px 0;color:var(--dash-muted);white-space:nowrap;font-weight:500;">Path</td>
+                      <td style="word-break:break-all;font-family:monospace;font-size:10px;">{{ entry.path }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if entry.ip_address %}
+                    <tr>
+                      <td style="padding:2px 10px 2px 0;color:var(--dash-muted);white-space:nowrap;font-weight:500;">IP</td>
+                      <td style="font-family:monospace;">{{ entry.ip_address }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                      <td style="padding:2px 10px 2px 0;color:var(--dash-muted);white-space:nowrap;font-weight:500;">Object ID</td>
+                      <td style="font-family:monospace;">{{ entry.object_id|default:"—" }}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:2px 10px 2px 0;color:var(--dash-muted);white-space:nowrap;font-weight:500;">Model</td>
+                      <td style="font-family:monospace;font-size:10px;">{{ entry.model_label }}</td>
+                    </tr>
+                  </table>
+                </div>
+
+              </div>
             </td>
           </tr>
           {% endfor %}
@@ -125,14 +242,14 @@
     {% if page_obj.has_other_pages %}
     <div style="padding:14px 20px;border-top:1px solid var(--dash-border);display:flex;gap:8px;align-items:center;font-size:13px;">
       {% if page_obj.has_previous %}
-      <a href="?{% if search_q %}q={{ search_q }}&{% endif %}{% if actor_filter %}actor={{ actor_filter }}&{% endif %}{% if action_filter %}action={{ action_filter }}&{% endif %}{% if model_filter %}model={{ model_filter }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}page={{ page_obj.previous_page_number }}"
+      <a href="?{% if search_q %}q={{ search_q }}&{% endif %}{% if actor_filter %}actor={{ actor_filter }}&{% endif %}{% if action_filter %}action={{ action_filter }}&{% endif %}{% if model_filter %}model={{ model_filter }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if hide_page_views %}hide_page_views=1&{% endif %}page={{ page_obj.previous_page_number }}"
          class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;padding:4px 12px;">← Prev</a>
       {% endif %}
       <span style="color:var(--dash-muted);">
         Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
       </span>
       {% if page_obj.has_next %}
-      <a href="?{% if search_q %}q={{ search_q }}&{% endif %}{% if actor_filter %}actor={{ actor_filter }}&{% endif %}{% if action_filter %}action={{ action_filter }}&{% endif %}{% if model_filter %}model={{ model_filter }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}page={{ page_obj.next_page_number }}"
+      <a href="?{% if search_q %}q={{ search_q }}&{% endif %}{% if actor_filter %}actor={{ actor_filter }}&{% endif %}{% if action_filter %}action={{ action_filter }}&{% endif %}{% if model_filter %}model={{ model_filter }}&{% endif %}{% if date_from %}date_from={{ date_from }}&{% endif %}{% if date_to %}date_to={{ date_to }}&{% endif %}{% if hide_page_views %}hide_page_views=1&{% endif %}page={{ page_obj.next_page_number }}"
          class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;padding:4px 12px;">Next →</a>
       {% endif %}
     </div>
@@ -146,4 +263,17 @@
   </div>
 
 </main>
+
+<script>
+document.querySelectorAll('.audit-main-row').forEach(function(row) {
+  row.addEventListener('click', function() {
+    var pk = this.dataset.pk;
+    var detail = document.getElementById('detail-' + pk);
+    if (!detail) return;
+    var isOpen = detail.style.display !== 'none';
+    detail.style.display = isOpen ? 'none' : 'table-row';
+    this.style.background = isOpen ? '' : '#f0f3ff';
+  });
+});
+</script>
 {% endblock %}

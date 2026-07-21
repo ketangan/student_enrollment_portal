@@ -884,11 +884,201 @@ class AdminAuditLog(models.Model):
     # Any extra metadata (counts, filters, etc.)
     extra = models.JSONField(default=dict, blank=True)
 
+    _MODEL_LABEL_MAP = {
+        "core.school": "School",
+        "core.submission": "Submission",
+        "core.submissiondraft": "Draft",
+        "core.lead": "Lead",
+        "core.schoolprogram": "Program",
+        "core.schoolsession": "Session",
+        "core.schoolemailtemplate": "Email Template",
+        "core.schooladminmembership": "Team Member",
+        "core.demoaccesstoken": "Access Token",
+        "core.adminauditlog": "Audit Log",
+    }
+
     class Meta:
         ordering = ("-created_at",)
 
     def __str__(self) -> str:
         return f"{self.created_at} {self.action} {self.model_label}#{self.object_id}"
+
+    @property
+    def human_model_label(self) -> str:
+        return self._MODEL_LABEL_MAP.get(self.model_label.lower(), self.model_label)
+
+    @property
+    def human_summary(self) -> str:
+        extra = self.extra or {}
+        changes = self.changes or {}
+        name = extra.get("name", "")
+
+        if name == "page_view":
+            page = extra.get("page", "")
+            student = extra.get("student", "")
+            labels = {
+                "dashboard": "Viewed dashboard",
+                "submissions_list": "Viewed submissions list",
+                "submission_detail": f"Viewed submission — {student}" if student else "Viewed submission detail",
+                "leads_list": "Viewed leads list",
+                "reports": "Viewed reports",
+            }
+            return labels.get(page, f"Viewed {page}" if page else "Page view")
+
+        if name == "demo_access":
+            return "Magic link login"
+
+        if name == "lead_created":
+            lead_name = extra.get("lead_name", "")
+            source = extra.get("source", "")
+            return f"Created lead — {lead_name}" if lead_name else f"Created lead ({source})" if source else "Created lead"
+
+        if name == "lead_created_from_public_form":
+            program = extra.get("program", "")
+            return f"Lead submitted via website — {program}" if program else "Lead submitted via website"
+
+        if name == "lead_status_update":
+            from_s = extra.get("from", "")
+            to_s = extra.get("to", "")
+            if from_s and to_s:
+                return f"Lead status: {from_s} → {to_s}"
+            return "Lead status changed"
+
+        if name == "inline_status_update":
+            status_change = changes.get("status", {})
+            from_s = status_change.get("from", "")
+            to_s = status_change.get("to", "")
+            if from_s and to_s:
+                return f"Status: {from_s} → {to_s}"
+            return "Status updated"
+
+        if name == "status_update":
+            from_s = extra.get("from", "")
+            to_s = extra.get("to", "")
+            if from_s and to_s:
+                return f"Status: {from_s} → {to_s}"
+            return "Status changed"
+
+        if name == "lead_update":
+            changed = extra.get("changed", [])
+            if changed:
+                fields = ", ".join(c.get("field", "?") for c in changed[:3])
+                suffix = f" (+{len(changed) - 3} more)" if len(changed) > 3 else ""
+                return f"Edited lead — {fields}{suffix}"
+            return "Edited lead"
+
+        if name == "submission_update":
+            fields = extra.get("fields", [])
+            if fields:
+                return f"Edited — {', '.join(fields)}"
+            return "Edited submission"
+
+        if name == "program_created":
+            prog = extra.get("program_name", "")
+            return f"Created program — {prog}" if prog else "Created program"
+
+        if name in ("program_edited", "program_auto_enroll_changed",
+                    "program_capacity_changed", "program_waitlist_changed"):
+            prog = extra.get("program_name", "")
+            labels = {
+                "program_edited": "Edited program",
+                "program_auto_enroll_changed": "Changed auto-enroll",
+                "program_capacity_changed": "Changed capacity",
+                "program_waitlist_changed": "Changed waitlist setting",
+            }
+            label = labels.get(name, "Updated program")
+            return f"{label} — {prog}" if prog else label
+
+        if name == "program_deleted":
+            prog = extra.get("program_name", "")
+            return f"Deleted program — {prog}" if prog else "Deleted program"
+
+        if name == "email_template_created":
+            return "Created email template"
+
+        if name in ("email_template_updated", "email_template_edited"):
+            return "Edited email template"
+
+        if name == "email_template_deleted":
+            return "Deleted email template"
+
+        if name == "manual_message_sent":
+            subject = extra.get("subject", "")
+            to = extra.get("to", "")
+            if subject and to:
+                return f'Sent email to {to} — “{subject}”'
+            if subject:
+                return f'Sent email — “{subject}”'
+            return "Sent email"
+
+        if name == "update_smtp":
+            host = extra.get("host", "")
+            if host and host != "(cleared)":
+                return f"Updated SMTP — {host}"
+            return "Cleared SMTP settings"
+
+        if name == "clear_smtp":
+            return "Cleared SMTP settings"
+
+        if name == "acknowledge_schedule_change":
+            return "Acknowledged scheduling change request"
+
+        if name == "follow_up_set":
+            date = extra.get("date", "")
+            return f"Set follow-up — {date}" if date else "Set follow-up"
+
+        if name == "generate_ai_summary":
+            return "Generated AI summary"
+
+        if name == "post_public_note":
+            return "Added internal note"
+
+        if name == "start_enrollment":
+            return "Started enrollment from lead"
+
+        if name == "member_added":
+            username = extra.get("username", extra.get("email", ""))
+            return f"Added team member — {username}" if username else "Added team member"
+
+        if name == "member_removed":
+            username = extra.get("username", extra.get("email", ""))
+            return f"Removed team member — {username}" if username else "Removed team member"
+
+        if name == "member_role_changed":
+            username = extra.get("username", "")
+            role = extra.get("new_role", extra.get("role", ""))
+            if username and role:
+                return f"Changed {username} role to {role}"
+            return "Changed team member role"
+
+        if name == "convert_demo":
+            return "Converted demo to customer"
+
+        if name == "ops_password_reset":
+            return "Reset user password (ops)"
+
+        if name == "auto_enrolled":
+            return "Auto-enrolled (capacity available)"
+
+        if name == "auto_waitlisted":
+            return "Auto-waitlisted (at capacity)"
+
+        if name == "export":
+            count = extra.get("count", "")
+            return f"Exported {count} submissions" if count else "Exported submissions"
+
+        if name:
+            return name.replace("_", " ").title()
+
+        if self.action == "change" and changes:
+            fields = ", ".join(changes.keys())
+            return f"Changed: {fields}"
+        if self.action == "add":
+            return "Created"
+        if self.action == "delete":
+            return "Deleted"
+
+        return "—"
 
 
 DEMO_TOKEN_DAYS = 14

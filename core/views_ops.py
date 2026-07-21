@@ -815,6 +815,10 @@ def ops_audit_log_view(request):
             | Q(path__icontains=search_q)
         )
 
+    hide_page_views = request.GET.get("hide_page_views") == "1"
+    if hide_page_views:
+        qs = qs.exclude(extra__name="page_view")
+
     total_count = qs.count()
     paginator = Paginator(qs, _OPS_PAGE_SIZE)
     page_obj = paginator.get_page(request.GET.get("page"))
@@ -839,4 +843,5 @@ def ops_audit_log_view(request):
         "date_from": date_from,
         "date_to": date_to,
         "search_q": search_q,
+        "hide_page_views": hide_page_views,
     })
