@@ -22,6 +22,7 @@ def _post_login_redirect(request, next_url=""):
     ).select_related("school").first()
     if membership:
         return redirect("school_dashboard", school_slug=membership.school.slug)
+    logout(request)
     return redirect("login")
 
 
