@@ -79,8 +79,9 @@ def test_ops_submissions_requires_superuser_anonymous(client):
 @pytest.mark.django_db
 def test_ops_submissions_blocks_regular_user(client, regular_user):
     client.force_login(regular_user)
-    with pytest.raises(PermissionError):
-        client.get(reverse("ops_submissions"))
+    resp = client.get(reverse("ops_submissions"))
+    assert resp.status_code == 302
+    assert "/login/" in resp["Location"]
 
 
 @pytest.mark.django_db
@@ -156,8 +157,9 @@ def test_ops_leads_requires_superuser_anonymous(client):
 @pytest.mark.django_db
 def test_ops_leads_blocks_regular_user(client, regular_user):
     client.force_login(regular_user)
-    with pytest.raises(PermissionError):
-        client.get(reverse("ops_leads"))
+    resp = client.get(reverse("ops_leads"))
+    assert resp.status_code == 302
+    assert "/login/" in resp["Location"]
 
 
 @pytest.mark.django_db
@@ -238,8 +240,9 @@ def test_ops_reports_requires_superuser_anonymous(client):
 @pytest.mark.django_db
 def test_ops_reports_blocks_regular_user(client, regular_user):
     client.force_login(regular_user)
-    with pytest.raises(PermissionError):
-        client.get(reverse("ops_reports"))
+    resp = client.get(reverse("ops_reports"))
+    assert resp.status_code == 302
+    assert "/login/" in resp["Location"]
 
 
 @pytest.mark.django_db

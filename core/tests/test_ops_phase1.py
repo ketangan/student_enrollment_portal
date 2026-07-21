@@ -60,8 +60,9 @@ def test_ops_dashboard_requires_superuser_anonymous(client):
 @pytest.mark.django_db
 def test_ops_dashboard_blocks_regular_user(client, regular_user):
     client.force_login(regular_user)
-    with pytest.raises(PermissionError):
-        client.get(reverse("ops_dashboard"))
+    resp = client.get(reverse("ops_dashboard"))
+    assert resp.status_code == 302
+    assert "/login/" in resp["Location"]
 
 
 @pytest.mark.django_db
@@ -362,11 +363,12 @@ def test_ops_user_reset_password_too_short(client, superuser, regular_user):
 @pytest.mark.django_db
 def test_ops_user_reset_password_requires_superuser(client, regular_user):
     client.force_login(regular_user)
-    with pytest.raises(PermissionError):
-        client.post(
-            reverse("ops_user_reset_password", kwargs={"user_id": regular_user.pk}),
-            {"new_password": "newpass99", "confirm_password": "newpass99"},
-        )
+    resp = client.post(
+        reverse("ops_user_reset_password", kwargs={"user_id": regular_user.pk}),
+        {"new_password": "newpass99", "confirm_password": "newpass99"},
+    )
+    assert resp.status_code == 302
+    assert "/login/" in resp["Location"]
 
 
 # ── Login / logout redirects ──────────────────────────────────────────────────
