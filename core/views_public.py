@@ -1429,14 +1429,41 @@ def school_lead_form_view(request, school_slug, form_key=None):
                     redirect_url = redirect_url_map[field_val]
             if redirect_url:
                 if embed:
-                    # Break out of the iframe and replace history so back-button skips the trial
-                    # page (avoids re-triggering this redirect on back navigation)
+                    # Try JS top-frame navigation first. On some hosts (Wix, Squarespace) the
+                    # browser blocks cross-origin top-frame navigation silently — the script
+                    # throws a SecurityError and the iframe goes blank. Render a visible fallback
+                    # so the user is never stranded: the JS fires first and wins if it can;
+                    # if blocked, they see a success message + button that opens Fons in a new tab.
                     from django.http import HttpResponse
-                    safe_url = redirect_url.replace('"', '%22')
+                    safe_url = redirect_url.replace('"', '%22').replace("'", '%27')
+                    accent = (branding or {}).get("primary_color", "#0ea5e9")
+                    safe_accent = accent.replace('"', '').replace("'", '') if accent else "#0ea5e9"
                     return HttpResponse(
-                        f'<!doctype html><html><body>'
-                        f'<script>window.top.location.replace("{safe_url}");</script>'
-                        f'</body></html>',
+                        f'''<!doctype html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{{box-sizing:border-box;margin:0;padding:0;}}
+body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+     display:flex;align-items:center;justify-content:center;
+     min-height:100vh;background:#f9fafb;padding:24px;text-align:center;}}
+.wrap{{max-width:360px;width:100%;}}
+.check{{font-size:36px;margin-bottom:14px;color:{safe_accent};}}
+.msg{{font-size:16px;color:#374151;line-height:1.6;margin-bottom:28px;}}
+.btn{{display:inline-block;padding:14px 28px;background:{safe_accent};color:#fff;
+      text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="check">&#10003;</div>
+  <p class="msg">We received your information!<br>Click below to schedule your trial lesson.</p>
+  <a href="{safe_url}" target="_blank" class="btn">Continue to Scheduling &rarr;</a>
+</div>
+<script>try{{window.top.location.replace("{safe_url}");}}catch(e){{}}</script>
+</body>
+</html>''',
                         content_type="text/html",
                     )
                 from django.http import HttpResponseRedirect
