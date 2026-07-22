@@ -3,6 +3,7 @@ import csv
 import io
 import json
 import logging
+import threading
 import zipfile
 from collections import Counter
 from datetime import date, datetime, timedelta
@@ -14,7 +15,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 logger = logging.getLogger(__name__)
 
 from django.contrib.auth.decorators import login_required
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, close_old_connections, transaction
 from django.db.models import Case, Count, Exists, IntegerField, OuterRef, Q, Value, When
 from django.http import Http404, HttpResponse, FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404
@@ -1253,6 +1254,27 @@ def school_trial_page_view(request, school_slug):
 
 # ---------------------------------------------------------------------------
 
+def _send_lead_notifications_async(school, lead, raw, lead_cfg, school_display_name):
+    """Send lead admin + confirmation emails in a background thread.
+
+    Called via daemon thread so the response returns immediately after the DB
+    write. Exceptions are caught here so a failing email never kills the thread
+    silently without a log entry. close_old_connections() cleans up the thread's
+    own DB connection when done (Django doesn't do this automatically for
+    non-request threads).
+    """
+    try:
+        send_lead_admin_notification(school=school, lead=lead, config_raw=raw, lead_cfg=lead_cfg)
+    except Exception:
+        logger.exception("Lead admin notification failed, lead=%s", lead.pk)
+    try:
+        send_lead_confirmation(lead=lead, school_name=school_display_name, config_raw=raw, school=school, lead_cfg=lead_cfg)
+    except Exception:
+        logger.exception("Lead confirmation failed, lead=%s", lead.pk)
+    finally:
+        close_old_connections()
+
+
 @xframe_options_exempt
 @csrf_exempt
 @ratelimit(key="ip", rate="10/m", method="POST", block=True)
@@ -1413,14 +1435,11 @@ def school_lead_form_view(request, school_slug, form_key=None):
                 },
             )
 
-            try:
-                send_lead_admin_notification(school=school, lead=lead, config_raw=raw, lead_cfg=lead_cfg)
-            except Exception:
-                logger.exception("Lead admin notification failed silently, lead=%s", lead.pk)
-            try:
-                send_lead_confirmation(lead=lead, school_name=config.display_name, config_raw=raw, school=school, lead_cfg=lead_cfg)
-            except Exception:
-                logger.exception("Lead confirmation failed silently, lead=%s", lead.pk)
+            threading.Thread(
+                target=_send_lead_notifications_async,
+                args=(school, lead, raw, lead_cfg, config.display_name),
+                daemon=True,
+            ).start()
 
             redirect_url = lead_cfg.get("redirect_url", "")
             redirect_url_map = lead_cfg.get("redirect_url_map", {})
