@@ -15,6 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.http import HttpResponseRedirect
 from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
@@ -33,6 +34,9 @@ urlpatterns = [
     path("demo-access/<uuid:token>/", demo_access_view, name="demo_access"),
     path("ops/", include("core.urls_ops")),
     path("admin/uploads/<int:file_id>/", admin_download_submission_file, name="admin_download_submission_file"),
+    # Anyone who lands on the Django admin login (wrong URL, old bookmark) gets sent
+    # to the real app login. Must be declared before the admin.site.urls mount.
+    path(settings.ADMIN_URL + "login/", lambda request: HttpResponseRedirect("/login/")),
     path(settings.ADMIN_URL, admin.site.urls),
     # Webhook intake — outside /schools/ prefix, no CSRF, no auth (token in URL)
     path("webhooks/leads/<slug:school_slug>/<str:token>/", webhook_lead_intake_view, name="webhook_lead_intake"),
