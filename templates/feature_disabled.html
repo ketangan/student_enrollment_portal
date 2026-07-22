@@ -23,7 +23,7 @@
           {% if billing_url %}
           <a class="btn" href="{{ billing_url }}" style="background:#2563eb;color:#fff;">Upgrade plan &rarr;</a>
           {% endif %}
-          <a class="btn" href="/admin/">Back to Admin</a>
+          <a class="btn" href="{% url 'school_dashboard' school_slug=school.slug %}">Back to Dashboard</a>
         </div>
       </div>
     </div>

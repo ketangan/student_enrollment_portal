@@ -531,7 +531,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
         return render(request, "trial_expired.html", {
             "school": school,
             "branding": branding,
-            "billing_url": reverse("admin:billing"),
+            "billing_url": reverse("school_billing", kwargs={"school_slug": school.slug}),
         })
 
     # Strip custom branding assets if the feature is not enabled for this school.
@@ -1284,7 +1284,7 @@ def school_lead_form_view(request, school_slug, form_key=None):
         return render(request, "trial_expired.html", {
             "school": school,
             "branding": branding,
-            "billing_url": reverse("admin:billing"),
+            "billing_url": reverse("school_billing", kwargs={"school_slug": school.slug}),
         })
 
     raw = config.raw
@@ -1546,7 +1546,7 @@ def lead_capture_view(request, school_slug):
         return render(request, "trial_expired.html", {
             "school": school,
             "branding": branding,
-            "billing_url": reverse("admin:billing"),
+            "billing_url": reverse("school_billing", kwargs={"school_slug": school.slug}),
         })
 
     leads_cfg = config.raw.get("leads") or {}

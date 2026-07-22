@@ -290,7 +290,7 @@ def test_reports_feature_disabled_template_renders_correctly(client):
     content = resp.content.decode("utf-8")
     assert "Reports" in content
     assert "disabled" in content.lower()
-    assert "Back to Admin" in content
+    assert "Back to Dashboard" in content
 
 
 @pytest.mark.django_db

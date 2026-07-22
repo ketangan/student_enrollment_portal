@@ -82,7 +82,7 @@
           <h1 class="billing-title">Billing & Upgrade</h1>
           <div class="billing-subtitle">{{ school.display_name|default:school.slug }}</div>
         </div>
-        <a class="billing-back" href="/admin/">← Back to Admin</a>
+        <a class="billing-back" href="{% url 'school_dashboard' school_slug=school.slug %}">← Back to Dashboard</a>
       </div>
 
       {# ── Status banners ── #}
