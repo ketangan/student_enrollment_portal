@@ -1459,7 +1459,7 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
 <div class="wrap">
   <div class="check">&#10003;</div>
   <p class="msg">We received your information!<br>Click below to schedule your trial lesson.</p>
-  <a href="{safe_url}" target="_blank" class="btn">Continue to Scheduling &rarr;</a>
+  <a href="{safe_url}" target="_top" class="btn">Continue to Scheduling &rarr;</a>
 </div>
 <script>try{{window.top.location.replace("{safe_url}");}}catch(e){{}}</script>
 </body>
