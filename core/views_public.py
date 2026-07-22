@@ -24,6 +24,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.contrib import messages
 from django.views.decorators.clickjacking import xframe_options_exempt
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 from django_ratelimit.exceptions import Ratelimited
@@ -1253,6 +1254,7 @@ def school_trial_page_view(request, school_slug):
 # ---------------------------------------------------------------------------
 
 @xframe_options_exempt
+@csrf_exempt
 @ratelimit(key="ip", rate="10/m", method="POST", block=True)
 def school_lead_form_view(request, school_slug, form_key=None):
     """
@@ -1523,6 +1525,7 @@ def _lead_form_ctx(school, config, branding, lead_cfg, program_options, embed, *
 # ---------------------------------------------------------------------------
 
 @xframe_options_exempt
+@csrf_exempt
 @ratelimit(key="ip", rate="20/m", method="POST", block=True)
 def lead_capture_view(request, school_slug):
     try:

@@ -433,13 +433,13 @@ leads:
   phone_required: true
   hide_program_field: true
   name_field_key: "student_name"
-  redirect_url: "https://fons.app/@southbaymusicconservatory/book/appointments"
+  redirect_url: "https://studio.makemusic.app/@southbaymusicconservatory/book/appointments"
   redirect_url_field: "instrument"
   redirect_url_map:
-    piano: "https://fons.app/@southbaymusicconservatory/book/appointments/da4adf18-37fa-11f0-bba8-8b81bc8b90b7?staff="
-    violin: "https://fons.app/@southbaymusicconservatory/book/appointments/a07707bc-3665-11f0-9e33-8f8cd70f9854?staff="
-    viola: "https://fons.app/@southbaymusicconservatory/book/appointments/d553c0f2-4d84-11f0-b29b-ef5d2665792c?staff="
-    cello: "https://fons.app/@southbaymusicconservatory/book/appointments/ea113b00-7c82-11f0-ac33-b7f9d14c4047?staff="
+    piano: "https://studio.makemusic.app/@southbaymusicconservatory/book/appointments/da4adf18-37fa-11f0-bba8-8b81bc8b90b7?staff="
+    violin: "https://studio.makemusic.app/@southbaymusicconservatory/book/appointments/a07707bc-3665-11f0-9e33-8f8cd70f9854?staff="
+    viola: "https://studio.makemusic.app/@southbaymusicconservatory/book/appointments/d553c0f2-4d84-11f0-b29b-ef5d2665792c?staff="
+    cello: "https://studio.makemusic.app/@southbaymusicconservatory/book/appointments/ea113b00-7c82-11f0-ac33-b7f9d14c4047?staff="
 
   fields:
     - key: student_name
