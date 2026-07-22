@@ -45,13 +45,31 @@
 
           <!-- Toolbar -->
           <div style="border:1px solid {% if errors.body %}#ef4444{% else %}var(--dash-border){% endif %};border-radius:6px;overflow:hidden;">
-            <div style="display:flex;gap:2px;padding:6px 8px;border-bottom:1px solid var(--dash-border);background:var(--dash-bg);">
+            <div style="display:flex;gap:2px;padding:6px 8px;border-bottom:1px solid var(--dash-border);background:var(--dash-bg);align-items:center;flex-wrap:wrap;position:relative;">
               <button type="button" title="Bold" onclick="document.execCommand('bold')"
                       style="width:28px;height:28px;border:1px solid var(--dash-border);border-radius:4px;background:#fff;cursor:pointer;font-weight:700;font-size:13px;color:var(--dash-text);">B</button>
               <button type="button" title="Italic" onclick="document.execCommand('italic')"
                       style="width:28px;height:28px;border:1px solid var(--dash-border);border-radius:4px;background:#fff;cursor:pointer;font-style:italic;font-size:13px;color:var(--dash-text);">I</button>
               <button type="button" title="Underline" onclick="document.execCommand('underline')"
                       style="width:28px;height:28px;border:1px solid var(--dash-border);border-radius:4px;background:#fff;cursor:pointer;text-decoration:underline;font-size:13px;color:var(--dash-text);">U</button>
+              <div style="width:1px;height:18px;background:var(--dash-border);margin:0 4px;"></div>
+              <button type="button" id="link-btn" title="Insert link" onclick="openLinkPopover()"
+                      style="height:28px;padding:0 10px;border:1px solid var(--dash-border);border-radius:4px;background:#fff;cursor:pointer;font-size:12px;color:var(--dash-text);white-space:nowrap;">🔗 Link</button>
+              <!-- Link popover -->
+              <div id="link-popover" style="display:none;position:absolute;top:42px;left:0;z-index:100;background:#fff;border:1px solid var(--dash-border);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.12);padding:12px 14px;min-width:320px;">
+                <div style="font-size:11px;font-weight:600;color:var(--dash-muted);margin-bottom:6px;">Insert link</div>
+                <input id="link-url-input" type="url" placeholder="https://example.com"
+                       style="width:100%;box-sizing:border-box;padding:6px 8px;font-size:13px;border:1px solid var(--dash-border);border-radius:4px;background:var(--dash-bg);color:var(--dash-text);margin-bottom:8px;"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();applyLink();} if(event.key==='Escape'){closeLinkPopover();}">
+                <div style="display:flex;gap:6px;">
+                  <button type="button" onclick="applyLink()"
+                          style="flex:1;padding:5px 0;font-size:12px;background:var(--dash-primary,#4f46e5);color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;">Apply</button>
+                  <button type="button" id="link-remove-btn" onclick="removeLink()" style="display:none;
+                          padding:5px 10px;font-size:12px;background:#fff;color:#dc2626;border:1px solid #dc2626;border-radius:4px;cursor:pointer;">Remove</button>
+                  <button type="button" onclick="closeLinkPopover()"
+                          style="padding:5px 10px;font-size:12px;background:#fff;color:var(--dash-muted);border:1px solid var(--dash-border);border-radius:4px;cursor:pointer;">Cancel</button>
+                </div>
+              </div>
             </div>
             <div id="body-editor"
                  contenteditable="true"
@@ -173,6 +191,7 @@
 
 <script>
 var editor = document.getElementById('body-editor');
+var _savedRange = null;
 
 function insertToken(token) {
   editor.focus();
@@ -187,6 +206,96 @@ function insertToken(token) {
     document.execCommand('insertText', false, text);
   }
 }
+
+// ── Link popover ──────────────────────────────────────────────────────────────
+
+function openLinkPopover() {
+  // Save the current selection so we can restore it after the input steals focus.
+  var sel = window.getSelection();
+  _savedRange = (sel && sel.rangeCount) ? sel.getRangeAt(0).cloneRange() : null;
+
+  // Pre-fill if the cursor is already inside a link.
+  var existingLink = _getParentAnchor();
+  var input = document.getElementById('link-url-input');
+  var removeBtn = document.getElementById('link-remove-btn');
+  input.value = existingLink ? existingLink.href : 'https://';
+  removeBtn.style.display = existingLink ? '' : 'none';
+
+  var popover = document.getElementById('link-popover');
+  popover.style.display = '';
+  input.focus();
+  input.select();
+}
+
+function closeLinkPopover() {
+  document.getElementById('link-popover').style.display = 'none';
+  _savedRange = null;
+}
+
+function applyLink() {
+  var url = document.getElementById('link-url-input').value.trim();
+  if (!url || url === 'https://') { closeLinkPopover(); return; }
+
+  editor.focus();
+  if (_savedRange) {
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(_savedRange);
+  }
+
+  // If nothing is selected, insert the URL as the link text.
+  var sel2 = window.getSelection();
+  if (sel2 && sel2.isCollapsed) {
+    document.execCommand('insertHTML', false,
+      '<a href="' + url + '" target="_blank">' + url + '</a>');
+  } else {
+    document.execCommand('createLink', false, url);
+    // Make links open in a new tab.
+    var sel3 = window.getSelection();
+    if (sel3 && sel3.anchorNode) {
+      var a = _getParentAnchor(sel3.anchorNode);
+      if (a) a.setAttribute('target', '_blank');
+    }
+  }
+  closeLinkPopover();
+}
+
+function removeLink() {
+  editor.focus();
+  if (_savedRange) {
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(_savedRange);
+  }
+  // Select the full anchor before unlinking.
+  var a = _getParentAnchor();
+  if (a) {
+    var range = document.createRange();
+    range.selectNode(a);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+  }
+  document.execCommand('unlink');
+  closeLinkPopover();
+}
+
+function _getParentAnchor(node) {
+  var n = node || (window.getSelection() && window.getSelection().anchorNode);
+  while (n && n !== editor) {
+    if (n.nodeName === 'A') return n;
+    n = n.parentNode;
+  }
+  return null;
+}
+
+// Close popover when clicking outside it.
+document.addEventListener('mousedown', function(e) {
+  var popover = document.getElementById('link-popover');
+  var btn = document.getElementById('link-btn');
+  if (popover.style.display !== 'none' && !popover.contains(e.target) && e.target !== btn) {
+    closeLinkPopover();
+  }
+});
 
 document.getElementById('tmpl-form').addEventListener('submit', function() {
   document.getElementById('body-input').value = editor.innerHTML;
