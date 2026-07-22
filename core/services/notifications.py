@@ -87,10 +87,13 @@ def _format_submission_lines(submission_data: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 def _admin_url_for_submission(
-    *, request: Optional[HttpRequest], submission_id: int | str
+    *, request: Optional[HttpRequest], submission_id: int | str, school=None
 ) -> str:
     from core.services.url_builder import app_url
-    path = reverse("admin:core_submission_change", args=[submission_id])
+    if school is not None:
+        path = f"/schools/{school.slug}/admin/submissions/{submission_id}/"
+    else:
+        path = reverse("admin:core_submission_change", args=[submission_id])
     return app_url(path)
 
 
@@ -536,7 +539,7 @@ def send_submission_notification_email(
         return False
 
     program = _pick_program_label(submission_data)
-    admin_url = _admin_url_for_submission(request=request, submission_id=submission_id)
+    admin_url = _admin_url_for_submission(request=request, submission_id=submission_id, school=school)
     raw_subject = cfg.subject or _build_submission_email_subject(student_name=student_name, program=program)
     subject = _render_template(raw_subject, {"student_name": student_name, "program": program})
     text_body, html_body = _build_submission_email_bodies(
