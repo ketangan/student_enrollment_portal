@@ -273,10 +273,10 @@ form:
               amount_display: "$125"
               amount_label: "Conservatory Assessment & Placement Fee"
               type_label: "New Student Fee"
-            - label: "An Annual Conservatory Registration Fee of $75 per student will be charged by SBMC via Studio. For each additional student or instrument: $25. This fee is non-refundable and non-transferable."
+            - label: "An Annual Conservatory Registration Fee of $50 per student will be charged by SBMC via Studio. For each additional student or instrument: $25. This fee is non-refundable and non-transferable."
               value: returning_student_fee
               source_value: returning_student
-              amount_display: "$75"
+              amount_display: "$50"
               amount_label: "Annual Conservatory Registration Fee"
               type_label: "Returning Student Fee"
 
