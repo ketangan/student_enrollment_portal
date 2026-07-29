@@ -18,6 +18,8 @@ from django.contrib import admin
 from django.http import HttpResponseRedirect
 from django.urls import include, path
 from django.conf import settings
+from django.contrib.staticfiles.storage import staticfiles_storage
+from django.views.generic import RedirectView
 from django.conf.urls.static import static
 
 from core.views import admin_download_submission_file, ratelimited_error_view
@@ -28,6 +30,7 @@ from core.views_webhooks import webhook_lead_intake_view
 handler429 = ratelimited_error_view
 
 urlpatterns = [
+    path("favicon.ico", RedirectView.as_view(url=staticfiles_storage.url("favicon.png"), permanent=True)),
     path("healthz/", healthz, name="healthz"),
     path("login/", login_view, name="login"),
     path("logout/", logout_view, name="logout"),
