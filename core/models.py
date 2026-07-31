@@ -170,6 +170,11 @@ class School(models.Model):
     smtp_from_email = models.EmailField(max_length=255, blank=True, default="")
     smtp_use_tls = models.BooleanField(default=True)
 
+    # School-managed overrides for YAML slot values (fees, URLs, messages).
+    # Keys match slot keys declared in override_slots: section of the school's YAML.
+    # Empty dict = all slots use their YAML defaults.
+    config_overrides = models.JSONField(default=dict, blank=True)
+
     # Default days before a follow-up is due after marking a lead/submission contacted.
     default_follow_up_days = models.PositiveSmallIntegerField(default=2)
 

@@ -16,7 +16,7 @@ from __future__ import annotations
 import pytest
 from django.test import Client
 
-from core.models import AdminAuditLog
+from core.models import AdminAuditLog, School
 from core.tests.factories import (
     SchoolAdminMembershipFactory,
     SchoolFactory,
@@ -438,6 +438,156 @@ def test_display_name_editor_blocked():
 
     school.refresh_from_db()
     assert school.display_name == original_name
+
+
+# ---------------------------------------------------------------------------
+# save_config_overrides (requires SBMC YAML which has override_slots)
+# ---------------------------------------------------------------------------
+
+_SBMC_SLUG = "south-bay-music"
+
+
+def _sbmc_school() -> School:
+    """Get-or-create the SBMC school and reset its config_overrides to {} for test isolation."""
+    school, _ = School.objects.get_or_create(
+        slug=_SBMC_SLUG,
+        defaults={"display_name": "South Bay Music Conservatory", "plan": "trial"},
+    )
+    school.config_overrides = {}
+    school.save(update_fields=["config_overrides"])
+    return school
+
+
+@pytest.mark.django_db
+def test_config_overrides_owner_saves_new_value():
+    """Owner can save a new text override; value persists in config_overrides."""
+    school = _sbmc_school()
+    client, _ = _owner_client(school)
+
+    response = _post(client, school, action="save_config_overrides", slot_new_student_fee="$150")
+    assert response.status_code in (301, 302)
+
+    school.refresh_from_db()
+    assert school.config_overrides.get("new_student_fee") == "$150"
+
+
+@pytest.mark.django_db
+def test_config_overrides_submitting_yaml_default_removes_override():
+    """Submitting a value equal to the YAML default removes the key from config_overrides.
+
+    This is the 'Reset + Save' path: Reset sets the field to the YAML default, user
+    saves, and the backend treats it as 'use default' (no stored override needed).
+    """
+    school = _sbmc_school()
+    school.config_overrides = {"new_student_fee": "$200"}
+    school.save(update_fields=["config_overrides"])
+
+    client, _ = _owner_client(school)
+    # YAML default for new_student_fee is "$125"
+    _post(client, school, action="save_config_overrides", slot_new_student_fee="$125")
+
+    school.refresh_from_db()
+    assert "new_student_fee" not in school.config_overrides, (
+        "Submitting the YAML default should remove the override, not store it"
+    )
+
+
+@pytest.mark.django_db
+def test_config_overrides_blank_removes_override():
+    """Submitting blank for a field removes any stored override."""
+    school = _sbmc_school()
+    school.config_overrides = {"new_student_fee": "$200"}
+    school.save(update_fields=["config_overrides"])
+
+    client, _ = _owner_client(school)
+    _post(client, school, action="save_config_overrides", slot_new_student_fee="")
+
+    school.refresh_from_db()
+    assert "new_student_fee" not in school.config_overrides
+
+
+@pytest.mark.django_db
+def test_config_overrides_editor_blocked():
+    """Editor cannot save form content overrides; gets 404 from require_school_role."""
+    school = _sbmc_school()
+    client, _ = _editor_client(school)
+
+    response = _post(client, school, action="save_config_overrides", slot_new_student_fee="$150")
+    assert response.status_code == 404
+
+    school.refresh_from_db()
+    assert school.config_overrides == {}
+
+
+@pytest.mark.django_db
+def test_config_overrides_url_field_rejects_relative_path():
+    """A relative path (no scheme) is rejected for url-typed slots."""
+    school = _sbmc_school()
+    client, _ = _owner_client(school)
+
+    _post(client, school, action="save_config_overrides", slot_booking_url_default="/relative/path")
+
+    school.refresh_from_db()
+    assert "booking_url_default" not in school.config_overrides
+
+
+@pytest.mark.django_db
+def test_config_overrides_url_field_rejects_javascript_scheme():
+    """javascript: scheme is rejected for url-typed slots (prevents XSS via redirect_url)."""
+    school = _sbmc_school()
+    client, _ = _owner_client(school)
+
+    _post(client, school, action="save_config_overrides",
+          slot_booking_url_default="javascript:alert(1)")
+
+    school.refresh_from_db()
+    assert "booking_url_default" not in school.config_overrides
+
+
+@pytest.mark.django_db
+def test_config_overrides_valid_https_url_accepted():
+    """A valid https:// URL is accepted for a url-typed slot."""
+    school = _sbmc_school()
+    client, _ = _owner_client(school)
+
+    valid_url = "https://calendly.com/myschool/trial"
+    _post(client, school, action="save_config_overrides",
+          slot_booking_url_default=valid_url)
+
+    school.refresh_from_db()
+    assert school.config_overrides.get("booking_url_default") == valid_url
+
+
+@pytest.mark.django_db
+def test_config_overrides_no_change_shows_info_message():
+    """Submitting the same overrides already stored shows 'No changes' info message."""
+    school = _sbmc_school()
+    school.config_overrides = {"new_student_fee": "$150"}
+    school.save(update_fields=["config_overrides"])
+
+    client, _ = _owner_client(school)
+    response = client.post(
+        _SETTINGS_URL.format(slug=school.slug),
+        {"action": "save_config_overrides", "slot_new_student_fee": "$150"},
+        follow=True,
+    )
+    messages_text = [str(m) for m in response.context["messages"]]
+    assert any("No changes" in m for m in messages_text), (
+        f"Expected 'No changes' info message, got: {messages_text}"
+    )
+
+
+@pytest.mark.django_db
+def test_config_overrides_audit_log_written_on_save():
+    """A successful save writes an AdminAuditLog entry with name='save_config_overrides'."""
+    school = _sbmc_school()
+    client, _ = _owner_client(school)
+
+    _post(client, school, action="save_config_overrides", slot_new_student_fee="$175")
+
+    log = AdminAuditLog.objects.filter(object_id=str(school.pk)).order_by("-id").first()
+    assert log is not None
+    assert (log.extra or {}).get("name") == "save_config_overrides"
 
 
 # ---------------------------------------------------------------------------

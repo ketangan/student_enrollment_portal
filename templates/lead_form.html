@@ -304,11 +304,21 @@
 
         var form = document.querySelector("form");
         if (form) {
+          var submitBtn = form.querySelector(".btn-submit");
+          var originalBtnText = submitBtn ? submitBtn.textContent : "";
+
           form.addEventListener("submit", function () {
-            var btn = form.querySelector(".btn-submit");
-            if (btn) {
-              btn.disabled = true;
-              btn.textContent = "Submitting…";
+            if (submitBtn) {
+              submitBtn.disabled = true;
+              submitBtn.textContent = "Submitting…";
+            }
+          });
+
+          // Reset button when browser restores page from back/forward cache
+          window.addEventListener("pageshow", function (e) {
+            if (e.persisted && submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = originalBtnText;
             }
           });
         }

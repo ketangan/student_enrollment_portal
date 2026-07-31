@@ -82,6 +82,14 @@ class SchoolConfig:
         return prettify_school_name_from_slug(self.school_slug)
 
     @property
+    def override_slots(self) -> Dict[str, Any]:
+        """
+        Returns the override_slots section from YAML, or {} if not defined.
+        Structure: {group_key: {label, description, fields: [{key, label, hint, default, type}]}}
+        """
+        return self.raw.get("override_slots") or {}
+
+    @property
     def branding(self) -> Dict[str, Any]:
         """
         Returns a normalized branding dict used by templates.
@@ -318,3 +326,61 @@ def load_school_config(school_slug: str) -> Optional[SchoolConfig]:
         raw = yaml.safe_load(f) or {}
 
     return SchoolConfig(raw=raw)
+
+
+def _substitute_slots(obj: Any, slots: Dict[str, str]) -> Any:
+    """
+    Recursively walk obj (dict/list/str) and replace every
+    {{slot:key}} pattern with the corresponding value from `slots`.
+    Non-string, non-container values are returned unchanged.
+    The input is never mutated — new dicts/lists are returned.
+    """
+    if isinstance(obj, str):
+        for key, val in slots.items():
+            obj = obj.replace(f"{{{{slot:{key}}}}}", val)
+        return obj
+    if isinstance(obj, dict):
+        return {k: _substitute_slots(v, slots) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_substitute_slots(item, slots) for item in obj]
+    return obj
+
+
+def apply_overrides(config: SchoolConfig, db_overrides: Optional[Dict[str, Any]]) -> SchoolConfig:
+    """
+    Returns a new SchoolConfig with {{slot:key}} patterns resolved.
+
+    For each slot declared in the YAML override_slots section:
+      - If db_overrides contains the key → use that value
+      - Otherwise → use the slot's declared default
+
+    Schools with no override_slots section pass through unchanged.
+    The original config is never mutated.
+    """
+    db_overrides = db_overrides or {}
+    slots_meta = config.raw.get("override_slots") or {}
+
+    if not slots_meta:
+        return config
+
+    # Build the effective value map: only slots declared in YAML are substituted.
+    # Unknown keys in db_overrides are ignored — they cannot inject new patterns.
+    effective: Dict[str, str] = {}
+    for group_data in slots_meta.values():
+        if not isinstance(group_data, dict):
+            continue
+        for field in group_data.get("fields") or []:
+            if not isinstance(field, dict):
+                continue
+            key = field.get("key")
+            if not key:
+                continue
+            default = str(field.get("default", ""))
+            raw_val = db_overrides.get(key)
+            effective[key] = str(raw_val) if raw_val is not None else default
+
+    if not effective:
+        return config
+
+    new_raw = _substitute_slots(config.raw, effective)
+    return SchoolConfig(raw=new_raw)

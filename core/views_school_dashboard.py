@@ -52,6 +52,7 @@ from .services.admin_themes import (
     get_themes_for_api,
 )
 from .services.config_loader import (
+    apply_overrides,
     find_email_field_key,
     get_forms,
     get_program_options,
@@ -528,6 +529,11 @@ _PLAN_DISPLAY = {
 }
 
 
+def _settings_url(school_slug: str, tab: str = "general") -> str:
+    """Return the settings URL with ?tab=<tab> so POST redirects land on the right tab."""
+    return reverse("school_settings", kwargs={"school_slug": school_slug}) + f"?tab={tab}"
+
+
 @login_required
 def school_settings_view(request, school_slug: str):
     """
@@ -541,7 +547,7 @@ def school_settings_view(request, school_slug: str):
     if request.method == "POST" and request.POST.get("action") == "update_trial_end_date":
         if not request.user.is_superuser:
             messages.error(request, "Only superadmins can change the trial end date.")
-            return redirect("school_settings", school_slug=school_slug)
+            return redirect(_settings_url(school_slug, "general"))
         raw = request.POST.get("trial_end_date", "").strip()
         if not raw:
             school.trial_end_date = None
@@ -557,10 +563,10 @@ def school_settings_view(request, school_slug: str):
                 new_end = _date.fromisoformat(raw)
             except ValueError:
                 messages.error(request, "Invalid date format.")
-                return redirect("school_settings", school_slug=school_slug)
+                return redirect(_settings_url(school_slug, "general"))
             if new_end < _date.today():
                 messages.error(request, "Trial end date must be today or in the future.")
-                return redirect("school_settings", school_slug=school_slug)
+                return redirect(_settings_url(school_slug, "general"))
             old_end = school.trial_end_date
             school.trial_end_date = new_end
             school.save(update_fields=["trial_end_date"])
@@ -569,7 +575,7 @@ def school_settings_view(request, school_slug: str):
                 extra={"name": "update_trial_end_date", "old": str(old_end), "new": str(new_end)},
             )
             messages.success(request, f"Trial extended to {new_end.strftime('%B %-d, %Y')}.")
-        return redirect("school_settings", school_slug=school_slug)
+        return redirect(_settings_url(school_slug, "general"))
 
     if request.method == "POST" and request.POST.get("action") == "update_smtp":
         require_school_role(request, school, "owner")
@@ -588,7 +594,7 @@ def school_settings_view(request, school_slug: str):
                     raise ValueError
             except ValueError:
                 messages.error(request, "SMTP port must be a valid number (1–65535).")
-                return redirect("school_settings", school_slug=school_slug)
+                return redirect(_settings_url(school_slug, "email"))
 
         school.smtp_host = smtp_host
         school.smtp_port = smtp_port
@@ -610,7 +616,7 @@ def school_settings_view(request, school_slug: str):
             messages.success(request, f"SMTP settings saved — emails will route via {smtp_host}.")
         else:
             messages.success(request, "SMTP settings cleared — using default email service.")
-        return redirect("school_settings", school_slug=school_slug)
+        return redirect(_settings_url(school_slug, "email"))
 
     if request.method == "POST" and request.POST.get("action") == "clear_smtp":
         require_school_role(request, school, "owner")
@@ -626,7 +632,7 @@ def school_settings_view(request, school_slug: str):
             extra={"name": "clear_smtp"},
         )
         messages.success(request, "SMTP settings cleared — using default email service.")
-        return redirect("school_settings", school_slug=school_slug)
+        return redirect(_settings_url(school_slug, "email"))
 
     if request.method == "POST" and request.POST.get("action") == "update_stripe":
         require_school_role(request, school, "owner")
@@ -634,7 +640,7 @@ def school_settings_view(request, school_slug: str):
         new_sec = request.POST.get("app_fee_stripe_secret_key", "").strip()
         if not new_pub:
             messages.error(request, "Publishable key is required.")
-            return redirect("school_settings", school_slug=school_slug)
+            return redirect(_settings_url(school_slug, "billing"))
         update_fields = ["app_fee_stripe_public_key"]
         school.app_fee_stripe_public_key = new_pub
         if new_sec:
@@ -646,7 +652,7 @@ def school_settings_view(request, school_slug: str):
             extra={"name": "update_stripe_keys", "public_key_prefix": new_pub[:8]},
         )
         messages.success(request, "Stripe keys saved — payment collection is now active.")
-        return redirect("school_settings", school_slug=school_slug)
+        return redirect(_settings_url(school_slug, "billing"))
 
     if request.method == "POST" and request.POST.get("action") == "clear_stripe":
         require_school_role(request, school, "owner")
@@ -658,7 +664,7 @@ def school_settings_view(request, school_slug: str):
             extra={"name": "clear_stripe_keys"},
         )
         messages.success(request, "Stripe keys removed — payment collection disabled.")
-        return redirect("school_settings", school_slug=school_slug)
+        return redirect(_settings_url(school_slug, "billing"))
 
     if request.method == "POST" and request.POST.get("action") == "update_display_name":
         require_school_role(request, school, "owner")
@@ -681,7 +687,7 @@ def school_settings_view(request, school_slug: str):
                 extra={"name": "update_display_name", "old": old_name, "new": new_name},
             )
             messages.success(request, f'Display name updated to "{new_name}".')
-        return redirect("school_settings", school_slug=school_slug)
+        return redirect(_settings_url(school_slug, "general"))
 
     if request.method == "POST" and request.POST.get("action") == "update_follow_up_days":
         require_school_role(request, school, "owner")
@@ -706,7 +712,68 @@ def school_settings_view(request, school_slug: str):
                     extra={"name": "update_follow_up_days", "old": old_days, "new": days},
                 )
                 messages.success(request, f"Follow-up window updated to {days} day{'s' if days != 1 else ''}.")
-        return redirect("school_settings", school_slug=school_slug)
+        return redirect(_settings_url(school_slug, "general"))
+
+    if request.method == "POST" and request.POST.get("action") == "save_config_overrides":
+        require_school_role(request, school, "owner")
+        config = load_school_config(school_slug)
+        if config is None or not config.override_slots:
+            messages.error(request, "No configurable form content found for this school.")
+            return redirect(_settings_url(school_slug, "forms"))
+
+        # Collect declared slot metadata — only declared keys can be stored.
+        valid_key_meta: dict[str, dict] = {}
+        for _group in config.override_slots.values():
+            if not isinstance(_group, dict):
+                continue
+            for _f in _group.get("fields") or []:
+                if isinstance(_f, dict) and _f.get("key"):
+                    valid_key_meta[_f["key"]] = {
+                        "type": _f.get("type", "text"),
+                        "default": str(_f.get("default", "")),
+                    }
+
+        new_overrides = dict(school.config_overrides or {})
+        validation_errors: list[str] = []
+        for key, meta in valid_key_meta.items():
+            submitted = request.POST.get(f"slot_{key}")
+            if submitted is None:
+                continue
+            stripped = submitted.strip()
+            if stripped:
+                if meta["type"] == "url" and not stripped.startswith(("https://", "http://")):
+                    validation_errors.append(
+                        f"URL fields must start with https:// or http:// (check: {key})"
+                    )
+                    continue
+                if stripped == meta["default"]:
+                    # Value matches the YAML default — store nothing; fall back to default.
+                    new_overrides.pop(key, None)
+                else:
+                    new_overrides[key] = stripped
+            else:
+                new_overrides.pop(key, None)
+
+        if validation_errors:
+            for err in validation_errors:
+                messages.error(request, err)
+            return redirect(_settings_url(school_slug, "forms"))
+
+        old_overrides = dict(school.config_overrides or {})
+        if new_overrides == old_overrides:
+            messages.info(request, "No changes to save.")
+        else:
+            school.config_overrides = new_overrides
+            school.save(update_fields=["config_overrides"])
+            log_admin_audit(
+                request=request,
+                action="save_overrides",
+                obj=school,
+                changes={},
+                extra={"name": "save_config_overrides"},
+            )
+            messages.success(request, "Form content saved.")
+        return redirect(_settings_url(school_slug, "forms"))
 
     from core.services.url_builder import app_reverse
     apply_url = app_reverse("apply", kwargs={"school_slug": school_slug})
@@ -717,6 +784,8 @@ def school_settings_view(request, school_slug: str):
 
     # All lead/intake form links: default leads: form first, then named lead_forms: variants.
     lead_form_variants = []
+    override_slots_groups = []
+    _cfg = None
     try:
         from core.services.config_loader import load_school_config as _load_cfg
         _cfg = _load_cfg(school_slug)
@@ -737,6 +806,37 @@ def school_settings_view(request, school_slug: str):
                 "title": (_form_cfg or {}).get("form_title") or _key,
                 "url": _url,
             })
+
+        # Form Content section: build groups with effective values for the template.
+        if _cfg:
+            _db_overrides = school.config_overrides or {}
+            for _gkey, _gdata in (_cfg.override_slots or {}).items():
+                if not isinstance(_gdata, dict):
+                    continue
+                _fields_out = []
+                for _fmeta in (_gdata.get("fields") or []):
+                    if not isinstance(_fmeta, dict) or not _fmeta.get("key"):
+                        continue
+                    _fkey = _fmeta["key"]
+                    _default = str(_fmeta.get("default", ""))
+                    _raw_val = _db_overrides.get(_fkey)
+                    _is_modified = _fkey in _db_overrides
+                    _fields_out.append({
+                        "key": _fkey,
+                        "label": _fmeta.get("label", _fkey),
+                        "hint": _fmeta.get("hint", ""),
+                        "type": _fmeta.get("type", "text"),
+                        "value": str(_raw_val) if _is_modified else _default,
+                        "default": _default,
+                        "is_modified": _is_modified,
+                    })
+                if _fields_out:
+                    override_slots_groups.append({
+                        "key": _gkey,
+                        "label": _gdata.get("label", _gkey),
+                        "description": _gdata.get("description", ""),
+                        "fields": _fields_out,
+                    })
     except Exception:
         pass
 
@@ -773,6 +873,13 @@ def school_settings_view(request, school_slug: str):
     custom_tokens = list(SchoolCustomToken.objects.filter(school=school))
 
     ctx = _school_admin_base_context(request, school, "settings")
+    _VALID_TABS = {"general", "email", "team", "billing", "forms"}
+    _OWNER_ONLY_TABS = {"team", "billing"}
+    active_tab = request.GET.get("tab", "general")
+    if active_tab not in _VALID_TABS:
+        active_tab = "general"
+    if active_tab in _OWNER_ONLY_TABS and not ctx.get("is_owner"):
+        active_tab = "general"
     ctx.update({
         "apply_url": apply_url,
         "embed_snippet": embed_snippet,
@@ -787,6 +894,8 @@ def school_settings_view(request, school_slug: str):
         "email_template_create_url": reverse("school_email_template_create", kwargs={"school_slug": school_slug}),
         "custom_tokens": custom_tokens,
         "custom_token_create_url": reverse("school_custom_token_create", kwargs={"school_slug": school_slug}),
+        "override_slots_groups": override_slots_groups,
+        "active_tab": active_tab,
     })
     return render(request, "school_admin/settings.html", ctx)
 
@@ -865,7 +974,7 @@ def school_password_change_view(request, school_slug: str):
             form.save()
             update_session_auth_hash(request, form.user)
             messages.success(request, "Password updated successfully.")
-            return redirect("school_settings", school_slug=school_slug)
+            return redirect(_settings_url(school_slug, "general"))
     else:
         form = PasswordChangeForm(user=request.user)
 
@@ -1024,7 +1133,7 @@ def school_team_add_view(request, school_slug: str):
     from django.contrib.auth.models import User as _User
     school = _get_accessible_school_for_admin(request, school_slug)
     require_school_role(request, school, "owner")
-    settings_url = reverse("school_settings", kwargs={"school_slug": school_slug})
+    settings_url = _settings_url(school_slug, "team")
 
     username   = request.POST.get("username", "").strip()
     first_name = request.POST.get("first_name", "").strip()
@@ -1074,7 +1183,7 @@ def school_team_role_view(request, school_slug: str, membership_id: int):
     """POST /schools/<slug>/admin/team/<id>/role/ — change a member's role."""
     school = _get_accessible_school_for_admin(request, school_slug)
     require_school_role(request, school, "owner")
-    settings_url = reverse("school_settings", kwargs={"school_slug": school_slug})
+    settings_url = _settings_url(school_slug, "team")
 
     membership = get_object_or_404(_Membership, id=membership_id, school=school, is_active=True)
     new_role = request.POST.get("role", "").strip()
@@ -1118,7 +1227,7 @@ def school_team_remove_view(request, school_slug: str, membership_id: int):
     """POST /schools/<slug>/admin/team/<id>/remove/ — deactivate a team member."""
     school = _get_accessible_school_for_admin(request, school_slug)
     require_school_role(request, school, "owner")
-    settings_url = reverse("school_settings", kwargs={"school_slug": school_slug})
+    settings_url = _settings_url(school_slug, "team")
 
     membership = get_object_or_404(_Membership, id=membership_id, school=school, is_active=True)
 
@@ -1149,7 +1258,7 @@ def school_team_update_name_view(request, school_slug: str, membership_id: int):
     """POST /schools/<slug>/admin/team/<id>/name/ — owner edits a member's display name."""
     school = _get_accessible_school_for_admin(request, school_slug)
     require_school_role(request, school, "owner")
-    settings_url = reverse("school_settings", kwargs={"school_slug": school_slug})
+    settings_url = _settings_url(school_slug, "team")
 
     membership = get_object_or_404(_Membership, id=membership_id, school=school, is_active=True)
     first_name = request.POST.get("first_name", "").strip()

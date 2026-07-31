@@ -57,6 +57,7 @@ from .services.admin_themes import (
 from .services.config_loader import (
     find_email_field_key,
     get_application_fee_config,
+    apply_overrides,
     get_forms,
     get_lead_form_config,
     get_program_options,
@@ -523,6 +524,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
 
     branding = merge_branding(getattr(config, "branding", None))
     school = _get_or_create_school_from_config(school_slug, config, branding)
+    config = apply_overrides(config, school.config_overrides)
 
     # Block inactive schools from accepting applications
     if not school.is_active:
@@ -888,6 +890,7 @@ def apply_payment_view(request, school_slug: str, draft_token: str):
 
     branding = merge_branding(getattr(config, "branding", None))
     school = _get_or_create_school_from_config(school_slug, config, branding)
+    config = apply_overrides(config, school.config_overrides)
 
     if not school.is_active:
         raise Http404("School not found")
@@ -999,6 +1002,7 @@ def apply_payment_confirm_view(request, school_slug: str, draft_token: str):
 
     branding = merge_branding(getattr(config, "branding", None))
     school = _get_or_create_school_from_config(school_slug, config, branding)
+    config = apply_overrides(config, school.config_overrides)
 
     draft = get_object_or_404(DraftSubmission, token=draft_token, school=school)
 
@@ -1074,6 +1078,7 @@ def apply_payment_bypass_view(request, school_slug: str, draft_token: str):
 
     branding = merge_branding(getattr(config, "branding", None))
     school = _get_or_create_school_from_config(school_slug, config, branding)
+    config = apply_overrides(config, school.config_overrides)
     draft = get_object_or_404(DraftSubmission, token=draft_token, school=school)
 
     if draft.submitted_at:
@@ -1117,6 +1122,11 @@ def apply_success_view(request, school_slug: str):
 
     # Branding defaults (same as apply_view)
     branding = merge_branding(getattr(config, "branding", None))
+
+    # Apply per-school config overrides (fees, messages, URLs) before reading success config.
+    _school = School.objects.filter(slug=school_slug).first()
+    if _school:
+        config = apply_overrides(config, _school.config_overrides)
 
     # Pull success config from YAML (safe defaults)
     success_cfg = (getattr(config, "raw", None) or {}).get("success", {}) or {}
@@ -1199,6 +1209,7 @@ def resume_draft_view(request, school_slug: str, token: str):
 
     branding = merge_branding(getattr(config, "branding", None))
     school = _get_or_create_school_from_config(school_slug, config, branding)
+    config = apply_overrides(config, school.config_overrides)
 
     if not school.is_active:
         raise Http404
@@ -1241,6 +1252,7 @@ def school_trial_page_view(request, school_slug):
     """Marketing-style trial page wrapper with the lead form embedded via iframe."""
     school = get_object_or_404(School, slug=school_slug)
     config = load_school_config(school_slug)
+    config = apply_overrides(config, school.config_overrides)
     branding = config.raw.get("branding", {})
     lead_cfg = config.raw.get("leads", {})
     lead_form_url = f"/schools/{school_slug}/lead/?embed=1"
@@ -1295,6 +1307,7 @@ def school_lead_form_view(request, school_slug, form_key=None):
         raise Http404
 
     school = _get_or_create_school_from_config(school_slug, config, merge_branding(config.branding))
+    config = apply_overrides(config, school.config_overrides)
     if not school.is_active:
         raise Http404
 
@@ -1556,6 +1569,7 @@ def lead_capture_view(request, school_slug):
         raise Http404
 
     school = _get_or_create_school_from_config(school_slug, config, merge_branding(config.branding))
+    config = apply_overrides(config, school.config_overrides)
     if not school.is_active:
         raise Http404
     if not school.features.leads_enabled:

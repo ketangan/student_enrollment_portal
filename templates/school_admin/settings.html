@@ -5,842 +5,1068 @@
 {% block content %}
 <main class="dash-main">
 
-  <div style="margin-bottom:24px;">
+  <div style="margin-bottom:20px;">
     <h1 style="font-size:20px;font-weight:700;margin:0 0 4px;">Settings</h1>
     <p style="font-size:13px;color:var(--dash-muted);margin:0;">{{ school.display_name }}</p>
   </div>
 
-  <!-- ── School Info ────────────────────────────────────────────────────── -->
-  <div class="dash-card" style="padding:24px;margin-bottom:20px;">
-    <h2 style="font-size:15px;font-weight:700;margin:0 0 16px;">School Info</h2>
+  <style>
+    /* Form Content override slots */
+    .slot-badge { display:inline-block; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; text-transform:uppercase; letter-spacing:.04em; flex-shrink:0; }
+    .slot-badge--modified { background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; }
+    .slot-badge--unsaved  { background:#fffbeb; color:#d97706; border:1px solid #fcd34d; }
+    .slot-badge--default  { font-weight:400; background:var(--dash-surface,#f3f4f6); color:var(--dash-muted); border:1px solid var(--dash-border); }
+    .slot-field           { font-family:inherit; transition:border-color .12s, background .12s; }
+    .slot-field--modified { border-color:var(--dash-primary) !important; background:#eff6ff !important; }
+    .slot-reset-btn       { font-size:11px; color:var(--dash-primary); background:none; border:none; padding:0; cursor:pointer; font-weight:500; text-decoration:underline; flex-shrink:0; }
+    /* Tab navigation */
+    .settings-tabs { display:flex; border-bottom:2px solid var(--dash-border); margin-bottom:24px; gap:0; }
+    .settings-tab  { padding:10px 20px; font-size:13px; font-weight:500; color:var(--dash-muted);
+                     border:none; background:none; cursor:pointer; font-family:inherit;
+                     border-bottom:3px solid transparent; margin-bottom:-2px;
+                     transition:color .12s, border-color .12s; white-space:nowrap; }
+    .settings-tab:hover { color:var(--dash-text); }
+    .settings-tab.active { color:var(--dash-primary); border-bottom-color:var(--dash-primary); font-weight:600; }
+    /* Tab panels */
+    .settings-panel { display:none; }
+    .settings-panel.active { display:block; }
+  </style>
 
-    {# Static read-only fields #}
-    <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:center;font-size:13px;margin-bottom:20px;">
-      <div>
-        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
-                     letter-spacing:.04em;display:block;margin-bottom:3px;">ID / Slug</span>
-        <span style="font-family:monospace;font-size:12px;">{{ school.slug }}</span>
-      </div>
-      {% if school.website_url %}
-      <div>
-        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
-                     letter-spacing:.04em;display:block;margin-bottom:3px;">Website</span>
-        <a href="{{ school.website_url }}" target="_blank"
-           style="color:var(--dash-primary);">{{ school.website_url }}</a>
-      </div>
-      {% endif %}
-    </div>
-
-    {# Editable fields — owner only; editors see read-only values #}
+  <!-- ── Tab navigation ──────────────────────────────────────────────────── -->
+  <div class="settings-tabs" id="settings-tab-nav" data-active-tab="{{ active_tab }}">
+    <button type="button" class="settings-tab" data-tab="general">General</button>
+    <button type="button" class="settings-tab" data-tab="email">Email</button>
     {% if is_owner %}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:680px;">
-
-      <!-- Display name -->
-      <form method="post" action="{% url 'school_settings' school.slug %}">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="update_display_name">
-        <label style="display:block;font-size:11px;color:var(--dash-muted);text-transform:uppercase;
-                      letter-spacing:.04em;margin-bottom:4px;">Display Name</label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="text" name="display_name" value="{{ school.display_name }}"
-                 required maxlength="120"
-                 style="flex:1;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
-                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
-          <button type="submit" class="dash-action-btn dash-action-btn--primary"
-                  style="font-size:12px;padding:6px 14px;">Save</button>
-        </div>
-      </form>
-
-      <!-- Follow-up window -->
-      <form method="post" action="{% url 'school_settings' school.slug %}">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="update_follow_up_days">
-        <label style="display:block;font-size:11px;color:var(--dash-muted);text-transform:uppercase;
-                      letter-spacing:.04em;margin-bottom:4px;">Follow-up Window (days)</label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="number" name="follow_up_days" value="{{ school.default_follow_up_days }}"
-                 min="1" max="30" required
-                 style="width:80px;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
-                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
-          <button type="submit" class="dash-action-btn dash-action-btn--primary"
-                  style="font-size:12px;padding:6px 14px;">Save</button>
-        </div>
-        <span style="display:block;font-size:11px;color:var(--dash-muted);margin-top:4px;">
-          Days until follow-up reminder after marking as contacted.
-        </span>
-      </form>
-
-    </div>
-    {% else %}
-    <div style="display:flex;gap:32px;flex-wrap:wrap;font-size:13px;">
-      <div>
-        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
-                     letter-spacing:.04em;display:block;margin-bottom:3px;">Display Name</span>
-        <span>{{ school.display_name }}</span>
-      </div>
-      <div>
-        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
-                     letter-spacing:.04em;display:block;margin-bottom:3px;">Follow-up Window</span>
-        <span>{{ school.default_follow_up_days }} day{{ school.default_follow_up_days|pluralize }}</span>
-      </div>
-    </div>
+    <button type="button" class="settings-tab" data-tab="team">Team</button>
+    <button type="button" class="settings-tab" data-tab="billing">Billing</button>
     {% endif %}
+    <button type="button" class="settings-tab" data-tab="forms">Forms</button>
   </div>
 
-  <!-- ── Plan & Billing ────────────────────────────────────────────────── -->
-  {% if is_owner %}
-  <div class="dash-card" style="padding:24px;margin-bottom:20px;">
-    <h2 style="font-size:15px;font-weight:700;margin:0 0 16px;">Plan &amp; Billing</h2>
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- GENERAL panel: School Info + Features + Form Links                    -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="settings-panel" data-tab="general">
 
-    <!-- Inline stat strip -->
-    <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-end;">
+    <!-- ── School Info ──────────────────────────────────────────────────── -->
+    <div class="dash-card" style="padding:24px;margin-bottom:20px;">
+      <h2 style="font-size:15px;font-weight:700;margin:0 0 16px;">School Info</h2>
 
-      <div>
-        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
-                     letter-spacing:.05em;display:block;margin-bottom:4px;">Plan</span>
-        <span style="font-size:16px;font-weight:700;text-transform:capitalize;">{{ school.plan }}</span>
-      </div>
-
-      <div>
-        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
-                     letter-spacing:.05em;display:block;margin-bottom:4px;">Status</span>
-        {% if school.is_active %}
-          <span style="font-size:14px;font-weight:600;color:#059669;">Active</span>
-        {% else %}
-          <span style="font-size:14px;font-weight:600;color:#dc2626;">Inactive</span>
+      {# Static read-only fields #}
+      <div style="display:flex;gap:32px;flex-wrap:wrap;align-items:center;font-size:13px;margin-bottom:20px;">
+        <div>
+          <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                       letter-spacing:.04em;display:block;margin-bottom:3px;">ID / Slug</span>
+          <span style="font-family:monospace;font-size:12px;">{{ school.slug }}</span>
+        </div>
+        {% if school.website_url %}
+        <div>
+          <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                       letter-spacing:.04em;display:block;margin-bottom:3px;">Website</span>
+          <a href="{{ school.website_url }}" target="_blank"
+             style="color:var(--dash-primary);">{{ school.website_url }}</a>
+        </div>
         {% endif %}
       </div>
 
-      {% if school.stripe_subscription_status %}
-      <div>
-        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
-                     letter-spacing:.05em;display:block;margin-bottom:4px;">Subscription</span>
-        <span style="font-size:14px;text-transform:capitalize;">{{ school.stripe_subscription_status }}</span>
-      </div>
-      {% endif %}
+      {# Editable fields — owner only; editors see read-only values #}
+      {% if is_owner %}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:680px;">
 
-      {% if school.stripe_current_period_end %}
-      <div>
-        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
-                     letter-spacing:.05em;display:block;margin-bottom:4px;">
-          {% if school.stripe_cancel_at_period_end %}Cancels{% else %}Renews{% endif %}
-        </span>
-        <span style="font-size:14px;">{{ school.stripe_current_period_end|date:"M j, Y" }}</span>
-      </div>
-      {% endif %}
+        <!-- Display name -->
+        <form method="post" action="{% url 'school_settings' school.slug %}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="update_display_name">
+          <label style="display:block;font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                        letter-spacing:.04em;margin-bottom:4px;">Display Name</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" name="display_name" value="{{ school.display_name }}"
+                   required maxlength="120"
+                   style="flex:1;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+            <button type="submit" class="dash-action-btn dash-action-btn--primary"
+                    style="font-size:12px;padding:6px 14px;">Save</button>
+          </div>
+        </form>
 
-      {% if school.is_trial_plan %}
-      <div>
-        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
-                     letter-spacing:.05em;display:block;margin-bottom:4px;">Trial Ends</span>
-        <span style="font-size:14px;font-weight:600;">{{ school.trial_ends_at|date:"M j, Y" }}{% if school.trial_end_date %} <span style="font-size:11px;color:var(--dash-muted);font-weight:400;">(extended)</span>{% endif %}</span>
-      </div>
-      <div>
-        <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
-                     letter-spacing:.05em;display:block;margin-bottom:4px;">Days Left</span>
-        <span style="font-size:14px;font-weight:600;{% if school.trial_days_left == 0 %}color:#dc2626;{% elif school.trial_days_left <= 7 %}color:#d97706;{% endif %}">
-          {% if school.trial_days_left > 0 %}{{ school.trial_days_left }} day{{ school.trial_days_left|pluralize }}{% else %}Expired{% endif %}
-        </span>
-      </div>
-      {% endif %}
-
-      <a href="{% url 'school_billing' school.slug %}"
-         style="font-size:13px;color:var(--dash-primary);text-decoration:none;padding-bottom:2px;">
-        {% if school.stripe_subscription_status %}Manage billing →{% else %}View billing →{% endif %}
-      </a>
-
-    </div>
-
-    <!-- Cancellation warning -->
-    {% if school.stripe_cancel_at_period_end %}
-    <p style="font-size:12px;color:#dc2626;margin:16px 0 0;padding:8px 14px;
-              background:#fef2f2;border-radius:6px;border:1px solid #fca5a5;">
-      Subscription cancels at end of billing period.
-    </p>
-    {% endif %}
-
-    <!-- Stripe IDs (collapsed, secondary) -->
-    {% if school.stripe_customer_id or school.stripe_subscription_id %}
-    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--dash-border);
-                display:flex;gap:28px;flex-wrap:wrap;">
-      {% if school.stripe_customer_id %}
-      <div>
-        <span style="font-size:10px;color:var(--dash-muted);text-transform:uppercase;
-                     letter-spacing:.05em;display:block;margin-bottom:2px;">Customer ID</span>
-        <span style="font-size:11px;font-family:monospace;color:var(--dash-text);">{{ school.stripe_customer_id }}</span>
-      </div>
-      {% endif %}
-      {% if school.stripe_subscription_id %}
-      <div>
-        <span style="font-size:10px;color:var(--dash-muted);text-transform:uppercase;
-                     letter-spacing:.05em;display:block;margin-bottom:2px;">Subscription ID</span>
-        <span style="font-size:11px;font-family:monospace;color:var(--dash-text);">{{ school.stripe_subscription_id }}</span>
-      </div>
-      {% endif %}
-    </div>
-    {% endif %}
-
-  </div>
-  {% endif %}{# is_owner — Plan & Billing #}
-
-  <!-- ── Features ──────────────────────────────────────────────────────── -->
-  <div class="dash-card" style="padding:24px;margin-bottom:20px;">
-    <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Features</h2>
-    <p style="font-size:12px;color:var(--dash-muted);margin:0 0 16px;">
-      What's included on your current plan.
-    </p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0;">
-      {% for f in features %}
-      <div style="display:flex;align-items:center;justify-content:space-between;
-                  padding:9px 12px 9px 0;border-bottom:1px solid var(--dash-border);">
-        <span style="font-size:13px;{% if not f.enabled %}color:var(--dash-muted);{% endif %}">
-          {{ f.label }}
-        </span>
-        {% if f.enabled %}
-          <span style="color:#059669;font-size:13px;font-weight:700;">✓</span>
-        {% elif f.is_upgrade %}
-          <span style="font-size:11px;color:var(--dash-muted);background:var(--dash-bg);
-                       padding:2px 8px;border-radius:10px;
-                       border:1px solid var(--dash-border);white-space:nowrap;">
-            {{ f.required_plan }}
+        <!-- Follow-up window -->
+        <form method="post" action="{% url 'school_settings' school.slug %}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="update_follow_up_days">
+          <label style="display:block;font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                        letter-spacing:.04em;margin-bottom:4px;">Follow-up Window (days)</label>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="number" name="follow_up_days" value="{{ school.default_follow_up_days }}"
+                   min="1" max="30" required
+                   style="width:80px;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+            <button type="submit" class="dash-action-btn dash-action-btn--primary"
+                    style="font-size:12px;padding:6px 14px;">Save</button>
+          </div>
+          <span style="display:block;font-size:11px;color:var(--dash-muted);margin-top:4px;">
+            Days until follow-up reminder after marking as contacted.
           </span>
-        {% else %}
-          <span style="color:var(--dash-muted);font-size:12px;">—</span>
-        {% endif %}
+        </form>
+
+      </div>
+      {% else %}
+      <div style="display:flex;gap:32px;flex-wrap:wrap;font-size:13px;">
+        <div>
+          <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                       letter-spacing:.04em;display:block;margin-bottom:3px;">Display Name</span>
+          <span>{{ school.display_name }}</span>
+        </div>
+        <div>
+          <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                       letter-spacing:.04em;display:block;margin-bottom:3px;">Follow-up Window</span>
+          <span>{{ school.default_follow_up_days }} day{{ school.default_follow_up_days|pluralize }}</span>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ── Features ─────────────────────────────────────────────────────── -->
+    <div class="dash-card" style="padding:24px;margin-bottom:20px;">
+      <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Features</h2>
+      <p style="font-size:12px;color:var(--dash-muted);margin:0 0 16px;">
+        What's included on your current plan.
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0;">
+        {% for f in features %}
+        <div style="display:flex;align-items:center;justify-content:space-between;
+                    padding:9px 12px 9px 0;border-bottom:1px solid var(--dash-border);">
+          <span style="font-size:13px;{% if not f.enabled %}color:var(--dash-muted);{% endif %}">
+            {{ f.label }}
+          </span>
+          {% if f.enabled %}
+            <span style="color:#059669;font-size:13px;font-weight:700;">✓</span>
+          {% elif f.is_upgrade %}
+            <span style="font-size:11px;color:var(--dash-muted);background:var(--dash-bg);
+                         padding:2px 8px;border-radius:10px;
+                         border:1px solid var(--dash-border);white-space:nowrap;">
+              {{ f.required_plan }}
+            </span>
+          {% else %}
+            <span style="color:var(--dash-muted);font-size:12px;">—</span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- ── Form Links ────────────────────────────────────────────────────── -->
+    <div class="dash-card" style="padding:24px;margin-bottom:20px;">
+      <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Form Links</h2>
+      <p style="font-size:13px;color:var(--dash-muted);margin:0 0 24px;">
+        Share these links with families. Each form can also be embedded on your website.
+      </p>
+
+      {# ── Enrollment form ── #}
+      <div style="padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--dash-border);">
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.06em;color:var(--dash-muted);margin-bottom:6px;">
+          Enrollment Form
+        </label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input type="text" readonly value="{{ apply_url }}" id="apply-url-input"
+                 onclick="this.select()"
+                 style="flex:1;min-width:260px;padding:8px 12px;font-size:12px;
+                        border:1px solid var(--dash-border);border-radius:6px;
+                        background:var(--dash-bg);color:var(--dash-text);
+                        font-family:monospace;">
+          <button type="button" id="copy-link-btn"
+                  onclick="copyField('apply-url-input','copy-link-btn','Copied!')"
+                  class="dash-action-btn dash-action-btn--primary" style="font-size:13px;">
+            Copy Link
+          </button>
+          <a href="{{ apply_url }}" target="_blank"
+             class="dash-action-btn dash-action-btn--secondary" style="font-size:13px;">
+            Open ↗
+          </a>
+        </div>
+      </div>
+
+      {# ── Named lead form variants (scheduling, trial, etc.) ── #}
+      {% for v in lead_form_variants %}
+      <div style="padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--dash-border);">
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.06em;color:var(--dash-muted);margin-bottom:6px;">
+          {{ v.title }}
+        </label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input type="text" readonly value="{{ v.url }}" id="lead-form-{{ v.key }}-input"
+                 onclick="this.select()"
+                 style="flex:1;min-width:260px;padding:8px 12px;font-size:12px;
+                        border:1px solid var(--dash-border);border-radius:6px;
+                        background:var(--dash-bg);color:var(--dash-text);
+                        font-family:monospace;">
+          <button type="button"
+                  onclick="copyField('lead-form-{{ v.key }}-input','copy-lead-{{ v.key }}-btn','Copied!')"
+                  id="copy-lead-{{ v.key }}-btn"
+                  class="dash-action-btn dash-action-btn--primary" style="font-size:13px;">
+            Copy Link
+          </button>
+          <a href="{{ v.url }}" target="_blank"
+             class="dash-action-btn dash-action-btn--secondary" style="font-size:13px;">
+            Open ↗
+          </a>
+        </div>
       </div>
       {% endfor %}
-    </div>
-  </div>
 
-  <!-- ── Programs ─────────────────────────────────────────────────────── -->
-  {% if program_field_key %}
-  <div class="dash-card" style="padding:24px;margin-bottom:20px;" id="programs">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
-      <h2 style="font-size:15px;font-weight:700;margin:0;">Programs</h2>
-      <a href="{{ programs_create_url }}" class="dash-action-btn dash-action-btn--primary" style="font-size:12px;padding:5px 12px;">+ Add Program</a>
-    </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
-      <p style="font-size:12px;color:var(--dash-muted);margin:0;">
-        These are the options shown in the <strong>{{ program_field_key }}</strong> field on your enrollment form.
-      </p>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dash-muted);cursor:pointer;user-select:none;">
-        <input type="checkbox" id="show-inactive-toggle" onchange="toggleInactivePrograms(this.checked)" style="cursor:pointer;">
-        Show inactive
-      </label>
-    </div>
-
-    {% if programs_no_active_warning %}
-    <div style="margin-bottom:12px;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;color:#92400e;font-size:12px;">
-      No active programs — new submissions won't have program options until you add one.
-    </div>
-    {% endif %}
-
-    {% if programs_summary %}
-    <div class="dash-table-scroll">
-      <table class="dash-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Capacity</th>
-            <th>Enrolled</th>
-            <th>Waitlisted</th>
-            <th>Auto-Enroll</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for code, p in programs_summary.items %}
-          <tr{% if not p.is_active %} data-inactive="1" style="opacity:.6;display:none;"{% endif %}>
-            <td>
-              <div style="font-weight:500;">{{ p.name }}</div>
-              <div style="font-size:11px;color:var(--dash-muted);margin-top:1px;">{{ p.code }}</div>
-            </td>
-            <td style="color:var(--dash-muted);">{% if p.capacity %}{{ p.capacity }}{% else %}Unlimited{% endif %}</td>
-            <td>{{ p.enrolled_count }}</td>
-            <td>{{ p.waitlisted_count }}</td>
-            <td>
-              {% if p.auto_enroll %}<span class="dash-badge dash-badge--green">On{% if p.waitlist_enabled %} + Waitlist{% endif %}</span>
-              {% else %}<span class="dash-badge dash-badge--gray">Off</span>{% endif %}
-            </td>
-            <td>
-              {% if p.is_active %}<span class="dash-badge dash-badge--green">Active</span>
-              {% else %}<span class="dash-badge dash-badge--gray">Inactive</span>{% endif %}
-            </td>
-            <td style="white-space:nowrap;text-align:right;">
-              <a href="{% url 'school_program_edit' school.slug p.id %}"
-                 class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;padding:4px 10px;">Edit</a>
-
-              {% if not p.is_active and not p.has_submissions %}
-              <form method="post" action="{% url 'school_program_delete' school.slug p.id %}" style="display:inline;margin-left:4px;"
-                    onsubmit="return confirm('Permanently delete program \'{{ p.name }}\'?');">
-                {% csrf_token %}
-                <button type="submit" class="dash-action-btn dash-action-btn--danger" style="font-size:12px;padding:4px 10px;">Delete</button>
-              </form>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-    <p style="font-size:13px;color:var(--dash-muted);margin:0;">No programs yet. <a href="{{ programs_create_url }}" style="color:var(--dash-primary);">Add your first program →</a></p>
-    {% endif %}
-  </div>
-  {% endif %}
-
-  <!-- ── Email Templates ─────────────────────────────────────────────── -->
-  <div class="dash-card" style="padding:24px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      {# ── Embed snippet (enrollment form) ── #}
       <div>
-        <h2 style="font-size:15px;font-weight:700;margin:0 0 2px;">Email Templates</h2>
-        <p style="font-size:12px;color:var(--dash-muted);margin:0;">Reusable templates for messaging families. Select one from a submission to pre-fill the compose form.</p>
-      </div>
-      <a href="{{ email_template_create_url }}" class="dash-action-btn dash-action-btn--primary" style="font-size:12px;padding:5px 12px;white-space:nowrap;">+ Add Template</a>
-    </div>
-
-    {% if email_templates %}
-    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-      <thead>
-        <tr style="border-bottom:1px solid var(--dash-border);">
-          <th style="text-align:left;padding:6px 8px 6px 0;font-size:11px;color:var(--dash-muted);font-weight:600;">Name</th>
-          <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--dash-muted);font-weight:600;">Subject</th>
-          <th style="text-align:right;padding:6px 0 6px 8px;font-size:11px;"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for tmpl in email_templates %}
-        <tr style="border-bottom:1px solid var(--dash-border);">
-          <td style="padding:8px 8px 8px 0;font-weight:500;color:var(--dash-text);">{{ tmpl.name }}</td>
-          <td style="padding:8px;color:var(--dash-muted);font-size:12px;">{{ tmpl.subject }}</td>
-          <td style="padding:8px 0 8px 8px;text-align:right;">
-            <a href="{% url 'school_email_template_edit' school.slug tmpl.pk %}"
-               style="font-size:12px;color:var(--dash-primary);text-decoration:none;">Edit</a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p style="font-size:13px;color:var(--dash-muted);margin:0;">
-      No templates yet. <a href="{{ email_template_create_url }}" style="color:var(--dash-primary);">Add your first template →</a>
-    </p>
-    {% endif %}
-
-    {% if email_templates_inactive %}
-    <details style="margin-top:14px;">
-      <summary style="font-size:12px;color:var(--dash-muted);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px;">
-        <span>▸</span> {{ email_templates_inactive|length }} deactivated template{{ email_templates_inactive|length|pluralize }}
-      </summary>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;opacity:.7;">
-        <tbody>
-          {% for tmpl in email_templates_inactive %}
-          <tr style="border-bottom:1px solid var(--dash-border);">
-            <td style="padding:7px 8px 7px 0;color:var(--dash-muted);">{{ tmpl.name }}</td>
-            <td style="padding:7px 8px;color:var(--dash-muted);font-size:11px;">{{ tmpl.subject }}</td>
-            <td style="padding:7px 0 7px 8px;text-align:right;white-space:nowrap;">
-              <a href="{% url 'school_email_template_edit' school.slug tmpl.pk %}"
-                 style="font-size:11px;color:var(--dash-primary);text-decoration:none;margin-right:10px;">Edit</a>
-              <form method="post" action="{% url 'school_email_template_reactivate' school.slug tmpl.pk %}" style="display:inline;">
-                {% csrf_token %}
-                <button type="submit" style="font-size:11px;color:var(--dash-primary);background:none;border:none;cursor:pointer;padding:0;">Reactivate</button>
-              </form>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </details>
-    {% endif %}
-  </div>
-
-
-
-  <!-- ── Form Links ───────────────────────────────────────────────────── -->
-  <div class="dash-card" style="padding:24px;margin-bottom:40px;">
-    <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Form Links</h2>
-    <p style="font-size:13px;color:var(--dash-muted);margin:0 0 24px;">
-      Share these links with families. Each form can also be embedded on your website.
-    </p>
-
-    {# ── Enrollment form ── #}
-    <div style="padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--dash-border);">
-      <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-                    letter-spacing:.06em;color:var(--dash-muted);margin-bottom:6px;">
-        Enrollment Form
-      </label>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <input type="text" readonly value="{{ apply_url }}" id="apply-url-input"
-               onclick="this.select()"
-               style="flex:1;min-width:260px;padding:8px 12px;font-size:12px;
-                      border:1px solid var(--dash-border);border-radius:6px;
-                      background:var(--dash-bg);color:var(--dash-text);
-                      font-family:monospace;">
-        <button type="button" id="copy-link-btn"
-                onclick="copyField('apply-url-input','copy-link-btn','Copied!')"
-                class="dash-action-btn dash-action-btn--primary" style="font-size:13px;">
-          Copy Link
-        </button>
-        <a href="{{ apply_url }}" target="_blank"
-           class="dash-action-btn dash-action-btn--secondary" style="font-size:13px;">
-          Open ↗
-        </a>
+        <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                      letter-spacing:.06em;color:var(--dash-muted);margin-bottom:6px;">
+          Embed Snippet (Enrollment Form)
+        </label>
+        <p style="font-size:12px;color:var(--dash-muted);margin:0 0 8px;">
+          Paste into your website HTML to embed the enrollment form inline.
+        </p>
+        <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
+          <textarea id="embed-snippet-input" readonly rows="3" onclick="this.select()"
+                    style="flex:1;min-width:260px;padding:8px 12px;font-size:12px;
+                           border:1px solid var(--dash-border);border-radius:6px;
+                           background:var(--dash-bg);color:var(--dash-text);
+                           font-family:monospace;resize:vertical;">{{ embed_snippet }}</textarea>
+          <button type="button" id="copy-embed-btn"
+                  onclick="copyField('embed-snippet-input','copy-embed-btn','Copied!')"
+                  class="dash-action-btn dash-action-btn--primary" style="font-size:13px;">
+            Copy Snippet
+          </button>
+        </div>
+        <p style="font-size:11px;color:var(--dash-muted);margin:8px 0 0;">
+          Height defaults to 700px — adjust as needed.
+        </p>
       </div>
     </div>
 
-    {# ── Named lead form variants (scheduling, trial, etc.) ── #}
-    {% for v in lead_form_variants %}
-    <div style="padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--dash-border);">
-      <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-                    letter-spacing:.06em;color:var(--dash-muted);margin-bottom:6px;">
-        {{ v.title }}
-      </label>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <input type="text" readonly value="{{ v.url }}" id="lead-form-{{ v.key }}-input"
-               onclick="this.select()"
-               style="flex:1;min-width:260px;padding:8px 12px;font-size:12px;
-                      border:1px solid var(--dash-border);border-radius:6px;
-                      background:var(--dash-bg);color:var(--dash-text);
-                      font-family:monospace;">
-        <button type="button"
-                onclick="copyField('lead-form-{{ v.key }}-input','copy-lead-{{ v.key }}-btn','Copied!')"
-                id="copy-lead-{{ v.key }}-btn"
-                class="dash-action-btn dash-action-btn--primary" style="font-size:13px;">
-          Copy Link
-        </button>
-        <a href="{{ v.url }}" target="_blank"
-           class="dash-action-btn dash-action-btn--secondary" style="font-size:13px;">
-          Open ↗
-        </a>
+  </div>{# /general panel #}
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- EMAIL panel: Email Templates + Email Delivery (SMTP)                 -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="settings-panel" data-tab="email">
+
+    <!-- ── Email Templates ──────────────────────────────────────────────── -->
+    <div class="dash-card" style="padding:24px;margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div>
+          <h2 style="font-size:15px;font-weight:700;margin:0 0 2px;">Email Templates</h2>
+          <p style="font-size:12px;color:var(--dash-muted);margin:0;">Reusable templates for messaging families. Select one from a submission to pre-fill the compose form.</p>
+        </div>
+        <a href="{{ email_template_create_url }}" class="dash-action-btn dash-action-btn--primary" style="font-size:12px;padding:5px 12px;white-space:nowrap;">+ Add Template</a>
       </div>
-    </div>
-    {% endfor %}
 
-    {# ── Embed snippet (enrollment form) ── #}
-    <div>
-      <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-                    letter-spacing:.06em;color:var(--dash-muted);margin-bottom:6px;">
-        Embed Snippet (Enrollment Form)
-      </label>
-      <p style="font-size:12px;color:var(--dash-muted);margin:0 0 8px;">
-        Paste into your website HTML to embed the enrollment form inline.
-      </p>
-      <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
-        <textarea id="embed-snippet-input" readonly rows="3" onclick="this.select()"
-                  style="flex:1;min-width:260px;padding:8px 12px;font-size:12px;
-                         border:1px solid var(--dash-border);border-radius:6px;
-                         background:var(--dash-bg);color:var(--dash-text);
-                         font-family:monospace;resize:vertical;">{{ embed_snippet }}</textarea>
-        <button type="button" id="copy-embed-btn"
-                onclick="copyField('embed-snippet-input','copy-embed-btn','Copied!')"
-                class="dash-action-btn dash-action-btn--primary" style="font-size:13px;">
-          Copy Snippet
-        </button>
-      </div>
-      <p style="font-size:11px;color:var(--dash-muted);margin:8px 0 0;">
-        Height defaults to 700px — adjust as needed.
-      </p>
-    </div>
-  </div>
-
-  <!-- ── Team ────────────────────────────────────────────────────────── -->
-  {% if is_owner %}
-  <div class="dash-card" style="padding:24px;margin-bottom:20px;">
-    <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Team</h2>
-    <p style="font-size:12px;color:var(--dash-muted);margin:0 0 20px;">
-      People who can access this school's admin portal.
-    </p>
-
-    {# Member table #}
-    {% with members=school.admin_memberships.all %}
-    {% if members %}
-    <div class="dash-table-scroll" style="margin-bottom:20px;">
-      <table class="dash-table" style="font-size:13px;">
+      {% if email_templates %}
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
         <thead>
-          <tr>
-            <th>Username</th>
-            <th>Name</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Added</th>
-            <th>Added by</th>
-            <th></th>
+          <tr style="border-bottom:1px solid var(--dash-border);">
+            <th style="text-align:left;padding:6px 8px 6px 0;font-size:11px;color:var(--dash-muted);font-weight:600;">Name</th>
+            <th style="text-align:left;padding:6px 8px;font-size:11px;color:var(--dash-muted);font-weight:600;">Subject</th>
+            <th style="text-align:right;padding:6px 0 6px 8px;font-size:11px;"></th>
           </tr>
         </thead>
         <tbody>
-          {% for m in members %}
-          <tr{% if not m.is_active %} style="opacity:.5;"{% endif %}>
-            <td style="font-weight:500;white-space:nowrap;">{{ m.user.username }}</td>
-            <td>
-              {% if is_owner and m.is_active %}
-              <form method="post" action="{% url 'school_team_update_name' school.slug m.id %}"
-                    style="display:flex;gap:4px;align-items:center;">
-                {% csrf_token %}
-                <input type="text" name="first_name" value="{{ m.user.first_name }}" placeholder="First"
-                       style="width:80px;padding:3px 6px;font-size:12px;border:1px solid var(--dash-border);
-                              border-radius:5px;background:var(--dash-bg);color:var(--dash-text);">
-                <input type="text" name="last_name" value="{{ m.user.last_name }}" placeholder="Last"
-                       style="width:80px;padding:3px 6px;font-size:12px;border:1px solid var(--dash-border);
-                              border-radius:5px;background:var(--dash-bg);color:var(--dash-text);">
-                <button type="submit" class="dash-action-btn"
-                        style="font-size:11px;padding:3px 8px;">Save</button>
-              </form>
-              {% else %}
-                <span style="color:var(--dash-muted);">{{ m.user.get_full_name|default:"—" }}</span>
-              {% endif %}
-            </td>
-            <td>
-              {% if is_owner and m.is_active %}
-              <form method="post" action="{% url 'school_team_role' school.slug m.id %}" style="display:inline;">
-                {% csrf_token %}
-                <select name="role" onchange="this.form.submit()"
-                        style="font-size:12px;padding:3px 6px;border:1px solid var(--dash-border);
-                               border-radius:5px;background:var(--dash-bg);color:var(--dash-text);">
-                  {% for val, label in m.Role.choices %}
-                  <option value="{{ val }}"{% if m.role == val %} selected{% endif %}>{{ label }}</option>
-                  {% endfor %}
-                </select>
-              </form>
-              {% else %}
-                <span class="dash-badge {% if m.role == 'owner' %}dash-badge--green{% elif m.role == 'editor' %}dash-badge--blue{% else %}dash-badge--gray{% endif %}">
-                  {{ m.get_role_display }}
-                </span>
-              {% endif %}
-            </td>
-            <td>
-              {% if m.is_active %}
-                <span class="dash-badge dash-badge--green">Active</span>
-              {% else %}
-                <span class="dash-badge dash-badge--gray">Inactive</span>
-              {% endif %}
-            </td>
-            <td style="color:var(--dash-muted);white-space:nowrap;">
-              {% if m.created_at %}{{ m.created_at|date:"M j, Y" }}{% else %}—{% endif %}
-            </td>
-            <td style="color:var(--dash-muted);">
-              {% if m.created_by %}{{ m.created_by.get_full_name|default:m.created_by.username }}{% else %}—{% endif %}
-            </td>
-            <td style="text-align:right;white-space:nowrap;">
-              {% if is_owner and m.is_active and m.user != request.user %}
-              <form method="post" action="{% url 'school_team_remove' school.slug m.id %}"
-                    style="display:inline;"
-                    onsubmit="return confirm('Remove {{ m.user.username }} from the team?');">
-                {% csrf_token %}
-                <button type="submit" class="dash-action-btn dash-action-btn--danger"
-                        style="font-size:11px;padding:3px 8px;">Remove</button>
-              </form>
-              {% endif %}
+          {% for tmpl in email_templates %}
+          <tr style="border-bottom:1px solid var(--dash-border);">
+            <td style="padding:8px 8px 8px 0;font-weight:500;color:var(--dash-text);">{{ tmpl.name }}</td>
+            <td style="padding:8px;color:var(--dash-muted);font-size:12px;">{{ tmpl.subject }}</td>
+            <td style="padding:8px 0 8px 8px;text-align:right;">
+              <a href="{% url 'school_email_template_edit' school.slug tmpl.pk %}"
+                 style="font-size:12px;color:var(--dash-primary);text-decoration:none;">Edit</a>
             </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
-    </div>
-    {% endif %}
-    {% endwith %}
-
-    {# Create team member form — owner only #}
-    {% if is_owner %}
-    <div style="padding-top:16px;border-top:1px solid var(--dash-border);">
-      <h3 style="font-size:13px;font-weight:600;margin:0 0 12px;">Add Team Member</h3>
-      <form method="post" action="{% url 'school_team_add' school.slug %}"
-            style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;align-items:end;">
-        {% csrf_token %}
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
-            First Name
-          </label>
-          <input type="text" name="first_name" placeholder="First"
-                 style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
-                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
-            Last Name
-          </label>
-          <input type="text" name="last_name" placeholder="Last"
-                 style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
-                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
-            Username <span style="color:var(--dash-danger);">*</span>
-          </label>
-          <input type="text" name="username" required placeholder="jsmith"
-                 autocomplete="off"
-                 style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
-                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
-            Temp Password <span style="color:var(--dash-danger);">*</span>
-          </label>
-          <input type="text" name="password" required placeholder="min 8 chars"
-                 autocomplete="new-password"
-                 style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
-                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
-            Role <span style="color:var(--dash-danger);">*</span>
-          </label>
-          <select name="role"
-                  style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
-                         border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
-            <option value="editor">Editor</option>
-            <option value="viewer">Viewer</option>
-            <option value="owner">Owner</option>
-          </select>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px;">
-          <label style="font-size:11px;opacity:0;">&#8203;</label>
-          <button type="submit" class="dash-action-btn dash-action-btn--primary"
-                  style="font-size:12px;padding:6px 14px;white-space:nowrap;">Create &amp; Add</button>
-        </div>
-      </form>
-      <p style="font-size:11px;color:var(--dash-muted);margin:10px 0 0;">
-        The new account will be created with staff access. Share the username and temp password with them — they can change their password after logging in.
+      {% else %}
+      <p style="font-size:13px;color:var(--dash-muted);margin:0;">
+        No templates yet. <a href="{{ email_template_create_url }}" style="color:var(--dash-primary);">Add your first template →</a>
       </p>
+      {% endif %}
+
+      {% if email_templates_inactive %}
+      <details style="margin-top:14px;">
+        <summary style="font-size:12px;color:var(--dash-muted);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px;">
+          <span>▸</span> {{ email_templates_inactive|length }} deactivated template{{ email_templates_inactive|length|pluralize }}
+        </summary>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;opacity:.7;">
+          <tbody>
+            {% for tmpl in email_templates_inactive %}
+            <tr style="border-bottom:1px solid var(--dash-border);">
+              <td style="padding:7px 8px 7px 0;color:var(--dash-muted);">{{ tmpl.name }}</td>
+              <td style="padding:7px 8px;color:var(--dash-muted);font-size:11px;">{{ tmpl.subject }}</td>
+              <td style="padding:7px 0 7px 8px;text-align:right;white-space:nowrap;">
+                <a href="{% url 'school_email_template_edit' school.slug tmpl.pk %}"
+                   style="font-size:11px;color:var(--dash-primary);text-decoration:none;margin-right:10px;">Edit</a>
+                <form method="post" action="{% url 'school_email_template_reactivate' school.slug tmpl.pk %}" style="display:inline;">
+                  {% csrf_token %}
+                  <button type="submit" style="font-size:11px;color:var(--dash-primary);background:none;border:none;cursor:pointer;padding:0;">Reactivate</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </details>
+      {% endif %}
     </div>
-    {% endif %}
-  </div>
-  {% endif %}{# is_owner — Team #}
 
-  <!-- ── Email Delivery ───────────────────────────────────────────────── -->
+    <!-- ── Email Delivery (SMTP) ─────────────────────────────────────────── -->
+    {% if is_owner %}
+    <div class="dash-card" style="padding:24px;margin-bottom:20px;">
+      <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Email Delivery</h2>
+      <p style="font-size:12px;color:var(--dash-muted);margin:0 0 20px;">
+        Choose how Pontora sends emails to families.
+      </p>
+
+      <form method="post" action="{% url 'school_settings' school.slug %}" id="smtp-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" id="smtp-action"
+               value="{% if school.smtp_host %}update_smtp{% else %}clear_smtp{% endif %}">
+
+        <!-- Source picker -->
+        <div style="display:inline-flex;border:1px solid var(--dash-border);border-radius:8px;
+                    overflow:hidden;margin-bottom:20px;">
+          <label id="tab-enrollify"
+                 style="display:flex;align-items:center;gap:7px;padding:8px 18px;cursor:pointer;
+                        font-size:13px;font-weight:600;transition:background .12s,color .12s;user-select:none;
+                        {% if not school.smtp_host %}background:var(--dash-primary);color:#fff;{% else %}background:var(--dash-bg);color:var(--dash-muted);{% endif %}">
+            <input type="radio" name="_smtp_source" value="enrollify" style="display:none;"
+                   {% if not school.smtp_host %}checked{% endif %}
+                   onchange="smtpMode('enrollify')">
+            Pontora email
+          </label>
+          <label id="tab-custom"
+                 style="display:flex;align-items:center;gap:7px;padding:8px 18px;cursor:pointer;
+                        font-size:13px;font-weight:600;transition:background .12s,color .12s;user-select:none;
+                        border-left:1px solid var(--dash-border);
+                        {% if school.smtp_host %}background:var(--dash-primary);color:#fff;{% else %}background:var(--dash-bg);color:var(--dash-muted);{% endif %}">
+            <input type="radio" name="_smtp_source" value="custom" style="display:none;"
+                   {% if school.smtp_host %}checked{% endif %}
+                   onchange="smtpMode('custom')">
+            Custom SMTP
+          </label>
+        </div>
+
+        <!-- Enrollify description (shown in Enrollify mode) -->
+        <div id="smtp-enrollify-desc" style="{% if school.smtp_host %}display:none;{% endif %}margin-bottom:4px;">
+          <p style="font-size:13px;color:var(--dash-muted);margin:0 0 16px;">
+            Emails are sent from <strong>noreply@mypontora.com</strong> via Pontora's delivery service.
+            No configuration required.
+          </p>
+          {% if school.smtp_host %}
+          <p style="font-size:12px;color:#d97706;margin:0 0 16px;padding:8px 12px;
+                    background:#fffbeb;border:1px solid #fde68a;border-radius:6px;">
+            Custom SMTP is currently active. Save to switch back to Pontora email.
+          </p>
+          {% endif %}
+        </div>
+
+        <!-- Custom SMTP fields (shown in Custom mode) -->
+        <div id="smtp-fields" style="{% if not school.smtp_host %}display:none;{% endif %}">
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;margin-bottom:18px;">
+
+            <div>
+              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                            letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">SMTP Host</label>
+              <input type="text" name="smtp_host" id="smtp_host" value="{{ school.smtp_host }}"
+                     placeholder="smtp.gmail.com"
+                     style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                            border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+            </div>
+
+            <div>
+              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                            letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">Port</label>
+              <input type="number" name="smtp_port" id="smtp_port"
+                     value="{{ school.smtp_port|default:'' }}" placeholder="587"
+                     style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                            border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+            </div>
+
+            <div>
+              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                            letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">Username</label>
+              <input type="text" name="smtp_username" id="smtp_username" value="{{ school.smtp_username }}"
+                     placeholder="you@gmail.com" autocomplete="off"
+                     style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                            border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+            </div>
+
+            <div>
+              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                            letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">
+                Password / App Password
+              </label>
+              <input type="password" name="smtp_password" id="smtp_password" autocomplete="new-password"
+                     placeholder="{% if school.smtp_password %}Saved — leave blank to keep{% else %}Enter password{% endif %}"
+                     style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                            border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+            </div>
+
+            <div>
+              <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                            letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">From Email</label>
+              <input type="email" name="smtp_from_email" id="smtp_from_email"
+                     value="{{ school.smtp_from_email }}" placeholder="info@yourschool.com"
+                     style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                            border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+            </div>
+
+            <div style="display:flex;align-items:flex-end;padding-bottom:6px;">
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                <input type="checkbox" name="smtp_use_tls" id="smtp_use_tls" value="1"
+                       {% if school.smtp_use_tls %}checked{% endif %}
+                       style="width:15px;height:15px;cursor:pointer;">
+                Use TLS <span style="color:var(--dash-muted);font-size:12px;">(recommended)</span>
+              </label>
+            </div>
+
+          </div>
+
+          <!-- Test connection -->
+          <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <button type="button" id="btn-smtp-test"
+                    class="dash-action-btn dash-action-btn--secondary"
+                    style="font-size:12px;padding:6px 14px;"
+                    onclick="smtpTest()">
+              Test Connection
+            </button>
+            <span id="smtp-test-result" style="display:none;font-size:13px;font-weight:500;"></span>
+          </div>
+
+          {% if school.smtp_host %}
+          <p style="font-size:12px;color:#16a34a;margin:0 0 14px;display:flex;align-items:center;gap:5px;">
+            <span>✓</span>
+            <span>Custom SMTP active — {{ school.smtp_host }}</span>
+          </p>
+          {% endif %}
+
+        </div>
+
+        <!-- Save (always visible) -->
+        <button type="submit" class="dash-action-btn dash-action-btn--primary"
+                style="font-size:12px;padding:6px 14px;">
+          Save
+        </button>
+
+      </form>
+    </div>
+    {% endif %}{# is_owner — Email Delivery #}
+
+  </div>{# /email panel #}
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- TEAM panel (owner only): Team management                             -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
   {% if is_owner %}
-  <div class="dash-card" style="padding:24px;margin-bottom:20px;">
-    <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Email Delivery</h2>
-    <p style="font-size:12px;color:var(--dash-muted);margin:0 0 20px;">
-      Choose how Pontora sends emails to families.
-    </p>
+  <div class="settings-panel" data-tab="team">
 
-    <form method="post" action="{% url 'school_settings' school.slug %}" id="smtp-form">
-      {% csrf_token %}
-      <input type="hidden" name="action" id="smtp-action"
-             value="{% if school.smtp_host %}update_smtp{% else %}clear_smtp{% endif %}">
+    <!-- ── Team ─────────────────────────────────────────────────────────── -->
+    <div class="dash-card" style="padding:24px;margin-bottom:20px;">
+      <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Team</h2>
+      <p style="font-size:12px;color:var(--dash-muted);margin:0 0 20px;">
+        People who can access this school's admin portal.
+      </p>
 
-      <!-- Source picker -->
-      <div style="display:inline-flex;border:1px solid var(--dash-border);border-radius:8px;
-                  overflow:hidden;margin-bottom:20px;">
-        <label id="tab-enrollify"
-               style="display:flex;align-items:center;gap:7px;padding:8px 18px;cursor:pointer;
-                      font-size:13px;font-weight:600;transition:background .12s,color .12s;user-select:none;
-                      {% if not school.smtp_host %}background:var(--dash-primary);color:#fff;{% else %}background:var(--dash-bg);color:var(--dash-muted);{% endif %}">
-          <input type="radio" name="_smtp_source" value="enrollify" style="display:none;"
-                 {% if not school.smtp_host %}checked{% endif %}
-                 onchange="smtpMode('enrollify')">
-          Pontora email
-        </label>
-        <label id="tab-custom"
-               style="display:flex;align-items:center;gap:7px;padding:8px 18px;cursor:pointer;
-                      font-size:13px;font-weight:600;transition:background .12s,color .12s;user-select:none;
-                      border-left:1px solid var(--dash-border);
-                      {% if school.smtp_host %}background:var(--dash-primary);color:#fff;{% else %}background:var(--dash-bg);color:var(--dash-muted);{% endif %}">
-          <input type="radio" name="_smtp_source" value="custom" style="display:none;"
-                 {% if school.smtp_host %}checked{% endif %}
-                 onchange="smtpMode('custom')">
-          Custom SMTP
-        </label>
+      {# Member table #}
+      {% with members=school.admin_memberships.all %}
+      {% if members %}
+      <div class="dash-table-scroll" style="margin-bottom:20px;">
+        <table class="dash-table" style="font-size:13px;">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Added</th>
+              <th>Added by</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in members %}
+            <tr{% if not m.is_active %} style="opacity:.5;"{% endif %}>
+              <td style="font-weight:500;white-space:nowrap;">{{ m.user.username }}</td>
+              <td>
+                {% if is_owner and m.is_active %}
+                <form method="post" action="{% url 'school_team_update_name' school.slug m.id %}"
+                      style="display:flex;gap:4px;align-items:center;">
+                  {% csrf_token %}
+                  <input type="text" name="first_name" value="{{ m.user.first_name }}" placeholder="First"
+                         style="width:80px;padding:3px 6px;font-size:12px;border:1px solid var(--dash-border);
+                                border-radius:5px;background:var(--dash-bg);color:var(--dash-text);">
+                  <input type="text" name="last_name" value="{{ m.user.last_name }}" placeholder="Last"
+                         style="width:80px;padding:3px 6px;font-size:12px;border:1px solid var(--dash-border);
+                                border-radius:5px;background:var(--dash-bg);color:var(--dash-text);">
+                  <button type="submit" class="dash-action-btn"
+                          style="font-size:11px;padding:3px 8px;">Save</button>
+                </form>
+                {% else %}
+                  <span style="color:var(--dash-muted);">{{ m.user.get_full_name|default:"—" }}</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if is_owner and m.is_active %}
+                <form method="post" action="{% url 'school_team_role' school.slug m.id %}" style="display:inline;">
+                  {% csrf_token %}
+                  <select name="role" onchange="this.form.submit()"
+                          style="font-size:12px;padding:3px 6px;border:1px solid var(--dash-border);
+                                 border-radius:5px;background:var(--dash-bg);color:var(--dash-text);">
+                    {% for val, label in m.Role.choices %}
+                    <option value="{{ val }}"{% if m.role == val %} selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </form>
+                {% else %}
+                  <span class="dash-badge {% if m.role == 'owner' %}dash-badge--green{% elif m.role == 'editor' %}dash-badge--blue{% else %}dash-badge--gray{% endif %}">
+                    {{ m.get_role_display }}
+                  </span>
+                {% endif %}
+              </td>
+              <td>
+                {% if m.is_active %}
+                  <span class="dash-badge dash-badge--green">Active</span>
+                {% else %}
+                  <span class="dash-badge dash-badge--gray">Inactive</span>
+                {% endif %}
+              </td>
+              <td style="color:var(--dash-muted);white-space:nowrap;">
+                {% if m.created_at %}{{ m.created_at|date:"M j, Y" }}{% else %}—{% endif %}
+              </td>
+              <td style="color:var(--dash-muted);">
+                {% if m.created_by %}{{ m.created_by.get_full_name|default:m.created_by.username }}{% else %}—{% endif %}
+              </td>
+              <td style="text-align:right;white-space:nowrap;">
+                {% if is_owner and m.is_active and m.user != request.user %}
+                <form method="post" action="{% url 'school_team_remove' school.slug m.id %}"
+                      style="display:inline;"
+                      onsubmit="return confirm('Remove {{ m.user.username }} from the team?');">
+                  {% csrf_token %}
+                  <button type="submit" class="dash-action-btn dash-action-btn--danger"
+                          style="font-size:11px;padding:3px 8px;">Remove</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+      {% endwith %}
+
+      {# Create team member form — owner only #}
+      <div style="padding-top:16px;border-top:1px solid var(--dash-border);">
+        <h3 style="font-size:13px;font-weight:600;margin:0 0 12px;">Add Team Member</h3>
+        <form method="post" action="{% url 'school_team_add' school.slug %}"
+              style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;align-items:end;">
+          {% csrf_token %}
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
+              First Name
+            </label>
+            <input type="text" name="first_name" placeholder="First"
+                   style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
+              Last Name
+            </label>
+            <input type="text" name="last_name" placeholder="Last"
+                   style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
+              Username <span style="color:var(--dash-danger);">*</span>
+            </label>
+            <input type="text" name="username" required placeholder="jsmith"
+                   autocomplete="off"
+                   style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
+              Temp Password <span style="color:var(--dash-danger);">*</span>
+            </label>
+            <input type="text" name="password" required placeholder="min 8 chars"
+                   autocomplete="new-password"
+                   style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
+              Role <span style="color:var(--dash-danger);">*</span>
+            </label>
+            <select name="role"
+                    style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                           border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+              <option value="editor">Editor</option>
+              <option value="viewer">Viewer</option>
+              <option value="owner">Owner</option>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;opacity:0;">&#8203;</label>
+            <button type="submit" class="dash-action-btn dash-action-btn--primary"
+                    style="font-size:12px;padding:6px 14px;white-space:nowrap;">Create &amp; Add</button>
+          </div>
+        </form>
+        <p style="font-size:11px;color:var(--dash-muted);margin:10px 0 0;">
+          The new account will be created with staff access. Share the username and temp password with them — they can change their password after logging in.
+        </p>
+      </div>
+    </div>
+
+  </div>{# /team panel #}
+  {% endif %}{# is_owner — Team panel #}
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- BILLING panel (owner only): Plan & Billing + Stripe                  -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  {% if is_owner %}
+  <div class="settings-panel" data-tab="billing">
+
+    <!-- ── Plan & Billing ───────────────────────────────────────────────── -->
+    <div class="dash-card" style="padding:24px;margin-bottom:20px;">
+      <h2 style="font-size:15px;font-weight:700;margin:0 0 16px;">Plan &amp; Billing</h2>
+
+      <!-- Inline stat strip -->
+      <div style="display:flex;flex-wrap:wrap;gap:28px;align-items:flex-end;">
+
+        <div>
+          <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                       letter-spacing:.05em;display:block;margin-bottom:4px;">Plan</span>
+          <span style="font-size:16px;font-weight:700;text-transform:capitalize;">{{ school.plan }}</span>
+        </div>
+
+        <div>
+          <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                       letter-spacing:.05em;display:block;margin-bottom:4px;">Status</span>
+          {% if school.is_active %}
+            <span style="font-size:14px;font-weight:600;color:#059669;">Active</span>
+          {% else %}
+            <span style="font-size:14px;font-weight:600;color:#dc2626;">Inactive</span>
+          {% endif %}
+        </div>
+
+        {% if school.stripe_subscription_status %}
+        <div>
+          <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                       letter-spacing:.05em;display:block;margin-bottom:4px;">Subscription</span>
+          <span style="font-size:14px;text-transform:capitalize;">{{ school.stripe_subscription_status }}</span>
+        </div>
+        {% endif %}
+
+        {% if school.stripe_current_period_end %}
+        <div>
+          <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                       letter-spacing:.05em;display:block;margin-bottom:4px;">
+            {% if school.stripe_cancel_at_period_end %}Cancels{% else %}Renews{% endif %}
+          </span>
+          <span style="font-size:14px;">{{ school.stripe_current_period_end|date:"M j, Y" }}</span>
+        </div>
+        {% endif %}
+
+        {% if school.is_trial_plan %}
+        <div>
+          <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                       letter-spacing:.05em;display:block;margin-bottom:4px;">Trial Ends</span>
+          <span style="font-size:14px;font-weight:600;">{{ school.trial_ends_at|date:"M j, Y" }}{% if school.trial_end_date %} <span style="font-size:11px;color:var(--dash-muted);font-weight:400;">(extended)</span>{% endif %}</span>
+        </div>
+        <div>
+          <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
+                       letter-spacing:.05em;display:block;margin-bottom:4px;">Days Left</span>
+          <span style="font-size:14px;font-weight:600;{% if school.trial_days_left == 0 %}color:#dc2626;{% elif school.trial_days_left <= 7 %}color:#d97706;{% endif %}">
+            {% if school.trial_days_left > 0 %}{{ school.trial_days_left }} day{{ school.trial_days_left|pluralize }}{% else %}Expired{% endif %}
+          </span>
+        </div>
+        {% endif %}
+
+        <a href="{% url 'school_billing' school.slug %}"
+           style="font-size:13px;color:var(--dash-primary);text-decoration:none;padding-bottom:2px;">
+          {% if school.stripe_subscription_status %}Manage billing →{% else %}View billing →{% endif %}
+        </a>
+
       </div>
 
-      <!-- Enrollify description (shown in Enrollify mode) -->
-      <div id="smtp-enrollify-desc" style="{% if school.smtp_host %}display:none;{% endif %}margin-bottom:4px;">
-        <p style="font-size:13px;color:var(--dash-muted);margin:0 0 16px;">
-          Emails are sent from <strong>noreply@mypontora.com</strong> via Pontora's delivery service.
-          No configuration required.
-        </p>
-        {% if school.smtp_host %}
-        <p style="font-size:12px;color:#d97706;margin:0 0 16px;padding:8px 12px;
-                  background:#fffbeb;border:1px solid #fde68a;border-radius:6px;">
-          Custom SMTP is currently active. Save to switch back to Pontora email.
-        </p>
+      <!-- Cancellation warning -->
+      {% if school.stripe_cancel_at_period_end %}
+      <p style="font-size:12px;color:#dc2626;margin:16px 0 0;padding:8px 14px;
+                background:#fef2f2;border-radius:6px;border:1px solid #fca5a5;">
+        Subscription cancels at end of billing period.
+      </p>
+      {% endif %}
+
+      <!-- Stripe IDs (collapsed, secondary) -->
+      {% if school.stripe_customer_id or school.stripe_subscription_id %}
+      <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--dash-border);
+                  display:flex;gap:28px;flex-wrap:wrap;">
+        {% if school.stripe_customer_id %}
+        <div>
+          <span style="font-size:10px;color:var(--dash-muted);text-transform:uppercase;
+                       letter-spacing:.05em;display:block;margin-bottom:2px;">Customer ID</span>
+          <span style="font-size:11px;font-family:monospace;color:var(--dash-text);">{{ school.stripe_customer_id }}</span>
+        </div>
+        {% endif %}
+        {% if school.stripe_subscription_id %}
+        <div>
+          <span style="font-size:10px;color:var(--dash-muted);text-transform:uppercase;
+                       letter-spacing:.05em;display:block;margin-bottom:2px;">Subscription ID</span>
+          <span style="font-size:11px;font-family:monospace;color:var(--dash-text);">{{ school.stripe_subscription_id }}</span>
+        </div>
         {% endif %}
       </div>
+      {% endif %}
 
-      <!-- Custom SMTP fields (shown in Custom mode) -->
-      <div id="smtp-fields" style="{% if not school.smtp_host %}display:none;{% endif %}">
+    </div>
 
+    <!-- ── Stripe Payment Collection ──────────────────────────────────────── -->
+    <div class="dash-card" style="padding:24px;margin-bottom:20px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <h2 style="font-size:15px;font-weight:700;margin:0;">Payment Collection (Stripe)</h2>
+        {% if school.app_fee_stripe_public_key %}
+        <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;
+                     background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;">Active</span>
+        {% else %}
+        <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;
+                     background:var(--dash-surface,#f8fafc);color:var(--dash-muted);
+                     border:1px solid var(--dash-border);">Not configured</span>
+        {% endif %}
+      </div>
+      <p style="font-size:12px;color:var(--dash-muted);margin:0 0 20px;">
+        Connect your school's Stripe account to collect application fees directly.
+        Keys are in your <strong>Stripe Dashboard → Developers → API keys</strong>.
+      </p>
+
+      {# Fields form — button lives outside via form= attribute #}
+      <form id="stripe-save-form" method="post" action="{% url 'school_settings' school.slug %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_stripe">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;margin-bottom:18px;">
 
           <div>
             <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-                          letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">SMTP Host</label>
-            <input type="text" name="smtp_host" id="smtp_host" value="{{ school.smtp_host }}"
-                   placeholder="smtp.gmail.com"
-                   style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
-                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
-          </div>
-
-          <div>
-            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-                          letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">Port</label>
-            <input type="number" name="smtp_port" id="smtp_port"
-                   value="{{ school.smtp_port|default:'' }}" placeholder="587"
-                   style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
-                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
-          </div>
-
-          <div>
-            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-                          letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">Username</label>
-            <input type="text" name="smtp_username" id="smtp_username" value="{{ school.smtp_username }}"
-                   placeholder="you@gmail.com" autocomplete="off"
-                   style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
-                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+                          letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">
+              Publishable Key <span style="color:#dc2626;">*</span>
+            </label>
+            <input type="text" name="app_fee_stripe_public_key"
+                   value="{{ school.app_fee_stripe_public_key|default:'' }}"
+                   placeholder="pk_live_… or pk_test_…"
+                   style="width:100%;padding:6px 10px;font-size:13px;font-family:monospace;
+                          border:1px solid var(--dash-border);border-radius:6px;
+                          background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;">
+            <span style="display:block;font-size:11px;color:var(--dash-muted);margin-top:3px;">
+              Starts with <code>pk_live_</code> or <code>pk_test_</code>
+            </span>
           </div>
 
           <div>
             <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
                           letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">
-              Password / App Password
+              Secret Key
             </label>
-            <input type="password" name="smtp_password" id="smtp_password" autocomplete="new-password"
-                   placeholder="{% if school.smtp_password %}Saved — leave blank to keep{% else %}Enter password{% endif %}"
-                   style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
-                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
-          </div>
-
-          <div>
-            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-                          letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">From Email</label>
-            <input type="email" name="smtp_from_email" id="smtp_from_email"
-                   value="{{ school.smtp_from_email }}" placeholder="info@yourschool.com"
-                   style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
-                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
-          </div>
-
-          <div style="display:flex;align-items:flex-end;padding-bottom:6px;">
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-              <input type="checkbox" name="smtp_use_tls" id="smtp_use_tls" value="1"
-                     {% if school.smtp_use_tls %}checked{% endif %}
-                     style="width:15px;height:15px;cursor:pointer;">
-              Use TLS <span style="color:var(--dash-muted);font-size:12px;">(recommended)</span>
-            </label>
+            <input type="password" name="app_fee_stripe_secret_key" autocomplete="new-password"
+                   placeholder="{% if school.app_fee_stripe_secret_key %}Saved — leave blank to keep current key{% else %}sk_live_… or sk_test_…{% endif %}"
+                   style="width:100%;padding:6px 10px;font-size:13px;font-family:monospace;
+                          border:1px solid var(--dash-border);border-radius:6px;
+                          background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;">
+            <span style="display:block;font-size:11px;color:var(--dash-muted);margin-top:3px;">
+              Starts with <code>sk_live_</code> or <code>sk_test_</code>
+            </span>
           </div>
 
         </div>
+      </form>
 
-        <!-- Test connection -->
-        <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-          <button type="button" id="btn-smtp-test"
-                  class="dash-action-btn dash-action-btn--secondary"
-                  style="font-size:12px;padding:6px 14px;"
-                  onclick="smtpTest()">
-            Test Connection
-          </button>
-          <span id="smtp-test-result" style="display:none;font-size:13px;font-weight:500;"></span>
-        </div>
+      {# Clear form — button lives in the shared row below via form= attribute #}
+      {% if school.app_fee_stripe_public_key %}
+      <form id="stripe-clear-form" method="post" action="{% url 'school_settings' school.slug %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="clear_stripe">
+      </form>
+      {% endif %}
 
-        {% if school.smtp_host %}
-        <p style="font-size:12px;color:#16a34a;margin:0 0 14px;display:flex;align-items:center;gap:5px;">
-          <span>✓</span>
-          <span>Custom SMTP active — {{ school.smtp_host }}</span>
+      {# Button row — both buttons are outside their forms, linked via form= #}
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button type="submit" form="stripe-save-form"
+                class="dash-action-btn dash-action-btn--primary"
+                style="font-size:12px;padding:6px 14px;">
+          Save Keys
+        </button>
+        {% if school.app_fee_stripe_public_key %}
+        <button type="submit" form="stripe-clear-form"
+                class="dash-action-btn dash-action-btn--danger"
+                style="font-size:12px;padding:6px 14px;"
+                onclick="return confirm('Remove Stripe keys? Payment collection will be disabled.');">
+          Remove Keys
+        </button>
+        {% endif %}
+      </div>
+
+    </div>
+
+  </div>{# /billing panel #}
+  {% endif %}{# is_owner — Billing panel #}
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- FORMS panel: Programs + Form Content overrides                       -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <div class="settings-panel" data-tab="forms">
+
+    <!-- ── Programs ──────────────────────────────────────────────────────── -->
+    {% if program_field_key %}
+    <div class="dash-card" style="padding:24px;margin-bottom:20px;" id="programs">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <h2 style="font-size:15px;font-weight:700;margin:0;">Programs</h2>
+        <a href="{{ programs_create_url }}" class="dash-action-btn dash-action-btn--primary" style="font-size:12px;padding:5px 12px;">+ Add Program</a>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+        <p style="font-size:12px;color:var(--dash-muted);margin:0;">
+          These are the options shown in the <strong>{{ program_field_key }}</strong> field on your enrollment form.
         </p>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--dash-muted);cursor:pointer;user-select:none;">
+          <input type="checkbox" id="show-inactive-toggle" onchange="toggleInactivePrograms(this.checked)" style="cursor:pointer;">
+          Show inactive
+        </label>
+      </div>
+
+      {% if programs_no_active_warning %}
+      <div style="margin-bottom:12px;padding:10px 14px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;color:#92400e;font-size:12px;">
+        No active programs — new submissions won't have program options until you add one.
+      </div>
+      {% endif %}
+
+      {% if programs_summary %}
+      <div class="dash-table-scroll">
+        <table class="dash-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Capacity</th>
+              <th>Enrolled</th>
+              <th>Waitlisted</th>
+              <th>Auto-Enroll</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for code, p in programs_summary.items %}
+            <tr{% if not p.is_active %} data-inactive="1" style="opacity:.6;display:none;"{% endif %}>
+              <td>
+                <div style="font-weight:500;">{{ p.name }}</div>
+                <div style="font-size:11px;color:var(--dash-muted);margin-top:1px;">{{ p.code }}</div>
+              </td>
+              <td style="color:var(--dash-muted);">{% if p.capacity %}{{ p.capacity }}{% else %}Unlimited{% endif %}</td>
+              <td>{{ p.enrolled_count }}</td>
+              <td>{{ p.waitlisted_count }}</td>
+              <td>
+                {% if p.auto_enroll %}<span class="dash-badge dash-badge--green">On{% if p.waitlist_enabled %} + Waitlist{% endif %}</span>
+                {% else %}<span class="dash-badge dash-badge--gray">Off</span>{% endif %}
+              </td>
+              <td>
+                {% if p.is_active %}<span class="dash-badge dash-badge--green">Active</span>
+                {% else %}<span class="dash-badge dash-badge--gray">Inactive</span>{% endif %}
+              </td>
+              <td style="white-space:nowrap;text-align:right;">
+                <a href="{% url 'school_program_edit' school.slug p.id %}"
+                   class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;padding:4px 10px;">Edit</a>
+
+                {% if not p.is_active and not p.has_submissions %}
+                <form method="post" action="{% url 'school_program_delete' school.slug p.id %}" style="display:inline;margin-left:4px;"
+                      onsubmit="return confirm('Permanently delete program \'{{ p.name }}\'?');">
+                  {% csrf_token %}
+                  <button type="submit" class="dash-action-btn dash-action-btn--danger" style="font-size:12px;padding:4px 10px;">Delete</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p style="font-size:13px;color:var(--dash-muted);margin:0;">No programs yet. <a href="{{ programs_create_url }}" style="color:var(--dash-primary);">Add your first program →</a></p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- ── Form Content (override slots) ─────────────────────────────────── -->
+    {% if override_slots_groups %}
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;
+                padding:10px 14px;font-size:12px;color:#1e40af;margin-bottom:20px;line-height:1.5;">
+      <strong>Form Content</strong> — Customize fees, URLs, and messages shown on your public forms.
+      Leave a field blank to restore the Pontora default. Changes take effect immediately.
+    </div>
+
+    {% for group in override_slots_groups %}
+    <form method="post" action="{% url 'school_settings' school.slug %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_config_overrides">
+      <div class="dash-card" style="margin-bottom:20px;overflow:hidden;">
+
+        <!-- Card header -->
+        <div style="padding:16px 20px 14px;border-bottom:1px solid var(--dash-border);">
+          <h2 style="font-size:14px;font-weight:700;margin:0 0 3px;color:var(--dash-text);">{{ group.label }}</h2>
+          {% if group.description %}
+          <p style="font-size:12px;color:var(--dash-muted);margin:0;line-height:1.4;">{{ group.description }}</p>
+          {% endif %}
+        </div>
+
+        <!-- Fields -->
+        <div>
+          {% for field in group.fields %}
+          <div style="display:grid;grid-template-columns:210px 1fr;gap:10px 24px;
+                      align-items:start;padding:14px 20px;
+                      {% if not forloop.last %}border-bottom:1px solid var(--dash-border);{% endif %}">
+
+            <!-- Left column: label + hint -->
+            <div style="padding-top:7px;">
+              <label for="slot_{{ field.key }}"
+                     style="display:block;font-size:13px;font-weight:600;
+                            color:var(--dash-text);margin-bottom:3px;">
+                {{ field.label }}
+              </label>
+              {% if field.hint %}
+              <div style="font-size:11px;color:var(--dash-muted);line-height:1.4;">{{ field.hint }}</div>
+              {% endif %}
+            </div>
+
+            <!-- Right column: input + meta row -->
+            <div style="display:flex;flex-direction:column;gap:5px;min-width:0;">
+              {% if field.type == "textarea" %}
+              <textarea name="slot_{{ field.key }}" id="slot_{{ field.key }}"
+                        data-slot-key="{{ field.key }}"
+                        data-default="{{ field.default }}"
+                        data-server-value="{{ field.value }}"
+                        rows="3"
+                        {% if not is_owner %}readonly{% endif %}
+                        class="slot-field{% if field.is_modified %} slot-field--modified{% endif %}"
+                        style="width:100%;padding:7px 10px;font-size:13px;
+                               border:1px solid var(--dash-border);border-radius:6px;
+                               background:var(--dash-bg);color:var(--dash-text);
+                               box-sizing:border-box;resize:vertical;">{{ field.value }}</textarea>
+              {% else %}
+              <input type="text" name="slot_{{ field.key }}" id="slot_{{ field.key }}"
+                     data-slot-key="{{ field.key }}"
+                     data-default="{{ field.default }}"
+                     data-server-value="{{ field.value }}"
+                     value="{{ field.value }}"
+                     {% if not is_owner %}readonly{% endif %}
+                     class="slot-field{% if field.is_modified %} slot-field--modified{% endif %}"
+                     style="width:100%;padding:7px 10px;font-size:13px;
+                            border:1px solid var(--dash-border);border-radius:6px;
+                            background:var(--dash-bg);color:var(--dash-text);
+                            box-sizing:border-box;">
+              {% endif %}
+
+              <!-- Meta row: Default · badge · Reset -->
+              <div style="display:flex;align-items:center;gap:6px;font-size:11px;min-width:0;">
+                <span style="color:var(--dash-muted);font-weight:600;flex-shrink:0;">Default:</span>
+                <span style="color:var(--dash-muted);font-style:italic;
+                             overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;
+                             flex:1;">{{ field.default }}</span>
+                <span id="badge_{{ field.key }}"
+                      class="slot-badge {% if field.is_modified %}slot-badge--modified{% else %}slot-badge--default{% endif %}">
+                  {% if field.is_modified %}Modified{% else %}Using default{% endif %}
+                </span>
+                {% if is_owner %}
+                <button type="button" id="reset_{{ field.key }}" class="slot-reset-btn"
+                        data-target="slot_{{ field.key }}"
+                        style="{% if not field.is_modified %}display:none;{% endif %}">
+                  Reset
+                </button>
+                {% endif %}
+              </div>
+            </div>
+
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Card footer -->
+        {% if is_owner %}
+        <div style="padding:12px 20px;border-top:1px solid var(--dash-border);
+                    background:var(--dash-surface,#f8fafc);
+                    display:flex;align-items:center;gap:14px;">
+          <button type="submit" class="dash-action-btn dash-action-btn--primary"
+                  style="font-size:12px;padding:6px 16px;">
+            Save {{ group.label }}
+          </button>
+          <span style="font-size:11px;color:var(--dash-muted);">
+            Goes live on your public form right away
+          </span>
+        </div>
         {% endif %}
 
       </div>
-
-      <!-- Save (always visible) -->
-      <button type="submit" class="dash-action-btn dash-action-btn--primary"
-              style="font-size:12px;padding:6px 14px;">
-        Save
-      </button>
-
     </form>
-  </div>
-  {% endif %}{# is_owner — Email Delivery #}
+    {% endfor %}
+    {% endif %}{# override_slots_groups #}
 
-  {% if is_owner %}
-  <!-- ── Stripe Payment Collection ─────────────────────────────────────── -->
-  <div class="dash-card" style="padding:24px;margin-bottom:20px;">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-      <h2 style="font-size:15px;font-weight:700;margin:0;">Payment Collection (Stripe)</h2>
-      {% if school.app_fee_stripe_public_key %}
-      <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;
-                   background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;">Active</span>
-      {% else %}
-      <span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;
-                   background:var(--dash-surface,#f8fafc);color:var(--dash-muted);
-                   border:1px solid var(--dash-border);">Not configured</span>
-      {% endif %}
-    </div>
-    <p style="font-size:12px;color:var(--dash-muted);margin:0 0 20px;">
-      Connect your school's Stripe account to collect application fees directly.
-      Keys are in your <strong>Stripe Dashboard → Developers → API keys</strong>.
-    </p>
-
-    {# Fields form — button lives outside via form= attribute #}
-    <form id="stripe-save-form" method="post" action="{% url 'school_settings' school.slug %}">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="update_stripe">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;margin-bottom:18px;">
-
-        <div>
-          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-                        letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">
-            Publishable Key <span style="color:#dc2626;">*</span>
-          </label>
-          <input type="text" name="app_fee_stripe_public_key"
-                 value="{{ school.app_fee_stripe_public_key|default:'' }}"
-                 placeholder="pk_live_… or pk_test_…"
-                 style="width:100%;padding:6px 10px;font-size:13px;font-family:monospace;
-                        border:1px solid var(--dash-border);border-radius:6px;
-                        background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;">
-          <span style="display:block;font-size:11px;color:var(--dash-muted);margin-top:3px;">
-            Starts with <code>pk_live_</code> or <code>pk_test_</code>
-          </span>
-        </div>
-
-        <div>
-          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
-                        letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">
-            Secret Key
-          </label>
-          <input type="password" name="app_fee_stripe_secret_key" autocomplete="new-password"
-                 placeholder="{% if school.app_fee_stripe_secret_key %}Saved — leave blank to keep current key{% else %}sk_live_… or sk_test_…{% endif %}"
-                 style="width:100%;padding:6px 10px;font-size:13px;font-family:monospace;
-                        border:1px solid var(--dash-border);border-radius:6px;
-                        background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;">
-          <span style="display:block;font-size:11px;color:var(--dash-muted);margin-top:3px;">
-            Starts with <code>sk_live_</code> or <code>sk_test_</code>
-          </span>
-        </div>
-
-      </div>
-    </form>
-
-    {# Clear form — button lives in the shared row below via form= attribute #}
-    {% if school.app_fee_stripe_public_key %}
-    <form id="stripe-clear-form" method="post" action="{% url 'school_settings' school.slug %}">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="clear_stripe">
-    </form>
-    {% endif %}
-
-    {# Button row — both buttons are outside their forms, linked via form= #}
-    <div style="display:flex;gap:10px;align-items:center;">
-      <button type="submit" form="stripe-save-form"
-              class="dash-action-btn dash-action-btn--primary"
-              style="font-size:12px;padding:6px 14px;">
-        Save Keys
-      </button>
-      {% if school.app_fee_stripe_public_key %}
-      <button type="submit" form="stripe-clear-form"
-              class="dash-action-btn dash-action-btn--danger"
-              style="font-size:12px;padding:6px 14px;"
-              onclick="return confirm('Remove Stripe keys? Payment collection will be disabled.');">
-        Remove Keys
-      </button>
-      {% endif %}
-    </div>
-
-  </div>
-  {% endif %}{# is_owner — Stripe #}
+  </div>{# /forms panel #}
 
 </main>
 
 <script>
+// Form Content — dynamic badge + Reset
+(function() {
+  document.querySelectorAll('[data-slot-key]').forEach(function(el) {
+    var key         = el.getAttribute('data-slot-key');
+    var badge       = document.getElementById('badge_' + key);
+    var resetBtn    = document.getElementById('reset_' + key);
+    var yamlDefault = (el.getAttribute('data-default') || '').trim();
+    // value that was loaded from the server (DB override, or YAML default if none stored)
+    var serverValue = (el.getAttribute('data-server-value') || '').trim();
+
+    function refresh() {
+      var current          = el.value.trim();
+      var isDefault        = current === '' || current === yamlDefault;
+      var changedThisSession = current !== serverValue;
+
+      // blue border whenever the live value differs from the YAML default
+      el.classList.toggle('slot-field--modified', !isDefault);
+
+      // Three badge states:
+      //   Unsaved  (amber) — user changed something this session, not yet saved
+      //   Modified (blue)  — saved DB override loaded from server, user hasn't touched it
+      //   Using default (gray) — no stored override, no unsaved change
+      var badgeClass, badgeText;
+      if (changedThisSession) {
+        badgeClass = 'slot-badge slot-badge--unsaved';
+        badgeText  = 'Unsaved';
+      } else if (!isDefault) {
+        badgeClass = 'slot-badge slot-badge--modified';
+        badgeText  = 'Modified';
+      } else {
+        badgeClass = 'slot-badge slot-badge--default';
+        badgeText  = 'Using default';
+      }
+
+      if (badge) { badge.textContent = badgeText; badge.className = badgeClass; }
+      if (resetBtn) resetBtn.style.display = !isDefault ? '' : 'none';
+    }
+
+    el.addEventListener('input', refresh);
+
+    if (resetBtn) {
+      resetBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        el.value = yamlDefault; // restore default value so user sees what they reverted to
+        refresh();
+        el.focus();
+      });
+    }
+  });
+})();
+
 function toggleInactivePrograms(show) {
   document.querySelectorAll('tr[data-inactive]').forEach(function(row) {
     row.style.display = show ? '' : 'none';
@@ -929,5 +1155,34 @@ function smtpTest() {
       btn.disabled    = false;
     });
 }
+
+// Settings tab navigation
+(function() {
+  var nav = document.getElementById('settings-tab-nav');
+  if (!nav) return;
+  var activeTab = nav.getAttribute('data-active-tab') || 'general';
+
+  function activateTab(tabName) {
+    document.querySelectorAll('.settings-tab').forEach(function(btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === tabName);
+    });
+    document.querySelectorAll('.settings-panel').forEach(function(panel) {
+      panel.classList.toggle('active', panel.getAttribute('data-tab') === tabName);
+    });
+    if (window.history && window.history.replaceState) {
+      var url = new URL(window.location.href);
+      url.searchParams.set('tab', tabName);
+      window.history.replaceState(null, '', url.toString());
+    }
+  }
+
+  activateTab(activeTab);
+
+  document.querySelectorAll('.settings-tab').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      activateTab(btn.getAttribute('data-tab'));
+    });
+  });
+})();
 </script>
 {% endblock %}

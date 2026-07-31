@@ -68,6 +68,7 @@ def test_apply_success_view_404_when_no_config(client, monkeypatch):
     assert resp.status_code == 404
 
 
+@pytest.mark.django_db
 def test_apply_success_view_normalizes_next_steps_and_contact(client, monkeypatch):
     cfg = DummyConfig()
     cfg.display_name = "Configured School"
@@ -306,6 +307,7 @@ def test_apply_view_omits_x_frame_options_header(client, monkeypatch, db):
     )
 
 
+@pytest.mark.django_db
 def test_apply_success_view_omits_x_frame_options_header(client, monkeypatch):
     """apply_success_view must not set X-Frame-Options (post-submit redirect lands here)."""
     monkeypatch.setattr("core.views_public.load_school_config", lambda slug: DummyConfig())
@@ -343,6 +345,7 @@ def _cfg_without_scheduling():
     return cfg
 
 
+@pytest.mark.django_db
 def test_apply_success_view_passes_scheduling_url_to_context(client, monkeypatch):
     monkeypatch.setattr("core.views_public.load_school_config",
                         lambda _: _cfg_with_scheduling(label="Book a trial"))
@@ -352,6 +355,7 @@ def test_apply_success_view_passes_scheduling_url_to_context(client, monkeypatch
     assert resp.context["scheduling_label"] == "Book a trial"
 
 
+@pytest.mark.django_db
 def test_apply_success_view_renders_scheduling_button(client, monkeypatch):
     monkeypatch.setattr("core.views_public.load_school_config",
                         lambda _: _cfg_with_scheduling())
@@ -360,6 +364,7 @@ def test_apply_success_view_renders_scheduling_button(client, monkeypatch):
     assert b"Book a time" in resp.content
 
 
+@pytest.mark.django_db
 def test_apply_success_view_no_scheduling_button_when_not_configured(client, monkeypatch):
     monkeypatch.setattr("core.views_public.load_school_config",
                         lambda _: _cfg_without_scheduling())
@@ -390,6 +395,7 @@ def test_lead_success_view_no_scheduling_button_when_not_configured(client, monk
     assert b"calendly.com" not in resp.content
 
 
+@pytest.mark.django_db
 def test_apply_success_view_scheduling_label_defaults_to_book_a_time(client, monkeypatch):
     """When scheduling.label is absent, default label 'Book a time' is used."""
     monkeypatch.setattr("core.views_public.load_school_config",

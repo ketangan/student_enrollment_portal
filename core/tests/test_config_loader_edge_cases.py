@@ -8,6 +8,7 @@ contracts the system relies on and catch silent regressions.
 from __future__ import annotations
 
 import pytest
+from core.services.config_loader import SchoolConfig, apply_overrides
 from unittest.mock import patch
 
 from core.services.admin_submission_yaml import get_submission_status_choices
@@ -356,3 +357,222 @@ def test_fee_config_amount_from_field_resolved_correctly():
 
     cfg2 = get_application_fee_config(raw, "default", form_data={"lesson_time_status": "returning_student"})
     assert cfg2["amount"] == 75
+
+
+# ---------------------------------------------------------------------------
+# apply_overrides — slot substitution
+# ---------------------------------------------------------------------------
+
+def _make_config(raw: dict) -> SchoolConfig:
+    return SchoolConfig(raw=raw)
+
+
+def test_apply_overrides_no_override_slots_is_noop():
+    """YAML with no override_slots section → apply_overrides returns config unchanged."""
+    raw = {
+        "leads": {"redirect_url": "https://example.com/book"},
+        "success": {"message": "Thank you!"},
+    }
+    config = _make_config(raw)
+    result = apply_overrides(config, {})
+    assert result.raw["leads"]["redirect_url"] == "https://example.com/book"
+    assert result.raw["success"]["message"] == "Thank you!"
+
+
+def test_apply_overrides_no_db_overrides_uses_slot_defaults():
+    """Slots defined, no DB overrides → slot default values are substituted in YAML body."""
+    raw = {
+        "override_slots": {
+            "fees": {
+                "label": "Fees",
+                "fields": [
+                    {"key": "ret_fee", "label": "Returning Fee", "default": "$50", "type": "text"},
+                ],
+            }
+        },
+        "form": {
+            "sections": [{
+                "fields": [{
+                    "key": "fee_ack",
+                    "type": "auto_label",
+                    "options": [{"amount_display": "{{slot:ret_fee}}", "value": "ret"}],
+                }]
+            }]
+        },
+    }
+    config = _make_config(raw)
+    result = apply_overrides(config, {})
+    field = result.raw["form"]["sections"][0]["fields"][0]
+    assert field["options"][0]["amount_display"] == "$50"
+
+
+def test_apply_overrides_db_override_replaces_slot_default():
+    """When DB override is set, that value overrides the YAML default."""
+    raw = {
+        "override_slots": {
+            "fees": {
+                "label": "Fees",
+                "fields": [
+                    {"key": "ret_fee", "label": "Returning Fee", "default": "$50", "type": "text"},
+                ],
+            }
+        },
+        "form": {
+            "sections": [{
+                "fields": [{
+                    "key": "fee_ack",
+                    "type": "auto_label",
+                    "options": [{"amount_display": "{{slot:ret_fee}}", "value": "ret"}],
+                }]
+            }]
+        },
+    }
+    config = _make_config(raw)
+    result = apply_overrides(config, {"ret_fee": "$60"})
+    field = result.raw["form"]["sections"][0]["fields"][0]
+    assert field["options"][0]["amount_display"] == "$60"
+
+
+def test_apply_overrides_slot_embedded_in_longer_string():
+    """Slot reference mid-string: only the pattern is replaced, surrounding text preserved."""
+    raw = {
+        "override_slots": {
+            "fees": {
+                "label": "Fees",
+                "fields": [
+                    {"key": "fee_amt", "label": "Fee", "default": "$75", "type": "text"},
+                ],
+            }
+        },
+        "form": {
+            "sections": [{
+                "fields": [{
+                    "key": "fee_label",
+                    "label": "Annual fee of {{slot:fee_amt}} per student.",
+                }]
+            }]
+        },
+    }
+    config = _make_config(raw)
+    # With no DB override — default substituted
+    result = apply_overrides(config, {})
+    label = result.raw["form"]["sections"][0]["fields"][0]["label"]
+    assert label == "Annual fee of $75 per student."
+
+    # With DB override
+    result2 = apply_overrides(config, {"fee_amt": "$99"})
+    label2 = result2.raw["form"]["sections"][0]["fields"][0]["label"]
+    assert label2 == "Annual fee of $99 per student."
+
+
+def test_apply_overrides_unknown_db_key_is_ignored():
+    """DB overrides with keys not declared in override_slots are silently ignored — no crash, no leak."""
+    raw = {
+        "override_slots": {
+            "fees": {
+                "label": "Fees",
+                "fields": [
+                    {"key": "ret_fee", "label": "Fee", "default": "$50", "type": "text"},
+                ],
+            }
+        },
+        "leads": {"redirect_url": "https://example.com"},
+    }
+    config = _make_config(raw)
+    # "unknown_key" not in override_slots — must not appear anywhere in result
+    result = apply_overrides(config, {"ret_fee": "$55", "unknown_key": "INJECTED"})
+    assert "INJECTED" not in str(result.raw)
+    assert result.raw["leads"]["redirect_url"] == "https://example.com"
+
+
+def test_apply_overrides_substitutes_in_nested_list():
+    """Slot references inside nested list items (e.g. redirect_url_map) are resolved."""
+    raw = {
+        "override_slots": {
+            "urls": {
+                "label": "URLs",
+                "fields": [
+                    {"key": "url_piano", "label": "Piano URL", "default": "https://default.com/piano", "type": "url"},
+                ],
+            }
+        },
+        "leads": {
+            "redirect_url_map": {
+                "piano": "{{slot:url_piano}}",
+                "violin": "https://fixed.com/violin",
+            }
+        },
+    }
+    config = _make_config(raw)
+    # Default
+    result = apply_overrides(config, {})
+    assert result.raw["leads"]["redirect_url_map"]["piano"] == "https://default.com/piano"
+    assert result.raw["leads"]["redirect_url_map"]["violin"] == "https://fixed.com/violin"
+
+    # Override
+    result2 = apply_overrides(config, {"url_piano": "https://override.com/piano"})
+    assert result2.raw["leads"]["redirect_url_map"]["piano"] == "https://override.com/piano"
+
+
+def test_apply_overrides_does_not_mutate_original_config():
+    """apply_overrides must return a NEW SchoolConfig; original raw dict is unchanged."""
+    raw = {
+        "override_slots": {
+            "fees": {
+                "label": "Fees",
+                "fields": [
+                    {"key": "ret_fee", "label": "Fee", "default": "$50", "type": "text"},
+                ],
+            }
+        },
+        "form": {
+            "sections": [{
+                "fields": [{"key": "f", "amount_display": "{{slot:ret_fee}}"}]
+            }]
+        },
+    }
+    config = _make_config(raw)
+    original_value = config.raw["form"]["sections"][0]["fields"][0]["amount_display"]
+
+    apply_overrides(config, {"ret_fee": "$99"})
+
+    # Original must be untouched
+    assert config.raw["form"]["sections"][0]["fields"][0]["amount_display"] == original_value
+    assert "{{slot:ret_fee}}" in original_value
+
+
+def test_apply_overrides_none_db_overrides_treated_as_empty():
+    """Passing None as db_overrides (defensive) falls back to slot defaults, no crash."""
+    raw = {
+        "override_slots": {
+            "fees": {
+                "label": "Fees",
+                "fields": [
+                    {"key": "ret_fee", "label": "Fee", "default": "$50", "type": "text"},
+                ],
+            }
+        },
+        "form": {"sections": [{"fields": [{"key": "f", "amount_display": "{{slot:ret_fee}}"}]}]},
+    }
+    config = _make_config(raw)
+    result = apply_overrides(config, None)
+    assert result.raw["form"]["sections"][0]["fields"][0]["amount_display"] == "$50"
+
+
+def test_override_slots_property_returns_dict():
+    """SchoolConfig.override_slots returns the raw override_slots section."""
+    raw = {
+        "override_slots": {
+            "fees": {"label": "Fees", "fields": [{"key": "x", "default": "1"}]},
+        }
+    }
+    config = _make_config(raw)
+    slots = config.override_slots
+    assert isinstance(slots, dict)
+    assert "fees" in slots
+
+
+def test_override_slots_property_empty_when_not_defined():
+    """SchoolConfig.override_slots returns {} when YAML has no override_slots section."""
+    config = _make_config({"form": {}})
+    assert config.override_slots == {}

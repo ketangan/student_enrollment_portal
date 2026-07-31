@@ -1,5 +1,70 @@
 schema_version: "1.0"
 
+# override_slots declares which leaf values school admins can change via Settings → Form Content.
+# Keys must match {{slot:key}} references used in the YAML body below.
+# The default values here ARE the live values — only change them here if you want to
+# change what a school admin sees as their "Pontora default".
+override_slots:
+  fees:
+    label: "Registration Fees"
+    description: "Dollar amounts shown on enrollment and lead forms"
+    fields:
+      - key: new_student_fee
+        label: "New Student Fee"
+        hint: "Shown when applicant selects 'New student' on the enrollment form"
+        default: "$125"
+        type: text
+      - key: ret_student_fee
+        label: "Returning Student Fee"
+        hint: "Shown when applicant selects 'Returning student' on the enrollment form"
+        default: "$50"
+        type: text
+      - key: trial_lesson_fee
+        label: "Trial Lesson Fee"
+        hint: "Shown in the 'Book a Trial Lesson' form description"
+        default: "$30"
+        type: text
+
+  booking_urls:
+    label: "Booking URLs"
+    description: "Where leads are sent after submitting the trial lesson form"
+    fields:
+      - key: booking_url_default
+        label: "Default Booking URL"
+        hint: "Used when no instrument-specific URL matches"
+        default: "https://studio.makemusic.app/@southbaymusicconservatory/book/appointments"
+        type: url
+      - key: booking_url_piano
+        label: "Piano URL"
+        hint: "Leads selecting Piano are sent here"
+        default: "https://studio.makemusic.app/@southbaymusicconservatory/book/appointments/da4adf18-37fa-11f0-bba8-8b81bc8b90b7?staff="
+        type: url
+      - key: booking_url_violin
+        label: "Violin URL"
+        hint: "Leads selecting Violin are sent here"
+        default: "https://studio.makemusic.app/@southbaymusicconservatory/book/appointments/a07707bc-3665-11f0-9e33-8f8cd70f9854?staff="
+        type: url
+      - key: booking_url_viola
+        label: "Viola URL"
+        hint: "Leads selecting Viola are sent here"
+        default: "https://studio.makemusic.app/@southbaymusicconservatory/book/appointments/d553c0f2-4d84-11f0-b29b-ef5d2665792c?staff="
+        type: url
+      - key: booking_url_cello
+        label: "Cello URL"
+        hint: "Leads selecting Cello are sent here"
+        default: "https://studio.makemusic.app/@southbaymusicconservatory/book/appointments/ea113b00-7c82-11f0-ac33-b7f9d14c4047?staff="
+        type: url
+
+  messages:
+    label: "Messages & Labels"
+    description: "Text shown on your forms and confirmation screens"
+    fields:
+      - key: enrollment_success_message
+        label: "Enrollment success message"
+        hint: "Shown after the enrollment form is submitted"
+        default: "Thank you — we've received your registration for South Bay Music Conservatory. We'll be in touch within 1–2 business days to confirm your lesson schedule and next steps."
+        type: textarea
+
 school:
   slug: "south-bay-music"
   display_name: "South Bay Music Conservatory"
@@ -267,16 +332,16 @@ form:
           source_field: lesson_time_status
           default_text: "Select your enrollment type above to see the applicable fee."
           options:
-            - label: "A Conservatory Assessment & Placement Fee of $125 will be charged by SBMC via Studio. For each additional student or instrument: $50. This fee is non-refundable and non-transferable."
+            - label: "A Conservatory Assessment & Placement Fee of {{slot:new_student_fee}} will be charged by SBMC via Studio. For each additional student or instrument: $50. This fee is non-refundable and non-transferable."
               value: new_student_fee
               source_value: new_student
-              amount_display: "$125"
+              amount_display: "{{slot:new_student_fee}}"
               amount_label: "Conservatory Assessment & Placement Fee"
               type_label: "New Student Fee"
-            - label: "An Annual Conservatory Registration Fee of $50 per student will be charged by SBMC via Studio. For each additional student or instrument: $25. This fee is non-refundable and non-transferable."
+            - label: "An Annual Conservatory Registration Fee of {{slot:ret_student_fee}} per student will be charged by SBMC via Studio. For each additional student or instrument: $25. This fee is non-refundable and non-transferable."
               value: returning_student_fee
               source_value: returning_student
-              amount_display: "$50"
+              amount_display: "{{slot:ret_student_fee}}"
               amount_label: "Annual Conservatory Registration Fee"
               type_label: "Returning Student Fee"
 
@@ -325,9 +390,7 @@ application_fee:
 
 success:
   title: "Registration Received!"
-  message: >
-    Thank you — we've received your registration for South Bay Music Conservatory.
-    We'll be in touch within 1–2 business days to confirm your lesson schedule and next steps.
+  message: "{{slot:enrollment_success_message}}"
   response_time: "1–2 business days"
   next_steps:
     - "We'll review your registration and confirm your lesson schedule."
@@ -423,9 +486,7 @@ admin:
 
 leads:
   form_title: "Book a Trial Lesson"
-  form_description: >
-    Fill out this quick form and we'll redirect you to schedule your 30-minute trial lesson ($30) on our booking system.
-    A spot is not confirmed until you complete scheduling.
+  form_description: "Fill out this quick form and we'll redirect you to schedule your 30-minute trial lesson ({{slot:trial_lesson_fee}}) on our booking system. A spot is not confirmed until you complete scheduling."
   cta_text: "Continue to Scheduling →"
   success_message: "We've received your information — we look forward to meeting you at your trial lesson!"
   confirmation_enabled: true
@@ -433,13 +494,13 @@ leads:
   phone_required: true
   hide_program_field: true
   name_field_key: "student_name"
-  redirect_url: "https://studio.makemusic.app/@southbaymusicconservatory/book/appointments"
+  redirect_url: "{{slot:booking_url_default}}"
   redirect_url_field: "instrument"
   redirect_url_map:
-    piano: "https://studio.makemusic.app/@southbaymusicconservatory/book/appointments/da4adf18-37fa-11f0-bba8-8b81bc8b90b7?staff="
-    violin: "https://studio.makemusic.app/@southbaymusicconservatory/book/appointments/a07707bc-3665-11f0-9e33-8f8cd70f9854?staff="
-    viola: "https://studio.makemusic.app/@southbaymusicconservatory/book/appointments/d553c0f2-4d84-11f0-b29b-ef5d2665792c?staff="
-    cello: "https://studio.makemusic.app/@southbaymusicconservatory/book/appointments/ea113b00-7c82-11f0-ac33-b7f9d14c4047?staff="
+    piano: "{{slot:booking_url_piano}}"
+    violin: "{{slot:booking_url_violin}}"
+    viola: "{{slot:booking_url_viola}}"
+    cello: "{{slot:booking_url_cello}}"
 
   fields:
     - key: student_name
