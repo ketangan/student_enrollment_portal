@@ -215,6 +215,22 @@ def _safe_load_school_config(school_slug: str):
         return None
 
 
+class TrialExpiredError(Exception):
+    """Raised when a non-superuser tries to access a school admin view on an expired trial."""
+    def __init__(self, school_slug: str):
+        self.school_slug = school_slug
+        super().__init__(f"Trial expired: {school_slug}")
+
+
+# Billing views must remain accessible on an expired trial so the owner can upgrade.
+# These URL names are exempt from the trial-expiry gate in _get_accessible_school_for_admin.
+_TRIAL_EXPIRY_EXEMPT = frozenset({
+    "school_billing",
+    "school_billing_checkout",
+    "school_billing_portal",
+})
+
+
 def _get_accessible_school_for_admin(request, school_slug: str) -> School:
     """
     Shared access gate for all school-admin views.
@@ -222,6 +238,10 @@ def _get_accessible_school_for_admin(request, school_slug: str) -> School:
     1. Fetch School by slug — Http404 if missing.
     2. Enforce _can_view_school_admin_page — Http404 if denied.
     3. Block inactive school unless caller is superuser — Http404 if blocked.
+    4. Block expired trial unless caller is superuser, school is a demo, or the
+       current URL is a billing view (so the owner can upgrade). Raises
+       TrialExpiredError; SchoolAdminRedirectMiddleware catches it and redirects
+       to the billing page with a flash message.
 
     Returns the School object on success.  Do not weaken these checks.
     """
@@ -230,6 +250,14 @@ def _get_accessible_school_for_admin(request, school_slug: str) -> School:
         raise Http404("Page not found")
     if not school.is_active and not request.user.is_superuser:
         raise Http404("School not found")
+    if (
+        not request.user.is_superuser
+        and not school.is_demo
+        and school.is_trial_expired
+    ):
+        url_name = getattr(getattr(request, "resolver_match", None), "url_name", "")
+        if url_name not in _TRIAL_EXPIRY_EXEMPT:
+            raise TrialExpiredError(school.slug)
     return school
 
 

@@ -51,3 +51,15 @@ class SchoolAdminRedirectMiddleware:
                 )
 
         return self.get_response(request)
+
+    def process_exception(self, request, exception):
+        from core.views_school_common import TrialExpiredError
+        if isinstance(exception, TrialExpiredError):
+            from django.contrib import messages
+            messages.error(
+                request,
+                "Your free trial has expired. Please upgrade your plan to continue.",
+            )
+            return redirect(
+                reverse("school_billing", kwargs={"school_slug": exception.school_slug})
+            )

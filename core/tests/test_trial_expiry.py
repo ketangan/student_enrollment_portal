@@ -531,6 +531,126 @@ def test_school_save_non_trial_does_not_set_trial_started_at():
 # Admin write paths — expired trial enforcement
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# School admin portal — C1: trial gate on _get_accessible_school_for_admin
+# ---------------------------------------------------------------------------
+
+def _expired_school_with_owner(client):
+    """Expired trial school + logged-in owner. Returns (school, user)."""
+    school = _trial_school(days_ago=TRIAL_LENGTH_DAYS + 5)
+    school.is_active = True
+    school.save()
+    membership = SchoolAdminMembershipFactory(school=school)
+    client.force_login(membership.user)
+    return school, membership.user
+
+
+@pytest.mark.django_db
+def test_expired_trial_blocks_dashboard(client):
+    school, _ = _expired_school_with_owner(client)
+    url = reverse("school_dashboard", kwargs={"school_slug": school.slug})
+    resp = client.get(url, follow=False)
+    assert resp.status_code == 302
+    assert reverse("school_billing", kwargs={"school_slug": school.slug}) in resp["Location"]
+
+
+@pytest.mark.django_db
+def test_expired_trial_flash_message_shown(client):
+    school, _ = _expired_school_with_owner(client)
+    url = reverse("school_dashboard", kwargs={"school_slug": school.slug})
+    resp = client.get(url, follow=True)
+    msgs = [str(m) for m in resp.context["messages"]]
+    assert any("expired" in m.lower() or "trial" in m.lower() for m in msgs)
+
+
+@pytest.mark.django_db
+def test_expired_trial_blocks_submissions(client):
+    school, _ = _expired_school_with_owner(client)
+    url = reverse("school_submissions", kwargs={"school_slug": school.slug})
+    resp = client.get(url, follow=False)
+    assert resp.status_code == 302
+    assert "billing" in resp["Location"]
+
+
+@pytest.mark.django_db
+def test_expired_trial_billing_view_accessible(client):
+    """Billing page must render for expired trial — no redirect loop."""
+    school, _ = _expired_school_with_owner(client)
+    url = reverse("school_billing", kwargs={"school_slug": school.slug})
+    resp = client.get(url, follow=False)
+    # Must NOT redirect back to billing itself
+    assert resp.status_code == 200
+
+
+@pytest.mark.django_db
+def test_expired_trial_billing_checkout_not_looping(client):
+    """Checkout view must not trigger the trial gate (which would loop back to billing)."""
+    school, _ = _expired_school_with_owner(client)
+    billing_url = reverse("school_billing", kwargs={"school_slug": school.slug})
+    checkout_url = reverse("school_billing_checkout", kwargs={"school_slug": school.slug})
+    # follow=True: if there were a loop we'd end up in infinite redirects; Django caps at 20.
+    # The chain is checkout → (maybe) billing → billing renders 200. That's fine.
+    resp = client.post(checkout_url, follow=True)
+    # Key invariant: final URL is not stuck in a redirect cycle. Verify by checking
+    # that the redirect chain doesn't revisit the billing URL more than once.
+    redirect_urls = [r[0] for r in resp.redirect_chain]
+    billing_hits = sum(1 for u in redirect_urls if billing_url in u)
+    assert billing_hits <= 1
+
+
+@pytest.mark.django_db
+def test_active_trial_dashboard_accessible(client):
+    """An active (non-expired) trial must NOT be blocked."""
+    school = _trial_school(days_ago=5)
+    school.is_active = True
+    school.save()
+    membership = SchoolAdminMembershipFactory(school=school)
+    client.force_login(membership.user)
+    url = reverse("school_dashboard", kwargs={"school_slug": school.slug})
+    resp = client.get(url)
+    assert resp.status_code == 200
+
+
+@pytest.mark.django_db
+def test_paid_school_dashboard_accessible(client):
+    """Paid schools are never blocked (is_trial_expired returns False immediately)."""
+    school = _paid_school()
+    school.is_active = True
+    school.save()
+    membership = SchoolAdminMembershipFactory(school=school)
+    client.force_login(membership.user)
+    url = reverse("school_dashboard", kwargs={"school_slug": school.slug})
+    resp = client.get(url)
+    assert resp.status_code == 200
+
+
+@pytest.mark.django_db
+def test_superuser_bypasses_expired_trial_gate(client, django_user_model):
+    """Superusers always have access regardless of trial status."""
+    school = _trial_school(days_ago=TRIAL_LENGTH_DAYS + 5)
+    school.is_active = True
+    school.save()
+    su = django_user_model.objects.create_superuser("su_c1_test", "su@test.com", "password")
+    client.force_login(su)
+    url = reverse("school_dashboard", kwargs={"school_slug": school.slug})
+    resp = client.get(url)
+    assert resp.status_code == 200
+
+
+@pytest.mark.django_db
+def test_demo_school_bypasses_expired_trial_gate(client):
+    """Demo schools (is_demo=True) are never blocked by trial expiry."""
+    school = _trial_school(days_ago=TRIAL_LENGTH_DAYS + 5)
+    school.is_active = True
+    school.is_demo = True
+    school.save()
+    membership = SchoolAdminMembershipFactory(school=school)
+    client.force_login(membership.user)
+    url = reverse("school_dashboard", kwargs={"school_slug": school.slug})
+    resp = client.get(url)
+    assert resp.status_code == 200
+
+
 @pytest.mark.django_db
 def test_admin_quick_add_lead_blocked_for_expired_trial(client):
     """quick_add_view must not create a Lead when the school's trial has expired."""
