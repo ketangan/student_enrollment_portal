@@ -175,6 +175,44 @@ def test_convert_reuses_existing_user(demo_school, demo_admin, ops_user):
 
 
 @pytest.mark.django_db
+def test_convert_multi_school_user_does_not_crash(demo_school, ops_user):
+    """
+    Regression: convert_demo_to_customer crashed with MultipleObjectsReturned when the
+    admin_email belonged to a user who already had memberships at 2+ other schools.
+    Phase 23 changed SchoolAdminMembership from OneToOneField to ForeignKey, making
+    multi-school users possible; the old .get(user=user) was never updated.
+    """
+    other_school_a = School.objects.create(slug="other-a", display_name="Other A", is_active=True)
+    other_school_b = School.objects.create(slug="other-b", display_name="Other B", is_active=True)
+    multi_school_user = User.objects.create_user(
+        username="multi", email="multi@customer.com", is_staff=True
+    )
+    SchoolAdminMembership.objects.create(user=multi_school_user, school=other_school_a)
+    SchoolAdminMembership.objects.create(user=multi_school_user, school=other_school_b)
+
+    # Must not raise MultipleObjectsReturned
+    result = convert_demo_to_customer(
+        school=demo_school,
+        plan="starter",
+        trial_days=None,
+        admin_email="multi@customer.com",
+        admin_first_name="Multi",
+        admin_last_name="User",
+        delete_submissions=False,
+        delete_leads=False,
+        actor=ops_user,
+    )
+
+    assert not result["user_created"]
+    assert result["user"].pk == multi_school_user.pk
+    # New membership created at the converted school
+    assert SchoolAdminMembership.objects.filter(user=multi_school_user, school=demo_school).exists()
+    # Existing memberships at other schools are untouched
+    assert SchoolAdminMembership.objects.filter(user=multi_school_user, school=other_school_a).exists()
+    assert SchoolAdminMembership.objects.filter(user=multi_school_user, school=other_school_b).exists()
+
+
+@pytest.mark.django_db
 def test_convert_removes_demo_admin_membership(demo_school, demo_admin, ops_user):
     assert SchoolAdminMembership.objects.filter(school=demo_school).exists()
     convert_demo_to_customer(

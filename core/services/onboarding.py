@@ -129,13 +129,9 @@ def convert_demo_to_customer(
             )
             user_created = True
 
-        # Assign membership — replace any previous school assignment
-        try:
-            membership = SchoolAdminMembership.objects.get(user=user)
-            membership.school = school
-            membership.save(update_fields=["school"])
-        except SchoolAdminMembership.DoesNotExist:
-            SchoolAdminMembership.objects.create(user=user, school=school)
+        # All memberships at this school were wiped above (step 4).
+        # Create a fresh owner membership; do not touch the user's other school memberships.
+        SchoolAdminMembership.objects.create(user=user, school=school)
 
         # 6. Update the school record
         school.is_demo = False
