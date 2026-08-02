@@ -1073,12 +1073,22 @@ def school_billing_checkout_view(request, school_slug: str):
         messages.error(request, "Billing is not configured.")
         return redirect(billing_url)
 
+    # Guard 1: manually-managed plans cannot self-serve via Stripe checkout.
+    if school.plan in ff.MANUALLY_MANAGED_PLANS:
+        messages.error(request, "Your plan is managed by Pontora. Contact us to make changes.")
+        return redirect(billing_url)
+
     price_id = request.POST.get("price_id", "").strip()
     if not price_id:
         messages.error(request, "Missing price selection.")
         return redirect(billing_url)
 
-    valid_price_ids = {opt["price_id"] for opt in get_pricing_options()}
+    # Guard 2: exclude manually-managed price IDs from the valid set so they cannot
+    # be selected by any school, regardless of their current plan.
+    valid_price_ids = {
+        opt["price_id"] for opt in get_pricing_options()
+        if opt["plan"] not in ff.MANUALLY_MANAGED_PLANS
+    }
     if price_id not in valid_price_ids:
         messages.error(request, "Invalid price selection.")
         return redirect(billing_url)
@@ -1114,6 +1124,11 @@ def school_billing_portal_view(request, school_slug: str):
     require_school_role(request, school, "owner")
     from core.services.url_builder import app_reverse
     billing_url = app_reverse("school_billing", kwargs={"school_slug": school_slug})
+
+    if school.plan in ff.MANUALLY_MANAGED_PLANS:
+        messages.error(request, "Your plan is managed by Pontora. Contact us to make changes.")
+        return redirect(billing_url)
+
     portal_url = create_portal_session(school=school, return_url=billing_url)
     if not portal_url:
         messages.error(request, "Could not open billing portal. Please try again.")

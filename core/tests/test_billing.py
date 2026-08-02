@@ -1352,3 +1352,111 @@ class TestExpiredTrialUpgradeFlow:
         resp = client.get(url)
         assert resp.status_code == 200
         assert b"upgrade" not in resp.content.lower()
+
+
+# ---------------------------------------------------------------------------
+# School admin billing — C3: manually-managed plan guards
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestSchoolBillingCheckoutGuards:
+    """C3: custom (operator-managed) plans must not be self-served via Stripe."""
+
+    _STANDARD_PRICE_ID = "price_starter_monthly"
+    _CUSTOM_PRICE_ID = "price_custom_abc"
+
+    def _pricing(self):
+        return [
+            {
+                "price_id": self._STANDARD_PRICE_ID,
+                "plan": "starter",
+                "id": "starter_monthly",
+                "name": "Starter",
+                "amount": "$49/mo",
+                "interval": "month",
+            },
+            {
+                "price_id": self._CUSTOM_PRICE_ID,
+                "plan": "custom",
+                "id": "custom_monthly",
+                "name": "Custom",
+                "amount": "$24.99/mo",
+                "interval": "month",
+            },
+        ]
+
+    def _checkout_url(self, school):
+        return reverse("school_billing_checkout", kwargs={"school_slug": school.slug})
+
+    def _portal_url(self, school):
+        return reverse("school_billing_portal", kwargs={"school_slug": school.slug})
+
+    # ── Guard 1: custom plan → checkout is blocked ────────────────────────────
+
+    def test_custom_plan_checkout_is_blocked(self, client):
+        """A school on the custom plan cannot initiate a Stripe checkout."""
+        school = SchoolFactory(plan="custom")
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        with patch("core.services.billing_stripe.is_stripe_configured", return_value=True), \
+             patch("core.services.billing_stripe.create_checkout_session") as mock_checkout:
+            resp = client.post(self._checkout_url(school), {"price_id": self._STANDARD_PRICE_ID})
+        assert resp.status_code == 302
+        assert "billing" in resp.url
+        mock_checkout.assert_not_called()
+
+    # ── Guard 2: any plan + custom price_id → checkout is blocked ────────────
+
+    def test_standard_plan_custom_price_id_is_rejected(self, client):
+        """A standard-plan school posting a custom price_id must be blocked."""
+        school = SchoolFactory(plan="starter")
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        with patch("core.services.billing_stripe.is_stripe_configured", return_value=True), \
+             patch("core.services.billing_stripe.get_pricing_options", return_value=self._pricing()), \
+             patch("core.services.billing_stripe.create_checkout_session") as mock_checkout:
+            resp = client.post(self._checkout_url(school), {"price_id": self._CUSTOM_PRICE_ID})
+        assert resp.status_code == 302
+        assert "billing" in resp.url
+        mock_checkout.assert_not_called()
+
+    # ── Pass-through: standard plan + standard price_id → reaches Stripe ─────
+
+    def test_standard_plan_standard_price_id_reaches_stripe(self, client):
+        """The happy path: a non-managed plan with a valid price_id creates a checkout session."""
+        school = SchoolFactory(plan="starter")
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        with patch("core.services.billing_stripe.is_stripe_configured", return_value=True), \
+             patch("core.services.billing_stripe.get_pricing_options", return_value=self._pricing()), \
+             patch("core.services.billing_stripe.create_checkout_session", return_value="https://checkout.stripe.com/ok") as mock_checkout:
+            resp = client.post(self._checkout_url(school), {"price_id": self._STANDARD_PRICE_ID})
+        assert resp.status_code == 302
+        assert "checkout.stripe.com" in resp.url
+        mock_checkout.assert_called_once()
+
+    # ── Guard 1 (portal): custom plan → portal is blocked ────────────────────
+
+    def test_custom_plan_portal_is_blocked(self, client):
+        """A school on the custom plan cannot open the Stripe billing portal."""
+        school = SchoolFactory(plan="custom", stripe_customer_id="cus_test")
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        with patch("core.services.billing_stripe.create_portal_session") as mock_portal:
+            resp = client.post(self._portal_url(school))
+        assert resp.status_code == 302
+        assert "billing" in resp.url
+        mock_portal.assert_not_called()
+
+    # ── Pass-through (portal): standard plan → portal proceeds ───────────────
+
+    def test_standard_plan_portal_reaches_stripe(self, client):
+        """A non-managed plan can open the billing portal."""
+        school = SchoolFactory(plan="starter", stripe_customer_id="cus_test")
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        with patch("core.services.billing_stripe.create_portal_session", return_value="https://billing.stripe.com/portal"):
+            resp = client.post(self._portal_url(school))
+        assert resp.status_code == 302
+        assert "billing.stripe.com" in resp.url

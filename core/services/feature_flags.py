@@ -21,6 +21,10 @@ PLAN_RANK: dict[str, int] = {
 
 ALL_PLANS = list(PLAN_RANK.keys())
 
+# Plans that are manually assigned by operators and must not be self-served via Stripe checkout.
+# Add new operator-managed plans here; both the checkout and portal guards derive from this set.
+MANUALLY_MANAGED_PLANS = frozenset({PLAN_CUSTOM})
+
 PLAN_CHOICES = [
     (PLAN_TRIAL, "Trial"),
     (PLAN_STARTER, "Starter"),
