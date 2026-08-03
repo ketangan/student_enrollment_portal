@@ -614,9 +614,10 @@ def school_settings_view(request, school_slug: str):
         )
         if smtp_host:
             messages.success(request, f"SMTP settings saved — emails will route via {smtp_host}.")
+            return redirect(_settings_url(school_slug, "email") + "&smtp_saved=1")
         else:
             messages.success(request, "SMTP settings cleared — using default email service.")
-        return redirect(_settings_url(school_slug, "email"))
+            return redirect(_settings_url(school_slug, "email"))
 
     if request.method == "POST" and request.POST.get("action") == "clear_smtp":
         require_school_role(request, school, "owner")

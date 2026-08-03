@@ -1262,6 +1262,40 @@ def test_settings_smtp_invalid_port_rejected(client):
 
 
 @pytest.mark.django_db
+def test_smtp_save_with_host_includes_smtp_saved_flag(client):
+    """Saving SMTP settings with a host redirects with ?smtp_saved=1 so JS auto-triggers the test."""
+    school = _sbmc_school()
+    user = _owner(school)
+    client.force_login(user)
+
+    resp = client.post(_settings_url(school), {
+        "action": "update_smtp",
+        "smtp_host": "smtp.example.com",
+        "smtp_port": "587",
+        "smtp_username": "user@example.com",
+        "smtp_password": "secret",
+        "smtp_from_email": "noreply@example.com",
+        "smtp_use_tls": "1",
+    })
+    assert resp.status_code == 302
+    assert "smtp_saved=1" in resp["Location"]
+
+
+@pytest.mark.django_db
+def test_smtp_clear_does_not_include_smtp_saved_flag(client):
+    """Clearing SMTP settings does not set smtp_saved=1 — no test needed when disabling."""
+    school = _sbmc_school()
+    school.smtp_host = "smtp.example.com"
+    school.save(update_fields=["smtp_host"])
+    user = _owner(school)
+    client.force_login(user)
+
+    resp = client.post(_settings_url(school), {"action": "clear_smtp"})
+    assert resp.status_code == 302
+    assert "smtp_saved=1" not in resp["Location"]
+
+
+@pytest.mark.django_db
 def test_settings_stripe_owner_can_save(client):
     """Owner can save Stripe keys."""
     school = _sbmc_school()

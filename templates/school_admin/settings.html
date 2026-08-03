@@ -1156,6 +1156,11 @@ function smtpTest() {
     });
 }
 
+// Auto-run SMTP test after save (smtp_saved=1 in query string)
+if (new URLSearchParams(window.location.search).get('smtp_saved') === '1') {
+  smtpTest();
+}
+
 // Settings tab navigation
 (function() {
   var nav = document.getElementById('settings-tab-nav');
