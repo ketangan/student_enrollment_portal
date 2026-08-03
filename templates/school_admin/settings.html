@@ -27,6 +27,10 @@
                      transition:color .12s, border-color .12s; white-space:nowrap; }
     .settings-tab:hover { color:var(--dash-text); }
     .settings-tab.active { color:var(--dash-primary); border-bottom-color:var(--dash-primary); font-weight:600; }
+    @media (max-width: 600px) {
+      .settings-tabs { overflow-x:auto; -webkit-overflow-scrolling:touch; flex-wrap:nowrap; }
+      .settings-tab  { padding:10px 14px; flex-shrink:0; }
+    }
     /* Tab panels */
     .settings-panel { display:none; }
     .settings-panel.active { display:block; }
@@ -74,7 +78,7 @@
 
       {# Editable fields — owner only; editors see read-only values #}
       {% if is_owner %}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:680px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;max-width:680px;">
 
         <!-- Display name -->
         <form method="post" action="{% url 'school_settings' school.slug %}">
@@ -370,7 +374,7 @@
         <!-- Custom SMTP fields (shown in Custom mode) -->
         <div id="smtp-fields" style="{% if not school.smtp_host %}display:none;{% endif %}">
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;margin-bottom:18px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px 24px;margin-bottom:18px;">
 
             <div>
               <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
@@ -752,7 +756,7 @@
       <form id="stripe-save-form" method="post" action="{% url 'school_settings' school.slug %}">
         {% csrf_token %}
         <input type="hidden" name="action" value="update_stripe">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;margin-bottom:18px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px 24px;margin-bottom:18px;">
 
           <div>
             <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
@@ -1013,6 +1017,13 @@
     </form>
     {% endfor %}
     {% endif %}{# override_slots_groups #}
+
+    {% if not program_field_key and not override_slots_groups %}
+    <div class="dash-card" style="padding:48px 24px;text-align:center;">
+      <p style="margin:0 0 6px;font-size:14px;font-weight:600;color:var(--dash-text);">No form settings yet</p>
+      <p style="margin:0;font-size:13px;color:var(--dash-muted);">Program management and form content overrides will appear here once configured for your school.</p>
+    </div>
+    {% endif %}
 
   </div>{# /forms panel #}
 

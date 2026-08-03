@@ -1022,6 +1022,29 @@ body.dash-midnight .dash-select {
   .dash-table td {
     padding: 9px 8px;
   }
+
+  /* Allow tables to exceed container width so overflow-x:auto can scroll.
+     Without this, width:100% forces columns to squish instead of scrolling. */
+  .dash-table {
+    width: auto;
+    min-width: 100%;
+  }
+
+  /* Shrink KPI icon + label so "Overdue / Needs Follow-Up" fits in 2 lines
+     rather than 3 inside the 2-col grid at 390px. */
+  .dash-kpi-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+  }
+  .dash-kpi-icon svg {
+    width: 14px;
+    height: 14px;
+  }
+  .dash-kpi-label {
+    font-size: 10px;
+    letter-spacing: .03em;
+  }
 }
 
 @media (max-width: 480px) {
