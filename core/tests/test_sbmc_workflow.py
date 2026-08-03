@@ -1364,6 +1364,134 @@ def test_settings_stripe_viewer_blocked(client):
 
 
 # ===========================================================================
+# 9b. Reactive SMTP failure alert
+# ===========================================================================
+
+@pytest.mark.django_db
+def test_smtp_failure_alert_sent_to_owner_on_failure(settings):
+    """_alert_smtp_failure sends an alert email to school owners via global Resend."""
+    from django.core import mail
+    from django.core.cache import cache
+    from core.services.notifications import _alert_smtp_failure
+
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+
+    school = _sbmc_school()
+    cache.delete(f"smtp_failure_alert:{school.pk}")
+    school.smtp_host = "smtp.broken.com"
+    school.save(update_fields=["smtp_host"])
+    user = _owner(school)
+    user.email = "owner@example.com"
+    user.save(update_fields=["email"])
+
+    _alert_smtp_failure(school)
+
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].to == ["owner@example.com"]
+    assert "smtp.broken.com" in mail.outbox[0].body
+    assert "Action needed" in mail.outbox[0].subject
+
+
+@pytest.mark.django_db
+def test_smtp_failure_alert_not_fired_when_no_smtp_host(settings):
+    """_alert_smtp_failure is silent when the school uses Resend (no smtp_host set)."""
+    from django.core import mail
+    from core.services.notifications import _alert_smtp_failure
+
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+
+    school = _sbmc_school()
+    school.smtp_host = ""
+    school.save(update_fields=["smtp_host"])
+
+    _alert_smtp_failure(school)
+
+    assert len(mail.outbox) == 0
+
+
+@pytest.mark.django_db
+def test_smtp_failure_alert_rate_limited_to_once_per_24h(settings):
+    """Second call within 24 h does not send a second alert."""
+    from django.core import mail
+    from django.core.cache import cache
+    from core.services.notifications import _alert_smtp_failure
+
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+
+    school = _sbmc_school()
+    cache.delete(f"smtp_failure_alert:{school.pk}")
+    school.smtp_host = "smtp.broken.com"
+    school.save(update_fields=["smtp_host"])
+    user = _owner(school)
+    user.email = "owner@example.com"
+    user.save(update_fields=["email"])
+
+    _alert_smtp_failure(school)
+    _alert_smtp_failure(school)  # second call — should be suppressed
+
+    assert len(mail.outbox) == 1
+
+
+@pytest.mark.django_db
+def test_smtp_failure_alert_silent_when_no_owner_email(settings):
+    """_alert_smtp_failure does nothing if the owner has no email address."""
+    from django.core import mail
+    from django.core.cache import cache
+    from core.services.notifications import _alert_smtp_failure
+
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+
+    school = _sbmc_school()
+    cache.delete(f"smtp_failure_alert:{school.pk}")
+    school.smtp_host = "smtp.broken.com"
+    school.save(update_fields=["smtp_host"])
+    user = _owner(school)
+    user.email = ""
+    user.save(update_fields=["email"])
+
+    _alert_smtp_failure(school)
+
+    assert len(mail.outbox) == 0
+
+
+@pytest.mark.django_db
+def test_smtp_failure_alert_triggered_by_real_send_failure(settings):
+    """When send_submission_notification_email fails with school SMTP, alert fires."""
+    from unittest.mock import patch
+    from django.core import mail
+    from django.core.cache import cache
+    from core.services.notifications import send_submission_notification_email
+
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+
+    school = _sbmc_school()
+    cache.delete(f"smtp_failure_alert:{school.pk}")
+    school.smtp_host = "smtp.broken.com"
+    school.save(update_fields=["smtp_host"])
+    user = _owner(school)
+    user.email = "owner@example.com"
+    user.save(update_fields=["email"])
+
+    with patch("core.services.notifications.get_school_email_connection") as mock_conn:
+        mock_conn.side_effect = Exception("SMTP auth failed")
+
+        result = send_submission_notification_email(
+            request=None,
+            config_raw={"success": {"notifications": {"submission_email": {"to": "admin@school.com"}}}},
+            school_name="SBMC",
+            submission_id=1,
+            submission_public_id="APP-001",
+            student_name="Test Student",
+            submission_data={},
+            school=school,
+        )
+
+    assert result is False
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].to == ["owner@example.com"]
+
+
+# ===========================================================================
 # 10. YAML config integrity (no DB — pure unit tests)
 # ===========================================================================
 

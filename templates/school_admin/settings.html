@@ -30,6 +30,9 @@
     /* Tab panels */
     .settings-panel { display:none; }
     .settings-panel.active { display:block; }
+    /* SMTP spinner */
+    .smtp-spinner { display:inline-block; width:11px; height:11px; border:2px solid var(--dash-border,#e2e8f0); border-top-color:var(--dash-primary,#4f46e5); border-radius:50%; animation:smtp-spin .7s linear infinite; vertical-align:middle; margin-right:4px; }
+    @keyframes smtp-spin { to { transform:rotate(360deg); } }
   </style>
 
   <!-- ── Tab navigation ──────────────────────────────────────────────────── -->
@@ -1124,7 +1127,11 @@ function smtpTest() {
 
   btn.textContent = 'Testing…';
   btn.disabled    = true;
-  result.style.display = 'none';
+
+  // Show spinner immediately so the user knows something is happening
+  result.innerHTML   = '<span class="smtp-spinner"></span> Verifying…';
+  result.style.display = 'inline';
+  result.style.color   = 'var(--dash-muted,#64748b)';
 
   var form = document.getElementById('smtp-form');
   var csrf = form.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -1141,14 +1148,12 @@ function smtpTest() {
   fetch('{% url "school_smtp_test" school.slug %}', { method: 'POST', body: data })
     .then(function(r) { return r.json(); })
     .then(function(d) {
-      result.style.display = 'inline';
-      result.style.color   = d.success ? '#16a34a' : '#dc2626';
-      result.textContent   = (d.success ? '✓ ' : '✗ ') + d.message;
+      result.textContent = (d.success ? '✓ ' : '✗ ') + d.message;
+      result.style.color = d.success ? '#16a34a' : '#dc2626';
     })
     .catch(function() {
-      result.style.display = 'inline';
-      result.style.color   = '#dc2626';
-      result.textContent   = '✗ Request failed — try again.';
+      result.textContent = '✗ Request failed — try again.';
+      result.style.color = '#dc2626';
     })
     .finally(function() {
       btn.textContent = orig;
@@ -1158,6 +1163,8 @@ function smtpTest() {
 
 // Auto-run SMTP test after save (smtp_saved=1 in query string)
 if (new URLSearchParams(window.location.search).get('smtp_saved') === '1') {
+  // Clean the URL so a page refresh doesn't re-trigger the test
+  history.replaceState(null, '', location.pathname + '?tab=email');
   smtpTest();
 }
 

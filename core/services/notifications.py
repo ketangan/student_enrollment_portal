@@ -38,6 +38,73 @@ def get_school_email_connection(school=None):
     return get_connection(timeout=timeout)
 
 
+def _alert_smtp_failure(school) -> None:
+    """Fire a one-time alert (max once per 24 h) to school owners when SMTP fails.
+
+    Always sends via the global Resend connection — never through the broken
+    school SMTP — so the alert actually reaches the owner.
+    """
+    if not school or not getattr(school, "smtp_host", ""):
+        return
+
+    from django.core.cache import cache
+    cache_key = f"smtp_failure_alert:{school.pk}"
+    if cache.get(cache_key):
+        return
+
+    try:
+        from core.models import SchoolAdminMembership
+        recipients = list(
+            SchoolAdminMembership.objects.filter(school=school, role="owner")
+            .values_list("user__email", flat=True)
+        )
+        recipients = [e for e in recipients if e]
+    except Exception:
+        return
+
+    if not recipients:
+        return
+
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "")
+    if not from_email:
+        return
+
+    settings_url = ""
+    try:
+        from core.services.url_builder import app_reverse
+        settings_url = app_reverse(
+            "school_settings", kwargs={"school_slug": school.slug}
+        ) + "?tab=email"
+    except Exception:
+        pass
+
+    school_name = school.display_name or school.slug
+    subject = f"Action needed: email delivery issue — {school_name}"
+    body = (
+        f"Hi,\n\n"
+        f"Pontora could not send an email on behalf of {school_name} "
+        f"using your custom SMTP settings (host: {school.smtp_host}).\n\n"
+        f"Your SMTP credentials may be incorrect or have expired. "
+        f"Please review your email settings"
+        + (f":\n{settings_url}" if settings_url else ".")
+        + f"\n\nUntil this is resolved, emails to families may not be delivered.\n\n"
+        f"— Pontora"
+    )
+
+    try:
+        conn = get_connection()  # global Resend — bypass broken school SMTP
+        EmailMessage(
+            subject=subject,
+            body=body,
+            from_email=from_email,
+            to=recipients,
+            connection=conn,
+        ).send(fail_silently=True)
+        cache.set(cache_key, True, 60 * 60 * 24)
+    except Exception:
+        logger.exception("Failed to send SMTP failure alert for school %s", school.pk)
+
+
 # ----------------------------
 # Helpers
 # ----------------------------
@@ -404,6 +471,7 @@ def send_applicant_confirmation_email(
 
     except Exception:
         logger.exception("Failed to send applicant confirmation email")
+        _alert_smtp_failure(school)
         return False
 
 
@@ -489,6 +557,7 @@ def send_resume_link_email(*, draft, school) -> bool:
         return True
     except Exception:
         logger.exception("Failed to send resume link email to %s", draft.email)
+        _alert_smtp_failure(school)
         return False
 
 
@@ -516,6 +585,7 @@ def send_status_link_email(*, to_email: str, status_url: str, school_name: str, 
         return True
     except Exception:
         logger.exception("Failed to send status link email to %s", to_email)
+        _alert_smtp_failure(school)
         return False
 
 
@@ -567,6 +637,7 @@ def send_submission_notification_email(
 
     except Exception:
         logger.exception("Failed to send submission notification email")
+        _alert_smtp_failure(school)
         return False
 
 
@@ -642,6 +713,7 @@ def send_admin_message(
         return True
     except Exception:
         logger.exception("Failed to send admin message to %s", to_email)
+        _alert_smtp_failure(school)
         return False
 
 
@@ -728,6 +800,7 @@ def send_lead_admin_notification(
         return True
     except Exception:
         logger.exception("Non-blocking: lead admin notification failed for lead %s", lead.pk)
+        _alert_smtp_failure(school)
         return False
 
 
@@ -771,4 +844,5 @@ def send_lead_confirmation(
         return True
     except Exception:
         logger.exception("Non-blocking: lead confirmation failed for lead %s", lead.pk)
+        _alert_smtp_failure(school)
         return False
