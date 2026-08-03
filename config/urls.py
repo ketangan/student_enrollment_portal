@@ -15,6 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.contrib.auth import views as auth_views
 from django.http import HttpResponseRedirect
 from django.urls import include, path
 from django.conf import settings
@@ -35,6 +36,25 @@ urlpatterns = [
     path("login/", login_view, name="login"),
     path("logout/", logout_view, name="logout"),
     path("demo-access/<uuid:token>/", demo_access_view, name="demo_access"),
+
+    # Password reset flow (Django built-in, styled to match Pontora)
+    path("password-reset/", auth_views.PasswordResetView.as_view(
+        template_name="registration/password_reset_form.html",
+        email_template_name="registration/password_reset_email.html",
+        subject_template_name="registration/password_reset_subject.txt",
+        success_url="/password-reset/sent/",
+    ), name="password_reset"),
+    path("password-reset/sent/", auth_views.PasswordResetDoneView.as_view(
+        template_name="registration/password_reset_done.html",
+    ), name="password_reset_done"),
+    path("password-reset/confirm/<uidb64>/<token>/", auth_views.PasswordResetConfirmView.as_view(
+        template_name="registration/password_reset_confirm.html",
+        success_url="/password-reset/complete/",
+    ), name="password_reset_confirm"),
+    path("password-reset/complete/", auth_views.PasswordResetCompleteView.as_view(
+        template_name="registration/password_reset_complete.html",
+    ), name="password_reset_complete"),
+
     path("ops/", include("core.urls_ops")),
     path("admin/uploads/<int:file_id>/", admin_download_submission_file, name="admin_download_submission_file"),
     # Anyone who lands on the Django admin login (wrong URL, old bookmark) gets sent
