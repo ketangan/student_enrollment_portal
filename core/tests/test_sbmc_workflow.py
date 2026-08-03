@@ -1057,6 +1057,81 @@ def test_admin_acknowledge_viewer_cannot_acknowledge(client):
     assert sub.schedule_change_requested is True
 
 
+@pytest.mark.django_db
+def test_first_change_request_sends_notification(client):
+    """First schedule change request (flag was False) fires _notify_schedule_change."""
+    from unittest.mock import patch
+
+    school = _sbmc_school()
+    sub = SubmissionFactory(school=school, schedule_change_requested=False)
+
+    with patch("core.views_public._notify_schedule_change") as mock_notify:
+        client.post(_change_request_url(school, sub.status_token), {
+            "sched_preferred_timing": "Morning",
+        })
+        mock_notify.assert_called_once()
+
+
+@pytest.mark.django_db
+def test_repeat_change_request_when_already_pending_does_not_notify(client):
+    """Second change request while flag is already True does NOT re-email."""
+    from unittest.mock import patch
+
+    school = _sbmc_school()
+    sub = SubmissionFactory(school=school, schedule_change_requested=True)
+
+    with patch("core.views_public._notify_schedule_change") as mock_notify:
+        client.post(_change_request_url(school, sub.status_token), {
+            "sched_preferred_timing": "Afternoon",
+        })
+        mock_notify.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_repeat_change_request_still_updates_data(client):
+    """Silent re-submit still persists the updated sched_* preferences."""
+    school = _sbmc_school()
+    sub = SubmissionFactory(
+        school=school,
+        data={"sched_preferred_timing": "Morning"},
+        schedule_change_requested=True,
+    )
+
+    client.post(_change_request_url(school, sub.status_token), {
+        "sched_preferred_timing": "Evening",
+        "sched_day_preference": "weekend",
+    })
+
+    sub.refresh_from_db()
+    assert sub.data["sched_preferred_timing"] == "Evening"
+    assert sub.data["sched_day_preference"] == "weekend"
+    assert sub.schedule_change_requested is True
+
+
+@pytest.mark.django_db
+def test_notify_fires_again_after_admin_acknowledges(client):
+    """After Emily acknowledges, the next parent request sends a fresh notification."""
+    from unittest.mock import patch
+
+    school = _sbmc_school()
+    user = _owner(school)
+    sub = SubmissionFactory(school=school, schedule_change_requested=True)
+
+    # Emily acknowledges
+    client.force_login(user)
+    client.post(_ack_url(school, sub))
+    sub.refresh_from_db()
+    assert sub.schedule_change_requested is False
+
+    # Parent submits again — should notify
+    client.logout()
+    with patch("core.views_public._notify_schedule_change") as mock_notify:
+        client.post(_change_request_url(school, sub.status_token), {
+            "sched_preferred_timing": "Morning",
+        })
+        mock_notify.assert_called_once()
+
+
 # ===========================================================================
 # 9. School settings mutations
 # ===========================================================================

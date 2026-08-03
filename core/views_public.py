@@ -1911,13 +1911,18 @@ def school_status_change_request_view(request, school_slug: str, token: str):
         else:
             data[key] = ""
 
+    already_pending = submission.schedule_change_requested
+
     submission.data = data
     submission.schedule_change_requested = True
     submission.schedule_change_requested_at = timezone.now()
     submission.save(update_fields=["data", "schedule_change_requested", "schedule_change_requested_at", "updated_at"])
 
-    # Email Emily (to address from YAML notifications config).
-    _notify_schedule_change(school, school_slug, submission)
+    # Only email on first request — if a request is already pending (Emily hasn't
+    # acknowledged it yet), the updated preferences are saved silently. Emily sees
+    # the latest data when she opens the submission.
+    if not already_pending:
+        _notify_schedule_change(school, school_slug, submission)
 
     return redirect(
         reverse("family_status", kwargs={"school_slug": school_slug, "token": token})
