@@ -412,6 +412,8 @@ def _apply_lead_filters(qs, active_filter, status_filter, search_q, workflow_fil
             Q(name__icontains=search_q)
             | Q(email__icontains=search_q)
             | Q(phone__icontains=search_q)
+            | Q(interested_in_label__icontains=search_q)
+            | Q(interested_in_value__icontains=search_q)
         )
     return qs
 

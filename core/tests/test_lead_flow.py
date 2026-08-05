@@ -9,6 +9,7 @@ from django.urls import reverse
 from core.models import Lead, LEAD_STATUS_CONTACTED, LEAD_STATUS_LOST, LEAD_STATUS_NEW
 from core.services.config_loader import SchoolConfig, get_program_options
 from core.tests.factories import LeadFactory, SchoolFactory
+from core.views_school_common import _apply_lead_filters
 
 
 SLUG = "enrollment-request-demo"
@@ -346,3 +347,52 @@ def test_lead_capture_success_view_renders(client):
     resp = client.get(url)
     assert resp.status_code == 200
     assert b"Thank" in resp.content or b"interest" in resp.content.lower()
+
+
+# ---------------------------------------------------------------------------
+# Lead search — program / instrument field
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_lead_search_matches_interested_in_label():
+    school = SchoolFactory()
+    piano_lead = LeadFactory(school=school, interested_in_label="Piano", interested_in_value="piano")
+    violin_lead = LeadFactory(school=school, interested_in_label="Violin", interested_in_value="violin")
+
+    qs = Lead.objects.filter(school=school)
+    result = _apply_lead_filters(qs, "", "", "piano", {})
+
+    ids = set(result.values_list("id", flat=True))
+    assert piano_lead.id in ids
+    assert violin_lead.id not in ids
+
+
+@pytest.mark.django_db
+def test_lead_search_program_is_case_insensitive():
+    school = SchoolFactory()
+    lead = LeadFactory(school=school, interested_in_label="Piano", interested_in_value="piano")
+
+    qs = Lead.objects.filter(school=school)
+    assert _apply_lead_filters(qs, "", "", "PIANO", {}).filter(id=lead.id).exists()
+    assert _apply_lead_filters(qs, "", "", "pIaNo", {}).filter(id=lead.id).exists()
+
+
+@pytest.mark.django_db
+def test_lead_search_matches_interested_in_value_when_label_absent():
+    school = SchoolFactory()
+    lead = LeadFactory(school=school, interested_in_label="", interested_in_value="cello")
+
+    qs = Lead.objects.filter(school=school)
+    assert _apply_lead_filters(qs, "", "", "cello", {}).filter(id=lead.id).exists()
+
+
+@pytest.mark.django_db
+def test_lead_search_program_does_not_leak_across_schools():
+    school_a = SchoolFactory()
+    school_b = SchoolFactory()
+    LeadFactory(school=school_a, interested_in_label="Piano", interested_in_value="piano")
+    lead_b = LeadFactory(school=school_b, interested_in_label="Piano", interested_in_value="piano")
+
+    qs = Lead.objects.filter(school=school_b)
+    result = _apply_lead_filters(qs, "", "", "piano", {})
+    assert list(result.values_list("id", flat=True)) == [lead_b.id]
