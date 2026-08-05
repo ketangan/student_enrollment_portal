@@ -179,33 +179,11 @@ def school_submissions_view(request, school_slug: str):
                 output_field=IntegerField(),
             )
         ).order_by("_inbox_priority", "-created_at"),
-        active_filter, status_filter, workflow_filters,
+        active_filter, status_filter, workflow_filters, search_q,
     )
 
-    # Python-level search is unavoidable: student name and parent contact live in
-    # the dynamic JSON `data` field, not indexed DB columns.
-    # TODO: Replace with DB-level search once student name / contact fields are
-    #       promoted to real indexed columns (e.g. generated column or separate
-    #       denormalised table). As-is, searches on schools with >2000 submissions
-    #       only cover the 2000 most recent — `search_cap_hit` warns users when
-    #       this limit is reached.
-    search_pool, search_cap_hit = fetch_queryset_with_cap(qs, 2000)
-
-    if search_q:
-        q_lower = search_q.lower()
-        filtered = [
-            s for s in search_pool
-            if q_lower in (s.student_display_name() or "").lower()
-            or q_lower in (s.program_display_name(label_map=label_map) or "").lower()
-            or q_lower in _extract_contact_field(s.data, _PARENT_EMAIL_KEYS).lower()
-            or q_lower in _extract_contact_field(s.data, _PARENT_PHONE_KEYS).lower()
-            or q_lower in (s.status or "").lower()
-        ]
-    else:
-        filtered = search_pool
-
-    display_rows, display_cap_hit = slice_list_with_cap(filtered, 200)
-    result_count = len(filtered)
+    display_rows, display_cap_hit = fetch_queryset_with_cap(qs, 200)
+    result_count = qs.count() if display_cap_hit else len(display_rows)
 
     submissions = [_build_submission_row(s, label_map, school_slug=school_slug) for s in display_rows]
 
@@ -266,7 +244,6 @@ def school_submissions_view(request, school_slug: str):
             "total_count": len(submissions),
             "result_count": result_count,
             "display_cap_hit": display_cap_hit,
-            "search_cap_hit": search_cap_hit,
             "active_filter": active_filter,
             "status_filter": status_filter,
             "search_q": search_q,
@@ -319,7 +296,6 @@ def school_submission_export_view(request, school_slug: str):
 
     config = _safe_load_school_config(school_slug)
     config_raw = getattr(config, "raw", {}) or {}
-    label_map = build_option_label_map(config.form) if (config and config.form) else {}
 
     workflow_filters = get_submission_workflow_filters(config_raw)
 
@@ -329,21 +305,11 @@ def school_submission_export_view(request, school_slug: str):
 
     qs = _apply_submission_filters(
         Submission.objects.filter(school=school).select_related("school", "program").order_by("-created_at"),
-        active_filter, status_filter, workflow_filters,
+        active_filter, status_filter, workflow_filters, search_q,
     )
 
     # No row cap for exports — iterate all matching rows.
     all_submissions = list(qs)
-    if search_q:
-        q_lower = search_q.lower()
-        all_submissions = [
-            s for s in all_submissions
-            if q_lower in (s.student_display_name() or "").lower()
-            or q_lower in (s.program_display_name(label_map=label_map) or "").lower()
-            or q_lower in _extract_contact_field(s.data, _PARENT_EMAIL_KEYS).lower()
-            or q_lower in _extract_contact_field(s.data, _PARENT_PHONE_KEYS).lower()
-            or q_lower in (s.status or "").lower()
-        ]
 
     # YAML-ordered field list for columns — same source as detail page rendering.
     # build_yaml_sections with empty data gives us (key, label) without values.
@@ -430,23 +396,11 @@ def school_submission_profile_export_view(request, school_slug: str, profile_nam
     status_filter = (request.GET.get("status") or "").strip()
     search_q = (request.GET.get("q") or "").strip()
 
-    label_map = build_option_label_map(config.form) if (config and config.form) else {}
-
     qs = _apply_submission_filters(
         Submission.objects.filter(school=school).order_by("-created_at"),
-        active_filter, status_filter, workflow_filters,
+        active_filter, status_filter, workflow_filters, search_q,
     )
     all_submissions = list(qs)
-    if search_q:
-        q_lower = search_q.lower()
-        all_submissions = [
-            s for s in all_submissions
-            if q_lower in (s.student_display_name() or "").lower()
-            or q_lower in (s.program_display_name(label_map=label_map) or "").lower()
-            or q_lower in _extract_contact_field(s.data, _PARENT_EMAIL_KEYS).lower()
-            or q_lower in _extract_contact_field(s.data, _PARENT_PHONE_KEYS).lower()
-            or q_lower in (s.status or "").lower()
-        ]
 
     from .services.integrations import slugify_export_name
     filename = f"{school.slug}-{slugify_export_name(profile_name)}-export.csv"

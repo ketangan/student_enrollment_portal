@@ -524,8 +524,8 @@ class SubmissionAdmin(admin.ModelAdmin):
         old_data = dict(obj.data or {})
 
         data = apply_post_to_submission_data(cfg, request.POST, existing_data=dict(obj.data or {}), form=form_cfg)
-        Submission.objects.filter(pk=obj.pk).update(data=data)
         obj.data = data
+        obj.save(update_fields=["data"])
 
         new_data = dict(data or {})
         changed = {}

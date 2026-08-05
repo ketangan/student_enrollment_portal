@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import timedelta, datetime, time
 from math import ceil as _ceil
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models, transaction
 from django.db.models import Max
 from django.utils import timezone
@@ -499,13 +500,87 @@ class Submission(models.Model):
     schedule_change_requested = models.BooleanField(default=False)
     schedule_change_requested_at = models.DateTimeField(null=True, blank=True)
 
+    # Denormalized search text — computed from student name, parent contact, and program name.
+    # Kept in sync by save() and by a bulk recompute after SchoolProgram renames.
+    # Powers DB-level ILIKE search via a pg_trgm GIN index (migration 0052).
+    search_text = models.TextField(blank=True, default="")
+
     class Meta:
         unique_together = [("school", "school_submission_number")]
+        indexes = [
+            # GIN index with pg_trgm opclass — created in migration 0052 after
+            # the pg_trgm extension is enabled. Makes ILIKE '%q%' index-scannable.
+            GinIndex(
+                fields=["search_text"],
+                name="submission_search_trgm_idx",
+                opclasses=["gin_trgm_ops"],
+            ),
+        ]
+
+    _SEARCH_EMAIL_KEYS = ("contact_email", "guardian_email", "parent_email", "email", "applicant_email")
+    _SEARCH_PHONE_KEYS = ("contact_phone", "guardian_phone", "parent_phone", "phone", "applicant_phone")
+
+    def _compute_search_text(self) -> str:
+        """
+        Build the denormalized search string for this submission.
+        Must not access self.school (avoids extra DB query) and must not call
+        program_display_name() (which accesses school.slug for TSCA).
+        """
+        data = self.data or {}
+        parts: list[str] = []
+
+        # Student name — pure data parsing, mirrors student_display_name()
+        first = data.get("student_first_name") or data.get("first_name") or data.get("child_first_name")
+        last = data.get("student_last_name") or data.get("last_name") or data.get("child_last_name")
+        if first or last:
+            parts.append(f"{first or ''} {last or ''}".strip())
+        elif data.get("applicant_name"):
+            parts.append(str(data["applicant_name"]).strip())
+
+        # Program name — use already-cached FK instance (free) or fetch name-only (cheap).
+        if self.program_id:
+            cached = self.__dict__.get("program")
+            if cached is not None:
+                parts.append(cached.name)
+            else:
+                # Targeted single-column fetch — avoids full model instantiation.
+                prog_name = SchoolProgram.objects.filter(pk=self.program_id).values_list("name", flat=True).first()
+                if prog_name:
+                    parts.append(prog_name)
+
+        # Parent email
+        for k in self._SEARCH_EMAIL_KEYS:
+            v = (data.get(k) or "").strip()
+            if v:
+                parts.append(v)
+                break
+
+        # Parent phone
+        for k in self._SEARCH_PHONE_KEYS:
+            v = (data.get(k) or "").strip()
+            if v:
+                parts.append(v)
+                break
+
+        return " ".join(parts)
 
     def save(self, *args, **kwargs):
         # Invariant: a session submission must always reference the session's own program.
         if self.session_id is not None and self.program_id is None:
             self.program_id = self.session.program_id
+
+        # Recompute search_text whenever data or program may have changed.
+        # update_fields=None means a full save — always recompute.
+        # Otherwise only recompute when a relevant field is in the update set.
+        update_fields = kwargs.get("update_fields")
+        _search_triggers = {"data", "program", "program_id"}
+        if update_fields is None or _search_triggers.intersection(update_fields):
+            self.search_text = self._compute_search_text()
+            if update_fields is not None:
+                uf = list(update_fields)
+                if "search_text" not in uf:
+                    uf.append("search_text")
+                kwargs["update_fields"] = uf
 
         if self.pk is None and self.school_submission_number is None:
             with transaction.atomic():

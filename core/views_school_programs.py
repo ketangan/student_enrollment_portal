@@ -10,7 +10,7 @@ from django.views.decorators.http import require_http_methods
 from django.contrib import messages
 
 from core.admin.audit import log_admin_audit
-from core.models import SchoolProgram, SchoolSession
+from core.models import SchoolProgram, SchoolSession, Submission
 from core.services.programs import _auto_session_code
 from core.services.school_permissions import require_school_role
 from core.views_school_common import (
@@ -186,6 +186,16 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
             program.auto_enroll = auto_enroll
             program.waitlist_enabled = waitlist_enabled
             program.save()
+
+            if "name" in changed_fields:
+                # search_text on submissions includes the program name. Recompute
+                # synchronously — renames are rare and the batch is bounded by one program.
+                subs = list(program.submissions.all())
+                for sub in subs:
+                    sub.program = program  # inject into instance cache; avoids per-row DB query
+                    sub.search_text = sub._compute_search_text()
+                if subs:
+                    Submission.objects.bulk_update(subs, ["search_text"], batch_size=200)
 
             if changed_fields:
                 extra = {"name": "program_edited", "changed_fields": changed_fields}

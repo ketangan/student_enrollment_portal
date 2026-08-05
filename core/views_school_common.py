@@ -350,32 +350,37 @@ _SMART_FILTERS = {
 }
 
 
-def _apply_submission_filters(qs, active_filter, status_filter, workflow_filters):
-    """Apply workflow/status/smart filter conditions to a submission queryset.
+def _apply_submission_filters(qs, active_filter, status_filter, workflow_filters, search_q=""):
+    """Apply workflow/status/smart filter and optional text search to a submission queryset.
 
     Shared by school_submissions_view (list) and school_submission_export_view (CSV).
     The caller owns the base queryset, annotations, and ordering.
+    search_q uses the denormalized search_text column (pg_trgm GIN index via migration 0052).
     """
     # Smart filters take highest priority
     if active_filter in _SMART_FILTER_KEYS:
         now = timezone.now()
         if active_filter == "needs_follow_up":
-            return qs.filter(
+            qs = qs.filter(
                 Q(next_follow_up_at__lte=now)
                 | Q(status="New", created_at__lte=now - timedelta(hours=24))
             )
-        if active_filter == "recent_activity":
-            return qs.filter(updated_at__gte=now - timedelta(hours=48))
-        if active_filter == "stale":
-            return qs.filter(updated_at__lte=now - timedelta(days=5)).exclude(
+        elif active_filter == "recent_activity":
+            qs = qs.filter(updated_at__gte=now - timedelta(hours=48))
+        elif active_filter == "stale":
+            qs = qs.filter(updated_at__lte=now - timedelta(days=5)).exclude(
                 status__in=_TERMINAL_SUBMISSION_STATUSES
             )
-        if active_filter == "not_enrolled":
-            return qs.exclude(status__in=_TERMINAL_SUBMISSION_STATUSES)
-    if active_filter and active_filter in workflow_filters:
-        return qs.filter(status__in=workflow_filters[active_filter]["statuses"])
-    if status_filter:
-        return qs.filter(status=status_filter)
+        elif active_filter == "not_enrolled":
+            qs = qs.exclude(status__in=_TERMINAL_SUBMISSION_STATUSES)
+    elif active_filter and active_filter in workflow_filters:
+        qs = qs.filter(status__in=workflow_filters[active_filter]["statuses"])
+    elif status_filter:
+        qs = qs.filter(status=status_filter)
+
+    if search_q:
+        qs = qs.filter(search_text__icontains=search_q)
+
     return qs
 
 
