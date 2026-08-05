@@ -124,15 +124,16 @@ form:
           type: text
           required: true
 
-        - key: student_age
-          label: "Student Age"
-          type: text
-          required: true
-
         - key: student_birthday
           label: "Student Birthday"
           type: date
           required: true
+
+        - key: student_age
+          label: "Student Age"
+          type: text
+          required: false
+          hide_if_age_gte: 18
 
         - key: instrument
           label: "Instrument"

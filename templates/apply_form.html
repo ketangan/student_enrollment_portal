@@ -425,6 +425,7 @@
                             value="{{ values|get_item:field.key }}"
                             readonly
                             tabindex="-1"
+                            {% if field.hide_if_age_gte %}data-hide-if-age-gte="{{ field.hide_if_age_gte }}"{% endif %}
                         />
 
                     {# --- NUMBER (generic) --- #}
@@ -533,31 +534,36 @@
             return true;
             }
 
+            const _hideThreshold = parseInt(age.dataset.hideIfAgeGte, 10);
+            const _hasHideThreshold = !isNaN(_hideThreshold);
+            const _ageWrapper = age.parentElement;
+
+            function _setAgeWrapperVisible(visible) {
+                // visibility:hidden keeps the row's space so layout doesn't jump
+                _ageWrapper.style.visibility = visible ? "" : "hidden";
+            }
+
             // No popups. No custom validity. Never blocks typing.
             function maybeUpdateAge() {
             const iso = dob.value;
 
-            if (!iso) {
-                // DOB empty — leave any pre-filled age value intact
-                return;
-            }
-
-            if (!isValidISODate(iso)) {
-                // user is mid-typing / incomplete
+            if (!iso || !isValidISODate(iso) || !isRealisticDOB(iso)) {
                 age.value = "";
+                _setAgeWrapperVisible(false);
                 return;
             }
 
-            if (!isRealisticDOB(iso)) {
-                // complete date but unrealistic -> clear computed field
-                age.value = "";
-                return;
+            const computedAge = calcAge(iso);
+            age.value = computedAge;
+
+            if (_hasHideThreshold && computedAge !== "" && computedAge >= _hideThreshold) {
+                _setAgeWrapperVisible(false);
+            } else {
+                _setAgeWrapperVisible(true);
+            }
             }
 
-            age.value = calcAge(iso);
-            }
-
-            // Update on commit events only (not on each keystroke)
+            dob.addEventListener("input", maybeUpdateAge);
             dob.addEventListener("change", maybeUpdateAge);
             dob.addEventListener("blur", maybeUpdateAge);
 

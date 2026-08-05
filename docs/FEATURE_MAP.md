@@ -207,7 +207,7 @@ Demo schools and magic-link access at `demo.mypontora.com`. Separate subdomain, 
 | | |
 |---|---|
 | **Key files** | `core/views_login.py` (`demo_access_view`) · `core/views_demo.py` (`demo_index`, `demo_detail`) · `core/management/commands/seed_*_demo.py` · `core/models.py` (`School.is_demo = BooleanField`) |
-| **Also check** | Ops portal (demo schools currently appear in all ops views — pending task: filter by `is_demo=False` by default with toggle) · School admin (demo session banner displayed) · Authentication (magic link single-use enforcement — bug H3 open) · Onboarding (`convert_demo_to_customer` in ops — bug C2 `MultipleObjectsReturned` open) · URL routing: `demo.mypontora.com` → demo views; `app.mypontora.com` → customer views (same code, host-based routing) |
+| **Also check** | Ops portal (demo schools currently appear in all ops views — pending task: filter by `is_demo=False` by default with toggle) · School admin (demo session banner displayed) · Authentication (magic link single-use enforcement — bug H3 open) · URL routing: `demo.mypontora.com` → demo views; `app.mypontora.com` → customer views (same code, host-based routing) |
 | **Test files** | `test_login_auth.py` (magic link tests) · `test_onboarding.py` |
 
 ---
@@ -232,7 +232,7 @@ Flow for converting a demo school into a paying customer in ops.
 | | |
 |---|---|
 | **Key files** | `core/services/onboarding.py` · `core/views_ops.py` (`ops_school_convert_view`, `ops_checklist_toggle_view`, `ops_school_welcome_email_view`) |
-| **Also check** | Ops portal (conversion is triggered from ops school detail page) · Billing (conversion links school to Stripe; trial clock starts) · Email (welcome email sent via `notifications.py`) · Bug C2: `convert_demo_to_customer` can throw `MultipleObjectsReturned` — open |
+| **Also check** | Ops portal (conversion is triggered from ops school detail page) · Billing (conversion links school to Stripe; trial clock starts) · Email (welcome email sent via `notifications.py`) |
 | **Test files** | `test_onboarding.py` |
 
 ---

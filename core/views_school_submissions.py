@@ -165,7 +165,6 @@ def school_submissions_view(request, school_slug: str):
     active_filter = (request.GET.get("filter") or "").strip()
     status_filter = (request.GET.get("status") or "").strip()
     search_q = (request.GET.get("q") or "").strip()
-
     # select_related school+program avoids N+1 from program_display_name().
     # Priority sort: overdue follow-up → upcoming follow-up → new (no follow-up) → rest.
     _now = timezone.now()
