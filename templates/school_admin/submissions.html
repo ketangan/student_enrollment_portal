@@ -2,6 +2,85 @@
 
 {% block page_title %}Submissions{% endblock %}
 
+{% block extra_css %}
+<style>
+/* ── Column filter panel ─────────────────────────────── */
+.col-filterable {
+  position: relative; white-space: nowrap; cursor: pointer; user-select: none;
+}
+.col-filter-btn {
+  background: none; border: none; padding: 0 0 0 5px;
+  color: var(--dash-muted); vertical-align: middle; line-height: 1; opacity: .6;
+  display: inline-flex; align-items: center; pointer-events: none;
+}
+.col-filter-btn::after {
+  content: ''; display: inline-block;
+  width: 0; height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+}
+.col-filterable.col-filtered .col-filter-btn { color: var(--dash-primary); opacity: 1; }
+.col-filter-panel {
+  display: none; position: fixed; top: 0; left: 0; z-index: 9999;
+  background: #fff; border: 1px solid var(--dash-border, #e2e8f0);
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  min-width: 180px; padding: 6px 0;
+}
+.col-filter-panel.open { display: block; }
+.cf-title {
+  font-size: 11px; font-weight: 700; color: var(--dash-muted);
+  padding: 4px 14px; text-transform: uppercase; letter-spacing: .04em;
+}
+.cf-option {
+  display: block; padding: 7px 14px; font-size: 13px; color: var(--dash-text);
+  text-decoration: none; white-space: nowrap;
+}
+.cf-option:hover { background: var(--dash-hover, #f8fafc); }
+.cf-option.cf-active { color: var(--dash-primary); font-weight: 600; }
+.cf-sep { border: none; border-top: 1px solid var(--dash-border, #e2e8f0); margin: 4px 0; }
+
+/* ── Filter chip bar ─────────────────────────────────── */
+.filter-chip-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe;
+}
+.filter-chip a {
+  color: #1d4ed8; text-decoration: none; font-size: 14px; line-height: 1; font-weight: 400;
+}
+.filter-chip a:hover { color: #dc2626; }
+
+/* ── Columns toggle panel ────────────────────────────── */
+.col-toggle-wrap { position: relative; }
+.col-toggle-panel {
+  display: none; position: absolute; top: calc(100% + 4px); right: 0; z-index: 300;
+  background: #fff; border: 1px solid var(--dash-border, #e2e8f0);
+  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  min-width: 180px; padding: 10px 14px;
+}
+.col-toggle-panel.open { display: block; }
+.col-toggle-panel label {
+  display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; cursor: pointer;
+}
+
+/* ── Hidden columns ──────────────────────────────────── */
+.col-hidden { display: none !important; }
+
+/* ── Sort headers ────────────────────────────────────── */
+.col-sortable { white-space: nowrap; }
+.col-sort-link {
+  color: inherit; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.col-sort-link:hover { color: var(--dash-primary); }
+.col-sort-icon { font-size: 11px; color: var(--dash-muted); opacity: 0.35; }
+th.col-sorted-asc .col-sort-icon,
+th.col-sorted-desc .col-sort-icon { opacity: 1; color: var(--dash-primary); }
+</style>
+{% endblock %}
+
 {% block content %}
 <main class="dash-main">
 
@@ -12,7 +91,7 @@
       {% if display_cap_hit %}Showing first 200 of {{ result_count }} results
       {% elif total_count == 1 %}1 submission
       {% else %}{{ total_count }} submission{{ total_count|pluralize }}{% endif %}
-      {% if active_filter or status_filter or search_q %} matching current filters{% endif %}
+      {% if active_filter or status_filter or search_q or program_filter %} matching current filters{% endif %}
     </p>
   </div>
 
@@ -31,50 +110,10 @@
   <!-- Filter bar -->
   <div class="dash-card" style="padding: 14px 18px; margin-bottom: 16px;">
     <form method="get" action="{{ submissions_url }}" style="display: flex; flex-direction: column; gap: 10px;">
-      <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-
-        <!-- All -->
-        <a href="{{ submissions_url }}"
-           style="padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; text-decoration: none;
-                  border: 1px solid {% if not active_filter and not status_filter %}var(--dash-primary){% else %}var(--dash-border){% endif %};
-                  background: {% if not active_filter and not status_filter %}var(--dash-primary){% else %}#fff{% endif %};
-                  color: {% if not active_filter and not status_filter %}#fff{% else %}var(--dash-muted){% endif %};">
-          All
-        </a>
-
-        <!-- Status filter pills — YAML statuses + Enrolled/Waitlisted for DB-program schools -->
-        {% for s in bulk_status_choices %}
-        {% if s == "Enrolled" %}
-        <a href="{{ submissions_url }}?status={{ s|urlencode }}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}"
-           style="padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; text-decoration: none;
-                  border: 1px solid {% if status_filter == s %}#16a34a{% else %}#bbf7d0{% endif %};
-                  background: {% if status_filter == s %}#16a34a{% else %}#f0fdf4{% endif %};
-                  color: {% if status_filter == s %}#fff{% else %}#166534{% endif %};">
-          {{ s }}
-        </a>
-        {% elif s == "Waitlisted" %}
-        <a href="{{ submissions_url }}?status={{ s|urlencode }}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}"
-           style="padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; text-decoration: none;
-                  border: 1px solid {% if status_filter == s %}#d97706{% else %}#fde68a{% endif %};
-                  background: {% if status_filter == s %}#d97706{% else %}#fffbeb{% endif %};
-                  color: {% if status_filter == s %}#fff{% else %}#92400e{% endif %};">
-          {{ s }}
-        </a>
-        {% else %}
-        <a href="{{ submissions_url }}?status={{ s|urlencode }}{% if search_q %}&q={{ search_q|urlencode }}{% endif %}"
-           style="padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; text-decoration: none;
-                  border: 1px solid {% if status_filter == s %}var(--dash-primary){% else %}var(--dash-border){% endif %};
-                  background: {% if status_filter == s %}var(--dash-primary){% else %}#fff{% endif %};
-                  color: {% if status_filter == s %}#fff{% else %}var(--dash-muted){% endif %};">
-          {{ s }}
-        </a>
-        {% endif %}
-        {% endfor %}
-
-      </div>
       <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
         {% if active_filter %}<input type="hidden" name="filter" value="{{ active_filter }}">{% endif %}
         {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+        {% if program_filter %}<input type="hidden" name="program" value="{{ program_filter }}">{% endif %}
         <input
           type="text"
           name="q"
@@ -86,18 +125,18 @@
                 style="padding: 7px 16px; background: var(--dash-primary); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">
           Search
         </button>
-        {% if active_filter or status_filter or search_q %}
+        {% if active_filter or status_filter or search_q or program_filter %}
           <a href="{{ submissions_url }}"
              style="font-size: 13px; color: var(--dash-muted); text-decoration: none; padding: 7px 4px;">
-            Clear
+            Clear all
           </a>
         {% endif %}
       </div>
     </form>
   </div>
 
-  <!-- Action bar: create + export -->
-  <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:10px;">
+  <!-- Action bar: create + export + columns -->
+  <div style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-bottom:8px;">
     {% if can_mutate %}
     <a href="{% url 'school_submission_create' school_slug=school.slug %}"
        class="dash-action-btn dash-action-btn--primary"
@@ -115,7 +154,37 @@
       Export → {{ profile.name }}
     </a>
     {% endfor %}
+    <!-- Columns toggle -->
+    <div class="col-toggle-wrap">
+      <button type="button" onclick="subColPanelToggle(event)"
+              style="font-size:12px;color:var(--dash-muted);padding:5px 10px;
+                     border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;background:#fff;cursor:pointer;">
+        Columns
+      </button>
+      <div class="col-toggle-panel" id="sub-col-panel">
+        <div style="font-size:11px;font-weight:700;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">Show columns</div>
+        <label><input type="checkbox" data-col-cb="submitted"> Submitted</label>
+        <label><input type="checkbox" data-col-cb="last_activity"> Last activity</label>
+        <label><input type="checkbox" data-col-cb="parent_contact"> Parent contact</label>
+        <label><input type="checkbox" data-col-cb="parent_name"> Parent name</label>
+      </div>
+    </div>
   </div>
+
+  <!-- Active filter chips -->
+  {% if active_filter or status_filter or program_filter %}
+  <div class="filter-chip-bar">
+    {% if active_filter %}
+    <span class="filter-chip">{{ active_filter_label }} <a href="{{ clear_filter_url }}" title="Remove filter">×</a></span>
+    {% endif %}
+    {% if status_filter %}
+    <span class="filter-chip">Status: {{ status_filter }} <a href="{{ clear_status_url }}" title="Remove filter">×</a></span>
+    {% endif %}
+    {% if program_filter %}
+    <span class="filter-chip">Program: {{ program_filter }} <a href="{{ clear_program_url }}" title="Remove filter">×</a></span>
+    {% endif %}
+  </div>
+  {% endif %}
 
   <!-- Submissions table -->
   <div class="dash-card">
@@ -126,11 +195,48 @@
           <tr>
             {% if workflow_actions_enabled and can_mutate %}<th style="width:32px;padding-right:0;"><input type="checkbox" id="select-all-checkbox" style="cursor:pointer;"></th>{% endif %}
             <th>Student</th>
-            <th>Program</th>
-            <th>Status</th>
-            <th>Submitted</th>
-            <th class="dash-col-last-activity">Last activity</th>
-            <th class="dash-col-contact">Parent contact</th>
+            <!-- Program column: entire header is clickable for filter -->
+            <th class="col-filterable{% if program_filter %} col-filtered{% endif %}"
+                {% if show_program_filter and program_options %}onclick="colPanelToggle('cf-sub-program', event)"{% endif %}>
+              Program
+              {% if show_program_filter and program_options %}
+              <span class="col-filter-btn" aria-hidden="true"></span>
+              <div class="col-filter-panel" id="cf-sub-program" onclick="event.stopPropagation()">
+                <div class="cf-title">Program</div>
+                <a class="cf-option{% if not program_filter %} cf-active{% endif %}" href="{{ clear_program_url }}">All programs</a>
+                <hr class="cf-sep">
+                {% for prog, prog_url in program_filter_urls.items %}
+                <a class="cf-option{% if program_filter == prog %} cf-active{% endif %}" href="{{ prog_url }}">{{ prog }}</a>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </th>
+            <!-- Status column: entire header is clickable for filter -->
+            <th class="col-filterable{% if status_filter %} col-filtered{% endif %}"
+                onclick="colPanelToggle('cf-sub-status', event)">
+              Status
+              <span class="col-filter-btn" aria-hidden="true"></span>
+              <div class="col-filter-panel" id="cf-sub-status" onclick="event.stopPropagation()">
+                <div class="cf-title">Status</div>
+                <a class="cf-option{% if not status_filter %} cf-active{% endif %}" href="{{ clear_status_url }}">All statuses</a>
+                <hr class="cf-sep">
+                {% for st, st_url in status_filter_urls.items %}
+                <a class="cf-option{% if status_filter == st %} cf-active{% endif %}" href="{{ st_url }}">{{ st }}</a>
+                {% endfor %}
+              </div>
+            </th>
+            <th class="col-sortable{% if sort_key == 'submitted' %} col-sorted-{{ sort_dir }}{% endif %}" data-col="submitted">
+              <a href="{{ sub_sort_urls.submitted }}" class="col-sort-link">
+                Submitted <span class="col-sort-icon">{% if sort_key == 'submitted' %}{% if sort_dir == 'asc' %}↑{% else %}↓{% endif %}{% else %}↕{% endif %}</span>
+              </a>
+            </th>
+            <th class="dash-col-last-activity col-sortable{% if sort_key == 'last_activity' %} col-sorted-{{ sort_dir }}{% endif %}" data-col="last_activity">
+              <a href="{{ sub_sort_urls.last_activity }}" class="col-sort-link">
+                Last activity <span class="col-sort-icon">{% if sort_key == 'last_activity' %}{% if sort_dir == 'asc' %}↑{% else %}↓{% endif %}{% else %}↕{% endif %}</span>
+              </a>
+            </th>
+            <th class="dash-col-contact" data-col="parent_contact">Parent contact</th>
+            <th data-col="parent_name">Parent name</th>
             <th></th>
           </tr>
         </thead>
@@ -172,21 +278,18 @@
               {% endif %}
               {% if s.is_new %}<div style="font-size:10px;color:#92400e;margin-top:2px;">Needs review</div>{% endif %}
             </td>
-            <td style="color: var(--dash-muted); font-size: 12px; white-space: nowrap;">
+            <td data-col="submitted" style="color: var(--dash-muted); font-size: 12px; white-space: nowrap;">
               {{ s.created_at|date:"M j, Y" }}
             </td>
-            <td class="dash-col-last-activity" style="color: var(--dash-muted); font-size: 12px; white-space: nowrap;">
+            <td class="dash-col-last-activity" data-col="last_activity" style="color: var(--dash-muted); font-size: 12px; white-space: nowrap;">
               {{ s.last_activity|date:"M j, Y" }}
             </td>
-            <td class="dash-col-contact" style="font-size: 12px; color: var(--dash-muted);">
-              {% if s.parent_email %}
-                <div>{{ s.parent_email }}</div>
-              {% endif %}
-              {% if s.parent_phone %}
-                <div>{{ s.parent_phone }}</div>
-              {% endif %}
+            <td class="dash-col-contact" data-col="parent_contact" style="font-size: 12px; color: var(--dash-muted);">
+              {% if s.parent_email %}<div>{{ s.parent_email }}</div>{% endif %}
+              {% if s.parent_phone %}<div>{{ s.parent_phone }}</div>{% endif %}
               {% if not s.parent_email and not s.parent_phone %}—{% endif %}
             </td>
+            <td data-col="parent_name" style="font-size: 12px; color: var(--dash-muted);">{{ s.parent_name|default:"—" }}</td>
             <td style="white-space:nowrap;">
               <a href="{{ s.school_admin_url }}"
                  class="dash-action-btn {% if s.is_new %}dash-action-btn--primary{% else %}dash-action-btn--secondary{% endif %}"
@@ -214,14 +317,14 @@
         {% if active_filter %}
           {% for fk, fcfg in workflow_filters.items %}{% if fk == active_filter %}No submissions need {{ fcfg.label }} right now.{% endif %}{% endfor %}
           <a href="{{ submissions_url }}" style="color: var(--dash-primary);">Clear</a>
-        {% elif status_filter or search_q %}
+        {% elif status_filter or search_q or program_filter %}
           No submissions match the current filters.
           <a href="{{ submissions_url }}" style="color: var(--dash-primary);">Clear filters</a>
         {% else %}
           No submissions yet. Share your application link to start receiving submissions.
         {% endif %}
       </div>
-      {% if not active_filter and not status_filter and not search_q and apply_url %}
+      {% if not active_filter and not status_filter and not search_q and not program_filter and apply_url %}
       <button type="button"
               class="dash-copy-btn"
               id="copy-apply-btn"
@@ -365,4 +468,92 @@
   {% endif %}
 
 </main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  // ── Column filter panel (escape overflow via position:fixed) ──────────────
+  function closeAllPanels() {
+    document.querySelectorAll('.col-filter-panel.open').forEach(function(p){ p.classList.remove('open'); });
+    document.querySelectorAll('.col-toggle-panel.open').forEach(function(p){ p.classList.remove('open'); });
+  }
+
+  window.colPanelToggle = function(id, evt) {
+    evt.stopPropagation();
+    var panel = document.getElementById(id);
+    var wasOpen = panel.classList.contains('open');
+    closeAllPanels();
+    if (!wasOpen) {
+      var rect = evt.currentTarget.getBoundingClientRect();
+      panel.style.top = (rect.bottom + 4) + 'px';
+      panel.style.left = rect.left + 'px';
+      panel.classList.add('open');
+    }
+  };
+
+  window.subColPanelToggle = function(evt) {
+    evt.stopPropagation();
+    var panel = document.getElementById('sub-col-panel');
+    var wasOpen = panel.classList.contains('open');
+    closeAllPanels();
+    if (!wasOpen) panel.classList.add('open');
+  };
+
+  document.addEventListener('click', function() { closeAllPanels(); });
+  window.addEventListener('scroll', function() { closeAllPanels(); }, true);
+
+  // ── Column visibility (localStorage, survives logout/login) ──────────────
+  var SLUG = '{{ school.slug|escapejs }}';
+  var LS_KEY = 'pontora_sub_cols_' + SLUG;
+
+  // Default state: true = visible, false = hidden
+  var COLS_DEFAULT = {
+    submitted:      true,
+    last_activity:  true,
+    parent_contact: true,
+    parent_name:    false,
+  };
+
+  var cols = {};
+  Object.keys(COLS_DEFAULT).forEach(function(k){ cols[k] = COLS_DEFAULT[k]; });
+
+  function loadCols() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+      Object.keys(cols).forEach(function(k){ if (k in saved) cols[k] = saved[k]; });
+    } catch(e) {}
+  }
+
+  function saveCols() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(cols)); } catch(e) {}
+  }
+
+  function applyColVisibility() {
+    Object.keys(cols).forEach(function(col) {
+      document.querySelectorAll('[data-col="' + col + '"]').forEach(function(el) {
+        el.classList.toggle('col-hidden', !cols[col]);
+      });
+    });
+    // Sync checkboxes in the panel
+    document.querySelectorAll('[data-col-cb]').forEach(function(cb) {
+      var col = cb.getAttribute('data-col-cb');
+      if (col in cols) cb.checked = cols[col];
+    });
+  }
+
+  loadCols();
+  applyColVisibility();
+
+  // Wire up Columns panel checkboxes
+  document.querySelectorAll('[data-col-cb]').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+      var col = this.getAttribute('data-col-cb');
+      cols[col] = this.checked;
+      saveCols();
+      applyColVisibility();
+    });
+  });
+}());
+</script>
 {% endblock %}

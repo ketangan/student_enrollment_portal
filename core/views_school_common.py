@@ -289,6 +289,61 @@ def _extract_contact_field(data: dict, keys: tuple) -> str:
     return ""
 
 
+_PARENT_NAME_KEYS = ("guardian_name", "parent_name", "contact_name", "parent_guardian_name")
+_PARENT_NAME_SPLIT_PAIRS = (
+    ("main_contact_first_name", "main_contact_last_name"),
+    ("contact_first_name", "contact_last_name"),
+    ("guardian_first_name", "guardian_last_name"),
+    ("parent_first_name", "parent_last_name"),
+)
+
+
+def _extract_parent_name(data: dict) -> str:
+    d = data or {}
+    for k in _PARENT_NAME_KEYS:
+        v = (d.get(k) or "").strip()
+        if v:
+            return v
+    for first_k, last_k in _PARENT_NAME_SPLIT_PAIRS:
+        first = (d.get(first_k) or "").strip()
+        last = (d.get(last_k) or "").strip()
+        if first or last:
+            return f"{first} {last}".strip()
+    return ""
+
+
+def _build_list_url(base_url, *, active_filter="", status_filter="", program_filter="", search_q="", sort="", sort_dir=""):
+    """Build a filtered list URL from individual filter/sort params. Empty strings are omitted."""
+    params = {}
+    if active_filter:
+        params["filter"] = active_filter
+    if status_filter:
+        params["status"] = status_filter
+    if program_filter:
+        params["program"] = program_filter
+    if search_q:
+        params["q"] = search_q
+    if sort:
+        params["sort"] = sort
+    if sort_dir:
+        params["dir"] = sort_dir
+    return base_url + ("?" + urlencode(params) if params else "")
+
+
+def _parse_sort(request, allowed: set, default: str, default_dir: str = "desc"):
+    """Parse and validate ?sort= and ?dir= from request GET params.
+
+    Returns (sort_key, sort_dir) — both always within valid bounds.
+    """
+    sort_key = (request.GET.get("sort") or "").strip()
+    sort_dir = (request.GET.get("dir") or "").strip().lower()
+    if sort_key not in allowed:
+        sort_key = default
+    if sort_dir not in ("asc", "desc"):
+        sort_dir = default_dir
+    return sort_key, sort_dir
+
+
 def _school_admin_base_context(request, school, active_nav: str) -> dict:
     """Shared context required by school_admin/base.html."""
     from core.views_login import DEMO_SESSION_TOKEN_KEY, DEMO_SESSION_PAGES_KEY
@@ -350,12 +405,13 @@ _SMART_FILTERS = {
 }
 
 
-def _apply_submission_filters(qs, active_filter, status_filter, workflow_filters, search_q=""):
+def _apply_submission_filters(qs, active_filter, status_filter, workflow_filters, search_q="", program_filter=""):
     """Apply workflow/status/smart filter and optional text search to a submission queryset.
 
     Shared by school_submissions_view (list) and school_submission_export_view (CSV).
     The caller owns the base queryset, annotations, and ordering.
     search_q uses the denormalized search_text column (pg_trgm GIN index via migration 0052).
+    program_filter is an exact match on program__name (only applies for FK-backed schools).
     """
     # Smart filters take highest priority
     if active_filter in _SMART_FILTER_KEYS:
@@ -378,17 +434,21 @@ def _apply_submission_filters(qs, active_filter, status_filter, workflow_filters
     elif status_filter:
         qs = qs.filter(status=status_filter)
 
+    if program_filter:
+        qs = qs.filter(program__name=program_filter)
+
     if search_q:
         qs = qs.filter(search_text__icontains=search_q)
 
     return qs
 
 
-def _apply_lead_filters(qs, active_filter, status_filter, search_q, workflow_filters):
+def _apply_lead_filters(qs, active_filter, status_filter, search_q, workflow_filters, program_filter=""):
     """Apply workflow/status/smart/search filter conditions to a lead queryset.
 
     Shared by school_leads_view (list) and school_lead_export_view (CSV).
     The caller owns the base queryset, annotations, and ordering.
+    program_filter is an exact match on interested_in_label.
     """
     # Smart filters take highest priority
     if active_filter in _SMART_FILTER_KEYS:
@@ -412,6 +472,10 @@ def _apply_lead_filters(qs, active_filter, status_filter, search_q, workflow_fil
         qs = qs.filter(status__in=workflow_filters[active_filter]["statuses"])
     elif status_filter:
         qs = qs.filter(status=status_filter)
+
+    if program_filter:
+        qs = qs.filter(interested_in_label=program_filter)
+
     if search_q:
         qs = qs.filter(
             Q(name__icontains=search_q)
@@ -466,7 +530,8 @@ def _build_submission_row(
         "created_at": timezone.localtime(s.created_at),
         "parent_email": _extract_contact_field(s.data, _PARENT_EMAIL_KEYS),
         "parent_phone": _extract_contact_field(s.data, _PARENT_PHONE_KEYS),
-        "last_activity": timezone.localtime(s.created_at),
+        "parent_name": _extract_parent_name(s.data),
+        "last_activity": timezone.localtime(s.updated_at),
         "has_notes": bool(s.internal_notes),
         "has_files": getattr(s, "has_files", False),
         "next_follow_up_at": (
@@ -629,6 +694,7 @@ def _build_lead_row(
         "quick_actions": quick_actions,
         "is_converted": lead.converted_submission_id is not None,
         "converted_submission_admin_url": converted_url,
+        "is_terminal": lead.status in (LEAD_STATUS_ENROLLED, LEAD_STATUS_LOST),
         "transitions": transitions,
         "has_notes": bool(lead.notes),
     }

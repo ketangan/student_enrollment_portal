@@ -42,6 +42,7 @@ from .models import (
     LEAD_STATUS_NEW,
     LEAD_STATUS_TRIAL_SCHEDULED,
     School,
+    SchoolProgram,
     Submission,
     SubmissionFile,
 )
@@ -96,6 +97,8 @@ from .views_school_common import (  # noqa: F401 — private names not exported 
     _apply_submission_filters,
     _build_submission_row,
     _extract_contact_field,
+    _build_list_url,
+    _parse_sort,
     _PARENT_EMAIL_KEYS,
     _PARENT_PHONE_KEYS,
     _SMART_FILTERS,
@@ -165,21 +168,22 @@ def school_submissions_view(request, school_slug: str):
     active_filter = (request.GET.get("filter") or "").strip()
     status_filter = (request.GET.get("status") or "").strip()
     search_q = (request.GET.get("q") or "").strip()
+    program_filter = (request.GET.get("program") or "").strip()
+
+    _SUB_SORTABLE = {"submitted", "last_activity"}
+    _SUB_SORT_NATURAL_DIR = {"submitted": "desc", "last_activity": "desc"}
+    sort_key, sort_dir = _parse_sort(request, _SUB_SORTABLE, default="submitted", default_dir="desc")
+    _ord = "" if sort_dir == "asc" else "-"
+    _orm_sort = f"{_ord}updated_at" if sort_key == "last_activity" else f"{_ord}created_at"
+
     # select_related school+program avoids N+1 from program_display_name().
-    # Priority sort: overdue follow-up → upcoming follow-up → new (no follow-up) → rest.
     _now = timezone.now()
     qs = _apply_submission_filters(
         Submission.objects.filter(school=school).select_related("school", "program").annotate(
             has_files=Exists(SubmissionFile.objects.filter(submission=OuterRef("pk"))),
-            _inbox_priority=Case(
-                When(next_follow_up_at__lte=_now, then=Value(0)),
-                When(next_follow_up_at__isnull=False, then=Value(1)),
-                When(status=STATUS_NEW, then=Value(2)),
-                default=Value(3),
-                output_field=IntegerField(),
-            )
-        ).order_by("_inbox_priority", "-created_at"),
+        ).order_by(_orm_sort),
         active_filter, status_filter, workflow_filters, search_q,
+        program_filter=program_filter,
     )
 
     display_rows, display_cap_hit = fetch_queryset_with_cap(qs, 200)
@@ -215,6 +219,8 @@ def school_submissions_view(request, school_slug: str):
         _export_params["filter"] = active_filter
     elif status_filter:
         _export_params["status"] = status_filter
+    if program_filter:
+        _export_params["program"] = program_filter
     if search_q:
         _export_params["q"] = search_q
     export_base = reverse("school_submission_export", kwargs={"school_slug": school_slug})
@@ -237,6 +243,38 @@ def school_submissions_view(request, school_slug: str):
 
     capacity_summary = get_capacity_summary(school, config_raw)
 
+    # Column filter data — program filter only shown for FK-backed schools.
+    sub_base = reverse("school_submissions", kwargs={"school_slug": school_slug})
+    show_program_filter = bool(config_raw.get("program_field_key"))
+    program_options = (
+        list(
+            SchoolProgram.objects.filter(school=school, is_deleted=False)
+            .order_by("display_order", "name")
+            .values_list("name", flat=True)
+        )
+        if show_program_filter else []
+    )
+    # Per-option URLs for the column header dropdown panels.
+    # Status filter links intentionally omit active_filter to resolve smart-filter conflict.
+    program_filter_urls = {
+        prog: _build_list_url(sub_base, active_filter=active_filter, status_filter=status_filter, search_q=search_q, program_filter=prog, sort=sort_key, sort_dir=sort_dir)
+        for prog in program_options
+    }
+    status_filter_urls = {
+        st: _build_list_url(sub_base, program_filter=program_filter, search_q=search_q, status_filter=st, sort=sort_key, sort_dir=sort_dir)
+        for st in allowed_statuses
+    }
+    clear_program_url = _build_list_url(sub_base, active_filter=active_filter, status_filter=status_filter, search_q=search_q, sort=sort_key, sort_dir=sort_dir)
+    clear_status_url = _build_list_url(sub_base, active_filter=active_filter, program_filter=program_filter, search_q=search_q, sort=sort_key, sort_dir=sort_dir)
+    clear_filter_url = _build_list_url(sub_base, status_filter=status_filter, program_filter=program_filter, search_q=search_q, sort=sort_key, sort_dir=sort_dir)
+    active_filter_label = (_SMART_FILTERS.get(active_filter) or {}).get("label", active_filter) if active_filter else ""
+
+    def _sub_sort_url(field):
+        new_dir = ("asc" if sort_dir == "desc" else "desc") if field == sort_key else _SUB_SORT_NATURAL_DIR[field]
+        return _build_list_url(sub_base, active_filter=active_filter, status_filter=status_filter,
+                               program_filter=program_filter, search_q=search_q, sort=field, sort_dir=new_dir)
+    sub_sort_urls = {f: _sub_sort_url(f) for f in _SUB_SORTABLE}
+
     ctx = _school_admin_base_context(request, school, "submissions")
     ctx.update(
         {
@@ -245,12 +283,14 @@ def school_submissions_view(request, school_slug: str):
             "result_count": result_count,
             "display_cap_hit": display_cap_hit,
             "active_filter": active_filter,
+            "active_filter_label": active_filter_label,
             "status_filter": status_filter,
+            "program_filter": program_filter,
             "search_q": search_q,
             "status_choices": status_choices,
             "workflow_filters": workflow_filters,
             "workflow_actions_enabled": workflow_actions_enabled,
-            "submissions_url": reverse("school_submissions", kwargs={"school_slug": school_slug}),
+            "submissions_url": sub_base,
             "status_update_url_name": "school_submission_status_update",
             "bulk_status_choices": allowed_statuses,
             "bulk_update_url": reverse(
@@ -263,6 +303,16 @@ def school_submissions_view(request, school_slug: str):
             "apply_url": apply_url,
             "smart_filters": _SMART_FILTERS,
             "capacity_summary": capacity_summary,
+            "show_program_filter": show_program_filter,
+            "program_options": program_options,
+            "program_filter_urls": program_filter_urls,
+            "status_filter_urls": status_filter_urls,
+            "clear_program_url": clear_program_url,
+            "clear_status_url": clear_status_url,
+            "clear_filter_url": clear_filter_url,
+            "sort_key": sort_key,
+            "sort_dir": sort_dir,
+            "sub_sort_urls": sub_sort_urls,
         }
     )
     return render(request, "school_admin/submissions.html", ctx)
@@ -302,10 +352,12 @@ def school_submission_export_view(request, school_slug: str):
     active_filter = (request.GET.get("filter") or "").strip()
     status_filter = (request.GET.get("status") or "").strip()
     search_q = (request.GET.get("q") or "").strip()
+    program_filter = (request.GET.get("program") or "").strip()
 
     qs = _apply_submission_filters(
         Submission.objects.filter(school=school).select_related("school", "program").order_by("-created_at"),
         active_filter, status_filter, workflow_filters, search_q,
+        program_filter=program_filter,
     )
 
     # No row cap for exports — iterate all matching rows.
@@ -395,10 +447,12 @@ def school_submission_profile_export_view(request, school_slug: str, profile_nam
     active_filter = (request.GET.get("filter") or "").strip()
     status_filter = (request.GET.get("status") or "").strip()
     search_q = (request.GET.get("q") or "").strip()
+    program_filter = (request.GET.get("program") or "").strip()
 
     qs = _apply_submission_filters(
         Submission.objects.filter(school=school).order_by("-created_at"),
         active_filter, status_filter, workflow_filters, search_q,
+        program_filter=program_filter,
     )
     all_submissions = list(qs)
 

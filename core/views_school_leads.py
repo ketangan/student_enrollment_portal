@@ -14,7 +14,8 @@ logger = logging.getLogger(__name__)
 
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
-from django.db.models import Case, Count, Exists, IntegerField, OuterRef, Q, Value, When
+from django.db.models import Case, Count, Exists, F, IntegerField, OuterRef, Q, Value, When
+from django.db.models.functions import Coalesce
 from django.http import Http404, HttpResponse, FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
@@ -96,6 +97,8 @@ from .views_school_common import (  # noqa: F401 — private names not exported 
     _build_lead_prefill_data,
     _build_lead_name_prefill,
     _find_program_field_key,
+    _build_list_url,
+    _parse_sort,
     _LEAD_STATUS_CSS,
     _SMART_FILTERS,
     _SMART_FILTER_KEYS,
@@ -146,8 +149,13 @@ def school_leads_view(request, school_slug: str):
     active_filter = (request.GET.get("filter") or "").strip()
     status_filter = (request.GET.get("status") or "").strip()
     search_q = (request.GET.get("q") or "").strip()
+    program_filter = (request.GET.get("program") or "").strip()
     # ?category=scheduling shows only non-pipeline variant submissions
     category_filter = (request.GET.get("category") or "").strip()
+
+    _LEAD_SORTABLE = {"name", "received", "followup", "last_activity"}
+    _LEAD_SORT_NATURAL_DIR = {"name": "asc", "received": "desc", "followup": "asc", "last_activity": "desc"}
+    sort_key, sort_dir = _parse_sort(request, _LEAD_SORTABLE, default="received", default_dir="desc")
 
     # Base queryset: non-pipeline variant submissions (e.g. scheduling) are
     # excluded by default. ?category=<form_key> switches to that bucket.
@@ -159,9 +167,26 @@ def school_leads_view(request, school_slug: str):
         # Named-variant submissions (e.g. scheduling) always have form_key set.
         base_qs = base_qs.filter(form_key="")
 
+    # Apply sort before filters so the filtered queryset inherits the ordering.
+    _ord = "" if sort_dir == "asc" else "-"
+    if sort_key == "name":
+        base_qs = base_qs.order_by(f"{_ord}name")
+    elif sort_key == "followup":
+        base_qs = base_qs.order_by(
+            F("next_follow_up_at").asc(nulls_last=True) if sort_dir == "asc"
+            else F("next_follow_up_at").desc(nulls_last=True)
+        )
+    elif sort_key == "last_activity":
+        base_qs = base_qs.annotate(
+            _last_act=Coalesce("last_contacted_at", "created_at")
+        ).order_by(f"{_ord}_last_act")
+    else:  # received (default)
+        base_qs = base_qs.order_by(f"{_ord}created_at")
+
     qs = _apply_lead_filters(
-        base_qs.order_by("-created_at"),
+        base_qs,
         active_filter, status_filter, search_q, workflow_filters,
+        program_filter=program_filter,
     )
 
     leads_raw, lead_display_cap_hit = fetch_queryset_with_cap(qs, 200)
@@ -187,13 +212,45 @@ def school_leads_view(request, school_slug: str):
         _export_params["filter"] = active_filter
     elif status_filter:
         _export_params["status"] = status_filter
+    if program_filter:
+        _export_params["program"] = program_filter
     if search_q:
         _export_params["q"] = search_q
+    lead_base = reverse("school_leads", kwargs={"school_slug": school_slug})
     lead_export_base = reverse("school_lead_export", kwargs={"school_slug": school_slug})
     lead_export_url = lead_export_base + ("?" + urlencode(_export_params) if _export_params else "")
 
     from core.services.url_builder import app_reverse
     lead_capture_url = app_reverse("lead_capture", kwargs={"school_slug": school_slug})
+
+    # Column filter data — program options from distinct interested_in_label values.
+    lead_program_options = list(
+        Lead.objects.filter(school=school, form_key="")
+        .exclude(interested_in_label="")
+        .values_list("interested_in_label", flat=True)
+        .distinct()
+        .order_by("interested_in_label")
+    )
+    lead_program_filter_urls = {
+        prog: _build_list_url(lead_base, active_filter=active_filter, status_filter=status_filter, search_q=search_q, program_filter=prog, sort=sort_key, sort_dir=sort_dir)
+        for prog in lead_program_options
+    }
+    lead_status_filter_urls = {
+        val: _build_list_url(lead_base, program_filter=program_filter, search_q=search_q, status_filter=val, sort=sort_key, sort_dir=sort_dir)
+        for val, _label in LEAD_STATUS_CHOICES
+    }
+    clear_lead_program_url = _build_list_url(lead_base, active_filter=active_filter, status_filter=status_filter, search_q=search_q, sort=sort_key, sort_dir=sort_dir)
+    clear_lead_status_url = _build_list_url(lead_base, active_filter=active_filter, program_filter=program_filter, search_q=search_q, sort=sort_key, sort_dir=sort_dir)
+    clear_lead_filter_url = _build_list_url(lead_base, status_filter=status_filter, program_filter=program_filter, search_q=search_q, sort=sort_key, sort_dir=sort_dir)
+    lead_status_label_map = dict(LEAD_STATUS_CHOICES)
+    lead_status_filter_label = lead_status_label_map.get(status_filter, status_filter)
+    active_filter_label = (_SMART_FILTERS.get(active_filter) or {}).get("label", active_filter) if active_filter else ""
+
+    def _lead_sort_url(field):
+        new_dir = ("asc" if sort_dir == "desc" else "desc") if field == sort_key else _LEAD_SORT_NATURAL_DIR[field]
+        return _build_list_url(lead_base, active_filter=active_filter, status_filter=status_filter,
+                               program_filter=program_filter, search_q=search_q, sort=field, sort_dir=new_dir)
+    lead_sort_urls = {f: _lead_sort_url(f) for f in _LEAD_SORTABLE}
 
     ctx = _school_admin_base_context(request, school, "leads")
     ctx.update(
@@ -202,12 +259,14 @@ def school_leads_view(request, school_slug: str):
             "total_count": len(leads),
             "lead_display_cap_hit": lead_display_cap_hit,
             "active_filter": active_filter,
+            "active_filter_label": active_filter_label,
             "status_filter": status_filter,
+            "program_filter": program_filter,
             "search_q": search_q,
             "lead_status_choices": LEAD_STATUS_CHOICES,
             "workflow_filters": workflow_filters,
             "workflow_actions_enabled": workflow_actions_enabled,
-            "leads_url": reverse("school_leads", kwargs={"school_slug": school_slug}),
+            "leads_url": lead_base,
             "leads_metrics": leads_metrics,
             "bulk_update_url": reverse(
                 "school_lead_bulk_status_update",
@@ -218,6 +277,16 @@ def school_leads_view(request, school_slug: str):
             "smart_filters": _SMART_FILTERS,
             "category_filter": category_filter,
             "scheduling_count": scheduling_count,
+            "lead_program_options": lead_program_options,
+            "lead_program_filter_urls": lead_program_filter_urls,
+            "lead_status_filter_urls": lead_status_filter_urls,
+            "clear_lead_program_url": clear_lead_program_url,
+            "clear_lead_status_url": clear_lead_status_url,
+            "clear_lead_filter_url": clear_lead_filter_url,
+            "lead_status_filter_label": lead_status_filter_label,
+            "sort_key": sort_key,
+            "sort_dir": sort_dir,
+            "lead_sort_urls": lead_sort_urls,
         }
     )
     return render(request, "school_admin/leads.html", ctx)
@@ -269,10 +338,12 @@ def school_lead_export_view(request, school_slug: str):
     active_filter = (request.GET.get("filter") or "").strip()
     status_filter = (request.GET.get("status") or "").strip()
     search_q = (request.GET.get("q") or "").strip()
+    program_filter = (request.GET.get("program") or "").strip()
 
     qs = _apply_lead_filters(
         Lead.objects.filter(school=school).select_related("school").order_by("-created_at"),
         active_filter, status_filter, search_q, workflow_filters,
+        program_filter=program_filter,
     )
     leads = list(qs)
 
@@ -581,27 +652,36 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
         # Build prefill from current lead data — always reflects latest lead edits.
         prefill = _build_lead_prefill_data(lead, config_raw)
 
-        existing_draft = (
-            DraftSubmission.objects
-            .filter(school=school, lead=lead, submitted_at__isnull=True)
-            .exclude(token_expires_at__lt=timezone.now())
-            .order_by("-created_at")
-            .first()
-        )
-        if not existing_draft:
-            existing_draft = DraftSubmission.objects.create(
-                school=school,
-                lead=lead,
-                data=prefill,
-                email=lead.email,
+        # select_for_update() inside atomic() prevents two concurrent GETs from
+        # both seeing no draft and each inserting their own.  We intentionally
+        # omit the token_expires_at exclusion here: an expired-but-unsubmitted
+        # draft still holds the unique_active_draft_per_lead slot, so we must
+        # reuse it (and refresh its expiry) rather than trying to create a second
+        # one, which would violate the constraint.
+        with transaction.atomic():
+            existing_draft = (
+                DraftSubmission.objects
+                .select_for_update()
+                .filter(school=school, lead=lead, submitted_at__isnull=True)
+                .order_by("-created_at")
+                .first()
             )
-        else:
-            # Merge: lead-sourced keys always win (keeps admin corrections in sync).
-            # Family-entered keys not in prefill are preserved untouched.
-            merged = {**(existing_draft.data or {}), **prefill}
-            if merged != existing_draft.data:
+            if not existing_draft:
+                existing_draft = DraftSubmission.objects.create(
+                    school=school,
+                    lead=lead,
+                    data=prefill,
+                    email=lead.email,
+                )
+            else:
+                # Merge: lead-sourced keys always win (keeps admin edits in sync).
+                # Family-entered keys not in prefill are preserved.
+                # Always extend expiry — reactivates an expired draft without
+                # violating the unique constraint.
+                merged = {**(existing_draft.data or {}), **prefill}
                 existing_draft.data = merged
-                existing_draft.save(update_fields=["data", "updated_at"])
+                existing_draft.extend_expiry()
+                existing_draft.save(update_fields=["data", "token_expires_at", "updated_at"])
         from core.services.url_builder import app_reverse
         resume_url = app_reverse("apply_resume", kwargs={"school_slug": school_slug, "token": existing_draft.token})
         # Use token URL, not bare /apply/ — session may hold a different lead's draft.
