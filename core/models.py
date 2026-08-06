@@ -3,7 +3,7 @@ from datetime import timedelta, datetime, time
 from math import ceil as _ceil
 from django.contrib.postgres.indexes import GinIndex
 from django.db import models, transaction
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.utils import timezone
 import os
 import re
@@ -777,6 +777,13 @@ class DraftSubmission(models.Model):
         indexes = [
             models.Index(fields=["token"]),
             models.Index(fields=["token_expires_at"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["school", "lead"],
+                condition=Q(submitted_at__isnull=True),
+                name="unique_active_draft_per_lead",
+            ),
         ]
 
     def is_expired(self) -> bool:

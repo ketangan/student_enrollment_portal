@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 from django.urls import reverse
 from django.utils import timezone
 
-from core.models import Lead, LEAD_STATUS_NEW
+from core.models import DraftSubmission, Lead, LEAD_STATUS_NEW
 from core.tests.factories import (
     LeadFactory,
     SchoolAdminMembershipFactory,
@@ -159,3 +159,36 @@ def test_overdue_flag_false(client):
 
     assert response.status_code == 200
     assert response.context["is_followup_overdue"] is False
+
+
+@pytest.mark.django_db
+def test_lead_detail_reuses_expired_draft(client):
+    """
+    Regression: opening lead detail when an expired (but unsubmitted) draft
+    already exists must not raise IntegrityError from unique_active_draft_per_lead.
+    The view must reuse the expired draft and refresh its expiry.
+    """
+    school = SchoolFactory()
+    user = _school_admin_user(school)
+    lead = LeadFactory(school=school, status=LEAD_STATUS_NEW)
+    client.force_login(user)
+
+    # First visit — creates a draft.
+    response = client.get(_lead_detail_url(school, lead.id))
+    assert response.status_code == 200
+    assert DraftSubmission.objects.filter(school=school, lead=lead, submitted_at__isnull=True).count() == 1
+
+    # Expire the draft by setting token_expires_at to the past.
+    past = timezone.now() - timedelta(days=1)
+    DraftSubmission.objects.filter(school=school, lead=lead).update(token_expires_at=past)
+
+    # Second visit — must reuse the expired draft, not try to create a second one.
+    response = client.get(_lead_detail_url(school, lead.id))
+    assert response.status_code == 200
+
+    # Still exactly one active draft — no duplicate was created.
+    drafts = DraftSubmission.objects.filter(school=school, lead=lead, submitted_at__isnull=True)
+    assert drafts.count() == 1
+
+    # Expiry was refreshed — the draft is valid again.
+    assert not drafts.first().is_expired()
