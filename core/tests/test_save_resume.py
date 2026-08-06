@@ -19,8 +19,10 @@ from django.urls import reverse
 from django.utils import timezone
 from django.core import mail
 
+from django.db import IntegrityError
+
 from core.models import DraftSubmission, School, Submission
-from core.tests.factories import SchoolFactory
+from core.tests.factories import LeadFactory, SchoolFactory
 
 
 # ---------------------------------------------------------------------------
@@ -113,6 +115,43 @@ def test_draft_expired_after_window():
     school = SchoolFactory()
     draft = _make_draft(school, expired=True)
     assert draft.is_expired()
+
+
+# ---------------------------------------------------------------------------
+# unique_active_draft_per_lead constraint
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_duplicate_active_draft_per_lead_raises():
+    """Two unsubmitted drafts for the same (school, lead) must violate the constraint."""
+    school = SchoolFactory()
+    lead = LeadFactory(school=school)
+    DraftSubmission.objects.create(school=school, lead=lead, email="a@test.com")
+    with pytest.raises(IntegrityError):
+        DraftSubmission.objects.create(school=school, lead=lead, email="b@test.com")
+
+
+@pytest.mark.django_db
+def test_submitted_draft_does_not_block_new_active_draft():
+    """A submitted draft frees the unique slot — a new unsubmitted draft is allowed."""
+    school = SchoolFactory()
+    lead = LeadFactory(school=school)
+    DraftSubmission.objects.create(
+        school=school, lead=lead, email="a@test.com",
+        submitted_at=timezone.now(),
+    )
+    DraftSubmission.objects.create(school=school, lead=lead, email="b@test.com")
+    active = DraftSubmission.objects.filter(school=school, lead=lead, submitted_at__isnull=True)
+    assert active.count() == 1
+
+
+@pytest.mark.django_db
+def test_null_lead_drafts_are_not_constrained():
+    """Drafts with no lead (anonymous public form) are unconstrained — multiple allowed per school."""
+    school = SchoolFactory()
+    DraftSubmission.objects.create(school=school, lead=None, email="a@test.com")
+    DraftSubmission.objects.create(school=school, lead=None, email="b@test.com")
+    assert DraftSubmission.objects.filter(school=school, lead__isnull=True).count() == 2
 
 
 # ---------------------------------------------------------------------------
