@@ -9,7 +9,7 @@ from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 
-from core.models import School, SchoolAdminMembership
+from core.models import AdminAuditLog, School, SchoolAdminMembership
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -166,21 +166,21 @@ def test_wrong_password_returns_200_with_error(client, db):
     _make_user("wrongpw")
     r = client.post(reverse("login"), {"username": "wrongpw", "password": "nope"})
     assert r.status_code == 200
-    assert b"Invalid username" in r.content
+    assert b"Invalid credentials" in r.content
 
 
 @pytest.mark.django_db
 def test_nonexistent_user_returns_200_with_error(client, db):
     r = client.post(reverse("login"), {"username": "ghost", "password": "x"})
     assert r.status_code == 200
-    assert b"Invalid username" in r.content
+    assert b"Invalid credentials" in r.content
 
 
 @pytest.mark.django_db
 def test_empty_credentials_returns_200_with_error(client, db):
     r = client.post(reverse("login"), {"username": "", "password": ""})
     assert r.status_code == 200
-    assert b"Invalid username" in r.content
+    assert b"Invalid credentials" in r.content
 
 
 @pytest.mark.django_db
@@ -286,3 +286,104 @@ def test_login_from_two_accounts_sequentially_on_same_client(client, school, db)
     # New session key issued after re-login (session fixation protection)
     assert session_a_key != session_b_key
     assert client.session.get("_auth_user_id") == str(user_b.pk)
+
+
+# ── Email-based login (EmailBackend) ─────────────────────────────────────────
+
+@pytest.mark.django_db
+def test_login_with_email_succeeds(client, school, db):
+    """A user can log in using their email address instead of username."""
+    user = _make_user("emily", email="emily@sbmc.org")
+    _membership(user, school)
+    r = client.post(reverse("login"), {"username": "emily@sbmc.org", "password": "pass123"})
+    assert r.status_code == 302
+    assert client.session.get("_auth_user_id") == str(user.pk)
+
+
+@pytest.mark.django_db
+def test_login_with_email_is_case_insensitive(client, school, db):
+    """Email lookup is case-insensitive — EMILY@SBMC.ORG matches emily@sbmc.org."""
+    user = _make_user("emily2", email="emily@sbmc.org")
+    _membership(user, school)
+    r = client.post(reverse("login"), {"username": "EMILY@SBMC.ORG", "password": "pass123"})
+    assert r.status_code == 302
+    assert client.session.get("_auth_user_id") == str(user.pk)
+
+
+@pytest.mark.django_db
+def test_login_with_username_still_works_after_email_backend(client, school, db):
+    """Adding EmailBackend does not break username login."""
+    user = _make_user("admin_user", email="admin@example.com")
+    _membership(user, school)
+    r = client.post(reverse("login"), {"username": "admin_user", "password": "pass123"})
+    assert r.status_code == 302
+    assert client.session.get("_auth_user_id") == str(user.pk)
+
+
+@pytest.mark.django_db
+def test_login_with_email_wrong_password_fails(client, db):
+    """Correct email but wrong password must not authenticate."""
+    _make_user("em3", email="em3@example.com")
+    r = client.post(reverse("login"), {"username": "em3@example.com", "password": "wrong"})
+    assert r.status_code == 200
+    assert not client.session.get("_auth_user_id")
+
+
+@pytest.mark.django_db
+def test_login_with_unknown_email_fails(client, db):
+    """Email that matches no user must not authenticate."""
+    r = client.post(reverse("login"), {"username": "nobody@nowhere.com", "password": "pass123"})
+    assert r.status_code == 200
+    assert not client.session.get("_auth_user_id")
+
+
+@pytest.mark.django_db
+def test_login_email_inactive_user_blocked(client, db):
+    """An inactive user cannot log in via email."""
+    _make_user("inact_em", email="inact@example.com", is_active=False)
+    r = client.post(reverse("login"), {"username": "inact@example.com", "password": "pass123"})
+    assert r.status_code == 200
+    assert not client.session.get("_auth_user_id")
+
+
+# ── Login audit logging ───────────────────────────────────────────────────────
+
+@pytest.mark.django_db
+def test_successful_login_creates_login_ok_audit_entry(client, school, db):
+    """A successful login writes a login_ok entry tied to the user."""
+    user = _make_user("audit_ok")
+    _membership(user, school)
+    client.post(reverse("login"), {"username": "audit_ok", "password": "pass123"})
+    entry = AdminAuditLog.objects.filter(
+        model_label="auth.user",
+        object_id=str(user.pk),
+        extra__name="login_ok",
+    ).first()
+    assert entry is not None
+    assert entry.actor == user  # login() sets request.user before we log
+
+
+@pytest.mark.django_db
+def test_failed_login_known_user_creates_login_fail_entry(client, db):
+    """A failed login for a known username writes a login_fail entry tied to that user."""
+    user = _make_user("audit_fail")
+    client.post(reverse("login"), {"username": "audit_fail", "password": "wrong"})
+    entry = AdminAuditLog.objects.filter(
+        model_label="auth.user",
+        object_id=str(user.pk),
+        extra__name="login_fail",
+    ).first()
+    assert entry is not None
+    assert entry.extra["username_attempted"] == "audit_fail"
+
+
+@pytest.mark.django_db
+def test_failed_login_unknown_user_still_creates_audit_entry(client, db):
+    """A failed login for a non-existent username still writes an audit entry (no object_id)."""
+    client.post(reverse("login"), {"username": "doesnotexist", "password": "x"})
+    entry = AdminAuditLog.objects.filter(
+        extra__name="login_fail",
+        extra__username_attempted="doesnotexist",
+    ).first()
+    assert entry is not None
+    assert entry.object_id == ""

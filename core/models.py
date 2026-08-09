@@ -1141,6 +1141,13 @@ class AdminAuditLog(models.Model):
         if name == "convert_demo":
             return "Converted demo to customer"
 
+        if name == "login_ok":
+            return "Logged in"
+
+        if name == "login_fail":
+            attempted = extra.get("username_attempted", "")
+            return f"Login failed — {attempted}" if attempted else "Login failed"
+
         if name == "ops_password_reset":
             return "Reset user password (ops)"
 

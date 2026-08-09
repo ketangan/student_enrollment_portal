@@ -1,4 +1,4 @@
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.contrib.auth.forms import AuthenticationForm
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -26,6 +26,37 @@ def _post_login_redirect(request, next_url=""):
     return redirect("login")
 
 
+def _resolve_login_target(attempted: str):
+    """
+    For audit logging only: return the User matching the attempted credential, or None.
+    Tries username first, then email (mirrors EmailBackend ordering).
+    Never used for authentication decisions.
+    """
+    if not attempted:
+        return None
+    User = get_user_model()
+    try:
+        return User.objects.get(username=attempted)
+    except (User.DoesNotExist, User.MultipleObjectsReturned):
+        pass
+    try:
+        return User.objects.get(email__iexact=attempted)
+    except (User.DoesNotExist, User.MultipleObjectsReturned):
+        return None
+
+
+def _log_login(request, name: str, user=None, username_attempted: str = "") -> None:
+    """Write a login_ok / login_fail audit entry. Swallows all exceptions — never blocks login."""
+    try:
+        from core.admin.audit import log_admin_audit
+        extra = {"name": name}
+        if username_attempted:
+            extra["username_attempted"] = username_attempted
+        log_admin_audit(request=request, action="action", obj=user, extra=extra)
+    except Exception:
+        pass
+
+
 @ratelimit(key="ip", rate="10/m", method="POST", block=True)
 def login_view(request):
     if request.user.is_authenticated:
@@ -37,9 +68,15 @@ def login_view(request):
     if request.method == "POST":
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
-            login(request, form.get_user())
+            user = form.get_user()
+            login(request, user)
+            _log_login(request, "login_ok", user=user)
             return _post_login_redirect(request, next_url)
-        error = "Invalid username or password."
+        attempted = request.POST.get("username", "")[:150]
+        _log_login(request, "login_fail",
+                   user=_resolve_login_target(attempted),
+                   username_attempted=attempted)
+        error = "Invalid credentials."
     else:
         form = AuthenticationForm()
 

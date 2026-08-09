@@ -113,6 +113,38 @@
 
   </div>
 
+  <!-- Login history -->
+  <div class="dash-card" style="padding:24px;margin-bottom:16px;">
+    <h2 style="font-size:14px;font-weight:700;margin:0 0 14px;">Login History</h2>
+    {% if login_history %}
+    <table class="dash-table">
+      <thead><tr><th>When</th><th>Outcome</th><th>IP</th><th>Attempted as</th></tr></thead>
+      <tbody>
+        {% for log in login_history %}
+        <tr>
+          <td style="font-size:11px;color:var(--dash-muted);white-space:nowrap;">{{ log.created_at|date:"M j, Y H:i" }}</td>
+          <td style="font-size:12px;">
+            {% if log.extra.name == "login_ok" %}
+              <span style="color:#059669;font-weight:600;">Success</span>
+            {% else %}
+              <span style="color:#dc2626;font-weight:600;">Failed</span>
+            {% endif %}
+          </td>
+          <td style="font-size:12px;color:var(--dash-muted);font-family:monospace;">{{ log.ip_address|default:"—" }}</td>
+          <td style="font-size:12px;">
+            {% if log.extra.username_attempted %}{{ log.extra.username_attempted }}
+            {% elif log.actor %}{{ log.actor.username }}
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="font-size:13px;color:var(--dash-muted);margin:0;">No login attempts recorded yet.</p>
+    {% endif %}
+  </div>
+
   <!-- Audit log -->
   <div class="dash-card" style="padding:24px;margin-bottom:24px;">
     <h2 style="font-size:14px;font-weight:700;margin:0 0 14px;">Recent Changes</h2>
@@ -123,7 +155,7 @@
         {% for log in recent_audit %}
         <tr>
           <td style="font-size:11px;color:var(--dash-muted);white-space:nowrap;">{{ log.created_at|date:"M j H:i" }}</td>
-          <td style="font-size:12px;">{{ log.actor.username }}</td>
+          <td style="font-size:12px;">{{ log.actor.username|default:"—" }}</td>
           <td style="font-size:12px;text-transform:capitalize;">{{ log.action }}</td>
           <td style="font-size:12px;color:var(--dash-muted);">
             {% if log.extra.name %}{{ log.extra.name }}{% endif %}

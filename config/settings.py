@@ -299,6 +299,12 @@ DEMO_BASE_URL = os.getenv("DEMO_BASE_URL", BASE_URL)
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 
+# Auth backends — email first, then username fallback
+AUTHENTICATION_BACKENDS = [
+    "core.backends.EmailBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
 # Auth redirects — custom login page instead of Django admin login
 LOGIN_URL = "/login/"
 LOGOUT_REDIRECT_URL = "/login/"

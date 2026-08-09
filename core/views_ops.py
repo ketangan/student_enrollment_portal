@@ -336,8 +336,15 @@ def ops_user_detail_view(request, user_id):
     membership = SchoolAdminMembership.objects.filter(
         user=target_user, is_active=True
     ).select_related("school").first()
-    recent_audit = AdminAuditLog.objects.filter(
+
+    _user_logs = AdminAuditLog.objects.filter(
         model_label="auth.user", object_id=str(target_user.pk)
+    )
+    recent_audit = _user_logs.exclude(
+        extra__name__in=["login_ok", "login_fail"]
+    ).order_by("-created_at")[:20]
+    login_history = _user_logs.filter(
+        extra__name__in=["login_ok", "login_fail"]
     ).order_by("-created_at")[:20]
 
     return render(request, "ops/user_detail.html", {
@@ -346,6 +353,7 @@ def ops_user_detail_view(request, user_id):
         "form": form,
         "membership": membership,
         "recent_audit": recent_audit,
+        "login_history": login_history,
     })
 
 

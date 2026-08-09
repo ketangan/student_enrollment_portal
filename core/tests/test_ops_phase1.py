@@ -395,7 +395,7 @@ def test_login_redirects_school_admin_to_dashboard(client, school_admin_user, sc
 def test_login_invalid_credentials(client, db):
     resp = client.post(reverse("login"), {"username": "nobody", "password": "wrong"})
     assert resp.status_code == 200
-    assert b"Invalid username" in resp.content
+    assert b"Invalid credentials" in resp.content
 
 
 @pytest.mark.django_db
