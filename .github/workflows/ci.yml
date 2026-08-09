@@ -9,6 +9,26 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: ci_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/ci_test
+      DJANGO_SECRET_KEY: ci-only-secret-key-not-used-in-production
+
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -22,10 +42,6 @@ jobs:
           pip install -r requirements.txt
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
       - name: Run migrations
-        env:
-          DATABASE_URL: sqlite:///db.sqlite3
-        run: |
-          python manage.py migrate --noinput
+        run: python manage.py migrate --noinput
       - name: Run tests
-        run: |
-          python -m pytest -q
+        run: python -m pytest -q
