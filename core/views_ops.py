@@ -1071,6 +1071,9 @@ def ops_diagnostics_view(request):
 def ops_fetch_render_logs_view(request):
     """Fetch recent Render service logs and return as plain text."""
     import json
+    import urllib.request
+    import urllib.error
+    from datetime import datetime, timedelta, timezone as dt_tz
     from django.conf import settings as django_settings
     from django.http import JsonResponse
 
@@ -1080,30 +1083,42 @@ def ops_fetch_render_logs_view(request):
     if not api_key or not service_id:
         return JsonResponse({"error": "RENDER_API_KEY or RENDER_SERVICE_ID not configured."}, status=400)
 
+    headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
+
     try:
-        import urllib.request
+        # Render logs API requires ownerId — fetch it from the service record.
+        svc_req = urllib.request.Request(
+            f"https://api.render.com/v1/services/{service_id}",
+            headers=headers,
+        )
+        with urllib.request.urlopen(svc_req, timeout=10) as resp:
+            owner_id = json.loads(resp.read())["ownerId"]
+
         hours = int(request.GET.get("hours", 1))
-        from datetime import datetime, timedelta, timezone as dt_tz
         end = datetime.now(dt_tz.utc)
         start = end - timedelta(hours=hours)
 
         url = (
-            f"https://api.render.com/v1/services/{service_id}/logs"
-            f"?startTime={start.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+            f"https://api.render.com/v1/logs"
+            f"?resource={service_id}"
+            f"&ownerId={owner_id}"
+            f"&startTime={start.strftime('%Y-%m-%dT%H:%M:%SZ')}"
             f"&endTime={end.strftime('%Y-%m-%dT%H:%M:%SZ')}"
             f"&limit=200&direction=backward"
         )
-        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}", "Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=15) as resp:
+        log_req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(log_req, timeout=15) as resp:
             data = json.loads(resp.read())
 
         lines = []
-        for entry in reversed(data.get("logs", data if isinstance(data, list) else [])):
+        for entry in reversed(data.get("logs", [])):
             ts = entry.get("timestamp", "")[:19].replace("T", " ")
             msg = entry.get("message", "").rstrip()
             if msg:
                 lines.append(f"{ts}  {msg}")
 
-        return JsonResponse({"logs": "\n".join(lines)})
+        return JsonResponse({"logs": "\n".join(lines), "count": len(lines)})
+    except urllib.error.HTTPError as exc:
+        return JsonResponse({"error": f"Render API {exc.code}: {exc.read().decode()[:200]}"}, status=500)
     except Exception as exc:
         return JsonResponse({"error": str(exc)}, status=500)
