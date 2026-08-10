@@ -989,6 +989,7 @@ def ops_diagnostics_view(request):
     result = None
     error = None
     form_input = ""
+    extra_instructions = ""
     selected_school_id = ""
 
     schools = School.objects.order_by("display_name", "slug")
@@ -998,6 +999,7 @@ def ops_diagnostics_view(request):
 
     if request.method == "POST":
         form_input = request.POST.get("input_text", "").strip()
+        extra_instructions = request.POST.get("extra_instructions", "").strip()
         selected_school_id = request.POST.get("affected_school", "").strip()
 
         if not form_input:
@@ -1036,6 +1038,8 @@ def ops_diagnostics_view(request):
             if audit_ctx:
                 user_prompt += f"RECENT AUDIT LOG (school context):\n{audit_ctx}\n\n"
             user_prompt += f"LOG / EMAIL / ERROR TO ANALYZE:\n{form_input}"
+            if extra_instructions:
+                user_prompt += f"\n\nADDITIONAL INSTRUCTIONS FROM OPERATOR:\n{extra_instructions}"
 
             try:
                 import anthropic
@@ -1062,6 +1066,7 @@ def ops_diagnostics_view(request):
         "result": result,
         "error": error,
         "form_input": form_input,
+        "extra_instructions": extra_instructions,
         "selected_school_id": selected_school_id,
         "render_available": render_available,
     })

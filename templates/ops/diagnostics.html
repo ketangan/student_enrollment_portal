@@ -76,6 +76,18 @@
                            background:var(--dash-bg,#fff);color:var(--dash-text,#0f172a);">{{ form_input }}</textarea>
         </div>
 
+        <!-- Additional instructions -->
+        <div style="background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:12px;padding:16px;margin-bottom:16px;">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-text,#0f172a);margin-bottom:6px;">
+            Additional Instructions <span style="font-weight:400;color:var(--dash-muted);">(optional — focus, hypotheses, extra context)</span>
+          </label>
+          <textarea name="extra_instructions" rows="3"
+                    placeholder="e.g. Focus on the 500 errors around 14:32. I think this might be related to a recent Stripe webhook change."
+                    style="width:100%;padding:10px;border:1px solid var(--dash-border,#e2e8f0);border-radius:8px;font-size:13px;
+                           line-height:1.6;resize:vertical;box-sizing:border-box;
+                           background:var(--dash-bg,#fff);color:var(--dash-text,#0f172a);">{{ extra_instructions }}</textarea>
+        </div>
+
         <!-- Optional school context -->
         <div style="background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:12px;padding:16px;margin-bottom:16px;">
           <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-text,#0f172a);margin-bottom:6px;">
