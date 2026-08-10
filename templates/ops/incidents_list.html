@@ -1,0 +1,115 @@
+{% extends "ops/base.html" %}
+{% block page_title %}Incidents{% endblock %}
+
+{% block content %}
+<div style="padding:24px 20px;max-width:1200px;margin:0 auto;">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h1 style="font-size:20px;font-weight:700;color:var(--dash-text,#0f172a);margin:0;">Incident Log</h1>
+      <p style="font-size:12px;color:var(--dash-muted);margin:2px 0 0;">{{ total_count }} incident{{ total_count|pluralize }}</p>
+    </div>
+    <a href="{% url 'ops_incident_create' %}"
+       style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:var(--dash-primary,#4f46e5);
+              color:#fff;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;">
+      + Log Incident
+    </a>
+  </div>
+
+  <!-- Search + Filters -->
+  <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;">
+    <input type="text" name="q" value="{{ q }}" placeholder="Search title, symptoms, cause, resolution…"
+           style="flex:1;min-width:220px;padding:8px 12px;border:1px solid var(--dash-border,#e2e8f0);
+                  border-radius:8px;font-size:13px;background:var(--dash-bg,#fff);color:var(--dash-text,#0f172a);">
+    <select name="status" style="padding:8px 12px;border:1px solid var(--dash-border,#e2e8f0);border-radius:8px;font-size:13px;background:var(--dash-bg,#fff);color:var(--dash-text,#0f172a);">
+      <option value="">All statuses</option>
+      {% for val, label in status_choices %}
+      <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="severity" style="padding:8px 12px;border:1px solid var(--dash-border,#e2e8f0);border-radius:8px;font-size:13px;background:var(--dash-bg,#fff);color:var(--dash-text,#0f172a);">
+      <option value="">All severities</option>
+      {% for val, label in severity_choices %}
+      <option value="{{ val }}" {% if severity_filter == val %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" style="padding:8px 16px;background:var(--dash-primary,#4f46e5);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Filter</button>
+    {% if q or status_filter or severity_filter %}
+    <a href="{% url 'ops_incidents_list' %}" style="padding:8px 14px;border:1px solid var(--dash-border,#e2e8f0);border-radius:8px;font-size:13px;color:var(--dash-muted);text-decoration:none;display:inline-flex;align-items:center;">Clear</a>
+    {% endif %}
+  </form>
+
+  <!-- Table -->
+  <div style="background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:12px;overflow:hidden;">
+    {% if page_obj.object_list %}
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:var(--dash-sidebar,#f8fafc);border-bottom:1px solid var(--dash-border,#e2e8f0);">
+            <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--dash-muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Severity</th>
+            <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--dash-muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Title</th>
+            <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--dash-muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Status</th>
+            <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--dash-muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Occurred</th>
+            <th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--dash-muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">School</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for incident in page_obj %}
+          <tr onclick="window.location='{% url 'ops_incident_detail' incident.pk %}'"
+              style="border-bottom:1px solid var(--dash-border,#e2e8f0);cursor:pointer;transition:background .1s;"
+              onmouseover="this.style.background='var(--dash-sidebar,#f8fafc)'"
+              onmouseout="this.style.background=''">
+            <td style="padding:10px 14px;">
+              <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;
+                           background:{{ incident.severity_bg }};color:{{ incident.severity_color }};">
+                {{ incident.get_severity_display }}
+              </span>
+            </td>
+            <td style="padding:10px 14px;font-weight:500;color:var(--dash-text,#0f172a);">
+              {{ incident.title }}
+              {% if incident.symptoms %}
+              <div style="font-size:11px;color:var(--dash-muted);margin-top:2px;">{{ incident.symptoms|truncatechars:80 }}</div>
+              {% endif %}
+            </td>
+            <td style="padding:10px 14px;">
+              <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;
+                           background:{{ incident.status_bg }};color:{{ incident.status_color }};">
+                {{ incident.get_status_display }}
+              </span>
+            </td>
+            <td style="padding:10px 14px;color:var(--dash-muted);white-space:nowrap;font-size:12px;">
+              {{ incident.occurred_at|date:"M j, Y" }}
+            </td>
+            <td style="padding:10px 14px;color:var(--dash-muted);font-size:12px;">
+              {% if incident.affected_school %}{{ incident.affected_school.display_name|default:incident.affected_school.slug }}{% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div style="padding:12px 16px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--dash-border,#e2e8f0);font-size:12px;">
+      {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}{% if q %}&q={{ q }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}"
+         style="padding:4px 10px;border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;text-decoration:none;color:var(--dash-text,#0f172a);">‹ Prev</a>
+      {% endif %}
+      <span style="color:var(--dash-muted);">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}{% if q %}&q={{ q }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if severity_filter %}&severity={{ severity_filter }}{% endif %}"
+         style="padding:4px 10px;border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;text-decoration:none;color:var(--dash-text,#0f172a);">Next ›</a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div style="padding:48px;text-align:center;color:var(--dash-muted);">
+      {% if q or status_filter or severity_filter %}No incidents match your filters.{% else %}No incidents logged yet.{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

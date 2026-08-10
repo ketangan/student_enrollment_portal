@@ -1,0 +1,108 @@
+{% extends "ops/base.html" %}
+{% block page_title %}Incident #{{ incident.pk }}{% endblock %}
+
+{% block content %}
+<div style="padding:24px 20px;max-width:900px;margin:0 auto;">
+
+  <!-- Back + actions -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+    <a href="{% url 'ops_incidents_list' %}"
+       style="font-size:13px;color:var(--dash-muted);text-decoration:none;">← Incidents</a>
+    <a href="{% url 'ops_incident_edit' incident.pk %}"
+       style="padding:7px 16px;background:var(--dash-primary,#4f46e5);color:#fff;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;">
+      Edit Incident
+    </a>
+  </div>
+
+  <!-- Header card -->
+  <div style="background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:12px;padding:20px 24px;margin-bottom:16px;">
+    <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:0;">
+        <h1 style="font-size:18px;font-weight:700;color:var(--dash-text,#0f172a);margin:0 0 8px;">{{ incident.title }}</h1>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <span style="display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600;
+                       background:{{ incident.severity_bg }};color:{{ incident.severity_color }};">
+            {{ incident.get_severity_display }}
+          </span>
+          <span style="display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:600;
+                       background:{{ incident.status_bg }};color:{{ incident.status_color }};">
+            {{ incident.get_status_display }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Meta grid -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:16px;padding-top:16px;border-top:1px solid var(--dash-border,#e2e8f0);">
+      <div>
+        <div style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Occurred</div>
+        <div style="font-size:13px;font-weight:500;">{{ incident.occurred_at|date:"M j, Y H:i" }}</div>
+      </div>
+      {% if incident.resolved_at %}
+      <div>
+        <div style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Resolved</div>
+        <div style="font-size:13px;font-weight:500;">{{ incident.resolved_at|date:"M j, Y H:i" }}</div>
+      </div>
+      {% endif %}
+      <div>
+        <div style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Logged by</div>
+        <div style="font-size:13px;font-weight:500;">{% if incident.created_by %}{{ incident.created_by.username }}{% else %}—{% endif %}</div>
+      </div>
+      {% if incident.affected_school %}
+      <div>
+        <div style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">School</div>
+        <div style="font-size:13px;font-weight:500;">
+          <a href="{% url 'ops_school_detail' incident.affected_school.slug %}" style="color:var(--dash-primary,#4f46e5);text-decoration:none;">
+            {{ incident.affected_school.display_name|default:incident.affected_school.slug }}
+          </a>
+        </div>
+      </div>
+      {% endif %}
+      {% if incident.affected_user %}
+      <div>
+        <div style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">User</div>
+        <div style="font-size:13px;font-weight:500;">
+          <a href="{% url 'ops_user_detail' incident.affected_user.pk %}" style="color:var(--dash-primary,#4f46e5);text-decoration:none;">
+            {{ incident.affected_user.username }}
+          </a>
+        </div>
+      </div>
+      {% endif %}
+      <div>
+        <div style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Logged</div>
+        <div style="font-size:13px;font-weight:500;">{{ incident.created_at|date:"M j, Y H:i" }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content sections -->
+  {% if incident.symptoms %}
+  <div style="background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:12px;padding:20px 24px;margin-bottom:16px;">
+    <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin:0 0 10px;">Symptoms / What Was Reported</h2>
+    <div style="font-size:13px;line-height:1.7;white-space:pre-wrap;color:var(--dash-text,#0f172a);">{{ incident.symptoms }}</div>
+  </div>
+  {% endif %}
+
+  {% if incident.root_cause %}
+  <div style="background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:12px;padding:20px 24px;margin-bottom:16px;">
+    <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin:0 0 10px;">Root Cause</h2>
+    <div style="font-size:13px;line-height:1.7;white-space:pre-wrap;color:var(--dash-text,#0f172a);">{{ incident.root_cause }}</div>
+  </div>
+  {% endif %}
+
+  {% if incident.resolution %}
+  <div style="background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:12px;padding:20px 24px;margin-bottom:16px;">
+    <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin:0 0 10px;">Resolution</h2>
+    <div style="font-size:13px;line-height:1.7;white-space:pre-wrap;color:var(--dash-text,#0f172a);">{{ incident.resolution }}</div>
+  </div>
+  {% endif %}
+
+  {% if incident.prevention_notes %}
+  <div style="background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:12px;padding:20px 24px;margin-bottom:16px;">
+    <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--dash-muted);margin:0 0 10px;">Prevention Notes</h2>
+    <div style="font-size:13px;line-height:1.7;white-space:pre-wrap;color:var(--dash-text,#0f172a);">{{ incident.prevention_notes }}</div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

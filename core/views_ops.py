@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from core.models import AdminAuditLog, DemoAccessToken, Lead, OnboardingChecklistItem, School, SchoolAdminMembership, Submission
+from core.models import AdminAuditLog, DemoAccessToken, Lead, OnboardingChecklistItem, OpsIncident, School, SchoolAdminMembership, Submission
 
 
 def ops_required(view_func):
@@ -853,3 +853,257 @@ def ops_audit_log_view(request):
         "search_q": search_q,
         "hide_page_views": hide_page_views,
     })
+
+
+# ── Incident Log ──────────────────────────────────────────────────────────────
+
+@ops_required
+def ops_incidents_list_view(request):
+    qs = OpsIncident.objects.select_related("affected_school", "affected_user", "created_by")
+
+    q = request.GET.get("q", "").strip()
+    status_filter = request.GET.get("status", "").strip()
+    severity_filter = request.GET.get("severity", "").strip()
+
+    if q:
+        qs = qs.filter(
+            Q(title__icontains=q) | Q(symptoms__icontains=q) |
+            Q(root_cause__icontains=q) | Q(resolution__icontains=q)
+        )
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    if severity_filter:
+        qs = qs.filter(severity=severity_filter)
+
+    paginator = Paginator(qs, 25)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    return render(request, "ops/incidents_list.html", {
+        "active_nav": "incidents",
+        "page_obj": page_obj,
+        "q": q,
+        "status_filter": status_filter,
+        "severity_filter": severity_filter,
+        "status_choices": OpsIncident.STATUS_CHOICES,
+        "severity_choices": OpsIncident.SEVERITY_CHOICES,
+        "total_count": qs.count(),
+    })
+
+
+@ops_required
+def ops_incident_detail_view(request, pk):
+    incident = get_object_or_404(OpsIncident, pk=pk)
+    return render(request, "ops/incident_detail.html", {
+        "active_nav": "incidents",
+        "incident": incident,
+    })
+
+
+@ops_required
+def ops_incident_create_view(request):
+    from core.forms_ops import OpsIncidentForm
+    if request.method == "POST":
+        form = OpsIncidentForm(request.POST)
+        if form.is_valid():
+            incident = form.save(commit=False)
+            incident.created_by = request.user
+            incident.save()
+            messages.success(request, "Incident logged.")
+            return redirect("ops_incident_detail", pk=incident.pk)
+    else:
+        # Pre-fill occurred_at with now
+        form = OpsIncidentForm(initial={"occurred_at": timezone.now().strftime("%Y-%m-%dT%H:%M")})
+    return render(request, "ops/incident_form.html", {
+        "active_nav": "incidents",
+        "form": form,
+        "form_title": "Log Incident",
+        "submit_label": "Save Incident",
+    })
+
+
+@ops_required
+def ops_incident_edit_view(request, pk):
+    from core.forms_ops import OpsIncidentForm
+    incident = get_object_or_404(OpsIncident, pk=pk)
+    if request.method == "POST":
+        form = OpsIncidentForm(request.POST, instance=incident)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Incident updated.")
+            return redirect("ops_incident_detail", pk=incident.pk)
+    else:
+        form = OpsIncidentForm(instance=incident)
+    return render(request, "ops/incident_form.html", {
+        "active_nav": "incidents",
+        "form": form,
+        "incident": incident,
+        "form_title": "Edit Incident",
+        "submit_label": "Save Changes",
+    })
+
+
+# ── AI Diagnostics ────────────────────────────────────────────────────────────
+
+_DIAGNOSTICS_SYSTEM = """You are a senior Django/PostgreSQL engineer who knows the Pontora student enrollment portal codebase deeply. Analyze production issues from logs, emails, or error messages and return a structured diagnosis.
+
+CODEBASE CONTEXT:
+- Django 6.0, PostgreSQL 15, Python 3.12, deployed on Render
+- Multi-tenant: school slug → YAML config → DB queryset scoping via SchoolContext
+- Auth: EmailBackend (email lookup first) → ModelBackend (username fallback). Sessions: 2-week default, DB-backed.
+- Key models: School, Submission, DraftSubmission (unique_active_draft_per_lead constraint), Lead, SchoolAdminMembership, AdminAuditLog, OpsIncident
+- Services: billing_stripe.py (Stripe), notifications.py (Resend/SMTP), validation.py, config_loader.py (YAML)
+- Email: django-anymail (Resend) default, per-school SMTP override via get_school_email_connection()
+- Rate limiting: 10 login attempts/min per IP via django-ratelimit
+- Deploy process: migrate → ensure_superuser → gunicorn. Each deploy ~12s downtime.
+- Login audit: every attempt (success + failure) logged to AdminAuditLog with IP and username_attempted
+
+Respond with EXACTLY these sections, no extras:
+
+## WHAT HAPPENED
+One-sentence plain-English summary.
+
+## ROOT CAUSE
+Specific technical reason.
+
+## CONFIDENCE
+High / Medium / Low — brief reason.
+
+## IMMEDIATE ACTION
+What to do right now (shell commands, ops portal steps, etc).
+
+## PERMANENT FIX
+Code or config change to prevent recurrence.
+
+## SIMILAR PAST INCIDENTS
+Reference any prior incidents from the list provided that match this pattern, or "None identified."
+
+## NEEDS MORE INFO
+What logs, DB queries, or user reports would reduce uncertainty. If nothing, say "None."
+"""
+
+
+@ops_required
+def ops_diagnostics_view(request):
+    from django.conf import settings as django_settings
+
+    result = None
+    error = None
+    form_input = ""
+    selected_school_id = ""
+
+    schools = School.objects.order_by("display_name", "slug")
+    recent_incidents = OpsIncident.objects.select_related(
+        "affected_school", "affected_user"
+    ).order_by("-occurred_at")[:8]
+
+    if request.method == "POST":
+        form_input = request.POST.get("input_text", "").strip()
+        selected_school_id = request.POST.get("affected_school", "").strip()
+
+        if not form_input:
+            error = "Paste something to analyze first."
+        elif not django_settings.ANTHROPIC_API_KEY:
+            error = "ANTHROPIC_API_KEY is not configured."
+        else:
+            # Build incident history context
+            incident_lines = []
+            for inc in recent_incidents:
+                line = f"- [{inc.severity.upper()}] {inc.title} ({inc.occurred_at.strftime('%Y-%m-%d')})"
+                if inc.root_cause:
+                    line += f": {inc.root_cause[:120]}"
+                incident_lines.append(line)
+            incident_ctx = "\n".join(incident_lines) if incident_lines else "No prior incidents recorded."
+
+            # Build audit log context if a school is specified
+            audit_ctx = ""
+            if selected_school_id:
+                school = School.objects.filter(pk=selected_school_id).first()
+                if school:
+                    recent_logs = AdminAuditLog.objects.filter(
+                        Q(model_label="core.school", object_id=str(school.pk)) |
+                        Q(actor__school_memberships__school=school)
+                    ).select_related("actor").order_by("-created_at").distinct()[:15]
+                    if recent_logs:
+                        log_lines = []
+                        for lg in recent_logs:
+                            actor = lg.actor.username if lg.actor else "—"
+                            log_lines.append(
+                                f"{lg.created_at.strftime('%Y-%m-%d %H:%M')} | {actor} | {lg.human_summary}"
+                            )
+                        audit_ctx = "\n".join(log_lines)
+
+            user_prompt = f"RECENT INCIDENTS FOR PATTERN MATCHING:\n{incident_ctx}\n\n"
+            if audit_ctx:
+                user_prompt += f"RECENT AUDIT LOG (school context):\n{audit_ctx}\n\n"
+            user_prompt += f"LOG / EMAIL / ERROR TO ANALYZE:\n{form_input}"
+
+            try:
+                import anthropic
+                client = anthropic.Anthropic(api_key=django_settings.ANTHROPIC_API_KEY)
+                msg = client.messages.create(
+                    model="claude-sonnet-5",
+                    max_tokens=1500,
+                    system=_DIAGNOSTICS_SYSTEM,
+                    messages=[{"role": "user", "content": user_prompt}],
+                )
+                result = msg.content[0].text
+            except Exception as exc:
+                error = f"Claude API error: {exc}"
+
+    # Render API availability
+    render_api_key = getattr(django_settings, "RENDER_API_KEY", "") or ""
+    render_service_id = getattr(django_settings, "RENDER_SERVICE_ID", "") or ""
+    render_available = bool(render_api_key and render_service_id)
+
+    return render(request, "ops/diagnostics.html", {
+        "active_nav": "diagnostics",
+        "schools": schools,
+        "recent_incidents": recent_incidents,
+        "result": result,
+        "error": error,
+        "form_input": form_input,
+        "selected_school_id": selected_school_id,
+        "render_available": render_available,
+    })
+
+
+@ops_required
+def ops_fetch_render_logs_view(request):
+    """Fetch recent Render service logs and return as plain text."""
+    import json
+    from django.conf import settings as django_settings
+    from django.http import JsonResponse
+
+    api_key = getattr(django_settings, "RENDER_API_KEY", "") or ""
+    service_id = getattr(django_settings, "RENDER_SERVICE_ID", "") or ""
+
+    if not api_key or not service_id:
+        return JsonResponse({"error": "RENDER_API_KEY or RENDER_SERVICE_ID not configured."}, status=400)
+
+    try:
+        import urllib.request
+        hours = int(request.GET.get("hours", 1))
+        from datetime import datetime, timedelta, timezone as dt_tz
+        end = datetime.now(dt_tz.utc)
+        start = end - timedelta(hours=hours)
+
+        url = (
+            f"https://api.render.com/v1/services/{service_id}/logs"
+            f"?startTime={start.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+            f"&endTime={end.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+            f"&limit=200&direction=backward"
+        )
+        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}", "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read())
+
+        lines = []
+        for entry in reversed(data.get("logs", data if isinstance(data, list) else [])):
+            ts = entry.get("timestamp", "")[:19].replace("T", " ")
+            msg = entry.get("message", "").rstrip()
+            if msg:
+                lines.append(f"{ts}  {msg}")
+
+        return JsonResponse({"logs": "\n".join(lines)})
+    except Exception as exc:
+        return JsonResponse({"error": str(exc)}, status=500)

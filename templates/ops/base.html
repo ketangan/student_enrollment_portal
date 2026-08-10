@@ -47,6 +47,14 @@
          class="dash-nav-link{% if active_nav == 'audit' %} dash-nav-link--active{% endif %}">
         Audit Log
       </a>
+      <a href="{% url 'ops_incidents_list' %}"
+         class="dash-nav-link{% if active_nav == 'incidents' %} dash-nav-link--active{% endif %}">
+        Incidents
+      </a>
+      <a href="{% url 'ops_diagnostics' %}"
+         class="dash-nav-link{% if active_nav == 'diagnostics' %} dash-nav-link--active{% endif %}">
+        Diagnostics
+      </a>
     </nav>
 
     <div class="dash-header-right">

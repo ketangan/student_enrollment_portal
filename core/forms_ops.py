@@ -7,7 +7,7 @@ import json
 from django import forms
 from django.contrib.auth.models import User
 
-from core.models import School
+from core.models import OpsIncident, School
 
 _INPUT_STYLE = (
     "width:100%;padding:8px 10px;border:1px solid var(--dash-border,#e2e8f0);"
@@ -169,6 +169,48 @@ class OpsUserCreateForm(forms.ModelForm):
         if pw and pw2 and pw != pw2:
             raise forms.ValidationError("Passwords do not match.")
         return cleaned
+
+
+class OpsIncidentForm(forms.ModelForm):
+    class Meta:
+        model = OpsIncident
+        fields = [
+            "title", "occurred_at", "severity", "status",
+            "affected_school", "affected_user",
+            "symptoms", "root_cause", "resolution", "prevention_notes",
+            "resolved_at",
+        ]
+        widgets = {
+            "occurred_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "resolved_at": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "symptoms": forms.Textarea(attrs={"rows": 4}),
+            "root_cause": forms.Textarea(attrs={"rows": 4}),
+            "resolution": forms.Textarea(attrs={"rows": 4}),
+            "prevention_notes": forms.Textarea(attrs={"rows": 3}),
+        }
+        help_texts = {
+            "symptoms": "What was observed or reported — copy the email or error message here.",
+            "root_cause": "The specific technical reason this occurred.",
+            "resolution": "What was done to fix it.",
+            "prevention_notes": "Code or config change to prevent recurrence.",
+            "resolved_at": "Leave blank if still open.",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["affected_school"].queryset = School.objects.order_by("display_name", "slug")
+        self.fields["affected_school"].label_from_instance = lambda s: (
+            f"{s.display_name} ({s.slug})" if s.display_name else s.slug
+        )
+        self.fields["affected_user"].queryset = User.objects.order_by("username")
+        self.fields["affected_user"].label_from_instance = lambda u: (
+            f"{u.username} ({u.email})" if u.email else u.username
+        )
+        # Pre-format datetime-local values
+        for fname in ("occurred_at", "resolved_at"):
+            if self.instance and getattr(self.instance, fname):
+                self.initial[fname] = getattr(self.instance, fname).strftime("%Y-%m-%dT%H:%M")
+        _apply_dash_attrs(self)
 
 
 class OpsUserEditForm(forms.ModelForm):

@@ -23,4 +23,10 @@ urlpatterns = [
     path("schools/<slug:slug>/welcome-email/", views_ops.ops_school_welcome_email_view, name="ops_school_welcome_email"),
     path("schools/<slug:slug>/activity-tracking/toggle/", views_ops.ops_activity_tracking_toggle_view, name="ops_activity_tracking_toggle"),
     path("audit/", views_ops.ops_audit_log_view, name="ops_audit_log"),
+    path("incidents/", views_ops.ops_incidents_list_view, name="ops_incidents_list"),
+    path("incidents/new/", views_ops.ops_incident_create_view, name="ops_incident_create"),
+    path("incidents/<int:pk>/", views_ops.ops_incident_detail_view, name="ops_incident_detail"),
+    path("incidents/<int:pk>/edit/", views_ops.ops_incident_edit_view, name="ops_incident_edit"),
+    path("diagnostics/", views_ops.ops_diagnostics_view, name="ops_diagnostics"),
+    path("diagnostics/render-logs/", views_ops.ops_fetch_render_logs_view, name="ops_fetch_render_logs"),
 ]

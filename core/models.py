@@ -1273,6 +1273,82 @@ class DemoArchive(models.Model):
         return f"DemoArchive({self.school.slug}, {self.archived_at.date()})"
 
 
+class OpsIncident(models.Model):
+    SEV_CRITICAL = "critical"
+    SEV_HIGH = "high"
+    SEV_MEDIUM = "medium"
+    SEV_LOW = "low"
+    SEVERITY_CHOICES = [
+        (SEV_CRITICAL, "Critical"),
+        (SEV_HIGH, "High"),
+        (SEV_MEDIUM, "Medium"),
+        (SEV_LOW, "Low"),
+    ]
+
+    STATUS_OPEN = "open"
+    STATUS_MONITORING = "monitoring"
+    STATUS_RESOLVED = "resolved"
+    STATUS_CHOICES = [
+        (STATUS_OPEN, "Open"),
+        (STATUS_MONITORING, "Monitoring"),
+        (STATUS_RESOLVED, "Resolved"),
+    ]
+
+    title = models.CharField(max_length=200)
+    occurred_at = models.DateTimeField()
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_OPEN, db_index=True)
+    severity = models.CharField(max_length=16, choices=SEVERITY_CHOICES, default=SEV_MEDIUM, db_index=True)
+
+    affected_school = models.ForeignKey(
+        "School", null=True, blank=True, on_delete=models.SET_NULL, related_name="incidents"
+    )
+    affected_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="incidents_as_affected"
+    )
+
+    symptoms = models.TextField(help_text="What was reported or observed.")
+    root_cause = models.TextField(blank=True)
+    resolution = models.TextField(blank=True)
+    prevention_notes = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="incidents_created"
+    )
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-occurred_at"]
+
+    def __str__(self):
+        return f"[{self.severity}] {self.title}"
+
+    SEV_COLORS = {
+        SEV_CRITICAL: ("#fef2f2", "#dc2626"),
+        SEV_HIGH: ("#fff7ed", "#ea580c"),
+        SEV_MEDIUM: ("#fffbeb", "#d97706"),
+        SEV_LOW: ("#f0f9ff", "#0284c7"),
+    }
+    STATUS_COLORS = {
+        STATUS_OPEN: ("#fef2f2", "#dc2626"),
+        STATUS_MONITORING: ("#fffbeb", "#d97706"),
+        STATUS_RESOLVED: ("#f0fdf4", "#059669"),
+    }
+
+    def severity_bg(self):
+        return self.SEV_COLORS.get(self.severity, ("#f8fafc", "#64748b"))[0]
+
+    def severity_color(self):
+        return self.SEV_COLORS.get(self.severity, ("#f8fafc", "#64748b"))[1]
+
+    def status_bg(self):
+        return self.STATUS_COLORS.get(self.status, ("#f8fafc", "#64748b"))[0]
+
+    def status_color(self):
+        return self.STATUS_COLORS.get(self.status, ("#f8fafc", "#64748b"))[1]
+
+
 class AdminPreference(models.Model):
     """Per-user admin UI preferences (theme, etc.).
 

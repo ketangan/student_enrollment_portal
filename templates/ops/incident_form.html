@@ -1,0 +1,121 @@
+{% extends "ops/base.html" %}
+{% block page_title %}{{ form_title }}{% endblock %}
+
+{% block content %}
+<div style="padding:24px 20px;max-width:720px;margin:0 auto;">
+
+  <div style="margin-bottom:20px;">
+    <a href="{% if incident %}{% url 'ops_incident_detail' incident.pk %}{% else %}{% url 'ops_incidents_list' %}{% endif %}"
+       style="font-size:13px;color:var(--dash-muted);text-decoration:none;">← {% if incident %}Back to Incident{% else %}Incidents{% endif %}</a>
+    <h1 style="font-size:20px;font-weight:700;margin:8px 0 0;color:var(--dash-text,#0f172a);">{{ form_title }}</h1>
+  </div>
+
+  <form method="post" style="background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:12px;padding:24px;">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+    <div style="margin-bottom:16px;padding:12px 16px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;color:#991b1b;font-size:13px;">
+      {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Row: title -->
+    <div style="margin-bottom:16px;">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-text,#0f172a);margin-bottom:5px;">
+        {{ form.title.label }} <span style="color:#dc2626;">*</span>
+      </label>
+      {{ form.title }}
+      {% if form.title.errors %}<div style="color:#dc2626;font-size:11px;margin-top:3px;">{{ form.title.errors.0 }}</div>{% endif %}
+    </div>
+
+    <!-- Row: occurred + severity + status -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;">
+      <div>
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-text,#0f172a);margin-bottom:5px;">
+          {{ form.occurred_at.label }} <span style="color:#dc2626;">*</span>
+        </label>
+        {{ form.occurred_at }}
+        {% if form.occurred_at.errors %}<div style="color:#dc2626;font-size:11px;margin-top:3px;">{{ form.occurred_at.errors.0 }}</div>{% endif %}
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-text,#0f172a);margin-bottom:5px;">Severity</label>
+        {{ form.severity }}
+        {% if form.severity.errors %}<div style="color:#dc2626;font-size:11px;margin-top:3px;">{{ form.severity.errors.0 }}</div>{% endif %}
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-text,#0f172a);margin-bottom:5px;">Status</label>
+        {{ form.status }}
+        {% if form.status.errors %}<div style="color:#dc2626;font-size:11px;margin-top:3px;">{{ form.status.errors.0 }}</div>{% endif %}
+      </div>
+    </div>
+
+    <!-- Row: school + user -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+      <div>
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-text,#0f172a);margin-bottom:5px;">Affected School</label>
+        {{ form.affected_school }}
+        {% if form.affected_school.errors %}<div style="color:#dc2626;font-size:11px;margin-top:3px;">{{ form.affected_school.errors.0 }}</div>{% endif %}
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-text,#0f172a);margin-bottom:5px;">Affected User</label>
+        {{ form.affected_user }}
+        {% if form.affected_user.errors %}<div style="color:#dc2626;font-size:11px;margin-top:3px;">{{ form.affected_user.errors.0 }}</div>{% endif %}
+      </div>
+    </div>
+
+    <!-- Symptoms -->
+    <div style="margin-bottom:16px;">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-text,#0f172a);margin-bottom:5px;">
+        {{ form.symptoms.label }} <span style="color:#dc2626;">*</span>
+      </label>
+      <div style="font-size:11px;color:var(--dash-muted);margin-bottom:5px;">{{ form.symptoms.help_text }}</div>
+      {{ form.symptoms }}
+      {% if form.symptoms.errors %}<div style="color:#dc2626;font-size:11px;margin-top:3px;">{{ form.symptoms.errors.0 }}</div>{% endif %}
+    </div>
+
+    <!-- Root cause -->
+    <div style="margin-bottom:16px;">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-text,#0f172a);margin-bottom:5px;">{{ form.root_cause.label }}</label>
+      <div style="font-size:11px;color:var(--dash-muted);margin-bottom:5px;">{{ form.root_cause.help_text }}</div>
+      {{ form.root_cause }}
+      {% if form.root_cause.errors %}<div style="color:#dc2626;font-size:11px;margin-top:3px;">{{ form.root_cause.errors.0 }}</div>{% endif %}
+    </div>
+
+    <!-- Resolution -->
+    <div style="margin-bottom:16px;">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-text,#0f172a);margin-bottom:5px;">{{ form.resolution.label }}</label>
+      <div style="font-size:11px;color:var(--dash-muted);margin-bottom:5px;">{{ form.resolution.help_text }}</div>
+      {{ form.resolution }}
+      {% if form.resolution.errors %}<div style="color:#dc2626;font-size:11px;margin-top:3px;">{{ form.resolution.errors.0 }}</div>{% endif %}
+    </div>
+
+    <!-- Prevention -->
+    <div style="margin-bottom:16px;">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-text,#0f172a);margin-bottom:5px;">{{ form.prevention_notes.label }}</label>
+      <div style="font-size:11px;color:var(--dash-muted);margin-bottom:5px;">{{ form.prevention_notes.help_text }}</div>
+      {{ form.prevention_notes }}
+      {% if form.prevention_notes.errors %}<div style="color:#dc2626;font-size:11px;margin-top:3px;">{{ form.prevention_notes.errors.0 }}</div>{% endif %}
+    </div>
+
+    <!-- Resolved at -->
+    <div style="margin-bottom:24px;">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-text,#0f172a);margin-bottom:5px;">{{ form.resolved_at.label }}</label>
+      <div style="font-size:11px;color:var(--dash-muted);margin-bottom:5px;">{{ form.resolved_at.help_text }}</div>
+      {{ form.resolved_at }}
+      {% if form.resolved_at.errors %}<div style="color:#dc2626;font-size:11px;margin-top:3px;">{{ form.resolved_at.errors.0 }}</div>{% endif %}
+    </div>
+
+    <div style="display:flex;gap:10px;">
+      <button type="submit"
+              style="padding:9px 20px;background:var(--dash-primary,#4f46e5);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
+        {{ submit_label }}
+      </button>
+      <a href="{% if incident %}{% url 'ops_incident_detail' incident.pk %}{% else %}{% url 'ops_incidents_list' %}{% endif %}"
+         style="padding:9px 18px;border:1px solid var(--dash-border,#e2e8f0);border-radius:8px;font-size:13px;color:var(--dash-text,#0f172a);text-decoration:none;display:inline-flex;align-items:center;">
+        Cancel
+      </a>
+    </div>
+  </form>
+
+</div>
+{% endblock %}

@@ -1,0 +1,213 @@
+{% extends "ops/base.html" %}
+{% block page_title %}Diagnostics{% endblock %}
+
+{% block extra_css %}
+<style>
+.diag-result h2 {
+  font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--dash-muted);margin:18px 0 6px;
+}
+.diag-result h2:first-child { margin-top:0; }
+.diag-result p, .diag-result li { font-size:13px;line-height:1.7;margin:0 0 6px; }
+.diag-result ul, .diag-result ol { padding-left:18px;margin:4px 0 8px; }
+.diag-result code {
+  font-family:monospace;font-size:12px;background:var(--dash-sidebar,#f8fafc);
+  padding:1px 5px;border-radius:3px;border:1px solid var(--dash-border,#e2e8f0);
+}
+.diag-result pre {
+  background:var(--dash-sidebar,#f8fafc);border:1px solid var(--dash-border,#e2e8f0);
+  border-radius:8px;padding:12px;overflow-x:auto;
+  font-size:12px;line-height:1.6;margin:8px 0;
+}
+.diag-result pre code { background:none;border:none;padding:0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding:24px 20px;max-width:1000px;margin:0 auto;">
+
+  <div style="margin-bottom:20px;">
+    <h1 style="font-size:20px;font-weight:700;color:var(--dash-text,#0f172a);margin:0 0 4px;">AI Diagnostics</h1>
+    <p style="font-size:13px;color:var(--dash-muted);margin:0;">
+      Paste an error log, user email, or stack trace. Claude analyzes it against the Pontora codebase and recent incidents.
+    </p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+
+    <!-- Left: input form -->
+    <div>
+      <form method="post">
+        {% csrf_token %}
+
+        <!-- Render log fetch (if available) -->
+        {% if render_available %}
+        <div style="background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:12px;padding:16px;margin-bottom:16px;">
+          <div style="font-size:12px;font-weight:600;color:var(--dash-text,#0f172a);margin-bottom:10px;">Fetch Render Logs</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <select id="render-hours" style="padding:7px 10px;border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;font-size:12px;background:var(--dash-bg,#fff);">
+              <option value="1">Last 1 hour</option>
+              <option value="3">Last 3 hours</option>
+              <option value="6">Last 6 hours</option>
+              <option value="24">Last 24 hours</option>
+            </select>
+            <button type="button" id="fetch-render-btn"
+                    style="padding:7px 14px;background:#0284c7;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">
+              Fetch Logs
+            </button>
+            <span id="render-status" style="font-size:11px;color:var(--dash-muted);"></span>
+          </div>
+        </div>
+        {% else %}
+        <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12px;color:#92400e;">
+          Render log fetch unavailable — set <code>RENDER_API_KEY</code> and <code>RENDER_SERVICE_ID</code> env vars.
+        </div>
+        {% endif %}
+
+        <!-- Paste input -->
+        <div style="background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:12px;padding:16px;margin-bottom:16px;">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-text,#0f172a);margin-bottom:8px;">
+            Log / Email / Error to Analyze
+          </label>
+          <textarea id="input-text" name="input_text" rows="14"
+                    placeholder="Paste error message, stack trace, support email, or Render log lines here…"
+                    style="width:100%;padding:10px;border:1px solid var(--dash-border,#e2e8f0);border-radius:8px;font-size:12px;
+                           font-family:monospace;line-height:1.6;resize:vertical;box-sizing:border-box;
+                           background:var(--dash-bg,#fff);color:var(--dash-text,#0f172a);">{{ form_input }}</textarea>
+        </div>
+
+        <!-- Optional school context -->
+        <div style="background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:12px;padding:16px;margin-bottom:16px;">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--dash-text,#0f172a);margin-bottom:6px;">
+            School Context <span style="font-weight:400;color:var(--dash-muted);">(optional — adds recent audit log)</span>
+          </label>
+          <select name="affected_school"
+                  style="width:100%;padding:8px 10px;border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;font-size:13px;background:var(--dash-bg,#fff);">
+            <option value="">— No specific school —</option>
+            {% for school in schools %}
+            <option value="{{ school.pk }}" {% if selected_school_id == school.pk|stringformat:"s" %}selected{% endif %}>
+              {{ school.display_name|default:school.slug }} ({{ school.slug }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        {% if error %}
+        <div style="margin-bottom:12px;padding:10px 16px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;font-size:13px;color:#991b1b;">
+          {{ error }}
+        </div>
+        {% endif %}
+
+        <button type="submit"
+                style="width:100%;padding:10px;background:var(--dash-primary,#4f46e5);color:#fff;border:none;
+                       border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
+          Analyze with Claude
+        </button>
+      </form>
+
+      <!-- Recent incidents sidebar -->
+      {% if recent_incidents %}
+      <div style="margin-top:20px;background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:12px;padding:16px;">
+        <div style="font-size:12px;font-weight:600;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">Recent Incidents</div>
+        {% for inc in recent_incidents %}
+        <a href="{% url 'ops_incident_detail' inc.pk %}"
+           style="display:block;padding:8px 0;border-bottom:1px solid var(--dash-border,#e2e8f0);text-decoration:none;color:var(--dash-text,#0f172a);">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;
+                         background:{{ inc.severity_bg }};color:{{ inc.severity_color }};">{{ inc.get_severity_display }}</span>
+            <span style="font-size:12px;font-weight:500;">{{ inc.title|truncatechars:50 }}</span>
+          </div>
+          <div style="font-size:11px;color:var(--dash-muted);margin-top:2px;">{{ inc.occurred_at|date:"M j, Y" }}</div>
+        </a>
+        {% endfor %}
+        <a href="{% url 'ops_incidents_list' %}" style="display:block;margin-top:8px;font-size:12px;color:var(--dash-primary,#4f46e5);text-decoration:none;">View all →</a>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Right: result -->
+    <div>
+      {% if result %}
+      <div style="background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:12px;padding:20px 24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--dash-muted);">Claude Analysis</div>
+          <button type="button" onclick="copyAnalysis()"
+                  style="padding:4px 12px;border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;font-size:11px;cursor:pointer;background:var(--dash-bg,#fff);color:var(--dash-text,#0f172a);">
+            Copy
+          </button>
+        </div>
+        <div class="diag-result" id="analysis-output">
+          {% autoescape off %}{{ result|linebreaks }}{% endautoescape %}
+        </div>
+
+        <!-- Log as incident -->
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--dash-border,#e2e8f0);">
+          <a href="{% url 'ops_incident_create' %}"
+             style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:1px solid var(--dash-border,#e2e8f0);
+                    border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;color:var(--dash-text,#0f172a);">
+            + Log as Incident
+          </a>
+        </div>
+      </div>
+      {% else %}
+      <div style="background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);border-radius:12px;padding:40px 24px;text-align:center;color:var(--dash-muted);">
+        <div style="font-size:32px;margin-bottom:12px;">🔍</div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:6px;">Paste something to analyze</div>
+        <div style="font-size:12px;">Error logs, stack traces, support emails — Claude will identify root cause and next steps.</div>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+{% block extra_js %}
+<script>
+{% if render_available %}
+document.getElementById('fetch-render-btn').addEventListener('click', function() {
+  var btn = this;
+  var status = document.getElementById('render-status');
+  var hours = document.getElementById('render-hours').value;
+  btn.disabled = true;
+  btn.textContent = 'Fetching…';
+  status.textContent = '';
+
+  fetch('{% url "ops_fetch_render_logs" %}?hours=' + hours, {
+    headers: {'X-Requested-With': 'XMLHttpRequest'}
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.logs) {
+      var ta = document.getElementById('input-text');
+      ta.value = (ta.value ? ta.value + '\n\n' : '') + data.logs;
+      status.textContent = 'Logs loaded.';
+      status.style.color = '#059669';
+    } else {
+      status.textContent = data.error || 'Failed to fetch logs.';
+      status.style.color = '#dc2626';
+    }
+  })
+  .catch(function(e) {
+    status.textContent = 'Network error.';
+    status.style.color = '#dc2626';
+  })
+  .finally(function() {
+    btn.disabled = false;
+    btn.textContent = 'Fetch Logs';
+  });
+});
+{% endif %}
+
+function copyAnalysis() {
+  var el = document.getElementById('analysis-output');
+  if (!el) return;
+  var text = el.innerText || el.textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    var btn = event.target;
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+  });
+}
+</script>
+{% endblock %}
+{% endblock %}
