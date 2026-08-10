@@ -298,6 +298,8 @@ APP_BASE_URL = os.getenv("APP_BASE_URL", BASE_URL)
 DEMO_BASE_URL = os.getenv("DEMO_BASE_URL", BASE_URL)
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+RENDER_API_KEY = os.getenv("RENDER_API_KEY", "").strip()
+RENDER_SERVICE_ID = os.getenv("RENDER_SERVICE_ID", "").strip()
 
 # Auth backends — email first, then username fallback
 AUTHENTICATION_BACKENDS = [
