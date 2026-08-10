@@ -1050,7 +1050,7 @@ def ops_diagnostics_view(request):
                     system=_DIAGNOSTICS_SYSTEM,
                     messages=[{"role": "user", "content": user_prompt}],
                 )
-                result = msg.content[0].text
+                result = next((b.text for b in msg.content if hasattr(b, "text")), "")
             except Exception as exc:
                 error = f"Claude API error: {exc}"
 
