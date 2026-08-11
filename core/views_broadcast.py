@@ -17,16 +17,18 @@ from core.models import (
     LEAD_STATUS_CHOICES,
     Submission,
 )
-from core.services.notifications import send_admin_message
+from core.services.notifications import send_admin_message, _render_template
 from core.services.school_permissions import require_school_role
 from core.views_school_common import _get_accessible_school_for_admin, _school_admin_base_context
 
 logger = logging.getLogger(__name__)
 
+# Keys match _TOKENS in views_school_email_templates.py and _render_template in notifications.py.
 _MERGE_FIELDS = [
-    {"key": "{{first_name}}", "label": "First name", "display": "{{first_name}}"},
-    {"key": "{{last_name}}", "label": "Last name", "display": "{{last_name}}"},
-    {"key": "{{program_name}}", "label": "Program", "display": "{{program_name}}"},
+    {"key": "{{first_name}}",  "label": "First name",  "display": "{{first_name}}"},
+    {"key": "{{full_name}}",   "label": "Full name",   "display": "{{full_name}}"},
+    {"key": "{{email}}",       "label": "Email",       "display": "{{email}}"},
+    {"key": "{{program}}",     "label": "Program",     "display": "{{program}}"},
     {"key": "{{school_name}}", "label": "School name", "display": "{{school_name}}"},
 ]
 
@@ -63,15 +65,28 @@ def _submission_programs_for_school(school):
     )
 
 
+def _merge_data_for(name, email, program, school_name):
+    """Build the merge context dict used by _render_template for one recipient."""
+    first = name.split()[0] if name and name.strip() else ""
+    return {
+        "first_name": first,
+        "full_name": name or "",
+        "email": email,
+        "program": program or "",
+        "school_name": school_name,
+    }
+
+
 def _build_audience(school, include_leads, include_submissions, leads_filter, submissions_filter):
     """
     Return (recipients, skipped) where recipients is a list of dicts:
-      {email, name, source, source_id}
+      {email, name, source, source_id, merge_data}
     Deduplicates by lower-cased email; first source seen wins.
     skipped counts empty/invalid emails.
     """
     seen = {}   # normalized email → dict
     skipped = 0
+    school_name = school.display_name or school.slug
 
     if include_leads:
         qs = Lead.objects.filter(school=school)
@@ -81,22 +96,24 @@ def _build_audience(school, include_leads, include_submissions, leads_filter, su
             qs = qs.filter(status__in=statuses)
         if programs:
             qs = qs.filter(interested_in_value__in=programs)
-        for lead in qs.values("id", "name", "email"):
+        for lead in qs.values("id", "name", "email", "interested_in_value"):
             email = (lead["email"] or "").strip()
             if not email:
                 skipped += 1
                 continue
             key = email.lower()
             if key not in seen:
+                name = lead["name"] or ""
                 seen[key] = {
                     "email": email,
-                    "name": lead["name"] or "",
+                    "name": name,
                     "source": BroadcastRecipient.SOURCE_LEAD,
                     "source_id": lead["id"],
+                    "merge_data": _merge_data_for(name, email, lead["interested_in_value"], school_name),
                 }
 
     if include_submissions:
-        qs = Submission.objects.filter(school=school).prefetch_related()
+        qs = Submission.objects.filter(school=school).select_related("program")
         programs = submissions_filter.get("programs") or []
         if programs:
             qs = qs.filter(program__name__in=programs)
@@ -118,11 +135,13 @@ def _build_audience(school, include_leads, include_submissions, leads_filter, su
                     if v and isinstance(v, str):
                         name = v.strip()
                         break
+                program_name = sub.program.name if sub.program else ""
                 seen[key] = {
                     "email": email,
                     "name": name,
                     "source": BroadcastRecipient.SOURCE_SUBMISSION,
                     "source_id": sub.id,
+                    "merge_data": _merge_data_for(name, email, program_name, school_name),
                 }
 
     return list(seen.values()), skipped
@@ -209,6 +228,29 @@ def school_broadcast_view(request, school_slug):
     active_tab = request.GET.get("tab", "compose")
     if active_tab not in ("compose", "sent"):
         active_tab = "compose"
+
+    # Restore in-progress draft so "Edit message ← " repopulates the form.
+    draft = request.session.get("broadcast_draft") or {}
+    lf = draft.get("leads_filter") or {}
+    sf = draft.get("submissions_filter") or {}
+    ls = lf.get("statuses") or []
+    lp = lf.get("programs") or []
+    sp = sf.get("programs") or []
+    form_ctx = {
+        "subject": draft.get("subject", ""),
+        "body": draft.get("body", ""),
+        "cc_email": draft.get("cc_email", ""),
+        "bcc_email": draft.get("bcc_email", ""),
+        "include_leads": draft.get("include_leads", False),
+        "include_submissions": draft.get("include_submissions", False),
+        "leads_statuses": ls,
+        "leads_programs": lp,
+        "sub_programs": sp,
+        "leads_statuses_json": json.dumps(ls),
+        "leads_programs_json": json.dumps(lp),
+        "sub_programs_json": json.dumps(sp),
+    }
+
     ctx = _school_admin_base_context(request, school, "broadcast")
     ctx.update({
         "lead_statuses": lead_statuses,
@@ -218,11 +260,7 @@ def school_broadcast_view(request, school_slug):
         "active_tab": active_tab,
         "merge_fields": _MERGE_FIELDS,
         "errors": [],
-        "form": {
-            "leads_statuses_json": "[]",
-            "leads_programs_json": "[]",
-            "sub_programs_json": "[]",
-        },
+        "form": form_ctx,
     })
     return render(request, "school_admin/broadcast.html", ctx)
 
@@ -276,12 +314,16 @@ def _do_send(request, school, draft, school_slug):
     failed_count = 0
     recipient_rows = []
 
+    school_name = school.display_name or school.slug
     for r in recipients:
+        merge = r.get("merge_data") or {}
+        personalised_subject = _render_template(draft["subject"], merge)
+        personalised_body = _render_template(draft["body"], merge)
         ok = send_admin_message(
             to_email=r["email"],
-            subject=draft["subject"],
-            message=draft["body"],
-            school_name=school.display_name or school.slug,
+            subject=personalised_subject,
+            message=personalised_body,
+            school_name=school_name,
             from_email=school.smtp_from_email or None,
             bcc_email=draft.get("bcc_email") or None,
             school=school,
@@ -317,6 +359,7 @@ def _do_send(request, school, draft, school_slug):
                 name=r["name"],
                 source=r["source"],
                 source_id=r["source_id"],
+                merge_data=r.get("merge_data") or {},
                 status=r["status"],
             )
             for r in recipient_rows
