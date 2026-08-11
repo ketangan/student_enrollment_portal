@@ -296,6 +296,7 @@ EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 APP_BASE_URL = os.getenv("APP_BASE_URL", BASE_URL)
 DEMO_BASE_URL = os.getenv("DEMO_BASE_URL", BASE_URL)
+MOCKS_PORTAL_URL = os.getenv("MOCKS_PORTAL_URL", "https://mocks.mypontora.com/")
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
 RENDER_API_KEY = os.getenv("RENDER_API_KEY", "").strip()

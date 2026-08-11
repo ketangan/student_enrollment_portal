@@ -3,6 +3,7 @@ Ops portal views — /ops/ prefix, superuser-only.
 """
 from functools import wraps
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
@@ -86,6 +87,16 @@ def ops_dashboard_view(request):
         "total_users": total_users,
         "recent_schools": recent_schools,
         "recent_activity": recent_activity,
+    })
+
+
+# -- Website mocks -------------------------------------------------------------
+
+@ops_required
+def ops_mocks_view(request):
+    return render(request, "ops/mocks.html", {
+        "active_nav": "mocks",
+        "mocks_url": settings.MOCKS_PORTAL_URL,
     })
 
 

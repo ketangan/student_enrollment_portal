@@ -23,6 +23,10 @@
          class="dash-nav-link{% if active_nav == 'dashboard' %} dash-nav-link--active{% endif %}">
         Dashboard
       </a>
+      <a href="{% url 'ops_mocks' %}"
+         class="dash-nav-link{% if active_nav == 'mocks' %} dash-nav-link--active{% endif %}">
+        Mocks
+      </a>
       <a href="{% url 'ops_schools_list' %}"
          class="dash-nav-link{% if active_nav == 'schools' %} dash-nav-link--active{% endif %}">
         Schools

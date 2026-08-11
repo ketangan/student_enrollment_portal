@@ -72,6 +72,32 @@ def test_ops_dashboard_accessible_by_superuser(client, superuser):
     assert resp.status_code == 200
 
 
+@pytest.mark.django_db
+def test_ops_mocks_requires_superuser_anonymous(client):
+    resp = client.get(reverse("ops_mocks"))
+    assert resp.status_code == 302
+    assert "/login/" in resp["Location"]
+
+
+@pytest.mark.django_db
+def test_ops_mocks_blocks_regular_user(client, regular_user):
+    client.force_login(regular_user)
+    resp = client.get(reverse("ops_mocks"))
+    assert resp.status_code == 302
+    assert "/login/" in resp["Location"]
+
+
+@pytest.mark.django_db
+def test_ops_mocks_embeds_configured_url(client, superuser, settings):
+    settings.MOCKS_PORTAL_URL = "https://mocks.example.test/"
+    client.force_login(superuser)
+    resp = client.get(reverse("ops_mocks"))
+    assert resp.status_code == 200
+    assert resp.context["active_nav"] == "mocks"
+    assert resp.context["mocks_url"] == "https://mocks.example.test/"
+    assert b"https://mocks.example.test/" in resp.content
+
+
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
 @pytest.mark.django_db
