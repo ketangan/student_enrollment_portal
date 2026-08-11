@@ -67,16 +67,13 @@
 .recip-panel{border-bottom:1px solid var(--dash-border,#e5e7eb);display:none;}
 .recip-panel.visible{display:block;}
 .recip-panel-hd{padding:8px 18px;background:var(--dash-bg,#f4f5f7);display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600;color:var(--dash-muted,#6b7280);}
-.recip-panel-loading{padding:14px 18px;font-size:13px;color:var(--dash-muted,#6b7280);display:flex;align-items:center;gap:8px;}
-.recip-panel-list{max-height:200px;overflow-y:auto;}
-.rp-row{display:grid;grid-template-columns:28px 1fr auto;gap:8px;padding:6px 16px;align-items:center;border-top:1px solid #f3f4f6;font-size:12.5px;}
-.rp-row:first-child{border-top:none;}
-.rp-avatar{width:26px;height:26px;border-radius:50%;background:var(--dash-primary,#2563eb);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.rp-name{font-weight:600;color:var(--dash-text,#111827);}
-.rp-email{font-size:11.5px;color:var(--dash-muted,#6b7280);}
-.rp-src{font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:#f3f4f6;color:#6b7280;text-transform:capitalize;white-space:nowrap;}
-.recip-panel-more{padding:8px 18px;font-size:12px;color:var(--dash-muted,#6b7280);font-style:italic;border-top:1px solid #f3f4f6;}
-.recip-panel-empty{padding:14px 18px;font-size:13px;color:#dc2626;}
+.recip-panel-loading{padding:12px 18px;font-size:13px;color:var(--dash-muted,#6b7280);display:flex;align-items:center;gap:8px;}
+.recip-panel-list{padding:10px 14px;display:flex;flex-wrap:wrap;gap:5px;}
+.rp-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:16px;font-size:12px;background:#fff;border:1px solid var(--dash-border,#e5e7eb);color:var(--dash-text,#111827);max-width:220px;}
+.rp-pill-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rp-pill-src{font-size:9.5px;font-weight:600;padding:1px 5px;border-radius:6px;background:#f3f4f6;color:#9ca3af;text-transform:capitalize;flex-shrink:0;}
+.recip-panel-more{padding:4px 14px 10px;font-size:12px;color:var(--dash-muted,#6b7280);font-style:italic;}
+.recip-panel-empty{padding:12px 18px;font-size:13px;color:#dc2626;}
 
 /* ── Action bar ── */
 .action-bar{padding:12px 18px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--dash-border,#e5e7eb);}
@@ -261,20 +258,17 @@
                  placeholder="Give your email a subject…" required>
         </div>
 
-        <!-- CC -->
-        <div class="field-row">
-          <span class="field-lbl">CC</span>
+        <!-- CC + BCC on one line -->
+        <div class="field-row" style="gap:0;padding:0;">
+          <span class="field-lbl" style="padding:11px 0 11px 18px;">CC</span>
           <input class="field-input" type="email" name="cc_email"
                  value="{{ form.cc_email|default:'' }}"
-                 placeholder="CC address (optional)">
-        </div>
-
-        <!-- BCC -->
-        <div class="field-row">
-          <span class="field-lbl">BCC</span>
+                 placeholder="CC (optional)" style="padding:11px 10px 11px 12px;">
+          <span style="width:1px;background:var(--dash-border,#e5e7eb);align-self:stretch;flex-shrink:0;"></span>
+          <span class="field-lbl" style="padding:11px 0 11px 18px;">BCC</span>
           <input class="field-input" type="email" name="bcc_email"
                  value="{{ form.bcc_email|default:'' }}"
-                 placeholder="BCC address (optional)">
+                 placeholder="BCC (optional)" style="padding:11px 10px 11px 12px;">
         </div>
 
         <!-- Body -->
@@ -584,15 +578,18 @@ function fetchAudience() {
         }
         var list = document.getElementById('recip-list');
         data.recipients.forEach(function(r) {
-          var initial = (r.name || r.email || '?')[0].toUpperCase();
-          var row = document.createElement('div');
-          row.className = 'rp-row';
-          row.innerHTML =
-            '<div class="rp-avatar">' + initial + '</div>' +
-            '<div><div class="rp-name">' + escHtml(r.name || '—') + '</div>' +
-              '<div class="rp-email">' + escHtml(r.email) + '</div></div>' +
-            '<span class="rp-src">' + escHtml(r.source) + '</span>';
-          list.appendChild(row);
+          var pill = document.createElement('span');
+          pill.className = 'rp-pill';
+          var nameEl = document.createElement('span');
+          nameEl.className = 'rp-pill-name';
+          nameEl.title = r.email;
+          nameEl.textContent = r.name || r.email;
+          var srcEl = document.createElement('span');
+          srcEl.className = 'rp-pill-src';
+          srcEl.textContent = r.source;
+          pill.appendChild(nameEl);
+          pill.appendChild(srcEl);
+          list.appendChild(pill);
         });
         if (data.count > data.recipients.length) {
           var more = document.getElementById('recip-more');
@@ -617,22 +614,25 @@ function renderChips() {
   var wrap = document.getElementById('chips-wrap');
   var peopleBtn = document.getElementById('people-btn');
 
-  function addChip(label, onRemove) {
+  function addChip(label, key, val) {
     var chip = document.createElement('span');
     chip.className = 'fc bc-chip';
-    chip.innerHTML = label + ' <button type="button" class="fc-x" onclick="' + onRemove + '">×</button>';
+    chip.appendChild(document.createTextNode(label + ' '));
+    var xBtn = document.createElement('button');
+    xBtn.type = 'button';
+    xBtn.className = 'fc-x';
+    xBtn.textContent = '×';
+    xBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      removeFilter(key, val);
+    });
+    chip.appendChild(xBtn);
     wrap.insertBefore(chip, peopleBtn);
   }
 
-  state.filters.leads_statuses.forEach(function(v) {
-    addChip(v, 'removeFilter(\"leads_statuses\",\"' + v + '\")');
-  });
-  state.filters.leads_programs.forEach(function(v) {
-    addChip(v, 'removeFilter(\"leads_programs\",\"' + v + '\")');
-  });
-  state.filters.sub_programs.forEach(function(v) {
-    addChip(v, 'removeFilter(\"sub_programs\",\"' + v + '\")');
-  });
+  state.filters.leads_statuses.forEach(function(v) { addChip(v, 'leads_statuses', v); });
+  state.filters.leads_programs.forEach(function(v) { addChip(v, 'leads_programs', v); });
+  state.filters.sub_programs.forEach(function(v) { addChip(v, 'sub_programs', v); });
 }
 
 function removeFilter(key, val) {
