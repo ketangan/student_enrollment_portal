@@ -2,6 +2,8 @@
 Tests for the /ops/ superadmin portal — Phase 1.
 Covers auth guard, dashboard, schools CRUD, memberships, users CRUD, login/logout redirects.
 """
+from unittest.mock import patch
+
 import pytest
 from django.contrib.auth.models import User
 from django.urls import reverse
@@ -96,6 +98,20 @@ def test_ops_mocks_embeds_configured_url(client, superuser, settings):
     assert resp.context["active_nav"] == "mocks"
     assert resp.context["mocks_url"] == "https://mocks.example.test/"
     assert b"https://mocks.example.test/" in resp.content
+    assert b"Website mock page generator" in resp.content
+    assert b"scripts/generate_website_mocks.py" in resp.content
+
+
+@pytest.mark.django_db
+def test_ops_mock_template_detail_loads_source(client, superuser):
+    client.force_login(superuser)
+    with patch("core.views_ops.fetch_mock_template_source") as fetch_source:
+        fetch_source.return_value = {"content": "def render_mock(): pass", "sha": "abc123"}
+        resp = client.get(reverse("ops_mock_template_detail", args=["mock-page-generator"]))
+    assert resp.status_code == 200
+    assert resp.context["source"].path == "scripts/generate_website_mocks.py"
+    assert resp.context["source_text"] == "def render_mock(): pass"
+    assert b"def render_mock(): pass" in resp.content
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────

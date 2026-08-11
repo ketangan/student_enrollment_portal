@@ -9,12 +9,19 @@ from django.contrib.auth.models import User
 from django.core.paginator import Paginator
 from django.db.models import Count, FloatField, Max, Q, Value
 from django.db.models.functions import Cast, NullIf
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core.models import AdminAuditLog, DemoAccessToken, Lead, OnboardingChecklistItem, OpsIncident, School, SchoolAdminMembership, Submission
+from core.services.mock_template_sources import (
+    MockTemplateSourceError,
+    fetch_mock_template_source,
+    get_mock_template_source,
+    list_mock_template_sources,
+)
 
 
 def ops_required(view_func):
@@ -97,6 +104,30 @@ def ops_mocks_view(request):
     return render(request, "ops/mocks.html", {
         "active_nav": "mocks",
         "mocks_url": settings.MOCKS_PORTAL_URL,
+        "mock_template_sources": list_mock_template_sources(),
+        "mock_template_sheet_url": settings.MOCK_TEMPLATE_SHEET_URL,
+    })
+
+
+@ops_required
+def ops_mock_template_detail_view(request, source_id):
+    try:
+        source = get_mock_template_source(source_id)
+    except MockTemplateSourceError as exc:
+        raise Http404(str(exc)) from exc
+    try:
+        fetched = fetch_mock_template_source(source)
+        source_text = fetched["content"]
+    except MockTemplateSourceError as exc:
+        messages.error(request, str(exc))
+        source_text = ""
+    return render(request, "ops/mock_template_detail.html", {
+        "active_nav": "mocks",
+        "mocks_url": settings.MOCKS_PORTAL_URL,
+        "mock_template_sources": list_mock_template_sources(),
+        "mock_template_sheet_url": settings.MOCK_TEMPLATE_SHEET_URL,
+        "source": source,
+        "source_text": source_text,
     })
 
 

@@ -4,6 +4,7 @@ from core import views_ops
 urlpatterns = [
     path("", views_ops.ops_dashboard_view, name="ops_dashboard"),
     path("mocks/", views_ops.ops_mocks_view, name="ops_mocks"),
+    path("mocks/templates/<slug:source_id>/", views_ops.ops_mock_template_detail_view, name="ops_mock_template_detail"),
     path("schools/", views_ops.ops_schools_list_view, name="ops_schools_list"),
     path("schools/new/", views_ops.ops_school_create_view, name="ops_school_create"),
     path("schools/<slug:slug>/", views_ops.ops_school_detail_view, name="ops_school_detail"),

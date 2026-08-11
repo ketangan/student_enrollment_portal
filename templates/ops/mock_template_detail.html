@@ -1,0 +1,41 @@
+{% extends "ops/base.html" %}
+{% block page_title %}{{ source.label }}{% endblock %}
+
+{% block content %}
+<main class="dash-main" style="max-width:none;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+    <div>
+      <h1 style="font-size:20px;font-weight:700;margin:0 0 4px;">{{ source.label }}</h1>
+      <p style="font-size:13px;color:var(--dash-muted);margin:0;font-family:monospace;">{{ source.path }}</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+      <a href="{% url 'ops_mocks' %}" class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;">
+        Back to mocks
+      </a>
+      <a href="{{ source.github_url }}" target="_blank" rel="noopener"
+         class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;">
+        View on GitHub
+      </a>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px;align-items:start;">
+    <div class="dash-card" style="padding:0;overflow:hidden;">
+      <pre style="display:block;width:100%;min-height:calc(100vh - 220px);margin:0;padding:18px 20px;background:#0f172a;color:#e5e7eb;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;overflow:auto;white-space:pre-wrap;word-break:break-word;">{{ source_text }}</pre>
+    </div>
+
+    <aside class="dash-card" style="padding:16px;">
+      <h2 style="font-size:14px;font-weight:700;margin:0 0 10px;">Template Files</h2>
+      <div style="display:grid;gap:8px;">
+        {% for item in mock_template_sources %}
+        <a href="{% url 'ops_mock_template_detail' item.id %}"
+           style="display:block;padding:10px 12px;border:1px solid var(--dash-border,#e2e8f0);border-radius:8px;text-decoration:none;color:var(--dash-text);{% if item.id == source.id %}background:#eef2ff;border-color:#c7d2fe;{% endif %}">
+          <div style="font-size:12px;font-weight:700;">{{ item.label }}</div>
+          <div style="font-size:11px;color:var(--dash-muted);font-family:monospace;margin-top:3px;word-break:break-word;">{{ item.path }}</div>
+        </a>
+        {% endfor %}
+      </div>
+    </aside>
+  </div>
+</main>
+{% endblock %}
