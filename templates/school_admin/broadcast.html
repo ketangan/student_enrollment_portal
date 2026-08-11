@@ -275,13 +275,50 @@
         <textarea class="compose-body-ta" name="body"
                   placeholder="Write your message here…" required>{{ form.body|default:'' }}</textarea>
 
-        <!-- Merge field pills (click to insert into body) -->
-        <div style="padding:8px 18px 10px;border-top:1px solid var(--dash-border,#e5e7eb);display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
-          <span style="font-size:11px;font-weight:600;color:var(--dash-muted,#6b7280);margin-right:2px;">Merge&nbsp;fields:</span>
-          {% for mf in merge_fields %}
-          <button type="button" onclick="insertMergeField('{{ mf.key }}')" title="Insert {{ mf.label }}"
+        <!-- Merge field pills + more-tokens dropdown -->
+        <div style="padding:8px 18px 10px;border-top:1px solid var(--dash-border,#e5e7eb);display:flex;flex-wrap:wrap;gap:6px;align-items:center;position:relative;">
+          <span style="font-size:11px;font-weight:600;color:var(--dash-muted,#6b7280);margin-right:2px;flex-shrink:0;">Merge&nbsp;fields:</span>
+
+          {% for mf in merge_pill_fields %}
+          <button type="button" onclick="insertMergeField('{{ mf.key }}')" title="{{ mf.label }}"
                   style="padding:2px 9px;border-radius:12px;font-size:11.5px;font-weight:500;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;cursor:pointer;font-family:monospace;">{{ mf.display }}</button>
           {% endfor %}
+
+          {% if merge_extra_auto or merge_custom %}
+          <div style="position:relative;display:inline-block;">
+            <button type="button" id="more-tokens-btn" onclick="toggleMoreTokens()"
+                    style="padding:2px 10px;border-radius:12px;font-size:11.5px;font-weight:500;border:1.5px dashed #bfdbfe;background:transparent;color:var(--dash-primary,#2563eb);cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:3px;">
+              + More
+              <span id="more-tokens-chev" style="font-size:9px;">▼</span>
+            </button>
+
+            <div id="more-tokens-dd" style="display:none;position:absolute;bottom:calc(100% + 6px);left:0;z-index:400;background:#fff;border:1px solid var(--dash-border,#e5e7eb);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.13);min-width:200px;overflow:hidden;">
+              {% if merge_extra_auto %}
+              <div style="padding:6px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--dash-muted,#6b7280);background:var(--dash-bg,#f4f5f7);border-bottom:1px solid var(--dash-border,#e5e7eb);">Auto-filled</div>
+              {% for mf in merge_extra_auto %}
+              <button type="button" onclick="insertMergeField('{{ mf.key }}');closeMoreTokens();"
+                      style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:7px 14px;border:none;background:none;cursor:pointer;font-family:inherit;text-align:left;gap:12px;font-size:13px;color:var(--dash-text,#111827);"
+                      onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='none'">
+                <span>{{ mf.label }}</span>
+                <code style="font-size:11px;color:#1d4ed8;background:#eff6ff;padding:1px 6px;border-radius:6px;white-space:nowrap;">{{ mf.display }}</code>
+              </button>
+              {% endfor %}
+              {% endif %}
+
+              {% if merge_custom %}
+              <div style="padding:6px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--dash-muted,#6b7280);background:var(--dash-bg,#f4f5f7);border-top:{% if merge_extra_auto %}1{% else %}0{% endif %}px solid var(--dash-border,#e5e7eb);border-bottom:1px solid var(--dash-border,#e5e7eb);">Custom</div>
+              {% for mf in merge_custom %}
+              <button type="button" onclick="insertMergeField('{{ mf.key }}');closeMoreTokens();"
+                      style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:7px 14px;border:none;background:none;cursor:pointer;font-family:inherit;text-align:left;gap:12px;font-size:13px;color:var(--dash-text,#111827);"
+                      onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='none'">
+                <span>{{ mf.label }}</span>
+                <code style="font-size:11px;color:#1d4ed8;background:#eff6ff;padding:1px 6px;border-radius:6px;white-space:nowrap;">{{ mf.display }}</code>
+              </button>
+              {% endfor %}
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
         </div>
 
         <!-- Action bar -->
@@ -676,6 +713,28 @@ function toggleDetail(pk) {
 document.addEventListener('click', function(e) {
   if (afdOpen && !e.target.closest('#afd') && !e.target.closest('#afd-btn') && !e.target.closest('#people-btn')) {
     closeAfd();
+  }
+});
+
+// ── More tokens dropdown ──────────────────────────────────────
+var _moreOpen = false;
+function toggleMoreTokens() {
+  _moreOpen = !_moreOpen;
+  var dd = document.getElementById('more-tokens-dd');
+  var chev = document.getElementById('more-tokens-chev');
+  if (dd) dd.style.display = _moreOpen ? 'block' : 'none';
+  if (chev) chev.textContent = _moreOpen ? '▲' : '▼';
+}
+function closeMoreTokens() {
+  _moreOpen = false;
+  var dd = document.getElementById('more-tokens-dd');
+  var chev = document.getElementById('more-tokens-chev');
+  if (dd) dd.style.display = 'none';
+  if (chev) chev.textContent = '▼';
+}
+document.addEventListener('click', function(e) {
+  if (_moreOpen && !e.target.closest('#more-tokens-btn') && !e.target.closest('#more-tokens-dd')) {
+    closeMoreTokens();
   }
 });
 

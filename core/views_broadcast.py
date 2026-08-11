@@ -15,22 +15,41 @@ from core.models import (
     BroadcastRecipient,
     Lead,
     LEAD_STATUS_CHOICES,
+    SchoolCustomToken,
     Submission,
 )
 from core.services.notifications import send_admin_message, _render_template
 from core.services.school_permissions import require_school_role
 from core.views_school_common import _get_accessible_school_for_admin, _school_admin_base_context
+from core.views_school_email_templates import _TOKENS as _AUTO_TOKENS
 
 logger = logging.getLogger(__name__)
 
-# Keys match _TOKENS in views_school_email_templates.py and _render_template in notifications.py.
-_MERGE_FIELDS = [
-    {"key": "{{first_name}}",  "label": "First name",  "display": "{{first_name}}"},
-    {"key": "{{full_name}}",   "label": "Full name",   "display": "{{full_name}}"},
-    {"key": "{{email}}",       "label": "Email",       "display": "{{email}}"},
-    {"key": "{{program}}",     "label": "Program",     "display": "{{program}}"},
-    {"key": "{{school_name}}", "label": "School name", "display": "{{school_name}}"},
-]
+# Tokens shown as inline pills (subset of _AUTO_TOKENS — the broadly applicable ones).
+_PILL_TOKEN_KEYS = {"full_name", "first_name", "email", "program", "school_name"}
+
+def _merge_field_context(school):
+    """
+    Returns dict with merge_pill_fields, merge_extra_auto, merge_custom.
+    Derives from _AUTO_TOKENS (single source of truth) + SchoolCustomToken.
+    """
+    pill_fields = []
+    extra_auto_fields = []
+    for key, label in _AUTO_TOKENS:
+        entry = {"key": "{{" + key + "}}", "token_key": key, "label": label, "display": "{{" + key + "}}"}
+        if key in _PILL_TOKEN_KEYS:
+            pill_fields.append(entry)
+        else:
+            extra_auto_fields.append(entry)
+    custom_fields = [
+        {"key": "{{" + t.key + "}}", "token_key": t.key, "label": t.label, "display": "{{" + t.key + "}}"}
+        for t in SchoolCustomToken.objects.filter(school=school).order_by("key")
+    ]
+    return {
+        "merge_pill_fields": pill_fields,
+        "merge_extra_auto": extra_auto_fields,
+        "merge_custom": custom_fields,
+    }
 
 # Email keys to try, in priority order, when extracting contact email from a Submission.
 _SUB_EMAIL_KEYS = ("contact_email", "guardian_email", "parent_email", "email", "applicant_email")
@@ -65,16 +84,20 @@ def _submission_programs_for_school(school):
     )
 
 
-def _merge_data_for(name, email, program, school_name):
+def _merge_data_for(name, email, program, school_name, status="", extra=None):
     """Build the merge context dict used by _render_template for one recipient."""
     first = name.split()[0] if name and name.strip() else ""
-    return {
+    data = {
         "first_name": first,
         "full_name": name or "",
         "email": email,
         "program": program or "",
+        "status": status or "",
         "school_name": school_name,
     }
+    if extra:
+        data.update(extra)
+    return data
 
 
 def _build_audience(school, include_leads, include_submissions, leads_filter, submissions_filter):
@@ -83,10 +106,14 @@ def _build_audience(school, include_leads, include_submissions, leads_filter, su
       {email, name, source, source_id, merge_data}
     Deduplicates by lower-cased email; first source seen wins.
     skipped counts empty/invalid emails.
+    merge_data includes auto-filled tokens + custom token values from form data.
     """
     seen = {}   # normalized email → dict
     skipped = 0
     school_name = school.display_name or school.slug
+    custom_token_keys = list(
+        SchoolCustomToken.objects.filter(school=school).values_list("key", flat=True)
+    )
 
     if include_leads:
         qs = Lead.objects.filter(school=school)
@@ -96,7 +123,7 @@ def _build_audience(school, include_leads, include_submissions, leads_filter, su
             qs = qs.filter(status__in=statuses)
         if programs:
             qs = qs.filter(interested_in_value__in=programs)
-        for lead in qs.values("id", "name", "email", "interested_in_value"):
+        for lead in qs.values("id", "name", "email", "interested_in_value", "status"):
             email = (lead["email"] or "").strip()
             if not email:
                 skipped += 1
@@ -109,7 +136,10 @@ def _build_audience(school, include_leads, include_submissions, leads_filter, su
                     "name": name,
                     "source": BroadcastRecipient.SOURCE_LEAD,
                     "source_id": lead["id"],
-                    "merge_data": _merge_data_for(name, email, lead["interested_in_value"], school_name),
+                    "merge_data": _merge_data_for(
+                        name, email, lead["interested_in_value"], school_name,
+                        status=lead["status"] or "",
+                    ),
                 }
 
     if include_submissions:
@@ -136,12 +166,22 @@ def _build_audience(school, include_leads, include_submissions, leads_filter, su
                         name = v.strip()
                         break
                 program_name = sub.program.name if sub.program else ""
+                # Pull custom token values from form data where available.
+                custom_vals = {
+                    tk: str(sub.data[tk])
+                    for tk in custom_token_keys
+                    if tk in sub.data and sub.data[tk]
+                }
                 seen[key] = {
                     "email": email,
                     "name": name,
                     "source": BroadcastRecipient.SOURCE_SUBMISSION,
                     "source_id": sub.id,
-                    "merge_data": _merge_data_for(name, email, program_name, school_name),
+                    "merge_data": _merge_data_for(
+                        name, email, program_name, school_name,
+                        status=sub.status or "",
+                        extra=custom_vals,
+                    ),
                 }
 
     return list(seen.values()), skipped
@@ -190,13 +230,13 @@ def school_broadcast_view(request, school_slug):
 
         if errors:
             ctx = _school_admin_base_context(request, school, "broadcast")
+            ctx.update(_merge_field_context(school))
             ctx.update({
                 "lead_statuses": lead_statuses,
                 "lead_programs": lead_programs,
                 "sub_programs": sub_programs,
                 "sent_broadcasts": _sent_broadcasts(school),
                 "active_tab": "compose",
-                "merge_fields": _MERGE_FIELDS,
                 "errors": errors,
                 "form": {
                     "subject": subject, "body": body, "cc_email": cc_email, "bcc_email": bcc_email,
@@ -252,13 +292,13 @@ def school_broadcast_view(request, school_slug):
     }
 
     ctx = _school_admin_base_context(request, school, "broadcast")
+    ctx.update(_merge_field_context(school))
     ctx.update({
         "lead_statuses": lead_statuses,
         "lead_programs": lead_programs,
         "sub_programs": sub_programs,
         "sent_broadcasts": _sent_broadcasts(school),
         "active_tab": active_tab,
-        "merge_fields": _MERGE_FIELDS,
         "errors": [],
         "form": form_ctx,
     })
