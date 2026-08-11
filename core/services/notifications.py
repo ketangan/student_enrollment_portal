@@ -665,6 +665,7 @@ def send_admin_message(
     message: str,
     school_name: str,
     from_email: str | None = None,
+    bcc_email: str | None = None,
     is_html: bool = False,
     school=None,
 ) -> bool:
@@ -701,11 +702,13 @@ def send_admin_message(
 
     try:
         conn = get_school_email_connection(school)
+        bcc = [bcc_email] if bcc_email else []
         msg = EmailMultiAlternatives(
             subject=subject,
             body=text_body,
             from_email=sender,
             to=[to_email],
+            bcc=bcc,
             connection=conn,
         )
         msg.attach_alternative(html_body, "text/html")

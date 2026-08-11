@@ -4,7 +4,7 @@ import logging
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -154,6 +154,7 @@ def school_broadcast_view(request, school_slug):
         subject = request.POST.get("subject", "").strip()
         body = request.POST.get("body", "").strip()
         cc_email = request.POST.get("cc_email", "").strip()
+        bcc_email = request.POST.get("bcc_email", "").strip()
         include_leads = "include_leads" in request.POST
         include_submissions = "include_submissions" in request.POST
         leads_statuses = request.POST.getlist("leads_statuses")
@@ -179,7 +180,7 @@ def school_broadcast_view(request, school_slug):
                 "merge_fields": _MERGE_FIELDS,
                 "errors": errors,
                 "form": {
-                    "subject": subject, "body": body, "cc_email": cc_email,
+                    "subject": subject, "body": body, "cc_email": cc_email, "bcc_email": bcc_email,
                     "include_leads": include_leads, "include_submissions": include_submissions,
                     "leads_statuses": leads_statuses, "leads_programs": leads_programs,
                     "sub_programs": sub_programs_sel,
@@ -197,6 +198,7 @@ def school_broadcast_view(request, school_slug):
             "subject": subject,
             "body": body,
             "cc_email": cc_email,
+            "bcc_email": bcc_email,
             "include_leads": include_leads,
             "include_submissions": include_submissions,
             "leads_filter": leads_filter,
@@ -281,6 +283,7 @@ def _do_send(request, school, draft, school_slug):
             message=draft["body"],
             school_name=school.display_name or school.slug,
             from_email=school.smtp_from_email or None,
+            bcc_email=draft.get("bcc_email") or None,
             school=school,
         )
         status = BroadcastRecipient.STATUS_SENT if ok else BroadcastRecipient.STATUS_FAILED
@@ -296,6 +299,7 @@ def _do_send(request, school, draft, school_slug):
             subject=draft["subject"],
             body=draft["body"],
             cc_email=draft.get("cc_email", ""),
+            bcc_email=draft.get("bcc_email", ""),
             include_leads=draft["include_leads"],
             include_submissions=draft["include_submissions"],
             leads_filter=draft["leads_filter"],
@@ -333,3 +337,35 @@ def _sent_broadcasts(school):
         .prefetch_related("recipients")
         .order_by("-sent_at")[:50]
     )
+
+
+@login_required
+@require_http_methods(["POST"])
+def school_broadcast_audience_api(request, school_slug):
+    """Return JSON recipient list for the current filter state (used by live preview in compose)."""
+    school = _gate(request, school_slug)
+
+    include_leads = request.POST.get("include_leads") == "1"
+    include_submissions = request.POST.get("include_submissions") == "1"
+    leads_statuses = request.POST.getlist("leads_statuses")
+    leads_programs = request.POST.getlist("leads_programs")
+    sub_programs = request.POST.getlist("sub_programs")
+
+    if not include_leads and not include_submissions:
+        return JsonResponse({"count": 0, "skipped": 0, "recipients": []})
+
+    leads_filter = {"statuses": leads_statuses, "programs": leads_programs}
+    submissions_filter = {"programs": sub_programs}
+
+    recipients, skipped = _build_audience(
+        school, include_leads, include_submissions, leads_filter, submissions_filter
+    )
+
+    return JsonResponse({
+        "count": len(recipients),
+        "skipped": skipped,
+        "recipients": [
+            {"name": r["name"], "email": r["email"], "source": r["source"]}
+            for r in recipients[:50]
+        ],
+    })

@@ -113,6 +113,7 @@ urlpatterns = [
     # School admin: broadcast
     path("schools/<slug:school_slug>/admin/broadcast/", views_broadcast.school_broadcast_view, name="school_broadcast"),
     path("schools/<slug:school_slug>/admin/broadcast/preview/", views_broadcast.school_broadcast_preview_view, name="school_broadcast_preview"),
+    path("schools/<slug:school_slug>/admin/broadcast/audience/", views_broadcast.school_broadcast_audience_api, name="school_broadcast_audience"),
 
     # Stripe webhook (outside admin — no CSRF, no admin auth)
     path("stripe/webhook/", stripe_webhook, name="stripe_webhook"),

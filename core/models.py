@@ -1392,6 +1392,7 @@ class BroadcastMessage(models.Model):
     subject = models.CharField(max_length=500)
     body = models.TextField()
     cc_email = models.CharField(max_length=500, blank=True, default="")
+    bcc_email = models.CharField(max_length=500, blank=True, default="")
 
     # Which audience sources were included
     include_leads = models.BooleanField(default=False)

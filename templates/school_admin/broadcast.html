@@ -61,6 +61,23 @@
 .compose-body-ta{width:100%;min-height:210px;border:none;outline:none;resize:vertical;font-size:14px;line-height:1.85;font-family:inherit;color:var(--dash-text,#111827);background:transparent;padding:22px 20px;box-sizing:border-box;}
 .compose-body-ta::placeholder{color:#d1d5db;}
 
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── Recipient panel ── */
+.recip-panel{border-bottom:1px solid var(--dash-border,#e5e7eb);display:none;}
+.recip-panel.visible{display:block;}
+.recip-panel-hd{padding:8px 18px;background:var(--dash-bg,#f4f5f7);display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:600;color:var(--dash-muted,#6b7280);}
+.recip-panel-loading{padding:14px 18px;font-size:13px;color:var(--dash-muted,#6b7280);display:flex;align-items:center;gap:8px;}
+.recip-panel-list{max-height:200px;overflow-y:auto;}
+.rp-row{display:grid;grid-template-columns:28px 1fr auto;gap:8px;padding:6px 16px;align-items:center;border-top:1px solid #f3f4f6;font-size:12.5px;}
+.rp-row:first-child{border-top:none;}
+.rp-avatar{width:26px;height:26px;border-radius:50%;background:var(--dash-primary,#2563eb);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.rp-name{font-weight:600;color:var(--dash-text,#111827);}
+.rp-email{font-size:11.5px;color:var(--dash-muted,#6b7280);}
+.rp-src{font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:#f3f4f6;color:#6b7280;text-transform:capitalize;white-space:nowrap;}
+.recip-panel-more{padding:8px 18px;font-size:12px;color:var(--dash-muted,#6b7280);font-style:italic;border-top:1px solid #f3f4f6;}
+.recip-panel-empty{padding:14px 18px;font-size:13px;color:#dc2626;}
+
 /* ── Action bar ── */
 .action-bar{padding:12px 18px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--dash-border,#e5e7eb);}
 .action-note{font-size:12px;color:var(--dash-muted,#6b7280);}
@@ -219,6 +236,23 @@
           </div>
         </div>
 
+        <!-- Live recipient panel -->
+        <div class="recip-panel" id="recip-panel">
+          <div class="recip-panel-hd">
+            <span id="recip-panel-title">Recipients</span>
+            <span id="recip-skipped-note" style="font-weight:400;display:none;"></span>
+          </div>
+          <div id="recip-panel-body">
+            <div class="recip-panel-loading" id="recip-loading" style="display:none;">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="animation:spin .8s linear infinite;flex-shrink:0;"><circle cx="7" cy="7" r="5.5" stroke="#d1d5db" stroke-width="1.5"/><path d="M7 1.5A5.5 5.5 0 0 1 12.5 7" stroke="var(--dash-primary,#2563eb)" stroke-width="1.5" stroke-linecap="round"/></svg>
+              Loading recipients…
+            </div>
+            <div class="recip-panel-list" id="recip-list"></div>
+            <div class="recip-panel-more" id="recip-more" style="display:none;"></div>
+            <div class="recip-panel-empty" id="recip-empty" style="display:none;">No recipients match the current filters.</div>
+          </div>
+        </div>
+
         <!-- Subject -->
         <div class="field-row">
           <span class="field-lbl">Subject</span>
@@ -233,6 +267,14 @@
           <input class="field-input" type="email" name="cc_email"
                  value="{{ form.cc_email|default:'' }}"
                  placeholder="CC address (optional)">
+        </div>
+
+        <!-- BCC -->
+        <div class="field-row">
+          <span class="field-lbl">BCC</span>
+          <input class="field-input" type="email" name="bcc_email"
+                 value="{{ form.bcc_email|default:'' }}"
+                 placeholder="BCC address (optional)">
         </div>
 
         <!-- Body -->
@@ -453,7 +495,11 @@ function toggleSource(src) {
       });
     }
   }
-  updatePeopleLabel();
+  // Don't fetch yet — wait for Apply
+  var parts = [];
+  if (state.leads) parts.push('Leads');
+  if (state.subs) parts.push('Submissions');
+  document.getElementById('people-label').textContent = parts.length ? parts.join(' + ') : 'Choose audience';
 }
 
 function toggleFilter(filterKey, btnId, label, val) {
@@ -466,22 +512,103 @@ function toggleFilter(filterKey, btnId, label, val) {
 
 function applyAfd() {
   closeAfd();
-  updatePeopleLabel();
   renderChips();
+  fetchAudience();
 }
 
-function updatePeopleLabel() {
+var _audienceDebounce = null;
+var _audienceApiUrl = '{% url "school_broadcast_audience" school_slug=school.slug %}';
+var _csrfToken = '{{ csrf_token }}';
+
+function updatePeopleLabel(count) {
   var parts = [];
   if (state.leads) parts.push('Leads');
   if (state.subs) parts.push('Submissions');
-  var lbl = parts.length ? parts.join(' + ') : 'Choose audience';
+  var hasAudience = parts.length > 0;
+  var lbl = hasAudience
+    ? (count != null ? count + ' people' : parts.join(' + '))
+    : 'Choose audience';
   document.getElementById('people-label').textContent = lbl;
   var note = document.getElementById('action-note');
-  if (parts.length) {
+  if (hasAudience && count != null) {
+    note.innerHTML = 'Sending to <strong>' + count + ' people</strong> · each gets a separate email';
+  } else if (hasAudience) {
     note.innerHTML = 'Sending to <strong>' + parts.join(' + ') + '</strong> matching your filters · each gets a separate email';
   } else {
     note.textContent = 'Select an audience above to continue.';
   }
+}
+
+function fetchAudience() {
+  if (!state.leads && !state.subs) {
+    document.getElementById('recip-panel').classList.remove('visible');
+    updatePeopleLabel(null);
+    return;
+  }
+
+  // Show loading state
+  var panel = document.getElementById('recip-panel');
+  panel.classList.add('visible');
+  document.getElementById('recip-loading').style.display = 'flex';
+  document.getElementById('recip-list').innerHTML = '';
+  document.getElementById('recip-more').style.display = 'none';
+  document.getElementById('recip-empty').style.display = 'none';
+  document.getElementById('people-label').textContent = '…';
+
+  clearTimeout(_audienceDebounce);
+  _audienceDebounce = setTimeout(function() {
+    var body = new URLSearchParams();
+    body.append('csrfmiddlewaretoken', _csrfToken);
+    if (state.leads) body.append('include_leads', '1');
+    if (state.subs) body.append('include_submissions', '1');
+    state.filters.leads_statuses.forEach(function(v){ body.append('leads_statuses', v); });
+    state.filters.leads_programs.forEach(function(v){ body.append('leads_programs', v); });
+    state.filters.sub_programs.forEach(function(v){ body.append('sub_programs', v); });
+
+    fetch(_audienceApiUrl, {method:'POST', body:body})
+      .then(function(r){ return r.json(); })
+      .then(function(data) {
+        document.getElementById('recip-loading').style.display = 'none';
+        updatePeopleLabel(data.count);
+        document.getElementById('recip-panel-title').textContent = data.count + ' recipient' + (data.count !== 1 ? 's' : '');
+        var skipNote = document.getElementById('recip-skipped-note');
+        if (data.skipped) {
+          skipNote.textContent = data.skipped + ' skipped (no email)';
+          skipNote.style.display = '';
+        } else {
+          skipNote.style.display = 'none';
+        }
+        if (data.count === 0) {
+          document.getElementById('recip-empty').style.display = 'block';
+          return;
+        }
+        var list = document.getElementById('recip-list');
+        data.recipients.forEach(function(r) {
+          var initial = (r.name || r.email || '?')[0].toUpperCase();
+          var row = document.createElement('div');
+          row.className = 'rp-row';
+          row.innerHTML =
+            '<div class="rp-avatar">' + initial + '</div>' +
+            '<div><div class="rp-name">' + escHtml(r.name || '—') + '</div>' +
+              '<div class="rp-email">' + escHtml(r.email) + '</div></div>' +
+            '<span class="rp-src">' + escHtml(r.source) + '</span>';
+          list.appendChild(row);
+        });
+        if (data.count > data.recipients.length) {
+          var more = document.getElementById('recip-more');
+          more.textContent = '+ ' + (data.count - data.recipients.length) + ' more not shown';
+          more.style.display = 'block';
+        }
+      })
+      .catch(function() {
+        document.getElementById('recip-loading').style.display = 'none';
+        updatePeopleLabel(null);
+      });
+  }, 300);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function renderChips() {
@@ -512,9 +639,9 @@ function removeFilter(key, val) {
   var arr = state.filters[key];
   var idx = arr.indexOf(val);
   if (idx !== -1) arr.splice(idx, 1);
-  // Deselect the button in the dropdown
   document.querySelectorAll('[data-val="' + val + '"]').forEach(function(b){ b.classList.remove('sel'); });
   renderChips();
+  fetchAudience();
 }
 
 // ── Hidden inputs (set before submit) ────────────────────────
@@ -564,7 +691,7 @@ function insertMergeField(field) {
 }
 
 // ── Init ─────────────────────────────────────────────────────
-updatePeopleLabel();
 renderChips();
+fetchAudience();
 </script>
 {% endblock %}
