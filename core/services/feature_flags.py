@@ -58,7 +58,13 @@ _FEATURE_MIN_PLAN: dict[str, str] = {
     "ai_summary_enabled": PLAN_GROWTH,
 }
 
-ALL_FLAGS = list(_FEATURE_MIN_PLAN.keys())
+# ── Operator-only flags: off by default for ALL plans including trial ─────
+# Enable per-school via school.feature_flags = {"broadcast_enabled": true}
+_OPERATOR_ONLY_FLAGS: frozenset[str] = frozenset({
+    "broadcast_enabled",
+})
+
+ALL_FLAGS = list(_FEATURE_MIN_PLAN.keys()) + list(_OPERATOR_ONLY_FLAGS)
 
 
 def default_flags_for_plan(plan: str) -> dict[str, bool]:
@@ -82,8 +88,12 @@ def merge_flags(*, plan: str, overrides: dict[str, Any] | None) -> dict[str, boo
     """
     Defaults (by plan) + admin overrides.
     Only accepts boolean overrides; ignores junk to avoid breakage.
+    Operator-only flags are forced to False after plan defaults so they
+    cannot be unlocked by plan tier — only by per-school JSON override.
     """
     merged = default_flags_for_plan(plan)
+    for flag in _OPERATOR_ONLY_FLAGS:
+        merged[flag] = False
     if overrides:
         for k, v in overrides.items():
             if isinstance(v, bool):

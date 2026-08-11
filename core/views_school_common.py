@@ -376,6 +376,7 @@ def _school_admin_base_context(request, school, active_nav: str) -> dict:
         "school": school,
         "school_slug": school.slug,
         "leads_enabled": leads_enabled,
+        "broadcast_enabled": school.features.broadcast_enabled,
         "user_initial": user_initial,
         "now": timezone.localtime(timezone.now()),
         "active_nav": active_nav,

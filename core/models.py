@@ -108,6 +108,10 @@ class SchoolFeatures:
     def family_portal_enabled(self) -> bool:
         return bool(self._flags().get("family_portal_enabled", False))
 
+    @property
+    def broadcast_enabled(self) -> bool:
+        return bool(self._flags().get("broadcast_enabled", False))
+
 
 class School(models.Model):
     """
@@ -1374,3 +1378,92 @@ class AdminPreference(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user.username} → {self.theme}"
+
+# ── Broadcast ─────────────────────────────────────────────────────────────────
+
+class BroadcastMessage(models.Model):
+    """
+    A sent broadcast email. One record per send action; recipients stored
+    in BroadcastRecipient. No draft state — compose is stateless.
+    """
+    school = models.ForeignKey(
+        "School", on_delete=models.CASCADE, related_name="broadcasts"
+    )
+    subject = models.CharField(max_length=500)
+    body = models.TextField()
+    cc_email = models.CharField(max_length=500, blank=True, default="")
+
+    # Which audience sources were included
+    include_leads = models.BooleanField(default=False)
+    include_submissions = models.BooleanField(default=False)
+
+    # Filter snapshots stored at send time for display in sent history
+    leads_filter = models.JSONField(default=dict)
+    submissions_filter = models.JSONField(default=dict)
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="broadcasts_created",
+    )
+    sent_at = models.DateTimeField(auto_now_add=True)
+    recipient_count = models.IntegerField(default=0)
+    sent_count = models.IntegerField(default=0)
+    skipped_count = models.IntegerField(default=0)
+    failed_count = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ["-sent_at"]
+
+    def __str__(self) -> str:
+        return f"{self.school.slug} — {self.subject[:60]}"
+
+    def audience_label(self) -> str:
+        parts = []
+        if self.include_leads:
+            lf = self.leads_filter or {}
+            tokens = list(lf.get("statuses", [])) + list(lf.get("programs", []))
+            parts.append("Leads" + (f" ({', '.join(tokens[:3])})" if tokens else ""))
+        if self.include_submissions:
+            sf = self.submissions_filter or {}
+            tokens = list(sf.get("programs", []))
+            parts.append("Submissions" + (f" ({', '.join(tokens[:3])})" if tokens else ""))
+        return " + ".join(parts) or "—"
+
+
+class BroadcastRecipient(models.Model):
+    SOURCE_LEAD = "lead"
+    SOURCE_SUBMISSION = "submission"
+    SOURCE_CHOICES = [
+        (SOURCE_LEAD, "Lead"),
+        (SOURCE_SUBMISSION, "Submission"),
+    ]
+
+    STATUS_SENT = "sent"
+    STATUS_SKIPPED = "skipped"
+    STATUS_FAILED = "failed"
+    STATUS_CHOICES = [
+        (STATUS_SENT, "Sent"),
+        (STATUS_SKIPPED, "Skipped"),
+        (STATUS_FAILED, "Failed"),
+    ]
+
+    broadcast = models.ForeignKey(
+        BroadcastMessage, on_delete=models.CASCADE, related_name="recipients"
+    )
+    email = models.CharField(max_length=500)
+    name = models.CharField(max_length=300, blank=True, default="")
+    source = models.CharField(max_length=16, choices=SOURCE_CHOICES)
+    source_id = models.IntegerField(null=True, blank=True)
+    merge_data = models.JSONField(default=dict)
+    status = models.CharField(
+        max_length=16, choices=STATUS_CHOICES, default=STATUS_SENT
+    )
+    skipped_reason = models.CharField(max_length=200, blank=True, default="")
+
+    class Meta:
+        ordering = ["name", "email"]
+
+    def __str__(self) -> str:
+        return f"{self.email} ({self.status})"

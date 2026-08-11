@@ -1,0 +1,330 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Broadcast{% endblock %}
+
+{% block extra_css %}
+<style>
+.bc-card {
+  background: var(--dash-card, #fff);
+  border: 1px solid var(--dash-border, #e2e8f0);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+}
+.bc-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dash-text, #0f172a);
+  margin-bottom: 6px;
+}
+.bc-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--dash-border, #e2e8f0);
+  border-radius: 8px;
+  font-size: 13px;
+  background: var(--dash-bg, #fff);
+  color: var(--dash-text, #0f172a);
+  box-sizing: border-box;
+}
+.bc-input:focus { outline: 2px solid var(--dash-primary, #4f46e5); border-color: transparent; }
+.bc-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--dash-muted, #64748b);
+  margin-bottom: 10px;
+}
+.bc-checkbox-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.bc-checkbox-grid label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.bc-filter-section {
+  margin-top: 12px;
+  padding: 14px;
+  background: var(--dash-sidebar, #f8fafc);
+  border-radius: 8px;
+  border: 1px solid var(--dash-border, #e2e8f0);
+}
+/* Sent history table */
+.bc-sent-row { border-bottom: 1px solid var(--dash-border, #e2e8f0); }
+.bc-sent-row:last-child { border-bottom: none; }
+.bc-sent-header {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 0;
+  cursor: pointer;
+}
+.bc-sent-header:hover { background: var(--dash-sidebar, #f8fafc); margin: 0 -4px; padding: 12px 4px; border-radius: 6px; }
+.bc-sent-detail {
+  padding: 0 0 14px 0;
+  display: none;
+}
+.bc-sent-detail.open { display: block; }
+.bc-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.bc-tag--sent { background: #dcfce7; color: #166534; }
+.bc-tag--failed { background: #fee2e2; color: #991b1b; }
+.bc-toggle-chevron { font-size: 10px; color: var(--dash-muted); transition: transform .15s; }
+.bc-toggle-chevron.open { transform: rotate(90deg); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="padding: 24px 20px; max-width: 780px; margin: 0 auto;">
+
+  <div style="margin-bottom: 20px;">
+    <h1 style="font-size: 20px; font-weight: 700; color: var(--dash-text, #0f172a); margin: 0 0 4px;">Broadcast Message</h1>
+    <p style="font-size: 13px; color: var(--dash-muted); margin: 0;">Send an email to a selected audience of leads and/or applicants.</p>
+  </div>
+
+  {% if messages %}
+    {% for msg in messages %}
+    <div style="margin-bottom: 16px; padding: 10px 16px; border-radius: 8px; font-size: 13px;
+                background: {% if msg.tags == 'error' %}#fef2f2{% else %}#f0fdf4{% endif %};
+                border: 1px solid {% if msg.tags == 'error' %}#fca5a5{% else %}#86efac{% endif %};
+                color: {% if msg.tags == 'error' %}#991b1b{% else %}#166534{% endif %};">
+      {{ msg }}
+    </div>
+    {% endfor %}
+  {% endif %}
+
+  {% if errors %}
+  <div style="margin-bottom: 16px; padding: 12px 16px; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 8px; font-size: 13px; color: #991b1b;">
+    {% for e in errors %}<div>{{ e }}</div>{% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Compose form -->
+  <form method="post">
+    {% csrf_token %}
+
+    <!-- Subject & CC -->
+    <div class="bc-card">
+      <div class="bc-section-title">Email Details</div>
+      <div style="margin-bottom: 14px;">
+        <label class="bc-label">Subject <span style="color:#dc2626;">*</span></label>
+        <input type="text" name="subject" class="bc-input" required
+               value="{{ form.subject|default:'' }}"
+               placeholder="e.g. Important update from {{ school.display_name|default:school.slug }}">
+      </div>
+      <div style="margin-bottom: 14px;">
+        <label class="bc-label">Message Body <span style="color:#dc2626;">*</span></label>
+        <textarea name="body" class="bc-input" rows="8" required
+                  placeholder="Write your message here. Plain text only."
+                  style="resize: vertical; line-height: 1.6;">{{ form.body|default:'' }}</textarea>
+      </div>
+      <div>
+        <label class="bc-label">CC Email <span style="font-weight: 400; color: var(--dash-muted);">(optional)</span></label>
+        <input type="email" name="cc_email" class="bc-input"
+               value="{{ form.cc_email|default:'' }}"
+               placeholder="e.g. director@school.com">
+      </div>
+    </div>
+
+    <!-- Audience -->
+    <div class="bc-card">
+      <div class="bc-section-title">Audience</div>
+      <p style="font-size: 12px; color: var(--dash-muted); margin: 0 0 14px;">Select who should receive this email. Duplicate emails across sources are sent only once.</p>
+
+      <!-- Leads -->
+      <div style="margin-bottom: 14px;">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">
+          <input type="checkbox" name="include_leads" id="include_leads"
+                 {% if form.include_leads %}checked{% endif %}
+                 onchange="toggleFilters('leads-filters', this.checked)">
+          Leads
+        </label>
+        <div id="leads-filters" class="bc-filter-section" style="{% if not form.include_leads %}display:none;{% endif %}">
+          {% if lead_statuses %}
+          <div style="margin-bottom: 10px;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--dash-muted); margin-bottom: 6px;">Filter by Status <span style="font-weight: 400;">(leave blank = all statuses)</span></div>
+            <div class="bc-checkbox-grid">
+              {% for val, label in lead_statuses %}
+              <label>
+                <input type="checkbox" name="leads_statuses" value="{{ val }}"
+                       {% if val in form.leads_statuses %}checked{% endif %}>
+                {{ label }}
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+          {% if lead_programs %}
+          <div>
+            <div style="font-size: 11px; font-weight: 600; color: var(--dash-muted); margin-bottom: 6px;">Filter by Program Interest <span style="font-weight: 400;">(leave blank = all)</span></div>
+            <div class="bc-checkbox-grid">
+              {% for prog in lead_programs %}
+              <label>
+                <input type="checkbox" name="leads_programs" value="{{ prog }}"
+                       {% if prog in form.leads_programs %}checked{% endif %}>
+                {{ prog }}
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+          {% if not lead_statuses and not lead_programs %}
+          <div style="font-size: 12px; color: var(--dash-muted);">All leads will be included.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Submissions -->
+      <div>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">
+          <input type="checkbox" name="include_submissions" id="include_submissions"
+                 {% if form.include_submissions %}checked{% endif %}
+                 onchange="toggleFilters('sub-filters', this.checked)">
+          Submissions (Applicants)
+        </label>
+        <div id="sub-filters" class="bc-filter-section" style="{% if not form.include_submissions %}display:none;{% endif %}">
+          {% if sub_programs %}
+          <div>
+            <div style="font-size: 11px; font-weight: 600; color: var(--dash-muted); margin-bottom: 6px;">Filter by Program <span style="font-weight: 400;">(leave blank = all)</span></div>
+            <div class="bc-checkbox-grid">
+              {% for prog in sub_programs %}
+              <label>
+                <input type="checkbox" name="sub_programs" value="{{ prog }}"
+                       {% if prog in form.sub_programs %}checked{% endif %}>
+                {{ prog }}
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+          {% else %}
+          <div style="font-size: 12px; color: var(--dash-muted);">All submissions will be included.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <button type="submit"
+            style="width: 100%; padding: 11px; background: var(--dash-primary, #4f46e5); color: #fff;
+                   border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
+      Preview &amp; Review Recipients →
+    </button>
+  </form>
+
+  <!-- Sent history -->
+  {% if sent_broadcasts %}
+  <div class="bc-card" style="margin-top: 32px;">
+    <div class="bc-section-title" style="margin-bottom: 14px;">Sent Broadcasts</div>
+
+    <div style="display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; padding: 0 0 6px;
+                font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--dash-muted);">
+      <div>Subject</div>
+      <div>Sent</div>
+      <div>Recipients</div>
+      <div></div>
+    </div>
+
+    {% for bm in sent_broadcasts %}
+    <div class="bc-sent-row">
+      <div class="bc-sent-header" onclick="toggleDetail('bc-detail-{{ bm.pk }}', 'bc-chevron-{{ bm.pk }}')">
+        <div>
+          <div style="font-size: 13px; font-weight: 500; color: var(--dash-text);">{{ bm.subject|truncatechars:70 }}</div>
+          <div style="font-size: 11px; color: var(--dash-muted); margin-top: 2px;">{{ bm.audience_label }}</div>
+        </div>
+        <div style="font-size: 12px; color: var(--dash-muted); white-space: nowrap;">{{ bm.sent_at|date:"M j, Y g:i A" }}</div>
+        <div style="text-align: right; font-size: 12px;">
+          <span class="bc-tag bc-tag--sent">{{ bm.sent_count }} sent</span>
+          {% if bm.failed_count %}
+          <span class="bc-tag bc-tag--failed" style="margin-left: 4px;">{{ bm.failed_count }} failed</span>
+          {% endif %}
+        </div>
+        <div><span class="bc-toggle-chevron" id="bc-chevron-{{ bm.pk }}">▶</span></div>
+      </div>
+
+      <div class="bc-sent-detail" id="bc-detail-{{ bm.pk }}">
+        <!-- Email body preview -->
+        <div style="background: var(--dash-sidebar, #f8fafc); border: 1px solid var(--dash-border); border-radius: 8px; padding: 14px; margin-bottom: 12px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--dash-muted); margin-bottom: 6px;">MESSAGE BODY</div>
+          <div style="font-size: 13px; line-height: 1.6; white-space: pre-wrap; color: var(--dash-text);">{{ bm.body }}</div>
+        </div>
+
+        <!-- Recipients table -->
+        {% with recs=bm.recipients.all %}
+        {% if recs %}
+        <div style="font-size: 11px; font-weight: 600; color: var(--dash-muted); margin-bottom: 6px;">RECIPIENTS ({{ recs.count }})</div>
+        <div style="max-height: 220px; overflow-y: auto; border: 1px solid var(--dash-border); border-radius: 8px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <thead>
+              <tr style="background: var(--dash-sidebar, #f8fafc); position: sticky; top: 0;">
+                <th style="padding: 7px 12px; text-align: left; font-weight: 600; color: var(--dash-muted);">Name</th>
+                <th style="padding: 7px 12px; text-align: left; font-weight: 600; color: var(--dash-muted);">Email</th>
+                <th style="padding: 7px 12px; text-align: left; font-weight: 600; color: var(--dash-muted);">Source</th>
+                <th style="padding: 7px 12px; text-align: left; font-weight: 600; color: var(--dash-muted);">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in recs %}
+              <tr style="border-top: 1px solid var(--dash-border);">
+                <td style="padding: 7px 12px; color: var(--dash-text);">{{ r.name|default:"—" }}</td>
+                <td style="padding: 7px 12px; color: var(--dash-text);">{{ r.email }}</td>
+                <td style="padding: 7px 12px; color: var(--dash-muted); text-transform: capitalize;">{{ r.source }}</td>
+                <td style="padding: 7px 12px;">
+                  {% if r.status == 'sent' %}
+                  <span class="bc-tag bc-tag--sent">Sent</span>
+                  {% elif r.status == 'failed' %}
+                  <span class="bc-tag bc-tag--failed">Failed</span>
+                  {% else %}
+                  <span class="bc-tag" style="background:#f1f5f9;color:#475569;">{{ r.status }}</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        {% if bm.created_by %}
+        <div style="font-size: 11px; color: var(--dash-muted); margin-top: 8px;">
+          Sent by {{ bm.created_by.get_full_name|default:bm.created_by.username }} on {{ bm.sent_at|date:"N j, Y \a\t g:i A" }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleFilters(id, show) {
+  var el = document.getElementById(id);
+  if (el) el.style.display = show ? '' : 'none';
+}
+
+function toggleDetail(detailId, chevronId) {
+  var detail = document.getElementById(detailId);
+  var chevron = document.getElementById(chevronId);
+  if (!detail) return;
+  var isOpen = detail.classList.contains('open');
+  detail.classList.toggle('open', !isOpen);
+  if (chevron) chevron.classList.toggle('open', !isOpen);
+}
+</script>
+{% endblock %}

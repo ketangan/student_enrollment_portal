@@ -5,6 +5,7 @@ from .views_billing import stripe_webhook
 from . import views_demo
 from core import views_school_programs
 from core import views_school_email_templates
+from core import views_broadcast
 
 urlpatterns = [
     # Demo pages (public, no auth)
@@ -108,6 +109,10 @@ urlpatterns = [
     path("schools/<slug:school_slug>/admin/billing/", views.school_billing_view, name="school_billing"),
     path("schools/<slug:school_slug>/admin/billing/checkout/", views.school_billing_checkout_view, name="school_billing_checkout"),
     path("schools/<slug:school_slug>/admin/billing/portal/", views.school_billing_portal_view, name="school_billing_portal"),
+
+    # School admin: broadcast
+    path("schools/<slug:school_slug>/admin/broadcast/", views_broadcast.school_broadcast_view, name="school_broadcast"),
+    path("schools/<slug:school_slug>/admin/broadcast/preview/", views_broadcast.school_broadcast_preview_view, name="school_broadcast_preview"),
 
     # Stripe webhook (outside admin — no CSRF, no admin auth)
     path("stripe/webhook/", stripe_webhook, name="stripe_webhook"),

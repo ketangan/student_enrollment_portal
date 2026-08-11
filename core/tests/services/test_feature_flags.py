@@ -10,6 +10,7 @@ from core.services.feature_flags import (
     ALL_PLANS,
     ALL_FLAGS,
     _FEATURE_MIN_PLAN,
+    _OPERATOR_ONLY_FLAGS,
     default_flags_for_plan,
     merge_flags,
 )
@@ -34,8 +35,9 @@ def test_plan_choices_matches_all_plans():
     assert choice_values == ALL_PLANS
 
 
-def test_all_flags_matches_feature_min_plan_keys():
-    assert ALL_FLAGS == list(_FEATURE_MIN_PLAN.keys())
+def test_all_flags_is_plan_flags_plus_operator_only():
+    """ALL_FLAGS is the union of plan-gated flags and operator-only flags."""
+    assert set(ALL_FLAGS) == set(_FEATURE_MIN_PLAN.keys()) | set(_OPERATOR_ONLY_FLAGS)
 
 
 def test_feature_min_plan_values_are_valid_plans():
@@ -47,11 +49,15 @@ def test_feature_min_plan_values_are_valid_plans():
 # default_flags_for_plan — cumulative tier logic
 # ---------------------------------------------------------------------------
 
-def test_trial_gets_all_flags():
-    """Trial is full-featured — every flag must be True."""
+def test_trial_gets_all_plan_flags():
+    """Trial is full-featured — all plan-gated flags must be True. Operator-only flags
+    are not part of default_flags_for_plan output (they require explicit JSON override)."""
     flags = default_flags_for_plan(PLAN_TRIAL)
-    for flag in ALL_FLAGS:
+    for flag in _FEATURE_MIN_PLAN:
         assert flags[flag] is True, f"Trial plan should enable {flag}"
+    # Operator-only flags are NOT in default_flags_for_plan output
+    for flag in _OPERATOR_ONLY_FLAGS:
+        assert flag not in flags, f"default_flags_for_plan should not emit operator-only flag {flag}"
 
 
 def test_starter_gets_trial_and_starter_tier_flags():
@@ -80,9 +86,10 @@ def test_pro_gets_trial_starter_and_pro_tier_flags():
         assert flags[flag] is False, f"Pro plan should NOT enable growth-only flag {flag}"
 
 
-def test_growth_gets_all_flags():
+def test_growth_gets_all_plan_flags():
+    """Growth plan enables all plan-gated flags. Operator-only flags are separate."""
     flags = default_flags_for_plan(PLAN_GROWTH)
-    for flag in ALL_FLAGS:
+    for flag in _FEATURE_MIN_PLAN:
         assert flags[flag] is True, f"Growth plan should enable {flag}"
 
 
@@ -137,10 +144,12 @@ def test_default_flags_returns_fresh_dict():
     assert b["custom_branding_enabled"] is False
 
 
-def test_default_flags_contains_all_known_flags():
+def test_default_flags_contains_all_plan_flags():
+    """default_flags_for_plan emits all plan-gated flags. Operator-only flags are added
+    by merge_flags, not here."""
     for plan in ALL_PLANS:
         flags = default_flags_for_plan(plan)
-        for flag in ALL_FLAGS:
+        for flag in _FEATURE_MIN_PLAN:
             assert flag in flags, f"Missing {flag} in {plan} defaults"
 
 
@@ -148,14 +157,17 @@ def test_default_flags_contains_all_known_flags():
 # merge_flags
 # ---------------------------------------------------------------------------
 
-def test_merge_flags_no_overrides_returns_plan_defaults():
+def test_merge_flags_no_overrides_matches_plan_defaults_plus_operator_flags_off():
+    """Without overrides, merge_flags = plan defaults + all operator-only flags forced False."""
     result = merge_flags(plan=PLAN_STARTER, overrides=None)
-    assert result == default_flags_for_plan(PLAN_STARTER)
+    expected = {**default_flags_for_plan(PLAN_STARTER), **{f: False for f in _OPERATOR_ONLY_FLAGS}}
+    assert result == expected
 
 
-def test_merge_flags_empty_overrides_returns_plan_defaults():
+def test_merge_flags_empty_overrides_matches_plan_defaults_plus_operator_flags_off():
     result = merge_flags(plan=PLAN_PRO, overrides={})
-    assert result == default_flags_for_plan(PLAN_PRO)
+    expected = {**default_flags_for_plan(PLAN_PRO), **{f: False for f in _OPERATOR_ONLY_FLAGS}}
+    assert result == expected
 
 
 def test_merge_flags_boolean_override_applied():
