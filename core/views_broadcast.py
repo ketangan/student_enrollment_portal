@@ -18,7 +18,7 @@ from core.models import (
 )
 from core.services.notifications import send_admin_message
 from core.services.school_permissions import require_school_role
-from core.views_school_common import _get_accessible_school_for_admin
+from core.views_school_common import _get_accessible_school_for_admin, _school_admin_base_context
 
 logger = logging.getLogger(__name__)
 
@@ -161,9 +161,8 @@ def school_broadcast_view(request, school_slug):
             errors.append("Select at least one audience source (Leads or Submissions).")
 
         if errors:
-            return render(request, "school_admin/broadcast.html", {
-                "school": school,
-                "active_nav": "broadcast",
+            ctx = _school_admin_base_context(request, school, "broadcast")
+            ctx.update({
                 "lead_statuses": lead_statuses,
                 "lead_programs": lead_programs,
                 "sub_programs": sub_programs,
@@ -176,6 +175,7 @@ def school_broadcast_view(request, school_slug):
                     "sub_programs": sub_programs_sel,
                 },
             })
+            return render(request, "school_admin/broadcast.html", ctx)
 
         leads_filter = {"statuses": leads_statuses, "programs": leads_programs}
         submissions_filter = {"programs": sub_programs_sel}
@@ -191,9 +191,8 @@ def school_broadcast_view(request, school_slug):
         }
         return redirect("school_broadcast_preview", school_slug=school_slug)
 
-    return render(request, "school_admin/broadcast.html", {
-        "school": school,
-        "active_nav": "broadcast",
+    ctx = _school_admin_base_context(request, school, "broadcast")
+    ctx.update({
         "lead_statuses": lead_statuses,
         "lead_programs": lead_programs,
         "sub_programs": sub_programs,
@@ -201,6 +200,7 @@ def school_broadcast_view(request, school_slug):
         "errors": [],
         "form": {},
     })
+    return render(request, "school_admin/broadcast.html", ctx)
 
 
 @login_required
@@ -225,14 +225,14 @@ def school_broadcast_preview_view(request, school_slug):
         draft["submissions_filter"],
     )
 
-    return render(request, "school_admin/broadcast_preview.html", {
-        "school": school,
-        "active_nav": "broadcast",
+    ctx = _school_admin_base_context(request, school, "broadcast")
+    ctx.update({
         "draft": draft,
         "recipients": recipients,
         "recipient_count": len(recipients),
         "skipped_count": skipped,
     })
+    return render(request, "school_admin/broadcast_preview.html", ctx)
 
 
 def _do_send(request, school, draft, school_slug):
