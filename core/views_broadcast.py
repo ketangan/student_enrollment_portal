@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404, render, redirect
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
@@ -21,6 +22,13 @@ from core.services.school_permissions import require_school_role
 from core.views_school_common import _get_accessible_school_for_admin, _school_admin_base_context
 
 logger = logging.getLogger(__name__)
+
+_MERGE_FIELDS = [
+    {"key": "{{first_name}}", "label": "First name", "display": "{{first_name}}"},
+    {"key": "{{last_name}}", "label": "Last name", "display": "{{last_name}}"},
+    {"key": "{{program_name}}", "label": "Program", "display": "{{program_name}}"},
+    {"key": "{{school_name}}", "label": "School name", "display": "{{school_name}}"},
+]
 
 # Email keys to try, in priority order, when extracting contact email from a Submission.
 _SUB_EMAIL_KEYS = ("contact_email", "guardian_email", "parent_email", "email", "applicant_email")
@@ -167,12 +175,17 @@ def school_broadcast_view(request, school_slug):
                 "lead_programs": lead_programs,
                 "sub_programs": sub_programs,
                 "sent_broadcasts": _sent_broadcasts(school),
+                "active_tab": "compose",
+                "merge_fields": _MERGE_FIELDS,
                 "errors": errors,
                 "form": {
                     "subject": subject, "body": body, "cc_email": cc_email,
                     "include_leads": include_leads, "include_submissions": include_submissions,
                     "leads_statuses": leads_statuses, "leads_programs": leads_programs,
                     "sub_programs": sub_programs_sel,
+                    "leads_statuses_json": json.dumps(leads_statuses),
+                    "leads_programs_json": json.dumps(leads_programs),
+                    "sub_programs_json": json.dumps(sub_programs_sel),
                 },
             })
             return render(request, "school_admin/broadcast.html", ctx)
@@ -191,14 +204,23 @@ def school_broadcast_view(request, school_slug):
         }
         return redirect("school_broadcast_preview", school_slug=school_slug)
 
+    active_tab = request.GET.get("tab", "compose")
+    if active_tab not in ("compose", "sent"):
+        active_tab = "compose"
     ctx = _school_admin_base_context(request, school, "broadcast")
     ctx.update({
         "lead_statuses": lead_statuses,
         "lead_programs": lead_programs,
         "sub_programs": sub_programs,
         "sent_broadcasts": _sent_broadcasts(school),
+        "active_tab": active_tab,
+        "merge_fields": _MERGE_FIELDS,
         "errors": [],
-        "form": {},
+        "form": {
+            "leads_statuses_json": "[]",
+            "leads_programs_json": "[]",
+            "sub_programs_json": "[]",
+        },
     })
     return render(request, "school_admin/broadcast.html", ctx)
 
@@ -302,7 +324,7 @@ def _do_send(request, school, draft, school_slug):
         f"Broadcast sent to {sent_count} recipient{'s' if sent_count != 1 else ''}."
         + (f" {failed_count} failed." if failed_count else ""),
     )
-    return redirect("school_broadcast", school_slug=school_slug)
+    return redirect(reverse("school_broadcast", kwargs={"school_slug": school_slug}) + "?tab=sent")
 
 
 def _sent_broadcasts(school):

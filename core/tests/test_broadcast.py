@@ -286,7 +286,7 @@ class TestSendFlow:
             resp = client.post(self._preview_url(school_with_flag))
 
         assert resp.status_code == 302
-        assert resp["Location"].endswith(self._compose_url(school_with_flag))
+        assert resp["Location"] == self._compose_url(school_with_flag) + "?tab=sent"
 
         bm = BroadcastMessage.objects.get(school=school_with_flag)
         assert bm.subject == "Hello everyone"
