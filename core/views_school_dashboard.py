@@ -427,6 +427,7 @@ def school_dashboard_view(request, school_slug: str):
             "top_enrichment": top_enrichment,
             "recent_activity": recent_activity,
             "leads_enabled": leads_enabled,
+            "broadcast_enabled": school.features.broadcast_enabled,
             "new_leads_count": new_leads_count,
             "needs_attention_count": needs_attention_count,
             "followups_today_count": followups_today_count,

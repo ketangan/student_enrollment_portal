@@ -372,3 +372,46 @@ class TestSentHistory:
         url = reverse("school_broadcast", kwargs={"school_slug": school_with_flag.slug})
         resp = client.get(url)
         assert b"test@example.com" in resp.content
+
+
+# ── Nav link integration tests ────────────────────────────────────────────────
+
+class TestBroadcastNavLink:
+    """
+    The Broadcast nav link must appear on every school admin page when the flag is on,
+    and must be absent when the flag is off.
+
+    This class guards against the bug where the dashboard (and any other view that
+    builds its own context dict) forgets to pass `broadcast_enabled`.
+    """
+
+    BROADCAST_HREF_TPL = '/schools/{slug}/admin/broadcast/'
+
+    def _href(self, school):
+        return self.BROADCAST_HREF_TPL.format(slug=school.slug)
+
+    @pytest.mark.parametrize("url_name,kwargs_extra", [
+        ("school_dashboard", {}),
+        ("school_submissions", {}),
+        ("school_reports", {}),
+        ("school_broadcast", {}),
+    ])
+    def test_broadcast_nav_shows_on_all_main_pages(
+        self, client, superuser, school_with_flag, url_name, kwargs_extra
+    ):
+        client.force_login(superuser)
+        url = reverse(url_name, kwargs={"school_slug": school_with_flag.slug, **kwargs_extra})
+        resp = client.get(url)
+        assert resp.status_code == 200, f"{url} returned {resp.status_code}"
+        assert self._href(school_with_flag).encode() in resp.content, (
+            f"Broadcast nav link missing on {url_name} ({url})"
+        )
+
+    def test_broadcast_nav_absent_when_flag_off(self, client, superuser, school_no_flag):
+        client.force_login(superuser)
+        url = reverse("school_dashboard", kwargs={"school_slug": school_no_flag.slug})
+        resp = client.get(url)
+        assert resp.status_code == 200
+        assert self._href(school_no_flag).encode() not in resp.content, (
+            "Broadcast nav link should not appear when flag is off"
+        )
