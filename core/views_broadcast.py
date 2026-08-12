@@ -28,6 +28,13 @@ logger = logging.getLogger(__name__)
 # Tokens shown as inline pills (subset of _AUTO_TOKENS — the broadly applicable ones).
 _PILL_TOKEN_KEYS = {"full_name", "first_name", "email", "program", "school_name"}
 
+# Extra tokens available in broadcast but not in the shared _AUTO_TOKENS list.
+_BROADCAST_EXTRA_TOKENS = [
+    ("last_name",    "Last name"),
+    ("program_name", "Program name (alias)"),
+]
+
+
 def _merge_field_context(school):
     """
     Returns dict with merge_pill_fields, merge_extra_auto, merge_custom.
@@ -41,6 +48,9 @@ def _merge_field_context(school):
             pill_fields.append(entry)
         else:
             extra_auto_fields.append(entry)
+    # Broadcast-specific extras go in the dropdown alongside status
+    for key, label in _BROADCAST_EXTRA_TOKENS:
+        extra_auto_fields.append({"key": "{{" + key + "}}", "token_key": key, "label": label, "display": "{{" + key + "}}"})
     custom_fields = [
         {"key": "{{" + t.key + "}}", "token_key": t.key, "label": t.label, "display": "{{" + t.key + "}}"}
         for t in SchoolCustomToken.objects.filter(school=school).order_by("key")
@@ -86,12 +96,16 @@ def _submission_programs_for_school(school):
 
 def _merge_data_for(name, email, program, school_name, status="", extra=None):
     """Build the merge context dict used by _render_template for one recipient."""
-    first = name.split()[0] if name and name.strip() else ""
+    parts = (name or "").split()
+    first = parts[0] if parts else ""
+    last = parts[-1] if len(parts) > 1 else ""
     data = {
         "first_name": first,
+        "last_name": last,
         "full_name": name or "",
         "email": email,
         "program": program or "",
+        "program_name": program or "",   # alias so {{program_name}} also works
         "status": status or "",
         "school_name": school_name,
     }
@@ -114,6 +128,11 @@ def _build_audience(school, include_leads, include_submissions, leads_filter, su
     custom_token_keys = list(
         SchoolCustomToken.objects.filter(school=school).values_list("key", flat=True)
     )
+    # code → display name lookup so lead.interested_in_value renders as a human label.
+    from core.models import SchoolProgram
+    program_name_map = dict(
+        SchoolProgram.objects.filter(school=school).values_list("code", "name")
+    )
 
     if include_leads:
         qs = Lead.objects.filter(school=school)
@@ -123,7 +142,7 @@ def _build_audience(school, include_leads, include_submissions, leads_filter, su
             qs = qs.filter(status__in=statuses)
         if programs:
             qs = qs.filter(interested_in_value__in=programs)
-        for lead in qs.values("id", "name", "email", "interested_in_value", "status"):
+        for lead in qs.values("id", "name", "email", "interested_in_value", "interested_in_label", "status"):
             email = (lead["email"] or "").strip()
             if not email:
                 skipped += 1
@@ -131,13 +150,20 @@ def _build_audience(school, include_leads, include_submissions, leads_filter, su
             key = email.lower()
             if key not in seen:
                 name = lead["name"] or ""
+                raw_program = lead["interested_in_value"] or ""
+                # Prefer the stored human label; fall back to SchoolProgram lookup for
+                # legacy leads created before interested_in_label was populated.
+                program_display = (
+                    lead["interested_in_label"]
+                    or program_name_map.get(raw_program, raw_program)
+                )
                 seen[key] = {
                     "email": email,
                     "name": name,
                     "source": BroadcastRecipient.SOURCE_LEAD,
                     "source_id": lead["id"],
                     "merge_data": _merge_data_for(
-                        name, email, lead["interested_in_value"], school_name,
+                        name, email, program_display, school_name,
                         status=lead["status"] or "",
                     ),
                 }
@@ -327,12 +353,34 @@ def school_broadcast_preview_view(request, school_slug):
         draft["submissions_filter"],
     )
 
+    # Render preview using first recipient's merge data so tokens are substituted.
+    preview_merge = recipients[0]["merge_data"] if recipients else {}
+    preview_subject = _render_template(draft["subject"], preview_merge)
+    preview_body = _render_template(draft["body"], preview_merge)
+
+    # Pass merge data for up to 50 recipients so JS can re-render on dropdown change.
+    preview_recipients_json = json.dumps([
+        {
+            "name": r["name"],
+            "email": r["email"],
+            "merge_data": r.get("merge_data") or {},
+        }
+        for r in recipients[:50]
+    ])
+
     ctx = _school_admin_base_context(request, school, "broadcast")
     ctx.update({
         "draft": draft,
         "recipients": recipients,
         "recipient_count": len(recipients),
         "skipped_count": skipped,
+        "preview_subject": preview_subject,
+        "preview_body": preview_body,
+        "preview_recipient_name": recipients[0]["name"] if recipients else "",
+        "preview_recipient_email": recipients[0]["email"] if recipients else "",
+        "preview_recipients_json": preview_recipients_json,
+        "draft_subject_raw_json": json.dumps(draft["subject"]),
+        "draft_body_raw_json": json.dumps(draft["body"]),
     })
     return render(request, "school_admin/broadcast_preview.html", ctx)
 
@@ -365,6 +413,7 @@ def _do_send(request, school, draft, school_slug):
             message=personalised_body,
             school_name=school_name,
             from_email=school.smtp_from_email or None,
+            cc_email=draft.get("cc_email") or None,
             bcc_email=draft.get("bcc_email") or None,
             school=school,
         )

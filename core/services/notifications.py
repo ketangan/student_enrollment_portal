@@ -665,6 +665,7 @@ def send_admin_message(
     message: str,
     school_name: str,
     from_email: str | None = None,
+    cc_email: str | None = None,
     bcc_email: str | None = None,
     is_html: bool = False,
     school=None,
@@ -691,10 +692,16 @@ def send_admin_message(
         )
     else:
         safe_message = escape(message)
+        # Preserve paragraph breaks: blank lines \u2192 </p><p>, single newlines \u2192 <br>
+        paragraphs = safe_message.split("\n\n")
+        html_paragraphs = "".join(
+            f"<p style=\"font-size:15px;line-height:1.6;margin:0 0 12px;\">{p.replace(chr(10), '<br>')}</p>"
+            for p in paragraphs if p.strip()
+        )
         text_body = f"{message}\n\n\u2014 {school_name}"
         html_body = (
             "<div style=\"font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px;\">"
-            f"<p style=\"font-size:15px;line-height:1.6;\">{safe_message}</p>"
+            f"{html_paragraphs}"
             "<hr style=\"border:none;border-top:1px solid #e2e8f0;margin:20px 0;\">"
             f"<p style=\"font-size:13px;color:#64748b;\">{safe_school}</p>"
             "</div>"
@@ -702,12 +709,14 @@ def send_admin_message(
 
     try:
         conn = get_school_email_connection(school)
+        cc = [cc_email] if cc_email else []
         bcc = [bcc_email] if bcc_email else []
         msg = EmailMultiAlternatives(
             subject=subject,
             body=text_body,
             from_email=sender,
             to=[to_email],
+            cc=cc,
             bcc=bcc,
             connection=conn,
         )

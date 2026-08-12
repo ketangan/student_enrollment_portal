@@ -28,7 +28,7 @@
 .ecr-val{color:var(--dash-text,#111827);}
 .email-subject-row{padding:14px 18px 10px;border-bottom:1px solid var(--dash-border,#e5e7eb);}
 .email-subject{font-size:16px;font-weight:700;color:var(--dash-text,#111827);}
-.email-body{padding:18px;font-size:14px;line-height:1.85;color:var(--dash-text,#111827);white-space:pre-wrap;}
+.email-body{padding:18px;font-size:14px;line-height:1.85;color:var(--dash-text,#111827);}
 .email-preview-note{padding:10px 18px;background:#fffbeb;border-top:1px solid #fde68a;font-size:12px;color:#92400e;display:flex;align-items:center;gap:6px;}
 
 /* ── Sidebar ── */
@@ -99,7 +99,7 @@
             <span class="ecr-lbl">To</span>
             <span class="ecr-val">
               {% if recipients %}
-                {{ recipients.0.name|default:recipients.0.email }}
+                <span id="preview-to">{{ preview_recipient_name|default:preview_recipient_email }}</span>
                 {% if recipient_count > 1 %}
                   <span style="color:var(--dash-muted);font-size:12px;"> and {{ recipient_count|add:"-1" }} more…</span>
                 {% endif %}
@@ -124,16 +124,28 @@
 
         <!-- Subject -->
         <div class="email-subject-row">
-          <div class="email-subject">{{ draft.subject }}</div>
+          <div class="email-subject" id="preview-subject">{{ preview_subject }}</div>
         </div>
 
-        <!-- Body -->
-        <div class="email-body">{{ draft.body }}</div>
+        <!-- Body: rendered with first recipient's tokens; newlines preserved -->
+        <div class="email-body" id="preview-body">{{ preview_body|linebreaksbr }}</div>
 
         <!-- Preview note -->
         <div class="email-preview-note">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;"><circle cx="7" cy="7" r="6" stroke="#92400e" stroke-width="1.3"/><path d="M7 4.5v3M7 9.5v.5" stroke="#92400e" stroke-width="1.3" stroke-linecap="round"/></svg>
-          Each recipient receives a personalised copy. Merge fields (e.g. first name) are filled at send time.
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;margin-top:2px;"><circle cx="7" cy="7" r="6" stroke="#92400e" stroke-width="1.3"/><path d="M7 4.5v3M7 9.5v.5" stroke="#92400e" stroke-width="1.3" stroke-linecap="round"/></svg>
+          {% if recipients %}
+          <span style="flex:1;">
+            Previewing as
+            <select id="preview-recipient-select" onchange="updatePreview(this.value)" style="font-size:12px;font-weight:600;color:#92400e;background:transparent;border:none;border-bottom:1px dashed #b45309;cursor:pointer;padding:0 2px;font-family:inherit;appearance:none;-webkit-appearance:none;">
+              {% for r in recipients|slice:":50" %}
+              <option value="{{ forloop.counter0 }}">{{ r.name|default:r.email }}</option>
+              {% endfor %}
+            </select>
+            — each recipient gets their own personalised copy.
+          </span>
+          {% else %}
+          <span>No recipients — adjust your audience filters.</span>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -231,6 +243,30 @@
 
 {% block extra_js %}
 <script>
+var PREVIEW_RECIPIENTS = {{ preview_recipients_json|safe }};
+var RAW_SUBJECT = {{ draft_subject_raw_json|safe }};
+var RAW_BODY    = {{ draft_body_raw_json|safe }};
+
+function renderTokens(template, mergeData) {
+  return template.replace(/\{\{(\w+)\}\}/g, function(_, key) {
+    return Object.prototype.hasOwnProperty.call(mergeData, key) ? mergeData[key] : '{{' + key + '}}';
+  });
+}
+
+function nl2br(text) {
+  return text.replace(/\n/g, '<br>');
+}
+
+function updatePreview(idx) {
+  var r = PREVIEW_RECIPIENTS[parseInt(idx, 10)];
+  if (!r) return;
+  var merge = r.merge_data || {};
+  document.getElementById('preview-subject').textContent = renderTokens(RAW_SUBJECT, merge);
+  document.getElementById('preview-body').innerHTML = nl2br(renderTokens(RAW_BODY, merge));
+  var toEl = document.getElementById('preview-to');
+  if (toEl) toEl.textContent = r.name || r.email;
+}
+
 function toggleRecipList() {
   var list = document.getElementById('recip-list');
   var chev = document.getElementById('recip-chev');
