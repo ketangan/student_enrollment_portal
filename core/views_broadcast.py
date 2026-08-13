@@ -18,6 +18,7 @@ from core.models import (
     SchoolCustomToken,
     Submission,
 )
+from core.admin.audit import log_admin_audit
 from core.services.notifications import send_admin_message, _render_template
 from core.services.school_permissions import require_school_role
 from core.views_school_common import _get_accessible_school_for_admin, _school_admin_base_context
@@ -453,6 +454,20 @@ def _do_send(request, school, draft, school_slug):
             )
             for r in recipient_rows
         ])
+
+    log_admin_audit(
+        request=request,
+        action="action",
+        obj=bm,
+        extra={
+            "name": "broadcast_sent",
+            "subject": draft["subject"][:200],
+            "recipient_count": len(recipients),
+            "sent_count": sent_count,
+            "failed_count": failed_count,
+            "skipped_count": skipped,
+        },
+    )
 
     del request.session["broadcast_draft"]
     messages.success(

@@ -10,6 +10,7 @@ from django.utils import timezone
 from unittest.mock import patch
 
 from core.models import (
+    AdminAuditLog,
     BroadcastMessage,
     BroadcastRecipient,
     Lead,
@@ -335,6 +336,40 @@ class TestSendFlow:
         # Should redirect back to preview, not compose
         assert "broadcast" in resp["Location"]
         assert BroadcastMessage.objects.filter(school=school_with_flag).count() == 0
+
+    def test_send_creates_audit_log(
+        self, client, superuser, school_with_flag, lead_a, lead_b
+    ):
+        client.force_login(superuser)
+        client.post(self._compose_url(school_with_flag), {
+            "subject": "Audit test", "body": "Body", "include_leads": "on",
+        })
+        with patch("core.views_broadcast.send_admin_message", return_value=True):
+            client.post(self._preview_url(school_with_flag))
+
+        bm = BroadcastMessage.objects.get(school=school_with_flag)
+        log = AdminAuditLog.objects.filter(
+            action="action",
+            object_id=str(bm.pk),
+        ).first()
+        assert log is not None, "AdminAuditLog entry should be created on broadcast send"
+        assert log.extra["name"] == "broadcast_sent"
+        assert log.extra["sent_count"] == 2
+        assert log.extra["failed_count"] == 0
+        assert log.extra["recipient_count"] == 2
+        assert log.actor == superuser
+
+    def test_send_no_recipients_creates_no_audit_log(
+        self, client, superuser, school_with_flag
+    ):
+        client.force_login(superuser)
+        client.post(self._compose_url(school_with_flag), {
+            "subject": "No recips", "body": "Body", "include_leads": "on",
+        })
+        before = AdminAuditLog.objects.count()
+        with patch("core.views_broadcast.send_admin_message", return_value=True):
+            client.post(self._preview_url(school_with_flag))
+        assert AdminAuditLog.objects.count() == before
 
 
 # ── Sent history ──────────────────────────────────────────────────────────────
