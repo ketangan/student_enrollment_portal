@@ -6,6 +6,12 @@
   <title>{% block page_title %}Dashboard{% endblock %} — {{ school.display_name|default:school.slug }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/png" href="{% static 'favicon.png' %}">
+  <link rel="manifest" href="{% static 'manifest.json' %}">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Pontora">
+  <link rel="apple-touch-icon" href="{% static 'favicon.png' %}">
   <link rel="stylesheet" href="{% static 'admin/dashboard.css' %}">
   {% block extra_css %}{% endblock %}
 </head>
@@ -226,6 +232,26 @@
   {% block content %}{% endblock %}
 
   {% block extra_js %}{% endblock %}
+
+  <script>
+  // Auto-reload stale data when returning to the PWA after 60+ seconds in background.
+  // Only active in standalone mode (home screen install); does nothing in a normal browser tab.
+  (function () {
+    var standalone = navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+    if (!standalone) return;
+    var hiddenAt = null;
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) {
+        hiddenAt = Date.now();
+      } else {
+        if (hiddenAt !== null && (Date.now() - hiddenAt) > 60000) {
+          window.location.reload();
+        }
+        hiddenAt = null;
+      }
+    });
+  }());
+  </script>
 
 </body>
 </html>
