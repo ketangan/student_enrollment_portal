@@ -31,6 +31,7 @@ from core.views_webhooks import webhook_lead_intake_view
 handler429 = ratelimited_error_view
 
 urlpatterns = [
+    path("", RedirectView.as_view(url="/login/", permanent=False)),
     path("favicon.ico", RedirectView.as_view(url=staticfiles_storage.url("favicon.png"), permanent=True)),
     path("healthz/", healthz, name="healthz"),
     path("login/", login_view, name="login"),
