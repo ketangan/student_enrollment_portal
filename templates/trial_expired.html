@@ -5,6 +5,7 @@
     <meta charset="utf-8" />
     <title>{{ school.display_name|default:school.slug }} – Trial Ended</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {% include 'partials/pwa_head.html' %}
     <link rel="stylesheet" href="{% static 'forms.css' %}">
     <style>
       :root {

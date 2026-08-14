@@ -6,12 +6,7 @@
   <title>{% block page_title %}Dashboard{% endblock %} — {{ school.display_name|default:school.slug }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/png" href="{% static 'favicon.png' %}">
-  <link rel="manifest" href="{% static 'manifest.json' %}">
-  <meta name="theme-color" content="#2563eb">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Pontora">
-  <link rel="apple-touch-icon" href="{% static 'apple-touch-icon.png' %}">
+  {% include 'partials/pwa_head.html' %}
   <link rel="stylesheet" href="{% static 'admin/dashboard.css' %}">
   {% block extra_css %}{% endblock %}
 </head>
