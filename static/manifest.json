@@ -1,7 +1,6 @@
 {
   "name": "Pontora",
   "short_name": "Pontora",
-  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
