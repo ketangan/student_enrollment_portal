@@ -38,6 +38,11 @@ DEMO_REGISTRY = {
         "template_dir": "demo/sbmc",
         "demos": ["dedicated-page", "modal", "bottom-section", "link-out", "standalone-form"],
     },
+    "wfm-demo": {
+        "school_slug": "world-famed-masters",
+        "template_dir": "demo/wfm",
+        "demos": ["dedicated-page", "modal", "bottom-section", "link-out", "standalone-form"],
+    },
 }
 
 

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enrollment | World Famed Masters of Music Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Poppins', sans-serif; color: #ffffff; background: #000000; -webkit-font-smoothing: antialiased; }
+  a { text-decoration: none; color: inherit; }
+
+  .top-bar { background: #0a0a0a; border-bottom: 1px solid #1a1a1a; padding: 7px 40px; display: flex; justify-content: flex-end; gap: 24px; font-size: 11px; color: rgba(255,255,255,.4); letter-spacing: .04em; }
+
+  .site-header {
+    background: #000000; border-bottom: 1px solid #1a1a1a; padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between; height: 84px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo-wrap { display: flex; align-items: center; }
+  .logo-img { height: 54px; width: auto; }
+  .logo-fallback { font-size: 18px; font-weight: 700; color: #FFF86B; }
+  .site-nav { display: flex; gap: 6px; list-style: none; }
+  .site-nav a {
+    display: block; padding: 7px 16px; border-radius: 100px;
+    background: #FFF86B; color: #000000;
+    font-size: 12px; font-weight: 600; letter-spacing: .02em;
+    transition: background .15s;
+  }
+  .site-nav a:hover { background: #ffe500; }
+  .site-nav .active a { background: #ffffff; color: #000000; }
+
+  .page-hero { background: #0a0a0a; border-bottom: 1px solid #1a1a1a; padding: 48px 40px 36px; text-align: center; }
+  .page-hero .eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #FFF86B; margin-bottom: 12px; }
+  .page-hero h1 { font-size: 34px; color: #ffffff; font-weight: 700; letter-spacing: -.01em; margin-bottom: 12px; }
+  .page-hero p { font-size: 15px; color: rgba(255,255,255,.55); line-height: 1.7; max-width: 580px; margin: 0 auto; }
+
+  .page-content { max-width: 860px; margin: 0 auto; padding: 52px 24px 80px; }
+
+  .intro-text { font-size: 15px; color: rgba(255,255,255,.6); line-height: 1.75; margin-bottom: 36px; max-width: 640px; }
+
+  .register-block {
+    background: #FFF86B; border-radius: 12px;
+    padding: 48px 40px; text-align: center; margin-bottom: 52px;
+  }
+  .register-block h2 { font-size: 26px; font-weight: 700; color: #000000; margin-bottom: 10px; }
+  .register-block p { font-size: 14px; color: rgba(0,0,0,.65); line-height: 1.65; margin-bottom: 28px; max-width: 480px; margin-left: auto; margin-right: auto; }
+  .btn-register {
+    display: inline-block; background: #000000; color: #FFF86B;
+    padding: 16px 48px; border-radius: 8px; font-size: 15px;
+    font-weight: 700; letter-spacing: .03em;
+    transition: background .15s;
+  }
+  .btn-register:hover { background: #111111; }
+  .register-note { margin-top: 12px; font-size: 12px; color: rgba(0,0,0,.45); }
+
+  .what-to-expect h3 { font-size: 18px; font-weight: 700; color: #ffffff; margin-bottom: 20px; }
+  .expect-list { list-style: none; display: flex; flex-direction: column; gap: 14px; }
+  .expect-item { display: flex; gap: 14px; align-items: flex-start; }
+  .expect-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: #FFF86B;
+    flex-shrink: 0; margin-top: 7px;
+  }
+  .expect-item p { font-size: 14px; color: rgba(255,255,255,.55); line-height: 1.6; }
+  .expect-item strong { color: #ffffff; font-weight: 600; }
+
+  .site-footer { background: #0a0a0a; border-top: 1px solid #1a1a1a; color: rgba(255,255,255,.3); text-align: center; padding: 28px; font-size: 12px; letter-spacing: .02em; }
+
+  @media (max-width: 700px) {
+    .top-bar, .site-nav { display: none; }
+    .site-header { padding: 0 18px; height: 72px; }
+    .page-hero { padding: 34px 18px 26px; }
+    .page-hero h1 { font-size: 26px; }
+    .page-content { padding: 36px 18px 60px; }
+    .register-block { padding: 36px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span>Admissions: (323) 252-9564</span>
+  <span>Band Ops: (310) 484-3186</span>
+</div>
+
+<header class="site-header">
+  <a href="https://www.worldfamedmasters.com/" class="logo-wrap">
+    <img src="https://static.wixstatic.com/media/cba589_815a8ecedb784d6a8e631134f3fc02ba~mv2.png"
+         alt="World Famed Masters of Music Academy" class="logo-img"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+    <span class="logo-fallback" style="display:none;">WFM Music Academy</span>
+  </a>
+  <nav>
+    <ul class="site-nav">
+      <li><a href="https://www.worldfamedmasters.com/">Home</a></li>
+      <li><a href="#">Programs</a></li>
+      <li><a href="#">About</a></li>
+      <li><a href="#">Entertainment</a></li>
+      <li><a href="#">Contact</a></li>
+      <li class="active"><a href="#">Enroll</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="page-hero">
+  <p class="eyebrow">World Famed Masters of Music Academy</p>
+  <h1>Student Enrollment</h1>
+  <p>Join one of LA's premier ensemble music programs. Students of all ages and experience levels are welcome.</p>
+</div>
+
+<div class="page-content">
+
+  <p class="intro-text">
+    WFM offers training in wind instruments, drums, piano, voice, music theory, and ensemble performance.
+    Whether your student is picking up an instrument for the first time or looking to join a competitive performance group,
+    we have a program for them.
+  </p>
+
+  <div class="register-block">
+    <h2>Ready to Join the WFM Family?</h2>
+    <p>Submit your enrollment form and our team will follow up within 1–2 business days to confirm scheduling, program placement, and next steps.</p>
+    <a href="{{ form_url }}" target="_blank" rel="noopener" class="btn-register">Submit Enrollment Form &rarr;</a>
+    <div class="register-note">Opens in a new tab &nbsp;·&nbsp; Takes about 5 minutes</div>
+  </div>
+
+  <div class="what-to-expect">
+    <h3>What happens after you submit</h3>
+    <ul class="expect-list">
+      <li class="expect-item">
+        <span class="expect-dot"></span>
+        <p><strong>Within 1–2 business days:</strong> Our admissions team reviews your enrollment and reaches out to confirm program availability and scheduling.</p>
+      </li>
+      <li class="expect-item">
+        <span class="expect-dot"></span>
+        <p><strong>Placement (for ensemble programs):</strong> We'll arrange a brief audition or placement session to ensure the right fit. Beginners skip this step.</p>
+      </li>
+      <li class="expect-item">
+        <span class="expect-dot"></span>
+        <p><strong>Instrument access:</strong> Don't have an instrument? We'll connect you with our rental program before your first rehearsal.</p>
+      </li>
+      <li class="expect-item">
+        <span class="expect-dot"></span>
+        <p><strong>Welcome to the ensemble:</strong> Your student joins weekly rehearsals and begins working toward performances at stadiums, parades, and community stages.</p>
+      </li>
+    </ul>
+  </div>
+
+</div>
+
+<footer class="site-footer">
+  &copy; 2026 World Famed Masters of Music Academy &nbsp;&mdash;&nbsp; Inglewood Arts Multimedia Center, Inc. (501(c)(3)) &nbsp;&mdash;&nbsp; (323) 252-9564
+</footer>
+
+</body>
+</html>

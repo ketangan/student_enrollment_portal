@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Programs | World Famed Masters of Music Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Poppins', sans-serif; color: #ffffff; background: #000000; -webkit-font-smoothing: antialiased; }
+  a { text-decoration: none; color: inherit; }
+
+  .top-bar { background: #0a0a0a; border-bottom: 1px solid #1a1a1a; padding: 7px 40px; display: flex; justify-content: flex-end; gap: 24px; font-size: 11px; color: rgba(255,255,255,.4); letter-spacing: .04em; }
+
+  .site-header {
+    background: #000000; border-bottom: 1px solid #1a1a1a; padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between; height: 84px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo-wrap { display: flex; align-items: center; }
+  .logo-img { height: 54px; width: auto; }
+  .logo-fallback { font-size: 18px; font-weight: 700; color: #FFF86B; }
+  .site-nav { display: flex; gap: 6px; list-style: none; }
+  .site-nav a {
+    display: block; padding: 7px 16px; border-radius: 100px;
+    background: #FFF86B; color: #000000;
+    font-size: 12px; font-weight: 600; letter-spacing: .02em;
+    transition: background .15s;
+  }
+  .site-nav a:hover { background: #ffe500; }
+  .site-nav .active a { background: #ffffff; color: #000000; }
+
+  .page-hero { background: #0a0a0a; border-bottom: 1px solid #1a1a1a; padding: 48px 40px 36px; text-align: center; }
+  .page-hero .eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #FFF86B; margin-bottom: 12px; }
+  .page-hero h1 { font-size: 34px; color: #ffffff; font-weight: 700; letter-spacing: -.01em; margin-bottom: 12px; }
+  .page-hero p { font-size: 15px; color: rgba(255,255,255,.55); line-height: 1.7; max-width: 580px; margin: 0 auto; }
+
+  .page-content { max-width: 860px; margin: 0 auto; padding: 52px 24px 80px; }
+
+  .intro-text { font-size: 15px; color: rgba(255,255,255,.6); line-height: 1.75; margin-bottom: 40px; max-width: 640px; }
+
+  .cta-row {
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    background: #111111; border: 1px solid #1e1e1e;
+    border-radius: 10px; padding: 28px 32px; margin-bottom: 40px;
+  }
+  .cta-row-text { flex: 1; }
+  .cta-row-text h3 { font-size: 18px; font-weight: 700; color: #ffffff; margin-bottom: 6px; }
+  .cta-row-text p { font-size: 13px; color: rgba(255,255,255,.5); line-height: 1.6; }
+  .btn-enroll {
+    display: inline-block; background: #FFF86B; color: #000000;
+    padding: 14px 32px; border-radius: 8px; font-size: 14px;
+    font-weight: 700; letter-spacing: .03em; white-space: nowrap;
+    transition: background .15s; cursor: pointer; border: none;
+  }
+  .btn-enroll:hover { background: #ffe500; }
+  .cta-note { font-size: 11px; color: rgba(255,255,255,.3); margin-top: 6px; }
+
+  .programs-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 40px; }
+  .prog-card { background: #111111; border: 1px solid #1e1e1e; border-radius: 8px; padding: 20px; }
+  .prog-card h3 { font-size: 14px; font-weight: 700; color: #FFF86B; margin-bottom: 6px; }
+  .prog-card p { font-size: 12px; color: rgba(255,255,255,.5); line-height: 1.6; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.85);
+    z-index: 1000; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #111111; border: 1px solid #2a2a2a; border-radius: 12px;
+    width: 100%; max-width: 680px; max-height: 90vh;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid #2a2a2a; flex-shrink: 0;
+  }
+  .modal-title { font-size: 15px; font-weight: 700; color: #ffffff; }
+  .modal-close {
+    width: 32px; height: 32px; border-radius: 50%; background: #1e1e1e;
+    border: none; cursor: pointer; color: rgba(255,255,255,.5);
+    font-size: 18px; display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+  }
+  .modal-close:hover { background: #2a2a2a; color: #ffffff; }
+  .modal-body { overflow-y: auto; flex: 1; }
+  .modal-body iframe { display: block; width: 100%; border: none; min-height: 560px; }
+
+  .site-footer { background: #0a0a0a; border-top: 1px solid #1a1a1a; color: rgba(255,255,255,.3); text-align: center; padding: 28px; font-size: 12px; letter-spacing: .02em; }
+
+  @media (max-width: 700px) {
+    .top-bar, .site-nav { display: none; }
+    .site-header { padding: 0 18px; height: 72px; }
+    .page-hero { padding: 34px 18px 26px; }
+    .page-hero h1 { font-size: 26px; }
+    .page-content { padding: 36px 18px 60px; }
+    .programs-grid { grid-template-columns: 1fr 1fr; }
+    .cta-row { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span>Admissions: (323) 252-9564</span>
+  <span>Band Ops: (310) 484-3186</span>
+</div>
+
+<header class="site-header">
+  <a href="https://www.worldfamedmasters.com/" class="logo-wrap">
+    <img src="https://static.wixstatic.com/media/cba589_815a8ecedb784d6a8e631134f3fc02ba~mv2.png"
+         alt="World Famed Masters of Music Academy" class="logo-img"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+    <span class="logo-fallback" style="display:none;">WFM Music Academy</span>
+  </a>
+  <nav>
+    <ul class="site-nav">
+      <li><a href="https://www.worldfamedmasters.com/">Home</a></li>
+      <li class="active"><a href="#">Programs</a></li>
+      <li><a href="#">About</a></li>
+      <li><a href="#">Entertainment</a></li>
+      <li><a href="#">Contact</a></li>
+      <li><a href="#">Enroll</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="page-hero">
+  <p class="eyebrow">World Famed Masters of Music Academy</p>
+  <h1>Our Programs</h1>
+  <p>Ensemble-based music training for youth and young adults — from first notes to stadium performances.</p>
+</div>
+
+<div class="page-content">
+
+  <p class="intro-text">
+    WFM offers instruction across instruments, theory, voice, and ensemble — all leading toward real performance opportunities
+    at events, arenas, and community stages. Students of all levels are welcome. Beginner spots are always open.
+  </p>
+
+  <div class="cta-row">
+    <div class="cta-row-text">
+      <h3>Ready to enroll?</h3>
+      <p>Submit your enrollment in about 5 minutes. Our team follows up within 1–2 business days to confirm scheduling and next steps.</p>
+      <p class="cta-note">Opens a quick registration form — stays on this page</p>
+    </div>
+    <div>
+      <button class="btn-enroll" id="open-modal">Enroll Now &rarr;</button>
+    </div>
+  </div>
+
+  <div class="programs-grid">
+    <div class="prog-card">
+      <h3>Wind Instruments</h3>
+      <p>Trumpet, trombone, clarinet, flute, saxophone — foundational technique and ensemble performance.</p>
+    </div>
+    <div class="prog-card">
+      <h3>Drums &amp; Percussion</h3>
+      <p>Snare, bass drum, cymbals, and pit percussion. Core to every WFM ensemble.</p>
+    </div>
+    <div class="prog-card">
+      <h3>Piano</h3>
+      <p>Classical and contemporary technique, theory, and accompaniment for all levels.</p>
+    </div>
+    <div class="prog-card">
+      <h3>Band Ensemble</h3>
+      <p>Our flagship performance group. Students perform at stadiums, parades, and community events.</p>
+    </div>
+    <div class="prog-card">
+      <h3>Voice</h3>
+      <p>Vocal technique, breath control, and performance confidence from beginner to advanced.</p>
+    </div>
+    <div class="prog-card">
+      <h3>Music Theory &amp; Sight Singing</h3>
+      <p>Reading notation, ear training, and composition basics — the foundation behind every great musician.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Student Enrollment — World Famed Masters</span>
+      <button class="modal-close" id="close-modal" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <iframe
+        id="modal-iframe"
+        data-src="{{ embed_form_url }}"
+        scrolling="yes"
+        title="WFM Student Enrollment Form"
+      ></iframe>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  &copy; 2026 World Famed Masters of Music Academy &nbsp;&mdash;&nbsp; Inglewood Arts Multimedia Center, Inc. (501(c)(3)) &nbsp;&mdash;&nbsp; (323) 252-9564
+</footer>
+
+<script>
+  var overlay = document.getElementById('modal-overlay');
+  var iframe  = document.getElementById('modal-iframe');
+  var opened  = false;
+
+  function openModal() {
+    if (!opened) {
+      iframe.src = iframe.dataset.src;
+      opened = true;
+    }
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal() {
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('open-modal').addEventListener('click', openModal);
+  document.getElementById('close-modal').addEventListener('click', closeModal);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) closeModal(); });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'formSubmitted') closeModal();
+    if (e.data && e.data.type === 'iframeResize' && e.data.height) {
+      iframe.style.height = Math.max(e.data.height + 8, 560) + 'px';
+    }
+  });
+</script>
+
+</body>
+</html>

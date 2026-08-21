@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Student Enrollment | World Famed Masters of Music Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Poppins', sans-serif; color: #ffffff; background: #000000; -webkit-font-smoothing: antialiased; }
+  a { text-decoration: none; color: inherit; }
+
+  .mini-header {
+    background: #000000; border-bottom: 1px solid #1a1a1a;
+    padding: 0 32px; display: flex; align-items: center; height: 72px;
+    gap: 14px;
+  }
+  .logo-img { height: 46px; width: auto; }
+  .logo-fallback { font-size: 17px; font-weight: 700; color: #FFF86B; }
+
+  .form-section {
+    max-width: 680px; margin: 0 auto; padding: 48px 24px 80px;
+  }
+  .form-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #FFF86B; margin-bottom: 10px; }
+  .form-title { font-size: 26px; font-weight: 700; color: #ffffff; margin-bottom: 10px; }
+  .form-desc { font-size: 14px; color: rgba(255,255,255,.5); line-height: 1.7; margin-bottom: 32px; }
+
+  .form-wrap iframe {
+    display: block; width: 100%; border: none; min-height: 700px;
+  }
+
+  .site-footer { background: #0a0a0a; border-top: 1px solid #1a1a1a; color: rgba(255,255,255,.3); text-align: center; padding: 24px; font-size: 12px; letter-spacing: .02em; }
+
+  @media (max-width: 640px) {
+    .mini-header { padding: 0 18px; }
+    .form-section { padding: 32px 18px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="mini-header">
+  <a href="https://www.worldfamedmasters.com/">
+    <img src="https://static.wixstatic.com/media/cba589_815a8ecedb784d6a8e631134f3fc02ba~mv2.png"
+         alt="World Famed Masters of Music Academy" class="logo-img"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+    <span class="logo-fallback" style="display:none;">WFM Music Academy</span>
+  </a>
+</header>
+
+<div class="form-section">
+  <p class="form-eyebrow">World Famed Masters of Music Academy</p>
+  <h1 class="form-title">Student Enrollment</h1>
+  <p class="form-desc">
+    Complete the form below to enroll your student or to request more information about our programs.
+    Our team will follow up within 1–2 business days to confirm scheduling and next steps.
+  </p>
+  <div class="form-wrap">
+    <iframe
+      id="enroll-iframe"
+      src="{{ embed_form_url }}"
+      scrolling="no"
+      title="WFM Student Enrollment Form"
+    ></iframe>
+  </div>
+</div>
+
+<footer class="site-footer">
+  &copy; 2026 World Famed Masters of Music Academy &nbsp;&mdash;&nbsp; (323) 252-9564
+</footer>
+
+<script>
+  var iframe = document.getElementById('enroll-iframe');
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'iframeResize' && e.data.height) {
+      iframe.style.height = (e.data.height + 8) + 'px';
+    }
+  });
+</script>
+
+</body>
+</html>

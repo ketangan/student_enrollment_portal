@@ -1,0 +1,308 @@
+schema_version: "1.0"
+
+school:
+  slug: "world-famed-masters"
+  display_name: "World Famed Masters of Music Academy"
+  website_url: "https://www.worldfamedmasters.com/"
+  source_url: "https://www.worldfamedmasters.com/"
+
+branding:
+  logo_url: "https://static.wixstatic.com/media/cba589_815a8ecedb784d6a8e631134f3fc02ba~mv2.png"
+  custom_css: "schools/world-famed-masters.css"
+
+  theme:
+    primary_color: "#FFF86B"
+    accent_color: "#FFF86B"
+    background: "#000000"
+    card: "#0d0d0d"
+    text: "#ffffff"
+    muted: "#aaaaaa"
+    border: "#444444"
+    radius: "8px"
+    font_family: "'Poppins', sans-serif"
+    heading_font: "'Poppins', sans-serif"
+
+program_field_key: "program_interest"
+
+form:
+  title: "Student Enrollment"
+  description: >
+    Welcome to World Famed Masters of Music Academy. Complete this form to enroll your student
+    or to request more information about our programs. Our team will follow up within 1–2 business
+    days to confirm scheduling and next steps.
+  submit_button_text: "Submit Enrollment"
+
+  sections:
+
+    - title: "Student Information"
+      fields:
+        - key: student_first_name
+          label: "Student First Name"
+          type: text
+          required: true
+
+        - key: student_last_name
+          label: "Student Last Name"
+          type: text
+          required: true
+
+        - key: date_of_birth
+          label: "Date of Birth"
+          type: date
+          required: true
+
+        - key: gender
+          label: "Gender"
+          type: select
+          required: false
+          options:
+            - label: "Male"
+              value: male
+            - label: "Female"
+              value: female
+            - label: "Prefer not to say"
+              value: not_specified
+
+    - title: "Program Interest"
+      fields:
+        - key: program_interest
+          label: "Program / Instrument"
+          type: select
+          required: true
+
+        - key: experience_level
+          label: "Prior Music Experience"
+          type: select
+          required: true
+          options:
+            - label: "No prior experience — brand new to music"
+              value: none
+            - label: "Some experience — recreational or self-taught"
+              value: beginner
+            - label: "Intermediate — regular lessons or school band"
+              value: intermediate
+            - label: "Advanced — performance background or prior ensemble"
+              value: advanced
+
+        - key: owns_instrument
+          label: "Does the student currently own or have access to an instrument?"
+          type: select
+          required: false
+          options:
+            - label: "Yes"
+              value: "yes"
+            - label: "No — interested in the rental program"
+              value: "no_rental"
+            - label: "No — will purchase"
+              value: "no_purchase"
+            - label: "Not sure yet"
+              value: "not_sure"
+
+    - title: "Schedule Preferences"
+      fields:
+        - key: preferred_days
+          label: "Preferred Days"
+          type: multiselect
+          required: false
+          options:
+            - label: "Monday"
+              value: mon
+            - label: "Tuesday"
+              value: tue
+            - label: "Wednesday"
+              value: wed
+            - label: "Thursday"
+              value: thu
+            - label: "Friday"
+              value: fri
+            - label: "Saturday"
+              value: sat
+            - label: "Sunday"
+              value: sun
+
+        - key: preferred_time
+          label: "Preferred Time of Day"
+          type: select
+          required: false
+          options:
+            - label: "Morning (9am – 12pm)"
+              value: morning
+            - label: "Afternoon (12pm – 4pm)"
+              value: afternoon
+            - label: "Evening (4pm – 8pm)"
+              value: evening
+            - label: "Flexible"
+              value: flexible
+
+    - title: "Parent / Guardian Information"
+      fields:
+        - key: guardian_name
+          label: "Parent / Guardian Full Name"
+          type: text
+          required: true
+
+        - key: guardian_email
+          label: "Parent / Guardian Email"
+          type: email
+          required: true
+
+        - key: guardian_phone
+          label: "Parent / Guardian Phone"
+          type: tel
+          required: true
+
+        - key: relationship
+          label: "Relationship to Student"
+          type: select
+          required: false
+          options:
+            - label: "Mother"
+              value: mother
+            - label: "Father"
+              value: father
+            - label: "Guardian"
+              value: guardian
+            - label: "Other"
+              value: other
+
+    - title: "Additional Information"
+      fields:
+        - key: how_did_you_hear
+          label: "How did you hear about us?"
+          type: select
+          required: false
+          options:
+            - label: "Referral from a friend or family"
+              value: referral
+            - label: "Social media"
+              value: social_media
+            - label: "Community event or performance"
+              value: community_event
+            - label: "School or teacher recommendation"
+              value: school
+            - label: "Google search"
+              value: google
+            - label: "Other"
+              value: other
+
+        - key: notes
+          label: "Anything else you'd like us to know?"
+          type: textarea
+          required: false
+
+success:
+  title: "Enrollment Received!"
+  message: >
+    Thank you — World Famed Masters of Music Academy has received your enrollment request.
+    Our admissions team will review your information and follow up within 1–2 business days
+    to confirm scheduling, program placement, and next steps.
+  response_time: "1–2 business days"
+  next_steps:
+    - "Our team will review your student's age, experience level, and program interest."
+    - "We'll confirm scheduling and program availability."
+    - "You'll receive details on tuition, instrument access, and the student handbook."
+    - "Once confirmed, your student will be welcomed into the ensemble family."
+  contact:
+    name: "World Famed Masters of Music Academy"
+    email: "info@worldfamedmasters.com"
+    phone: "(323) 252-9564"
+  hours: "Mon–Fri 10am–6pm · Sat 10am–4pm"
+
+  notifications:
+    submission_email:
+      to: "info@worldfamedmasters.com"
+      cc: ""
+      bcc: ""
+      from_email: "noreply@mypontora.com"
+      subject: "New enrollment: {{student_name}}"
+
+    applicant_confirmation:
+      enabled: true
+      from_email: "noreply@mypontora.com"
+      subject: "We received your enrollment, {{student_name}}!"
+
+admin:
+  submission_statuses:
+    - New
+    - In Review
+    - Contacted
+    - Audition Scheduled
+    - Audition Completed
+    - Needs Follow Up
+    - Enrolled
+    - Waitlisted
+    - Declined
+    - Archived
+  default_submission_status: New
+
+  submission_workflow:
+    filters:
+      new_registrations:
+        label: "New"
+        statuses: ["New"]
+      audition:
+        label: "Audition"
+        statuses: ["Audition Scheduled", "Audition Completed"]
+      in_review:
+        label: "In Review"
+        statuses: ["In Review", "Contacted", "Needs Follow Up"]
+      enrolled:
+        label: "Enrolled"
+        statuses: ["Enrolled"]
+      waitlisted:
+        label: "Waitlisted"
+        statuses: ["Waitlisted"]
+      closed:
+        label: "Closed"
+        statuses: ["Declined", "Archived"]
+
+  lead_workflow:
+    filters:
+      new_leads:
+        label: "New"
+        statuses: [new]
+      pipeline:
+        label: "In Pipeline"
+        statuses: [contacted, trial_scheduled]
+      won:
+        label: "Enrolled"
+        statuses: [enrolled]
+    transitions:
+      new:
+        - label: "Mark Contacted"
+          status: contacted
+        - label: "Archive"
+          status: lost
+      contacted:
+        - label: "Schedule Audition"
+          status: trial_scheduled
+        - label: "Archive"
+          status: lost
+      trial_scheduled:
+        - label: "Mark Enrolled"
+          status: enrolled
+        - label: "Archive"
+          status: lost
+
+leads:
+  form_title: "Inquire About Programs"
+  form_description: "Tell us your student's age and instrument interest — our team will follow up within 1–2 business days with availability, scheduling, and next steps."
+  cta_text: "Send My Inquiry"
+  success_message: "Thanks for reaching out! World Famed Masters will follow up with you soon."
+  confirmation_enabled: true
+  notify_to: ""
+
+capacity:
+  waitlist_message: "This program is currently at capacity. You've been added to our waitlist and we'll be in touch as soon as a spot opens."
+  excluded_statuses:
+    - Archived
+    - Declined
+  programs:
+    wind_instruments: 20
+    drums: 15
+    piano: 12
+    band: 30
+    voice: 15
+    music_theory: 20
+    sight_singing: 20
+    arranging_composing: 10
