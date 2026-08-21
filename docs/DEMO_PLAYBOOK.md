@@ -352,6 +352,51 @@ All URLs use `demo.mypontora.com` — demo schools never use `app.mypontora.com`
 
 ---
 
+## Step 11 — Send the prospect email
+
+After generating the magic link (via the Render shell or ops portal), send this email.
+Fill in the bracketed placeholders — everything else stays as-is.
+
+---
+
+**Subject:** [School Name] — Your Pontora Demo
+
+Hi [First Name],
+
+I've put together a demo customized for [School Name] — [brief program summary: X programs loaded in (list them), and about 50 sample applications across different stages so the dashboard and pipeline look like real use, not an empty screen.
+
+**Click here to log in:**
+[MAGIC LINK]
+
+No password needed — that link drops you straight into the admin.
+
+One other thing worth a look: https://demo.mypontora.com/demo/[demo-slug]/ — that shows the four ways the enrollment form can live on your existing website, so you can see what families would actually see.
+
+Looking forward to connecting.
+
+Ketan
+mypontora.com
+
+---
+
+**How to fill in the placeholders:**
+
+| Placeholder | What to put |
+|---|---|
+| `[School Name]` | `display_name` from the school's YAML |
+| `[First Name]` | Prospect's first name |
+| `[brief program summary]` | E.g. "8 programs loaded in (Wind Instruments, Drums, Piano…)" — list the seed script `PROGRAMS` names, note which need placement |
+| `[MAGIC LINK]` | Output of the Render shell token command (see Step 10) |
+| `[demo-slug]` | The demo slug (e.g. `wfm-demo`) |
+
+**Render shell command to generate the magic link:**
+
+```python
+from core.models import DemoAccessToken, School; from django.utils import timezone; from django.conf import settings; school = School.objects.get(slug='<school-slug>'); token = DemoAccessToken.objects.create(school=school, expires_at=timezone.now() + timezone.timedelta(days=30)); demo_base = getattr(settings, 'DEMO_BASE_URL', '').rstrip('/'); print(f"{demo_base}/demo-access/{token.token}/")
+```
+
+---
+
 ## Reference: existing demos
 
 | Demo slug | School slug | Abbrev | Seed command |
@@ -359,5 +404,6 @@ All URLs use `demo.mypontora.com` — demo schools never use `app.mypontora.com`
 | `ymla-demo` | `ymla` | `ymla` | `seed_ymla_demo` |
 | `duc-learning-center-demo` | `duc-learning-center` | `duc` | `seed_duc_demo` |
 | `bhg-demo` | `beverly-hills-gymnastics` | `bhg` | `seed_bhg_demo` |
+| `wfm-demo` | `world-famed-masters` | `wfm` | `seed_wfm_demo` |
 
 Use these seed scripts as working references when building a new one.
