@@ -5,3 +5,23 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Pontora">
 <link rel="apple-touch-icon" href="{% static 'apple-touch-icon.png' %}">
+<script>
+// Reload when returning to the PWA after 60+ seconds in background.
+// Prevents stale CSRF tokens on login and stale data on dashboard pages.
+// No-op in a normal browser tab.
+(function () {
+  var standalone = navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+  if (!standalone) return;
+  var hiddenAt = null;
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      hiddenAt = Date.now();
+    } else {
+      if (hiddenAt !== null && (Date.now() - hiddenAt) > 60000) {
+        window.location.reload();
+      }
+      hiddenAt = null;
+    }
+  });
+}());
+</script>

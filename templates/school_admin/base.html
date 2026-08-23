@@ -229,23 +229,7 @@
   {% block extra_js %}{% endblock %}
 
   <script>
-  // Auto-reload stale data when returning to the PWA after 60+ seconds in background.
-  // Only active in standalone mode (home screen install); does nothing in a normal browser tab.
-  (function () {
-    var standalone = navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-    if (!standalone) return;
-    var hiddenAt = null;
-    document.addEventListener('visibilitychange', function () {
-      if (document.hidden) {
-        hiddenAt = Date.now();
-      } else {
-        if (hiddenAt !== null && (Date.now() - hiddenAt) > 60000) {
-          window.location.reload();
-        }
-        hiddenAt = null;
-      }
-    });
-  }());
+  // visibilitychange reload is in partials/pwa_head.html (covers all PWA templates)
   </script>
 
 </body>
