@@ -16,6 +16,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core.models import AdminAuditLog, DemoAccessToken, Lead, OnboardingChecklistItem, OpsIncident, School, SchoolAdminMembership, Submission
+from core.services import outreach_clicks
 from core.services.mock_template_sources import (
     MockTemplateSourceError,
     fetch_mock_template_source,
@@ -895,6 +896,41 @@ def ops_audit_log_view(request):
         "search_q": search_q,
         "hide_page_views": hide_page_views,
     })
+
+
+@ops_required
+def ops_audit_clicks_view(request):
+    search_q = request.GET.get("q", "").strip()
+    gesture_filter = request.GET.get("gesture", "").strip()
+    limit = request.GET.get("limit", outreach_clicks.DEFAULT_LIMIT)
+    error = ""
+
+    try:
+        context = outreach_clicks.build_click_log_context(
+            q=search_q,
+            gesture_type=gesture_filter,
+            limit=limit,
+        )
+    except outreach_clicks.OutreachClickLogError as exc:
+        error = str(exc)
+        context = {
+            "rows": [],
+            "total_count": 0,
+            "sheet_total_count": 0,
+            "q": search_q,
+            "gesture_filter": gesture_filter,
+            "gesture_choices": [],
+            "limit": outreach_clicks.DEFAULT_LIMIT,
+            "limit_options": outreach_clicks.LIMIT_OPTIONS,
+            "source_tab": outreach_clicks.CLICK_LOG_VIEW_TAB,
+        }
+
+    context.update({
+        "active_nav": "audit",
+        "error": error,
+        "loaded_at": timezone.localtime().strftime("%b %-d, %Y %H:%M:%S %Z"),
+    })
+    return render(request, "ops/audit_clicks.html", context)
 
 
 # ── Incident Log ──────────────────────────────────────────────────────────────

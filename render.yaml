@@ -7,4 +7,7 @@ services:
     envVars:
       - key: DJANGO_DEBUG
         value: "False"
-        
+      - key: GOOGLE_SHEET_ID
+        sync: false
+      - key: GOOGLE_SHEETS_CREDENTIALS_PATH
+        sync: false

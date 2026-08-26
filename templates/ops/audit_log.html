@@ -13,6 +13,11 @@
     </div>
   </div>
 
+  <div style="display:flex;gap:8px;margin-bottom:16px;">
+    <a href="{% url 'ops_audit_log' %}" class="dash-action-btn" style="height:32px;padding:0 14px;display:flex;align-items:center;">Internal Audit</a>
+    <a href="{% url 'ops_audit_clicks' %}" class="dash-action-btn dash-action-btn--secondary" style="height:32px;padding:0 14px;display:flex;align-items:center;">Email Clicks</a>
+  </div>
+
   <!-- Filters -->
   <div class="dash-card" style="padding:16px 20px;margin-bottom:20px;">
     <form method="get" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">

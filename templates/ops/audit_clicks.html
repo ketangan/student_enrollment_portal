@@ -1,0 +1,126 @@
+{% extends "ops/base.html" %}
+{% block page_title %}Email Clicks{% endblock %}
+
+{% block content %}
+<main class="dash-main">
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+    <div>
+      <h1 style="font-size:20px;font-weight:700;margin:0 0 4px;">Email Clicks</h1>
+      <p style="font-size:13px;color:var(--dash-muted);margin:0;">
+        {{ total_count }} matching row{{ total_count|pluralize }} from {{ source_tab }}
+        {% if sheet_total_count != total_count %} · {{ sheet_total_count }} total{% endif %}
+      </p>
+    </div>
+    <a href="{% url 'ops_audit_clicks' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}"
+       class="dash-action-btn dash-action-btn--secondary"
+       style="height:36px;padding:0 14px;display:flex;align-items:center;">Refresh</a>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:16px;">
+    <a href="{% url 'ops_audit_log' %}" class="dash-action-btn dash-action-btn--secondary" style="height:32px;padding:0 14px;display:flex;align-items:center;">Internal Audit</a>
+    <a href="{% url 'ops_audit_clicks' %}" class="dash-action-btn" style="height:32px;padding:0 14px;display:flex;align-items:center;">Email Clicks</a>
+  </div>
+
+  {% if error %}
+  <div class="dash-card" style="padding:14px 18px;margin-bottom:20px;border-left:4px solid #dc2626;">
+    <div style="font-size:13px;font-weight:700;color:#991b1b;margin-bottom:4px;">Click log unavailable</div>
+    <div style="font-size:12px;color:var(--dash-muted);">{{ error }}</div>
+  </div>
+  {% endif %}
+
+  <div class="dash-card" style="padding:16px 20px;margin-bottom:20px;">
+    <form method="get" style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+      <div style="flex:1;min-width:220px;">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--dash-muted);margin-bottom:4px;">Search</label>
+        <input type="text" name="q" value="{{ q }}" placeholder="school, website, path, campaign..."
+               class="dash-input" style="width:100%;">
+      </div>
+      <div style="min-width:140px;">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--dash-muted);margin-bottom:4px;">Gesture</label>
+        <select name="gesture" class="dash-input">
+          <option value="">All gestures</option>
+          {% for gesture in gesture_choices %}
+          <option value="{{ gesture }}" {% if gesture_filter == gesture %}selected{% endif %}>{{ gesture }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="min-width:110px;">
+        <label style="display:block;font-size:11px;font-weight:600;color:var(--dash-muted);margin-bottom:4px;">Rows</label>
+        <select name="limit" class="dash-input">
+          {% for option in limit_options %}
+          <option value="{{ option }}" {% if limit == option %}selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button type="submit" class="dash-action-btn" style="height:36px;padding:0 16px;">Filter</button>
+        {% if q or gesture_filter %}
+        <a href="{% url 'ops_audit_clicks' %}" class="dash-action-btn dash-action-btn--secondary" style="height:36px;padding:0 14px;display:flex;align-items:center;">Clear</a>
+        {% endif %}
+      </div>
+    </form>
+    <div style="margin-top:10px;font-size:11px;color:var(--dash-muted);">
+      Last loaded {{ loaded_at }}. Refresh pulls the latest values from Google Sheets.
+    </div>
+  </div>
+
+  <div class="dash-card" style="padding:0;overflow:hidden;">
+    {% if rows %}
+    <div style="overflow-x:auto;">
+      <table class="dash-table" style="margin:0;">
+        <thead>
+          <tr>
+            <th style="padding-left:20px;width:170px;">Pacific Time</th>
+            <th style="width:220px;">School</th>
+            <th style="width:260px;">Website</th>
+            <th style="width:220px;">Path</th>
+            <th style="width:100px;">Gesture</th>
+            <th style="width:160px;">Campaign</th>
+            <th style="width:90px;">Kind</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          <tr>
+            <td style="padding-left:20px;font-size:11px;color:var(--dash-muted);white-space:nowrap;" title="{{ row.timestamp_raw }}">
+              {{ row.timestamp_pacific|default:"—" }}
+            </td>
+            <td style="font-size:12px;">
+              <div style="font-weight:600;">{{ row.school_name|default:"—" }}</div>
+              {% if row.lead_id %}
+              <div style="font-size:10px;color:var(--dash-muted);font-family:monospace;margin-top:2px;">{{ row.lead_id }}</div>
+              {% endif %}
+            </td>
+            <td style="font-size:12px;max-width:260px;word-break:break-word;">
+              {% if row.website %}
+              <a href="{{ row.website }}" target="_blank" rel="noopener">{{ row.website }}</a>
+              {% else %}
+              —
+              {% endif %}
+            </td>
+            <td style="font-size:11px;max-width:220px;word-break:break-all;font-family:monospace;">{{ row.path|default:"—" }}</td>
+            <td style="font-size:11px;font-weight:700;color:#4f46e5;">{{ row.gesture_type|default:"—" }}</td>
+            <td style="font-size:11px;">
+              <div>{{ row.utm_campaign|default:"—" }}</div>
+              {% if row.utm_source or row.utm_medium %}
+              <div style="color:var(--dash-muted);margin-top:2px;">
+                {{ row.utm_source }}{% if row.utm_source and row.utm_medium %} / {% endif %}{{ row.utm_medium }}
+              </div>
+              {% endif %}
+            </td>
+            <td style="font-size:11px;color:var(--dash-muted);">{{ row.tracking_kind|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="padding:32px 24px;text-align:center;color:var(--dash-muted);font-size:13px;">
+      {% if error %}Fix the Google Sheets configuration above, then refresh.{% else %}No email click rows match your filters.{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+</main>
+{% endblock %}
