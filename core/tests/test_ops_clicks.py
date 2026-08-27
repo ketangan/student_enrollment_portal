@@ -4,6 +4,7 @@ import pytest
 from django.contrib.auth.models import User
 from django.urls import reverse
 
+from core.models import AdminAuditLog
 from core.services import outreach_clicks
 from core import views_ops
 
@@ -57,7 +58,12 @@ def test_build_click_log_context_filters_and_sorts(monkeypatch, settings):
             "utm_campaign": "website_mock",
         },
     ]
+    raw_records = [
+        (2, records[0]),
+        (3, records[1]),
+    ]
     monkeypatch.setattr(outreach_clicks, "_read_click_log_records", lambda tab_name: records)
+    monkeypatch.setattr(outreach_clicks, "_read_raw_click_log_records", lambda: raw_records)
 
     context = outreach_clicks.build_click_log_context(q="teddi", gesture_type="click", limit=100)
 
@@ -65,7 +71,81 @@ def test_build_click_log_context_filters_and_sorts(monkeypatch, settings):
     assert context["sheet_total_count"] == 2
     assert context["rows"][0].school_name == "Teddi Bear Swim School"
     assert context["rows"][0].timestamp_pacific == "2026-08-26 11:00 AM PDT"
+    assert context["rows"][0].raw_sheet_row == 3
+    assert context["rows"][0].delete_token.startswith("3:")
     assert context["gesture_choices"] == ["click", "scroll"]
+
+
+def test_build_click_log_context_tolerates_unmatched_view_rows(monkeypatch, settings):
+    settings.TIME_ZONE = "America/Los_Angeles"
+    records = [
+        {
+            "timestamp": "2026-08-26T18:00:00Z",
+            "school_name": "No Raw Match",
+            "path": "/demo",
+        }
+    ]
+    monkeypatch.setattr(outreach_clicks, "_read_click_log_records", lambda tab_name: records)
+    monkeypatch.setattr(outreach_clicks, "_read_raw_click_log_records", lambda: [])
+
+    context = outreach_clicks.build_click_log_context(limit=100)
+
+    assert context["rows"][0].raw_sheet_row is None
+    assert context["rows"][0].delete_token == ""
+
+
+def test_delete_click_log_rows_validates_token_and_deletes_descending(monkeypatch):
+    headers = ["timestamp", "lead_id", "path", "gesture_type"]
+    rows = [
+        headers,
+        ["2026-08-25T18:00:00Z", "lead-1", "/demo", "scroll"],
+        ["2026-08-26T18:00:00Z", "lead-2", "/mock", "click"],
+    ]
+    deleted_rows = []
+
+    class FakeWorksheet:
+        def get_all_values(self):
+            return rows
+
+        def delete_rows(self, row_number):
+            deleted_rows.append(row_number)
+
+    monkeypatch.setattr(outreach_clicks, "_worksheet", lambda tab_name: FakeWorksheet())
+    first_token = outreach_clicks._delete_value(2, outreach_clicks._row_dict(headers, rows[1]))
+    second_token = outreach_clicks._delete_value(3, outreach_clicks._row_dict(headers, rows[2]))
+
+    result = outreach_clicks.delete_click_log_rows([first_token, second_token])
+
+    assert result.deleted == 2
+    assert result.skipped == 0
+    assert deleted_rows == [3, 2]
+
+
+def test_delete_click_log_rows_skips_changed_rows(monkeypatch):
+    headers = ["timestamp", "lead_id", "path", "gesture_type"]
+    rows = [
+        headers,
+        ["2026-08-25T18:00:00Z", "changed-lead", "/demo", "scroll"],
+    ]
+    deleted_rows = []
+
+    class FakeWorksheet:
+        def get_all_values(self):
+            return rows
+
+        def delete_rows(self, row_number):
+            deleted_rows.append(row_number)
+
+    monkeypatch.setattr(outreach_clicks, "_worksheet", lambda tab_name: FakeWorksheet())
+    stale_record = {"timestamp": "2026-08-25T18:00:00Z", "lead_id": "lead-1", "path": "/demo", "gesture_type": "scroll"}
+    stale_token = outreach_clicks._delete_value(2, stale_record)
+
+    result = outreach_clicks.delete_click_log_rows([stale_token])
+
+    assert result.deleted == 0
+    assert result.skipped == 1
+    assert "changed before deletion" in result.errors[0]
+    assert deleted_rows == []
 
 
 @pytest.mark.django_db
@@ -127,6 +207,35 @@ def test_ops_audit_clicks_renders_sheet_rows(client, superuser, monkeypatch):
     assert b"Teddi Bear Swim School" in resp.content
     assert b"/mocks/teddi/sports-action/" in resp.content
     assert b"2026-08-26 11:00 AM PDT" in resp.content
+
+
+@pytest.mark.django_db
+def test_ops_audit_clicks_delete_calls_service_and_logs(client, superuser, monkeypatch):
+    client.force_login(superuser)
+    captured = {}
+
+    def fake_delete(selected_rows):
+        captured["selected_rows"] = selected_rows
+        return outreach_clicks.OutreachClickDeleteResult(deleted=2, skipped=0, requested=2)
+
+    monkeypatch.setattr(views_ops.outreach_clicks, "delete_click_log_rows", fake_delete)
+
+    resp = client.post(
+        reverse("ops_audit_clicks_delete"),
+        {
+            "delete_rows": ["2:abc", "3:def"],
+            "next": reverse("ops_audit_clicks") + "?q=test",
+        },
+        follow=True,
+    )
+
+    assert resp.status_code == 200
+    assert captured["selected_rows"] == ["2:abc", "3:def"]
+    assert AdminAuditLog.objects.filter(
+        model_label="google_sheets.click_log",
+        action="delete",
+        extra__name="outreach_click_rows_deleted",
+    ).exists()
 
 
 @pytest.mark.django_db

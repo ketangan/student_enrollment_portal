@@ -933,6 +933,53 @@ def ops_audit_clicks_view(request):
     return render(request, "ops/audit_clicks.html", context)
 
 
+@ops_required
+@require_POST
+def ops_audit_clicks_delete_view(request):
+    selected_rows = request.POST.getlist("delete_rows")
+    next_url = request.POST.get("next", "").strip()
+    click_log_url = reverse("ops_audit_clicks")
+    if next_url != click_log_url and not next_url.startswith(f"{click_log_url}?"):
+        next_url = reverse("ops_audit_clicks")
+
+    if not selected_rows:
+        messages.warning(request, "Select at least one click row to delete.")
+        return redirect(next_url)
+
+    try:
+        result = outreach_clicks.delete_click_log_rows(selected_rows)
+    except outreach_clicks.OutreachClickLogError as exc:
+        messages.error(request, str(exc))
+        return redirect(next_url)
+
+    if result.deleted:
+        _log(
+            request,
+            "delete",
+            "google_sheets.click_log",
+            "bulk",
+            f"{result.deleted} outreach click row{'' if result.deleted == 1 else 's'}",
+            {
+                "name": "outreach_click_rows_deleted",
+                "deleted": result.deleted,
+                "skipped": result.skipped,
+            },
+        )
+        messages.success(
+            request,
+            f"Deleted {result.deleted} click row{'' if result.deleted == 1 else 's'} from Google Sheets.",
+        )
+    if result.skipped:
+        messages.warning(
+            request,
+            f"Skipped {result.skipped} row{'' if result.skipped == 1 else 's'} that could not be safely deleted.",
+        )
+    for error in result.errors[:3]:
+        messages.warning(request, error)
+
+    return redirect(next_url)
+
+
 # ── Incident Log ──────────────────────────────────────────────────────────────
 
 @ops_required

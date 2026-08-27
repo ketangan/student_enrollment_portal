@@ -67,11 +67,26 @@
 
   <div class="dash-card" style="padding:0;overflow:hidden;">
     {% if rows %}
+    <form method="post"
+          action="{% url 'ops_audit_clicks_delete' %}"
+          onsubmit="return confirm('Delete the selected click rows from the raw Google Sheet? This cannot be undone from the ops portal.');">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <div style="padding:12px 20px;border-bottom:1px solid var(--dash-border);display:flex;justify-content:space-between;align-items:center;gap:12px;">
+        <label style="font-size:12px;color:var(--dash-muted);display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" id="select-all-clicks">
+          Select visible rows
+        </label>
+        <button type="submit" class="dash-action-btn dash-action-btn--danger" style="height:32px;padding:0 12px;">
+          Delete selected
+        </button>
+      </div>
     <div style="overflow-x:auto;">
       <table class="dash-table" style="margin:0;">
         <thead>
           <tr>
-            <th style="padding-left:20px;width:170px;">Pacific Time</th>
+            <th style="padding-left:20px;width:44px;"></th>
+            <th style="width:170px;">Pacific Time</th>
             <th style="width:220px;">School</th>
             <th style="width:260px;">Website</th>
             <th style="width:220px;">Path</th>
@@ -83,7 +98,15 @@
         <tbody>
           {% for row in rows %}
           <tr>
-            <td style="padding-left:20px;font-size:11px;color:var(--dash-muted);white-space:nowrap;" title="{{ row.timestamp_raw }}">
+            <td style="padding-left:20px;">
+              {% if row.delete_token %}
+              <input type="checkbox" class="click-row-checkbox" name="delete_rows" value="{{ row.delete_token }}"
+                     aria-label="Select click row {{ row.raw_sheet_row }}">
+              {% else %}
+              <span title="This view row could not be matched to a raw Click_Log row." style="color:var(--dash-muted);">—</span>
+              {% endif %}
+            </td>
+            <td style="font-size:11px;color:var(--dash-muted);white-space:nowrap;" title="{{ row.timestamp_raw }}">
               {{ row.timestamp_pacific|default:"—" }}
             </td>
             <td style="font-size:12px;">
@@ -115,6 +138,7 @@
         </tbody>
       </table>
     </div>
+    </form>
     {% else %}
     <div style="padding:32px 24px;text-align:center;color:var(--dash-muted);font-size:13px;">
       {% if error %}Fix the Google Sheets configuration above, then refresh.{% else %}No email click rows match your filters.{% endif %}
@@ -123,4 +147,18 @@
   </div>
 
 </main>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var selectAll = document.getElementById('select-all-clicks');
+  if (!selectAll) return;
+  selectAll.addEventListener('change', function () {
+    document.querySelectorAll('.click-row-checkbox').forEach(function (checkbox) {
+      checkbox.checked = selectAll.checked;
+    });
+  });
+}());
+</script>
 {% endblock %}
