@@ -222,6 +222,7 @@ admin:
     - New
     - In Review
     - Contacted
+    - Needs Follow Up
     - Tour Scheduled
     - Tour Completed
     - Enrolled
@@ -237,7 +238,7 @@ admin:
         statuses: ["New"]
       review:
         label: "In Review"
-        statuses: ["In Review", "Contacted"]
+        statuses: ["In Review", "Contacted", "Needs Follow Up"]
       tour:
         label: "Tour"
         statuses: ["Tour Scheduled", "Tour Completed"]

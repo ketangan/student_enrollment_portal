@@ -612,8 +612,8 @@ class Submission(models.Model):
         data = self.data or {}
 
         # Common patterns in our configs
-        first = data.get("student_first_name") or data.get("first_name")
-        last = data.get("student_last_name") or data.get("last_name")
+        first = data.get("student_first_name") or data.get("first_name") or data.get("child_first_name")
+        last = data.get("student_last_name") or data.get("last_name") or data.get("child_last_name")
 
         if first or last:
             return f"{first or ''} {last or ''}".strip()

@@ -40,31 +40,31 @@ PROGRAMS = [
 
 # Long Beach–area family names
 STUDENTS = [
-    ("Sofia",    "Reyes",      "f"),
-    ("Emma",     "Nakamura",   "f"),
-    ("Olivia",   "Johnson",    "f"),
-    ("Mia",      "Hernandez",  "f"),
-    ("Ava",      "Kim",        "f"),
-    ("Luna",     "Moreau",     "f"),
-    ("Chloe",    "Williams",   "f"),
-    ("Harper",   "Ramirez",    "f"),
-    ("Lily",     "Tanaka",     "f"),
-    ("Aria",     "Patel",      "f"),
-    ("Noah",     "Martinez",   "m"),
-    ("Liam",     "Thompson",   "m"),
-    ("Ethan",    "Park",       "m"),
-    ("Lucas",    "Robinson",   "m"),
-    ("Mason",    "Torres",     "m"),
-    ("Oliver",   "Chen",       "m"),
-    ("Mateo",    "Gomez",      "m"),
-    ("Elijah",   "Nguyen",     "m"),
-    ("Aiden",    "Brown",      "m"),
-    ("Sebastian","Lopez",      "m"),
-    ("Isabella", "Davis",      "f"),
-    ("Camila",   "Sanchez",    "f"),
-    ("Nora",     "Lee",        "f"),
-    ("Elena",    "Flores",     "f"),
-    ("Laila",    "Wilson",     "f"),
+    ("Sofia",    "Reyes",      "female"),
+    ("Emma",     "Nakamura",   "female"),
+    ("Olivia",   "Johnson",    "female"),
+    ("Mia",      "Hernandez",  "female"),
+    ("Ava",      "Kim",        "female"),
+    ("Luna",     "Moreau",     "female"),
+    ("Chloe",    "Williams",   "female"),
+    ("Harper",   "Ramirez",    "female"),
+    ("Lily",     "Tanaka",     "female"),
+    ("Aria",     "Patel",      "female"),
+    ("Noah",     "Martinez",   "male"),
+    ("Liam",     "Thompson",   "male"),
+    ("Ethan",    "Park",       "male"),
+    ("Lucas",    "Robinson",   "male"),
+    ("Mason",    "Torres",     "male"),
+    ("Oliver",   "Chen",       "male"),
+    ("Mateo",    "Gomez",      "male"),
+    ("Elijah",   "Nguyen",     "male"),
+    ("Aiden",    "Brown",      "male"),
+    ("Sebastian","Lopez",      "male"),
+    ("Isabella", "Davis",      "female"),
+    ("Camila",   "Sanchez",    "female"),
+    ("Nora",     "Lee",        "female"),
+    ("Elena",    "Flores",     "female"),
+    ("Laila",    "Wilson",     "female"),
 ]
 
 GUARDIAN_FIRST = [
@@ -226,6 +226,9 @@ class Command(BaseCommand):
         if existing_count >= 5 and not force:
             self.stdout.write(f"  Skipping submissions ({existing_count} exist; use --force to re-seed).")
         else:
+            if force and existing_count:
+                Submission.objects.filter(school=school).delete()
+                self.stdout.write(f"  Deleted {existing_count} existing submissions.")
             students = list(STUDENTS)
             rng.shuffle(students)
             idx = 0
@@ -278,6 +281,9 @@ class Command(BaseCommand):
         if existing_leads >= 3 and not force:
             self.stdout.write(f"  Skipping leads ({existing_leads} exist; use --force to re-seed).")
         else:
+            if force and existing_leads:
+                Lead.objects.filter(school=school).delete()
+                self.stdout.write(f"  Deleted {existing_leads} existing leads.")
             lead_statuses = ["enrolled", "contacted", "trial_scheduled", "new", "new", "contacted"]
             for i, (name, source, email, phone) in enumerate(LEADS):
                 status = lead_statuses[i % len(lead_statuses)]
