@@ -6,7 +6,6 @@
 <title>Our Programs | Kid Works Children's Center</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700&family=Asap+Condensed:wght@400;600;700&display=swap">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/iframe-resizer/4.3.9/iframeResizer.min.js" crossorigin="anonymous"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Urbanist', sans-serif; color: #2d1a0a; background: #fdf9f3; -webkit-font-smoothing: antialiased; }
@@ -69,8 +68,8 @@
     align-items: center; justify-content: center; transition: background .15s;
   }
   .modal-close:hover { background: #d4c0a8; }
-  .modal-body { padding: 0; }
-  .modal-body iframe { width: 1px; min-width: 100%; border: none; display: block; min-height: 600px; }
+  .modal-body { padding: 0; overflow: hidden; border-radius: 0 0 14px 14px; }
+  .modal-body iframe { width: 100%; height: calc(90vh - 62px); border: none; display: block; }
 
   .site-footer { background: #3d1a08; color: rgba(255,255,255,.4); text-align: center; padding: 28px; font-size: 12px; letter-spacing: .02em; }
 
@@ -147,7 +146,7 @@
       <button class="modal-close" onclick="closeModal()" aria-label="Close">&times;</button>
     </div>
     <div class="modal-body">
-      <iframe id="modalFrame" src="" data-src="{{ embed_form_url }}" title="Enrollment Form" scrolling="no"></iframe>
+      <iframe id="modalFrame" src="" data-src="{{ embed_form_url }}" title="Enrollment Form"></iframe>
     </div>
   </div>
 </div>
@@ -164,7 +163,6 @@
     var frame = document.getElementById('modalFrame');
     if (!frame.src || frame.src === window.location.href) {
       frame.src = frame.getAttribute('data-src');
-      iFrameResize({ log: false, checkOrigin: false }, frame);
     }
     overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
