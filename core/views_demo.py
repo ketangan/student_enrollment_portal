@@ -43,6 +43,11 @@ DEMO_REGISTRY = {
         "template_dir": "demo/wfm",
         "demos": ["dedicated-page", "modal", "bottom-section", "link-out", "standalone-form"],
     },
+    "kidworks-demo": {
+        "school_slug": "kidworks-childrens-center",
+        "template_dir": "demo/kw",
+        "demos": ["dedicated-page", "modal", "bottom-section", "link-out", "standalone-form"],
+    },
 }
 
 

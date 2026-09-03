@@ -1,0 +1,301 @@
+schema_version: "1.0"
+
+school:
+  slug: "kidworks-childrens-center"
+  display_name: "Kid Works Children's Center"
+  website_url: "https://kidworkschildrenscenter.com/"
+  source_url: "https://kidworkschildrenscenter.com/"
+
+branding:
+  logo_url: "https://i0.wp.com/kidworkschildrenscenter.com/wp-content/uploads/2024/01/kidworks_new_difffonts_gordsans-edited-1.png"
+  custom_css: "schools/kidworks-childrens-center.css"
+
+  theme:
+    primary_color: "#f7e300"
+    accent_color: "#663018"
+    background: "#fdf9f3"
+    card: "#ffffff"
+    text: "#2d1a0a"
+    muted: "#6e6e6e"
+    border: "#e8d9c8"
+    radius: "10px"
+    font_family: "'Urbanist', sans-serif"
+    heading_font: "'Asap Condensed', 'Urbanist', sans-serif"
+
+program_field_key: "program_interest"
+
+form:
+  title: "Enrollment Application"
+  description: >
+    Complete this form to begin the enrollment process at Kid Works Children's Center. Our team
+    will review your application and follow up within 1–2 business days to confirm availability
+    and next steps.
+  submit_button_text: "Submit Application"
+
+  sections:
+
+    - title: "Child Information"
+      fields:
+        - key: child_first_name
+          label: "Child's First Name"
+          type: text
+          required: true
+
+        - key: child_last_name
+          label: "Child's Last Name"
+          type: text
+          required: true
+
+        - key: date_of_birth
+          label: "Date of Birth"
+          type: date
+          required: true
+
+        - key: gender
+          label: "Gender"
+          type: select
+          required: false
+          options:
+            - label: "Male"
+              value: male
+            - label: "Female"
+              value: female
+            - label: "Prefer not to say"
+              value: not_specified
+
+    - title: "Program Interest"
+      fields:
+        - key: program_interest
+          label: "Program"
+          type: select
+          required: true
+
+        - key: current_school
+          label: "Current School or Daycare (if any)"
+          type: text
+          required: false
+
+    - title: "Parent / Guardian Information"
+      fields:
+        - key: guardian_name
+          label: "Parent / Guardian Full Name"
+          type: text
+          required: true
+
+        - key: guardian_email
+          label: "Parent / Guardian Email"
+          type: email
+          required: true
+
+        - key: guardian_phone
+          label: "Parent / Guardian Phone"
+          type: tel
+          required: true
+
+        - key: relationship
+          label: "Relationship to Child"
+          type: select
+          required: false
+          options:
+            - label: "Mother"
+              value: mother
+            - label: "Father"
+              value: father
+            - label: "Guardian"
+              value: guardian
+            - label: "Other"
+              value: other
+
+    - title: "Health & Logistics"
+      fields:
+        - key: potty_trained
+          label: "Is your child potty trained?"
+          type: select
+          required: false
+          options:
+            - label: "Yes"
+              value: "yes"
+            - label: "In progress"
+              value: in_progress
+            - label: "Not yet"
+              value: no
+
+        - key: allergies
+          label: "Allergies or Dietary Restrictions"
+          type: textarea
+          required: false
+
+        - key: special_needs
+          label: "Any special needs, accommodations, or notes for our teachers?"
+          type: textarea
+          required: false
+
+    - title: "Additional Information"
+      fields:
+        - key: how_did_you_hear
+          label: "How did you hear about us?"
+          type: select
+          required: false
+          options:
+            - label: "Referral from a friend or family"
+              value: referral
+            - label: "Google search"
+              value: google
+            - label: "Social media"
+              value: social_media
+            - label: "Drove by / neighborhood"
+              value: drove_by
+            - label: "Community event"
+              value: community_event
+            - label: "Other"
+              value: other
+
+        - key: notes
+          label: "Anything else you'd like us to know?"
+          type: textarea
+          required: false
+
+    - title: "Policies & Acknowledgments"
+      fields:
+        - key: enrollment_policies
+          label: "Enrollment Policies"
+          type: waiver
+          text: "Please review the Kid Works Children's Center enrollment policies and family handbook before submitting."
+          link_url: "https://kidworkschildrenscenter.com/"
+          link_text: "View Enrollment Policies"
+          checkbox_label: "I have read and agree to the Kid Works enrollment policies and family handbook"
+          required: true
+          full_width: true
+
+        - key: photo_release
+          label: "Photo & Media Release"
+          type: radio
+          required: true
+          full_width: true
+          description: "Kid Works may photograph or record children during daily activities, field trips, and events for use on our website and social media. Do you grant permission to use photos or videos of your child?"
+          options:
+            - label: "Yes, I grant permission"
+              value: grant
+            - label: "No, I do not grant permission"
+              value: deny
+
+        - key: emergency_authorization
+          label: "Emergency Authorization"
+          type: checkbox
+          required: true
+          full_width: true
+          checkbox_label: "I authorize Kid Works Children's Center staff to take appropriate emergency action, including contacting emergency services, if my child requires immediate medical attention and I cannot be reached."
+
+success:
+  title: "Application Received!"
+  message: >
+    Thank you — Kid Works Children's Center has received your enrollment application.
+    Our team will review your child's information and follow up within 1–2 business days
+    to discuss availability, scheduling, and next steps.
+  response_time: "1–2 business days"
+  next_steps:
+    - "Our team will review your child's age, program interest, and any special needs noted."
+    - "We'll reach out to confirm availability and schedule a center tour if you'd like."
+    - "Once confirmed, we'll walk you through enrollment paperwork and tuition details."
+    - "Your child will be welcomed into our community of curious, growing learners."
+  contact:
+    name: "Kid Works Children's Center"
+    email: "Info@KidWorksChildrensCenter.com"
+    phone: "(562) 438-4904"
+  hours: "Mon–Fri, 8am–5pm"
+
+  notifications:
+    submission_email:
+      to: "Info@KidWorksChildrensCenter.com"
+      cc: ""
+      bcc: ""
+      from_email: "noreply@mypontora.com"
+      subject: "New enrollment application: {{student_name}}"
+
+    applicant_confirmation:
+      enabled: true
+      from_email: "noreply@mypontora.com"
+      subject: "We received your application, {{student_name}}!"
+
+admin:
+  submission_statuses:
+    - New
+    - In Review
+    - Contacted
+    - Tour Scheduled
+    - Tour Completed
+    - Enrolled
+    - Waitlisted
+    - Declined
+    - Archived
+  default_submission_status: New
+
+  submission_workflow:
+    filters:
+      new_registrations:
+        label: "New"
+        statuses: ["New"]
+      review:
+        label: "In Review"
+        statuses: ["In Review", "Contacted"]
+      tour:
+        label: "Tour"
+        statuses: ["Tour Scheduled", "Tour Completed"]
+      enrolled:
+        label: "Enrolled"
+        statuses: ["Enrolled"]
+      waitlisted:
+        label: "Waitlisted"
+        statuses: ["Waitlisted"]
+      closed:
+        label: "Closed"
+        statuses: ["Declined", "Archived"]
+
+  lead_workflow:
+    filters:
+      new_leads:
+        label: "New"
+        statuses: [new]
+      pipeline:
+        label: "In Pipeline"
+        statuses: [contacted, trial_scheduled]
+      won:
+        label: "Enrolled"
+        statuses: [enrolled]
+    transitions:
+      new:
+        - label: "Mark Contacted"
+          status: contacted
+        - label: "Archive"
+          status: lost
+      contacted:
+        - label: "Schedule Tour"
+          status: trial_scheduled
+        - label: "Archive"
+          status: lost
+      trial_scheduled:
+        - label: "Mark Enrolled"
+          status: enrolled
+        - label: "Archive"
+          status: lost
+
+leads:
+  form_title: "Inquire About Enrollment"
+  form_description: "Tell us about your child and which program you're interested in — our team will follow up within 1–2 business days."
+  cta_text: "Send My Inquiry"
+  success_message: "Thanks for reaching out! Kid Works will be in touch with you soon."
+  confirmation_enabled: true
+  notify_to: ""
+
+capacity:
+  waitlist_message: "This program is currently at capacity. You've been added to our waitlist — we'll be in touch as soon as a spot opens."
+  excluded_statuses:
+    - Archived
+    - Declined
+  programs:
+    bungalow_full_day: 8
+    bungalow_half_day: 10
+    garden_room_full_day: 10
+    garden_room_half_day: 12
+    sun_room_full_day: 12
+    sun_room_half_day: 14

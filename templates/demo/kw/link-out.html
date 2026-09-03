@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enrollment | Kid Works Children's Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700&family=Asap+Condensed:wght@400;600;700&display=swap">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Urbanist', sans-serif; color: #2d1a0a; background: #fdf9f3; -webkit-font-smoothing: antialiased; }
+  a { text-decoration: none; color: inherit; }
+
+  .top-bar { background: #3d1a08; padding: 7px 40px; display: flex; justify-content: flex-end; gap: 24px; font-size: 11px; color: rgba(255,255,255,.6); letter-spacing: .04em; }
+
+  .site-header {
+    background: #ffffff; border-bottom: 2px solid #e8d9c8; padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between; height: 84px;
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(102,48,24,.06);
+  }
+  .logo-wrap { display: flex; align-items: center; }
+  .logo-img { height: 56px; width: auto; }
+  .logo-fallback { font-family: 'Asap Condensed', sans-serif; font-size: 22px; font-weight: 700; color: #663018; }
+  .site-nav { display: flex; gap: 6px; list-style: none; }
+  .site-nav a { display: block; padding: 7px 16px; border-radius: 100px; background: #663018; color: #ffffff; font-size: 12px; font-weight: 600; letter-spacing: .02em; transition: background .15s; }
+  .site-nav a:hover { background: #4d2412; }
+  .site-nav .active a { background: #f7e300; color: #2d1a0a; }
+
+  .page-hero { background: #663018; padding: 56px 40px 44px; text-align: center; }
+  .page-hero .eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #f7e300; margin-bottom: 12px; }
+  .page-hero h1 { font-family: 'Asap Condensed', sans-serif; font-size: 40px; color: #ffffff; font-weight: 700; letter-spacing: .01em; margin-bottom: 14px; }
+  .page-hero p { font-size: 15px; color: rgba(255,255,255,.75); line-height: 1.75; max-width: 600px; margin: 0 auto; }
+
+  .page-content { max-width: 840px; margin: 0 auto; padding: 52px 24px 72px; }
+  .page-content p { font-size: 15px; color: #4a2e18; line-height: 1.8; margin-bottom: 24px; }
+
+  .register-block {
+    background: #663018; border-radius: 14px; padding: 44px 40px; text-align: center;
+    margin-top: 40px; box-shadow: 0 8px 32px rgba(102,48,24,.18);
+  }
+  .register-block h2 { font-family: 'Asap Condensed', sans-serif; font-size: 34px; color: #f7e300; font-weight: 700; margin-bottom: 12px; }
+  .register-block p { font-size: 15px; color: rgba(255,255,255,.8); line-height: 1.7; margin-bottom: 28px; max-width: 520px; margin-left: auto; margin-right: auto; }
+  .btn-register {
+    display: inline-block; background: #f7e300; color: #2d1a0a;
+    padding: 16px 52px; border-radius: 8px; font-size: 15px; font-weight: 700;
+    letter-spacing: .02em; transition: background .15s;
+  }
+  .btn-register:hover { background: #e8d400; }
+  .register-note { margin-top: 14px; font-size: 12px; color: rgba(255,255,255,.4); }
+
+  .site-footer { background: #3d1a08; color: rgba(255,255,255,.4); text-align: center; padding: 28px; font-size: 12px; letter-spacing: .02em; }
+
+  @media (max-width: 700px) {
+    .top-bar, .site-nav { display: none; }
+    .site-header { padding: 0 18px; height: 72px; }
+    .page-hero { padding: 36px 18px 28px; }
+    .page-hero h1 { font-size: 30px; }
+    .page-content { padding: 36px 18px 60px; }
+    .register-block { padding: 32px 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span>(562) 438-4904</span>
+  <span>Info@KidWorksChildrensCenter.com</span>
+</div>
+
+<header class="site-header">
+  <a href="https://kidworkschildrenscenter.com/" class="logo-wrap">
+    <img src="https://i0.wp.com/kidworkschildrenscenter.com/wp-content/uploads/2024/01/kidworks_new_difffonts_gordsans-edited-1.png"
+         alt="Kid Works Children's Center" class="logo-img"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+    <span class="logo-fallback" style="display:none;">Kid Works Children's Center</span>
+  </a>
+  <nav>
+    <ul class="site-nav">
+      <li><a href="https://kidworkschildrenscenter.com/">Home</a></li>
+      <li class="active"><a href="https://kidworkschildrenscenter.com/our-programs/">Our Programs</a></li>
+      <li><a href="https://kidworkschildrenscenter.com/about-us/">About Us</a></li>
+      <li><a href="#">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="page-hero">
+  <p class="eyebrow">Play For A Purpose</p>
+  <h1>Our Programs</h1>
+  <p>
+    Five classrooms. One neighborhood. A community built around how children actually grow.
+  </p>
+</div>
+
+<div class="page-content">
+  <p>
+    Kid Works offers programs for children ages 2 through 5, designed around play-based learning
+    and social-emotional development. Each classroom is a world of its own — with experienced
+    teachers, small group sizes, and a curriculum shaped by what each child is curious about.
+  </p>
+  <p>
+    Alongside our core classrooms, we offer Mindfulness &amp; Yoga (weekly) and Growing in the
+    Garden — a hands-on nature program that gives children a relationship with growing things,
+    soil, and the outdoors.
+  </p>
+  <p>
+    We've been part of the Long Beach community for over 17 years. Enrollment is rolling, and
+    spaces go quickly — particularly in the Bungalow (age 2) and Sun Room (ages 4–5).
+  </p>
+
+  <div class="register-block">
+    <h2>Ready to Apply?</h2>
+    <p>
+      Submit your enrollment application today. Our team will follow up within 1–2 business days
+      to discuss availability and next steps.
+    </p>
+    <a href="{{ form_url }}" target="_blank" rel="noopener" class="btn-register">Start Enrollment Application &rarr;</a>
+    <p class="register-note">Opens in a new tab &nbsp;&middot;&nbsp; Mon–Fri, 8am–5pm &nbsp;&middot;&nbsp; (562) 438-4904</p>
+  </div>
+</div>
+
+<footer class="site-footer">
+  &copy; 2026 Kid Works Children's Center &nbsp;&mdash;&nbsp; 3621 E Broadway, Long Beach, CA 90803 &nbsp;&mdash;&nbsp; (562) 438-4904
+</footer>
+
+</body>
+</html>

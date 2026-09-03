@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enrollment Application | Kid Works Children's Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700&family=Asap+Condensed:wght@400;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/iframe-resizer/4.3.9/iframeResizer.min.js" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Urbanist', sans-serif; color: #2d1a0a; background: #fdf9f3; -webkit-font-smoothing: antialiased; }
+  a { text-decoration: none; color: inherit; }
+
+  .mini-header {
+    background: #ffffff; border-bottom: 2px solid #e8d9c8; padding: 0 32px;
+    display: flex; align-items: center; justify-content: space-between; height: 72px;
+    box-shadow: 0 2px 8px rgba(102,48,24,.06);
+  }
+  .logo-wrap { display: flex; align-items: center; gap: 10px; }
+  .logo-img { height: 48px; width: auto; }
+  .logo-text { font-family: 'Asap Condensed', sans-serif; font-size: 18px; font-weight: 700; color: #663018; }
+  .mini-phone { font-size: 13px; color: #8a7060; font-weight: 500; }
+
+  .form-hero { background: #663018; text-align: center; padding: 40px 24px 28px; }
+  .form-hero h1 { font-family: 'Asap Condensed', sans-serif; font-size: 34px; color: #ffffff; font-weight: 700; margin-bottom: 8px; }
+  .form-hero p { font-size: 14px; color: rgba(255,255,255,.75); max-width: 520px; margin: 0 auto; }
+
+  .form-section { max-width: 760px; margin: 0 auto; padding: 44px 24px 80px; }
+  .form-section iframe { width: 1px; min-width: 100%; border: none; display: block; min-height: 700px; border-radius: 10px; box-shadow: 0 4px 20px rgba(102,48,24,.08); }
+
+  .site-footer { background: #3d1a08; color: rgba(255,255,255,.4); text-align: center; padding: 22px; font-size: 12px; letter-spacing: .02em; }
+
+  @media (max-width: 600px) {
+    .mini-header { padding: 0 18px; }
+    .mini-phone { display: none; }
+    .form-hero { padding: 28px 18px 20px; }
+    .form-hero h1 { font-size: 26px; }
+    .form-section { padding: 28px 16px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="mini-header">
+  <a href="https://kidworkschildrenscenter.com/" class="logo-wrap">
+    <img src="https://i0.wp.com/kidworkschildrenscenter.com/wp-content/uploads/2024/01/kidworks_new_difffonts_gordsans-edited-1.png"
+         alt="Kid Works Children's Center" class="logo-img"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+    <span class="logo-text" style="display:none;">Kid Works Children's Center</span>
+  </a>
+  <span class="mini-phone">(562) 438-4904</span>
+</header>
+
+<div class="form-hero">
+  <h1>Enrollment Application</h1>
+  <p>Kid Works Children's Center &mdash; Long Beach, CA &mdash; Mon–Fri, 8am–5pm</p>
+</div>
+
+<div class="form-section">
+  <iframe src="{{ embed_form_url }}" title="Kid Works Enrollment Form" scrolling="no"></iframe>
+</div>
+
+<footer class="site-footer">
+  &copy; 2026 Kid Works Children's Center &nbsp;&mdash;&nbsp; 3621 E Broadway, Long Beach, CA 90803
+</footer>
+
+<script>
+  iFrameResize({ log: false, checkOrigin: false }, 'iframe');
+</script>
+</body>
+</html>

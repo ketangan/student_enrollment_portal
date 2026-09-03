@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Our Programs | Kid Works Children's Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700&family=Asap+Condensed:wght@400;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/iframe-resizer/4.3.9/iframeResizer.min.js" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Urbanist', sans-serif; color: #2d1a0a; background: #fdf9f3; -webkit-font-smoothing: antialiased; }
+  a { text-decoration: none; color: inherit; }
+
+  .top-bar { background: #3d1a08; padding: 7px 40px; display: flex; justify-content: flex-end; gap: 24px; font-size: 11px; color: rgba(255,255,255,.6); letter-spacing: .04em; }
+
+  .site-header {
+    background: #ffffff; border-bottom: 2px solid #e8d9c8; padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between; height: 84px;
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(102,48,24,.06);
+  }
+  .logo-wrap { display: flex; align-items: center; }
+  .logo-img { height: 56px; width: auto; }
+  .logo-fallback { font-family: 'Asap Condensed', sans-serif; font-size: 22px; font-weight: 700; color: #663018; }
+  .site-nav { display: flex; gap: 6px; list-style: none; }
+  .site-nav a { display: block; padding: 7px 16px; border-radius: 100px; background: #663018; color: #ffffff; font-size: 12px; font-weight: 600; letter-spacing: .02em; transition: background .15s; }
+  .site-nav a:hover { background: #4d2412; }
+  .site-nav .active a { background: #f7e300; color: #2d1a0a; }
+
+  .page-hero { background: #663018; padding: 56px 40px 44px; text-align: center; }
+  .page-hero .eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #f7e300; margin-bottom: 12px; }
+  .page-hero h1 { font-family: 'Asap Condensed', sans-serif; font-size: 40px; color: #ffffff; font-weight: 700; letter-spacing: .01em; margin-bottom: 14px; }
+  .page-hero p { font-size: 15px; color: rgba(255,255,255,.75); line-height: 1.75; max-width: 600px; margin: 0 auto; }
+
+  .page-content { max-width: 840px; margin: 0 auto; padding: 52px 24px 72px; }
+  .page-content p { font-size: 15px; color: #4a2e18; line-height: 1.8; margin-bottom: 24px; }
+
+  .cta-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-top: 36px; padding-top: 32px; border-top: 2px solid #e8d9c8; }
+  .btn-enroll {
+    display: inline-block; background: #663018; color: #ffffff;
+    padding: 14px 36px; border-radius: 8px; font-size: 14px; font-weight: 700;
+    cursor: pointer; border: none; letter-spacing: .02em; font-family: 'Urbanist', sans-serif;
+    transition: background .15s;
+  }
+  .btn-enroll:hover { background: #4d2412; }
+  .cta-note { font-size: 13px; color: #8a7060; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 500;
+    background: rgba(45, 26, 10, 0.55); backdrop-filter: blur(3px);
+    align-items: center; justify-content: center; padding: 16px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #fdf9f3; border-radius: 14px; width: 100%; max-width: 700px;
+    max-height: 90vh; overflow-y: auto; position: relative;
+    box-shadow: 0 24px 64px rgba(45,26,10,.35);
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 22px; border-bottom: 2px solid #e8d9c8;
+    position: sticky; top: 0; background: #fdf9f3; z-index: 10;
+  }
+  .modal-title { font-family: 'Asap Condensed', sans-serif; font-size: 18px; font-weight: 700; color: #663018; }
+  .modal-close {
+    width: 32px; height: 32px; border-radius: 50%; border: none; background: #e8d9c8;
+    cursor: pointer; font-size: 18px; color: #663018; display: flex;
+    align-items: center; justify-content: center; transition: background .15s;
+  }
+  .modal-close:hover { background: #d4c0a8; }
+  .modal-body { padding: 0; }
+  .modal-body iframe { width: 1px; min-width: 100%; border: none; display: block; min-height: 600px; }
+
+  .site-footer { background: #3d1a08; color: rgba(255,255,255,.4); text-align: center; padding: 28px; font-size: 12px; letter-spacing: .02em; }
+
+  @media (max-width: 700px) {
+    .top-bar, .site-nav { display: none; }
+    .site-header { padding: 0 18px; height: 72px; }
+    .page-hero { padding: 36px 18px 28px; }
+    .page-hero h1 { font-size: 30px; }
+    .page-content { padding: 36px 18px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span>(562) 438-4904</span>
+  <span>Info@KidWorksChildrensCenter.com</span>
+</div>
+
+<header class="site-header">
+  <a href="https://kidworkschildrenscenter.com/" class="logo-wrap">
+    <img src="https://i0.wp.com/kidworkschildrenscenter.com/wp-content/uploads/2024/01/kidworks_new_difffonts_gordsans-edited-1.png"
+         alt="Kid Works Children's Center" class="logo-img"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+    <span class="logo-fallback" style="display:none;">Kid Works Children's Center</span>
+  </a>
+  <nav>
+    <ul class="site-nav">
+      <li><a href="https://kidworkschildrenscenter.com/">Home</a></li>
+      <li class="active"><a href="https://kidworkschildrenscenter.com/our-programs/">Our Programs</a></li>
+      <li><a href="https://kidworkschildrenscenter.com/about-us/">About Us</a></li>
+      <li><a href="#">Contact</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="page-hero">
+  <p class="eyebrow">Play For A Purpose</p>
+  <h1>Our Programs</h1>
+  <p>
+    Every classroom at Kid Works is designed around how children actually learn —
+    through curiosity, play, and connection.
+  </p>
+</div>
+
+<div class="page-content">
+  <p>
+    We offer five programs for children ages 2 through 5, plus supplemental experiences in
+    Mindfulness &amp; Yoga and Growing in the Garden. Each classroom builds on the last —
+    routines and skills introduced at age 2 deepen and expand as children move through the center.
+  </p>
+  <p>
+    Our classrooms are intentionally small, with experienced teachers who know each child by name.
+    Whether your child is just starting their first school experience or is getting ready for
+    kindergarten, there's a place for them at Kid Works.
+  </p>
+  <p>
+    Programs fill on a rolling basis throughout the year. We encourage families to apply early —
+    especially for the Bungalow (age 2) and Sun Room (ages 4–5), which are typically our most
+    requested classrooms.
+  </p>
+
+  <div class="cta-row">
+    <button class="btn-enroll" onclick="openModal()">Enroll Now &rarr;</button>
+    <span class="cta-note">Opens a quick registration form &nbsp;&middot;&nbsp; Takes about 5 minutes</span>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="enrollModal" role="dialog" aria-modal="true" aria-label="Enrollment Form">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Kid Works Enrollment Application</span>
+      <button class="modal-close" onclick="closeModal()" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <iframe id="modalFrame" src="" data-src="{{ embed_form_url }}" title="Enrollment Form" scrolling="no"></iframe>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  &copy; 2026 Kid Works Children's Center &nbsp;&mdash;&nbsp; 3621 E Broadway, Long Beach, CA 90803 &nbsp;&mdash;&nbsp; (562) 438-4904
+</footer>
+
+<script>
+  var modalOpen = false;
+
+  function openModal() {
+    var overlay = document.getElementById('enrollModal');
+    var frame = document.getElementById('modalFrame');
+    if (!frame.src || frame.src === window.location.href) {
+      frame.src = frame.getAttribute('data-src');
+      iFrameResize({ log: false, checkOrigin: false }, frame);
+    }
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    modalOpen = true;
+  }
+
+  function closeModal() {
+    document.getElementById('enrollModal').classList.remove('open');
+    document.body.style.overflow = '';
+    modalOpen = false;
+  }
+
+  document.getElementById('enrollModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && modalOpen) closeModal();
+  });
+
+  window.addEventListener('message', function(e) {
+    if (e.data === 'formSubmitted') closeModal();
+  });
+</script>
+</body>
+</html>

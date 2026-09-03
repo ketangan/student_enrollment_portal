@@ -405,5 +405,6 @@ from core.models import DemoAccessToken, School; from django.utils import timezo
 | `duc-learning-center-demo` | `duc-learning-center` | `duc` | `seed_duc_demo` |
 | `bhg-demo` | `beverly-hills-gymnastics` | `bhg` | `seed_bhg_demo` |
 | `wfm-demo` | `world-famed-masters` | `wfm` | `seed_wfm_demo` |
+| `kidworks-demo` | `kidworks-childrens-center` | `kw` | `seed_kidworks_demo` |
 
 Use these seed scripts as working references when building a new one.

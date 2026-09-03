@@ -1,0 +1,228 @@
+/* Kid Works Children's Center — Form Styles
+   Brand: #663018 (russet) primary, #f7e300 (yellow) accent, warm cream background
+   Fonts: Urbanist (body), Asap Condensed (headings)
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700&family=Asap+Condensed:wght@400;600;700&display=swap');
+
+/* ── Base typography ── */
+body {
+  font-family: 'Urbanist', sans-serif;
+  color: #2d1a0a;
+  background: #fdf9f3;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, .success-title {
+  font-family: 'Asap Condensed', 'Urbanist', sans-serif;
+  color: #663018;
+  letter-spacing: 0.01em;
+}
+
+/* ── Inputs ── */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="date"],
+input[type="number"],
+select,
+textarea {
+  background: #ffffff !important;
+  border: 1px solid #d8c8b4 !important;
+  border-radius: 8px !important;
+  color: #2d1a0a !important;
+  font-family: 'Urbanist', sans-serif !important;
+  font-size: 14px !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="tel"]:focus,
+input[type="date"]:focus,
+input[type="number"]:focus,
+select:focus,
+textarea:focus {
+  border-color: #663018 !important;
+  box-shadow: 0 0 0 3px rgba(102, 48, 24, 0.12) !important;
+  outline: none !important;
+}
+
+/* ── Submit button ── */
+button[type="submit"],
+input[type="submit"],
+.btn-submit {
+  background: #663018 !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-family: 'Urbanist', sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  font-size: 15px !important;
+  padding: 15px 40px !important;
+  transition: background 0.2s ease !important;
+}
+
+button[type="submit"]:hover,
+input[type="submit"]:hover,
+.btn-submit:hover {
+  background: #4d2412 !important;
+}
+
+/* ── Labels ── */
+label,
+.form-label,
+.field-label {
+  font-family: 'Urbanist', sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #4a2e18 !important;
+}
+
+/* ── Required star ── */
+.req,
+.required,
+.required-star,
+.required-marker {
+  color: #c0392b !important;
+}
+
+/* ── Section headings ── */
+.form-section-heading,
+.section-title {
+  font-family: 'Asap Condensed', 'Urbanist', sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: #663018 !important;
+  letter-spacing: 0.03em !important;
+  text-transform: uppercase !important;
+  border-bottom: 2px solid #e8d9c8 !important;
+  padding-bottom: 10px !important;
+  margin-bottom: 20px !important;
+}
+
+/* ── Checkboxes ── */
+input[type="checkbox"]:checked {
+  accent-color: #663018;
+}
+
+/* ── Error states ── */
+.field-error input,
+.field-error select,
+.field-error textarea {
+  border-color: #c0392b !important;
+}
+
+.error-msg,
+.field-error,
+.form-error,
+.errorlist {
+  color: #c0392b !important;
+  font-size: 12px !important;
+  font-family: 'Urbanist', sans-serif !important;
+}
+
+/* ── Help text ── */
+.form-help-text,
+.help-text,
+small {
+  color: #8a7060 !important;
+  font-size: 12px !important;
+  font-family: 'Urbanist', sans-serif !important;
+}
+
+/* ── Success state ── */
+.success-icon {
+  color: #663018 !important;
+}
+
+.success-title {
+  font-family: 'Asap Condensed', 'Urbanist', sans-serif !important;
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  color: #663018 !important;
+}
+
+/* ── Form header (apply_form.html) ── */
+.school-form-header {
+  background: #fdf9f3;
+  border-bottom: 2px solid #e8d9c8;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.school-form-header .school-name {
+  color: #663018;
+  font-family: 'Asap Condensed', 'Urbanist', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.school-form-header .school-tagline {
+  color: #8a7060;
+  font-size: 11px;
+  margin-top: 2px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── Select options ── */
+select option {
+  background: #ffffff;
+  color: #2d1a0a;
+}
+
+/* ── Waiver box — borderless, just a faint tint ── */
+.waiver-box {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  gap: 10px !important;
+}
+
+.waiver-text {
+  color: #6e6e6e !important;
+  font-style: italic !important;
+}
+
+.waiver-link {
+  color: #663018 !important;
+  font-weight: 700 !important;
+  text-underline-offset: 3px !important;
+}
+
+.waiver-link:hover {
+  color: #4d2412 !important;
+}
+
+/* ── Radio pills ── */
+.radio-pill {
+  border-color: #d8c8b4 !important;
+  background: #ffffff !important;
+  color: #4a2e18 !important;
+}
+
+.radio-pill:hover {
+  border-color: #a07050 !important;
+}
+
+.radio-pill:has(input:checked) {
+  border-color: #663018 !important;
+  background: rgba(102, 48, 24, 0.06) !important;
+  color: #663018 !important;
+}
+
+/* ── Mobile ── */
+@media (max-width: 640px) {
+  button[type="submit"],
+  input[type="submit"],
+  .btn-submit {
+    padding: 14px 28px !important;
+  }
+}

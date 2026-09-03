@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enrollment Application | Kid Works Children's Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700&family=Asap+Condensed:wght@400;600;700&display=swap">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Urbanist', sans-serif; color: #2d1a0a; background: #fdf9f3; -webkit-font-smoothing: antialiased; }
+  a { text-decoration: none; color: inherit; }
+
+  .top-bar { background: #3d1a08; padding: 7px 40px; display: flex; justify-content: flex-end; gap: 24px; font-size: 11px; color: rgba(255,255,255,.6); letter-spacing: .04em; }
+
+  .site-header {
+    background: #ffffff; border-bottom: 2px solid #e8d9c8; padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between; height: 84px;
+    position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(102,48,24,.06);
+  }
+  .logo-wrap { display: flex; align-items: center; }
+  .logo-img { height: 56px; width: auto; }
+  .logo-fallback { font-family: 'Asap Condensed', sans-serif; font-size: 22px; font-weight: 700; color: #663018; }
+  .site-nav { display: flex; gap: 6px; list-style: none; }
+  .site-nav a {
+    display: block; padding: 7px 16px; border-radius: 100px;
+    background: #663018; color: #ffffff;
+    font-size: 12px; font-weight: 600; letter-spacing: .02em;
+    transition: background .15s;
+  }
+  .site-nav a:hover { background: #4d2412; }
+  .site-nav .active a { background: #f7e300; color: #2d1a0a; }
+
+  .page-hero { background: #663018; padding: 48px 40px 36px; text-align: center; }
+  .page-hero .eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #f7e300; margin-bottom: 12px; }
+  .page-hero h1 { font-family: 'Asap Condensed', sans-serif; font-size: 36px; color: #ffffff; font-weight: 700; letter-spacing: .01em; }
+  .page-hero .breadcrumb { margin-top: 10px; font-size: 11px; color: rgba(255,255,255,.45); }
+  .page-hero .breadcrumb a { color: rgba(255,255,255,.65); }
+
+  .page-content { max-width: 840px; margin: 0 auto; padding: 52px 24px 80px; }
+  .section-heading { font-family: 'Asap Condensed', sans-serif; font-size: 26px; color: #663018; font-weight: 700; margin-bottom: 32px; text-align: center; }
+
+  .steps-list { list-style: none; display: flex; flex-direction: column; gap: 28px; }
+  .step-item { display: flex; gap: 18px; align-items: flex-start; }
+  .step-num {
+    flex-shrink: 0; width: 36px; height: 36px; background: #663018; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; margin-top: 2px;
+    font-size: 14px; font-weight: 700; color: #ffffff;
+  }
+  .step-body h3 { font-size: 16px; color: #2d1a0a; margin-bottom: 6px; font-weight: 600; }
+  .step-body p { font-size: 14px; color: #6e6e6e; line-height: 1.7; }
+  .step-cta {
+    display: inline-block; margin-top: 16px; background: #663018; color: #ffffff;
+    padding: 12px 28px; border-radius: 6px; font-size: 12px; font-weight: 700;
+    letter-spacing: .04em; transition: background .15s;
+  }
+  .step-cta:hover { background: #4d2412; }
+  .step-cta-note { display: block; margin-top: 8px; font-size: 11px; color: #a89080; }
+
+  .cta-banner { background: #663018; padding: 56px 24px; text-align: center; }
+  .cta-banner h2 { font-family: 'Asap Condensed', sans-serif; font-size: 32px; color: #f7e300; font-weight: 700; margin-bottom: 12px; }
+  .cta-banner p { color: rgba(255,255,255,.75); font-size: 15px; line-height: 1.7; margin-bottom: 32px; }
+  .btn-cta {
+    display: inline-block; background: #f7e300; color: #2d1a0a;
+    padding: 16px 48px; border-radius: 8px; font-size: 15px;
+    font-weight: 700; letter-spacing: .02em; transition: background .15s, opacity .15s;
+  }
+  .btn-cta:hover { background: #e8d400; }
+  .btn-note { margin-top: 14px; color: rgba(255,255,255,.4); font-size: 12px; }
+
+  .site-footer { background: #3d1a08; color: rgba(255,255,255,.4); text-align: center; padding: 28px; font-size: 12px; letter-spacing: .02em; }
+
+  @media (max-width: 700px) {
+    .top-bar, .site-nav { display: none; }
+    .site-header { padding: 0 18px; height: 72px; }
+    .page-hero { padding: 34px 18px 26px; }
+    .page-hero h1 { font-size: 28px; }
+    .page-content { padding: 36px 18px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span>(562) 438-4904</span>
+  <span>Info@KidWorksChildrensCenter.com</span>
+</div>
+
+<header class="site-header">
+  <a href="https://kidworkschildrenscenter.com/" class="logo-wrap">
+    <img src="https://i0.wp.com/kidworkschildrenscenter.com/wp-content/uploads/2024/01/kidworks_new_difffonts_gordsans-edited-1.png"
+         alt="Kid Works Children's Center" class="logo-img"
+         onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
+    <span class="logo-fallback" style="display:none;">Kid Works Children's Center</span>
+  </a>
+  <nav>
+    <ul class="site-nav">
+      <li><a href="https://kidworkschildrenscenter.com/">Home</a></li>
+      <li><a href="https://kidworkschildrenscenter.com/our-programs/">Our Programs</a></li>
+      <li><a href="https://kidworkschildrenscenter.com/about-us/">About Us</a></li>
+      <li class="active"><a href="#">Enrollment</a></li>
+    </ul>
+  </nav>
+</header>
+
+<div class="page-hero">
+  <p class="eyebrow">Kid Works Children's Center</p>
+  <h1>Enrollment Application</h1>
+  <p class="breadcrumb"><a href="#">Home</a> &rsaquo; Enrollment</p>
+</div>
+
+<div class="page-content">
+
+  <h2 class="section-heading">How Enrollment Works</h2>
+
+  <ol class="steps-list">
+    <li class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h3>Submit this form</h3>
+        <p>Fill in your child's information, the program you're interested in, and any health or scheduling notes. Takes about 5 minutes.</p>
+        <a href="{{ form_url }}" class="step-cta">Start Enrollment &rarr;</a>
+        <span class="step-cta-note">Opens the enrollment form</span>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h3>We'll reach out within 1–2 business days</h3>
+        <p>Our team reviews each application and contacts you to discuss your child's age, program availability, and any special accommodations needed.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h3>Schedule a center tour (optional)</h3>
+        <p>We love having families come in and meet the teachers and see the classrooms. Tours are always welcome before finalizing enrollment.</p>
+      </div>
+    </li>
+    <li class="step-item">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h3>Complete enrollment paperwork</h3>
+        <p>Once confirmed, we'll send enrollment paperwork covering tuition, emergency contacts, health forms, and the family handbook.</p>
+      </div>
+    </li>
+  </ol>
+
+</div>
+
+<div class="cta-banner">
+  <h2>Ready to apply?</h2>
+  <p>
+    Our programs fill quickly — especially the Bungalow (age 2) and Sun Room (ages 4–5).<br>
+    Submit your application today to hold your spot.
+  </p>
+  <a href="{{ form_url }}" class="btn-cta">Begin Enrollment Application</a>
+  <p class="btn-note">Mon–Fri, 8am–5pm · (562) 438-4904</p>
+</div>
+
+<footer class="site-footer">
+  &copy; 2026 Kid Works Children's Center &nbsp;&mdash;&nbsp; 3621 E Broadway, Long Beach, CA 90803 &nbsp;&mdash;&nbsp; (562) 438-4904
+</footer>
+
+</body>
+</html>
