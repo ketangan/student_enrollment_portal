@@ -336,13 +336,13 @@
         <!-- Source picker -->
         <div style="display:inline-flex;border:1px solid var(--dash-border);border-radius:8px;
                     overflow:hidden;margin-bottom:20px;">
-          <label id="tab-enrollify"
+          <label id="tab-pontora"
                  style="display:flex;align-items:center;gap:7px;padding:8px 18px;cursor:pointer;
                         font-size:13px;font-weight:600;transition:background .12s,color .12s;user-select:none;
                         {% if not school.smtp_host %}background:var(--dash-primary);color:#fff;{% else %}background:var(--dash-bg);color:var(--dash-muted);{% endif %}">
-            <input type="radio" name="_smtp_source" value="enrollify" style="display:none;"
+            <input type="radio" name="_smtp_source" value="pontora" style="display:none;"
                    {% if not school.smtp_host %}checked{% endif %}
-                   onchange="smtpMode('enrollify')">
+                   onchange="smtpMode('pontora')">
             Pontora email
           </label>
           <label id="tab-custom"
@@ -358,7 +358,7 @@
         </div>
 
         <!-- Enrollify description (shown in Enrollify mode) -->
-        <div id="smtp-enrollify-desc" style="{% if school.smtp_host %}display:none;{% endif %}margin-bottom:4px;">
+        <div id="smtp-pontora-desc" style="{% if school.smtp_host %}display:none;{% endif %}margin-bottom:4px;">
           <p style="font-size:13px;color:var(--dash-muted);margin:0 0 16px;">
             Emails are sent from <strong>noreply@mypontora.com</strong> via Pontora's delivery service.
             No configuration required.
@@ -1104,15 +1104,15 @@ function copyField(inputId, btnId, msg) {
 // SMTP delivery mode toggle
 function smtpMode(mode) {
   var fields   = document.getElementById('smtp-fields');
-  var desc     = document.getElementById('smtp-enrollify-desc');
+  var desc     = document.getElementById('smtp-pontora-desc');
   var action   = document.getElementById('smtp-action');
-  var tabE     = document.getElementById('tab-enrollify');
+  var tabE     = document.getElementById('tab-pontora');
   var tabC     = document.getElementById('tab-custom');
   var primary  = getComputedStyle(document.documentElement).getPropertyValue('--dash-primary').trim() || '#2563eb';
   var muted    = getComputedStyle(document.documentElement).getPropertyValue('--dash-muted').trim()   || '#6b7280';
   var bg       = getComputedStyle(document.documentElement).getPropertyValue('--dash-bg').trim()      || '#f9fafb';
 
-  if (mode === 'enrollify') {
+  if (mode === 'pontora') {
     fields.style.display  = 'none';
     desc.style.display    = '';
     action.value          = 'clear_smtp';

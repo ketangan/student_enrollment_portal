@@ -203,7 +203,7 @@ def test_apply_success_redirects_when_redirect_url_set(client, db):
     with patch("core.views_public.load_school_config", return_value=mock_config):
         # Set the session key as the submit flow would
         session = client.session
-        session["_enrollify_last_form_key"] = "default"
+        session["_pontora_last_form_key"] = "default"
         session.save()
 
         resp = client.get(reverse("apply_success", kwargs={"school_slug": "redir-school"}))
@@ -252,7 +252,7 @@ def test_apply_success_per_form_redirect_overrides_global(client, db):
 
     with patch("core.views_public.load_school_config", return_value=mock_config):
         session = client.session
-        session["_enrollify_last_form_key"] = "trial"
+        session["_pontora_last_form_key"] = "trial"
         session.save()
 
         resp = client.get(reverse("apply_success", kwargs={"school_slug": "multiredir-school"}))

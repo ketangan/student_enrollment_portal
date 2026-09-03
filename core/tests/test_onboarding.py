@@ -547,7 +547,7 @@ def test_onboarding_token_logs_in_regardless_of_is_demo(client, demo_school, dem
 # ── qr_base64 ─────────────────────────────────────────────────────────────────
 
 def test_qr_base64_returns_nonempty_string():
-    result = qr_base64("https://app.enrollifyapp.com/apply/test-school/")
+    result = qr_base64("https://app.mypontora.com/apply/test-school/")
     assert len(result) > 100  # base64 PNG will be much longer
     # Verify it's valid base64
     import base64

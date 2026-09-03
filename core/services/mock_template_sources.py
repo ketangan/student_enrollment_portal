@@ -75,12 +75,12 @@ def fetch_mock_template_source(source: MockTemplateSource) -> dict:
 
 def _repo_context() -> tuple[str, str, str, str]:
     owner = getattr(settings, "MOCK_TEMPLATE_GITHUB_OWNER", "ketangan")
-    repo = getattr(settings, "MOCK_TEMPLATE_GITHUB_REPO", "enrollify-outreach")
+    repo = getattr(settings, "MOCK_TEMPLATE_GITHUB_REPO", "pontora-outreach")
     branch = getattr(settings, "MOCK_TEMPLATE_GITHUB_BRANCH", "main")
     token = getattr(settings, "MOCK_TEMPLATE_GITHUB_TOKEN", "")
     return (
         str(owner).strip() or "ketangan",
-        str(repo).strip() or "enrollify-outreach",
+        str(repo).strip() or "pontora-outreach",
         str(branch).strip() or "main",
         str(token).strip(),
     )

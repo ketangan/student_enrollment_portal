@@ -502,8 +502,8 @@ def _complete_submission_from_draft(
     else:
         _maybe_set_waitlist_flag(request, school, submission.data or {}, raw_config)
 
-    request.session["_enrollify_last_form_key"] = draft.last_form_key or draft.form_key or "default"
-    request.session["_enrollify_submission_public_id"] = submission.public_id
+    request.session["_pontora_last_form_key"] = draft.last_form_key or draft.form_key or "default"
+    request.session["_pontora_submission_public_id"] = submission.public_id
     return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
 
@@ -723,8 +723,8 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                     logger.exception("Failed to send applicant confirmation email")
 
             _maybe_set_waitlist_flag(request, school, submission.data or {}, raw_config)
-            request.session["_enrollify_last_form_key"] = form_key
-            request.session["_enrollify_submission_public_id"] = submission.public_id
+            request.session["_pontora_last_form_key"] = form_key
+            request.session["_pontora_submission_public_id"] = submission.public_id
             return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
         # GET: pre-populate from session draft
@@ -1132,7 +1132,7 @@ def apply_success_view(request, school_slug: str):
     success_cfg = (getattr(config, "raw", None) or {}).get("success", {}) or {}
 
     # Post-submit redirect: per-form key takes priority over top-level success.redirect_url
-    _last_form_key = request.session.pop("_enrollify_last_form_key", "default")
+    _last_form_key = request.session.pop("_pontora_last_form_key", "default")
     _forms_cfg = (getattr(config, "raw", None) or {}).get("forms", {}) or {}
     _redirect_url = ""
     if _last_form_key and _last_form_key != "default" and _last_form_key in _forms_cfg:
@@ -1165,7 +1165,7 @@ def apply_success_view(request, school_slug: str):
 
     # Waitlist flag — set by submit flow when program is at capacity.
     on_waitlist = request.session.pop(_WAITLIST_SESSION_KEY, False)
-    submission_public_id = request.session.pop("_enrollify_submission_public_id", "")
+    submission_public_id = request.session.pop("_pontora_submission_public_id", "")
     waitlist_message = ""
     if on_waitlist:
         raw_config = getattr(config, "raw", None) or {}
