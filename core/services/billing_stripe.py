@@ -138,6 +138,19 @@ def price_to_plan(price_id: str) -> str | None:
     return None
 
 
+def _stripe_object_to_dict(value) -> dict:
+    """Return a plain dict for Stripe SDK resources and test dictionaries."""
+    if not value:
+        return {}
+    if isinstance(value, dict):
+        return value
+    if hasattr(value, "to_dict_recursive"):
+        return value.to_dict_recursive()
+    if hasattr(value, "to_dict"):
+        return value.to_dict()
+    return {}
+
+
 # ---------------------------------------------------------------------------
 # Checkout Session
 # ---------------------------------------------------------------------------
@@ -231,6 +244,7 @@ def handle_checkout_completed(session_data: dict) -> None:
     """Handle checkout.session.completed — link Stripe customer + subscription to school."""
     from core.models import School
 
+    session_data = _stripe_object_to_dict(session_data)
     metadata = session_data.get("metadata") or {}
     school_slug = metadata.get("school_slug")
     if not school_slug:
@@ -270,7 +284,7 @@ def handle_checkout_completed(session_data: dict) -> None:
         try:
             stripe = _get_stripe()
             if stripe:
-                sub = stripe.Subscription.retrieve(subscription_id)
+                sub = _stripe_object_to_dict(stripe.Subscription.retrieve(subscription_id))
                 if sub and sub.get("items", {}).get("data"):
                     price_id = sub["items"]["data"][0].get("price", {}).get("id", "")
                     plan = price_to_plan(price_id)
@@ -311,6 +325,7 @@ def handle_subscription_updated(subscription_data: dict) -> None:
     """Handle customer.subscription.updated — sync status + plan."""
     from core.models import School
 
+    subscription_data = _stripe_object_to_dict(subscription_data)
     sub_id = subscription_data.get("id", "")
     status = subscription_data.get("status", "")
 
@@ -386,6 +401,7 @@ def handle_subscription_deleted(subscription_data: dict) -> None:
     """Handle customer.subscription.deleted — lock school, keep plan."""
     from core.models import School
 
+    subscription_data = _stripe_object_to_dict(subscription_data)
     sub_id = subscription_data.get("id", "")
 
     school = School.objects.filter(stripe_subscription_id=sub_id).first()

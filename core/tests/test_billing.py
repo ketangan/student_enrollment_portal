@@ -32,6 +32,16 @@ from core.services.billing_stripe import (
 from core.tests.factories import SchoolFactory, SchoolAdminMembershipFactory, UserFactory
 
 
+class FakeStripeResource:
+    """Minimal StripeObject stand-in: convertible, but not dict-like."""
+
+    def __init__(self, data):
+        self._data = data
+
+    def to_dict_recursive(self):
+        return self._data
+
+
 # ---------------------------------------------------------------------------
 # Model field tests
 # ---------------------------------------------------------------------------
@@ -167,6 +177,31 @@ class TestHandleCheckoutCompleted:
         assert school.stripe_cancel_at_period_end is False
         assert school.stripe_current_period_end is None
 
+    def test_accepts_stripe_resource_objects(self):
+        """Live Stripe webhooks and retrieve() responses are Stripe resources, not dicts."""
+        school = SchoolFactory(plan="trial")
+        session_data = FakeStripeResource({
+            "metadata": {"school_slug": school.slug},
+            "customer": "cus_live",
+            "subscription": "sub_live",
+            "line_items": {"data": []},
+        })
+
+        with patch("core.services.billing_stripe._get_stripe") as mock_stripe:
+            mock_stripe.return_value.Subscription.retrieve.return_value = FakeStripeResource({
+                "items": {"data": [{"price": {"id": "price_starter_live"}}]},
+                "status": "active",
+            })
+
+            with override_settings(STRIPE_PRICE_STARTER_MONTHLY="price_starter_live"):
+                handle_checkout_completed(session_data)
+
+        school.refresh_from_db()
+        assert school.stripe_customer_id == "cus_live"
+        assert school.stripe_subscription_id == "sub_live"
+        assert school.plan == "starter"
+        assert school.stripe_subscription_status == "active"
+
     def test_ignores_missing_school_slug(self):
         """Should not crash when metadata is empty."""
         handle_checkout_completed({"metadata": {}, "customer": "cus_x"})
@@ -211,6 +246,22 @@ class TestHandleSubscriptionUpdated:
         })
         school.refresh_from_db()
         assert school.stripe_subscription_status == "past_due"
+
+    def test_accepts_stripe_resource_objects(self):
+        school = SchoolFactory(
+            stripe_subscription_id="sub_live_upd",
+            stripe_subscription_status="active",
+            plan="trial",
+        )
+        with override_settings(STRIPE_PRICE_STARTER_MONTHLY="price_starter_live"):
+            handle_subscription_updated(FakeStripeResource({
+                "id": "sub_live_upd",
+                "status": "active",
+                "items": {"data": [{"price": {"id": "price_starter_live"}}]},
+            }))
+        school.refresh_from_db()
+        assert school.stripe_subscription_status == "active"
+        assert school.plan == "starter"
 
     def test_no_school_found(self):
         """Should not crash for unknown subscription."""
@@ -351,6 +402,18 @@ class TestHandleSubscriptionDeleted:
         assert school.plan == "starter"  # Plan unchanged (Option A)
         assert school.stripe_subscription_status == "canceled"
         assert school.is_active is False  # Locked
+
+    def test_accepts_stripe_resource_objects(self):
+        school = SchoolFactory(
+            stripe_subscription_id="sub_live_del",
+            stripe_subscription_status="active",
+            plan="starter",
+            is_active=True,
+        )
+        handle_subscription_deleted(FakeStripeResource({"id": "sub_live_del"}))
+        school.refresh_from_db()
+        assert school.stripe_subscription_status == "canceled"
+        assert school.is_active is False
 
     def test_clears_cancel_scheduling_fields(self):
         """subscription.deleted should clear cancel scheduling fields."""
