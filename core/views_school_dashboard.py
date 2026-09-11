@@ -994,7 +994,10 @@ def school_billing_view(request, school_slug: str):
     GET /schools/<slug>/admin/billing/
     """
     from core.services.billing_stripe import (
-        get_pricing_options, is_stripe_configured,
+        get_founder_pricing_options,
+        get_pricing_options,
+        is_founder_pricing_enabled,
+        is_stripe_configured,
     )
     school = _get_accessible_school_for_admin(request, school_slug)
     require_school_role(request, school, "owner")
@@ -1033,6 +1036,15 @@ def school_billing_view(request, school_slug: str):
     else:
         billing_state = "trial"
 
+    founder_pricing_options = []
+    if (
+        stripe_configured
+        and is_founder_pricing_enabled(school)
+        and school.plan not in ff.MANUALLY_MANAGED_PLANS
+        and not school.has_active_stripe_subscription
+    ):
+        founder_pricing_options = get_founder_pricing_options()
+
     plan_display = dict(ff.PLAN_CHOICES).get(school.plan, school.plan)
 
     from core.models import TRIAL_LENGTH_DAYS
@@ -1041,6 +1053,7 @@ def school_billing_view(request, school_slug: str):
     ctx.update({
         "plan_display": plan_display,
         "pricing": pricing,
+        "founder_pricing_options": founder_pricing_options,
         "billing_state": billing_state,
         "has_subscription": has_subscription,
         "cancel_at": school.stripe_cancel_at,
@@ -1064,7 +1077,11 @@ def school_billing_checkout_view(request, school_slug: str):
     POST /schools/<slug>/admin/billing/checkout/
     """
     from core.services.billing_stripe import (
-        create_checkout_session, get_pricing_options, is_stripe_configured,
+        create_checkout_session,
+        get_founder_pricing_options,
+        get_pricing_options,
+        is_founder_pricing_enabled,
+        is_stripe_configured,
     )
     school = _get_accessible_school_for_admin(request, school_slug)
     require_school_role(request, school, "owner")
@@ -1091,6 +1108,9 @@ def school_billing_checkout_view(request, school_slug: str):
         opt["price_id"] for opt in get_pricing_options()
         if opt["plan"] not in ff.MANUALLY_MANAGED_PLANS
     }
+    if is_founder_pricing_enabled(school) and not school.has_active_stripe_subscription:
+        valid_price_ids.update(opt["price_id"] for opt in get_founder_pricing_options())
+
     if price_id not in valid_price_ids:
         messages.error(request, "Invalid price selection.")
         return redirect(billing_url)

@@ -1,8 +1,10 @@
 import copy
 import csv
+import hashlib
 import io
 import json
 import logging
+import secrets
 import threading
 import zipfile
 from collections import Counter
@@ -97,6 +99,117 @@ from .services.integrations import get_export_configs, normalize_csv_value, reso
 from .services.ai_summary import generate_ai_summary
 
 _DRAFT_RESEND_COOLDOWN_MINUTES = 5
+_DUPLICATE_SUBMISSION_WINDOW = timedelta(minutes=30)
+_SUBMIT_TOKEN_BYTES = 24
+
+
+def _new_submit_token() -> str:
+    return secrets.token_urlsafe(_SUBMIT_TOKEN_BYTES)
+
+
+def _clean_submit_token(value: str | None) -> str:
+    return str(value or "").strip()[:128]
+
+
+def _stable_submit_fingerprint_data(data):
+    if isinstance(data, dict):
+        return {
+            key: _stable_submit_fingerprint_data(value)
+            for key, value in data.items()
+            if not (str(key).endswith("__at") or str(key).endswith("__ip"))
+        }
+    if isinstance(data, list):
+        return [_stable_submit_fingerprint_data(value) for value in data]
+    return data
+
+
+def _submission_submit_fingerprint(school: School, form_key: str, submit_token: str | None, data: dict) -> str:
+    token = _clean_submit_token(submit_token)
+    if not token:
+        return ""
+
+    payload = {
+        "school_id": school.pk,
+        "form_key": form_key or "default",
+        "submit_token": token,
+        "data": _stable_submit_fingerprint_data(data or {}),
+    }
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _first_nonempty(data: dict, keys) -> str:
+    for key in keys:
+        raw = data.get(key)
+        if isinstance(raw, list):
+            raw = " ".join(str(item) for item in raw if item is not None)
+        value = str(raw or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _normalize_identity_text(value: str) -> str:
+    return " ".join(str(value or "").lower().strip().split())
+
+
+def _normalize_identity_phone(value: str) -> str:
+    return "".join(ch for ch in str(value or "") if ch.isdigit())
+
+
+def _submission_duplicate_identity(school: School, data: dict) -> dict:
+    data = data or {}
+    first = _first_nonempty(data, ("student_first_name", "first_name", "child_first_name"))
+    last = _first_nonempty(data, ("student_last_name", "last_name", "child_last_name"))
+    student_name = f"{first} {last}".strip() or _first_nonempty(data, ("applicant_name", "student_name", "child_name"))
+
+    program_keys = []
+    if school.program_field_key:
+        program_keys.append(school.program_field_key)
+    program_keys.extend(sorted(PROGRAM_FIELD_KEYS | {"instrument", "class_name"}))
+
+    return {
+        "student": _normalize_identity_text(student_name),
+        "dob": _normalize_identity_text(_first_nonempty(data, ("student_birthday", "date_of_birth", "child_birthdate", "birth_date"))),
+        "email": _normalize_identity_text(_first_nonempty(data, Submission._SEARCH_EMAIL_KEYS)),
+        "phone": _normalize_identity_phone(_first_nonempty(data, Submission._SEARCH_PHONE_KEYS)),
+        "program": _normalize_identity_text(_first_nonempty(data, program_keys)),
+    }
+
+
+def _find_recent_duplicate_submission(
+    *,
+    school: School,
+    form_key: str,
+    data: dict,
+    window: timedelta = _DUPLICATE_SUBMISSION_WINDOW,
+) -> Submission | None:
+    identity = _submission_duplicate_identity(school, data)
+    if not identity["student"] or not (identity["email"] or identity["phone"]):
+        return None
+
+    since = timezone.now() - window
+    candidates = (
+        Submission.objects
+        .filter(school=school, form_key=form_key or "default", created_at__gte=since)
+        .order_by("-created_at")[:100]
+    )
+    for candidate in candidates:
+        if _submission_duplicate_identity(school, candidate.data or {}) == identity:
+            return candidate
+    return None
+
+
+def _redirect_existing_submission_success(request, school_slug: str, submission: Submission, form_key: str = "default"):
+    request.session["_pontora_last_form_key"] = form_key or "default"
+    request.session["_pontora_submission_public_id"] = submission.public_id
+    return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
+
+
+def _find_submission_by_fingerprint(school: School, fingerprint: str) -> Submission | None:
+    if not fingerprint:
+        return None
+    return Submission.objects.filter(school=school, submit_fingerprint=fingerprint).first()
 
 
 def _strip_file_fields(form_cfg: dict) -> dict:
@@ -387,6 +500,7 @@ def _apply_form_context(
     next_key: str | None,
     errors: dict,
     values,
+    submit_token: str | None = None,
 ) -> dict:
     # Keep context keys stable across branches (tests + templates rely on these).
     return {
@@ -398,6 +512,7 @@ def _apply_form_context(
         "next_key": next_key,
         "errors": errors,
         "values": values,
+        "submit_token": submit_token or _new_submit_token(),
     }
 
 
@@ -417,30 +532,76 @@ def _complete_submission_from_draft(
     Finalise a DraftSubmission → Submission, run post-processing, and redirect to success.
     Used by both the normal (no-fee) submit path and the payment confirm path.
     """
+    duplicate_submission = None
+    submission = None
+    submission_form_key = draft.form_key or "default"
+    submit_fingerprint = _submission_submit_fingerprint(
+        school,
+        submission_form_key,
+        request.POST.get("_submit_token"),
+        dict(draft.data or {}),
+    )
+
+    existing_by_fingerprint = _find_submission_by_fingerprint(school, submit_fingerprint)
+    if existing_by_fingerprint:
+        return _redirect_existing_submission_success(
+            request,
+            school_slug,
+            existing_by_fingerprint,
+            form_key=draft.last_form_key or submission_form_key,
+        )
+
     # Duplicate guard: lock the draft and verify it hasn't been submitted yet.
     # Two browser tabs submitting the same form concurrently must produce only one Submission.
-    with transaction.atomic():
-        _locked = (
-            DraftSubmission.objects
-            .select_for_update()
-            .filter(pk=draft.pk, submitted_at__isnull=True)
-            .first()
-        )
-        if not _locked:
-            # Already submitted (race or payment double-confirm) — redirect silently.
-            return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
+    try:
+        with transaction.atomic():
+            _locked = (
+                DraftSubmission.objects
+                .select_for_update()
+                .filter(pk=draft.pk, submitted_at__isnull=True)
+                .first()
+            )
+            if not _locked:
+                # Already submitted (race or payment double-confirm) — redirect silently.
+                return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
-        submission = Submission.objects.create(
-            school=school,
-            form_key=draft.form_key or "default",
-            data=dict(draft.data or {}),
-            payment_intent_id=payment_intent_id,
-            payment_status=payment_status,
-        )
-        _locked.submitted_at = timezone.now()
-        _locked.save(update_fields=["submitted_at"])
+            duplicate_submission = _find_recent_duplicate_submission(
+                school=school,
+                form_key=submission_form_key,
+                data=dict(draft.data or {}),
+            )
+
+            if duplicate_submission is None:
+                submission = Submission.objects.create(
+                    school=school,
+                    form_key=submission_form_key,
+                    data=dict(draft.data or {}),
+                    payment_intent_id=payment_intent_id,
+                    payment_status=payment_status,
+                    submit_fingerprint=submit_fingerprint or None,
+                )
+            _locked.submitted_at = timezone.now()
+            _locked.save(update_fields=["submitted_at"])
+    except IntegrityError:
+        existing_by_fingerprint = _find_submission_by_fingerprint(school, submit_fingerprint)
+        if existing_by_fingerprint:
+            return _redirect_existing_submission_success(
+                request,
+                school_slug,
+                existing_by_fingerprint,
+                form_key=draft.last_form_key or submission_form_key,
+            )
+        raise
 
     request.session.pop(_draft_session_key(school_slug), None)
+
+    if duplicate_submission is not None:
+        return _redirect_existing_submission_success(
+            request,
+            school_slug,
+            duplicate_submission,
+            form_key=draft.last_form_key or submission_form_key,
+        )
 
     try:
         try_convert_lead(school=school, submission=submission, config_raw=raw_config, lead=draft.lead)
@@ -627,46 +788,86 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
             # and submitting sequentially or concurrently must not produce two Submissions.
             _hidden_draft_token = request.POST.get("_draft_token", "").strip()
             active_draft = _resolve_active_draft(request, school, school_slug)
-
-            with transaction.atomic():
-                if active_draft:
-                    # Re-fetch under a lock so a truly-concurrent second tab must wait.
-                    # If it was submitted while we waited, the NULL filter drops it.
-                    active_draft = (
-                        DraftSubmission.objects
-                        .select_for_update()
-                        .filter(pk=active_draft.pk, school=school, submitted_at__isnull=True)
-                        .first()
-                    )
-                    if not active_draft:
-                        # Another tab won the race and already submitted.
-                        return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
-                elif _hidden_draft_token:
-                    # Session was cleared (a prior tab already submitted this draft).
-                    # Use the hidden token to detect the duplicate.
-                    _prior = (
-                        DraftSubmission.objects
-                        .select_for_update()
-                        .filter(token=_hidden_draft_token, school=school)
-                        .first()
-                    )
-                    if _prior and _prior.is_submitted():
-                        return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
-
-                submission = Submission.objects.create(
-                    school=school,
-                    form_key="default",
-                    data=cleaned,
-                    payment_status="waived" if (fee_cfg["enabled"] and fee_cfg["waived"]) else "",
+            submit_fingerprint = _submission_submit_fingerprint(
+                school,
+                "default",
+                request.POST.get("_submit_token"),
+                cleaned,
+            )
+            existing_by_fingerprint = _find_submission_by_fingerprint(school, submit_fingerprint)
+            if existing_by_fingerprint:
+                return _redirect_existing_submission_success(
+                    request,
+                    school_slug,
+                    existing_by_fingerprint,
                 )
 
-                # Mark draft submitted inside the same transaction so no second tab
-                # can create a Submission between now and the committed mark.
-                if active_draft:
-                    active_draft.submitted_at = timezone.now()
-                    active_draft.save(update_fields=["submitted_at"])
+            duplicate_submission = None
+            submission = None
+            try:
+                with transaction.atomic():
+                    if active_draft:
+                        # Re-fetch under a lock so a truly-concurrent second tab must wait.
+                        # If it was submitted while we waited, the NULL filter drops it.
+                        active_draft = (
+                            DraftSubmission.objects
+                            .select_for_update()
+                            .filter(pk=active_draft.pk, school=school, submitted_at__isnull=True)
+                            .first()
+                        )
+                        if not active_draft:
+                            # Another tab won the race and already submitted.
+                            return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
+                    elif _hidden_draft_token:
+                        # Session was cleared (a prior tab already submitted this draft).
+                        # Use the hidden token to detect the duplicate.
+                        _prior = (
+                            DraftSubmission.objects
+                            .select_for_update()
+                            .filter(token=_hidden_draft_token, school=school)
+                            .first()
+                        )
+                        if _prior and _prior.is_submitted():
+                            return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
+
+                    duplicate_submission = _find_recent_duplicate_submission(
+                        school=school,
+                        form_key="default",
+                        data=cleaned,
+                    )
+
+                    if duplicate_submission is None:
+                        submission = Submission.objects.create(
+                            school=school,
+                            form_key="default",
+                            data=cleaned,
+                            payment_status="waived" if (fee_cfg["enabled"] and fee_cfg["waived"]) else "",
+                            submit_fingerprint=submit_fingerprint or None,
+                        )
+
+                    # Mark draft submitted inside the same transaction so no second tab
+                    # can create a Submission between now and the committed mark.
+                    if active_draft and (submission is not None or duplicate_submission is not None):
+                        active_draft.submitted_at = timezone.now()
+                        active_draft.save(update_fields=["submitted_at"])
+            except IntegrityError:
+                existing_by_fingerprint = _find_submission_by_fingerprint(school, submit_fingerprint)
+                if existing_by_fingerprint:
+                    return _redirect_existing_submission_success(
+                        request,
+                        school_slug,
+                        existing_by_fingerprint,
+                    )
+                raise
 
             request.session.pop(_draft_session_key(school_slug), None)
+
+            if duplicate_submission is not None:
+                return _redirect_existing_submission_success(
+                    request,
+                    school_slug,
+                    duplicate_submission,
+                )
 
             # Resolve program/session FK + apply auto-enrollment for DB-driven program schools.
             if school.program_field_key:

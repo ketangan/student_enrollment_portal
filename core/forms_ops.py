@@ -8,6 +8,7 @@ from django import forms
 from django.contrib.auth.models import User
 
 from core.models import OpsIncident, School
+from core.services.billing_stripe import FOUNDER_PRICING_FLAG
 
 _INPUT_STYLE = (
     "width:100%;padding:8px 10px;border:1px solid var(--dash-border,#e2e8f0);"
@@ -80,12 +81,19 @@ class OpsSchoolCreateForm(forms.ModelForm):
 
 
 class OpsSchoolEditForm(forms.ModelForm):
+    founder_pricing_enabled = forms.BooleanField(
+        required=False,
+        label="Founder pricing enabled",
+        help_text="Shows the private $24.99/month founder pricing option on this school's billing page.",
+    )
+
     class Meta:
         model = School
         fields = [
             "display_name", "website_url",
             "plan", "is_active", "is_demo",
             "trial_end_date",
+            "founder_pricing_enabled",
             "feature_flags",
             "stripe_customer_id", "stripe_subscription_id",
             "stripe_subscription_status",
@@ -113,6 +121,8 @@ class OpsSchoolEditForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        flags = getattr(self.instance, "feature_flags", None) or {}
+        self.fields["founder_pricing_enabled"].initial = bool(flags.get(FOUNDER_PRICING_FLAG))
         _apply_dash_attrs(self)
 
     def clean_feature_flags(self):
@@ -127,6 +137,19 @@ class OpsSchoolEditForm(forms.ModelForm):
         if not isinstance(v, dict):
             raise forms.ValidationError("Must be a JSON object.")
         return v
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        flags = dict(self.cleaned_data.get("feature_flags") or {})
+        if self.cleaned_data.get("founder_pricing_enabled"):
+            flags[FOUNDER_PRICING_FLAG] = True
+        else:
+            flags.pop(FOUNDER_PRICING_FLAG, None)
+        instance.feature_flags = flags
+        if commit:
+            instance.save()
+            self.save_m2m()
+        return instance
 
 
 class OpsUserCreateForm(forms.ModelForm):

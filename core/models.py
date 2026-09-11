@@ -509,6 +509,9 @@ class Submission(models.Model):
     # Powers DB-level ILIKE search via a pg_trgm GIN index (migration 0052).
     search_text = models.TextField(blank=True, default="")
 
+    # Public form retry guard. Nullable for admin-created/seeded/legacy rows.
+    submit_fingerprint = models.CharField(max_length=64, unique=True, null=True, blank=True)
+
     class Meta:
         unique_together = [("school", "school_submission_number")]
         indexes = [

@@ -2,6 +2,7 @@
 Tests for the /ops/ superadmin portal — Phase 1.
 Covers auth guard, dashboard, schools CRUD, memberships, users CRUD, login/logout redirects.
 """
+import json
 from unittest.mock import patch
 
 import pytest
@@ -215,6 +216,49 @@ def test_ops_school_detail_get(client, superuser, school):
     client.force_login(superuser)
     resp = client.get(reverse("ops_school_detail", kwargs={"slug": school.slug}))
     assert resp.status_code == 200
+
+
+@pytest.mark.django_db
+def test_ops_school_detail_shows_founder_pricing_checkbox(client, superuser, school):
+    client.force_login(superuser)
+    resp = client.get(reverse("ops_school_detail", kwargs={"slug": school.slug}))
+    assert resp.status_code == 200
+    assert b'name="founder_pricing_enabled"' in resp.content
+    assert b"Founder pricing enabled" in resp.content
+
+
+@pytest.mark.django_db
+def test_ops_school_edit_checkbox_enables_founder_pricing(client, superuser, school):
+    client.force_login(superuser)
+    resp = client.post(reverse("ops_school_detail", kwargs={"slug": school.slug}), {
+        "display_name": school.display_name,
+        "website_url": "",
+        "plan": "trial",
+        "is_active": "on",
+        "feature_flags": "{}",
+        "founder_pricing_enabled": "on",
+    })
+    school.refresh_from_db()
+    assert resp.status_code == 302
+    assert school.feature_flags["founder_pricing_enabled"] is True
+
+
+@pytest.mark.django_db
+def test_ops_school_edit_checkbox_removes_founder_pricing_flag(client, superuser, school):
+    school.feature_flags = {"founder_pricing_enabled": True, "reports_enabled": True}
+    school.save(update_fields=["feature_flags"])
+    client.force_login(superuser)
+    resp = client.post(reverse("ops_school_detail", kwargs={"slug": school.slug}), {
+        "display_name": school.display_name,
+        "website_url": "",
+        "plan": "trial",
+        "is_active": "on",
+        "feature_flags": json.dumps(school.feature_flags),
+    })
+    school.refresh_from_db()
+    assert resp.status_code == 302
+    assert "founder_pricing_enabled" not in school.feature_flags
+    assert school.feature_flags["reports_enabled"] is True
 
 
 @pytest.mark.django_db

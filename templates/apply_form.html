@@ -93,6 +93,7 @@
             novalidate
             action="{% if is_multi %}{% url 'apply_form' school_slug=school.slug form_key=form_key %}{% else %}{% url 'apply' school_slug=school.slug %}{% endif %}">
           {% csrf_token %}
+          {% if submit_token %}<input type="hidden" name="_submit_token" value="{{ submit_token }}">{% endif %}
           {% if draft_token %}<input type="hidden" name="_draft_token" value="{{ draft_token }}">{% endif %}
 
           {% for section in form.sections %}
@@ -494,6 +495,34 @@
 
     <script>
         (function () {
+            const applyForm = document.querySelector('form[method="post"]');
+            if (applyForm) {
+                applyForm.addEventListener("submit", function (event) {
+                    if (applyForm.dataset.submitting === "true") {
+                        event.preventDefault();
+                        return;
+                    }
+                    applyForm.dataset.submitting = "true";
+
+                    const submitter = event.submitter;
+                    if (submitter && submitter.name) {
+                        const hidden = document.createElement("input");
+                        hidden.type = "hidden";
+                        hidden.name = submitter.name;
+                        hidden.value = submitter.value;
+                        applyForm.appendChild(hidden);
+                    }
+
+                    applyForm.querySelectorAll('button[type="submit"]').forEach(function (button) {
+                        button.disabled = true;
+                        button.dataset.originalText = button.textContent;
+                        if (button === submitter) {
+                            button.textContent = button.value === "save_draft" ? "Saving..." : "Submitting...";
+                        }
+                    });
+                });
+            }
+
             const dob = document.getElementById("date_of_birth") || document.getElementById("student_birthday");
             const age = document.getElementById("age") || document.getElementById("student_age");
             if (!dob || !age) return;

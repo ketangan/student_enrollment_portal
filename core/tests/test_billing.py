@@ -19,10 +19,13 @@ from django.urls import reverse
 from core.models import School
 from core.services.billing_stripe import (
     construct_webhook_event,
+    get_founder_pricing_option,
+    get_founder_pricing_options,
     get_pricing_options,
     handle_checkout_completed,
     handle_subscription_deleted,
     handle_subscription_updated,
+    is_founder_pricing_enabled,
     is_stripe_configured,
     price_to_plan,
 )
@@ -88,6 +91,39 @@ class TestGetPricingOptions:
     def test_returns_empty_when_no_prices_configured(self):
         options = get_pricing_options()
         assert options == []
+
+    @override_settings(
+        STRIPE_PRICE_STARTER_MONTHLY="price_starter_m", STRIPE_PRICE_STARTER_ANNUAL="",
+        STRIPE_PRICE_PRO_MONTHLY="", STRIPE_PRICE_PRO_ANNUAL="",
+        STRIPE_PRICE_GROWTH_MONTHLY="", STRIPE_PRICE_GROWTH_ANNUAL="",
+        STRIPE_PRICE_CUSTOM_MONTHLY="price_founder_m", STRIPE_PRICE_CUSTOM_ANNUAL="price_founder_y",
+    )
+    def test_hides_founder_prices_from_public_pricing_by_default(self):
+        options = get_pricing_options()
+        assert [option["id"] for option in options] == ["starter_monthly"]
+        assert all(option["plan"] != "custom" for option in options)
+
+    @override_settings(
+        STRIPE_PRICE_STARTER_MONTHLY="", STRIPE_PRICE_STARTER_ANNUAL="",
+        STRIPE_PRICE_PRO_MONTHLY="", STRIPE_PRICE_PRO_ANNUAL="",
+        STRIPE_PRICE_GROWTH_MONTHLY="", STRIPE_PRICE_GROWTH_ANNUAL="",
+        STRIPE_PRICE_CUSTOM_MONTHLY="price_founder_m", STRIPE_PRICE_CUSTOM_ANNUAL="price_founder_y",
+    )
+    def test_founder_pricing_options_are_explicitly_private(self):
+        options = get_founder_pricing_options()
+        assert [option["id"] for option in options] == ["custom_monthly", "custom_annual"]
+        assert all(option["is_private"] for option in options)
+        assert get_founder_pricing_option("monthly")["price_id"] == "price_founder_m"
+        assert get_founder_pricing_option("annual")["price_id"] == "price_founder_y"
+        assert get_founder_pricing_option("monthly")["amount"] == "$24.99 / month"
+        assert get_founder_pricing_option("annual")["amount"] == "$299 / year"
+        assert get_founder_pricing_option("weekly") is None
+
+    def test_founder_pricing_requires_school_flag(self):
+        assert is_founder_pricing_enabled(SchoolFactory.build(feature_flags={})) is False
+        assert is_founder_pricing_enabled(
+            SchoolFactory.build(feature_flags={"founder_pricing_enabled": True})
+        ) is True
 
 
 class TestIsStripeConfigured:
@@ -548,6 +584,17 @@ class TestBillingCheckout:
         assert resp.status_code == 302
         assert "billing" in resp.url
 
+    def test_custom_plan_checkout_is_blocked(self, client):
+        school = SchoolFactory(plan="custom")
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        with patch("core.views_billing.is_stripe_configured", return_value=True), \
+             patch("core.views_billing.create_checkout_session") as mock_checkout:
+            resp = client.post(self._url(), {"price_id": "price_123"})
+        assert resp.status_code == 302
+        assert "billing" in resp.url
+        mock_checkout.assert_not_called()
+
     @patch("core.views_billing.is_stripe_configured", return_value=True)
     @patch("core.views_billing.get_pricing_options")
     @patch("core.views_billing.create_checkout_session")
@@ -598,6 +645,16 @@ class TestBillingPortal:
         resp = client.post(self._url())
         assert resp.status_code == 302
         assert "billing" in resp.url
+
+    @patch("core.views_billing.create_portal_session")
+    def test_custom_plan_portal_is_blocked(self, mock_portal, client):
+        school = SchoolFactory(plan="custom", stripe_customer_id="cus_test")
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        resp = client.post(self._url())
+        assert resp.status_code == 302
+        assert "billing" in resp.url
+        mock_portal.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -1389,6 +1446,9 @@ class TestSchoolBillingCheckoutGuards:
     def _checkout_url(self, school):
         return reverse("school_billing_checkout", kwargs={"school_slug": school.slug})
 
+    def _billing_url(self, school):
+        return reverse("school_billing", kwargs={"school_slug": school.slug})
+
     def _portal_url(self, school):
         return reverse("school_billing_portal", kwargs={"school_slug": school.slug})
 
@@ -1420,6 +1480,72 @@ class TestSchoolBillingCheckoutGuards:
         assert resp.status_code == 302
         assert "billing" in resp.url
         mock_checkout.assert_not_called()
+
+    @override_settings(
+        STRIPE_PRICE_STARTER_MONTHLY="",
+        STRIPE_PRICE_STARTER_ANNUAL="",
+        STRIPE_PRICE_PRO_MONTHLY="",
+        STRIPE_PRICE_PRO_ANNUAL="",
+        STRIPE_PRICE_GROWTH_MONTHLY="",
+        STRIPE_PRICE_GROWTH_ANNUAL="",
+        STRIPE_PRICE_CUSTOM_MONTHLY=_CUSTOM_PRICE_ID,
+        STRIPE_PRICE_CUSTOM_ANNUAL="",
+    )
+    def test_school_billing_hides_founder_price_without_school_flag(self, client):
+        """Founder pricing must not appear on a normal school's self-serve page."""
+        school = SchoolFactory(plan="trial", feature_flags={})
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        with patch("core.services.billing_stripe.is_stripe_configured", return_value=True):
+            resp = client.get(self._billing_url(school))
+        assert resp.status_code == 200
+        assert b"Founder Pricing" not in resp.content
+        assert self._CUSTOM_PRICE_ID.encode() not in resp.content
+
+    @override_settings(
+        STRIPE_PRICE_STARTER_MONTHLY="",
+        STRIPE_PRICE_STARTER_ANNUAL="",
+        STRIPE_PRICE_PRO_MONTHLY="",
+        STRIPE_PRICE_PRO_ANNUAL="",
+        STRIPE_PRICE_GROWTH_MONTHLY="",
+        STRIPE_PRICE_GROWTH_ANNUAL="",
+        STRIPE_PRICE_CUSTOM_MONTHLY=_CUSTOM_PRICE_ID,
+        STRIPE_PRICE_CUSTOM_ANNUAL="",
+    )
+    def test_school_billing_shows_founder_price_with_school_flag(self, client):
+        """A founder-eligible school sees the private checkout option."""
+        school = SchoolFactory(
+            plan="trial",
+            feature_flags={"founder_pricing_enabled": True},
+        )
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        with patch("core.services.billing_stripe.is_stripe_configured", return_value=True):
+            resp = client.get(self._billing_url(school))
+        assert resp.status_code == 200
+        assert b">Founder</div>" in resp.content
+        assert b"billing-plan-card--founder" in resp.content
+        assert b"billing-founder-card" not in resp.content
+        assert self._CUSTOM_PRICE_ID.encode() in resp.content
+
+    @override_settings(
+        STRIPE_PRICE_CUSTOM_MONTHLY=_CUSTOM_PRICE_ID,
+        STRIPE_PRICE_CUSTOM_ANNUAL="",
+    )
+    def test_founder_flag_allows_custom_checkout_price(self, client):
+        """Only founder-eligible schools can post private founder prices."""
+        school = SchoolFactory(
+            plan="trial",
+            feature_flags={"founder_pricing_enabled": True},
+        )
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        with patch("core.services.billing_stripe.is_stripe_configured", return_value=True), \
+             patch("core.services.billing_stripe.create_checkout_session", return_value="https://checkout.stripe.com/founder") as mock_checkout:
+            resp = client.post(self._checkout_url(school), {"price_id": self._CUSTOM_PRICE_ID})
+        assert resp.status_code == 302
+        assert "checkout.stripe.com/founder" in resp.url
+        mock_checkout.assert_called_once()
 
     # ── Pass-through: standard plan + standard price_id → reaches Stripe ─────
 

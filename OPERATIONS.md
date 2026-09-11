@@ -288,6 +288,8 @@ All Stripe keys come in `_TEST` and `_LIVE` variants. Set `STRIPE_MODE=test` (de
 STRIPE_MODE=test   # or live
 ```
 
+**TODO:** split demo/staging billing from production billing. Today `STRIPE_MODE` is a single service-wide switch, so a Render service that serves both `app.mypontora.com` and `demo.mypontora.com` must use either all live Stripe data or all test Stripe data. Long term, either run demo/staging as a separate Render service with its own env vars and database, or make billing fully request-host aware with separate webhook handling and strict safeguards against sandbox events mutating production records.
+
 ### Required Environment Variables
 
 | Variable | Description |
@@ -301,6 +303,8 @@ STRIPE_MODE=test   # or live
 | `STRIPE_PRICE_PRO_ANNUAL_TEST` / `_LIVE` | Price ID for annual Pro |
 | `STRIPE_PRICE_GROWTH_MONTHLY_TEST` / `_LIVE` | Price ID for monthly Growth (omit to hide) |
 | `STRIPE_PRICE_GROWTH_ANNUAL_TEST` / `_LIVE` | Price ID for annual Growth |
+| `STRIPE_PRICE_CUSTOM_MONTHLY_TEST` / `_LIVE` | Private Founder/Custom monthly Price ID, shown only when founder pricing is enabled for a school |
+| `STRIPE_PRICE_CUSTOM_ANNUAL_TEST` / `_LIVE` | Private Founder/Custom annual Price ID, shown only when founder pricing is enabled for a school |
 
 Price IDs come from Stripe Dashboard → Products → [Product] → Prices → copy `price_xxx`. Plan options only appear on the billing page if the corresponding price ID env var is set.
 

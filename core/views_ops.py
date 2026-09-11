@@ -249,7 +249,6 @@ def ops_school_detail_view(request, slug):
         object_id=str(school.pk),
         extra__name="customer_welcome_email_sent",
     ).exists()
-
     return render(request, "ops/school_detail.html", {
         "active_nav": "schools",
         "school": school,

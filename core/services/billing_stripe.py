@@ -50,25 +50,39 @@ def is_stripe_configured() -> bool:
 # ---------------------------------------------------------------------------
 
 _PRICE_SETTINGS = [
-    ("STRIPE_PRICE_STARTER_MONTHLY", "starter_monthly", "Starter Monthly", "$49.99 / month", "starter", "month"),
-    ("STRIPE_PRICE_STARTER_ANNUAL",  "starter_annual",  "Starter Annual",  "$499 / year",   "starter", "year"),
-    ("STRIPE_PRICE_PRO_MONTHLY",     "pro_monthly",     "Pro Monthly",     "$99 / month",   "pro",     "month"),
-    ("STRIPE_PRICE_PRO_ANNUAL",      "pro_annual",      "Pro Annual",      "$990 / year",   "pro",     "year"),
-    ("STRIPE_PRICE_GROWTH_MONTHLY",  "growth_monthly",  "Growth Monthly",  "$199 / month",  "growth",  "month"),
-    ("STRIPE_PRICE_GROWTH_ANNUAL",   "growth_annual",   "Growth Annual",   "$1,990 / year", "growth",  "year"),
-    ("STRIPE_PRICE_CUSTOM_MONTHLY",  "custom_monthly",  "Custom Monthly",  "$24.99 / month", "custom", "month"),
-    ("STRIPE_PRICE_CUSTOM_ANNUAL",   "custom_annual",   "Custom Annual",   "$249 / year",   "custom",  "year"),
+    ("STRIPE_PRICE_STARTER_MONTHLY", "starter_monthly", "Starter Monthly", "$49.99 / month", "starter", "month", False),
+    ("STRIPE_PRICE_STARTER_ANNUAL",  "starter_annual",  "Starter Annual",  "$499 / year",   "starter", "year",  False),
+    ("STRIPE_PRICE_PRO_MONTHLY",     "pro_monthly",     "Pro Monthly",     "$99 / month",   "pro",     "month", False),
+    ("STRIPE_PRICE_PRO_ANNUAL",      "pro_annual",      "Pro Annual",      "$990 / year",   "pro",     "year",  False),
+    ("STRIPE_PRICE_GROWTH_MONTHLY",  "growth_monthly",  "Growth Monthly",  "$199 / month",  "growth",  "month", False),
+    ("STRIPE_PRICE_GROWTH_ANNUAL",   "growth_annual",   "Growth Annual",   "$1,990 / year", "growth",  "year",  False),
+    ("STRIPE_PRICE_CUSTOM_MONTHLY",  "custom_monthly",  "Founder Monthly", "$24.99 / month", "custom", "month", True),
+    ("STRIPE_PRICE_CUSTOM_ANNUAL",   "custom_annual",   "Founder Annual",  "$299 / year",   "custom",  "year",  True),
 ]
+
+FOUNDER_PRICING_FLAG = "founder_pricing_enabled"
 
 
 def _price(setting_name: str) -> str:
     return getattr(settings, setting_name, "").strip()
 
 
-def get_pricing_options() -> list[dict]:
-    """Return pricing cards for the billing page."""
+def is_founder_pricing_enabled(school) -> bool:
+    """Return True when a school is explicitly allowed to see founder checkout."""
+    flags = getattr(school, "feature_flags", None) or {}
+    return bool(flags.get(FOUNDER_PRICING_FLAG))
+
+
+def get_pricing_options(*, include_private: bool = False) -> list[dict]:
+    """Return configured Stripe prices.
+
+    Private prices are hidden from the normal plan picker unless a caller opts
+    in explicitly after checking school-level eligibility.
+    """
     options = []
-    for setting_name, option_id, name, amount, plan, interval in _PRICE_SETTINGS:
+    for setting_name, option_id, name, amount, plan, interval, is_private in _PRICE_SETTINGS:
+        if is_private and not include_private:
+            continue
         price_id = _price(setting_name)
         if price_id:
             options.append({
@@ -78,8 +92,33 @@ def get_pricing_options() -> list[dict]:
                 "amount": amount,
                 "plan": plan,
                 "interval": interval,
+                "is_private": is_private,
             })
     return options
+
+
+def get_founder_pricing_options() -> list[dict]:
+    """Return private founder/custom checkout prices only."""
+    return [
+        opt for opt in get_pricing_options(include_private=True)
+        if opt["plan"] == "custom"
+    ]
+
+
+def get_founder_pricing_option(interval: str) -> dict | None:
+    """Return one founder price by billing interval: month/monthly/year/annual."""
+    normalized = {
+        "monthly": "month",
+        "month": "month",
+        "annual": "year",
+        "year": "year",
+    }.get((interval or "").strip().lower())
+    if not normalized:
+        return None
+    for option in get_founder_pricing_options():
+        if option["interval"] == normalized:
+            return option
+    return None
 
 
 # ---------------------------------------------------------------------------

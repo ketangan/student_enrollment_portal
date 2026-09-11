@@ -25,8 +25,10 @@ from __future__ import annotations
 import pytest
 import yaml
 import pathlib
+from datetime import timedelta
 from django.test import override_settings
 from django.urls import reverse
+from django.utils import timezone
 
 from core.models import (
     AdminAuditLog,
@@ -2082,21 +2084,115 @@ def test_duplicate_submission_via_draft_token_blocked(client):
 
 @pytest.mark.django_db
 @override_settings(DEV_SKIP_PAYMENT=False)
-def test_duplicate_submission_no_draft_token_creates_fresh(client):
+def test_recent_duplicate_submission_no_draft_token_reuses_existing(client):
     """
-    A second form submit WITHOUT _draft_token and without any session draft
-    is treated as a fresh standalone submission (no draft to guard against).
-    This covers the rare self-service path with no resume token.
+    A repeated fresh POST with the same student/contact/program identity should
+    not create another submission. This catches double-clicks and retries where
+    the browser does not preserve a draft token.
     """
     school = _sbmc_school()
     _sbmc_programs(school)
     before = Submission.objects.filter(school=school).count()
 
     post_data = _enrollment_post_data()
-    # No _draft_token — pure fresh form
-    resp = client.post(_apply_url(school), data=post_data)
-    assert resp.status_code == 302
+    first = client.post(_apply_url(school), data=post_data)
+    assert first.status_code == 302
     assert Submission.objects.filter(school=school).count() == before + 1
+
+    existing = Submission.objects.filter(school=school).latest("created_at")
+    second = client.post(_apply_url(school), data=post_data)
+    assert second.status_code == 302
+    assert Submission.objects.filter(school=school).count() == before + 1
+    assert client.session["_pontora_submission_public_id"] == existing.public_id
+
+
+@pytest.mark.django_db
+@override_settings(DEV_SKIP_PAYMENT=False)
+def test_duplicate_guard_allows_same_parent_different_student(client):
+    """
+    Parents commonly enroll siblings with the same contact email/phone. A
+    different student identity must still create a new submission.
+    """
+    school = _sbmc_school()
+    _sbmc_programs(school)
+
+    first_data = _enrollment_post_data()
+    second_data = _enrollment_post_data()
+    second_data["student_first_name"] = "Maya"
+    second_data["student_birthday"] = "2017-02-03"
+
+    client.post(_apply_url(school), data=first_data)
+    client.post(_apply_url(school), data=second_data)
+
+    assert Submission.objects.filter(school=school).count() == 2
+
+
+@pytest.mark.django_db
+@override_settings(DEV_SKIP_PAYMENT=False)
+def test_duplicate_guard_allows_old_repeat_submission(client):
+    """
+    The guard is intentionally a short retry window, not a lifetime uniqueness
+    rule. A family may legitimately submit again later.
+    """
+    school = _sbmc_school()
+    _sbmc_programs(school)
+
+    post_data = _enrollment_post_data()
+    client.post(_apply_url(school), data=post_data)
+    existing = Submission.objects.get(school=school)
+    old_time = timezone.now() - timedelta(hours=1)
+    Submission.objects.filter(pk=existing.pk).update(created_at=old_time)
+
+    client.post(_apply_url(school), data=post_data)
+
+    assert Submission.objects.filter(school=school).count() == 2
+
+
+@pytest.mark.django_db
+@override_settings(DEV_SKIP_PAYMENT=False)
+def test_submit_fingerprint_blocks_exact_retry_outside_recent_window(client):
+    """
+    A browser/network retry should be idempotent even if the timestamp-window
+    fallback would no longer catch it.
+    """
+    school = _sbmc_school()
+    _sbmc_programs(school)
+
+    post_data = _enrollment_post_data()
+    post_data["_submit_token"] = "same-rendered-form-token"
+
+    client.post(_apply_url(school), data=post_data)
+    existing = Submission.objects.get(school=school)
+    assert existing.submit_fingerprint
+    old_time = timezone.now() - timedelta(hours=1)
+    Submission.objects.filter(pk=existing.pk).update(created_at=old_time)
+
+    client.post(_apply_url(school), data=post_data)
+
+    assert Submission.objects.filter(school=school).count() == 1
+
+
+@pytest.mark.django_db
+@override_settings(DEV_SKIP_PAYMENT=False)
+def test_submit_fingerprint_allows_same_token_with_changed_student(client):
+    """
+    The fingerprint includes the submitted data, not only the rendered form
+    token, so an edited sibling submission is not swallowed.
+    """
+    school = _sbmc_school()
+    _sbmc_programs(school)
+
+    first_data = _enrollment_post_data()
+    first_data["_submit_token"] = "same-rendered-form-token"
+    second_data = _enrollment_post_data()
+    second_data["_submit_token"] = "same-rendered-form-token"
+    second_data["student_first_name"] = "Maya"
+    second_data["student_birthday"] = "2017-02-03"
+
+    client.post(_apply_url(school), data=first_data)
+    client.post(_apply_url(school), data=second_data)
+
+    assert Submission.objects.filter(school=school).count() == 2
 
 
 # ===========================================================================

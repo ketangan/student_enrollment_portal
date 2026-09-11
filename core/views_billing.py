@@ -103,6 +103,8 @@ def billing_view(request):
 
     if is_locked:
         billing_state = "ended_locked"
+    elif school.plan == ff.PLAN_CUSTOM and school.is_active:
+        billing_state = "custom"
     elif not has_subscription and school.plan == "trial" and school.is_active:
         billing_state = "trial"
     elif has_subscription and status in ("active", "trialing", "past_due", "unpaid"):
@@ -154,6 +156,10 @@ def billing_create_checkout(request):
         messages.error(request, "Billing is not configured.")
         return redirect(_billing_url(request, school))
 
+    if school.plan in ff.MANUALLY_MANAGED_PLANS:
+        messages.error(request, "This plan is managed by Pontora. Contact us to make changes.")
+        return redirect(_billing_url(request, school))
+
     price_id = request.POST.get("price_id", "").strip()
     if not price_id:
         messages.error(request, "Missing price selection.")
@@ -200,6 +206,10 @@ def billing_portal(request):
     school = _resolve_billing_school(request)
     if not school:
         raise Http404
+
+    if school.plan in ff.MANUALLY_MANAGED_PLANS:
+        messages.error(request, "This plan is managed by Pontora. Contact us to make changes.")
+        return redirect(_billing_url(request, school))
 
     from core.services.url_builder import app_url
     return_url = app_url(_billing_url(request, school))

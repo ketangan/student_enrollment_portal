@@ -6,7 +6,7 @@
 <style>
   .billing-plan-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 16px;
     margin-bottom: 24px;
   }
@@ -36,6 +36,14 @@
   .billing-plan-card--pro.billing-plan-card--current {
     border-color: #7c3aed;
   }
+  .billing-plan-card--founder {
+    border-color: var(--dash-primary, #2563eb);
+    box-shadow: 0 4px 18px rgba(37,99,235,.08);
+  }
+  .billing-plan-card--founder:hover {
+    border-color: var(--dash-primary, #2563eb);
+    box-shadow: 0 4px 18px rgba(37,99,235,.13);
+  }
   .billing-current-badge {
     position: absolute;
     top: -11px;
@@ -50,6 +58,7 @@
     white-space: nowrap;
   }
   .billing-plan-card--pro .billing-current-badge { background: #7c3aed; }
+  .billing-plan-card--founder .billing-current-badge { background: var(--dash-primary, #2563eb); }
   .billing-plan-name {
     font-size: 17px;
     font-weight: 800;
@@ -86,6 +95,7 @@
     font-size: 13px;
   }
   .billing-plan-card--pro .billing-plan-features li .feat-check { color: #7c3aed; }
+  .billing-plan-card--founder .billing-plan-features li .feat-check { color: var(--dash-primary, #2563eb); }
   .billing-price-options {
     display: flex;
     flex-direction: column;
@@ -120,6 +130,10 @@
     background: #7c3aed;
     border-color: #7c3aed;
   }
+  .billing-plan-card--founder .billing-price-btn:hover {
+    background: var(--dash-primary, #2563eb);
+    border-color: var(--dash-primary, #2563eb);
+  }
   .billing-price-btn .price-amount {
     font-size: 12px;
     font-weight: 700;
@@ -129,6 +143,7 @@
     transition: color 0.12s;
   }
   .billing-plan-card--pro .billing-price-btn .price-amount { color: #7c3aed; }
+  .billing-plan-card--founder .billing-price-btn .price-amount { color: var(--dash-primary, #2563eb); }
   .billing-price-btn:hover .price-amount { color: rgba(255,255,255,0.85); }
   .billing-price-btn--annual .save-badge {
     font-size: 10px;
@@ -235,37 +250,41 @@
   </div>
   {% endif %}
 
-  {% if school.plan == "custom" %}
-  <!-- Custom (Founder Pricing) plan card -->
-  <div class="dash-card" style="padding:24px 22px;margin-bottom:20px;
-              border:2px solid var(--dash-primary,#2563eb);border-radius:12px;position:relative;">
-    <div class="billing-current-badge" style="position:absolute;top:-11px;left:24px;transform:none;">
-      Your Plan — Founder Pricing
-    </div>
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-top:8px;">
-      <div>
-        <div class="billing-plan-name" style="font-size:18px;">Custom</div>
-        <div class="billing-plan-tagline">All features included — early-adopter pricing</div>
-        <ul class="billing-plan-features" style="margin-top:12px;">
-          <li><span class="feat-check">✓</span>Online enrollment forms with custom branding</li>
-          <li><span class="feat-check">✓</span>Lead tracking, conversion reports, and AI summaries</li>
-          <li><span class="feat-check">✓</span>Email notifications, save &amp; resume, family portal</li>
-          <li><span class="feat-check">✓</span>Every feature in the platform — nothing locked</li>
-        </ul>
-      </div>
-      <div style="text-align:right;min-width:140px;">
-        <div style="font-size:28px;font-weight:800;color:var(--dash-primary);">$24.99</div>
-        <div style="font-size:12px;color:var(--dash-muted);">per month</div>
-        <div style="font-size:12px;color:var(--dash-muted);margin-top:8px;">
-          To change your plan, contact us.
-        </div>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
   <!-- Plan cards -->
   <div class="billing-plan-grid">
+
+    {% if founder_pricing_options or school.plan == "custom" %}
+    <!-- ── Founder ──────────────────────────────────────────── -->
+    <div class="billing-plan-card billing-plan-card--founder {% if school.plan == 'custom' %}billing-plan-card--current{% endif %}">
+      {% if school.plan == "custom" %}<div class="billing-current-badge">Your Plan</div>{% endif %}
+      <div class="billing-plan-name">Founder</div>
+      <div class="billing-plan-tagline">All features at your early-adopter rate</div>
+      <ul class="billing-plan-features">
+        <li><span class="feat-check">✓</span>Online enrollment forms with custom branding</li>
+        <li><span class="feat-check">✓</span>Lead tracking, conversion reports, and AI summaries</li>
+        <li><span class="feat-check">✓</span>Email notifications, save &amp; resume, family portal</li>
+        <li><span class="feat-check">✓</span>Every current Pontora feature unlocked</li>
+      </ul>
+      <div class="billing-price-options">
+        {% if school.plan == "custom" %}
+          <div class="billing-plan-current-note">Founder pricing is active</div>
+        {% elif stripe_configured %}
+          {% for option in founder_pricing_options %}
+          <form method="post" action="{{ checkout_url }}">
+            {% csrf_token %}
+            <input type="hidden" name="price_id" value="{{ option.price_id }}">
+            <button type="submit" class="billing-price-btn {% if option.interval == 'year' %}billing-price-btn--annual{% endif %}">
+              <span>
+                {% if option.interval == "month" %}Monthly{% else %}Annual{% endif %}
+              </span>
+              <span class="price-amount">{{ option.amount }}</span>
+            </button>
+          </form>
+          {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
 
     <!-- ── Starter ───────────────────────────────────────────── -->
     <div class="billing-plan-card {% if school.plan == 'starter' %}billing-plan-card--current{% endif %}">
