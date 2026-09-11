@@ -180,11 +180,11 @@ def create_checkout_session(
         },
     }
 
-    # CRITICAL: In subscription mode, never send both customer AND customer_email
-    # Stripe Checkout rules:
-    # - If customer exists: use customer (email will be pulled from customer record)
-    # - If no customer: optionally set customer_email (Stripe creates new customer)
-    if school.stripe_customer_id:
+    # CRITICAL: In subscription mode, never send both customer AND customer_email.
+    # Only reuse an existing Stripe customer for a reconciled active subscription.
+    # Trial rows can contain stale customer IDs after failed webhooks or Stripe mode
+    # switches; sending those IDs makes live Checkout fail before the user can pay.
+    if school.has_active_stripe_subscription:
         params["customer"] = school.stripe_customer_id
     elif customer_email:
         params["customer_email"] = customer_email

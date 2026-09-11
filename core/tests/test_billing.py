@@ -323,7 +323,7 @@ class TestCreateCheckoutSession:
 
     @patch("core.services.billing_stripe._get_stripe")
     def test_existing_customer_uses_customer_param_only(self, mock_get_stripe):
-        """When school has stripe_customer_id, use customer param and exclude customer_email."""
+        """When school has an active subscription, reuse customer and exclude customer_email."""
         from core.services.billing_stripe import create_checkout_session
 
         mock_stripe = MagicMock()
@@ -332,7 +332,13 @@ class TestCreateCheckoutSession:
         mock_stripe.checkout.Session.create.return_value = mock_session
         mock_get_stripe.return_value = mock_stripe
 
-        school = SchoolFactory(slug="test-school", stripe_customer_id="cus_existing123")
+        school = SchoolFactory(
+            slug="test-school",
+            plan="starter",
+            stripe_customer_id="cus_existing123",
+            stripe_subscription_id="sub_existing123",
+            stripe_subscription_status="active",
+        )
         url = create_checkout_session(
             school=school,
             price_id="price_test",
@@ -351,6 +357,37 @@ class TestCreateCheckoutSession:
         assert kwargs["customer"] == "cus_existing123"
         # MUST NOT have customer_email (Stripe rule: can't use both in subscription mode)
         assert "customer_email" not in kwargs
+
+    @patch("core.services.billing_stripe._get_stripe")
+    def test_trial_with_stale_customer_uses_customer_email(self, mock_get_stripe):
+        """Trial rows may have stale Stripe IDs; do not reuse them for new Checkout."""
+        from core.services.billing_stripe import create_checkout_session
+
+        mock_stripe = MagicMock()
+        mock_session = MagicMock()
+        mock_session.url = "https://checkout.stripe.com/session_stale"
+        mock_stripe.checkout.Session.create.return_value = mock_session
+        mock_get_stripe.return_value = mock_stripe
+
+        school = SchoolFactory(
+            slug="stale-trial-school",
+            plan="trial",
+            stripe_customer_id="cus_stale",
+            stripe_subscription_id="sub_stale",
+            stripe_subscription_status="active",
+        )
+        url = create_checkout_session(
+            school=school,
+            price_id="price_founder",
+            success_url="https://example.com/success",
+            cancel_url="https://example.com/cancel",
+            customer_email="owner@example.com",
+        )
+
+        assert url == "https://checkout.stripe.com/session_stale"
+        kwargs = mock_stripe.checkout.Session.create.call_args[1]
+        assert "customer" not in kwargs
+        assert kwargs["customer_email"] == "owner@example.com"
 
     @patch("core.services.billing_stripe._get_stripe")
     def test_no_customer_with_email_uses_customer_email(self, mock_get_stripe):
