@@ -1013,7 +1013,7 @@ def school_billing_view(request, school_slug: str):
             pricing[plan] = {}
         pricing[plan][interval] = opt
 
-    has_subscription = bool(school.stripe_customer_id and school.stripe_subscription_id)
+    has_subscription = school.has_active_stripe_subscription
     status = school.stripe_subscription_status
     scheduled_cancel = bool(school.stripe_cancel_at or school.stripe_cancel_at_period_end)
     is_locked = not school.is_active
@@ -1061,7 +1061,7 @@ def school_billing_view(request, school_slug: str):
         "scheduled_cancel": scheduled_cancel,
         "cancel_overdue": cancel_overdue,
         "stripe_configured": stripe_configured,
-        "subscription_status": status,
+        "subscription_status": status if billing_state in ("active", "scheduled_cancel", "custom") else "",
         "billing_url": billing_url,
         "checkout_url": reverse("school_billing_checkout", kwargs={"school_slug": school_slug}),
         "portal_url": reverse("school_billing_portal", kwargs={"school_slug": school_slug}),
@@ -1149,6 +1149,9 @@ def school_billing_portal_view(request, school_slug: str):
 
     if school.plan in ff.MANUALLY_MANAGED_PLANS:
         messages.error(request, "Your plan is managed by Pontora. Contact us to make changes.")
+        return redirect(billing_url)
+    if not school.has_active_stripe_subscription:
+        messages.error(request, "No active Stripe subscription is available to manage yet.")
         return redirect(billing_url)
 
     portal_url = create_portal_session(school=school, return_url=billing_url)

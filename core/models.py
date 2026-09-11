@@ -257,11 +257,17 @@ class School(models.Model):
 
     @property
     def has_active_stripe_subscription(self) -> bool:
-        """True when a Stripe customer + subscription exist and status is active-like."""
+        """True when a non-trial plan has an active-like Stripe subscription.
+
+        A trial plan with Stripe IDs is an inconsistent/partial webhook state,
+        not a paid subscription. Treating it as active hides checkout options
+        and can send users to an unusable Stripe portal.
+        """
         return bool(
-            self.stripe_customer_id
+            self.plan != ff.PLAN_TRIAL
+            and self.stripe_customer_id
             and self.stripe_subscription_id
-            and self.stripe_subscription_status in ("active", "trialing", "past_due")
+            and self.stripe_subscription_status in ("active", "trialing", "past_due", "unpaid")
         )
 
 

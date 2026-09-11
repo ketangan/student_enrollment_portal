@@ -202,6 +202,30 @@ class TestHandleCheckoutCompleted:
         assert school.plan == "starter"
         assert school.stripe_subscription_status == "active"
 
+    def test_failed_subscription_lookup_does_not_mark_trial_as_paid_active(self):
+        """A partial checkout webhook must not create Trial / Status active UI state."""
+        school = SchoolFactory(
+            plan="trial",
+            is_active=False,
+            stripe_subscription_status="",
+        )
+        session_data = {
+            "metadata": {"school_slug": school.slug},
+            "customer": "cus_partial",
+            "subscription": "sub_partial",
+            "line_items": {"data": []},
+        }
+        with patch("core.services.billing_stripe._get_stripe") as mock_stripe:
+            mock_stripe.return_value.Subscription.retrieve.side_effect = RuntimeError("stripe lookup failed")
+            handle_checkout_completed(session_data)
+
+        school.refresh_from_db()
+        assert school.stripe_customer_id == "cus_partial"
+        assert school.stripe_subscription_id == "sub_partial"
+        assert school.plan == "trial"
+        assert school.stripe_subscription_status == ""
+        assert school.is_active is False
+
     def test_ignores_missing_school_slug(self):
         """Should not crash when metadata is empty."""
         handle_checkout_completed({"metadata": {}, "customer": "cus_x"})
@@ -692,7 +716,12 @@ class TestBillingPortal:
     @patch("core.views_billing.create_portal_session")
     def test_portal_redirects_to_stripe(self, mock_portal, client):
         mock_portal.return_value = "https://billing.stripe.com/portal"
-        school = SchoolFactory(stripe_customer_id="cus_test")
+        school = SchoolFactory(
+            plan="starter",
+            stripe_customer_id="cus_test",
+            stripe_subscription_id="sub_test",
+            stripe_subscription_status="active",
+        )
         membership = SchoolAdminMembershipFactory(school=school)
         client.force_login(membership.user)
         resp = client.post(self._url())
@@ -702,12 +731,32 @@ class TestBillingPortal:
     @patch("core.views_billing.create_portal_session")
     def test_portal_error_redirects_back(self, mock_portal, client):
         mock_portal.return_value = None
-        school = SchoolFactory(stripe_customer_id="cus_test")
+        school = SchoolFactory(
+            plan="starter",
+            stripe_customer_id="cus_test",
+            stripe_subscription_id="sub_test",
+            stripe_subscription_status="active",
+        )
         membership = SchoolAdminMembershipFactory(school=school)
         client.force_login(membership.user)
         resp = client.post(self._url())
         assert resp.status_code == 302
         assert "billing" in resp.url
+
+    @patch("core.views_billing.create_portal_session")
+    def test_trial_with_stale_stripe_ids_cannot_open_portal(self, mock_portal, client):
+        school = SchoolFactory(
+            plan="trial",
+            stripe_customer_id="cus_stale",
+            stripe_subscription_id="sub_stale",
+            stripe_subscription_status="active",
+        )
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        resp = client.post(self._url())
+        assert resp.status_code == 302
+        assert "billing" in resp.url
+        mock_portal.assert_not_called()
 
     @patch("core.views_billing.create_portal_session")
     def test_custom_plan_portal_is_blocked(self, mock_portal, client):
@@ -1592,6 +1641,38 @@ class TestSchoolBillingCheckoutGuards:
         assert self._CUSTOM_PRICE_ID.encode() in resp.content
 
     @override_settings(
+        STRIPE_PRICE_STARTER_MONTHLY=_STANDARD_PRICE_ID,
+        STRIPE_PRICE_STARTER_ANNUAL="",
+        STRIPE_PRICE_PRO_MONTHLY="",
+        STRIPE_PRICE_PRO_ANNUAL="",
+        STRIPE_PRICE_GROWTH_MONTHLY="",
+        STRIPE_PRICE_GROWTH_ANNUAL="",
+        STRIPE_PRICE_CUSTOM_MONTHLY=_CUSTOM_PRICE_ID,
+        STRIPE_PRICE_CUSTOM_ANNUAL="",
+    )
+    def test_school_billing_treats_trial_with_stale_subscription_as_trial(self, client):
+        """A partial webhook state must not hide checkout/founder options."""
+        school = SchoolFactory(
+            plan="trial",
+            feature_flags={"founder_pricing_enabled": True},
+            stripe_customer_id="cus_stale",
+            stripe_subscription_id="sub_stale",
+            stripe_subscription_status="active",
+        )
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        with patch("core.services.billing_stripe.is_stripe_configured", return_value=True):
+            resp = client.get(self._billing_url(school))
+
+        assert resp.status_code == 200
+        assert b">Founder</div>" in resp.content
+        assert self._CUSTOM_PRICE_ID.encode() in resp.content
+        assert self._STANDARD_PRICE_ID.encode() in resp.content
+        assert b"Manage Billing" not in resp.content
+        assert b"Use Manage Billing above to change plans" not in resp.content
+        assert b"Status: active" not in resp.content
+
+    @override_settings(
         STRIPE_PRICE_CUSTOM_MONTHLY=_CUSTOM_PRICE_ID,
         STRIPE_PRICE_CUSTOM_ANNUAL="",
     )
@@ -1642,10 +1723,30 @@ class TestSchoolBillingCheckoutGuards:
 
     def test_standard_plan_portal_reaches_stripe(self, client):
         """A non-managed plan can open the billing portal."""
-        school = SchoolFactory(plan="starter", stripe_customer_id="cus_test")
+        school = SchoolFactory(
+            plan="starter",
+            stripe_customer_id="cus_test",
+            stripe_subscription_id="sub_test",
+            stripe_subscription_status="active",
+        )
         membership = SchoolAdminMembershipFactory(school=school)
         client.force_login(membership.user)
         with patch("core.services.billing_stripe.create_portal_session", return_value="https://billing.stripe.com/portal"):
             resp = client.post(self._portal_url(school))
         assert resp.status_code == 302
         assert "billing.stripe.com" in resp.url
+
+    def test_trial_with_stale_stripe_ids_cannot_open_school_portal(self, client):
+        school = SchoolFactory(
+            plan="trial",
+            stripe_customer_id="cus_stale",
+            stripe_subscription_id="sub_stale",
+            stripe_subscription_status="active",
+        )
+        membership = SchoolAdminMembershipFactory(school=school)
+        client.force_login(membership.user)
+        with patch("core.services.billing_stripe.create_portal_session") as mock_portal:
+            resp = client.post(self._portal_url(school))
+        assert resp.status_code == 302
+        assert "billing" in resp.url
+        mock_portal.assert_not_called()

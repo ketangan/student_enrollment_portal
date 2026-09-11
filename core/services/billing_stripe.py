@@ -11,6 +11,7 @@ import logging
 from datetime import datetime, timezone
 
 from django.conf import settings
+from core.services import feature_flags as ff
 
 logger = logging.getLogger(__name__)
 
@@ -268,8 +269,7 @@ def handle_checkout_completed(session_data: dict) -> None:
     school.stripe_customer_id = customer_id or school.stripe_customer_id
     school.stripe_subscription_id = subscription_id or school.stripe_subscription_id
 
-    # Default to "active" — overwritten below if we successfully fetch the real status
-    subscription_status = "active"
+    subscription_status = school.stripe_subscription_status
 
     # Determine plan from line items
     line_items = session_data.get("line_items", {}).get("data", [])
@@ -290,12 +290,13 @@ def handle_checkout_completed(session_data: dict) -> None:
                     plan = price_to_plan(price_id)
                     if plan:
                         school.plan = plan
-                subscription_status = sub.get("status", "active")
+                subscription_status = sub.get("status") or subscription_status
         except Exception:
             logger.exception("Failed to fetch subscription %s", subscription_id)
 
     school.stripe_subscription_status = subscription_status
-    school.is_active = True  # Reactivate on successful checkout
+    if subscription_status in ("active", "trialing", "past_due", "unpaid") and school.plan != ff.PLAN_TRIAL:
+        school.is_active = True  # Reactivate only after checkout maps to a paid/internal plan.
     school.stripe_cancel_at = None
     school.stripe_cancel_at_period_end = False
     school.stripe_current_period_end = None
