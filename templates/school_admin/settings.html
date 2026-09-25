@@ -493,37 +493,39 @@
 
         <div style="display:grid;gap:14px;margin-bottom:22px;">
           <div>
-            <label style="font-size:12px;font-weight:600;color:var(--dash-label);
-                          display:block;margin-bottom:4px;">To <span style="color:#ef4444;">*</span></label>
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                          letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">
+              To <span style="color:#dc2626;">*</span>
+            </label>
             <input type="text" name="notification_to_emails" id="notif-to"
                    value="{{ notification_to_emails }}"
                    placeholder="e.g. director@yourschool.com, admin@yourschool.com"
-                   class="dash-input notif-email-field"
-                   style="width:100%;font-size:13px;">
+                   style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;">
             <p class="notif-error" id="notif-to-error"
-               style="display:none;font-size:11px;color:#ef4444;margin:4px 0 0;"></p>
+               style="display:none;font-size:11px;color:#dc2626;margin:4px 0 0;"></p>
           </div>
           <div>
-            <label style="font-size:12px;font-weight:600;color:var(--dash-label);
-                          display:block;margin-bottom:4px;">CC</label>
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                          letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">CC</label>
             <input type="text" name="notification_cc_emails" id="notif-cc"
                    value="{{ notification_cc_emails }}"
                    placeholder="Optional — additional recipients (copied)"
-                   class="dash-input notif-email-field"
-                   style="width:100%;font-size:13px;">
+                   style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;">
             <p class="notif-error" id="notif-cc-error"
-               style="display:none;font-size:11px;color:#ef4444;margin:4px 0 0;"></p>
+               style="display:none;font-size:11px;color:#dc2626;margin:4px 0 0;"></p>
           </div>
           <div>
-            <label style="font-size:12px;font-weight:600;color:var(--dash-label);
-                          display:block;margin-bottom:4px;">BCC</label>
+            <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                          letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">BCC</label>
             <input type="text" name="notification_bcc_emails" id="notif-bcc"
                    value="{{ notification_bcc_emails }}"
                    placeholder="Optional — blind-copied recipients"
-                   class="dash-input notif-email-field"
-                   style="width:100%;font-size:13px;">
+                   style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;">
             <p class="notif-error" id="notif-bcc-error"
-               style="display:none;font-size:11px;color:#ef4444;margin:4px 0 0;"></p>
+               style="display:none;font-size:11px;color:#dc2626;margin:4px 0 0;"></p>
           </div>
         </div>
 
@@ -533,15 +535,15 @@
                   border-top:1px solid var(--dash-border);">Lead Inquiries</p>
 
         <div style="margin-bottom:22px;">
-          <label style="font-size:12px;font-weight:600;color:var(--dash-label);
-                        display:block;margin-bottom:4px;">To</label>
+          <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;
+                        letter-spacing:.05em;color:var(--dash-muted);margin-bottom:4px;">To</label>
           <input type="text" name="leads_notify_to_emails" id="notif-leads-to"
                  value="{{ leads_notify_to_emails }}"
                  placeholder="e.g. director@yourschool.com"
-                 class="dash-input notif-email-field"
-                 style="width:100%;font-size:13px;">
+                 style="width:100%;padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                        border-radius:6px;background:var(--dash-bg);color:var(--dash-text);box-sizing:border-box;">
           <p class="notif-error" id="notif-leads-to-error"
-             style="display:none;font-size:11px;color:#ef4444;margin:4px 0 0;"></p>
+             style="display:none;font-size:11px;color:#dc2626;margin:4px 0 0;"></p>
           <p style="font-size:11px;color:var(--dash-muted);margin:6px 0 0;">
             Leave blank to fall back to the enrollment notification address above.
             If both are empty, lead inquiry emails will not be sent.
