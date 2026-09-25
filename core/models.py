@@ -183,6 +183,14 @@ class School(models.Model):
     # Default days before a follow-up is due after marking a lead/submission contacted.
     default_follow_up_days = models.PositiveSmallIntegerField(default=2)
 
+    # Notification email recipients managed via the admin settings UI.
+    # Comma-separated lists. When non-empty, these override the YAML values.
+    # DB takes priority; YAML is the fallback when these fields are empty.
+    notification_to_emails = models.TextField(blank=True, default="")
+    notification_cc_emails = models.TextField(blank=True, default="")
+    notification_bcc_emails = models.TextField(blank=True, default="")
+    leads_notify_to_emails = models.TextField(blank=True, default="")
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property

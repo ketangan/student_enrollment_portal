@@ -8,8 +8,10 @@ import logging
 
 from django.conf import settings
 from django.core.mail import EmailMessage, get_connection
-from django.http import HttpRequest
 from django.core.mail import EmailMultiAlternatives
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.http import HttpRequest
 from django.utils.html import escape
 from django.urls import reverse
 
@@ -112,10 +114,26 @@ def _alert_smtp_failure(school) -> None:
 def _split_emails(raw: str | None) -> List[str]:
     if not raw:
         return []
-    # comma-separated list
     parts = [p.strip() for p in raw.split(",")]
-    # keep only non-empty items
     return [p for p in parts if p]
+
+
+def validate_email_list(raw: str) -> tuple[list[str], list[str]]:
+    """
+    Validate a comma-separated email list.
+    Returns (valid_emails, invalid_emails).
+    Empty input returns ([], []).
+    """
+    if not raw or not raw.strip():
+        return [], []
+    valid, invalid = [], []
+    for addr in _split_emails(raw):
+        try:
+            validate_email(addr)
+            valid.append(addr)
+        except DjangoValidationError:
+            invalid.append(addr)
+    return valid, invalid
 
 
 def _get_nested(d: dict, path: List[str], default=None):
@@ -484,9 +502,15 @@ class SubmissionEmailConfig:
     subject: str
 
 
-def get_submission_email_config(config_raw: Dict[str, Any]) -> Optional[SubmissionEmailConfig]:
+def get_submission_email_config(config_raw: Dict[str, Any], school=None) -> Optional[SubmissionEmailConfig]:
     """
-    Expects YAML under:
+    Build the submission notification email config.
+
+    Priority: School DB fields (notification_*_emails) → YAML submission_email block.
+    When DB fields are set they fully override the YAML to/cc/bcc; from_email and
+    subject still come from the YAML block (or sensible defaults).
+
+    YAML shape (fallback):
       success:
         notifications:
           submission_email:
@@ -496,28 +520,30 @@ def get_submission_email_config(config_raw: Dict[str, Any]) -> Optional[Submissi
             from_email: "verified@sender.com"
             subject: "New submission: {{student_name}}"
     """
-    if not isinstance(config_raw, dict):
-        return None
-
+    config_raw = config_raw or {}
     block = _get_nested(config_raw, ["success", "notifications", "submission_email"], default=None)
-    if not isinstance(block, dict):
-        return None
-
-    to_list = _split_emails(block.get("to"))
-    cc_list = _split_emails(block.get("cc"))
-    bcc_list = _split_emails(block.get("bcc"))
+    block = block if isinstance(block, dict) else {}
 
     from_email = (block.get("from_email") or "").strip() or getattr(settings, "DEFAULT_FROM_EMAIL", "")
     subject = (block.get("subject") or "New submission").strip()
 
+    # DB fields take priority when the school record has them set.
+    if school is not None:
+        db_to = _split_emails(getattr(school, "notification_to_emails", "") or "")
+        if db_to:
+            db_cc = _split_emails(getattr(school, "notification_cc_emails", "") or "")
+            db_bcc = _split_emails(getattr(school, "notification_bcc_emails", "") or "")
+            return SubmissionEmailConfig(to=db_to, cc=db_cc, bcc=db_bcc, from_email=from_email, subject=subject)
+
+    # Fall back to YAML.
+    to_list = _split_emails(block.get("to"))
     if not to_list:
-        # no recipients => treat as disabled
         return None
 
     return SubmissionEmailConfig(
         to=to_list,
-        cc=cc_list,
-        bcc=bcc_list,
+        cc=_split_emails(block.get("cc")),
+        bcc=_split_emails(block.get("bcc")),
         from_email=from_email,
         subject=subject,
     )
@@ -604,7 +630,7 @@ def send_submission_notification_email(
     Sends email notification on new submission.
     Returns True if email sent, False if skipped or failed.
     """
-    cfg = get_submission_email_config(config_raw)
+    cfg = get_submission_email_config(config_raw, school=school)
     if not cfg:
         return False
 
@@ -745,13 +771,22 @@ def send_lead_admin_notification(
     raw = config_raw or {}
     cfg = lead_cfg or {}
 
-    notify_to = (cfg.get("notify_to") or "").strip()
-    if not notify_to:
-        notify_to = ((raw.get("leads") or {}).get("notify_to") or "").strip()
-    if not notify_to:
-        notify_to = _get_nested(raw, ["success", "notifications", "submission_email", "to"], "") or ""
-        notify_to = notify_to.strip()
-    if not notify_to:
+    # DB field takes priority; YAML cascade is the fallback.
+    recipients: List[str] = []
+    if school is not None:
+        recipients = _split_emails(getattr(school, "leads_notify_to_emails", "") or "")
+
+    if not recipients:
+        notify_to = (cfg.get("notify_to") or "").strip()
+        if not notify_to:
+            notify_to = ((raw.get("leads") or {}).get("notify_to") or "").strip()
+        if not notify_to:
+            notify_to = _get_nested(raw, ["success", "notifications", "submission_email", "to"], "") or ""
+            notify_to = notify_to.strip()
+        if notify_to:
+            recipients = [notify_to]
+
+    if not recipients:
         return False
 
     form_title = (cfg.get("form_title") or "").strip()
@@ -806,7 +841,7 @@ def send_lead_admin_notification(
     """
     try:
         conn = get_school_email_connection(school)
-        msg = EmailMultiAlternatives(subject, text_body, from_email, [notify_to], connection=conn)
+        msg = EmailMultiAlternatives(subject, text_body, from_email, recipients, connection=conn)
         msg.attach_alternative(html_body, "text/html")
         msg.send(fail_silently=False)
         return True

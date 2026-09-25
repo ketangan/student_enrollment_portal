@@ -464,6 +464,98 @@
     </div>
     {% endif %}{# is_owner — Email Delivery #}
 
+    <!-- ── Notification Recipients ──────────────────────────────────────── -->
+    {% if is_owner %}
+    {% if not notification_to_emails %}
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;
+                margin-bottom:16px;display:flex;align-items:flex-start;gap:10px;">
+      <span style="font-size:16px;flex-shrink:0;line-height:1.4;">⚠️</span>
+      <p style="font-size:13px;color:#92400e;margin:0;line-height:1.5;">
+        <strong>No notification recipient set.</strong>
+        Enrollment submissions will not trigger email alerts until you add a recipient below.
+      </p>
+    </div>
+    {% endif %}
+    <div class="dash-card" style="padding:24px;margin-bottom:20px;">
+      <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Notification Recipients</h2>
+      <p style="font-size:12px;color:var(--dash-muted);margin:0 0 20px;">
+        Who receives email notifications when a new enrollment application or inquiry is submitted.
+        Enter one or more addresses separated by commas.
+      </p>
+
+      <form method="post" action="" id="notif-form" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_notification_emails">
+
+        <!-- Enrollment Applications -->
+        <p style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+                  color:var(--dash-muted);margin:0 0 14px;">Enrollment Applications</p>
+
+        <div style="display:grid;gap:14px;margin-bottom:22px;">
+          <div>
+            <label style="font-size:12px;font-weight:600;color:var(--dash-label);
+                          display:block;margin-bottom:4px;">To <span style="color:#ef4444;">*</span></label>
+            <input type="text" name="notification_to_emails" id="notif-to"
+                   value="{{ notification_to_emails }}"
+                   placeholder="e.g. director@yourschool.com, admin@yourschool.com"
+                   class="dash-input notif-email-field"
+                   style="width:100%;font-size:13px;">
+            <p class="notif-error" id="notif-to-error"
+               style="display:none;font-size:11px;color:#ef4444;margin:4px 0 0;"></p>
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600;color:var(--dash-label);
+                          display:block;margin-bottom:4px;">CC</label>
+            <input type="text" name="notification_cc_emails" id="notif-cc"
+                   value="{{ notification_cc_emails }}"
+                   placeholder="Optional — additional recipients (copied)"
+                   class="dash-input notif-email-field"
+                   style="width:100%;font-size:13px;">
+            <p class="notif-error" id="notif-cc-error"
+               style="display:none;font-size:11px;color:#ef4444;margin:4px 0 0;"></p>
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600;color:var(--dash-label);
+                          display:block;margin-bottom:4px;">BCC</label>
+            <input type="text" name="notification_bcc_emails" id="notif-bcc"
+                   value="{{ notification_bcc_emails }}"
+                   placeholder="Optional — blind-copied recipients"
+                   class="dash-input notif-email-field"
+                   style="width:100%;font-size:13px;">
+            <p class="notif-error" id="notif-bcc-error"
+               style="display:none;font-size:11px;color:#ef4444;margin:4px 0 0;"></p>
+          </div>
+        </div>
+
+        <!-- Lead Inquiries -->
+        <p style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+                  color:var(--dash-muted);margin:0 0 14px;padding-top:18px;
+                  border-top:1px solid var(--dash-border);">Lead Inquiries</p>
+
+        <div style="margin-bottom:22px;">
+          <label style="font-size:12px;font-weight:600;color:var(--dash-label);
+                        display:block;margin-bottom:4px;">To</label>
+          <input type="text" name="leads_notify_to_emails" id="notif-leads-to"
+                 value="{{ leads_notify_to_emails }}"
+                 placeholder="e.g. director@yourschool.com"
+                 class="dash-input notif-email-field"
+                 style="width:100%;font-size:13px;">
+          <p class="notif-error" id="notif-leads-to-error"
+             style="display:none;font-size:11px;color:#ef4444;margin:4px 0 0;"></p>
+          <p style="font-size:11px;color:var(--dash-muted);margin:6px 0 0;">
+            Leave blank to fall back to the enrollment notification address above.
+            If both are empty, lead inquiry emails will not be sent.
+          </p>
+        </div>
+
+        <button type="submit" class="dash-action-btn dash-action-btn--primary"
+                style="font-size:12px;padding:6px 14px;">
+          Save Recipients
+        </button>
+      </form>
+    </div>
+    {% endif %}{# is_owner — Notification Recipients #}
+
   </div>{# /email panel #}
 
   <!-- ══════════════════════════════════════════════════════════════════════ -->
@@ -1206,6 +1298,64 @@ if (new URLSearchParams(window.location.search).get('smtp_saved') === '1') {
       activateTab(btn.getAttribute('data-tab'));
     });
   });
+})();
+
+// Notification recipients — client-side email validation
+(function() {
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  function validateEmailField(inputEl, errorEl) {
+    var raw = inputEl.value.trim();
+    if (!raw) { errorEl.style.display = 'none'; return true; }
+    var parts = raw.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+    var bad = parts.filter(function(e) { return !EMAIL_RE.test(e); });
+    if (bad.length) {
+      errorEl.textContent = 'Invalid: ' + bad.join(', ');
+      errorEl.style.display = 'block';
+      return false;
+    }
+    errorEl.style.display = 'none';
+    return true;
+  }
+
+  var notifForm = document.getElementById('notif-form');
+  if (notifForm) {
+    var fieldPairs = [
+      ['notif-to',       'notif-to-error'],
+      ['notif-cc',       'notif-cc-error'],
+      ['notif-bcc',      'notif-bcc-error'],
+      ['notif-leads-to', 'notif-leads-to-error'],
+    ];
+
+    fieldPairs.forEach(function(pair) {
+      var inp = document.getElementById(pair[0]);
+      var err = document.getElementById(pair[1]);
+      if (inp && err) {
+        inp.addEventListener('blur', function() { validateEmailField(inp, err); });
+      }
+    });
+
+    notifForm.addEventListener('submit', function(e) {
+      var valid = true;
+      fieldPairs.forEach(function(pair) {
+        var inp = document.getElementById(pair[0]);
+        var err = document.getElementById(pair[1]);
+        if (inp && err && !validateEmailField(inp, err)) { valid = false; }
+      });
+      // "To" required when CC or BCC is set
+      var toInp = document.getElementById('notif-to');
+      var ccInp = document.getElementById('notif-cc');
+      var bccInp = document.getElementById('notif-bcc');
+      var toErr = document.getElementById('notif-to-error');
+      if (toInp && ccInp && bccInp && toErr &&
+          !toInp.value.trim() && (ccInp.value.trim() || bccInp.value.trim())) {
+        toErr.textContent = "'To' is required when CC or BCC is set.";
+        toErr.style.display = 'block';
+        valid = false;
+      }
+      if (!valid) { e.preventDefault(); }
+    });
+  }
 })();
 </script>
 {% endblock %}

@@ -716,6 +716,58 @@ def school_settings_view(request, school_slug: str):
                 messages.success(request, f"Follow-up window updated to {days} day{'s' if days != 1 else ''}.")
         return redirect(_settings_url(school_slug, "general"))
 
+    if request.method == "POST" and request.POST.get("action") == "update_notification_emails":
+        require_school_role(request, school, "owner")
+        from core.services.notifications import validate_email_list
+
+        fields = {
+            "notification_to_emails": request.POST.get("notification_to_emails", "").strip(),
+            "notification_cc_emails": request.POST.get("notification_cc_emails", "").strip(),
+            "notification_bcc_emails": request.POST.get("notification_bcc_emails", "").strip(),
+            "leads_notify_to_emails": request.POST.get("leads_notify_to_emails", "").strip(),
+        }
+
+        errors = []
+        for field_name, raw in fields.items():
+            _, invalid = validate_email_list(raw)
+            if invalid:
+                label = field_name.replace("_", " ").replace("emails", "").strip().title()
+                errors.append(f"{label}: invalid address{'es' if len(invalid) > 1 else ''} — {', '.join(invalid)}")
+
+        # "To" is required when notifications are configured (if CC or BCC are set, To must be set too).
+        if not fields["notification_to_emails"] and (fields["notification_cc_emails"] or fields["notification_bcc_emails"]):
+            errors.append("Submission notifications: 'To' address is required when CC or BCC is set.")
+
+        if errors:
+            for err in errors:
+                messages.error(request, err)
+            return redirect(_settings_url(school_slug, "email"))
+
+        # Normalise: re-join validated addresses so they're consistently formatted.
+        def _normalise(raw):
+            valid, _ = validate_email_list(raw)
+            return ", ".join(valid)
+
+        school.notification_to_emails = _normalise(fields["notification_to_emails"])
+        school.notification_cc_emails = _normalise(fields["notification_cc_emails"])
+        school.notification_bcc_emails = _normalise(fields["notification_bcc_emails"])
+        school.leads_notify_to_emails = _normalise(fields["leads_notify_to_emails"])
+        school.save(update_fields=[
+            "notification_to_emails",
+            "notification_cc_emails",
+            "notification_bcc_emails",
+            "leads_notify_to_emails",
+        ])
+        log_admin_audit(
+            request=request,
+            action="action",
+            obj=school,
+            changes={},
+            extra={"name": "update_notification_emails"},
+        )
+        messages.success(request, "Notification recipients saved.")
+        return redirect(_settings_url(school_slug, "email"))
+
     if request.method == "POST" and request.POST.get("action") == "save_config_overrides":
         require_school_role(request, school, "owner")
         config = load_school_config(school_slug)
@@ -898,6 +950,10 @@ def school_settings_view(request, school_slug: str):
         "custom_token_create_url": reverse("school_custom_token_create", kwargs={"school_slug": school_slug}),
         "override_slots_groups": override_slots_groups,
         "active_tab": active_tab,
+        "notification_to_emails": school.notification_to_emails,
+        "notification_cc_emails": school.notification_cc_emails,
+        "notification_bcc_emails": school.notification_bcc_emails,
+        "leads_notify_to_emails": school.leads_notify_to_emails,
     })
     return render(request, "school_admin/settings.html", ctx)
 
