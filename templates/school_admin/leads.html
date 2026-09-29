@@ -104,6 +104,12 @@ th.col-sorted-desc .col-sort-icon { opacity: 1; color: var(--dash-primary); }
       <div style="font-size:22px;font-weight:700;color:var(--dash-text);">{{ leads_metrics.contacted }}</div>
       <div style="font-size:12px;color:var(--dash-muted);margin-top:2px;">Contacted</div>
     </div>
+    {% if "application_submitted" in leads_metrics %}
+    <div class="dash-card" style="padding:14px 20px;flex:1;min-width:140px;text-align:center;margin-top:0;">
+      <div style="font-size:22px;font-weight:700;color:var(--dash-text);">{{ leads_metrics.application_submitted }}</div>
+      <div style="font-size:12px;color:var(--dash-muted);margin-top:2px;">Application Submitted</div>
+    </div>
+    {% endif %}
     <div class="dash-card" style="padding:14px 20px;flex:1;min-width:100px;text-align:center;margin-top:0;">
       <div style="font-size:22px;font-weight:700;color:var(--dash-text);">{{ leads_metrics.enrolled }}</div>
       <div style="font-size:12px;color:var(--dash-muted);margin-top:2px;">Enrolled</div>
@@ -248,14 +254,14 @@ th.col-sorted-desc .col-sort-icon { opacity: 1; color: var(--dash-primary); }
         <tbody>
           {% for lead in leads %}
           <tr>
-            {% if workflow_actions_enabled and can_mutate %}<td style="padding-right:0;"><input type="checkbox" class="lead-checkbox" value="{{ lead.id }}" style="cursor:pointer;"></td>{% endif %}
+            {% if workflow_actions_enabled and can_mutate %}<td style="padding-right:0;">{% if not lead.admissions_managed %}<input type="checkbox" class="lead-checkbox" value="{{ lead.id }}" style="cursor:pointer;">{% endif %}</td>{% endif %}
             <td>
               <a href="{{ lead.school_admin_url }}" class="dash-student-name">{{ lead.name }}</a>
               {% if lead.has_notes %}<span title="Has notes" style="font-size:10px;padding:1px 5px;border-radius:3px;background:#ede9fe;color:#6d28d9;margin-left:5px;white-space:nowrap;flex-shrink:0;">Notes</span>{% endif %}
             </td>
             <td style="color: var(--dash-muted); font-size: 13px;">{{ lead.program }}</td>
             <td>
-              {% if can_mutate and lead.status_raw != "enrolled" %}
+              {% if can_mutate and not lead.admissions_managed and lead.status_raw != "enrolled" and lead.status_raw != "application_submitted" %}
               <form method="post"
                     action="{% url 'school_lead_inline_status' school_slug=school.slug lead_id=lead.id %}"
                     style="display:inline;">
@@ -266,7 +272,7 @@ th.col-sorted-desc .col-sort-icon { opacity: 1; color: var(--dash-primary); }
                                border:1px solid var(--dash-border);background:var(--dash-bg);
                                color:var(--dash-text);cursor:pointer;">
                   {% for val, label in lead_status_choices %}
-                  {% if val != "enrolled" %}
+                  {% if val != "enrolled" and val != "application_submitted" %}
                   <option value="{{ val }}" {% if val == lead.status_raw %}selected{% endif %}>
                     {{ label }}
                   </option>
@@ -368,7 +374,7 @@ th.col-sorted-desc .col-sort-icon { opacity: 1; color: var(--dash-primary); }
                      background:#fff;color:#1e293b;">
         <option value="">— select status —</option>
         {% for val, label in lead_status_choices %}
-        {% if val != "enrolled" %}
+        {% if val != "enrolled" and val != "application_submitted" %}
         <option value="{{ val }}">{{ label }}</option>
         {% endif %}
         {% endfor %}

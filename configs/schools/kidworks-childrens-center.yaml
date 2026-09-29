@@ -275,6 +275,9 @@ admin:
       won:
         label: "Enrolled"
         statuses: [enrolled]
+      applications:
+        label: "Application Submitted"
+        statuses: [application_submitted]
     transitions:
       new:
         - label: "Mark Contacted"
@@ -298,6 +301,10 @@ admin:
           status: lost
 
 family_portal:
+  payment_preview:
+    enabled: true
+    amount: "50.00"
+    label: "Enrollment fee"
   playdate:
     enabled: true
     notify_school: false

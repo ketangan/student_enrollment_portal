@@ -451,28 +451,33 @@ def _apply_lead_filters(qs, active_filter, status_filter, search_q, workflow_fil
     The caller owns the base queryset, annotations, and ordering.
     program_filter is an exact match on interested_in_label.
     """
+    from core.services.admissions_workflow import APPLICATION_SUBMITTED, lead_status_field
+    status_field = lead_status_field(qs)
+    terminal = [LEAD_STATUS_ENROLLED, LEAD_STATUS_LOST]
+    if status_field == "admissions_status":
+        terminal.append(APPLICATION_SUBMITTED)
     # Smart filters take highest priority
     if active_filter in _SMART_FILTER_KEYS:
         now = timezone.now()
         if active_filter == "needs_follow_up":
             qs = qs.filter(
                 Q(next_follow_up_at__lte=now)
-                | Q(status=LEAD_STATUS_NEW, created_at__lte=now - timedelta(hours=24))
-            ).exclude(status__in=[LEAD_STATUS_ENROLLED, LEAD_STATUS_LOST])
+                | Q(**{status_field: LEAD_STATUS_NEW}, created_at__lte=now - timedelta(hours=24))
+            ).exclude(**{f"{status_field}__in": terminal})
         elif active_filter == "recent_activity":
             qs = qs.filter(updated_at__gte=now - timedelta(hours=48))
         elif active_filter == "stale":
             qs = qs.filter(updated_at__lte=now - timedelta(days=5)).exclude(
-                status__in=[LEAD_STATUS_ENROLLED, LEAD_STATUS_LOST]
+                **{f"{status_field}__in": terminal}
             )
         elif active_filter == "not_converted":
             qs = qs.filter(converted_submission__isnull=True).exclude(
-                status__in=[LEAD_STATUS_ENROLLED, LEAD_STATUS_LOST]
+                **{f"{status_field}__in": terminal}
             )
     elif active_filter and active_filter in workflow_filters:
-        qs = qs.filter(status__in=workflow_filters[active_filter]["statuses"])
+        qs = qs.filter(**{f"{status_field}__in": workflow_filters[active_filter]["statuses"]})
     elif status_filter:
-        qs = qs.filter(status=status_filter)
+        qs = qs.filter(**{status_field: status_filter})
 
     if program_filter:
         qs = qs.filter(interested_in_label=program_filter)
@@ -655,7 +660,9 @@ def _build_lead_row(
     workflow_transitions: {from_status: [{label, status}]} used only for
     quick-action buttons in the list view; does NOT enforce transitions.
     """
-    transitions = list(workflow_transitions.get(lead.status, [])) if workflow_transitions else []
+    from core.services.admissions_workflow import APPLICATION_SUBMITTED, displayed_lead_status
+    status = displayed_lead_status(lead)
+    transitions = list(workflow_transitions.get(status, [])) if workflow_transitions else []
     django_admin_url = reverse("admin:core_lead_change", args=[lead.id])
     school_admin_url = (
         reverse("school_lead_detail", kwargs={"school_slug": school_slug, "lead_id": lead.id})
@@ -683,9 +690,9 @@ def _build_lead_row(
         "phone": lead.phone,
         "program": lead.interested_in_label or "—",
         "status": lead.get_status_display(),
-        "status_raw": lead.status,
-        "status_css": _LEAD_STATUS_CSS.get(lead.status, "dash-badge--gray"),
-        "is_new": lead.status == LEAD_STATUS_NEW,
+        "status_raw": status,
+        "status_css": _LEAD_STATUS_CSS.get(status, "dash-badge--gray"),
+        "is_new": status == LEAD_STATUS_NEW,
         "created_at": timezone.localtime(lead.created_at),
         "next_follow_up_at": (
             timezone.localtime(lead.next_follow_up_at) if lead.next_follow_up_at else None
@@ -695,7 +702,7 @@ def _build_lead_row(
         "quick_actions": quick_actions,
         "is_converted": lead.converted_submission_id is not None,
         "converted_submission_admin_url": converted_url,
-        "is_terminal": lead.status in (LEAD_STATUS_ENROLLED, LEAD_STATUS_LOST),
+        "is_terminal": status in (LEAD_STATUS_ENROLLED, LEAD_STATUS_LOST, APPLICATION_SUBMITTED),
         "transitions": transitions,
         "has_notes": bool(lead.notes),
     }

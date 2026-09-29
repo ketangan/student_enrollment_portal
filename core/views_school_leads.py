@@ -67,6 +67,9 @@ from .services.admin_submission_yaml import (
     get_submission_workflow_filters,
     get_submission_workflow_transitions,
 )
+from .services.admissions_workflow import (
+    displayed_lead_status, lead_status_field, requires_enrollment_approval, with_admissions_status,
+)
 from .services.admin_lead_yaml import (
     get_lead_status_choices,
     get_lead_workflow_filters,
@@ -164,7 +167,7 @@ def school_leads_view(request, school_slug: str):
 
     # Base queryset: non-pipeline variant submissions (e.g. scheduling) are
     # excluded by default. ?category=<form_key> switches to that bucket.
-    base_qs = Lead.objects.filter(school=school).select_related("school")
+    base_qs = with_admissions_status(Lead.objects.filter(school=school).select_related("school"), config_raw)
     if category_filter:
         base_qs = base_qs.filter(form_key=category_filter)
     else:
@@ -200,22 +203,28 @@ def school_leads_view(request, school_slug: str):
     status_labels = dict(status_choices)
     appointment_field = get_appointment_field(config_raw.get("leads", {}))
     for row, lead in zip(leads, leads_raw):
-        if status_labels.get(lead.status) != lead.get_status_display():
-            row["status_override"] = status_labels.get(lead.status)
+        status = displayed_lead_status(lead)
+        row["admissions_managed"] = requires_enrollment_approval(config_raw) and bool(lead.converted_submission_id)
+        if requires_enrollment_approval(config_raw) or status_labels.get(status) != lead.get_status_display():
+            row["status_override"] = status_labels.get(status)
+            row["status"] = status_labels.get(status, row["status"])
         if appointment_field:
             row["appointment_value"] = appointment_display(appointment_field, lead.data)
 
     # Metrics — pipeline leads only (form_key="" excludes named-variant submissions)
+    metrics_qs = with_admissions_status(Lead.objects.filter(school=school, form_key=""), config_raw)
+    status_field = lead_status_field(metrics_qs)
     leads_by_status = {
-        row["status"]: row["n"]
-        for row in Lead.objects.filter(school=school, form_key="")
-        .values("status").annotate(n=Count("id"))
+        row[status_field]: row["n"]
+        for row in metrics_qs.values(status_field).annotate(n=Count("id"))
     }
     leads_metrics = {
         "new": leads_by_status.get(LEAD_STATUS_NEW, 0),
         "contacted": leads_by_status.get("contacted", 0),
         "enrolled": leads_by_status.get(LEAD_STATUS_ENROLLED, 0),
     }
+    if requires_enrollment_approval(config_raw):
+        leads_metrics["application_submitted"] = leads_by_status.get("application_submitted", 0)
 
     # Count variant-form submissions (any form_key set) so the template can show a tab
     scheduling_count = Lead.objects.filter(school=school).exclude(form_key="").count()
@@ -252,7 +261,7 @@ def school_leads_view(request, school_slug: str):
     }
     lead_status_filter_urls = {
         val: _build_list_url(lead_base, program_filter=program_filter, search_q=search_q, status_filter=val, sort=sort_key, sort_dir=sort_dir)
-        for val, _label in LEAD_STATUS_CHOICES
+        for val, _label in status_choices
     }
     clear_lead_program_url = _build_list_url(lead_base, active_filter=active_filter, status_filter=status_filter, search_q=search_q, sort=sort_key, sort_dir=sort_dir)
     clear_lead_status_url = _build_list_url(lead_base, active_filter=active_filter, program_filter=program_filter, search_q=search_q, sort=sort_key, sort_dir=sort_dir)
@@ -357,7 +366,7 @@ def school_lead_export_view(request, school_slug: str):
     program_filter = (request.GET.get("program") or "").strip()
 
     qs = _apply_lead_filters(
-        Lead.objects.filter(school=school).select_related("school").order_by("-created_at"),
+        with_admissions_status(Lead.objects.filter(school=school).select_related("school").order_by("-created_at"), config_raw),
         active_filter, status_filter, search_q, workflow_filters,
         program_filter=program_filter,
     )
@@ -382,7 +391,7 @@ def school_lead_export_view(request, school_slug: str):
             lead.email or "",
             lead.phone or "",
             lead.interested_in_label or lead.interested_in_value or "",
-            lead.status or "",
+            displayed_lead_status(lead) or "",
             timezone.localtime(lead.created_at).strftime("%Y-%m-%d %H:%M"),
             timezone.localtime(lead.last_contacted_at).strftime("%Y-%m-%d %H:%M") if lead.last_contacted_at else "",
             timezone.localtime(lead.next_follow_up_at).strftime("%Y-%m-%d %H:%M") if lead.next_follow_up_at else "",
@@ -629,14 +638,14 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
     an active draft already exists — creation happens only via school_lead_start_enrollment_view.
     """
     school = _get_accessible_school_for_admin(request, school_slug)
-    lead = get_object_or_404(Lead, id=lead_id, school=school)
-
     config = _safe_load_school_config(school_slug)
     config_raw = getattr(config, "raw", {}) or {}
+    lead = get_object_or_404(with_admissions_status(Lead.objects.filter(school=school), config_raw), id=lead_id)
+    status = displayed_lead_status(lead)
 
     # Workflow transitions for inline status buttons.
     workflow_transitions = get_lead_workflow_transitions(config_raw)
-    status_transitions = workflow_transitions.get(lead.status, [])
+    status_transitions = workflow_transitions.get(status, [])
 
     # Audit log for this lead.
     audit_log = (
@@ -801,7 +810,7 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
     ctx.update({
         "lead": lead,
         "status_transitions": status_transitions,
-        "status_css": _LEAD_STATUS_CSS.get(lead.status, "dash-badge--gray"),
+        "status_css": _LEAD_STATUS_CSS.get(status, "dash-badge--gray"),
         "audit_log": audit_log,
         "leads_url": leads_url,
         "detail_url": detail_url,
@@ -816,7 +825,10 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
         "email_templates_json": email_templates_json,
         "template_vars_json": template_vars_json,
         "lead_pipeline": lead_pipeline,
-        "lead_status_label": dict(status_choices).get(lead.status, lead.get_status_display()),
+        "lead_status_label": dict(status_choices).get(status, lead.get_status_display()),
+        "lead_status_value": status,
+        "requires_enrollment_approval": requires_enrollment_approval(config_raw),
+        "admissions_managed": requires_enrollment_approval(config_raw) and bool(lead.converted_submission_id),
         "lead_appointment_field": appointment_field,
         "lead_appointment_value": appointment_display(appointment_field, lead.data) if appointment_field else "",
         "lead_appointment_editor": next((f for f in form_fields_editable if appointment_field and f["key"] == appointment_field["key"]), None),

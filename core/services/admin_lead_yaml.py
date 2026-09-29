@@ -2,22 +2,27 @@
 from __future__ import annotations
 
 from core.models import LEAD_STATUS_CHOICES
+from core.services.admissions_workflow import APPLICATION_SUBMITTED, requires_enrollment_approval
 
 # Frozen set of valid Lead model status values — used to reject bad YAML.
 _VALID_LEAD_STATUSES: frozenset[str] = frozenset(c[0] for c in LEAD_STATUS_CHOICES)
 
 
 def get_lead_status_choices(config_raw: dict) -> list[tuple[str, str]]:
-    """School-specific display labels; stored statuses and transitions stay unchanged."""
+    """School-specific labels and derived admissions state; storage is unchanged."""
     admin = (config_raw or {}).get("admin", {})
     workflow = admin.get("lead_workflow", {}) if isinstance(admin, dict) else {}
     labels = workflow.get("status_labels", {}) if isinstance(workflow, dict) else {}
     if not isinstance(labels, dict):
         labels = {}
+    choices = list(LEAD_STATUS_CHOICES)
+    if requires_enrollment_approval(config_raw):
+        choices.insert(next(i for i, c in enumerate(choices) if c[0] == "enrolled"),
+                       (APPLICATION_SUBMITTED, "Application Submitted"))
     return [
         (value, labels[value].strip() if isinstance(labels.get(value), str)
          and labels[value].strip() else label)
-        for value, label in LEAD_STATUS_CHOICES
+        for value, label in choices
     ]
 
 
@@ -25,8 +30,8 @@ def get_lead_workflow_filters(config_raw: dict) -> dict:
     """Returns {key: {"label": str, "statuses": list[str]}} or {} if not configured.
 
     Parses admin.lead_workflow.filters from school YAML.
-    Status values are validated against Lead model choices (new, contacted,
-    trial_scheduled, enrolled, lost). Invalid statuses are stripped silently;
+    Status values are validated against this school's display choices, including
+    Application Submitted for approval workflows. Invalid statuses are stripped silently;
     filter entries whose statuses list becomes empty after validation are skipped.
     Schools without this block fall back to the generic status dropdown.
     """
@@ -39,6 +44,7 @@ def get_lead_workflow_filters(config_raw: dict) -> dict:
     filters = workflow.get("filters")
     if not isinstance(filters, dict):
         return {}
+    valid_choices = {value for value, _ in get_lead_status_choices(config_raw)}
     result: dict = {}
     for key, val in filters.items():
         if not isinstance(val, dict):
@@ -49,8 +55,8 @@ def get_lead_workflow_filters(config_raw: dict) -> dict:
             continue
         if not isinstance(statuses, list) or not statuses:
             continue
-        # Strip invalid Lead model statuses to prevent impossible filter tabs.
-        valid_statuses = [str(s) for s in statuses if s and str(s) in _VALID_LEAD_STATUSES]
+        # Strip unavailable statuses to prevent impossible filter tabs.
+        valid_statuses = [str(s) for s in statuses if s and str(s) in valid_choices]
         if not valid_statuses:
             continue
         result[str(key)] = {

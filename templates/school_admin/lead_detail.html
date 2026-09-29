@@ -115,7 +115,7 @@
       </p>
       <!-- Clickable pipeline breadcrumb -->
       {% if lead_pipeline %}
-      {% if can_mutate %}
+      {% if can_mutate and not admissions_managed %}
       <form method="post" class="no-print"
             action="{% url 'school_lead_status_update' school_slug=school_slug lead_id=lead.id %}">
         {% csrf_token %}
@@ -123,11 +123,11 @@
         <div class="sub-pipeline">
           {% for step in lead_pipeline %}
             {% if not forloop.first %}<span class="sub-pipeline__arrow">›</span>{% endif %}
-            {% if step.value == lead.status %}
+            {% if step.value == lead_status_value %}
               <span class="sub-pipeline__step sub-pipeline__step--active">{{ step.label }}</span>
-            {% elif step.value == "enrolled" %}
+            {% elif step.value == "enrolled" or step.value == "application_submitted" %}
               {# Enrolled is system-only — set when the lead submits the enrollment form #}
-              <span class="sub-pipeline__step" style="opacity:0.35;cursor:default;" title="Set automatically when the family submits the enrollment form">{{ step.label }}</span>
+              <span class="sub-pipeline__step" style="opacity:0.35;cursor:default;" title="{% if requires_enrollment_approval %}Managed by the linked application{% else %}Set automatically when the family submits the enrollment form{% endif %}">{{ step.label }}</span>
             {% else %}
               <button type="submit" name="new_status" value="{{ step.value }}"
                       class="sub-pipeline__step--clickable" title="Move to {{ step.label }}">{{ step.label }}</button>
@@ -139,7 +139,7 @@
       <div class="sub-pipeline">
         {% for step in lead_pipeline %}
           {% if not forloop.first %}<span class="sub-pipeline__arrow">›</span>{% endif %}
-          {% if step.value == lead.status %}
+          {% if step.value == lead_status_value %}
             <span class="sub-pipeline__step sub-pipeline__step--active">{{ step.label }}</span>
           {% else %}
             <span class="sub-pipeline__step" style="opacity:0.35;cursor:default;">{{ step.label }}</span>
@@ -404,7 +404,7 @@
       <div class="dash-card no-print" style="padding:18px 22px;opacity:0.6;">
         <h2 class="sidebar-label">Send Message</h2>
         <p style="font-size:13px;color:var(--dash-muted);margin:0;">
-          This lead has been enrolled — manage communication from the
+          {% if requires_enrollment_approval %}This lead has a linked application. Manage communication from the{% else %}This lead has been enrolled — manage communication from the{% endif %}
           {% if converted_submission_url %}<a href="{{ converted_submission_url }}" style="color:var(--dash-primary,#4f46e5);font-weight:600;">submission →</a>{% else %}submission screen{% endif %}
         </p>
       </div>

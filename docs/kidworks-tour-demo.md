@@ -63,23 +63,33 @@ calendar integrations or new notification emails are triggered by this action.
   auto-enrolling, even if an existing program/session has auto-enroll enabled.
   Both public submission completion paths pass this config to the shared service.
   Other schools default to their existing program/session behavior.
-- **Fee Pending is a status only for now**, per the user's decision. The existing
-  upfront application-fee mechanism is unchanged. Follow-up work: post-approval
-  fee checkout, verified/idempotent payment completion, and enrollment only after
-  approval and payment. No automatic payment-to-enrollment transition is added here.
+- **Fee Pending shows a $50 placeholder** on the parent status page, configured
+  by `family_portal.payment_preview`. The Pay button is disabled and explicitly
+  labeled demo-only. It never contacts Stripe, creates a payment, or advances
+  enrollment. Staff can use the existing status control to demonstrate Enrolled.
+  Real post-approval payments and payment-to-enrollment automation are deferred.
+  Existing upfront application fees and subscription billing are untouched.
 - Parent status messages, application success instructions, and confirmation emails
   now distinguish application receipt from enrollment and describe the playdate,
   availability review, and later paperwork/payment steps. Timezone suffixes are
   hidden in playdate labels, but timezone-aware validation remains unchanged.
-- Separate remaining gap: lead conversion still marks a linked Lead Enrolled when
-  an application is submitted. The Submission approval guard does not change that
-  Lead status. A distinct Application Submitted handoff state needs separate work,
-  including filters/counts; it is not implemented by this patch.
+- For schools with `admin.require_enrollment_approval: true`, the school-admin
+  Leads list, detail, filters, counts, and CSV derive the lead's workflow state
+  from its linked application: **Application Submitted** until the application
+  becomes **Enrolled**. Lost leads stay Lost. The derived state is read-only;
+  staff manage enrollment from the application, not the lead. Moving an application
+  back out of Enrolled is reflected immediately on its lead.
+  The existing conversion service still stores the legacy `enrolled` lead value.
+  There is no backfill or new database status; raw database/Django-admin values
+  retain legacy semantics. SBMC does not opt in and keeps its existing behavior.
 
 To test: open a New/In Review Kid Works submission as school admin, follow its
 family status link, choose a playdate, and return to Submission Details. Verify the
 slot and Playdate Scheduled status. Advance to Playdate Completed, then Fee Pending.
 The parent should still see the saved slot but should no longer be able to change it.
+At Fee Pending, confirm the $50 demo fee and disabled Pay button. Mark the
+application Enrolled manually; the fee placeholder disappears and its linked
+lead appears under Enrolled rather than Application Submitted.
 Also start with an unscheduled submission and schedule directly from the admin
 sidebar; the parent page should show the same appointment and updated status.
 
@@ -99,6 +109,23 @@ suppression, approval gating, and SBMC's original lesson scheduling behavior.
 
 ## Verification
 
+- Fee styling follow-up: the fee heading uses the same markup as adjacent section
+  titles; the amount uses the existing label/value row and the disabled button
+  uses Kid Works' existing button styling. Browser checks with the actual school
+  fonts loaded compared computed heading and amount styles, inspected desktop
+  and mobile screenshots, and verified SBMC isolation. No shared CSS was changed.
+- Migration-free admissions/fee-placeholder follow-up: **1,902 core tests passed**
+  with external networking blocked. The PostgreSQL-only migration test was
+  excluded on SQLite, then passed in a separate local PostgreSQL run alongside
+  all 37 new admissions/preview tests (**38 passed**). No production data or paid
+  APIs were used. No new migrations or model changes remain; localhost has no
+  pending migrations. The earlier unused local payment schema was reversed.
+  Desktop/mobile browser checks verified the disabled $50 button, linked-lead
+  handoff, filters, manual enrollment, and SBMC's original behavior. Screenshots
+  were inspected; no page-level horizontal overflow. External images were blocked
+  in this isolated browser run. The known shared email-editor `hidePop` error
+  remains unchanged. The temporary QA server was stopped; localhost:8001 remains
+  available.
 - Admin playdate/domain/copy follow-up: **1,865 core tests passed**, one known
   PostgreSQL-only migration test deselected on SQLite. External networking was
   blocked. The focused run passed 86 playdate/domain/application-payment tests.

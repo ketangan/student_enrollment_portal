@@ -1975,6 +1975,8 @@ def family_status_view(request, school_slug: str, token: str):
     from core.services.playdates import get_playdate_config, playdate_context
     playdate_config = get_playdate_config(getattr(config, "raw", {}))
     playdate = playdate_context(playdate_config, submission) if playdate_config else None
+    from core.services.payment_preview import get_payment_preview
+    payment_preview = get_payment_preview(getattr(config, "raw", {}), submission.status)
     if playdate:
         for item in student_info:
             if item["label"] == "Instrument":
@@ -1991,6 +1993,7 @@ def family_status_view(request, school_slug: str, token: str):
         "student_info": student_info,
         "change_requested": change_requested,
         "playdate": playdate,
+        "payment_preview": payment_preview,
     })
 
 

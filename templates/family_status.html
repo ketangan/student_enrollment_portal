@@ -169,6 +169,19 @@
   </div>
   {% endif %}
 
+  {% if payment_preview %}
+  <div class="card" id="payment-preview">
+    <div class="card__title">{{ payment_preview.label }}</div>
+    <div class="meta-row">
+      <div class="meta-item">Amount: <strong>${{ payment_preview.amount }}</strong></div>
+    </div>
+    <div style="margin-top:18px;">
+      <button type="button" class="btn-change btn-submit" disabled aria-describedby="payment-preview-note" style="opacity:0.55;cursor:not-allowed;">Pay ${{ payment_preview.amount }}</button>
+    </div>
+    <p id="payment-preview-note" style="font-size:14px;color:var(--muted);margin-bottom:0;">Demo only. Online payments are not enabled. No payment will be collected.</p>
+  </div>
+  {% endif %}
+
   <!-- Scheduling preferences -->
   {% if playdate %}
   {% include "partials/playdate_schedule.html" %}

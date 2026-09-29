@@ -12,7 +12,7 @@ Checks that:
   - All submission_workflow transition targets exist in submission_statuses
   - All submission_workflow filter statuses exist in submission_statuses
   - All lead_workflow transition targets are valid LEAD_STATUS_CHOICES
-  - All lead_workflow filter statuses are valid LEAD_STATUS_CHOICES
+  - All lead_workflow filter statuses are valid school-specific display choices
   - program_field_key (if set) exists as a field key in the enrollment form
   - application_fee.amount_from_field.field (if set) exists in the form
   - leads.redirect_url_field (if set) exists in leads.fields
@@ -184,21 +184,20 @@ def test_lead_transition_targets_are_valid_choices(slug):
 
 @pytest.mark.parametrize("slug", _YAML_SLUGS)
 def test_lead_filter_statuses_are_valid_choices(slug):
-    """All statuses in lead_workflow.filters must be valid LEAD_STATUS_CHOICES."""
+    """Filter statuses must be available for this school's workflow."""
     import django
     import os
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
     django.setup()
-    from core.models import LEAD_STATUS_CHOICES
-    valid = {c[0] for c in LEAD_STATUS_CHOICES}
-
+    from core.services.admin_lead_yaml import get_lead_status_choices
     raw = _load(slug)
+    valid = {c[0] for c in get_lead_status_choices(raw)}
     filters = (raw.get("admin", {}).get("lead_workflow") or {}).get("filters", {})
     for filter_key, fconf in filters.items():
         for s in fconf.get("statuses", []):
             assert s in valid, (
                 f"{slug}: lead filter '{filter_key}' references '{s}' which is not in "
-                f"LEAD_STATUS_CHOICES {sorted(valid)}"
+                f"school-specific lead status choices {sorted(valid)}"
             )
 
 
