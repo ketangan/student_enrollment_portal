@@ -48,6 +48,7 @@ urlpatterns = [
     path("schools/<slug:school_slug>/admin/submissions/<int:submission_id>/public-note/", views.school_submission_post_public_note_view, name="school_submission_post_public_note"),
     path("schools/<slug:school_slug>/admin/submissions/<int:submission_id>/resend-status-link/", views.school_submission_resend_status_link_view, name="school_submission_resend_status_link"),
     path("schools/<slug:school_slug>/admin/submissions/<int:submission_id>/ack-schedule-change/", views.school_submission_acknowledge_schedule_change_view, name="school_submission_ack_schedule_change"),
+    path("schools/<slug:school_slug>/admin/submissions/<int:submission_id>/schedule-playdate/", views.school_submission_schedule_playdate_view, name="school_submission_schedule_playdate"),
     # bulk/ paths must be BEFORE <int:lead_id>/ to avoid URL collision
     path("schools/<slug:school_slug>/admin/leads/bulk-status/", views.school_lead_bulk_status_update_view, name="school_lead_bulk_status_update"),
     path("schools/<slug:school_slug>/admin/leads/bulk-mark-contacted/", views.school_lead_bulk_mark_contacted_view, name="school_lead_bulk_mark_contacted"),
@@ -59,6 +60,7 @@ urlpatterns = [
     path("schools/<slug:school_slug>/admin/leads/<int:lead_id>/", views.school_lead_detail_view, name="school_lead_detail"),
     path("schools/<slug:school_slug>/admin/leads/<int:lead_id>/start-enrollment/", views.school_lead_start_enrollment_view, name="school_lead_start_enrollment"),
     path("schools/<slug:school_slug>/admin/leads/<int:lead_id>/update/", views.school_lead_update_view, name="school_lead_update"),
+    path("schools/<slug:school_slug>/admin/leads/<int:lead_id>/schedule-tour/", views.school_lead_schedule_tour_view, name="school_lead_schedule_tour"),
     path("schools/<slug:school_slug>/admin/leads/<int:lead_id>/status/", views.school_lead_status_update_view, name="school_lead_status_update"),
     path("schools/<slug:school_slug>/admin/leads/<int:lead_id>/mark-contacted/", views.school_lead_mark_contacted_view, name="school_lead_mark_contacted"),
     path("schools/<slug:school_slug>/admin/leads/<int:lead_id>/send-message/", views.school_lead_send_message_view, name="school_lead_send_message"),

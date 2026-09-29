@@ -7,6 +7,20 @@ from core.models import LEAD_STATUS_CHOICES
 _VALID_LEAD_STATUSES: frozenset[str] = frozenset(c[0] for c in LEAD_STATUS_CHOICES)
 
 
+def get_lead_status_choices(config_raw: dict) -> list[tuple[str, str]]:
+    """School-specific display labels; stored statuses and transitions stay unchanged."""
+    admin = (config_raw or {}).get("admin", {})
+    workflow = admin.get("lead_workflow", {}) if isinstance(admin, dict) else {}
+    labels = workflow.get("status_labels", {}) if isinstance(workflow, dict) else {}
+    if not isinstance(labels, dict):
+        labels = {}
+    return [
+        (value, labels[value].strip() if isinstance(labels.get(value), str)
+         and labels[value].strip() else label)
+        for value, label in LEAD_STATUS_CHOICES
+    ]
+
+
 def get_lead_workflow_filters(config_raw: dict) -> dict:
     """Returns {key: {"label": str, "statuses": list[str]}} or {} if not configured.
 

@@ -195,9 +195,9 @@ success:
   response_time: "1–2 business days"
   next_steps:
     - "Our team will review your child's age, program interest, and any special needs noted."
-    - "We'll reach out to confirm availability and schedule a center tour if you'd like."
-    - "Once confirmed, we'll walk you through enrollment paperwork and tuition details."
-    - "Your child will be welcomed into our community of curious, growing learners."
+    - "Use your application status page to choose a one-hour child playdate, or contact the school for help."
+    - "The school will confirm whether a place is available or your application will join the waitlist."
+    - "If a place is offered, the school will provide the remaining paperwork and payment instructions. Submitting this application does not confirm enrollment."
   contact:
     name: "Kid Works Children's Center"
     email: "Info@KidWorksChildrensCenter.com"
@@ -216,15 +216,21 @@ success:
       enabled: true
       from_email: "noreply@mypontora.com"
       subject: "We received your application, {{student_name}}!"
+      message: >
+        We have received your application to Kid Works Children's Center. Use your
+        application status page to choose a one-hour child playdate, or contact
+        the school for help. Our team will review availability and confirm the
+        next steps. Submitting an application does not confirm enrollment or
+        require payment; fees and remaining paperwork follow an offer of a place.
 
 admin:
+  require_enrollment_approval: true
   submission_statuses:
     - New
     - In Review
-    - Contacted
-    - Needs Follow Up
-    - Tour Scheduled
-    - Tour Completed
+    - Playdate Scheduled
+    - Playdate Completed
+    - Fee Pending
     - Enrolled
     - Waitlisted
     - Declined
@@ -238,10 +244,13 @@ admin:
         statuses: ["New"]
       review:
         label: "In Review"
-        statuses: ["In Review", "Contacted", "Needs Follow Up"]
-      tour:
-        label: "Tour"
-        statuses: ["Tour Scheduled", "Tour Completed"]
+        statuses: ["In Review"]
+      playdate:
+        label: "Playdate"
+        statuses: ["Playdate Scheduled", "Playdate Completed"]
+      fee_pending:
+        label: "Fee Pending"
+        statuses: ["Fee Pending"]
       enrolled:
         label: "Enrolled"
         statuses: ["Enrolled"]
@@ -253,13 +262,16 @@ admin:
         statuses: ["Declined", "Archived"]
 
   lead_workflow:
+    status_labels:
+      trial_scheduled: "Tour Scheduled"
+      trial_completed: "Tour Completed"
     filters:
       new_leads:
         label: "New"
         statuses: [new]
       pipeline:
         label: "In Pipeline"
-        statuses: [contacted, trial_scheduled]
+        statuses: [contacted, trial_scheduled, trial_completed]
       won:
         label: "Enrolled"
         statuses: [enrolled]
@@ -267,6 +279,8 @@ admin:
       new:
         - label: "Mark Contacted"
           status: contacted
+        - label: "Confirm Tour"
+          status: trial_scheduled
         - label: "Archive"
           status: lost
       contacted:
@@ -275,18 +289,45 @@ admin:
         - label: "Archive"
           status: lost
       trial_scheduled:
-        - label: "Mark Enrolled"
-          status: enrolled
+        - label: "Complete Tour"
+          status: trial_completed
+        - label: "Archive"
+          status: lost
+      trial_completed:
         - label: "Archive"
           status: lost
 
+family_portal:
+  playdate:
+    enabled: true
+    notify_school: false
+    timezone: America/Los_Angeles
+    slots:
+      - "2026-10-12T09:00:00-07:00"
+      - "2026-10-14T10:00:00-07:00"
+      - "2026-10-16T09:00:00-07:00"
+
 leads:
-  form_title: "Inquire About Enrollment"
-  form_description: "Tell us about your child and which program you're interested in — our team will follow up within 1–2 business days."
-  cta_text: "Send My Inquiry"
-  success_message: "Thanks for reaching out! Kid Works will be in touch with you soon."
+  form_title: "Schedule a Tour"
+  form_description: "Choose a time to visit Kid Works. These are sample tour times for the demo; no real appointment is booked."
+  cta_text: "Schedule Tour"
+  success_message: "Your demo tour is scheduled for the date and time you selected. No real appointment has been booked."
   confirmation_enabled: true
   notify_to: ""
+  appointment_field: tour_slot
+  appointment_auto_confirm: true
+  fields:
+    - key: tour_slot
+      label: "Tour date & time"
+      type: select
+      required: true
+      options:
+        - value: "2026-10-06T09:30:00-07:00"
+          label: "Tue, Oct 6, 2026 at 9:30 AM"
+        - value: "2026-10-08T10:30:00-07:00"
+          label: "Thu, Oct 8, 2026 at 10:30 AM"
+        - value: "2026-10-09T14:00:00-07:00"
+          label: "Fri, Oct 9, 2026 at 2:00 PM"
 
 capacity:
   waitlist_message: "This program is currently at capacity. You've been added to our waitlist — we'll be in touch as soon as a spot opens."

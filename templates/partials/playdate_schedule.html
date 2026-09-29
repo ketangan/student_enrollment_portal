@@ -1,0 +1,37 @@
+<div class="card" data-testid="playdate-schedule">
+  <div class="card__title">Playdate Schedule</div>
+  {% if playdate.label %}
+  <p style="font-size:14px;line-height:1.6;overflow-wrap:anywhere;"><strong>{{ playdate.label }}</strong></p>
+  {% else %}
+  <p style="font-size:14px;color:var(--muted);">No playdate scheduled yet.</p>
+  {% endif %}
+
+  {% if request.GET.playdate == "saved" %}
+  <p class="alert-success" role="status">Your playdate schedule has been saved.</p>
+  {% elif request.GET.playdate == "invalid" %}
+  <p role="alert" style="color:#b91c1c;">Please choose one of the available weekday times.</p>
+  {% elif request.GET.playdate == "locked" %}
+  <p role="alert" style="color:#b91c1c;">Please contact the school to change this playdate.</p>
+  {% endif %}
+
+  {% if playdate.can_schedule and playdate.options %}
+  <p style="font-size:14px;color:var(--muted);line-height:1.6;">Choose a one-hour weekday visit for your child. These are sample times for the demo, not live school availability.</p>
+  <form method="post" action="{% url 'school_status_change_request' school_slug=school.slug token=submission.status_token %}">
+    {% csrf_token %}
+    <div class="field">
+      <label for="playdate-slot">Date &amp; time</label>
+      <select id="playdate-slot" name="playdate_slot" required style="width:100%;max-width:100%;padding:10px 8px;font:inherit;font-size:13px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);">
+        <option value="">Choose a time</option>
+        {% for slot in playdate.options %}
+        <option value="{{ slot.value }}" {% if slot.value == playdate.value %}selected{% endif %}>{{ slot.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn-change" type="submit">{% if playdate.value %}Save Playdate{% else %}Schedule Playdate{% endif %}</button>
+  </form>
+  {% elif playdate.can_schedule %}
+  <p style="font-size:14px;color:var(--muted);">No times are currently available. Please contact the school to schedule a visit.</p>
+  {% else %}
+  <p style="font-size:14px;color:var(--muted);">Please contact the school if you need to change your playdate.</p>
+  {% endif %}
+</div>

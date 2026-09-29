@@ -445,13 +445,13 @@ def _save_draft(*, school, form_key, cleaned, config_raw, last_form_key="", draf
     return draft
 
 
-def _maybe_send_resume_email(draft, school):
+def _maybe_send_resume_email(draft, school, *, request=None):
     """Send resume link email, throttled to once per cooldown window."""
     if draft.last_email_sent_at:
         cooldown = timedelta(minutes=_DRAFT_RESEND_COOLDOWN_MINUTES)
         if timezone.now() - draft.last_email_sent_at < cooldown:
             return False
-    sent = send_resume_link_email(draft=draft, school=school)
+    sent = send_resume_link_email(draft=draft, school=school, request=request)
     if sent:
         draft.last_email_sent_at = timezone.now()
         draft.save(update_fields=["last_email_sent_at"])
@@ -628,8 +628,8 @@ def _complete_submission_from_draft(
         try:
             _status_url = ""
             if school.features.family_portal_enabled:
-                from core.services.url_builder import app_reverse
-                _status_url = app_reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
+                from core.services.url_builder import request_reverse
+                _status_url = request_reverse(request, "family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
             send_applicant_confirmation_email(
                 config_raw=raw_config,
                 school_name=config.display_name,
@@ -653,7 +653,7 @@ def _complete_submission_from_draft(
                 submission.session = session
                 update_fields.append("session")
             submission.save(update_fields=update_fields)
-            apply_auto_enrollment(school, submission, program, session=session)
+            apply_auto_enrollment(school, submission, program, session=session, config_raw=raw_config)
             submission.refresh_from_db(fields=["status"])
             if submission.status == "Waitlisted":
                 request.session[_WAITLIST_SESSION_KEY] = True
@@ -731,7 +731,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 )
                 request.session[_draft_session_key(school_slug)] = draft.pk
                 if draft.email:
-                    sent = _maybe_send_resume_email(draft, school)
+                    sent = _maybe_send_resume_email(draft, school, request=request)
                     if sent:
                         messages.success(request, "We've emailed you a link to continue your application.")
                     else:
@@ -880,7 +880,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                         submission.session = session
                         update_fields.append("session")
                     submission.save(update_fields=update_fields)
-                    apply_auto_enrollment(school, submission, program, session=session)
+                    apply_auto_enrollment(school, submission, program, session=session, config_raw=raw_config)
                     submission.refresh_from_db(fields=["status"])
                     if submission.status == "Waitlisted":
                         request.session[_WAITLIST_SESSION_KEY] = True
@@ -909,8 +909,8 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 try:
                     _status_url = ""
                     if school.features.family_portal_enabled:
-                        from core.services.url_builder import app_reverse
-                        _status_url = app_reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
+                        from core.services.url_builder import request_reverse
+                        _status_url = request_reverse(request, "family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
                     send_applicant_confirmation_email(
                         config_raw=raw_config,
                         school_name=config.display_name,
@@ -979,7 +979,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
             )
             request.session[_draft_session_key(school_slug)] = draft.pk
             if draft.email:
-                sent = _maybe_send_resume_email(draft, school)
+                sent = _maybe_send_resume_email(draft, school, request=request)
                 if sent:
                     messages.success(request, "We've emailed you a link to continue your application.")
                 else:
@@ -1026,7 +1026,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
 
         # After step 1: email the magic link if feature enabled and email present
         if is_first_step and draft.email and save_resume_enabled:
-            _maybe_send_resume_email(draft, school)
+            _maybe_send_resume_email(draft, school, request=request)
 
         if next_key:
             return redirect(reverse("apply_form", kwargs={"school_slug": school_slug, "form_key": next_key}))
@@ -1168,8 +1168,8 @@ def apply_payment_view(request, school_slug: str, draft_token: str):
             draft=draft, raw_config=raw_config, config=config, form_cfg=form_cfg,
         )
 
-    from core.services.url_builder import app_reverse
-    confirm_url = app_reverse("apply_payment_confirm", kwargs={"school_slug": school_slug, "draft_token": draft_token})
+    from core.services.url_builder import request_reverse
+    confirm_url = request_reverse(request, "apply_payment_confirm", kwargs={"school_slug": school_slug, "draft_token": draft_token})
 
     return render(request, "apply_payment.html", {
         "school": school,
@@ -1230,7 +1230,7 @@ def apply_payment_confirm_view(request, school_slug: str, draft_token: str):
     if intent_status != "succeeded":
         raw_config = getattr(config, "raw", {}) or {}
         branding = merge_branding(getattr(config, "branding", None))
-        from core.services.url_builder import app_reverse
+        from core.services.url_builder import request_reverse
         return render(request, "apply_payment.html", {
             "school": school,
             "school_slug": school_slug,
@@ -1239,7 +1239,7 @@ def apply_payment_confirm_view(request, school_slug: str, draft_token: str):
             "fee_cfg": get_application_fee_config(raw_config, draft.last_form_key or draft.form_key or "default", form_data=draft.data or {}),
             "stripe_public_key": school.app_fee_stripe_public_key,
             "client_secret": None,
-            "confirm_url": app_reverse("apply_payment_confirm", kwargs={"school_slug": school_slug, "draft_token": draft_token}),
+            "confirm_url": request_reverse(request, "apply_payment_confirm", kwargs={"school_slug": school_slug, "draft_token": draft_token}),
             "student_name": "",
             "payment_error": "Payment was not completed. Please try again.",
             "embed_mode": request.GET.get("embed") == "1",
@@ -1498,6 +1498,7 @@ def school_lead_form_view(request, school_slug, form_key=None):
     form_key="foo" → named variant at /lead/foo/, reads from lead_forms.foo.
     """
     from .services.lead_intake import create_or_update_lead
+    from .services.lead_appointments import get_appointment_field, appointment_value_is_valid
 
     try:
         config = load_school_config(school_slug)
@@ -1585,6 +1586,12 @@ def school_lead_form_view(request, school_slug, form_key=None):
                 if required and not val:
                     errors[key] = "This field is required."
 
+        appointment_field = get_appointment_field(lead_cfg)
+        if appointment_field:
+            key = appointment_field["key"]
+            if not appointment_value_is_valid(appointment_field, custom_field_values.get(key, "")):
+                errors[key] = "Please select one of the available times."
+
         if not errors:
             # When name_field_key is set, use that custom field as the lead name
             name_field_key = lead_cfg.get("name_field_key", "")
@@ -1632,6 +1639,9 @@ def school_lead_form_view(request, school_slug, form_key=None):
                 data=extra_data,
                 form_key=form_key or "",
             )
+            if appointment_field and lead_cfg.get("appointment_auto_confirm"):
+                lead.status = LEAD_STATUS_TRIAL_SCHEDULED
+                lead.save(update_fields=["status", "updated_at"])
 
             log_admin_audit(
                 request=request,
@@ -1962,6 +1972,13 @@ def family_status_view(request, school_slug: str, token: str):
     sched_fields = _extract_sched_fields(data)
     student_info = _extract_student_info(data, submission)
     change_requested = submission.schedule_change_requested
+    from core.services.playdates import get_playdate_config, playdate_context
+    playdate_config = get_playdate_config(getattr(config, "raw", {}))
+    playdate = playdate_context(playdate_config, submission) if playdate_config else None
+    if playdate:
+        for item in student_info:
+            if item["label"] == "Instrument":
+                item["label"] = "Program"
 
     return render(request, "family_status.html", {
         "school": school,
@@ -1973,6 +1990,7 @@ def family_status_view(request, school_slug: str, token: str):
         "sched_fields": sched_fields,
         "student_info": student_info,
         "change_requested": change_requested,
+        "playdate": playdate,
     })
 
 
@@ -2094,6 +2112,12 @@ def school_status_change_request_view(request, school_slug: str, token: str):
 
     submission = get_object_or_404(Submission, school=school, status_token=token)
 
+    from core.services.playdates import get_playdate_config
+    config = load_school_config(school_slug)
+    playdate_config = get_playdate_config(getattr(config, "raw", {}))
+    if playdate_config:
+        return _schedule_playdate(request, school, submission, playdate_config)
+
     # Update sched_* fields in submission.data.
     sched_keys = [
         "sched_day_preference",
@@ -2129,6 +2153,23 @@ def school_status_change_request_view(request, school_slug: str, token: str):
         reverse("family_status", kwargs={"school_slug": school_slug, "token": token})
         + "?change=requested"
     )
+
+
+def _schedule_playdate(request, school, submission, config):
+    from core.services.playdates import save_playdate
+
+    status_url = reverse("family_status", kwargs={"school_slug": school.slug, "token": submission.status_token})
+    value = request.POST.get("playdate_slot", "").strip()
+    result = save_playdate(request=request, school=school, submission_id=submission.pk, config=config, value=value)
+    if result in {"invalid", "locked"}:
+        return redirect(status_url + "?playdate=" + result)
+    if result == "saved" and config.get("notify_school", False):
+        try:
+            submission.refresh_from_db()
+            _notify_schedule_change(school, school.slug, submission)
+        except Exception:
+            logger.exception("Failed to notify school about playdate for submission %s", submission.pk)
+    return redirect(status_url + "?playdate=saved")
 
 
 def _notify_schedule_change(school, school_slug: str, submission):
@@ -2175,11 +2216,18 @@ def _notify_schedule_change(school, school_slug: str, submission):
         f"Updated preferences:\n{prefs_text}\n\n"
         f"View submission: {admin_url}"
     )
+    subject = f"Scheduling change request — {student}"
+    from core.services.playdates import get_playdate_config, slot_label
+    playdate_config = get_playdate_config(getattr(config, "raw", {}))
+    if playdate_config:
+        slot = slot_label((submission.data or {}).get("playdate_slot", ""), playdate_config)
+        subject = f"Playdate scheduled - {student}"
+        message = f"A family scheduled a demo playdate for {student}.\n\nDate and time: {slot}\n\nView submission: {admin_url}"
 
     for recipient in recipients:
         send_admin_message(
             to_email=recipient,
-            subject=f"Scheduling change request — {student}",
+            subject=subject,
             message=message,
             school_name=school_name,
             school=school,

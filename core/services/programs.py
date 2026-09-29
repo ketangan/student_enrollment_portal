@@ -278,7 +278,7 @@ def resolve_submission_program(school, data: dict):
 # Auto-enrollment
 # ---------------------------------------------------------------------------
 
-def apply_auto_enrollment(school, submission, program, session=None) -> None:
+def apply_auto_enrollment(school, submission, program, session=None, *, config_raw=None) -> None:
     """
     Concurrency-safe auto-enrollment logic.
 
@@ -292,6 +292,10 @@ def apply_auto_enrollment(school, submission, program, session=None) -> None:
       auto_enroll=False, any                           → no-op
     """
     from core.views_school_common import STATUS_ENROLLED, STATUS_NEW, STATUS_WAITLISTED
+
+    # Admissions-review schools must not enroll before their approval/payment steps.
+    if ((config_raw or {}).get("admin") or {}).get("require_enrollment_approval") is True:
+        return
 
     if session is not None:
         auto_enroll = session.auto_enroll

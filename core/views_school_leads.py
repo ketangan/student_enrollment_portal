@@ -68,6 +68,7 @@ from .services.admin_submission_yaml import (
     get_submission_workflow_transitions,
 )
 from .services.admin_lead_yaml import (
+    get_lead_status_choices,
     get_lead_workflow_filters,
     get_lead_workflow_transitions,
 )
@@ -106,6 +107,10 @@ from .views_school_common import (  # noqa: F401 — private names not exported 
 from .views_public import _strip_file_fields, _plain_post_values, _draft_session_key
 from .services.programs import inject_db_opts_into_lead_fields
 from .services.programs import get_program_options as get_db_program_options
+from .services.lead_appointments import (
+    get_appointment_field, appointment_display, appointment_value_is_valid,
+    can_schedule_lead_appointment,
+)
 
 
 @login_required
@@ -191,6 +196,14 @@ def school_leads_view(request, school_slug: str):
 
     leads_raw, lead_display_cap_hit = fetch_queryset_with_cap(qs, 200)
     leads = [_build_lead_row(lead, workflow_transitions, school_slug=school_slug) for lead in leads_raw]
+    status_choices = get_lead_status_choices(config_raw)
+    status_labels = dict(status_choices)
+    appointment_field = get_appointment_field(config_raw.get("leads", {}))
+    for row, lead in zip(leads, leads_raw):
+        if status_labels.get(lead.status) != lead.get_status_display():
+            row["status_override"] = status_labels.get(lead.status)
+        if appointment_field:
+            row["appointment_value"] = appointment_display(appointment_field, lead.data)
 
     # Metrics — pipeline leads only (form_key="" excludes named-variant submissions)
     leads_by_status = {
@@ -220,8 +233,10 @@ def school_leads_view(request, school_slug: str):
     lead_export_base = reverse("school_lead_export", kwargs={"school_slug": school_slug})
     lead_export_url = lead_export_base + ("?" + urlencode(_export_params) if _export_params else "")
 
-    from core.services.url_builder import app_reverse
-    lead_capture_url = app_reverse("lead_capture", kwargs={"school_slug": school_slug})
+    from core.services.url_builder import request_reverse
+    lead_capture_url = request_reverse(request, "lead_capture", kwargs={"school_slug": school_slug})
+    if appointment_field:
+        lead_capture_url = request_reverse(request, "school_lead_form", kwargs={"school_slug": school_slug})
 
     # Column filter data — program options from distinct interested_in_label values.
     lead_program_options = list(
@@ -242,7 +257,7 @@ def school_leads_view(request, school_slug: str):
     clear_lead_program_url = _build_list_url(lead_base, active_filter=active_filter, status_filter=status_filter, search_q=search_q, sort=sort_key, sort_dir=sort_dir)
     clear_lead_status_url = _build_list_url(lead_base, active_filter=active_filter, program_filter=program_filter, search_q=search_q, sort=sort_key, sort_dir=sort_dir)
     clear_lead_filter_url = _build_list_url(lead_base, status_filter=status_filter, program_filter=program_filter, search_q=search_q, sort=sort_key, sort_dir=sort_dir)
-    lead_status_label_map = dict(LEAD_STATUS_CHOICES)
+    lead_status_label_map = dict(status_choices)
     lead_status_filter_label = lead_status_label_map.get(status_filter, status_filter)
     active_filter_label = (_SMART_FILTERS.get(active_filter) or {}).get("label", active_filter) if active_filter else ""
 
@@ -263,7 +278,8 @@ def school_leads_view(request, school_slug: str):
             "status_filter": status_filter,
             "program_filter": program_filter,
             "search_q": search_q,
-            "lead_status_choices": LEAD_STATUS_CHOICES,
+            "lead_status_choices": status_choices,
+            "lead_appointment_field": appointment_field,
             "workflow_filters": workflow_filters,
             "workflow_actions_enabled": workflow_actions_enabled,
             "leads_url": lead_base,
@@ -682,8 +698,8 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
                 existing_draft.data = merged
                 existing_draft.extend_expiry()
                 existing_draft.save(update_fields=["data", "token_expires_at", "updated_at"])
-        from core.services.url_builder import app_reverse
-        resume_url = app_reverse("apply_resume", kwargs={"school_slug": school_slug, "token": existing_draft.token})
+        from core.services.url_builder import request_reverse
+        resume_url = request_reverse(request, "apply_resume", kwargs={"school_slug": school_slug, "token": existing_draft.token})
         # Use token URL, not bare /apply/ — session may hold a different lead's draft.
         form_url = resume_url
 
@@ -694,7 +710,8 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
     program_options = get_db_program_options(school) if school.program_field_key else (get_program_options(config) if config else [])
 
     # Breadcrumb pipeline — ordered list of (value, label) pairs.
-    lead_pipeline = [{"value": v, "label": l} for v, l in LEAD_STATUS_CHOICES]
+    status_choices = get_lead_status_choices(config_raw)
+    lead_pipeline = [{"value": v, "label": l} for v, l in status_choices]
 
     # Prev/Next navigation by lead id (leads have no sequential number field).
     def _lead_url(l):
@@ -705,6 +722,7 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
 
     # Build labeled form fields — deduplicate against header name and Contact card
     lead_cfg = config_raw.get("leads", {}) if config_raw else {}
+    appointment_field = get_appointment_field(lead_cfg)
     name_field_key = lead_cfg.get("name_field_key", "")
     redirect_url_field = lead_cfg.get("redirect_url_field", "")
     yaml_fields = inject_db_opts_into_lead_fields(
@@ -738,6 +756,10 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
                     _fopts.append({"value": _opt.get("value", ""), "label": _opt.get("label", _opt.get("value", ""))})
                 elif isinstance(_opt, str):
                     _fopts.append({"value": _opt, "label": _opt})
+        if appointment_field and _key == appointment_field["key"]:
+            current_slot = form_fields_raw.get(_key, "")
+            if current_slot and not appointment_value_is_valid(appointment_field, current_slot):
+                _fopts.append({"value": current_slot, "label": appointment_display(appointment_field, lead.data)})
         form_fields_editable.append({
             "key": _key,
             "label": _f.get("label", _key),
@@ -794,6 +816,11 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
         "email_templates_json": email_templates_json,
         "template_vars_json": template_vars_json,
         "lead_pipeline": lead_pipeline,
+        "lead_status_label": dict(status_choices).get(lead.status, lead.get_status_display()),
+        "lead_appointment_field": appointment_field,
+        "lead_appointment_value": appointment_display(appointment_field, lead.data) if appointment_field else "",
+        "lead_appointment_editor": next((f for f in form_fields_editable if appointment_field and f["key"] == appointment_field["key"]), None),
+        "can_schedule_appointment": can_schedule_lead_appointment(lead),
         "prev_url": _lead_url(prev_lead) if prev_lead else None,
         "next_url": _lead_url(next_lead) if next_lead else None,
         "prev_label": "Prev",
@@ -875,14 +902,57 @@ def school_lead_start_enrollment_view(request, school_slug: str, lead_id: int):
             extra={"name": "start_enrollment", "draft_id": draft.pk},
         )
 
-    from core.services.url_builder import app_reverse
-    form_url = app_reverse("apply_resume", kwargs={"school_slug": school_slug, "token": draft.token})
+    from core.services.url_builder import request_reverse
+    form_url = request_reverse(request, "apply_resume", kwargs={"school_slug": school_slug, "token": draft.token})
 
     # "copy" action: stay on lead detail so admin can see/copy the URL.
     if request.POST.get("action") == "copy":
         return redirect(detail_url)
 
     return redirect(form_url)
+
+
+@login_required
+@require_http_methods(["POST"])
+def school_lead_schedule_tour_view(request, school_slug: str, lead_id: int):
+    """Save only a configured lead appointment, without rewriting contact data."""
+    school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
+    config = _safe_load_school_config(school_slug)
+    lead_config = (getattr(config, "raw", {}) or {}).get("leads", {})
+    field = get_appointment_field(lead_config)
+    if not field:
+        raise Http404("Tour scheduling is not enabled for this school.")
+    redirect_url = reverse("school_lead_detail", kwargs={"school_slug": school_slug, "lead_id": lead_id})
+    value = request.POST.get("appointment_slot", "").strip()
+    with transaction.atomic():
+        lead = get_object_or_404(Lead.objects.select_for_update(), pk=lead_id, school=school)
+        if not can_schedule_lead_appointment(lead):
+            messages.error(request, "This lead is past tour scheduling. Its tour and status were not changed.")
+            return redirect(redirect_url)
+        data = dict(lead.data or {})
+        fields = dict(data.get("form_fields") or {})
+        old_value = fields.get(field["key"], "")
+        if not value or (value != old_value and not appointment_value_is_valid(field, value)):
+            messages.error(request, "Please select one of the available tour times.")
+            return redirect(redirect_url)
+        new_status = LEAD_STATUS_TRIAL_SCHEDULED if lead_config.get("appointment_auto_confirm") else lead.status
+        if value == old_value and lead.status == new_status:
+            messages.info(request, "Tour schedule is unchanged.")
+            return redirect(redirect_url)
+        old_status = lead.status
+        fields[field["key"]] = value
+        data["form_fields"] = fields
+        lead.data = data
+        lead.status = new_status
+        lead.save(update_fields=["data", "status", "updated_at"])
+        log_admin_audit(request=request, action="action", obj=lead, changes={}, extra={
+            "name": "lead_tour_scheduled", "from": old_status, "to": new_status,
+            "old_slot": old_value, "tour_slot": value,
+            "slot_label": appointment_display(field, data),
+        })
+    messages.success(request, "Tour schedule saved.")
+    return redirect(redirect_url)
 
 
 @login_required
@@ -954,12 +1024,25 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
         else {}
     )
     _new_form_fields = dict(_current_form_fields)
+    appointment_field = get_appointment_field(_lead_cfg)
     for _ff in _yaml_fields_def:
         if not isinstance(_ff, dict) or "key" not in _ff:
             continue
         _fk = _ff["key"]
         if _fk == _yaml_name_field_key:
             continue
+        if appointment_field and _fk == appointment_field["key"]:
+            post_key = f"field__{_fk}"
+            # Follow-up and notes forms omit appointment fields; keep the booking.
+            if post_key not in request.POST:
+                continue
+            value = request.POST.get(post_key, "").strip()
+            if value != _current_form_fields.get(_fk, "") and not can_schedule_lead_appointment(lead):
+                messages.error(request, "This lead is past tour scheduling. Its tour was not changed.")
+                return redirect(redirect_url)
+            if value != _current_form_fields.get(_fk, "") and not appointment_value_is_valid(appointment_field, value):
+                messages.error(request, "Please select one of the available tour times.")
+                return redirect(redirect_url)
         _new_form_fields[_fk] = request.POST.get(f"field__{_fk}", "").strip()
 
     # If redirect_url_field is configured, override interested_in from that custom field
@@ -1028,6 +1111,14 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
 
     # --- No-op detection ---
     changed_fields = []
+    new_status = lead.status
+    if (appointment_field and _lead_cfg.get("appointment_auto_confirm")
+            and f'field__{appointment_field["key"]}' in request.POST
+            and _new_form_fields.get(appointment_field["key"])
+            and can_schedule_lead_appointment(lead)):
+        new_status = LEAD_STATUS_TRIAL_SCHEDULED
+        if new_status != lead.status:
+            changed_fields.append("status")
     if lead.name != new_name:
         changed_fields.append("name")
     if (lead.email or "") != new_email:
@@ -1055,16 +1146,19 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
         "email": "Email",
         "phone": "Phone",
         "interested_in": "Program Interest",
+        "status": "Status",
         "notes": "Notes",
         "next_follow_up_at": "Follow-up Date",
     }
     _old_values = {
+        "status": lead.status,
         "name": lead.name or "",
         "email": lead.email or "",
         "phone": lead.phone or "",
         "interested_in": lead.interested_in_value or "",
     }
     _new_values = {
+        "status": new_status,
         "name": new_name,
         "email": new_email,
         "phone": new_phone,
@@ -1082,6 +1176,7 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
             changed_detail.append({"field": label})
 
     lead.name = new_name
+    lead.status = new_status
     lead.email = new_email
     lead.phone = new_phone
     lead.interested_in_value = new_interested_in_value
@@ -1101,7 +1196,7 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
             "data",
             "normalized_email", "normalized_phone",
             "updated_at",
-        ])
+        ] + (["status"] if "status" in changed_fields else []))
         log_admin_audit(
             request=request,
             action="action",
@@ -1597,7 +1692,7 @@ def school_lead_resend_resume_link_view(request, school_slug: str, lead_id: int)
                 extra={"name": "start_enrollment", "draft_id": draft.pk},
             )
 
-    sent = send_resume_link_email(draft=draft, school=school)
+    sent = send_resume_link_email(draft=draft, school=school, request=request)
     if sent:
         messages.success(request, f"Resume link sent to {draft.email}.")
         log_admin_audit(

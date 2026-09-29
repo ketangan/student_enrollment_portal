@@ -105,7 +105,7 @@
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;">
         <h1 style="font-size:18px;font-weight:700;margin:0;">{{ lead.name }}</h1>
         <span class="dash-badge {{ status_css }}" style="font-size:11px;">
-          {{ lead.get_status_display }}
+          {{ lead_status_label }}
         </span>
         <span style="font-size:12px;color:var(--dash-muted);">{{ lead.public_id }}</span>
       </div>
@@ -286,7 +286,7 @@
           <div style="margin-top:10px;margin-bottom:10px;">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;">
               {% for field in form_fields_editable %}
-              <div>
+              <div{% if lead_appointment_field and field.key == lead_appointment_field.key %} style="grid-column:1 / -1;min-width:0;"{% endif %}>
                 <label style="display:block;font-size:11px;color:var(--dash-muted);margin-bottom:3px;">
                   {{ field.label }}{% if field.required %} <span style="color:#dc2626;">*</span>{% endif %}
                 </label>
@@ -693,6 +693,8 @@
                 {% endif %}
               {% elif entry.extra.name == "start_enrollment" %}
                 initiated enrollment
+              {% elif entry.extra.name == "lead_tour_scheduled" %}
+                {% if entry.extra.old_slot %}rescheduled{% else %}scheduled{% endif %} a tour{% if entry.extra.slot_label %}: {{ entry.extra.slot_label }}{% endif %}
               {% elif entry.extra.name == "lead_update" %}
                 updated lead details{% if entry.extra.changed %}:
                 {% for item in entry.extra.changed %}
@@ -823,6 +825,29 @@
         </div>
       </div>
 
+      {% if lead_appointment_field %}
+      <div class="dash-card" style="padding:18px 22px;" data-testid="lead-appointment">
+        <h2 class="sidebar-label">{{ lead_appointment_field.label }}</h2>
+        <p style="font-size:14px;font-weight:600;line-height:1.5;margin:0;overflow-wrap:anywhere;">{{ lead_appointment_value|default:"No time selected" }}</p>
+        <p style="font-size:12px;color:var(--dash-muted);margin:8px 0 0;">{{ lead_status_label }}</p>
+        {% if can_mutate and can_schedule_appointment %}
+        <form method="post" action="{% url 'school_lead_schedule_tour' school_slug=school_slug lead_id=lead.id %}" style="margin-top:12px;">
+          {% csrf_token %}
+          <label for="admin-tour-slot" style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:4px;">Date &amp; time</label>
+          <select id="admin-tour-slot" name="appointment_slot" required
+                  style="width:100%;min-width:0;max-width:100%;box-sizing:border-box;padding:6px;border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;font-size:12px;background:#fff;">
+            <option value="">Select a tour time</option>
+            {% for opt in lead_appointment_editor.options %}
+            <option value="{{ opt.value }}" {% if opt.value == lead_appointment_editor.value %}selected{% endif %}>{{ opt.label }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="dash-action-btn dash-action-btn--primary" style="margin-top:8px;font-size:12px;">
+            {% if lead_appointment_value %}Save Tour{% else %}Schedule Tour{% endif %}
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
     </div><!-- /RIGHT -->
   </div><!-- /grid -->
 

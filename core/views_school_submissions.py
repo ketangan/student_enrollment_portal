@@ -238,8 +238,8 @@ def school_submissions_view(request, school_slug: str):
         for profile_name in get_export_configs(config_raw)
     ]
 
-    from core.services.url_builder import app_reverse
-    apply_url = app_reverse("apply", kwargs={"school_slug": school_slug})
+    from core.services.url_builder import request_reverse
+    apply_url = request_reverse(request, "apply", kwargs={"school_slug": school_slug})
 
     capacity_summary = get_capacity_summary(school, config_raw)
 
@@ -275,10 +275,13 @@ def school_submissions_view(request, school_slug: str):
                                program_filter=program_filter, search_q=search_q, sort=field, sort_dir=new_dir)
     sub_sort_urls = {f: _sub_sort_url(f) for f in _SUB_SORTABLE}
 
+    from core.services.playdates import get_playdate_config
+
     ctx = _school_admin_base_context(request, school, "submissions")
     ctx.update(
         {
             "submissions": submissions,
+            "playdate_enabled": get_playdate_config(config_raw) is not None,
             "total_count": len(submissions),
             "result_count": result_count,
             "display_cap_hit": display_cap_hit,
@@ -738,6 +741,13 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
         .order_by("-created_at")[:50]
     )
 
+    from core.services.playdates import get_playdate_config, playdate_context
+    playdate_config = get_playdate_config(config_raw)
+    playdate = playdate_context(playdate_config, submission) if playdate_config else None
+    sched_fields = _extract_sched_fields_from_submission(submission)
+    if playdate:
+        sched_fields = [{"label": "Date & time", "value": playdate["label"]}] if playdate["label"] else []
+
     status = submission.status or STATUS_NEW
     yaml_status_choices, _ = get_submission_status_choices(config_raw)
     status_choices, _ = get_effective_submission_status_choices(config_raw, school)
@@ -786,8 +796,8 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
     family_portal_enabled = school.features.family_portal_enabled
     family_status_url = ""
     if family_portal_enabled:
-        from core.services.url_builder import app_reverse
-        family_status_url = app_reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
+        from core.services.url_builder import request_reverse
+        family_status_url = request_reverse(request, "family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
 
     # Email templates for the compose form
     import json as _json
@@ -841,7 +851,8 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
         "template_vars_json": template_vars_json,
         "schedule_change_requested": submission.schedule_change_requested,
         "schedule_change_requested_at": submission.schedule_change_requested_at,
-        "sched_fields": _extract_sched_fields_from_submission(submission),
+        "sched_fields": sched_fields,
+        "playdate": playdate,
     })
     return render(request, "school_admin/submission_detail.html", ctx)
 
@@ -1641,8 +1652,8 @@ def school_submission_resend_confirmation_view(request, school_slug: str, submis
 
     status_url = ""
     if school.features.family_portal_enabled:
-        from core.services.url_builder import app_reverse
-        status_url = app_reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
+        from core.services.url_builder import request_reverse
+        status_url = request_reverse(request, "family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
 
     sent = send_applicant_confirmation_email(
         config_raw=getattr(config, "raw", {}),
@@ -1811,8 +1822,8 @@ def school_submission_resend_status_link_view(request, school_slug: str, submiss
         messages.error(request, "No parent email found on this submission.")
         return redirect(redirect_url)
 
-    from core.services.url_builder import app_reverse
-    status_url = app_reverse("family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
+    from core.services.url_builder import request_reverse
+    status_url = request_reverse(request, "family_status", kwargs={"school_slug": school_slug, "token": submission.status_token})
 
     sent = send_status_link_email(
         to_email=parent_email,
@@ -1833,6 +1844,31 @@ def school_submission_resend_status_link_view(request, school_slug: str, submiss
         messages.error(request, "Failed to send email. Check email configuration.")
 
     return redirect(redirect_url)
+
+
+@login_required
+@require_http_methods(["POST"])
+def school_submission_schedule_playdate_view(request, school_slug: str, submission_id: int):
+    from core.services.playdates import get_playdate_config, save_playdate
+
+    school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "editor")
+    submission = get_object_or_404(Submission, pk=submission_id, school=school)
+    config = _safe_load_school_config(school_slug)
+    playdate_config = get_playdate_config(getattr(config, "raw", {}))
+    if not playdate_config:
+        raise Http404("Playdate scheduling is not enabled for this school.")
+    result = save_playdate(
+        request=request, school=school, submission_id=submission.pk,
+        config=playdate_config, value=request.POST.get("playdate_slot", "").strip(),
+    )
+    if result == "invalid":
+        messages.error(request, "Please choose one of the available weekday times.")
+    elif result == "locked":
+        messages.error(request, "This application is past playdate scheduling. Its date and status were not changed.")
+    else:
+        messages.success(request, "Playdate schedule saved." if result == "saved" else "Playdate schedule is unchanged.")
+    return redirect(reverse("school_submission_detail", kwargs={"school_slug": school_slug, "submission_id": submission_id}))
 
 
 @login_required

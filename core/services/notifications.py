@@ -549,7 +549,7 @@ def get_submission_email_config(config_raw: Dict[str, Any], school=None) -> Opti
     )
 
 
-def send_resume_link_email(*, draft, school) -> bool:
+def send_resume_link_email(*, draft, school, request=None) -> bool:
     """
     Email the applicant their magic resume link.
     Returns True if sent, False if skipped (no email) or failed.
@@ -558,8 +558,8 @@ def send_resume_link_email(*, draft, school) -> bool:
     if not draft.email:
         return False
 
-    from core.services.url_builder import app_reverse
-    resume_url = app_reverse("apply_resume", args=[school.slug, draft.token])
+    from core.services.url_builder import request_reverse
+    resume_url = request_reverse(request, "apply_resume", args=[school.slug, draft.token])
     school_name = school.display_name or school.slug
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "")
     if not from_email:

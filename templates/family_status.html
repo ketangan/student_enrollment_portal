@@ -140,6 +140,9 @@
   <div class="card">
     <div class="card__title">Application Status</div>
     <div class="status-badge">{{ status_label }}</div>
+    {% if playdate.status_message %}
+    <p style="font-size:14px;line-height:1.6;color:var(--muted);">{{ playdate.status_message }}</p>
+    {% endif %}
     <div class="meta-row">
       <div class="meta-item">Application ID: <strong>{{ submission.public_id }}</strong></div>
       <div class="meta-item">Submitted: <strong>{{ submission.created_at|date:"M j, Y" }}</strong></div>
@@ -167,6 +170,9 @@
   {% endif %}
 
   <!-- Scheduling preferences -->
+  {% if playdate %}
+  {% include "partials/playdate_schedule.html" %}
+  {% else %}
   <div class="card">
     <div class="card__title">Lesson Scheduling Preferences</div>
 
@@ -261,8 +267,9 @@
     {% endif %}
   </div>
 
+  {% endif %}
   <!-- What happens next -->
-  {% if not sched_fields and not change_requested %}
+  {% if not playdate and not sched_fields and not change_requested %}
   <div class="card">
     <div class="card__title">What Happens Next</div>
     <p style="margin:0;font-size:14px;line-height:1.6;color:var(--muted);">

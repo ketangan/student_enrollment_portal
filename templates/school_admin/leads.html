@@ -159,6 +159,7 @@ th.col-sorted-desc .col-sort-icon { opacity: 1; color: var(--dash-primary); }
       <div class="col-toggle-panel" id="lead-col-panel" onclick="event.stopPropagation()">
         <div class="cf-title">Show columns</div>
         <label><input type="checkbox" data-col-cb="contact"> Contact</label>
+        {% if lead_appointment_field %}<label><input type="checkbox" data-col-cb="appointment"> {{ lead_appointment_field.label }}</label>{% endif %}
         <label><input type="checkbox" data-col-cb="received"> Received</label>
         <label><input type="checkbox" data-col-cb="followup"> Follow-up</label>
         <label><input type="checkbox" data-col-cb="last_activity"> Last activity</label>
@@ -225,6 +226,7 @@ th.col-sorted-desc .col-sort-icon { opacity: 1; color: var(--dash-primary); }
               </div>
             </th>
             <th class="dash-col-contact" data-col="contact">Contact</th>
+            {% if lead_appointment_field %}<th data-col="appointment">{{ lead_appointment_field.label }}</th>{% endif %}
             <th class="col-sortable{% if sort_key == 'received' %} col-sorted-{{ sort_dir }}{% endif %}" data-col="received">
               <a href="{{ lead_sort_urls.received }}" class="col-sort-link">
                 Received <span class="col-sort-icon">{% if sort_key == 'received' %}{% if sort_dir == 'asc' %}↑{% else %}↓{% endif %}{% else %}↕{% endif %}</span>
@@ -273,13 +275,14 @@ th.col-sorted-desc .col-sort-icon { opacity: 1; color: var(--dash-primary); }
                 </select>
               </form>
               {% else %}
-              <span class="dash-badge" style="font-size:11px;">{{ lead.get_status_display }}</span>
+              <span class="dash-badge" style="font-size:11px;">{% if lead.status_override %}{{ lead.status_override }}{% else %}{{ lead.get_status_display }}{% endif %}</span>
               {% endif %}
             </td>
             <td class="dash-col-contact" data-col="contact" style="font-size: 12px; color: var(--dash-muted);">
               {% if lead.email %}<div>{{ lead.email }}</div>{% endif %}
               {% if lead.phone %}<div>{{ lead.phone }}</div>{% endif %}
             </td>
+            {% if lead_appointment_field %}<td data-col="appointment" style="font-size:12px;min-width:150px;max-width:220px;white-space:normal;overflow-wrap:anywhere;">{{ lead.appointment_value|default:"No time selected" }}</td>{% endif %}
             <td data-col="received" style="color: var(--dash-muted); font-size: 12px; white-space: nowrap;">
               {{ lead.created_at|date:"M j, Y" }}
             </td>
@@ -553,6 +556,7 @@ th.col-sorted-desc .col-sort-icon { opacity: 1; color: var(--dash-primary); }
   var LS_KEY = 'pontora_lead_cols_' + SLUG;
   var COLS_DEFAULT = {
     contact:       true,
+    {% if lead_appointment_field %}appointment: true,{% endif %}
     received:      true,
     followup:      true,
     last_activity: true,

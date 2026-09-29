@@ -237,6 +237,8 @@ def get_lead_form_config(config_raw: dict, form_key: str | None = None) -> dict 
         "pipeline_visible": bool(leads.get("pipeline_visible", True)),
         "category": (leads.get("category") or "lead").strip(),
         "fields": fields,
+        "appointment_field": leads.get("appointment_field", ""),
+        "appointment_auto_confirm": leads.get("appointment_auto_confirm") is True,
     }
 
 

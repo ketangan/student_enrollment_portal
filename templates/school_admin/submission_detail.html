@@ -917,6 +917,7 @@
       {% endif %}
 
       <!-- Scheduling Change Request -->
+      {% if not playdate %}
       {% if schedule_change_requested or sched_fields %}
       <div class="dash-card no-print" style="padding:18px 22px;">
         <h2 class="sidebar-label" style="display:flex;align-items:center;justify-content:space-between;">
@@ -964,6 +965,7 @@
         {% endif %}
       </div>
       {% endif %}
+      {% endif %}
 
       <!-- Activity -->
       <div class="dash-card activity-card no-print" style="padding:18px 22px;">
@@ -985,6 +987,8 @@
                 <strong>{{ entry.extra.to }}</strong>
               {% elif entry.extra.name == "submission_update" %}
                 added an internal note
+              {% elif entry.extra.name == "playdate_scheduled" %}
+                {% if entry.extra.old_slot %}rescheduled{% else %}scheduled{% endif %} a playdate{% if entry.extra.slot_label %}: {{ entry.extra.slot_label }}{% endif %}
               {% elif entry.extra.name == "generate_ai_summary" %}
                 generated AI summary
               {% elif entry.extra.name == "regenerate_ai_summary" %}
@@ -1145,6 +1149,35 @@
           </div>
         </div>
       </div>
+
+      {% if playdate %}
+      <section class="dash-card" id="playdate-schedule" aria-labelledby="playdate-heading" style="padding:18px 22px;">
+        <h2 class="sidebar-label" id="playdate-heading">Playdate Schedule</h2>
+        {% if playdate.label %}
+        <div style="font-size:11px;color:var(--dash-muted);margin-bottom:4px;">Date &amp; time</div>
+        <p style="font-size:13px;color:var(--dash-text);line-height:1.5;margin:0;overflow-wrap:anywhere;">{{ playdate.label }}</p>
+        {% else %}
+        <p style="font-size:12px;color:var(--dash-muted);margin:0;">No playdate scheduled yet.</p>
+        {% endif %}
+        {% if can_mutate and playdate.can_schedule %}
+        {% if playdate.options %}
+        <form method="post" action="{% url 'school_submission_schedule_playdate' school_slug=school_slug submission_id=submission.id %}" style="margin-top:12px;">
+          {% csrf_token %}
+          <label for="admin-playdate-slot" style="display:block;font-size:12px;color:var(--dash-muted);margin-bottom:4px;">Date &amp; time</label>
+          <select id="admin-playdate-slot" name="playdate_slot" required style="width:100%;min-width:0;max-width:100%;box-sizing:border-box;padding:6px;border:1px solid var(--dash-border,#e2e8f0);border-radius:6px;font-size:12px;background:#fff;">
+            <option value="">Select a playdate time</option>
+            {% for slot in playdate.options %}
+            <option value="{{ slot.value }}" {% if playdate.value == slot.value %}selected{% endif %}>{{ slot.label }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="dash-action-btn dash-action-btn--primary" style="margin-top:8px;font-size:12px;">{% if playdate.value %}Save Playdate{% else %}Schedule Playdate{% endif %}</button>
+        </form>
+        {% else %}
+        <p style="font-size:12px;color:var(--dash-muted);margin:8px 0 0;">No times are currently available.</p>
+        {% endif %}
+        {% endif %}
+      </section>
+      {% endif %}
 
       <!-- 2. Internal Notes -->
       <div class="dash-card" style="padding:18px 22px;">
