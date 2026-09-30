@@ -13,6 +13,10 @@ from django.shortcuts import render
 from django.urls import reverse
 
 DEMO_REGISTRY = {
+    "plushumi": {
+        "template_dir": "demo/plushumi",
+        "demos": [],  # Standalone storyboard; no enrollment form or school record.
+    },
     "ymla-demo": {
         "school_slug": "young-minds-la",
         "template_dir": "demo/ymla",

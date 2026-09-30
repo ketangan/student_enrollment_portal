@@ -634,6 +634,13 @@ form:
 
 ---
 
+## Plushumi Sales Demo (September 30, 2026)
+
+- `/demo/plushumi/` serves a six-screen booking storyboard using the prospect's branding.
+- Static demonstration only: no school record, payments, Wix/Notion calls, or migrations.
+- Existing enrollment workflows and demo routes are unchanged. See `docs/plushumi-booking-demo.md`.
+- Route, static-asset, and existing-demo regression coverage: `core/tests/test_plushumi_demo.py`.
+
 ## Known Technical Debt
 
 | Item | Priority | Notes |
