@@ -215,3 +215,86 @@ small {
     padding: 14px 28px !important;
   }
 }
+
+/* Approved website theme for SBMC lead/trial forms only. Keep the enrollment
+   application theme above unchanged. Fonts are served with the application. */
+@font-face {
+  font-family: 'SBMC Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('sbmc-fonts/manrope-400.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'SBMC Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('sbmc-fonts/manrope-700.ttf') format('truetype');
+}
+body.lead-form {
+  --primary: #193d8f;
+  --accent: #193d8f;
+  --bg: #fdf5e7;
+  --card: #ffffff;
+  --text: #19253d;
+  --muted: #626c7e;
+  --border: #d7ddeb;
+  --radius: 12px;
+  --font: 'SBMC Manrope', sans-serif;
+  --heading-font: var(--font);
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.6;
+}
+body.lead-form--embedded { background: transparent; }
+.lead-form :is(h1, h2, h3, h4, .success-title) {
+  font-family: var(--font) !important;
+  color: var(--primary);
+}
+.lead-form :is(label, .form-label, .field-label) {
+  font-family: var(--font) !important;
+  font-size: 14px !important;
+  color: var(--text) !important;
+}
+.lead-form :is(input[type="text"], input[type="email"], input[type="tel"], input[type="date"], input[type="number"], select, textarea) {
+  font-family: var(--font) !important;
+  font-size: 16px !important;
+  background: #ffffff !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+  border-radius: 8px !important;
+  min-height: 48px;
+}
+.lead-form :is(input, select, textarea):focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgb(25 61 143 / 18%) !important;
+}
+.lead-form .btn-submit {
+  background: #f8a327 !important;
+  color: #19253d !important;
+  border-radius: 999px !important;
+  font-family: var(--font) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  padding: 14px 20px !important;
+  min-height: 48px;
+}
+.lead-form .btn-submit:hover { background: #ef9714 !important; }
+.lead-form .btn-submit:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+.lead-form :is(.req, .required, .required-star, .required-marker, .success-icon) {
+  color: var(--primary) !important;
+}
+.lead-form input[type="checkbox"] { accent-color: var(--primary); }
+.lead-form :is(.error-msg, .field-error, .form-error, .errorlist, .form-help-text, .help-text, small) {
+  font-family: var(--font) !important;
+}
+.lead-form .field-error :is(input, select, textarea) {
+  border-color: #b91c1c !important;
+}

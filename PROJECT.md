@@ -130,6 +130,7 @@ JSON overrides in `School.feature_flags`. Superusers bypass most feature gates.
 
 ## Current State
 
+- SBMC trial/lead forms now use the approved website's Manrope typography, navy text/focus styles and orange pill button. Scoped through the lead-form body class in SBMC's custom stylesheet; enrollment application styling and other schools are unchanged. Manrope fonts and license are bundled locally. Verified 37 lead-form tests plus 520/390/320px rendering and browser email validation. Pending production deployment.
 - **974 passing tests**
 - All views refactored — `core/views.py` is now a thin re-export facade
 - Ops Portal (Phases 1 + 2) complete — Django admin kept as raw escape hatch only
