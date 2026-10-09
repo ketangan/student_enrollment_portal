@@ -19,6 +19,13 @@ do not consume that trial; checkout is blocked through its free period. Normal l
 schools retain existing defaults. This is not deployed or activated for Dinuka;
 KW-01/02/04 and the clean production launch/acceptance gates remain pending.
 
+October 8 release packaging: KW-05 and shared payment alerts/recovery are isolated from
+the pending scheduling release. The enrollment-only release passes 2,079 tests; the full
+local workspace passes 179 focused integration tests after optional-module separation.
+Desktop/mobile billing checks passed. See [payment release notes](docs/payment-alerts-and-recovery.md)
+for migration, webhook and email deployment prerequisites. Scheduling-specific hooks and
+the rest of the scheduling work remain local; do not interpret this push as their release.
+
 ---
 
 ## What This Product Is

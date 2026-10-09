@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import json
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
@@ -288,6 +289,12 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@example.com")
 # WARNING: the fallback "noreply@example.com" is not a real verified sender.
 # Always set DEFAULT_FROM_EMAIL explicitly in production/staging env vars.
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
+PAYMENT_ALERT_RECIPIENTS = [address.strip() for address in os.getenv(
+    "PAYMENT_ALERT_RECIPIENTS", "ketan@mypontora.com"
+).split(",") if address.strip()]
+PAYMENT_ALERT_TEST_EVENTS = os.getenv("PAYMENT_ALERT_TEST_EVENTS", "false").lower() == "true"
+# School-owned Stripe webhook secrets, keyed by school slug. Keep out of YAML/Git.
+APP_FEE_WEBHOOK_SECRETS = json.loads(os.getenv("APP_FEE_WEBHOOK_SECRETS", "{}"))
 
 # Absolute base URL — fallback for local dev. In production set all three explicitly.
 # APP_BASE_URL  → production app  (e.g. https://app.mypontora.com)

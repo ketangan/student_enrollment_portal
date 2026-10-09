@@ -177,22 +177,15 @@
   <!-- Page heading -->
   <div class="dash-greeting" style="margin-bottom:20px;">
     <h1 class="dash-greeting-title" style="font-size:18px;">Billing &amp; Plan</h1>
+    {% if billing_state == "payment_overdue" %}
+    <p class="dash-greeting-sub">Review your subscription and resolve the outstanding payment.</p>
+    {% else %}
     <p class="dash-greeting-sub">Manage your subscription and unlock features for your school.</p>
+    {% endif %}
   </div>
 
-  <!-- Status banners -->
-  {% if messages %}
-    {% for message in messages %}
-    <div style="padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:12px;
-                {% if message.tags == 'success' %}background:#dcfce7;color:#166534;border:1px solid #bbf7d0;
-                {% elif message.tags == 'error' %}background:#fef2f2;color:#991b1b;border:1px solid #fecaca;
-                {% else %}background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe;{% endif %}">
-      {{ message }}
-    </div>
-    {% endfor %}
-  {% endif %}
-
-  {% if request.GET.status == "success" %}
+  <!-- Status banners; Django messages are rendered by the shared base. -->
+  {% if request.GET.status == "success" and billing_state != "payment_overdue" %}
   <div style="padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:12px;
               background:#dcfce7;color:#166534;border:1px solid #bbf7d0;">
     Payment successful! Your plan has been upgraded. It may take a moment to reflect.
@@ -232,12 +225,26 @@
       </div>
       {% endif %}
     </div>
-    {% if billing_state == "active" or billing_state == "scheduled_cancel" %}
+    {% if billing_state == "payment_overdue" %}
+    <div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--dash-muted);margin-bottom:4px;">
+        {% if school.is_payment_access_expired %}Access paused{% else %}Payment due by{% endif %}
+      </div>
+      <div style="font-size:15px;font-weight:600;color:var(--dash-text);">
+        {{ school.payment_grace_ends_at|date:"M j, Y" }} at {{ school.payment_grace_ends_at|date:"g:i A" }}
+      </div>
+    </div>
+    {% endif %}
+    {% if can_open_portal %}
     <form method="post" action="{{ portal_url }}">
       {% csrf_token %}
-      <button type="submit" class="dash-action-btn dash-action-btn--secondary"
-              style="font-size:13px;padding:8px 18px;">
+      <button type="submit" class="dash-action-btn {% if billing_state == 'payment_overdue' %}dash-action-btn--primary{% else %}dash-action-btn--secondary{% endif %}"
+              style="font-family:inherit;font-size:13px;padding:8px 18px;cursor:pointer;{% if billing_state == 'payment_overdue' %}border:0;min-height:40px;{% endif %}">
+        {% if billing_state == "payment_overdue" %}
+        Update card or pay invoice
+        {% else %}
         Manage Billing →
+        {% endif %}
       </button>
     </form>
     {% endif %}
@@ -250,6 +257,23 @@
   </div>
   {% endif %}
 
+  {% if billing_state == "payment_overdue" %}
+  <div style="font-size:13px;color:var(--dash-muted);line-height:1.6;">
+    {% if school.is_payment_access_expired %}
+    <p>Enrollment and scheduling access is paused until the overdue payment is resolved. Your records are retained.</p>
+    {% else %}
+    <p>Enrollment and scheduling remain available until the payment deadline above.</p>
+    {% endif %}
+    {% if can_open_portal %}
+    <p>Updating your card does not settle an overdue invoice. Access resumes once payment is confirmed.</p>
+    {% elif can_manage_billing %}
+    <p>Contact Pontora to resolve this payment.</p>
+    {% else %}
+    <p>Please ask your school's account owner to resolve the payment.</p>
+    {% endif %}
+    <p>Need help? <a href="mailto:ketan@mypontora.com" style="color:var(--dash-primary);">Contact Pontora</a></p>
+  </div>
+  {% else %}
   <!-- Plan cards -->
   <div class="billing-plan-grid">
 
@@ -430,6 +454,7 @@
   <p style="font-size:12px;color:var(--dash-muted);text-align:center;">
     All plans start with a {{ trial_length_days }}-day free trial. Cancel anytime.
   </p>
+  {% endif %}
 
 </main>
 {% endblock %}

@@ -154,6 +154,7 @@ class School(models.Model):
     stripe_customer_id = models.CharField(max_length=255, blank=True, default="")
     stripe_subscription_id = models.CharField(max_length=255, blank=True, default="")
     stripe_subscription_status = models.CharField(max_length=50, blank=True, default="")
+    payment_grace_ends_at = models.DateTimeField(null=True, blank=True, editable=False)
     is_active = models.BooleanField(default=True)
     is_demo = models.BooleanField(default=False, db_index=True)
     activity_tracking_enabled = models.BooleanField(default=False)
@@ -295,6 +296,45 @@ class School(models.Model):
             and self.stripe_subscription_id
             and self.stripe_subscription_status in ("active", "trialing", "past_due", "unpaid")
         )
+
+    @property
+    def is_payment_overdue(self):
+        return bool(not self.is_demo and self.payment_grace_ends_at)
+
+    @property
+    def is_payment_access_expired(self):
+        return bool(self.is_payment_overdue and timezone.now() >= self.payment_grace_ends_at)
+
+    @property
+    def is_access_expired(self):
+        return self.is_trial_expired or self.is_payment_access_expired
+
+
+class BillingInvoice(models.Model):
+    """Platform invoice state only; parent payments never affect school access."""
+
+    school = models.ForeignKey(School, on_delete=models.PROTECT, related_name="billing_invoices")
+    provider_id = models.CharField(max_length=255, unique=True)
+    subscription_id = models.CharField(max_length=255)
+    livemode = models.BooleanField()
+    status = models.CharField(max_length=32)
+    first_failed_at = models.DateTimeField(null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class PaymentNotification(models.Model):
+    """Durable outbox, shared by subscription and school-owned payments."""
+
+    key = models.CharField(max_length=255, unique=True)
+    school = models.ForeignKey(School, null=True, on_delete=models.SET_NULL)
+    recipients = models.JSONField(default=list)
+    subject = models.CharField(max_length=255)
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now, db_index=True)
+    last_error = models.CharField(max_length=100, blank=True)
 
 
 class SchoolAdminMembership(models.Model):

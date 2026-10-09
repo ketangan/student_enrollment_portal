@@ -109,7 +109,7 @@ def admin_download_submission_file(request, file_id: int):
             raise Http404("Not found")
 
         # Block inactive schools from downloading files
-        if not sf.submission.school.is_active:
+        if not sf.submission.school.is_active or sf.submission.school.is_payment_access_expired:
             raise Http404("Not found")
 
     if not sf.file:
@@ -217,8 +217,9 @@ def _safe_load_school_config(school_slug: str):
 
 class TrialExpiredError(Exception):
     """Raised when a non-superuser tries to access a school admin view on an expired trial."""
-    def __init__(self, school_slug: str):
+    def __init__(self, school_slug: str, reason="trial"):
         self.school_slug = school_slug
+        self.reason = reason
         super().__init__(f"Trial expired: {school_slug}")
 
 
@@ -246,18 +247,20 @@ def _get_accessible_school_for_admin(request, school_slug: str) -> School:
     Returns the School object on success.  Do not weaken these checks.
     """
     school = get_object_or_404(School, slug=school_slug)
-    if not _can_view_school_admin_page(request, school):
+    url_name = getattr(getattr(request, "resolver_match", None), "url_name", "")
+    from core.services.billing_access import billing_role
+    billing_access = url_name in _TRIAL_EXPIRY_EXEMPT and billing_role(request.user, school)
+    if not _can_view_school_admin_page(request, school) and not billing_access:
         raise Http404("Page not found")
     if not school.is_active and not request.user.is_superuser:
         raise Http404("School not found")
     if (
         not request.user.is_superuser
         and not school.is_demo
-        and school.is_trial_expired
+        and school.is_access_expired
     ):
-        url_name = getattr(getattr(request, "resolver_match", None), "url_name", "")
         if url_name not in _TRIAL_EXPIRY_EXEMPT:
-            raise TrialExpiredError(school.slug)
+            raise TrialExpiredError(school.slug, reason="payment" if school.is_payment_access_expired else "trial")
     return school
 
 
@@ -382,6 +385,7 @@ def _school_admin_base_context(request, school, active_nav: str) -> dict:
         "active_nav": active_nav,
         "is_demo_session": is_demo_session,
         "current_membership": current_membership,
+        "billing_only": active_nav == "billing" and not current_membership and not request.user.is_superuser,
         "current_role": current_role,
         "is_owner": current_role == "owner",
         "is_editor": current_role in ("owner", "editor"),

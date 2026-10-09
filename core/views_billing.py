@@ -75,7 +75,7 @@ def billing_view(request):
     if not school:
         raise Http404("No school found for this account")
 
-    if school.subscription_checkout_paused:
+    if school.subscription_checkout_paused or school.is_payment_overdue:
         return redirect("school_billing", school_slug=school.slug)
 
     stripe_configured = is_stripe_configured()
@@ -154,7 +154,12 @@ def billing_create_checkout(request):
     if not school:
         raise Http404
 
+    from core.services.school_permissions import require_school_role
+    require_school_role(request, school, "owner")
     if school.subscription_checkout_paused:
+        return redirect("school_billing", school_slug=school.slug)
+
+    if school.is_payment_overdue or school.has_active_stripe_subscription:
         return redirect("school_billing", school_slug=school.slug)
 
     # Stripe config check (hardening)
@@ -213,13 +218,15 @@ def billing_portal(request):
     if not school:
         raise Http404
 
+    from core.services.school_permissions import require_school_role
+    require_school_role(request, school, "owner")
     if school.subscription_checkout_paused:
         return redirect("school_billing", school_slug=school.slug)
 
-    if school.plan in ff.MANUALLY_MANAGED_PLANS:
+    if school.plan in ff.MANUALLY_MANAGED_PLANS and not school.has_active_stripe_subscription and not school.is_payment_overdue:
         messages.error(request, "This plan is managed by Pontora. Contact us to make changes.")
         return redirect(_billing_url(request, school))
-    if not school.has_active_stripe_subscription:
+    if not school.has_active_stripe_subscription and not (school.is_payment_overdue and school.stripe_customer_id):
         messages.error(request, "No active Stripe subscription is available to manage yet.")
         return redirect(_billing_url(request, school))
 
@@ -263,7 +270,11 @@ def stripe_webhook(request):
 
     logger.info("Stripe webhook received: %s", event_type)
 
-    if event_type == "checkout.session.completed":
+    from core.services.billing_invoices import INVOICE_EVENTS, handle_invoice_event
+    if event_type in INVOICE_EVENTS:
+        from core.services.billing_stripe import _stripe_object_to_dict
+        handle_invoice_event(_stripe_object_to_dict(event))
+    elif event_type == "checkout.session.completed":
         handle_checkout_completed(data_object)
     elif event_type == "customer.subscription.updated":
         handle_subscription_updated(data_object)

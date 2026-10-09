@@ -11,6 +11,7 @@ import logging
 from datetime import datetime, timezone
 
 from django.conf import settings
+from django.db import transaction
 from core.services import feature_flags as ff
 
 logger = logging.getLogger(__name__)
@@ -245,6 +246,33 @@ def construct_webhook_event(payload: bytes, sig_header: str) -> object | None:
 # ---------------------------------------------------------------------------
 # Webhook handlers — keep idempotent
 # ---------------------------------------------------------------------------
+def retrieve_billing_invoice(invoice_id):
+    stripe = _get_stripe()
+    if stripe is None:
+        raise RuntimeError("Stripe billing is not configured")
+    return _stripe_object_to_dict(stripe.Invoice.retrieve(invoice_id, api_key=settings.STRIPE_SECRET_KEY))
+
+
+def retrieve_billing_subscription(subscription_id):
+    stripe = _get_stripe()
+    if stripe is None:
+        raise RuntimeError("Stripe billing is not configured")
+    return _stripe_object_to_dict(stripe.Subscription.retrieve(subscription_id, api_key=settings.STRIPE_SECRET_KEY))
+
+
+def construct_application_fee_event(school, payload, signature):
+    from django.core.exceptions import ValidationError
+    import stripe
+    secret = settings.APP_FEE_WEBHOOK_SECRETS.get(school.slug)
+    if not secret:
+        raise ValidationError("School payment webhook is not configured")
+    try:
+        return _stripe_object_to_dict(stripe.Webhook.construct_event(payload, signature, secret))
+    except (ValueError, stripe.SignatureVerificationError) as exc:
+        raise ValidationError("Payment webhook signature is invalid") from exc
+
+
+@transaction.atomic
 def handle_checkout_completed(session_data: dict) -> None:
     """Handle checkout.session.completed — link Stripe customer + subscription to school."""
     from core.models import School
@@ -262,12 +290,18 @@ def handle_checkout_completed(session_data: dict) -> None:
     subscription_id = session_data.get("subscription", "")
 
     try:
-        school = School.objects.get(slug=school_slug)
+        school = School.objects.select_for_update().get(slug=school_slug)
     except School.DoesNotExist:
         logger.warning(
             "Stripe webhook checkout.session.completed: school %s not found",
             school_slug
         )
+        return
+
+    if (subscription_id and school.stripe_subscription_id
+            and subscription_id != school.stripe_subscription_id
+            and (school.has_active_stripe_subscription or school.is_payment_overdue)):
+        logger.warning("Ignoring checkout for a different subscription on school %s", school.slug)
         return
 
     school.stripe_customer_id = customer_id or school.stripe_customer_id
@@ -317,6 +351,8 @@ def handle_checkout_completed(session_data: dict) -> None:
             "stripe_current_period_end",
         ]
     )
+    from core.services.billing_invoices import refresh_payment_grace
+    refresh_payment_grace(school)
     logger.info(
         "Stripe webhook checkout.session.completed: school=%s customer=%s subscription=%s plan=%s is_active=True",
         school.slug,
@@ -332,6 +368,8 @@ def handle_subscription_updated(subscription_data: dict) -> None:
 
     subscription_data = _stripe_object_to_dict(subscription_data)
     sub_id = subscription_data.get("id", "")
+    if not sub_id:
+        return
     status = subscription_data.get("status", "")
 
     school = School.objects.filter(stripe_subscription_id=sub_id).first()
@@ -339,7 +377,7 @@ def handle_subscription_updated(subscription_data: dict) -> None:
     if not school:
         meta_slug = (subscription_data.get("metadata") or {}).get("school_slug")
         if meta_slug:
-            school = School.objects.filter(slug=meta_slug).first()
+            school = School.objects.filter(slug=meta_slug, stripe_subscription_id="").first()
 
     if not school:
         logger.warning(
@@ -408,6 +446,8 @@ def handle_subscription_deleted(subscription_data: dict) -> None:
 
     subscription_data = _stripe_object_to_dict(subscription_data)
     sub_id = subscription_data.get("id", "")
+    if not sub_id:
+        return
 
     school = School.objects.filter(stripe_subscription_id=sub_id).first()
     if not school:

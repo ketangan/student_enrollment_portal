@@ -872,7 +872,7 @@ class TestStripeWebhook:
     @patch("core.views_billing.construct_webhook_event")
     def test_unhandled_event_returns_200(self, mock_construct, client):
         event = MagicMock()
-        event.type = "invoice.paid"
+        event.type = "customer.created"
         event.data.object = {}
         mock_construct.return_value = event
 

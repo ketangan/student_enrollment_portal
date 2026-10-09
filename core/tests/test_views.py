@@ -61,7 +61,7 @@ def test_apply_view_multi_default_redirects_to_first_form(client, monkeypatch, d
     assert resp["Location"].endswith(reverse("apply_form", kwargs={"school_slug": school_slug, "form_key": "step1"}))
 
 
-def test_apply_success_view_404_when_no_config(client, monkeypatch):
+def test_apply_success_view_404_when_no_config(client, monkeypatch, db):
     monkeypatch.setattr("core.views_public.load_school_config", lambda slug: None)
     url = reverse("apply_success", kwargs={"school_slug": "nope"})
     resp = client.get(url)
