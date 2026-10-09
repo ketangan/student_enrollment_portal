@@ -1,0 +1,45 @@
+{% extends "ops/base.html" %}
+{% block page_title %}Start Customer Trial{% endblock %}
+{% block extra_css %}
+<style>
+  .kw-trial { max-width:760px; }
+  .kw-trial h1 { font-size:24px; margin:24px 0 12px; }
+  .kw-trial p { color:var(--dash-muted); line-height:1.6; }
+  .kw-trial label { font-size:14px; font-weight:600; }
+  .kw-trial .dash-input { width:100%; min-width:0; box-sizing:border-box; padding:12px;
+    border:1px solid var(--dash-border); border-radius:6px; font:inherit;
+    background:var(--dash-card,#fff); color:var(--dash-text); }
+  .kw-trial .dash-input:focus-visible { outline:2px solid var(--dash-primary); outline-offset:2px; }
+  .kw-trial .confirmation { display:flex; align-items:flex-start; gap:10px; line-height:1.5; }
+  .kw-trial .confirmation input { width:18px; height:18px; flex:0 0 18px; margin:2px 0 0; }
+  .kw-trial .dash-action-btn { padding:12px 18px; border:0; font-size:14px; cursor:pointer; }
+  .kw-trial .errorlist { color:#b91c1c; font-size:14px; padding-left:20px; }
+</style>
+{% endblock %}
+{% block content %}
+<main class="dash-main kw-trial">
+  <a href="{% url 'ops_school_detail' school.slug %}">Back to {{ school.display_name|default:school.slug }}</a>
+  <h1>Start customer trial</h1>
+  {% if school.trial_pending_activation %}
+  <p>{{ school.trial_duration_days }} days from the written go-live notice. This records the notice; it does not send email or collect payment.</p>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {% for field in form %}
+    <div style="margin:20px 0;">
+      {% if field.field.widget.input_type == 'checkbox' %}
+      <label class="confirmation">{{ field }} <span>{{ field.label }}</span></label>
+      {% else %}
+      <label for="{{ field.id_for_label }}" style="display:block;margin-bottom:8px;">{{ field.label }}</label>
+      {{ field }}
+      {% endif %}
+      {{ field.errors }}
+    </div>
+    {% endfor %}
+    <button class="dash-action-btn dash-action-btn--primary" type="submit">Start {{ school.trial_duration_days }}-day trial</button>
+  </form>
+  {% else %}
+  <p>This school is not awaiting trial activation. Existing trial dates have not been changed.</p>
+  {% endif %}
+</main>
+{% endblock %}

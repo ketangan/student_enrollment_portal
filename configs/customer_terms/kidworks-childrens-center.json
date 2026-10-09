@@ -1,0 +1,10 @@
+{
+  "plan": "starter",
+  "trial_duration_days": 60,
+  "feature_flags": {
+    "custom_branding_enabled": true,
+    "custom_statuses_enabled": true,
+    "leads_conversion_enabled": true,
+    "save_resume_enabled": true
+  }
+}

@@ -164,6 +164,8 @@ def create_checkout_session(
     customer_email: str | None = None,
 ) -> str | None:
     """Create a Stripe Checkout Session. Returns the session URL or None on error."""
+    if school.subscription_checkout_paused:
+        return None
     stripe = _get_stripe()
     if not stripe:
         return None
@@ -202,6 +204,8 @@ def create_checkout_session(
 # ---------------------------------------------------------------------------
 def create_portal_session(*, school, return_url: str) -> str | None:
     """Create a Stripe Billing Portal session. Returns the URL or None."""
+    if school.subscription_checkout_paused:
+        return None
     stripe = _get_stripe()
     if not stripe or not school.stripe_customer_id:
         return None

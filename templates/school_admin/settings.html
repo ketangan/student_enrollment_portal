@@ -775,7 +775,11 @@
         </div>
         {% endif %}
 
-        {% if school.is_trial_plan %}
+        {% if school.is_demo %}
+        <div><span style="font-size:14px;">Demo access. Customer trial has not started.</span></div>
+        {% elif school.trial_pending_activation %}
+        <div><span style="font-size:14px;">{{ school.trial_duration_days }}-day trial awaiting written go-live.</span></div>
+        {% elif school.is_trial_plan %}
         <div>
           <span style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;
                        letter-spacing:.05em;display:block;margin-bottom:4px;">Trial Ends</span>

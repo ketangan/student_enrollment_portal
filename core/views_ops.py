@@ -706,7 +706,7 @@ def ops_school_convert_view(request, slug):
     admin_first_name = request.POST.get("admin_first_name", "").strip()
     admin_last_name = request.POST.get("admin_last_name", "").strip()
     plan = request.POST.get("plan", "trial").strip()
-    trial_days_raw = request.POST.get("trial_days", "30").strip()
+    trial_days_raw = request.POST.get("trial_days", str(school.trial_duration_days)).strip()
     delete_submissions = request.POST.get("delete_submissions") == "1"
     delete_leads = request.POST.get("delete_leads") == "1"
 
@@ -728,17 +728,18 @@ def ops_school_convert_view(request, slug):
         ctx.update({"errors": errors, "post": request.POST})
         return render(request, "ops/school_convert.html", ctx)
 
-    result = convert_demo_to_customer(
-        school=school,
-        plan=plan,
-        trial_days=trial_days,
-        admin_email=admin_email,
-        admin_first_name=admin_first_name,
-        admin_last_name=admin_last_name,
-        delete_submissions=delete_submissions,
-        delete_leads=delete_leads,
-        actor=request.user,
-    )
+    from django.core.exceptions import ValidationError
+    try:
+        result = convert_demo_to_customer(
+            school=school, plan=plan, trial_days=trial_days,
+            admin_email=admin_email, admin_first_name=admin_first_name,
+            admin_last_name=admin_last_name, delete_submissions=delete_submissions,
+            delete_leads=delete_leads, actor=request.user,
+        )
+    except ValidationError as exc:
+        ctx.update({"errors": exc.messages, "post": request.POST})
+        return render(request, "ops/school_convert.html", ctx)
+    school.refresh_from_db()
 
     magic_link = app_reverse("demo_access", kwargs={"token": result["magic_token"].token})
     enrollment_url = app_reverse("apply", kwargs={"school_slug": school.slug})

@@ -1057,6 +1057,9 @@ def school_billing_view(request, school_slug: str):
     )
     school = _get_accessible_school_for_admin(request, school_slug)
     require_school_role(request, school, "owner")
+    if school.subscription_checkout_paused:
+        return render(request, "school_admin/billing_pending.html",
+                      _school_admin_base_context(request, school, "billing"))
     stripe_configured = is_stripe_configured()
     pricing_flat = get_pricing_options() if stripe_configured else []
 
@@ -1103,7 +1106,6 @@ def school_billing_view(request, school_slug: str):
 
     plan_display = dict(ff.PLAN_CHOICES).get(school.plan, school.plan)
 
-    from core.models import TRIAL_LENGTH_DAYS
     billing_url = reverse("school_billing", kwargs={"school_slug": school_slug})
     ctx = _school_admin_base_context(request, school, "billing")
     ctx.update({
@@ -1121,7 +1123,7 @@ def school_billing_view(request, school_slug: str):
         "billing_url": billing_url,
         "checkout_url": reverse("school_billing_checkout", kwargs={"school_slug": school_slug}),
         "portal_url": reverse("school_billing_portal", kwargs={"school_slug": school_slug}),
-        "trial_length_days": TRIAL_LENGTH_DAYS,
+        "trial_length_days": school.trial_duration_days,
     })
     return render(request, "school_admin/billing.html", ctx)
 
@@ -1143,6 +1145,9 @@ def school_billing_checkout_view(request, school_slug: str):
     require_school_role(request, school, "owner")
     from core.services.url_builder import app_reverse
     billing_url = app_reverse("school_billing", kwargs={"school_slug": school_slug})
+
+    if school.subscription_checkout_paused:
+        return redirect(billing_url)
 
     if not is_stripe_configured():
         messages.error(request, "Billing is not configured.")
@@ -1202,6 +1207,9 @@ def school_billing_portal_view(request, school_slug: str):
     require_school_role(request, school, "owner")
     from core.services.url_builder import app_reverse
     billing_url = app_reverse("school_billing", kwargs={"school_slug": school_slug})
+
+    if school.subscription_checkout_paused:
+        return redirect(billing_url)
 
     if school.plan in ff.MANUALLY_MANAGED_PLANS:
         messages.error(request, "Your plan is managed by Pontora. Contact us to make changes.")

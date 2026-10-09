@@ -192,7 +192,11 @@
   <div class="dash-trial-banner">
     {% if school.trial_days_left > 0 %}
       ⚡ Trial ends in {{ school.trial_days_left }} day{{ school.trial_days_left|pluralize }} — New submissions will stop after this.
+      {% if school.subscription_checkout_paused %}
+      <a href="{% url 'school_billing' school.slug %}">View trial details</a>
+      {% else %}
       <a href="{% url 'school_billing' school.slug %}">Upgrade now →</a>
+      {% endif %}
     {% else %}
       Your trial has expired — new submissions are paused. <a href="{% url 'school_billing' school.slug %}">Upgrade to resume →</a>
     {% endif %}

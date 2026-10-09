@@ -4,6 +4,21 @@ This file is the canonical reference for decisions made, work completed, work in
 and work planned. Update it after every meaningful commit or decision. It is written for
 both human and AI readability — future sessions should read this before doing anything.
 
+Kid Works go-live (October 8, 2026): the agreement is signed; configuration and launch
+acceptance are pending. Use the [Kid Works go-live checklist](docs/kidworks-go-live.md)
+before making changes. Dinuka's meeting requirements supersede the outdated website
+and original demo: playdates follow enrollment, one new child per slot, personal
+follow-up preserved, and Dinuka handles Brightwheel uploads. The checklist separates
+internal engineering work from customer decisions and records launch/test gates.
+
+KW-05 (October 8): package/trial controls are implemented and locally verified;
+see [impact analysis, tests and rollout notes](docs/kidworks-kw05-verification.md).
+Kid Works has a reviewed per-school Starter override configuration and an explicit
+60-day trial-start workflow tied to the sent written go-live notice. Demos and setup
+do not consume that trial; checkout is blocked through its free period. Normal live
+schools retain existing defaults. This is not deployed or activated for Dinuka;
+KW-01/02/04 and the clean production launch/acceptance gates remain pending.
+
 ---
 
 ## What This Product Is

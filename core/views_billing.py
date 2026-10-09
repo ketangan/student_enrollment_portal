@@ -75,6 +75,9 @@ def billing_view(request):
     if not school:
         raise Http404("No school found for this account")
 
+    if school.subscription_checkout_paused:
+        return redirect("school_billing", school_slug=school.slug)
+
     stripe_configured = is_stripe_configured()
 
     # Build features list from the school's effective flags
@@ -151,6 +154,9 @@ def billing_create_checkout(request):
     if not school:
         raise Http404
 
+    if school.subscription_checkout_paused:
+        return redirect("school_billing", school_slug=school.slug)
+
     # Stripe config check (hardening)
     if not is_stripe_configured():
         messages.error(request, "Billing is not configured.")
@@ -206,6 +212,9 @@ def billing_portal(request):
     school = _resolve_billing_school(request)
     if not school:
         raise Http404
+
+    if school.subscription_checkout_paused:
+        return redirect("school_billing", school_slug=school.slug)
 
     if school.plan in ff.MANUALLY_MANAGED_PLANS:
         messages.error(request, "This plan is managed by Pontora. Contact us to make changes.")

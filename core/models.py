@@ -15,6 +15,7 @@ from core.services.form_utils import resolve_label
 from core.services import feature_flags as ff
 from core.services.admin_themes import THEME_CHOICES, DEFAULT_THEME_KEY
 from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 # How many days a trial lasts. Single source of truth — do not hardcode elsewhere.
 TRIAL_LENGTH_DAYS = 30
@@ -143,6 +144,11 @@ class School(models.Model):
     # Trial billing
     trial_started_at = models.DateTimeField(null=True, blank=True)
     trial_end_date = models.DateField(null=True, blank=True)
+    trial_duration_days = models.PositiveSmallIntegerField(
+        default=TRIAL_LENGTH_DAYS, db_default=TRIAL_LENGTH_DAYS, editable=False,
+        validators=[MinValueValidator(1), MaxValueValidator(365)],
+    )
+    trial_requires_activation = models.BooleanField(default=False, db_default=False, editable=False)
 
     # Stripe billing (platform subscription)
     stripe_customer_id = models.CharField(max_length=255, blank=True, default="")
@@ -214,14 +220,25 @@ class School(models.Model):
     @property
     def trial_ends_at(self):
         """UTC datetime when the trial expires, or None if not a trial school."""
-        if not self.is_trial_plan or not self.trial_started_at:
+        if self.is_demo or not self.is_trial_plan or not self.trial_started_at:
             return None
         if self.trial_end_date:
             # Superadmin override: school gets the full override date (23:59:59 UTC)
             return timezone.make_aware(
                 datetime.combine(self.trial_end_date, time(23, 59, 59))
             )
-        return self.trial_started_at + timedelta(days=TRIAL_LENGTH_DAYS)
+        return self.trial_started_at + timedelta(days=self.trial_duration_days)
+
+    @property
+    def trial_pending_activation(self) -> bool:
+        return bool(self.is_trial_plan and self.trial_requires_activation
+                    and not self.is_demo and self.trial_started_at is None)
+
+    @property
+    def subscription_checkout_paused(self) -> bool:
+        return self.is_demo or (
+            self.trial_requires_activation and self.is_trial_plan and not self.is_trial_expired
+        )
 
     @property
     def trial_days_left(self) -> int:
@@ -247,12 +264,13 @@ class School(models.Model):
     @property
     def show_trial_banner(self) -> bool:
         """Show the trial countdown/expired banner only in the final N days (see TRIAL_BANNER_THRESHOLD_DAYS)."""
-        return self.is_trial_plan and self.trial_days_left <= TRIAL_BANNER_THRESHOLD_DAYS
+        return bool(self.trial_ends_at and self.trial_days_left <= TRIAL_BANNER_THRESHOLD_DAYS)
 
     def save(self, *args, **kwargs):
         # Auto-start the trial clock the first time a school is saved as plan="trial".
         # Never overrides an explicitly set trial_started_at.
-        if self.plan == ff.PLAN_TRIAL and self.trial_started_at is None:
+        if (self.plan == ff.PLAN_TRIAL and self.trial_started_at is None
+                and not self.is_demo and not self.trial_requires_activation):
             self.trial_started_at = timezone.now()
         super().save(*args, **kwargs)
 

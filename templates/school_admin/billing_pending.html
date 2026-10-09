@@ -1,0 +1,15 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Billing{% endblock %}
+{% block content %}
+<main class="dash-main">
+  <h1 class="dash-greeting-title">Billing &amp; Plan</h1>
+  {% if school.is_demo %}
+  <p>Demo workspace. Your customer trial has not started.</p>
+  {% elif school.trial_pending_activation %}
+  <p>Your {{ school.trial_duration_days }}-day trial will begin at written go-live. No trial days have been used.</p>
+  {% else %}
+  <p>Your {{ school.trial_duration_days }}-day trial ends {{ school.trial_ends_at|date:"F j, Y" }}. No subscription payment is due during your trial.</p>
+  {% endif %}
+  <p>Subscription checkout is unavailable during demo, setup and the agreed free trial. After your trial, you can choose a billing option. You will not be charged automatically.</p>
+</main>
+{% endblock %}

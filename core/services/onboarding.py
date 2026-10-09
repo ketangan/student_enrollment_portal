@@ -10,6 +10,7 @@ import base64
 from datetime import timedelta
 
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
@@ -87,6 +88,12 @@ def convert_demo_to_customer(
     """
     with transaction.atomic():
         now = timezone.now()
+        school = School.objects.select_for_update().get(pk=school.pk)
+        if school.trial_requires_activation:
+            if not school.is_demo or plan != "trial":
+                raise ValidationError("Prepare this school on Trial; start its customer trial separately at go-live.")
+            if trial_days is not None and trial_days != school.trial_duration_days:
+                raise ValidationError("Use the agreed trial duration configured for this school.")
 
         # 1. Archive first — rollback insurance before any mutation
         archive_demo_data(school, actor)
@@ -137,9 +144,14 @@ def convert_demo_to_customer(
         school.is_demo = False
         school.plan = plan
         school.is_active = True
+        # Conversion is setup, not go-live, for explicitly deferred trials.
+        if school.trial_requires_activation:
+            school.trial_started_at = None
+            school.trial_end_date = None
         if plan == "trial":
-            school.trial_started_at = now
-            if trial_days:
+            if not school.trial_requires_activation:
+                school.trial_started_at = now
+            if trial_days and not school.trial_requires_activation:
                 school.trial_end_date = (now + timedelta(days=int(trial_days))).date()
         school.save()
 
@@ -284,6 +296,9 @@ def send_welcome_email(school: School, actor: User) -> bool:
     from django.core.mail import EmailMultiAlternatives
     from core.services.url_builder import app_reverse, app_url
 
+    if school.is_demo or school.trial_pending_activation:
+        return False  # This email claims the school is live; setup is not launch approval.
+
     membership = school.admin_memberships.select_related("user").first()
     if not membership or not membership.user.email:
         return False
@@ -321,7 +336,7 @@ def send_welcome_email(school: School, actor: User) -> bool:
         login_url=login_url, magic_link=magic_link,
         enrollment_url=enrollment_url, iframe_snippet=iframe_snippet,
         qr_img=qr_img,
-        trial_end=school.trial_end_date,
+        trial_end=school.trial_ends_at,
     )
 
     msg = EmailMultiAlternatives(subject, text_body, from_email, [admin.email])
