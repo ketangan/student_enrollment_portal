@@ -54,6 +54,12 @@ Automated verification: 3,705 full Python tests, 185 focused demo/tracker tests 
 49 JavaScript tests passed. The changed redirect and popup script have 100% statement/branch
 coverage; every measured Python module exceeds 90%. Migration drift check passed.
 
+Release-gate follow-up: GitHub run `38119809060` crossed Pacific midnight and exposed
+an existing reservation test that rejected a date anywhere on the page, including a
+correct audit-log date. Reproduced locally and corrected only the test: assert the
+exact scheduled date/time markup for same-day and overnight sessions, with a separate,
+fixed audit date. Deployment remains gated on a passing full CI run.
+
 ### October 10: Real Stripe Test Checkout
 
 The local [inline preview](http://localhost:8002/integration-preview/inline.html) and

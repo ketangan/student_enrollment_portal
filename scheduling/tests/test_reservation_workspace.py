@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pytest
 from django.core.exceptions import ValidationError
 from django.db import connection
-from django.test import Client
+from django.test import Client, SimpleTestCase
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
@@ -119,13 +119,28 @@ def test_time_is_compact_and_compares_local_dates(inventory, booking_member, cli
     item = reserve(booking_member, workshop_request(inventory))
     client.force_login(booking_member.user)
     start = datetime(2026, 10, 11, 1, tzinfo=ZoneInfo("UTC"))
+    # An unrelated audit date must not affect the scheduled-date assertion.
+    AdminAuditLog.objects.filter(
+        model_label="scheduling.reservation", object_id=str(item.pk), changes__action="created",
+    ).update(created_at=datetime(2026, 10, 11, 12, tzinfo=ZoneInfo("UTC")))
     Reservation.objects.filter(pk=item.pk).update(starts_at=start, ends_at=start + timedelta(hours=2))
     body = client.get(path(booking_member, "reservation_detail", public_id=item.public_id)).content.decode()
-    assert 'Sat, Oct 10, 2026' in body and '6:00 PM &ndash; 8:00 PM' in body
-    assert 'Oct 11, 2026' not in body
+    html = SimpleTestCase()
+    html.assertInHTML('<td>Oct 11, 2026<br>5:00 AM</td>', body, count=1)
+    html.assertInHTML(
+        '<div><dt>Scheduled</dt><dd>'
+        '<span class="reservation-date">Sat, Oct 10, 2026</span>'
+        '<span class="muted reservation-time">6:00 PM &ndash; 8:00 PM</span>'
+        '</dd></div>', body, count=1,
+    )
     Reservation.objects.filter(pk=item.pk).update(ends_at=start + timedelta(hours=9))
     body = client.get(path(booking_member, "reservation_detail", public_id=item.public_id)).content.decode()
-    assert 'Sat, Oct 10, 2026 &ndash; Oct 11, 2026' in body
+    html.assertInHTML(
+        '<div><dt>Scheduled</dt><dd>'
+        '<span class="reservation-date">Sat, Oct 10, 2026 &ndash; Oct 11, 2026</span>'
+        '<span class="muted reservation-time">6:00 PM &ndash; 3:00 AM</span>'
+        '</dd></div>', body, count=1,
+    )
 
 
 def test_without_refund_is_explicit_idempotent_and_audited(inventory, booking_member, client):
