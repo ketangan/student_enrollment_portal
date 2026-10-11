@@ -9,7 +9,7 @@ from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.http import Http404, QueryDict
-from django.test import Client
+from django.test import Client, SimpleTestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -56,6 +56,28 @@ def form_data(browser, demo, count=2, session=None):
         for group in requests.catalog_for(session.offering):
             data[f"participants-{index}-choice_{group.pk}"] = str(group.active_options[index % len(group.active_options)].pk)
     return session, data
+
+
+def test_customer_footer_returns_to_options_from_every_booking_step(demo, browser):
+    start = browser.get(url("start"))
+    session, data = form_data(browser, demo, count=1)
+    choice = browser.get(url("choose", pk=session.pk))
+    review = browser.post(url("choose", pk=session.pk), data)
+    data.update(action="checkout", review_token=review.context["review_token"])
+    checkout = browser.post(url("choose", pk=session.pk), data)
+    handoff = browser.get(checkout.url)
+    assert browser.post(checkout.url, {"action": "complete"}).status_code == 302
+    confirmation = browser.get(checkout.url)
+    link = f'<a href="{reverse("booking_integration_preview")}" target="_top">Back to demo options</a>'
+    html = SimpleTestCase()
+    for response in (start, choice, review, handoff, confirmation):
+        assert response.status_code == 200
+        html.assertInHTML(link, response.content.decode(), count=1)
+        assert b"Parties &amp; camps" not in response.content
+        assert b"Studio team" not in response.content
+    options = browser.get(reverse("booking_integration_preview"))
+    assert options.status_code == 200
+    assert b"Open booking page" in options.content and b"View popup preview" in options.content
 
 
 def test_pasadena_sample_workshop_is_additive_and_repeatable(demo):

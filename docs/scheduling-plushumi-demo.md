@@ -60,7 +60,21 @@ correct audit-log date. Reproduced locally and corrected only the test: assert t
 exact scheduled date/time markup for same-day and overnight sessions, with a separate,
 fixed audit date. Deployment remains gated on a passing full CI run.
 
+October 11 footer follow-up: customer booking screens now show **Back to demo options**
+instead of Parties & camps / Studio team. The link navigates the top-level page, including
+from the popup, so the comparison hub is never nested inside the booking frame.
+Browser checks at 1280px and 390px passed for both full-page and popup navigation.
+Regression coverage checks the footer on selection, review, checkout and confirmation,
+plus the hosted page. The 186 focused demo/payment/tracker tests, all 3,706 Python tests
+and 49 JavaScript tests passed; every measured Python module meets the 90% coverage floor.
+No payment logic, provider settings, schema or other-school pages were changed.
+
 ### October 10: Real Stripe Test Checkout
+
+October 11 hosted verification: this is still a local-only capability. Render has no
+dedicated booking test key, test webhook secret or Plushumi merchant binding, and the
+demo Stripe flag is off. Hosted pages intentionally use the simulator. Track the
+separate hosted-sandbox activation under B1; shared live subscription settings stay unchanged.
 
 The local [inline preview](http://localhost:8002/integration-preview/inline.html) and
 [modal preview](http://localhost:8002/integration-preview/modal.html) now offer actual

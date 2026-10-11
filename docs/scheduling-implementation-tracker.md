@@ -287,6 +287,13 @@ is active at USD 24.99/month; this task must not change its price or trigger a c
 7. Record sandbox/email evidence, then obtain live-activation approval and verify SBMC's
    subscription, price, owner access and normal enrollment pages remain unchanged.
 
+Hosted Plushumi checkout follow-up (October 11): real Stripe test checkout was verified
+only in the isolated local preview. The shared host still uses the payment simulator:
+the demo Stripe flag is off, the dedicated booking test key/webhook secret are absent,
+and Plushumi has no bound `PaymentAccount`. Configure and verify those sandbox-only
+prerequisites plus scheduled booking reconciliation before enabling hosted test checkout.
+Do not switch the shared `STRIPE_MODE` from live or reuse subscription credentials as a fallback.
+
 [Detailed setup and scope](payment-alerts-and-recovery.md). No live charge is needed.
 
 ### P3
