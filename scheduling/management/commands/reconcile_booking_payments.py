@@ -10,6 +10,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--limit", type=int, default=20)
+        parser.add_argument("--school", help="Limit manual recovery to one business slug.")
 
     def handle(self, *args, **options):
         limit = options["limit"]
@@ -18,9 +19,12 @@ class Command(BaseCommand):
         checked = succeeded = 0
         # Split the budget so a busy checkout queue cannot starve refunds.
         for model, active, scope, operation in [
-            (Refund, Refund.ACTIVE, {"attempt__order__purpose": "booking"}, refunds.process),
-            (PaymentAttempt, PaymentAttempt.ACTIVE, {"order__purpose": "booking"}, recover_attempt),
+            (Refund, Refund.ACTIVE, {"attempt__order__purpose": "booking", "attempt__order__environment": "test"}, refunds.process),
+            (PaymentAttempt, PaymentAttempt.ACTIVE, {"order__purpose": "booking", "order__environment": "test"}, recover_attempt),
         ]:
+            if options["school"]:
+                prefix = "attempt__order" if model is Refund else "order"
+                scope[f"{prefix}__school__slug"] = options["school"]
             for record in recovery.due_records(model, active=active).filter(**scope)[:max(1, limit // 2)]:
                 if checked >= limit:
                     break

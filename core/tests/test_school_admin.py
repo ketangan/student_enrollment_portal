@@ -234,8 +234,9 @@ def test_submissions_scoped_to_school(client):
     resp = client.get(url)
     content = resp.content.decode()
 
-    assert "Alice" in content
-    assert "Bob" not in content
+    assert resp.status_code == 200
+    assert "Alice Smith" in content
+    assert "Bob Jones" not in content
 
 
 @pytest.mark.django_db

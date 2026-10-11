@@ -8,6 +8,7 @@ from django.db.models import Sum
 
 from core.models import AdminAuditLog, School
 from .models import LedgerEntry, PaymentOrder
+from .accounts import validate_scope
 
 
 def totals(order):
@@ -27,6 +28,8 @@ def create_order(*, school, purpose, source_key, total_cents, deposit_cents, des
     School.objects.select_for_update().get(pk=school.pk)
     if account and (account.school_id != school.pk or account.environment != "test" or not account.enabled):
         raise ValidationError("A test payment account is not enabled for this business.")
+    if account:
+        validate_scope(account)
     values = dict(total_cents=total_cents, deposit_cents=deposit_cents, description=description,
                   merchant_reference=account.reference if account else f"offline:{school.pk}",
                   account=account, currency="usd")

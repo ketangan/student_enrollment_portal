@@ -1,4 +1,5 @@
 from datetime import timedelta
+from copy import deepcopy
 from unittest.mock import Mock
 
 import pytest
@@ -16,12 +17,8 @@ pytestmark = pytest.mark.django_db
 
 
 @pytest.fixture
-def stripe_demo(demo, settings, monkeypatch):
-    settings.BOOKING_DEMO_STRIPE_SCHOOL = SLUG
+def stripe_demo(demo, settings):
     settings.PAYMENTS_STRIPE_TEST_SECRET_KEY = "sk_test_local_only"
-    # config's local database guard uses a lightweight settings object in the base fixtures.
-    from scheduling.experience_demo import config
-    monkeypatch.setattr(config.settings, "BOOKING_DEMO_STRIPE_SCHOOL", SLUG, raising=False)
     PaymentAccount.objects.create(school=demo.school, reference="acct_test_demo", enabled=True)
     return demo
 
@@ -150,14 +147,52 @@ def test_unavailable_stripe_fails_closed_at_booking(stripe_demo, browser, settin
     assert not stripe_demo.reservations.exists()
 
 
-def test_payment_mode_change_requires_new_review(stripe_demo, browser, monkeypatch):
-    from scheduling.experience_demo import config
+def test_payment_mode_change_requires_new_review(stripe_demo, browser):
     session, data = form_data(browser, stripe_demo, count=1)
     review = browser.post(url("choose", pk=session.pk), data)
-    monkeypatch.setattr(config.settings, "BOOKING_DEMO_STRIPE_SCHOOL", "")
+    PaymentAccount.objects.filter(school=stripe_demo.school).update(enabled=False)
     data.update(action="checkout", review_token=review.context["review_token"])
     assert browser.post(url("choose", pk=session.pk), data).status_code == 400
     assert not stripe_demo.reservations.exists()
+
+
+def test_multiple_businesses_enable_test_checkout_independently(stripe_demo, settings, monkeypatch):
+    from core.models import School
+    from scheduling.experience_demo import config
+    from scheduling.models import SchedulingProfile
+
+    settings.STRIPE_MODE = "live"
+    settings.STRIPE_SECRET_KEY = "sk_live_must_not_be_used"
+    second = School.objects.create(slug="another-prospect", is_demo=True,
+        feature_flags={"booking_experience_demo": True})
+    SchedulingProfile.objects.create(school=second, enabled=True,
+        capabilities=["workshops", "reservations"])
+    # Brand content is supplied separately; payment selection must not depend on its slug.
+    brand = config.configuration(SLUG)
+    monkeypatch.setattr(config, "configuration", lambda slug: deepcopy(brand))
+    request = RequestFactory().get("/", HTTP_HOST="127.0.0.1:8002")
+    assert config.context(request, stripe_demo.school.slug)[1]["stripe_checkout"] is True
+    assert config.context(request, second.slug)[1]["stripe_checkout"] is False
+    other_account = PaymentAccount.objects.create(school=second, reference="acct_another", enabled=True)
+    assert config.context(request, second.slug)[1]["stripe_checkout"] is True
+    assert config.context(request, stripe_demo.school.slug)[1]["stripe_checkout"] is True
+    other_account.enabled = False
+    other_account.save(update_fields=["enabled"])
+    assert config.context(request, second.slug)[1]["stripe_checkout"] is False
+    assert config.context(request, stripe_demo.school.slug)[1]["stripe_checkout"] is True
+    assert settings.STRIPE_MODE == "live"
+
+
+def test_disabling_test_checkout_preserves_existing_payment_binding(stripe_demo, browser, monkeypatch):
+    route, item = booking(browser, stripe_demo)
+    attempt, _ = open_stripe(browser, route, monkeypatch)
+    PaymentAccount.objects.filter(school=stripe_demo.school).update(enabled=False)
+    assert browser.post(route, {"action": "complete"}).status_code == 400
+    assert browser.post(route, {"action": "stripe_checkout"}).status_code == 400
+    monkeypatch.setattr(gateway, "retrieve_order_checkout", lambda a: session_for(a, status="complete"))
+    response = browser.get(route + "?checkout_return=1")
+    assert response.context["item"].reservation.state == "confirmed"
+    assert LedgerEntry.objects.get(order=attempt.order).channel == "stripe"
 
 
 def test_unknown_creation_can_retry_without_false_confirmation(stripe_demo, browser, monkeypatch):

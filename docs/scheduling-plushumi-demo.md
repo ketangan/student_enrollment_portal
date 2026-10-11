@@ -1,7 +1,8 @@
 # Plushumi Working Demo
 
-Status: the working demo is hosted on the existing shared service. Real Stripe/Wix/Notion
-connections remain off there. This is not a finished self-service workshop product.
+Status: the working demo is hosted on the existing shared service. Shared sandbox Stripe
+activation is being verified (see below). Wix/Notion remain off. This is not a finished
+self-service workshop product.
 
 [Customer booking](http://localhost:8002/bookings/plushumi-demo/experience/) |
 [Reservations and preparation](http://localhost:8002/bookings/plushumi-demo/reservations/) |
@@ -69,7 +70,51 @@ plus the hosted page. The 186 focused demo/payment/tracker tests, all 3,706 Pyth
 and 49 JavaScript tests passed; every measured Python module meets the 90% coverage floor.
 No payment logic, provider settings, schema or other-school pages were changed.
 
-### October 10: Real Stripe Test Checkout
+### October 11: Hosted Booking Sandbox
+
+Release verification in progress. This supersedes the older local-only Stripe notes below.
+User approved Pontora's existing sandbox for demos and declined an additional paid recovery job.
+Real customer funds still require the merchant-owned account design; this change enables test
+payments only and must never route a customer's live revenue through the shared demo sandbox.
+
+Operator setup: **Django superadmin > Payments > Payment accounts > Add**. Select the demo
+business and **Pontora shared sandbox (demos only)**. Leave Connected test account ID blank;
+the configured sandbox identity is applied automatically. Enable test checkout and save.
+Only superadmins can do this. Existing bindings cannot be changed or deleted through that screen;
+checkout can be disabled without discarding pending payment verification.
+
+One-time deployment settings: `PAYMENTS_STRIPE_TEST_SECRET_KEY` (test key only),
+`PAYMENTS_STRIPE_TEST_ACCOUNT_ID`, and `PAYMENTS_STRIPE_TEST_WEBHOOK_SECRET`. The separate
+platform-scope test endpoint is `/bookings/stripe/test/webhook/`; events are
+`checkout.session.completed`, `checkout.session.expired`, and `payment_intent.payment_failed`.
+No per-school credentials or customer-name checks exist in the reusable payment components.
+The prior `BOOKING_DEMO_STRIPE_SCHOOL` switch is removed. `STRIPE_MODE=live` continues to serve
+existing Pontora subscriptions; no shared Stripe global key is mutated by demo checkout.
+
+Apply payment migration **0004** before activation. Existing payment accounts retain connected
+scope; only demo accounts explicitly configured for the platform sandbox share its account ID.
+Order/attempt identity, amount, environment and signed event checks still isolate each business.
+
+Manual verification: follow the test-card rehearsal below through the hosted comparison hub,
+including decline then success, unpaid back/retry, duplicate refresh, and webhook confirmation
+without browser return. Inspect both desktop and phone layouts. No real card should be entered.
+Recovery fallback: `python manage.py reconcile_booking_payments --school plushumi-demo --limit 20`.
+No paid job is provisioned. Automatic scheduled recovery remains a prerequisite for an unattended
+paid production rollout; it is not claimed complete for this demo. Broader operator-email and
+subscription recovery work remains tracked under B1.
+
+Pre-release verification: 3,742 Python tests and 49 JavaScript tests passed. Measured Python
+statement/branch coverage is 99.48%; every measured module exceeds 90%. New account-scope code
+is 100% covered and the superadmin form is 98.68%. Desktop and fresh 390px mobile admin checks
+passed for creating, saving and disabling the setting. Review also corrected an unrelated flaky
+test assertion that matched a student's short first name inside a random CSRF token; enrollment
+runtime code was not changed. Render's verified startup runs migrations before Gunicorn. A private
+pre-migration database backup was taken. Hosted payment evidence is still pending deployment.
+An additional 311 billing/payment tests passed with independent gateway coverage: all modified
+test-checkout transport lines/branches are covered. That targeted run covers 86.34% of the entire
+pre-existing billing gateway; it is not a claim of full subscription-gateway coverage.
+
+### October 10: Real Stripe Test Checkout (Historical Local Rehearsal)
 
 October 11 hosted verification: this is still a local-only capability. Render has no
 dedicated booking test key, test webhook secret or Plushumi merchant binding, and the

@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: October 10, 2026.
+Updated: October 11, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -8,6 +8,14 @@ Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 This Markdown file remains the source of truth; the viewer does not edit milestone status.
 
 ## Current Status
+
+- **Hosted booking sandbox: release verification in progress.** User approved Pontora's shared
+  sandbox for demo businesses because Connect is not enabled. Superadmin payment-account settings
+  replace the single-school environment switch; shared payment code has no customer-name branches.
+  Dedicated booking test credentials and a separate signed test webhook are configured. Activation
+  requires payment migration 0004, green CI, and provider/browser checks. `STRIPE_MODE` and SBMC
+  subscription settings stay unchanged. User declined a paid recovery job; manual recovery is the
+  accepted demo fallback. This does not complete the broader B1 subscription/email work below.
 
 - **P2 preview cleanup: Ready for your test.** Comparison options now navigate to
   a full booking page or the popup's own page; the old inline URL redirects rather than nesting
@@ -258,7 +266,9 @@ its consequence in the decision log. Authorized Wix/Notion sandbox access remain
 dependency, not a blocker for M5a. Nothing will connect to customer systems without that approval.
 
 Before enabling external checkout: provision and verify a merchant-owned Stripe Connect test
-account and signed test webhook, then run the provider checks in the M5b report. No secrets
+account and signed test webhook, then run the provider checks in the M5b report. Demo-only exception
+approved October 11: use Pontora's shared sandbox with per-business account bindings. This does not
+change the merchant-owned account requirement for real customer payments. No secrets
 belong in this tracker. Existing application-fee fail-open/order-binding issues remain a separate
 impact-reviewed enrollment fix; M5b does not migrate that live flow to the new order ledger.
 
@@ -287,12 +297,25 @@ is active at USD 24.99/month; this task must not change its price or trigger a c
 7. Record sandbox/email evidence, then obtain live-activation approval and verify SBMC's
    subscription, price, owner access and normal enrollment pages remain unchanged.
 
-Hosted Plushumi checkout follow-up (October 11): real Stripe test checkout was verified
-only in the isolated local preview. The shared host still uses the payment simulator:
-the demo Stripe flag is off, the dedicated booking test key/webhook secret are absent,
-and Plushumi has no bound `PaymentAccount`. Configure and verify those sandbox-only
-prerequisites plus scheduled booking reconciliation before enabling hosted test checkout.
-Do not switch the shared `STRIPE_MODE` from live or reuse subscription credentials as a fallback.
+Hosted booking sandbox follow-up (October 11): deployment verification in progress. The dedicated
+test key/account identity and separate booking webhook are configured. Enable only Plushumi's
+demo `PaymentAccount` after migration 0004 and green CI. Other demo businesses can use the same
+superadmin settings without code or per-school environment variables. Shared `STRIPE_MODE` stays
+live; booking credentials never fall back to subscription credentials.
+
+Manual checks for this slice:
+1. As superadmin, open **Payments > Payment accounts**. Add a demo business, choose
+   **Pontora shared sandbox (demos only)**, leave the connected account ID blank, and enable checkout.
+   Saved business/account/scope are read-only. Disabling blocks new payments, not pending settlement.
+2. From both full-page and popup previews, complete participant selection and open real test Checkout.
+   A decline must leave the reservation unpaid; a successful test payment must confirm it once.
+3. Verify the signed webhook confirms even without the customer returning. Check duplicate events
+   do not create duplicate receipts, and wrong/live/account-mismatched events are rejected.
+4. User declined a paid Render job. For missed notifications run
+   `python manage.py reconcile_booking_payments --school plushumi-demo --limit 20` manually.
+   This is an accepted demo limitation, not an unattended production recovery guarantee.
+5. Verify desktop/mobile, SBMC application/inquiry/status pages, its unchanged active subscription,
+   unchanged existing Render variables, and the separate migration/release evidence.
 
 [Detailed setup and scope](payment-alerts-and-recovery.md). No live charge is needed.
 

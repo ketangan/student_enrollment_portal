@@ -6,6 +6,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404
 import yaml
 
+from core.payments.models import PaymentAccount
 from scheduling.capabilities import has_capability
 from scheduling.models import SchedulingProfile
 
@@ -56,7 +57,9 @@ def context(request, slug):
     if not available(profile):
         raise Http404
     config = configuration(slug)
-    config["stripe_checkout"] = slug == getattr(settings, "BOOKING_DEMO_STRIPE_SCHOOL", "")
+    config["stripe_checkout"] = PaymentAccount.objects.filter(
+        school=profile.school, environment="test", enabled=True,
+    ).exists()
     config["design_previews"] = profile.school.feature_flags.get("booking_demo_inventory", {}).get("design_previews", {})
     bindings = profile.school.feature_flags.get("booking_demo_inventory", {}).get("groups", {})
     if bindings:

@@ -1,6 +1,7 @@
 """Booking payment failure alerts using the shared operator outbox."""
 from django.core.exceptions import ValidationError
 from core.services.payment_notifications import queue_payment_notice
+from .accounts import matches_event_account
 
 
 def notify_booking_failure(event):
@@ -17,14 +18,14 @@ def notify_booking_failure(event):
     except (PaymentAttempt.DoesNotExist, ValueError) as exc:
         raise ValidationError("Unknown booking payment") from exc
     order = attempt.order
-    if (event.get("account") != order.merchant_reference or event.get("livemode") is not False
+    if (not matches_event_account(attempt.account, event) or event.get("livemode") is not False
             or intent.get("livemode") is not False or order.environment != "test"
             or attempt.account_id != order.account_id or attempt.account.school_id != order.school_id
             or metadata.get("payment_order") != str(order.public_id) or metadata.get("purpose") != order.purpose
             or intent.get("amount") != attempt.amount_cents or intent.get("currency") != order.currency
             or not intent.get("id") or not event.get("id")):
         raise ValidationError("Booking payment binding mismatch")
-    queue_payment_notice(key=f"booking:{event['account']}:{event['id']}", school=order.school,
+    queue_payment_notice(key=f"booking:{order.merchant_reference}:{event['id']}", school=order.school,
         kind="Booking payment failed", reference=intent["id"], amount=attempt.amount_cents,
         currency=order.currency, livemode=False,
         detail="Parent payment. Reservation and school access are unchanged; the customer may retry.")

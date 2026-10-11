@@ -9,14 +9,21 @@ from django.db.models import Q
 class PaymentAccount(models.Model):
     """Operator-provisioned merchant binding; never accepts a customer's API key."""
 
+    class Scope(models.TextChoices):
+        CONNECTED = "connected", "Connected test merchant"
+        PLATFORM_DEMO = "platform_demo", "Pontora shared sandbox (demos only)"
+
     school = models.ForeignKey("core.School", on_delete=models.PROTECT)
-    reference = models.CharField(max_length=100, unique=True)
+    reference = models.CharField(max_length=100)
+    scope = models.CharField(max_length=16, choices=Scope.choices, default=Scope.CONNECTED)
     environment = models.CharField(max_length=8, default="test")
     enabled = models.BooleanField(default=False)
 
     class Meta:
         constraints = [
             models.CheckConstraint(condition=Q(environment="test"), name="payment_account_test_only"),
+            models.CheckConstraint(condition=Q(scope__in=["connected", "platform_demo"]), name="payment_account_scope_valid"),
+            models.UniqueConstraint(fields=["reference"], condition=Q(scope="connected"), name="payment_connected_reference_unique"),
             models.UniqueConstraint(fields=["school", "environment"], name="payment_account_school_unique"),
         ]
 

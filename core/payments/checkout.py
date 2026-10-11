@@ -10,6 +10,7 @@ from django.utils import timezone
 from core.models import School
 from core.services import billing_stripe as gateway
 from .models import LedgerEntry, PaymentAttempt, PaymentOrder, ProviderEventReceipt
+from .accounts import matches_event_account, validate_scope
 from .service import totals
 
 
@@ -19,6 +20,7 @@ def validate_account(order, *, new_payment=True):
             or account.environment != "test" or order.merchant_reference != account.reference
             or not account.reference.startswith("acct_") or order.currency != "usd"):
         raise ValidationError("This order has no valid sandbox merchant binding.")
+    validate_scope(account)
     if new_payment and (not account.enabled or not gateway.merchant_test_checkout_ready()):
         raise ValidationError("Stripe sandbox checkout is not enabled for this business.")
 
@@ -112,7 +114,7 @@ def event_attempt(event):
     except (PaymentAttempt.DoesNotExist, ValidationError, ValueError) as exc:
         raise ValidationError("Unknown payment attempt.") from exc
     validate_account(attempt.order, new_payment=False)
-    if (event.get("livemode") is not False or event.get("account") != attempt.order.merchant_reference
+    if (event.get("livemode") is not False or not matches_event_account(attempt.account, event)
             or attempt.account_id != attempt.order.account_id
             or not isinstance(event.get("id"), str) or not event["id"].startswith("evt_") or len(event["id"]) > 100):
         raise ValidationError("Event account or environment does not match this payment.")

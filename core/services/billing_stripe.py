@@ -17,15 +17,21 @@ from core.services import feature_flags as ff
 logger = logging.getLogger(__name__)
 
 
-def _merchant_test_client(account_reference):
+def _merchant_test_client(account_reference, *, scope="connected"):
     """Separate credentials and explicit account scope; cannot fall back to platform live billing."""
     from django.core.exceptions import ValidationError
     import stripe
 
     key = getattr(settings, "PAYMENTS_STRIPE_TEST_SECRET_KEY", "")
-    if not key.startswith("sk_test_") or not account_reference.startswith("acct_"):
+    if (not key.startswith("sk_test_") or not account_reference.startswith("acct_")
+            or scope not in {"connected", "platform_demo"}):
         raise ValidationError("Stripe sandbox checkout is not configured for this business.")
-    return stripe.StripeClient(key, stripe_account=account_reference, max_network_retries=0,
+    options = {"stripe_account": account_reference}
+    if scope == "platform_demo":
+        if account_reference != settings.PAYMENTS_STRIPE_TEST_ACCOUNT_ID:
+            raise ValidationError("Stripe sandbox account does not match its configuration.")
+        options = {}
+    return stripe.StripeClient(key, **options, max_network_retries=0,
         http_client=stripe.RequestsClient(timeout=10))
 
 
@@ -36,7 +42,7 @@ def merchant_test_checkout_ready():
 def create_order_checkout(attempt):
     """Shared one-time checkout transport; caller owns durable attempts and domain transitions."""
     order = attempt.order
-    client = _merchant_test_client(order.merchant_reference)
+    client = _merchant_test_client(order.merchant_reference, scope=order.account.scope)
     metadata = {"payment_order": str(order.public_id), "payment_attempt": str(attempt.public_id),
                 "purpose": order.purpose}
     result = client.v1.checkout.sessions.create(params={
@@ -68,7 +74,7 @@ def _find_payment_resource(resource, params, metadata_key, public_id):
 
 
 def retrieve_order_checkout(attempt):
-    resource = _merchant_test_client(attempt.order.merchant_reference).v1.checkout.sessions
+    resource = _merchant_test_client(attempt.order.merchant_reference, scope=attempt.account.scope).v1.checkout.sessions
     if attempt.provider_session:
         return _stripe_object_to_dict(resource.retrieve(attempt.provider_session))
     return _find_payment_resource(resource, {"created": {"gte": int(attempt.created_at.timestamp()) - 60,
@@ -76,7 +82,7 @@ def retrieve_order_checkout(attempt):
 
 
 def expire_order_checkout(attempt, session_id):
-    resource = _merchant_test_client(attempt.order.merchant_reference).v1.checkout.sessions
+    resource = _merchant_test_client(attempt.order.merchant_reference, scope=attempt.account.scope).v1.checkout.sessions
     try:
         return _stripe_object_to_dict(resource.expire(session_id))
     except Exception:
@@ -86,7 +92,7 @@ def expire_order_checkout(attempt, session_id):
 
 def create_order_refund(refund):
     attempt = refund.attempt
-    result = _merchant_test_client(attempt.order.merchant_reference).v1.refunds.create(params={
+    result = _merchant_test_client(attempt.order.merchant_reference, scope=attempt.account.scope).v1.refunds.create(params={
         "payment_intent": attempt.provider_intent, "amount": refund.amount_cents,
         "metadata": {"payment_refund": str(refund.public_id), "payment_order": str(attempt.order.public_id)},
     }, options={"idempotency_key": f"payment-refund:{refund.public_id}"})
@@ -94,7 +100,7 @@ def create_order_refund(refund):
 
 
 def retrieve_order_refund(refund):
-    resource = _merchant_test_client(refund.attempt.order.merchant_reference).v1.refunds
+    resource = _merchant_test_client(refund.attempt.order.merchant_reference, scope=refund.attempt.account.scope).v1.refunds
     if refund.provider_refund:
         return _stripe_object_to_dict(resource.retrieve(refund.provider_refund))
     return _find_payment_resource(resource, {"payment_intent": refund.attempt.provider_intent},
@@ -102,7 +108,7 @@ def retrieve_order_refund(refund):
 
 
 def construct_merchant_test_event(payload, signature):
-    """Dedicated Connect test webhook. No platform-subscription event dispatch."""
+    """Dedicated booking test webhook. No platform-subscription event dispatch."""
     import stripe
     from django.core.exceptions import ValidationError
 

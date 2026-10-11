@@ -302,9 +302,9 @@ APP_FEE_WEBHOOK_SECRETS = json.loads(os.getenv("APP_FEE_WEBHOOK_SECRETS", "{}"))
 # Explicit tenant and hostname allowlists are required; an empty list disables access.
 BOOKING_HOSTED_DEMO_SLUGS = [value.strip() for value in os.getenv("BOOKING_HOSTED_DEMO_SLUGS", "").split(",") if value.strip()]
 BOOKING_HOSTED_DEMO_HOSTS = [value.strip().lower() for value in os.getenv("BOOKING_HOSTED_DEMO_HOSTS", "").split(",") if value.strip()]
-BOOKING_DEMO_STRIPE_SCHOOL = os.getenv("BOOKING_DEMO_STRIPE_SCHOOL", "").strip()
 PAYMENTS_STRIPE_TEST_SECRET_KEY = os.getenv("PAYMENTS_STRIPE_TEST_SECRET_KEY", "").strip()
 PAYMENTS_STRIPE_TEST_WEBHOOK_SECRET = os.getenv("PAYMENTS_STRIPE_TEST_WEBHOOK_SECRET", "").strip()
+PAYMENTS_STRIPE_TEST_ACCOUNT_ID = os.getenv("PAYMENTS_STRIPE_TEST_ACCOUNT_ID", "").strip()
 
 # Absolute base URL — fallback for local dev. In production set all three explicitly.
 # APP_BASE_URL  → production app  (e.g. https://app.mypontora.com)
