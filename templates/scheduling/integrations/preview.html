@@ -1,0 +1,13 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Mapping preview{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:integration_edit' school_slug=business.slug pk=connection.pk %}">Back to settings</a>
+<h2>{{ connection.label }}: mapping preview</h2>
+<p class="notice">Local example only. No customer data was read or sent. Destination permissions and field types have not been verified.</p>
+{% if preview_error %}<p class="notice error" role="alert">{{ preview_error }}</p>{% else %}
+<dl class="details"><div><dt>Bookings from</dt><dd>{{ connection.source|default:'Pontora Bookings' }}</dd></div><div><dt>Destination</dt><dd>{{ provider.label }}</dd></div><div><dt>Intended use</dt><dd>{{ connection.get_environment_display }}</dd></div></dl>
+<section class="workbench-section"><h3>Example participants</h3><ul><li>Avery: Cat, Blue</li><li>Casey: Bunny, Pink</li></ul></section>
+<section><h3>Mapped fields</h3><dl class="details">{% for row in preview_rows %}<div><dt>{{ row.property }}<p class="muted">{{ row.kind }}</p></dt><dd class="message-body">{{ row.value|default:'(empty)' }}</dd></div>{% endfor %}</dl></section>
+<details class="booking-notice"><summary>Request preview · API {{ api_version }}</summary><pre>{{ payload }}</pre></details>
+{% endif %}
+{% endblock %}

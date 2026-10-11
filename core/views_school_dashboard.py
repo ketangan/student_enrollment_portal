@@ -928,6 +928,8 @@ def school_settings_view(request, school_slug: str):
 
     ctx = _school_admin_base_context(request, school, "settings")
     _VALID_TABS = {"general", "email", "team", "billing", "forms"}
+    if ctx["scheduling_entry"]:
+        _VALID_TABS.add("scheduling")
     _OWNER_ONLY_TABS = {"team", "billing"}
     active_tab = request.GET.get("tab", "general")
     if active_tab not in _VALID_TABS:

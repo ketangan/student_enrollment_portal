@@ -94,6 +94,9 @@ from .services.notifications import (
     _resolve_from_email,
 )
 from .services.lead_conversion import try_convert_lead
+from scheduling.admission_gates import application_gate
+from scheduling.admissions import record_submission as record_booking_application
+from scheduling.admissions import family_context as booking_family_context
 from .services.capacity import check_waitlist, get_capacity_config, get_waitlist_message
 from .services.integrations import get_export_configs, normalize_csv_value, resolve_export_row
 from .services.ai_summary import generate_ai_summary
@@ -541,6 +544,8 @@ def _complete_submission_from_draft(
         request.POST.get("_submit_token"),
         dict(draft.data or {}),
     )
+    if getattr(request, "booking_admission", None):
+        submit_fingerprint = ""
 
     existing_by_fingerprint = _find_submission_by_fingerprint(school, submit_fingerprint)
     if existing_by_fingerprint:
@@ -565,7 +570,7 @@ def _complete_submission_from_draft(
                 # Already submitted (race or payment double-confirm) — redirect silently.
                 return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
-            duplicate_submission = _find_recent_duplicate_submission(
+            duplicate_submission = None if getattr(request, "booking_admission", None) else _find_recent_duplicate_submission(
                 school=school,
                 form_key=submission_form_key,
                 data=dict(draft.data or {}),
@@ -580,6 +585,7 @@ def _complete_submission_from_draft(
                     payment_status=payment_status,
                     submit_fingerprint=submit_fingerprint or None,
                 )
+                record_booking_application(request, draft, submission)
             _locked.submitted_at = timezone.now()
             _locked.save(update_fields=["submitted_at"])
     except IntegrityError:
@@ -674,6 +680,7 @@ def _complete_submission_from_draft(
 
 @xframe_options_exempt
 @ratelimit(key="ip", rate="30/m", method="POST", block=True)
+@application_gate
 def apply_view(request, school_slug: str, form_key: str = "default"):
     try:
         config = load_school_config(school_slug)
@@ -794,6 +801,8 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                 request.POST.get("_submit_token"),
                 cleaned,
             )
+            if getattr(request, "booking_admission", None):
+                submit_fingerprint = ""
             existing_by_fingerprint = _find_submission_by_fingerprint(school, submit_fingerprint)
             if existing_by_fingerprint:
                 return _redirect_existing_submission_success(
@@ -830,7 +839,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                         if _prior and _prior.is_submitted():
                             return redirect(reverse("apply_success", kwargs={"school_slug": school_slug}))
 
-                    duplicate_submission = _find_recent_duplicate_submission(
+                    duplicate_submission = None if getattr(request, "booking_admission", None) else _find_recent_duplicate_submission(
                         school=school,
                         form_key="default",
                         data=cleaned,
@@ -844,6 +853,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                             payment_status="waived" if (fee_cfg["enabled"] and fee_cfg["waived"]) else "",
                             submit_fingerprint=submit_fingerprint or None,
                         )
+                        record_booking_application(request, active_draft, submission)
 
                     # Mark draft submitted inside the same transaction so no second tab
                     # can create a Submission between now and the committed mark.
@@ -1077,6 +1087,7 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
 
 
 @xframe_options_exempt
+@application_gate
 def apply_payment_view(request, school_slug: str, draft_token: str):
     """
     Payment page — shown after form completion when an application fee is required.
@@ -1189,6 +1200,7 @@ def apply_payment_view(request, school_slug: str, draft_token: str):
 
 
 @xframe_options_exempt
+@application_gate
 def apply_payment_confirm_view(request, school_slug: str, draft_token: str):
     """
     Stripe redirects here after payment. Verifies the PaymentIntent and creates the Submission.
@@ -1262,6 +1274,7 @@ def apply_payment_confirm_view(request, school_slug: str, draft_token: str):
 
 @xframe_options_exempt
 @require_http_methods(["POST"])
+@application_gate
 def apply_payment_bypass_view(request, school_slug: str, draft_token: str):
     """
     Dev-only endpoint: completes a submission without Stripe when DEV_SKIP_PAYMENT=True.
@@ -1399,6 +1412,7 @@ def apply_success_view(request, school_slug: str):
 
 
 @xframe_options_exempt
+@application_gate
 def resume_draft_view(request, school_slug: str, token: str):
     try:
         config = load_school_config(school_slug)
@@ -1977,12 +1991,23 @@ def family_status_view(request, school_slug: str, token: str):
     playdate = playdate_context(playdate_config, submission) if playdate_config else None
     from core.services.payment_preview import get_payment_preview
     payment_preview = get_payment_preview(getattr(config, "raw", {}), submission.status)
-    if playdate:
+    booking_admissions = booking_family_context(submission)
+    if playdate or booking_admissions:
         for item in student_info:
             if item["label"] == "Instrument":
                 item["label"] = "Program"
+    if booking_admissions:
+        for section in (getattr(config, "raw", {}) or {}).get("form", {}).get("sections", []):
+            for field in section.get("fields", []):
+                if field.get("key") == "enrollment_type":
+                    labels = {str(option["value"]): option["label"] for option in field.get("options", [])
+                              if isinstance(option, dict) and "value" in option and "label" in option}
+                    for item in student_info:
+                        if item["label"] == "Enrollment Type":
+                            item["value"] = labels.get(item["value"], item["value"])
 
     return render(request, "family_status.html", {
+        "booking_admissions": booking_admissions,
         "school": school,
         "school_name": school_name,
         "branding": branding,
@@ -2114,6 +2139,9 @@ def school_status_change_request_view(request, school_slug: str, token: str):
         raise Http404
 
     submission = get_object_or_404(Submission, school=school, status_token=token)
+
+    if booking_family_context(submission):
+        return redirect("scheduling:playdates", school_slug=school_slug, token=token)
 
     from core.services.playdates import get_playdate_config
     config = load_school_config(school_slug)

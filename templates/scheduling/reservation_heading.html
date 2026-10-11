@@ -1,0 +1,7 @@
+<div class="reservation-heading">
+  <div><a class="back-link" href="{% url 'scheduling:reservations' school_slug=business.slug %}">All reservations</a><h1>{{ item.snapshot.name }}</h1><p>{{ item.snapshot.workshop }}</p></div>
+  <div class="reservation-heading-actions">{% include 'scheduling/reservation_status.html' %}
+    {% if can_edit_sessions and item.state == 'confirmed' and not completion_review and not cancellation_review %}<a class="button primary" href="{% url 'scheduling:reservation_complete' school_slug=business.slug public_id=item.public_id %}"><i data-lucide="circle-check" aria-hidden="true"></i> {{ completion_label }}</a>{% endif %}
+    {% if can_edit_setup and item.state != 'canceled' and item.state != 'completed' and not cancellation_review and not completion_review %}<a class="button booking-danger" href="{% url 'scheduling:reservation_cancel' school_slug=business.slug public_id=item.public_id %}"><i data-lucide="circle-x" aria-hidden="true"></i> Cancel reservation</a>{% endif %}
+  </div>
+</div>

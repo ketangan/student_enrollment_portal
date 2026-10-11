@@ -1,0 +1,81 @@
+.design-catalog {display:grid;gap:24px;margin:24px 0}
+.design-entry {background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden}
+.design-entry-heading {display:flex;align-items:center;gap:16px;padding:20px 24px;flex-wrap:wrap}
+.design-entry-heading h3 {margin:0 0 8px;font-size:20px}
+.design-disclosure {transition:transform .15s;flex:none;color:#6b7280}
+.design-entry[open] .design-disclosure {transform:rotate(90deg)}
+.design-edit {margin-left:auto}
+.design-catalog-photo,.design-catalog-placeholder {width:76px;height:76px;object-fit:contain;background:#f3f4f6;border-radius:8px;flex:none}
+.design-catalog-placeholder {display:grid;place-items:center;color:#6b7280}
+.design-entry .table-wrap {border:0;border-radius:0;margin:0}
+.recipe-material {display:block;color:#6b7280;font-size:14px;line-height:1.8}
+.recipe-material strong {color:#374151;font-weight:500;margin-left:8px;white-space:nowrap}
+.recipe-summary th:first-child {width:26%}
+.recipe-summary th:nth-child(2) {width:42%}
+.recipe-summary th[scope=row] {text-transform:none;letter-spacing:0}
+.recipe-colors {display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid #e5e7eb;margin:24px 0}
+.recipe-colors a {color:#6b7280;padding:12px 16px;text-decoration:none;border-bottom:3px solid transparent}
+.recipe-colors a[aria-current] {color:#2563eb;border-color:#2563eb;font-weight:600}
+.recipe-actions {margin:20px 0;flex-wrap:wrap}
+#recipe-form select {min-width:220px;width:100%}
+#recipe-form input[type=number] {width:140px}
+.material-metrics {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;max-width:600px;margin:20px 0}
+.material-metrics div {border:1px solid #e5e7eb;background:white;padding:20px;border-radius:8px}
+.material-metrics strong {display:block;font-size:24px;margin-top:8px}
+.inventory-table .actions {flex-wrap:nowrap}
+.inventory-table .number {white-space:nowrap;font-variant-numeric:tabular-nums}
+.inventory-table th[scope=row] {text-transform:none;letter-spacing:0}
+.inventory-table .muted {font-size:12px;font-weight:400;margin-top:5px}
+.booking-admin .design-form {max-width:880px}
+.design-main-fields {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:16px 24px}
+.booking-admin .design-main-fields .form-field {min-width:0;margin:0}
+.booking-admin .design-main-fields .check-field {grid-column:1/-1;gap:8px}
+.booking-admin .design-main-fields .check-field label {margin:0;font-weight:400}
+.booking-admin .design-colors {border:0;padding:0;margin:28px 0 20px;min-width:0}
+.design-colors legend {font-weight:600;font-size:14px;margin-bottom:12px;color:var(--dash-text)}
+.design-color-head,.design-color-option {display:grid;grid-template-columns:200px minmax(0,1fr);gap:20px;align-items:center}
+.design-color-head {padding:0 0 10px;font-size:11px;font-weight:600;text-transform:uppercase;color:var(--dash-muted)}
+.design-color-grid {border-top:1px solid var(--dash-border)}
+.design-color-option {min-width:0;padding:8px 0;border-bottom:1px solid var(--dash-border)}
+.booking-admin .design-color-toggle {display:flex;align-items:center;gap:10px;min-width:0;min-height:38px;margin:0;cursor:pointer;text-transform:none;font-weight:500;font-size:13px;color:var(--dash-text)}
+.booking-admin .design-color-toggle input {width:16px;height:16px;min-height:16px;margin:0;flex:none;accent-color:var(--dash-primary)}
+.design-color-toggle .color-swatch {width:20px;height:20px;border-radius:50%;border:1px solid #d1d5db;flex:none}
+.design-color-toggle span:last-child {overflow-wrap:anywhere}
+.design-color-photo {min-width:0}
+.booking-admin .design-color-photo input {min-width:0;width:100%;height:38px}
+.booking-admin .design-color-photo input[aria-invalid=true] {border-color:#dc2626}
+.design-color-photo .errorlist {margin:6px 0 0}
+.booking-admin .design-form > .actions {gap:16px;margin-top:20px}
+.catalog-settings-group {padding:20px 0;border-bottom:1px solid var(--dash-border);max-width:960px}
+.booking-admin .catalog-settings-group .catalog-option-grid {grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:0 20px}
+.booking-admin .catalog-settings-group .catalog-option-grid li {min-height:48px;padding:6px 0;gap:8px}
+.booking-admin .catalog-settings-group .option-label {flex:0 1 auto;color:var(--dash-text)}
+.booking-admin .catalog-settings-group .color-swatch {width:20px;height:20px;flex:none}
+.booking-admin .catalog-settings-group .icon-button {width:32px;height:32px;color:var(--dash-muted)}
+.booking-admin .catalog-settings-group .icon-button svg {width:15px;height:15px}
+.booking-admin .catalog-settings-group .icon-button:hover {color:var(--dash-primary)}
+.color-picker {display:flex;align-items:center;gap:10px;max-width:250px}
+.booking-admin .color-picker input[type=color] {width:44px;height:38px;min-height:38px;padding:3px;cursor:pointer;flex:none}
+.booking-admin .color-picker input[type=text] {min-width:0;font-variant-numeric:tabular-nums}
+.booking-admin .color-picker [hidden] {display:none}
+.booking-admin .recipe-actions button {display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.recipe-actions svg,.recipe-delete svg {width:18px;height:18px;flex:none}
+.booking-admin .recipe-delete {color:#b91c1c;display:inline-flex;align-items:center;justify-content:center}
+.booking-admin .recipe-delete:hover {background:#fef2f2;border-color:#fecaca}
+.recipe-row[hidden] {display:none!important}
+.material-metrics span {display:flex;align-items:center;gap:8px;font-weight:600}
+.material-metrics svg {width:18px;height:18px}
+.material-metrics .metric-on-hand {background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}
+.material-metrics .metric-reserved {background:#fffbeb;border-color:#fde68a;color:#92400e}
+.inventory-table .stock-on-hand {color:#1d4ed8}
+.inventory-table .stock-reserved {color:#92400e}
+.stock-status {display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.stock-status svg {width:15px;height:15px;flex:none}
+.stock-available {background:#ecfdf5;color:#047857}
+.stock-low,.stock-reserved {background:#fffbeb;color:#92400e}
+.stock-empty {background:#fef2f2;color:#b91c1c}
+.stock-inactive {background:#f3f4f6;color:#4b5563}
+.inventory-table td.stock-reserved {background:transparent}
+.stock-threshold {display:block;margin-top:6px;color:#6b7280;font-size:12px;white-space:nowrap}
+@media(max-width:680px) {.design-main-fields{grid-template-columns:1fr;gap:16px}.design-color-head,.design-color-option{grid-template-columns:minmax(110px, .8fr) minmax(0,1fr);gap:12px}.booking-admin .design-color-toggle{gap:8px;min-height:44px}.booking-admin .design-color-photo input{height:44px}.material-metrics{gap:8px}.material-metrics div{padding:14px}.material-metrics strong{font-size:20px}}
+@media(max-width:680px) {.design-entry-heading{padding:16px}.design-edit{margin-left:0}.recipe-summary{min-width:680px}.inventory-table{min-width:760px}.design-catalog-photo,.design-catalog-placeholder{width:56px;height:56px}}

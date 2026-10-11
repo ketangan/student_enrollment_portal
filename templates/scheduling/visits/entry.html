@@ -1,0 +1,6 @@
+{% extends 'scheduling/visits/public_base.html' %}{% load static %}
+{% block content %}<h1>Your private visit</h1>{% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+<form method="post" class="setup-form">{% csrf_token %}<input type="hidden" name="access_token" id="access-token" value="">
+<p id="access-help" data-ready="Your private visit link is ready to open.">Open the private link from your email.</p><button class="primary" id="open-schedule" disabled>Open my visit</button></form>
+<p><a href="{% url 'scheduling:visit_recover' school_slug=business.slug %}">Request a new link</a></p><noscript>JavaScript is required to open this private link.</noscript>{% endblock %}
+{% block scripts %}<script src="{% static 'scheduling/family_access.js' %}" defer></script>{% endblock %}

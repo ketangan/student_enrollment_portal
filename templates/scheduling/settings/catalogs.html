@@ -1,0 +1,9 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Catalog{% endblock %}
+{% block content %}
+<div class="section-heading"><h2>Catalog</h2>{% if can_edit_setup %}<a class="button primary" href="{% url 'scheduling:inventory_catalog_new' school_slug=business.slug %}"><i data-lucide="plus" aria-hidden="true"></i> Add catalog</a>{% endif %}</div>
+<div class="catalog-list">{% for catalog in catalogs %}
+<section class="catalog-entry"><div class="catalog-summary"><div><h3>{{ catalog.name }}</h3><div class="muted">{{ catalog.offerings.count }} assigned workshop{{ catalog.offerings.count|pluralize }}</div></div><div class="actions"><a class="button" href="{% url 'scheduling:catalog_settings' school_slug=business.slug catalog_pk=catalog.pk %}"><i data-lucide="settings-2" aria-hidden="true"></i> Catalog settings</a><a class="button" href="{% url 'scheduling:inventory_catalog' school_slug=business.slug catalog_pk=catalog.pk %}">Open catalog <i data-lucide="arrow-right" aria-hidden="true"></i></a></div></div>
+{% if catalog.offerings.all %}<details class="catalog-usage"><summary>Used by workshops &amp; camps</summary><div class="table-wrap"><table class="dash-table"><thead><tr><th>Workshop</th><th>Location</th></tr></thead><tbody>{% for offering in catalog.offerings.all %}<tr><td><a href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=offering.pk %}">{{ offering.name }}</a></td><td>{{ offering.location.name }}</td></tr>{% endfor %}</tbody></table></div></details>{% endif %}
+</section>{% empty %}<p class="empty-state">No catalogs yet.</p>{% endfor %}</div>
+{% endblock %}

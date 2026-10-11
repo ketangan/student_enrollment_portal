@@ -48,7 +48,21 @@
     <button type="button" class="settings-tab" data-tab="billing">Billing</button>
     {% endif %}
     <button type="button" class="settings-tab" data-tab="forms">Forms</button>
+    {% if scheduling_entry %}<button type="button" class="settings-tab" data-tab="scheduling">Scheduling</button>{% endif %}
   </div>
+
+  {% if scheduling_entry %}
+  <section class="settings-panel" data-tab="scheduling" aria-label="Scheduling settings">
+    <h2 style="font-size:16px;margin:0 0 16px;">Scheduling</h2>
+    <ul style="list-style:none;padding:0;margin:0;max-width:680px;">
+      {% for item in scheduling_entry.links %}
+      <li style="border-bottom:1px solid var(--dash-border);">
+        <a href="{{ item.url }}" style="display:block;padding:14px 0;color:var(--dash-primary);font-size:14px;">{{ item.label }} &rarr;</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
 
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <!-- GENERAL panel: School Info + Features + Form Links                    -->

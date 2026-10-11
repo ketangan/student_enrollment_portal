@@ -1,0 +1,10 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}{{ catalog.name }} settings{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:catalogs' school_slug=business.slug %}"><i data-lucide="arrow-left" aria-hidden="true"></i> Catalog</a>
+<div class="section-heading"><div><h2>Catalog settings</h2><p class="muted">{{ catalog.name }}</p></div>{% if can_edit_setup %}<a class="button" href="{% url 'scheduling:inventory_catalog_edit' school_slug=business.slug catalog_pk=catalog.pk %}"><i data-lucide="pencil" aria-hidden="true"></i> Rename catalog</a>{% endif %}</div>
+{% for group in groups %}{% if group.pk != design_group.pk %}
+<section class="catalog-settings-group"><div class="section-heading"><h3>{{ group.name }}</h3>{% if can_edit_setup %}<a class="button" href="{% url 'scheduling:inventory_option_new' school_slug=business.slug catalog_pk=catalog.pk group_pk=group.pk %}"><i data-lucide="plus" aria-hidden="true"></i> Add {{ group.name|lower }}</a>{% endif %}</div>
+<ul class="catalog-option-grid">{% for option in group.options.all %}<li>{% if option.swatch %}<span class="color-swatch" style="background:{{ option.swatch }}"></span>{% endif %}<span class="option-label">{{ option.label }}{% if not option.is_active %} (Hidden){% endif %}</span>{% if can_edit_setup %}<a class="icon-button" href="{% url 'scheduling:inventory_option_edit' school_slug=business.slug catalog_pk=catalog.pk group_pk=group.pk pk=option.pk %}" aria-label="Edit {{ option.label }}" title="Edit {{ option.label }}"><i data-lucide="pencil" aria-hidden="true"></i></a>{% endif %}</li>{% endfor %}</ul></section>
+{% endif %}{% endfor %}
+{% endblock %}

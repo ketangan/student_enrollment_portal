@@ -351,6 +351,7 @@ def _school_admin_base_context(request, school, active_nav: str) -> dict:
     """Shared context required by school_admin/base.html."""
     from core.views_login import DEMO_SESSION_TOKEN_KEY, DEMO_SESSION_PAGES_KEY
     from core.services.school_permissions import get_school_membership
+    from scheduling.navigation import school_entry
 
     leads_enabled = school.features.leads_enabled
     user_initial = (request.user.get_full_name() or request.user.username)[0].upper()
@@ -390,6 +391,7 @@ def _school_admin_base_context(request, school, active_nav: str) -> dict:
         "is_owner": current_role == "owner",
         "is_editor": current_role in ("owner", "editor"),
         "can_mutate": current_role in ("owner", "editor"),
+        "scheduling_entry": school_entry(request.user, school),
     }
 
 

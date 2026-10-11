@@ -1,0 +1,196 @@
+from datetime import timedelta
+from unittest.mock import Mock
+
+import pytest
+from django.core.exceptions import ValidationError
+from django.test import Client, RequestFactory
+from django.utils import timezone
+
+from core.payments.models import LedgerEntry, PaymentAccount, PaymentAttempt
+from core.services import billing_stripe as gateway
+from scheduling.experience_demo import payments, service
+from .test_checkout import session_for
+from .test_experience_demo import SLUG, browser, demo, form_data, local, url
+
+pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture
+def stripe_demo(demo, settings, monkeypatch):
+    settings.BOOKING_DEMO_STRIPE_SCHOOL = SLUG
+    settings.PAYMENTS_STRIPE_TEST_SECRET_KEY = "sk_test_local_only"
+    # config's local database guard uses a lightweight settings object in the base fixtures.
+    from scheduling.experience_demo import config
+    monkeypatch.setattr(config.settings, "BOOKING_DEMO_STRIPE_SCHOOL", SLUG, raising=False)
+    PaymentAccount.objects.create(school=demo.school, reference="acct_test_demo", enabled=True)
+    return demo
+
+
+def booking(browser, demo):
+    session, data = form_data(browser, demo, count=1)
+    review = browser.post(url("choose", pk=session.pk), data)
+    assert b"Stripe test checkout" in review.content
+    data.update(action="checkout", review_token=review.context["review_token"])
+    result = browser.post(url("choose", pk=session.pk), data)
+    assert result.status_code == 302
+    response = browser.get(result.url)
+    return result.url, response.context["item"]
+
+
+def open_stripe(browser, route, monkeypatch):
+    create = Mock(side_effect=session_for)
+    monkeypatch.setattr(gateway, "create_order_checkout", create)
+    response = browser.post(route, {"action": "stripe_checkout", "amount": "1", "livemode": "true"})
+    assert response.status_code == 302
+    assert response.url.startswith("https://checkout.stripe.com/")
+    return PaymentAttempt.objects.get(), create
+
+
+def test_verified_payment_and_duplicate_returns(stripe_demo, browser, monkeypatch):
+    route, item = booking(browser, stripe_demo)
+    html = browser.get(route).content
+    assert b'target="_top"' in html and b"4242 4242 4242 4242" in html
+    assert b"4000 0000 0000 0002" in html and b"Simulate successful" not in html
+    attempt, create = open_stripe(browser, route, monkeypatch)
+    assert attempt.amount_cents == item.reservation.order.total_cents == 6500
+    assert attempt.order.account.school == stripe_demo.school
+    assert attempt.success_url == attempt.cancel_url == "http://127.0.0.1:8002" + route + "?checkout_return=1"
+    assert browser.post(route, {"action": "stripe_checkout"}).status_code == 302
+    assert create.call_count == 1
+    assert browser.get(route + "?success=true").status_code == 200
+    assert not LedgerEntry.objects.filter(order=attempt.order).exists()
+    retrieve = Mock(return_value=session_for(attempt, status="complete"))
+    monkeypatch.setattr(gateway, "retrieve_order_checkout", retrieve)
+    result = browser.get(route + "?checkout_return=1")
+    assert b"Demo booking confirmed" in result.content
+    assert result.context["item"].reservation.state == "confirmed"
+    assert b"Continue to Stripe Checkout" not in result.content
+    assert browser.get(route + "?checkout_return=1").status_code == 200
+    assert retrieve.call_count == 1
+    entries = LedgerEntry.objects.filter(order=attempt.order)
+    assert entries.count() == 1 and entries.get().channel == "stripe"
+    assert entries.get().environment == "test"
+
+
+@pytest.mark.parametrize("action", ["complete", "decline", "abandon", "bad"])
+def test_simulation_cannot_confirm_or_cancel_stripe_booking(stripe_demo, browser, action):
+    route, item = booking(browser, stripe_demo)
+    assert browser.post(route, {"action": action}).status_code == 400
+    with pytest.raises(ValidationError, match="verified Stripe"):
+        service.simulate(stripe_demo, item, {}, action)
+    assert not item.reservation.order.entries.exists()
+    item.reservation.refresh_from_db()
+    assert item.reservation.state == "held"
+
+
+def test_unpaid_cancel_return_and_retry_reuse_same_checkout(stripe_demo, browser, monkeypatch):
+    route, item = booking(browser, stripe_demo)
+    attempt, create = open_stripe(browser, route, monkeypatch)
+    retrieve = Mock(return_value=session_for(attempt))
+    monkeypatch.setattr(gateway, "retrieve_order_checkout", retrieve)
+    response = browser.get(route + "?checkout_return=1&payment_status=paid")
+    assert b"No successful payment has been verified" in response.content
+    assert response.context["item"].reservation.state == "held"
+    assert browser.get(route + "?checkout_return=1").status_code == 200
+    assert retrieve.call_count == 1  # bounded recovery, even if the return URL is forged repeatedly
+    assert browser.post(route, {"action": "stripe_checkout"}).status_code == 302
+    assert create.call_count == 1 and not item.reservation.order.entries.exists()
+
+
+@pytest.mark.parametrize("failure", ["network", "live", "amount", "metadata"])
+def test_failed_verification_never_confirms(stripe_demo, browser, monkeypatch, failure):
+    route, item = booking(browser, stripe_demo)
+    attempt, _ = open_stripe(browser, route, monkeypatch)
+    snapshot = session_for(attempt, status="complete")
+    if failure == "network":
+        retrieve = Mock(side_effect=RuntimeError("offline"))
+    else:
+        if failure == "live": snapshot["livemode"] = True
+        if failure == "amount": snapshot["amount_total"] = 1
+        if failure == "metadata": snapshot["metadata"]["payment_order"] = "wrong"
+        retrieve = Mock(return_value=snapshot)
+    monkeypatch.setattr(gateway, "retrieve_order_checkout", retrieve)
+    response = browser.get(route + "?checkout_return=1")
+    assert b"Payment verification is pending" in response.content
+    assert response.context["item"].reservation.state == "held"
+    assert not item.reservation.order.entries.exists()
+
+
+def test_expired_and_missing_checkout(stripe_demo, browser, monkeypatch):
+    route, item = booking(browser, stripe_demo)
+    assert b"No Stripe checkout has been started" in browser.get(route + "?checkout_return=1").content
+    attempt, _ = open_stripe(browser, route, monkeypatch)
+    monkeypatch.setattr(gateway, "retrieve_order_checkout", lambda a: session_for(a, status="expired"))
+    assert b"Checkout expired without payment" in browser.get(route + "?checkout_return=1").content
+    assert not item.reservation.order.entries.exists()
+
+
+def test_browser_ownership_and_csrf_before_provider(stripe_demo, browser, monkeypatch):
+    route, item = booking(browser, stripe_demo)
+    create = Mock()
+    monkeypatch.setattr(gateway, "create_order_checkout", create)
+    other = Client(HTTP_HOST="127.0.0.1:8002")
+    assert other.get(route + "?checkout_return=1").status_code == 404
+    assert other.post(route, {"action": "stripe_checkout"}).status_code == 404
+    strict = Client(enforce_csrf_checks=True, HTTP_HOST="127.0.0.1:8002")
+    strict.cookies = browser.cookies
+    assert strict.post(route, {"action": "stripe_checkout"}).status_code == 403
+    create.assert_not_called()
+
+
+@pytest.mark.parametrize("missing", ["key", "account", "live_key"])
+def test_unavailable_stripe_fails_closed_at_booking(stripe_demo, browser, settings, missing):
+    session, data = form_data(browser, stripe_demo, count=1)
+    review = browser.post(url("choose", pk=session.pk), data)
+    if missing == "account": PaymentAccount.objects.filter(school=stripe_demo.school).update(enabled=False)
+    else: settings.PAYMENTS_STRIPE_TEST_SECRET_KEY = "sk_live_forbidden" if missing == "live_key" else ""
+    data.update(action="checkout", review_token=review.context["review_token"])
+    response = browser.post(url("choose", pk=session.pk), data)
+    assert response.status_code == 400
+    assert not stripe_demo.reservations.exists()
+
+
+def test_payment_mode_change_requires_new_review(stripe_demo, browser, monkeypatch):
+    from scheduling.experience_demo import config
+    session, data = form_data(browser, stripe_demo, count=1)
+    review = browser.post(url("choose", pk=session.pk), data)
+    monkeypatch.setattr(config.settings, "BOOKING_DEMO_STRIPE_SCHOOL", "")
+    data.update(action="checkout", review_token=review.context["review_token"])
+    assert browser.post(url("choose", pk=session.pk), data).status_code == 400
+    assert not stripe_demo.reservations.exists()
+
+
+def test_unknown_creation_can_retry_without_false_confirmation(stripe_demo, browser, monkeypatch):
+    route, item = booking(browser, stripe_demo)
+    monkeypatch.setattr(gateway, "create_order_checkout", Mock(side_effect=RuntimeError("offline")))
+    assert browser.post(route, {"action": "stripe_checkout"}).status_code == 400
+    assert PaymentAttempt.objects.get().state == "unknown"
+    assert not item.reservation.order.entries.exists()
+
+
+def test_payment_review_and_lease_status(stripe_demo, browser, monkeypatch):
+    route, item = booking(browser, stripe_demo)
+    attempt, _ = open_stripe(browser, route, monkeypatch)
+    attempt.lease_until = timezone.now() + timedelta(minutes=1)
+    attempt.save(update_fields=["lease_until"])
+    assert "verification is pending" in payments.verify_return(item)
+    attempt.state, attempt.lease_until = "paid", None
+    attempt.save(update_fields=["state", "lease_until"])
+    assert "needs the studio's review" in payments.verify_return(item)
+
+
+def test_adapter_refuses_unavailable_demo(stripe_demo, browser, monkeypatch):
+    route, item = booking(browser, stripe_demo)
+    monkeypatch.setattr(payments, "available", lambda profile: False)
+    with pytest.raises(ValidationError):
+        payments.start_checkout(RequestFactory().post(route), stripe_demo, item)
+
+
+def test_disabled_mode_preserves_existing_simulation(demo, browser):
+    session, data = form_data(browser, demo, count=1)
+    review = browser.post(url("choose", pk=session.pk), data)
+    assert b"calculated at Wix checkout" in review.content
+    data.update(action="checkout", review_token=review.context["review_token"])
+    response = browser.post(url("choose", pk=session.pk), data)
+    assert b"Simulate successful checkout" in browser.get(response.url).content
+    assert browser.post(response.url, {"action": "complete"}).status_code == 302

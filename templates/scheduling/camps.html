@@ -1,0 +1,10 @@
+{% extends 'scheduling/base.html' %}{% load tz %}
+{% block title %}Camps{% endblock %}
+{% block content %}
+<div class="section-heading"><h2>Camps &amp; cohorts</h2><a href="{% url 'scheduling:public_schedule' school_slug=business.slug %}">Customer schedule</a></div>
+{% if can_edit_setup %}<details class="choice-setup"><summary>Create a camp</summary><ul class="option-list">{% for offering in offerings %}<li><a href="{% url 'scheduling:camp_new' school_slug=business.slug offering_pk=offering.pk %}">{{ offering.name }}</a></li>{% empty %}<li><a href="{% url 'scheduling:workshop_new' school_slug=business.slug %}">Create a workshop first</a></li>{% endfor %}</ul></details>{% endif %}
+<div class="table-wrap" role="region" aria-label="Camps" tabindex="0"><table><thead><tr><th>Camp</th><th>Location</th><th class="number">Sessions</th><th class="number">Full price / participant</th><th>Registration</th></tr></thead><tbody>
+{% for camp in camps %}<tr><th><a href="{% url 'scheduling:camp_detail' school_slug=business.slug pk=camp.pk %}">{{ camp.name }}</a></th><td>{{ camp.offering.location.name }}</td><td class="number">{{ camp.sessions.count }}</td><td class="number">${{ camp.price|floatformat:2 }}</td><td><span class="status {% if not camp.is_open %}inactive{% endif %}">{% if camp.is_open %}Open{% else %}Closed{% endif %}</span></td></tr>{% empty %}<tr><td colspan="5">No camps yet.</td></tr>{% endfor %}
+</tbody></table></div>
+{% include 'scheduling/pagination.html' with page=camps %}
+{% endblock %}

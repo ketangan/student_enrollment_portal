@@ -1,0 +1,4 @@
+{% load tz %}{% timezone item.snapshot.timezone %}{% with start=item.starts_at|localtime end=item.ends_at|localtime %}
+<span class="reservation-date">{{ start|date:"D, M j, Y" }}{% if start.date != end.date %} &ndash; {{ end|date:"M j, Y" }}{% endif %}</span>
+<span class="muted reservation-time">{{ start|date:"g:i A" }} &ndash; {{ end|date:"g:i A" }}</span>
+{% endwith %}{% endtimezone %}

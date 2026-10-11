@@ -1,0 +1,11 @@
+{% extends 'scheduling/family_base.html' %}{% load static %}
+{% block title %}Open private schedule{% endblock %}
+{% block content %}<h1>Private family schedule</h1>
+{% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+<form method="post" class="setup-form" id="family-entry">{% csrf_token %}
+<input type="hidden" name="access_token" id="access-token" value="">
+<p id="access-help">Open the private link shared by your studio.</p>
+<button type="submit" class="primary" id="open-schedule" disabled>Open my schedule</button>
+</form><noscript><p>JavaScript is required to open this private link.</p></noscript>
+{% endblock %}
+{% block scripts %}<script src="{% static 'scheduling/family_access.js' %}" defer></script>{% endblock %}

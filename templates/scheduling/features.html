@@ -1,0 +1,13 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Available features{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:workspace' school_slug=business.slug %}">Back to workspace</a>
+<h2>Available features</h2>
+<form method="post" class="setup-form feature-form">{% csrf_token %}
+{{ form.non_field_errors }}{{ form.edit_revision }}{{ form.edit_revision.errors }}
+<fieldset class="choice-field"><legend>{{ form.capabilities.label }}</legend>{{ form.capabilities.errors }}{{ form.capabilities }}</fieldset>
+<p class="muted">Private parties require Workshops. Reservations require Workshops. Camps require Workshops and Reservations.</p>
+<p class="muted">Existing records must remain accessible. To stop new bookings, pause intake within the feature instead.</p>
+<div class="actions"><button class="primary" type="submit">Save available features</button><a href="{% url 'scheduling:features' school_slug=business.slug %}">Reload saved settings</a></div>
+</form>
+{% endblock %}

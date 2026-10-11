@@ -1,0 +1,4 @@
+{% load tz %}<input type="hidden" name="version" value="{{ item.version }}">
+<div class="form-field"><label for="visit-target">New date and time</label><select id="visit-target" name="target" required><option value="">Choose a time</option>
+{% for slot in alternatives %}{% timezone slot.program.offering.location.timezone_name %}<option value="{{ slot.pk }}">{{ slot.session.starts_at|date:'D, M j, Y, g:i A' }} · {{ slot.session.room.name }} · {{ slot.places_taken }}/{{ slot.session.capacity }} places booked</option>{% endtimezone %}{% endfor %}</select></div>
+<button class="primary" name="action" value="move">Confirm new time</button>

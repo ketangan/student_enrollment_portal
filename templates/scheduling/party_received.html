@@ -1,0 +1,8 @@
+{% extends 'scheduling/public_base.html' %}
+{% block title %}Party inquiry received{% endblock %}
+{% block content %}
+<h1>Party inquiry received</h1>
+<p>{% if has_reservation %}This is your original inquiry receipt, not a booking or payment confirmation. Contact the team for the current booking status.{% else %}The team will review your request. No date, room or seats have been reserved, and no payment has been collected.{% endif %}</p>
+<p class="muted">Reference: {{ reference }}</p>
+<a href="{% url 'scheduling:public_schedule' school_slug=business.slug %}">Return to workshops</a>
+{% endblock %}

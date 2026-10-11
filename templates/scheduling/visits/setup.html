@@ -1,0 +1,9 @@
+{% extends 'scheduling/base.html' %}
+{% block content %}<a href="{% url 'scheduling:visits' school_slug=business.slug %}">All visits</a><h2>Visit setup</h2>
+<div class="notice">Local demonstration. Email delivery is simulated; visits are free. Real email delivery and paid admissions have not been approved for rollout.</div>
+<h3>Readiness</h3><ul><li>Location and room: {% if has_location %}Configured{% else %}Missing{% endif %}</li><li>Visit programs: {% if has_programs %}Configured{% else %}Missing{% endif %}</li><li>Future published times: {% if has_slots %}Available{% else %}Missing{% endif %}</li><li>Family return access: {% if pilot_configured %}Configured{% else %}Save the contact details below{% endif %}</li></ul>
+<div class="actions"><a href="{% url 'scheduling:locations' school_slug=business.slug %}">Locations &amp; rooms</a><a href="{% url 'scheduling:messages' school_slug=business.slug %}">Local message inbox</a><a href="{% url 'scheduling:visit_catalogue' school_slug=business.slug %}">Family tour page</a></div>
+<h3>Family contact and changes</h3><form method="post" class="setup-form">{% csrf_token %}{{ form.non_field_errors }}{% include 'scheduling/form_hidden_fields.html' %}
+{% for field in form.visible_fields %}<div class="form-field {% if field.field.widget.input_type == 'checkbox' %}check-field{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}<button class="primary">Save settings</button></form>
+<h3>School closures</h3><a class="button" href="{% url 'scheduling:visit_closure' school_slug=business.slug %}">Add closure</a>
+<ul>{% for item in closures %}<li>{{ item.first_date }} to {{ item.last_date }} · {{ item.location.name }} · {{ item.reason }} <a href="{% url 'scheduling:visit_closure_edit' school_slug=business.slug pk=item.pk %}">Edit closure</a></li>{% empty %}<li>No closures.</li>{% endfor %}</ul>{% endblock %}

@@ -819,11 +819,13 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
         "school_name": school.display_name or "",
     })
 
+    from scheduling.admissions import family_context as booking_family_context
     ctx = _school_admin_base_context(request, school, "submissions")
     ctx.update({
         "submission": submission,
         "yaml_sections": yaml_sections,
         "linked_lead": linked_lead,
+        "booking_admissions": booking_family_context(submission),
         "audit_log": audit_log,
         "status_choices": status_choices,
         "yaml_status_choices": yaml_status_choices,
@@ -916,6 +918,11 @@ def school_submission_create_view(request, school_slug: str):
     """
     school = _get_accessible_school_for_admin(request, school_slug)
     require_school_role(request, school, "editor")
+
+    from scheduling.admissions import policy_for
+    if policy_for(school.pk):
+        messages.error(request, "Start this application from its lead after admissions approval.")
+        return redirect("school_leads", school_slug=school_slug)
 
     config = _safe_load_school_config(school_slug)
     available_forms = get_forms(config) if config else {}
@@ -1854,6 +1861,10 @@ def school_submission_schedule_playdate_view(request, school_slug: str, submissi
     school = _get_accessible_school_for_admin(request, school_slug)
     require_school_role(request, school, "editor")
     submission = get_object_or_404(Submission, pk=submission_id, school=school)
+    from scheduling.admissions import family_context as booking_family_context
+    if booking_family_context(submission):
+        messages.error(request, "Use the application's playdate booking page to reserve an available time.")
+        return redirect("school_submission_detail", school_slug=school_slug, submission_id=submission.pk)
     config = _safe_load_school_config(school_slug)
     playdate_config = get_playdate_config(getattr(config, "raw", {}))
     if not playdate_config:

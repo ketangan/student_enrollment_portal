@@ -1,0 +1,87 @@
+{% load static booking_navigation %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ booking_navigation.section.label|default:'Bookings' }}{% endblock %} | Pontora</title>
+  <link rel="icon" href="{% static 'favicon.png' %}">
+  <link rel="stylesheet" href="{% static 'scheduling/workspace.css' %}?v=20261004-integrations">
+  <link rel="stylesheet" href="{% static 'admin/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'scheduling/admin-theme.css' %}?v=20261006-session-duration">
+<link rel="stylesheet" href="{% static 'scheduling/materials.css' %}?v=20261006-color-settings">
+{% include 'scheduling/date_picker_assets.html' %}
+</head>
+<body class="dash-body booking-admin">
+  <a class="skip-link" href="#content">Skip to content</a>
+  <header class="dash-header{% if dashboard_location_form %} has-location-filter{% endif %}">
+    <div class="dash-header-left">
+      {% if plushumi_admin_demo %}
+      <a class="booking-demo-brand" href="{% url 'scheduling:workspace' school_slug=business.slug %}" aria-label="The Plushie Workshop dashboard"><img src="{% static 'demo/plushumi/assets/logo.png' %}" alt="The Plushie Workshop" width="48" height="44"></a>
+      {% else %}
+      {% if business.logo_url %}<img src="{{ business.logo_url }}" alt="" class="dash-logo">{% endif %}
+      <div class="dash-school-name">{{ business|default:'Pontora Bookings' }}</div>
+      {% endif %}
+    </div>
+    {% if business %}
+    <nav class="dash-nav" id="booking-nav" aria-label="Bookings">
+      {% for item in booking_navigation.sections %}
+      <a href="{{ item.url }}" class="dash-nav-link{% if item.active %} dash-nav-link--active{% endif %}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }}</a>
+      {% endfor %}
+    </nav>
+    {% endif %}
+    <div class="dash-header-right">
+      {% if dashboard_location_form %}
+      <form method="get" action="{{ location_action }}" class="dashboard-location-filter" id="dashboard-location-filter">
+        {% for key, value in location_query_fields %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+        <label class="sr-only" for="{{ dashboard_location_form.location.id_for_label }}">Location</label>
+        {{ dashboard_location_form.location }}
+        <noscript><button type="submit">Apply</button></noscript>
+      </form>
+      {% endif %}
+      {% if business %}<button id="booking-nav-toggle" type="button" class="dash-mobile-menu-btn" aria-label="Open navigation" aria-controls="booking-nav" aria-expanded="false">&#9776;</button>{% endif %}
+      <details class="booking-account" id="booking-account">
+        <summary class="booking-avatar" aria-label="User menu">{{ request.user.get_username|first|upper }}</summary>
+        <div class="booking-account-panel">
+          <div class="booking-account-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+          <a class="dash-menu-item" href="{% url 'scheduling:index' %}">Workspaces</a>
+          {% booking_enrollment_url profile as enrollment_home %}
+          {% if enrollment_home %}<a class="dash-menu-item" href="{{ enrollment_home }}">Enrollment admin</a>{% endif %}
+          {% if experience_demo_available %}<a class="dash-menu-item" href="{% url 'scheduling:experience_start' school_slug=business.slug %}">Customer demo</a>{% endif %}
+          <label class="booking-theme-label" for="booking-theme">Theme</label>
+          <select id="booking-theme" class="booking-theme"><option value="clean">Clean</option><option value="midnight">Midnight</option><option value="mint">Mint</option></select>
+          <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="dash-menu-item dash-menu-item--danger" type="submit">Sign out</button></form>
+        </div>
+      </details>
+    </div>
+  </header>
+  {% if business.is_payment_overdue %}
+  <div class="dash-trial-banner" role="status" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:12px 20px;">
+    <span>Subscription payment failed. Resolve it by {{ business.payment_grace_ends_at|date:"M j, Y, g:i A" }} to keep access.</span>
+    <a href="{% url 'school_billing' business.slug %}">Review billing</a>
+  </div>
+  {% endif %}
+  {% if plushumi_admin_demo %}
+  <div class="booking-demo-banner">Built specifically for The Plushie Workshop &middot; Sample data loaded</div>
+  <div class="dash-trial-banner booking-demo-trial">Trial ends in <strong>7 days</strong>.</div>
+  {% endif %}
+  <main id="content" class="dash-main">
+    {% if business %}
+    {% block page_heading %}<div class="booking-page-heading">
+      <h1>{{ booking_navigation.section.label }}</h1>
+      <p>{{ business }}</p>
+    </div>{% endblock %}
+    {% if booking_navigation.section.tabs and not hide_setup_tabs %}{% include 'scheduling/settings/navigation.html' %}{% endif %}
+    {% endif %}
+    {% for message in messages %}<div class="notice {{ message.tags }}" role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">{{ message }}</div>{% endfor %}
+    {% if dashboard_location_form.errors %}<div class="notice error" role="alert">Choose a valid location or select All locations. {{ dashboard_location_form.location.errors }}</div>
+    {% else %}
+    {% if workspace_wide %}<p class="muted">Workspace-wide settings</p>{% endif %}
+    {% block content %}{% endblock %}
+    {% endif %}
+  </main>
+  <script defer src="{% static 'demo/plushumi/assets/lucide.js' %}"></script>
+  <script defer src="{% static 'scheduling/admin.js' %}?v=20261006-parity-2"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

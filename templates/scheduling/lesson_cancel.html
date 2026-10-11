@@ -1,0 +1,16 @@
+{% extends 'scheduling/base.html' %}{% load tz %}
+{% block title %}Cancel lessons{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:lesson_series' school_slug=business.slug public_id=occurrence.series.public_id %}">Lesson schedule</a>
+<h2>Cancel lessons</h2>
+<p>{{ occurrence.series.snapshot.student }} &middot; {{ occurrence.series.snapshot.service }} &middot; {{ occurrence.starts_at|date:'M j, Y' }} at {{ occurrence.starts_at|time:'g:i A' }}</p>
+<form method="post" novalidate>{% csrf_token %}
+<div class="setup-form">{% include 'scheduling/lesson_fields.html' %}</div>
+{% if rows %}<h3>Cancellation preview</h3>
+<div class="table-wrap lesson-table"><table><thead><tr><th>Lesson</th><th>Make-up outcome</th></tr></thead><tbody>
+{% for row in rows %}<tr><td>{{ row.item.starts_at|date:'D, M j, Y' }} at {{ row.item.starts_at|time:'g:i A' }}</td><td>{{ row.label }}</td></tr>{% endfor %}
+</tbody></table></div><p>Billing is unchanged. No refund or notification will be sent.</p>
+<input type="hidden" name="preview_token" value="{{ token }}">{% endif %}
+<div class="actions form-actions"><button type="submit" name="action" value="preview">Preview cancellation</button>{% if rows %}<button class="primary" type="submit" name="action" value="confirm">Confirm cancellation</button>{% endif %}</div>
+</form>
+{% endblock %}

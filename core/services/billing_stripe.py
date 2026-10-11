@@ -17,13 +17,111 @@ from core.services import feature_flags as ff
 logger = logging.getLogger(__name__)
 
 
+def _merchant_test_client(account_reference):
+    """Separate credentials and explicit account scope; cannot fall back to platform live billing."""
+    from django.core.exceptions import ValidationError
+    import stripe
+
+    key = getattr(settings, "PAYMENTS_STRIPE_TEST_SECRET_KEY", "")
+    if not key.startswith("sk_test_") or not account_reference.startswith("acct_"):
+        raise ValidationError("Stripe sandbox checkout is not configured for this business.")
+    return stripe.StripeClient(key, stripe_account=account_reference, max_network_retries=0,
+        http_client=stripe.RequestsClient(timeout=10))
+
+
+def merchant_test_checkout_ready():
+    return getattr(settings, "PAYMENTS_STRIPE_TEST_SECRET_KEY", "").startswith("sk_test_")
+
+
+def create_order_checkout(attempt):
+    """Shared one-time checkout transport; caller owns durable attempts and domain transitions."""
+    order = attempt.order
+    client = _merchant_test_client(order.merchant_reference)
+    metadata = {"payment_order": str(order.public_id), "payment_attempt": str(attempt.public_id),
+                "purpose": order.purpose}
+    result = client.v1.checkout.sessions.create(params={
+        "mode": "payment", "payment_method_types": ["card"],
+        "line_items": [{"price_data": {"currency": order.currency, "unit_amount": attempt.amount_cents,
+            "product_data": {"name": order.description}}, "quantity": 1}],
+        "metadata": metadata, "payment_intent_data": {"metadata": metadata},
+        "client_reference_id": str(order.public_id),
+        "success_url": attempt.success_url, "cancel_url": attempt.cancel_url,
+        "expires_at": int(attempt.expires_at.timestamp()),
+    }, options={"idempotency_key": f"payment-attempt:{attempt.public_id}"})
+    return _stripe_object_to_dict(result)
+
+
+def _find_payment_resource(resource, params, metadata_key, public_id):
+    """Bounded lookup after an uncertain create. Absence is never proof money cannot move."""
+    from django.core.exceptions import ValidationError
+
+    matches = []
+    for _ in range(3):
+        page = _stripe_object_to_dict(resource.list(params={**params, "limit": 100}))
+        matches.extend(row for row in page["data"] if row.get("metadata", {}).get(metadata_key) == str(public_id))
+        if not page.get("has_more"):
+            if len(matches) != 1:
+                raise ValidationError("Provider lookup needs operator investigation; no unique match found.")
+            return matches[0]
+        params = {**params, "starting_after": page["data"][-1]["id"]}
+    raise ValidationError("Provider lookup limit reached. Operator investigation is required.")
+
+
+def retrieve_order_checkout(attempt):
+    resource = _merchant_test_client(attempt.order.merchant_reference).v1.checkout.sessions
+    if attempt.provider_session:
+        return _stripe_object_to_dict(resource.retrieve(attempt.provider_session))
+    return _find_payment_resource(resource, {"created": {"gte": int(attempt.created_at.timestamp()) - 60,
+        "lte": int(attempt.expires_at.timestamp()) + 60}}, "payment_attempt", attempt.public_id)
+
+
+def expire_order_checkout(attempt, session_id):
+    resource = _merchant_test_client(attempt.order.merchant_reference).v1.checkout.sessions
+    try:
+        return _stripe_object_to_dict(resource.expire(session_id))
+    except Exception:
+        # Payment can win the expiry race, or the expiry response can be lost.
+        return _stripe_object_to_dict(resource.retrieve(session_id))
+
+
+def create_order_refund(refund):
+    attempt = refund.attempt
+    result = _merchant_test_client(attempt.order.merchant_reference).v1.refunds.create(params={
+        "payment_intent": attempt.provider_intent, "amount": refund.amount_cents,
+        "metadata": {"payment_refund": str(refund.public_id), "payment_order": str(attempt.order.public_id)},
+    }, options={"idempotency_key": f"payment-refund:{refund.public_id}"})
+    return _stripe_object_to_dict(result)
+
+
+def retrieve_order_refund(refund):
+    resource = _merchant_test_client(refund.attempt.order.merchant_reference).v1.refunds
+    if refund.provider_refund:
+        return _stripe_object_to_dict(resource.retrieve(refund.provider_refund))
+    return _find_payment_resource(resource, {"payment_intent": refund.attempt.provider_intent},
+        "payment_refund", refund.public_id)
+
+
+def construct_merchant_test_event(payload, signature):
+    """Dedicated Connect test webhook. No platform-subscription event dispatch."""
+    import stripe
+    from django.core.exceptions import ValidationError
+
+    secret = getattr(settings, "PAYMENTS_STRIPE_TEST_WEBHOOK_SECRET", "")
+    if not secret.startswith("whsec_"):
+        raise ValidationError("Sandbox webhook is not configured.")
+    try:
+        return _stripe_object_to_dict(stripe.Webhook.construct_event(payload, signature, secret))
+    except (stripe.SignatureVerificationError, ValueError) as exc:
+        raise ValidationError("Invalid webhook signature or payload.") from exc
+
+
 # ---------------------------------------------------------------------------
 # Stripe SDK — no module-level cache; reads settings on each call so that
 # override_settings() in tests and STRIPE_MODE changes take effect immediately.
 # ---------------------------------------------------------------------------
 
 def _get_stripe():
-    """Return the stripe module configured with the secret key, or None."""
+    """Return the SDK when platform billing is configured; never mutate its global key."""
     secret = getattr(settings, "STRIPE_SECRET_KEY", "").strip()
     if not secret:
         logger.warning("STRIPE_SECRET_KEY not set — Stripe features disabled")
@@ -32,7 +130,6 @@ def _get_stripe():
     try:
         import stripe
 
-        stripe.api_key = secret
         return stripe
     except ImportError:
         logger.error("stripe package not installed — pip install stripe")
@@ -193,7 +290,7 @@ def create_checkout_session(
         params["customer_email"] = customer_email
 
     try:
-        session = stripe.checkout.Session.create(**params)
+        session = stripe.checkout.Session.create(**params, api_key=settings.STRIPE_SECRET_KEY.strip())
         return session.url
     except Exception:
         logger.exception("Failed to create Stripe Checkout session for %s", school.slug)
@@ -215,6 +312,7 @@ def create_portal_session(*, school, return_url: str) -> str | None:
         session = stripe.billing_portal.Session.create(
             customer=school.stripe_customer_id,
             return_url=return_url,
+            api_key=settings.STRIPE_SECRET_KEY.strip(),
         )
         return session.url
     except Exception:
@@ -322,7 +420,7 @@ def handle_checkout_completed(session_data: dict) -> None:
         try:
             stripe = _get_stripe()
             if stripe:
-                sub = _stripe_object_to_dict(stripe.Subscription.retrieve(subscription_id))
+                sub = _stripe_object_to_dict(stripe.Subscription.retrieve(subscription_id, api_key=settings.STRIPE_SECRET_KEY.strip()))
                 if sub and sub.get("items", {}).get("data"):
                     price_id = sub["items"]["data"][0].get("price", {}).get("id", "")
                     plan = price_to_plan(price_id)

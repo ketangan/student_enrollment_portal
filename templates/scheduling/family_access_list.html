@@ -1,0 +1,17 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Family access{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:lessons' school_slug=business.slug %}">Lessons</a>
+<h2>Family access</h2>
+<section class="location-section"><h3>Create private schedule access</h3>
+{% for household in households %}<div class="session-row"><div><strong>{{ household.name }}</strong><p>{{ household.email }}</p></div><a href="{% url 'scheduling:family_invite' school_slug=business.slug pk=household.pk %}">Choose guardian &amp; students</a></div>{% empty %}<p>No families yet. <a href="{% url 'scheduling:lesson_setup_new' school_slug=business.slug kind='households' %}">Add a family</a></p>{% endfor %}</section>
+<h3>Access history</h3><div class="table-wrap lesson-table"><table><thead><tr><th>Guardian</th><th>Students</th><th>Status</th><th>Expires</th><th>Actions</th></tr></thead><tbody>
+{% for grant in grants %}
+<tr><td>{{ grant.recipient_name }}<p class="muted">{{ grant.recipient_email }}</p></td>
+<td>{% for student in grant.students.all %}{{ student.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+<td>{{ grant.status_label }}<p>{{ grant.allow_booking|yesno:'May book lessons,Read-only' }}</p></td><td>{{ grant.expires_at|date:'M j, Y, g:i A' }}</td>
+<td><a href="{% url 'scheduling:family_preview' school_slug=business.slug public_id=grant.public_id %}">Preview</a>
+{% if not grant.revoked_at %}<p><a href="{% url 'scheduling:family_revoke' school_slug=business.slug public_id=grant.public_id %}">Revoke access</a></p>{% endif %}</td></tr>
+{% empty %}<tr><td colspan="5">No family access granted.</td></tr>{% endfor %}
+</tbody></table></div><nav class="pagination" aria-label="Access pages">{% if grants.has_previous %}<a href="?page={{ grants.previous_page_number }}">Previous</a>{% endif %}<span>{{ grants.number }} / {{ grants.paginator.num_pages }}</span>{% if grants.has_next %}<a href="?page={{ grants.next_page_number }}">Next</a>{% endif %}</nav>
+{% endblock %}

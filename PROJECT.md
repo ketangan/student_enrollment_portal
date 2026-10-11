@@ -4,6 +4,13 @@ This file is the canonical reference for decisions made, work completed, work in
 and work planned. Update it after every meaningful commit or decision. It is written for
 both human and AI readability — future sessions should read this before doing anything.
 
+October 10 release decision: reuse the existing Render service and shared database;
+the user authorized production deployment after all release checks pass. Hosted Plushumi
+must remain a demo tenant; no SBMC scheduling activation or global Stripe mode change.
+The pending scheduling release now includes guarded same-origin integration previews.
+Read [the production release checklist](docs/scheduling-shared-production-release.md)
+for migration rehearsal, regression evidence, rollback and final deployment status.
+
 Kid Works go-live (October 8, 2026): the agreement is signed; configuration and launch
 acceptance are pending. Use the [Kid Works go-live checklist](docs/kidworks-go-live.md)
 before making changes. Dinuka's meeting requirements supersede the outdated website
@@ -25,6 +32,295 @@ local workspace passes 179 focused integration tests after optional-module separ
 Desktop/mobile billing checks passed. See [payment release notes](docs/payment-alerts-and-recovery.md)
 for migration, webhook and email deployment prerequisites. Scheduling-specific hooks and
 the rest of the scheduling work remain local; do not interpret this push as their release.
+
+Browser view (local only): [Project workspace](http://127.0.0.1:8003/).
+Start with `venv/bin/python scripts/project_status.py` (development requirements required).
+The read-only viewer reads this file and the scheduling tracker on each refresh. It is not
+part of the school application or production deployment.
+
+Working rule (October 3, 2026): when defects are found during a task, fix them before
+handoff, with regression tests, impact review and relevant browser checks. Do not merely
+report known defects and declare the task complete. If a correction needs a product decision,
+new external access or could affect unrelated live behavior, state that limitation explicitly
+instead of guessing or silently widening scope. Keep unfinished features distinct from defects.
+
+October 6 design-editor visual correction: replace oversized outlined color cards with compact
+aligned color/photo rows and shared column headers. Main fields align side by side on laptops;
+phone controls retain usable sizing and accessible labels. 177 affected regression tests plus
+desktop/390px, dark-theme and invalid-input browser checks passed. Presentation-only, with no
+saved-data, backend, migration, shared enrollment or payment changes. No push. See the
+[visual correction notes](docs/scheduling-plushumi-demo.md#compact-design-editor).
+
+October 6 customer booking refinement: compact calendar/time slots, closely grouped colors,
+larger selected-plushie preview, and participant thumbnails through review/checkout/confirmation.
+Pasadena Cozy Creations adds three October 11 sessions and four confirmed bookings (seven people)
+without resetting existing records. 140 affected Python tests and 38 JavaScript tests passed;
+98.84% measured Python coverage, with the guarded additive seed at 100%. Desktop/mobile customer
+checkout and admin visibility verified. No migration, shared Enrollment/payment edit or push.
+
+October 6 catalog settings refinement: compact option rows place muted edit icons beside values.
+Color Add/Edit now requires a visual picker/editable hex instead of optional hex/image fields;
+existing image data and design-specific photos are preserved. 183 affected Python tests and 38
+JavaScript tests passed; inventory forms/views have 97.08% combined coverage and the new picker
+100% line/branch/function coverage. Desktop/390px checks passed. No migration, shared Enrollment
+or payment edit, saved demo-data change or push. See the demo guide and tracker manual checks.
+
+October 6 catalog usability: workshop links open their assigned catalog; designs use color swatches
+and independent per-color photo URLs; shared booking choices live under Catalog settings. Recipes
+use remove-row icons; materials show distinct On hand/Reserved values and configurable low-stock
+warnings. Scheduling-only date/time inputs now use the supplied calendar style, backed by vendored
+Flatpickr. Additive migration 0023 is isolated-preview-only; no data reset or shared enrollment/payment
+runtime edits. 3,454 full regression tests, 174 focused Python, 35 JavaScript and 64 tracker tests passed,
+each changed inventory module above 95% combined coverage, with a 90% JavaScript gate. Desktop/390px browser checks passed. See the
+[current verification guide](docs/scheduling-plushumi-demo.md#catalog-and-scheduling-usability)
+and tracker for final full-suite results. No push or deployment.
+
+October 6 inventory correction: Catalog designs/colors are now separate from raw-material stock.
+Each variant has a per-participant recipe; bookings reserve combined materials per studio and
+freeze that recipe. Preparation changes readiness only; completion consumes once; cancellation
+releases unused holds. Scheduling migration 0022 preserves other tenants' old kits and balances.
+Only the isolated Plushumi preview was reset (backup first) to 9 designs, 81 color recipes,
+11 materials at 5 studios and 15 reservations. Other-school data fingerprints are unchanged.
+No enrollment/shared-payment runtime edits, production activation or push in this change.
+3,434 full regression tests, 141 final focused checks, 16 JavaScript and 64 tracker checks passed;
+changed inventory modules have 96.27-100% combined coverage. Desktop/mobile booking, setup,
+stock receipt, prep/completion and audit were exercised. Ready for user testing; recipe amounts
+are illustrative and connected Wix/Notion remains deferred. See the [current demo guide](docs/scheduling-plushumi-demo.md)
+and P3's current manual checks in the tracker; old finished-item stock walkthroughs are superseded.
+
+October 4 priority: finish a usable, narrow workshop pilot before broadening the music product.
+P1 (see browser tracker) adds operator-granted Bookings capabilities, a daily workspace and
+portable test safeguards. M4 follows with authorized Wix/Notion proof; no live integrations
+are authorized yet. Existing M7 local demonstrations remain available; remaining M7c2/M8
+work is deferred. No SBMC activation or enrollment behavior change is part of P1.
+P1 is now ready for user testing: 2,861 tests passed; scoped statement/branch coverage is
+99.91%, with each measured module above 90%. Desktop/mobile request-to-staff review and
+history-preserving feature controls were verified. See [P1 verification](docs/scheduling-p1-verification.md)
+and the tracker for manual steps. The connected customer pilot is not complete or approved for rollout.
+
+October 4 integration requirement: providers must be independently configurable per business.
+M4a implements a source/destination registry, settings and encrypted credentials, plus offline
+destination projections. Wix + Notion is an initial combination, never hardcoded into booking logic.
+New providers require a bounded adapter and contract tests; arbitrary URLs/scripts are not user settings.
+Saving configuration cannot switch active inventory/payment authority or start external delivery.
+M4a is ready for user testing: 2,901 tests passed in 143.28 seconds; new integration Python code
+has 100% statement/branch coverage, with 99.92% across the measured scheduling/payment/test-safety
+modules. Desktop/mobile save, source switching, invalid mapping rejection and restart persistence
+were verified. Only the isolated Workshop Demo is enabled. Authentication/permission verification,
+webhooks and real delivery still need implementation and authorized provider testing. See
+[M4a verification](docs/scheduling-m4a-verification.md) and its expandable tracker steps.
+
+October 4 revised priority: defer connected M4 pending Plushumi's workflow and authorized
+provider access. M9a is accepted for progression: native tour slots, capacity-protected bookings,
+attendance/cancellation and an opt-in lead connection. Final local regression: 2,960 tests
+passed; four new runtime modules have 100% statement/branch coverage; every measured module
+passes 90% (99.92% combined). Desktop/mobile, room/host conflict, capacity, lead updates and
+restart persistence were checked. See [M9a verification](docs/scheduling-m9a-verification.md)
+and the tracker for the preschool preview and manual steps. One additive scheduling migration
+was applied only to the isolated preview. No existing school is activated or changed by default.
+M9b is now ready for user testing: optional completed-tour/application-release rules, exact
+lead/draft/submission identity, staff or automatic playdate release, real capacity-protected
+playdates, and parent/staff progress panels. Existing resume/application/payment entry points
+enforce the same release policy. The shared enrollment hooks default to legacy behavior without
+an enabled admissions policy; only the fictional preschool preview is enabled. SBMC and Kid Works
+are not reconfigured. Shared name/search helpers add a last-resort single `student_name` fallback;
+existing field precedence is preserved. No second payment module was added.
+
+M9b verification: **3,007 tests passed**, two existing warnings, 183.81 seconds. Five new
+admissions modules have **99.03% combined statement/branch coverage**; every measured module
+passes the 90% gate (99.86% combined across scheduling/shared payments/test safeguards).
+Desktop/mobile application/approval/playdate flow, invalid capacity/settings, cancellation,
+rebooking and restart persistence were checked; existing SBMC/Kid Works public forms remain
+accessible without the admissions gate. One additive M9b migration was applied only to the
+isolated preview. Read [M9b impact and verification](docs/scheduling-m9b-verification.md) and
+expand M9b in the tracker for local credentials and repeatable manual steps.
+
+M9c is the current demo-readiness slice: single-use email return links, revocable visit sessions,
+local notification/retry previews, atomic family/staff rescheduling, audited attendance correction,
+finite weekly/biweekly times, editable closures, and optional host/music-teacher conflict mapping.
+Setup and a complete fictional preschool journey are available in the isolated preview.
+M9c is ready for user testing: **3,055 tests passed**, two existing warnings, 202.43 seconds.
+Six new runtime modules have **98.92% combined statement/branch coverage**; every measured
+module exceeds 90%. Desktop/mobile, restart persistence and existing-school public forms were
+checked. See [M9c evidence](docs/scheduling-m9c-verification.md) and its expandable manual steps.
+The generic configuration is opt-in; SBMC and Kid Works remain unmodified and disabled for M9.
+The additive migration 0018 was applied only to the isolated Bookings preview, not the main
+local database or production. Local preview payment routes fail closed for policy-bound
+applications; no second payment implementation and no real-money certification are implied.
+
+October 5: M9d prepares `enrollment-request-demo` (Riverside Learning Academy) as the
+integrated local demonstration on port 8002. An ordinary `demo_admin` / `admin` account
+owns enrollment and scheduling. All implemented capabilities have fictional practice data;
+school navigation and Settings expose Bookings only to enabled, authorized members.
+The original enrollment database on port 8001 remains untouched. No SBMC/Kid Works activation,
+new migration, live calls or push. Read the [school demo walkthrough](docs/scheduling-integrated-demo.md).
+M9d is ready for user testing: **3,076 tests passed**, two existing warnings, 198.94 seconds;
+every measured module meets the 90% statement/branch coverage gate. New navigation/tag modules
+are 100%, the guarded fixture command 94.57%. Desktop/mobile settings, tour-to-application-to-
+playdate, simulated deposit, lesson reschedule preview and restart persistence were verified.
+Acceptance remains pending; see the M9d tracker entry.
+
+October 5: P2 is ready for user testing: a separate, branded Plushumi local working demo matching
+the six shared concept screens. It reuses saved requests, native capacity, the shared test
+payment ledger and offline Notion projection; Wix checkout/Notion delivery are explicitly
+simulated, not claimed as working integrations. The original shared storyboard and the
+Enrollment Request Demo being tested remain unchanged. See
+[Plushumi walkthrough](docs/scheduling-plushumi-demo.md) and P2 in the browser tracker.
+Final P2 verification: 3,119 tests passed, two existing warnings, 207.94 seconds. New Python
+code has 99.58% combined statement/branch coverage; every measured module meets 90%.
+Desktop/mobile customer and staff flows, failure/cancellation, mapping and restart persistence
+were verified. Local `plushumi-admin` / `admin` owns scheduling only. No migration or push.
+
+October 5: P3 adds an optional shared inventory catalog with per-studio stock across workshops,
+parties, camps and preparation. Reservation holds, consumption and adjustments share existing
+tenant locks and payment reconciliation; no second payment module is added. Staff/settings UI
+uses the enrollment theme through scheduling-scoped CSS; enrollment templates/assets remain
+unchanged by this slice. Migration 0019 is applied only to the isolated port-8002 preview.
+Only the Plushumi fixture is assigned shared inventory; no SBMC/Kid Works configuration change.
+P3 is ready for user testing: **3,138 application/regression tests passed**, two existing
+warnings, 237.18 seconds; additional tracker checks passed. The five new inventory modules
+have **98.64% combined statement/branch coverage** and every measured module exceeds 90%.
+Browser checks covered workshop consumption, party materials, sold-out choices, protected
+adjustments, desktop/mobile layouts, existing-school forms and restart persistence.
+See [P3 evidence](docs/scheduling-p3-verification.md) and expand P3 in the browser tracker
+for manual tests and local credentials. No external API calls, push or deployment.
+
+P3 usability follow-up: reservation availability controls are separated from filters;
+catalogs have one Manage action and expandable studio assignments; option editing has
+aligned labeled icons; saving stock retains the studio. Latest full suite: **3,145 passed**,
+two existing warnings, 243.95 seconds; inventory coverage **98.64%**, all measured modules
+above 90%. Desktop/mobile and keyboard checks passed. This follow-up makes no enrollment
+template/configuration changes or migrations. Navigation grouping and richer reservation
+filters were follow-ups at that point; the October 6 cleanup below implements them.
+
+M9 is not production-complete. Real email delivery, paid-flow certification, customer policy
+mapping, operational onboarding and explicit rollout approval remain open. Visit access
+revocation does not revoke existing enrollment draft/status bearer links. No live messages,
+external provider calls, production migration or push occurred. Connected M4 is still deferred
+pending Plushumi input. Recurring tuition remains the separate M8 milestone.
+
+October 5 workshop demo audit: corrected paused-intake access, invisible stock errors, group
+stock validation, exact-stock checkout retries, missing native bookings/selections in prep,
+catalog image identity and narrow prep layout. Full regression: **3,149 passed**, two warnings;
+experience Python coverage **99.07%**, every measured module above 90%. Browser rehearsal
+covered edit/failed-checkout/retry, saved staff records and desktop/mobile layouts. Native
+print output is unverified. No new migration or enrollment runtime changes in this audit.
+The demo is not a finished self-service workshop product: native pricing/policy settings,
+branded party/camp journeys, customer communication/changes and connected M4
+remain tracked gaps. See [the workshop audit and call sequence](docs/scheduling-plushumi-demo.md).
+
+October 6 workshop polish: reversible Prepared/Reopen status is independent of stock usage
+and payments; navigation is grouped with a compact mobile menu; reservation search includes
+contact/workshop, studio, status and studio-local date ranges; catalog stock items are searchable
+and paginated. **3,161 tests passed**, two existing warnings, 256.35 seconds. New preparation
+and filter modules have **100% Python statement/branch coverage**; every measured module
+exceeds 90% (99.52% overall). Desktop/mobile, keyboard, concurrent/stale edits and restart
+persistence passed. Additive scheduling migration 0020 was applied only to isolated preview/test
+databases. No enrollment template/configuration changes, SBMC/Kid Works activation, provider
+calls, push or deployment. P3 manual steps and the browser demo guide are updated. Prepared
+is now implemented; pricing/policy administration, branded party/camp journeys, customer
+communications and connected M4 remain separate unfinished product work.
+
+October 6 navigation update: Bookings now uses Student Enrollment's header, colors,
+typography, theme preference and underlined section tabs. Main menus are Dashboard,
+Reservations (Reservations, Workshop Prep), Setup (Workshop, Parties, Camps, Inventory),
+and Settings (Location & rooms, Team Access, Integrations). Requests is removed from the
+menu, not from stored records or existing URLs. Optional tours, lessons and messages remain
+under Reservations for enabled workspaces; owner-only links retain their access checks.
+This update is scoped to scheduling templates/styles/navigation; no shared enrollment assets,
+school configuration, payment behavior or schema changed. Port 8002 was refreshed.
+Verification: **3,217 regression tests passed** (two existing warnings, 249.17 seconds),
+plus five JavaScript menu tests. Changed Python navigation/context code and JavaScript
+menu code are **100% covered**; the combined Python coverage is 99.53%, with every
+measured module above 90%. Desktop/mobile, all section destinations, keyboard focus and
+theme persistence checked. No push or deployment.
+
+October 6 component/location follow-up: staff tables, row hover, badges, numeric columns,
+forms, buttons, pagination and summary counts now follow the enrollment visual system.
+Dashboard has an optional, tenant-validated Location filter beside the date/account controls;
+attention counts and upcoming workshop/camp sessions, parties, lessons and visits are scoped
+before limits are applied. Attention drilldowns, review tabs, pagination and the workshop list
+retain the location. Invalid/foreign selections fail closed; the setup checklist is explicitly
+workspace-wide. Fixed local-day agenda formatting and a mobile table overflow caused by
+an offscreen accessibility label. Public branding and shared enrollment assets are unchanged.
+Verification: **3,251 regression tests passed** (two existing warnings, 249.57 seconds),
+followed by focused final template checks and **six JavaScript tests**. All seven changed
+Python modules and the admin JavaScript have **100% statement/branch coverage**; measured
+Python overall is **99.53%**, every module above 90%. Desktop, phone and 901px boundary,
+filtered drilldowns, form errors, keyboard table scrolling and Midnight theme were checked.
+No schema, payments, provider calls, school activation, push or deployment. Local port 8002
+refreshed; repeatable manual checks are in P3 steps 21-23 of the browser tracker.
+
+October 6 visual-parity correction supersedes the earlier broad visual-completion claims:
+the initial pass missed cross-page header alignment, persistent location selection,
+Enrollment's actual grid structure and Recent Activity. Those are now corrected using
+Enrollment components/conventions, with location saved per workspace/session across staff
+sections. Catalogs and team/integration settings remain workspace-wide. Reservation KPIs
+and Recent Activity use real scoped records; consumed materials are excluded from To prepare.
+Verification: **3,272 regression tests passed** (two existing warnings, 251.80 seconds),
+seven JavaScript tests at 100% coverage; measured Python coverage **99.54%**, every module
+above 90%. Actual Enrollment/Bookings desktop comparison and native 362px mobile checks
+covered menus, grids, location persistence, search/sort/date errors, prep lists and themes.
+No shared Enrollment asset/runtime edits or new migration in this correction; no external
+provider calls, push or deployment. See [corrective evidence](docs/scheduling-p3-verification.md#october-6-visual-parity-correction)
+and P3 manual steps 19-24. Local port 8002 is refreshed.
+
+October 6 reservation workspace update: Workshop Prep is record-specific, with Pending/Complete
+indicators in the main list. Reservation information, Money and Audit log are separate;
+Room/participants/materials are in Prep. Cancellation requires an explicit with/without-refund
+choice and reason, reusing shared payments and preserving retry/rollback safety. The manual
+offline-settlement UI/handler is removed; the shared historical ledger/internal local simulator
+remain. Exact local-demo receipts support simulated refunds; external offline receipts do not.
+Verification: **3,304 full regression tests**, then **262 focused final checks**, plus seven
+JavaScript tests. New cancellation/audit/workspace modules are **100% statement/branch covered**;
+all measured modules pass 90% (99.54% overall). Desktop/mobile and simulated prep/cancellation
+journey tested. No new migration, shared Enrollment/SBMC edit, real provider call or push.
+See [reservation verification](docs/scheduling-p3-verification.md#october-6-reservation-workspace)
+and P3 steps 25-27 in the browser tracker. Port 8002 refreshed.
+
+October 6 reservation completion update: both tabs now share Participants & selections, with
+separate saved-choice columns. Money is renamed Payment summary. Prep has a collapsed reservation
+summary and studio-scoped materials without the redundant studio column. Workshop completed
+replaces manual stock-use controls: confirmation atomically consumes unused allocations, saves
+Completed and audits the action. Duplicate/concurrent retries do not consume twice; payments
+remain separate and late callbacks cannot reopen a completed reservation.
+Verification: **3,327 full regression tests** (272.45 seconds), then **412 final focused checks**
+(42.48 seconds) after refund safety/template polish, plus seven JavaScript tests. Completion,
+participant read models, preparation and booking checkout are **100% statement/branch covered**;
+every measured module exceeds 90% (99.53% overall). Desktop/mobile and a new fictional customer-to-
+admin completion journey passed, including restart persistence. Scheduling-only migration 0021
+was applied to test/isolated preview databases only; no shared Enrollment/SBMC edits or external
+calls. No push/deployment. See [completion evidence](docs/scheduling-p3-verification.md#october-6-completion-and-participants)
+and P3 steps 28-31. Port 8002 is ready for testing.
+
+October 6 reservation layout follow-up: Prep's Participants & selections now lives inside the
+initially collapsed Reservation details section. Explicit grid columns and wrapping prevent
+header/content overlap. The local Plushumi demo has its existing logo, a sample-data strip and
+a hardcoded seven-day trial notice, with no trial functionality. Header navigation matches
+Enrollment's 60px height plus border, retaining a separate mobile location row.
+Verification: **3,340 regression tests passed**, seven JavaScript checks and 64 tracker checks;
+99.53% Python coverage, all measured modules above 90%. Five live-browser viewport sizes,
+keyboard scrolling, collapsed/expanded details and header alignment passed. No database
+migration, shared Enrollment/SBMC edits, live integration calls or push. See
+[layout evidence](docs/scheduling-p3-verification.md#october-6-grid-and-demo-header-polish)
+and P3 steps 29, 32-33. Port 8002 refreshed.
+
+Subsequent comparison against the live local Enrollment grid corrected content width, row/button
+density, muted secondary text, divider contrast and scrolling-card structure. The fixed trial
+notice is seven days and Location's caption is visually hidden, retaining its accessible label.
+**3,340 full tests passed** (281.83 seconds), plus 134 focused, seven JavaScript and 64 tracker
+checks. Five responsive sizes, sorting, keyboard scrolling, studio selection, Inventory and dark
+theme were verified. No Enrollment/SBMC file changes or new migrations. See
+[comparison evidence](docs/scheduling-p3-verification.md#october-6-enrollment-grid-comparison)
+and P3 steps 32-34.
+
+Original next-priority decision: after connected M4, prioritize a configurable preschool
+tour -> application -> playdate workflow as the first M9 enrollment-integration slice, before
+broader music/recurring-billing expansion. Reuse the reservation engine with appropriate generic
+visit terminology and an opt-in enrollment connector. Current Kid Works demo date selections
+are not capacity-controlled reservations and do not implement this connection. Keep SBMC and
+standalone bookings unchanged; re-estimate the concrete preschool scope before coding. This
+priority does not waive M4's provider proof/recovery checks or any deployment approval.
 
 ---
 
@@ -54,7 +350,7 @@ deployed on Render. 854+ passing pytest tests.
 | Admin UI (ops) | Custom views at `/ops/` | See Ops Portal section below |
 | Django admin | Kept alive at `/admin/` (or `ADMIN_URL` env var) as raw escape hatch | Do not remove |
 | SMS | NOT implemented, NOT planned | Explicit out of scope |
-| Scheduling calendar | NOT implemented, NOT planned | Explicit out of scope |
+| Scheduling calendar | Optional Bookings setup, workshop/party intake and local offline-only reservations implemented; online payments/calendar still gated | Standalone or enrollment-integrated; default off for existing schools. See scheduling tracker below. |
 
 ---
 
@@ -171,6 +467,139 @@ JSON overrides in `School.feature_flags`. Superusers bypass most feature gates.
 ---
 
 ## Planned Features (Prioritised)
+
+### Optional Bookings Module
+
+October 3 requirements audit: the one-repository, optional standalone Bookings direction is
+aligned, but client rollout is not cleared. The two reproduced defects are now corrected locally:
+confirmed balance checkout survives intake pause, and stale setup edits are rejected across
+workshops, rooms, locations, sessions, choices, camps and lessons. Mixed online/offline
+settlement, selective capability packaging, scoped staff access and portable CI safety gates
+are also incomplete. Jasmine's Wix/Notion outcome remains deferred M4, not delivered by the
+native music milestones. See the [requirements and rollout review](docs/scheduling-alignment-review.md)
+and tracker before adding features. Corrective work stays inside Bookings; no enrollment behavior,
+payment provider code, schema, production settings or deployment was changed by these fixes.
+
+Design and visual concepts exist; M1a access/workspace foundation is accepted locally
+(not deployed). M1b setup, M2 requests/preparation and M3 party inquiries/review are accepted.
+M5a is accepted: native capacity holds and a shared order/ledger with offline-only test receipts.
+M5b is accepted locally: account-scoped checkout attempts and verified deposit/balance settlement.
+M5c adds durable recovery, safe checkout closure, owner-approved partial refunds and payment
+follow-up controls. The local build is ready for user testing; the user explicitly deferred real
+sandbox verification. Refunds reuse the same shared ledger and Stripe facade, not a second module.
+Each business will own its receiving Stripe account, separate from Pontora subscriptions.
+M4 is deferred at the user's request; Jasmine remains the commercial priority.
+M6 is ready for user testing locally: owner-configured fixed-session camps, atomic all-date registration,
+shared capacity with workshops, per-attendee choices, confirmed preparation rosters and one
+shared payment order. The user requested progression from M5c on October 2. No enrollment or
+core payment behavior is changed for this milestone. See [M6 verification](docs/scheduling-m6-verification.md).
+M6 verification: 2,402 full-suite tests passed in 74.35 seconds; 99.93% combined scheduling/payments
+line/branch coverage, with new camp forms/services/views at 100%. Desktop/mobile registration,
+simulated deposit, all-date cancellation, daily preparation and migration preservation verified.
+M6 is accepted by the October 2 request to proceed. M7 is split into M7a setup/finite lessons,
+M7b1 staff changes/attendance, M7b2 make-up policies, and M7c guardian access/self-booking. M7a is accepted
+for progression by the October 3 request. It is available in
+the isolated Music Studio Demo: generic services, qualified teachers, location-specific hours,
+lesson closures, family/student records, atomic weekly schedules and staff cancellation.
+No payment, notification or enrollment transitions occur. A new default-off lessons capability
+does not enable SBMC. Shared-room checks protect workshops, camps and parties in both directions.
+Emily's policy questions and a ready-to-send note are in M7a's tracker notes.
+M7a verification: 2,461 full-suite tests passed; 100% Python line/branch coverage for the new
+lesson models/forms/services/views. Desktop creation, conflict rejection, closure handling,
+daylight-saving stability, sibling schedules and single-date cancellation passed. Mobile
+form/schedule layout and restart persistence also passed after an initial browser-control
+timeout was resolved. See [M7a verification](docs/scheduling-m7a-verification.md).
+M7b1 is accepted for progression by the request to start M7b2: preview/confirm single or future scheduled-date changes,
+eligible substitutes and room changes, preserved original/replacement links, and staff attendance
+with audited corrections. No billing or enrollment effects. Historical M7b1 verification:
+2,521 full-suite tests in 96.03 seconds; lesson Python line/branch coverage 100%; scheduling/shared
+payments coverage 99.95%. Desktop/mobile rescheduling, attendance corrections and viewer access
+passed. Self-review fixed stale cancellation scope; browser review removed a hidden-field label.
+No shared enrollment/payment behavior changed for M7b1. See
+[M7b1 verification](docs/scheduling-m7b1-verification.md).
+M7b2 is accepted for progression: default-off make-up policies, explicit cancellation previews,
+one-student/service/duration credits, expiry, atomic conflict-checked redemption, restoration,
+forfeiture and owner revocation with history. Rescheduling preserves the original credit/expiry;
+lesson entitlements are not money refunds. Only Music Studio Demo is configured with fictional
+rules. Isolated migration 0009 adds credit/policy/cancellation/event tables without changing
+existing school plans, lesson history or payment data. Final full verification: 2,623 tests
+passed in 107.78 seconds, credit code 100% line/branch coverage; evidence and manual testing steps are in
+[M7b2 verification](docs/scheduling-m7b2-verification.md) and the browser tracker. No SBMC
+enablement, shared enrollment/payment edits, real API calls, commit or push in this slice.
+M7c is split into M7c1 private family schedules and M7c2 optional self-booking/trials.
+M7c1 is accepted for progression: owner-attested, explicit student scope; expiring single-use
+invitations; read-only family schedules/credits; non-consuming staff preview; immediate
+revocation. Reuses Django sessions, with no automatic email matching or enrollment-token
+reuse. Additive migration 0010 only in the isolated preview. Verified notification delivery,
+convenient recurring re-entry and family booking remain future work, not silently completed.
+Final verification: 2,677 tests passed in 111.46 seconds; 100% new access Python line/branch
+coverage; 99.96% combined scheduling/shared-payments runtime coverage (excluding migrations).
+Desktop/mobile access, filtering, revocation and restart persistence passed. Browser CSRF
+compatibility, past-attendance labeling and email-length validation were corrected before handoff.
+See [M7c1 verification](docs/scheduling-m7c1-verification.md).
+M7c2's local booking slice now implements published public trial offers, separately authorized
+family single-lesson booking, bounded availability using the existing teacher/student/room
+conflict planner, atomic retries, saved confirmation history and core.payments offline test
+quotes/receipts/refunds. No enrollment account or subscription is required. Make-up eligibility
+is explicit per offer, default-off and snapshotted; existing staff lesson policies are unchanged.
+Additive migrations 0011/0012 are applied only to the isolated preview. Existing family grants
+stay read-only. Public/family booking requires DEBUG and `BOOKINGS_LESSON_BOOKING_PREVIEW`; production
+activation is deliberately unavailable. No shared payment/enrollment runtime was edited.
+See [M7c2 verification](docs/scheduling-m7c2-verification.md). M7c2 remains in progress overall:
+Local slice verified: 2,747 tests in 124.86 seconds, four new booking modules at 100% Python
+statement/branch coverage, scheduling/shared-payments runtime 99.94% combined. Desktop/mobile
+booking, staff cancellation/refund and restart persistence passed.
+The next M7c2 slice now implements a default-off Bookings message outbox with local simulated
+processing, bounded retries, ambiguous-outcome review, suppression and saved attempt history.
+It reuses the existing mail factory without modifying enrollment notifications or using school
+SMTP credentials. Migration 0013 affects only the isolated preview; old notices are not replayed.
+Verified October 4: 2,793 tests in 133.74 seconds; five new message modules at 100% Python
+statement/branch coverage (310 statements, 60 branches). Manual desktop/mobile tests covered
+bounded retry, uncertain-outcome review, waiting-message links, suppression, duplicate prevention
+and restart persistence. This completes the local queue slice, not real delivery.
+See [message verification](docs/scheduling-m7c2-messages-verification.md). Real provider delivery,
+verified guest re-entry and online lesson payment settlement are
+unfinished engineering, not just missing credentials. Self-cancel/reschedule/credit redemption
+remain staff-managed; recurring tuition is M8. Confirm Emily's
+policies before rollout; term caps, absence exceptions and transferable entitlements are not assumed.
+External collection remains gated behind real sandbox proof and paid-pilot operational checks;
+recurring billing remains M8. The recovery command exists but no production scheduler is installed.
+The October 1 direction is incremental delivery: a standalone workshop workflow first, early parties/camps,
+optional Wix/Notion connections, then validated music-school requirements and enrollment links.
+Existing schools, including SBMC, remain unchanged and disabled for this module by default.
+Shared authentication and payment changes require explicit impact analysis and regression tests;
+standalone access must not require an enrollment subscription or enrollment-admin permissions.
+
+- [Design and boundaries](docs/scheduling-module-design.md)
+- [Implementation tracker and acceptance gates](docs/scheduling-implementation-tracker.md)
+
+Keep Bookings in this repository as a separate module with a standalone workspace and an
+optional enrollment bridge. Share identity, scoped access, payments and notifications through
+explicit interfaces; do not duplicate those systems or require enrollment records for bookings.
+Extract shared code incrementally, not through a preparatory rewrite of the enrollment app.
+
+The tracker is the source for Bookings milestones, current work, and user acceptance. No feature
+is production-ready merely because its mock screen exists. Tuesday, October 6 is a narrow
+prototype target, not a commitment to a production scheduler or working provider integrations.
+M5a verification: 281 scheduling tests; 2,237 full regression tests passed; 99.88% combined
+scheduling/shared-ledger Python line/branch coverage. Current M5b tests, shared-code impact and
+desktop/mobile evidence are in [the M5b impact report](docs/scheduling-m5b-verification.md):
+2,292 full-suite tests passed; scheduling/shared-payments combined coverage 99.90%; new checkout
+services and views 100%. This does not substitute for future real sandbox verification.
+M5c impact, recovery limits and paid-release gates are tracked in
+[the M5c verification report](docs/scheduling-m5c-verification.md).
+M5c final: 2,334 full-suite tests passed in 61.92 seconds; 99.92% combined scheduling/payments
+coverage; recovery/refund services, recovery command and staff recovery views 100%. Desktop/mobile
+and pending-refund restart persistence verified. This does not clear the paid-pilot gate.
+The browser tracker has expandable manual steps and local-only credentials for each implemented
+milestone, plus visible unanswered questions. Dedicated PostgreSQL test/preview databases and
+network guards prevent paid calls. Shared payment records are additive under core/payments;
+existing Stripe/application-fee entry-point signatures and School subscription fields remain.
+M5b extends the existing Stripe facade, passes explicit keys for subscription calls instead of
+mutating stripe.api_key, and uses a separate test-only merchant context for booking checkout.
+No second Stripe integration was added. Legacy application-fee binding/fail-open risks remain
+documented and are not silently changed for SBMC; hardening/migration needs a separate review.
+No main-local/production migration, existing-school enablement, commit or push.
 
 ### Program Management — DB-Driven Programs (next to implement)
 
@@ -712,6 +1141,17 @@ form:
 - Every new view gets at minimum: auth guard test, happy-path test, error-path test
 - Manual QA checklist must be completed before marking any phase done
 - Run full suite after every commit: `pytest -q --tb=short` — must stay green
+- **Every push requires recorded verification of the exact revision being pushed:** meaningful
+  unit tests, database-backed integration tests, the full regression suite, and agent-performed
+  browser/manual smoke tests. Include the changed workflow plus SBMC/disabled-school checks.
+  A user's acceptance or a coverage percentage does not replace these checks.
+- Record test commands/results, coverage, manual steps/outcomes, shared-code impact and known
+  gaps in the milestone verification record. Never reuse stale results after relevant edits.
+  If a required check fails or cannot run, stop and report it before pushing; do not silently
+  waive it or describe an untested provider integration as working.
+- Ordinary tests must not make paid API calls, send real messages or create real bookings or
+  payments. Use realistic provider fixtures; separately validate integrations in an authorized
+  sandbox before claiming them ready. Production safety gates apply independently of git pushes.
 
 ## Test Suite
 

@@ -1,0 +1,17 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}{{ provider.label }} settings{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:integrations' school_slug=business.slug %}">Back to integrations</a>
+<div class="section-heading"><h2>{{ provider.label }} settings</h2><span class="status draft">Not connected</span></div>
+<p class="notice">Setup only. Saving does not contact {{ provider.label }} or change who manages bookings or payments.</p>
+<form method="post" class="setup-form integration-form">{% csrf_token %}
+{{ form.non_field_errors }}{% for field in form.hidden_fields %}{{ field }}{{ field.errors }}{% endfor %}
+<fieldset><legend>Connection</legend>
+{% for field in form.settings_fields %}<div class="form-field{% if field.name == 'clear_credential' %} checkbox-field{% endif %}">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<p class="help-text">{{ field.help_text }}</p>{% endif %}</div>{% endfor %}
+<p class="muted">Credential: {% if connection.credential_saved %}saved; hidden{% else %}not provided{% endif %}</p>
+</fieldset>
+{% if form.mapping_fields %}<fieldset><legend>Destination fields</legend><div class="mapping-grid">{% for field in form.mapping_fields %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}<p class="help-text">{{ field.help_text }}</p></div>{% endfor %}</div></fieldset>{% endif %}
+<div class="actions"><button class="primary" type="submit">Save settings</button>{% if editing %}<a href="{% url 'scheduling:integration_edit' school_slug=business.slug pk=connection.pk %}">Reload saved settings</a>{% endif %}<a href="{{ provider.documentation }}" target="_blank" rel="noopener noreferrer">Provider documentation</a></div>
+</form>
+{% if editing and provider.role == 'destination' %}<p><a class="button" href="{% url 'scheduling:integration_preview' school_slug=business.slug pk=connection.pk %}">Preview saved mapping</a></p>{% endif %}
+{% endblock %}

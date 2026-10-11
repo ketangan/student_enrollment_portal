@@ -1,0 +1,5 @@
+{% extends 'scheduling/base.html' %}{% load tz %}
+{% block content %}<a href="{% url 'scheduling:visits' school_slug=business.slug %}">All visits</a><h2>Repeat times · {{ program.offering.name }}</h2>
+<form method="post" class="setup-form">{% csrf_token %}{{ form.as_p }}
+<div class="actions"><button name="action" value="preview">Preview dates</button>{% if preview_token %}<input type="hidden" name="preview_token" value="{{ preview_token }}"><button class="primary" name="action" value="publish">Publish these times</button>{% endif %}</div></form>
+{% if rows %}<div class="table-wrap"><table><thead><tr><th>Date &amp; time</th><th>Status</th><th>Reason</th></tr></thead><tbody>{% for row in rows %}{% timezone program.offering.location.timezone_name %}<tr><td>{{ row.start|date:'D, M j, Y, g:i A' }}</td><td>{{ row.state }}</td><td>{{ row.reason|default:'-' }}</td></tr>{% endtimezone %}{% endfor %}</tbody></table></div>{% endif %}{% endblock %}

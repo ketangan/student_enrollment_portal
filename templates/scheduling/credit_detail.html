@@ -1,0 +1,13 @@
+{% extends 'scheduling/base.html' %}{% load tz %}
+{% block title %}{{ credit.snapshot.student }} make-up credit{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:lesson_credits' school_slug=business.slug %}">Make-up credits</a>
+<div class="section-heading"><h2>{{ credit.snapshot.student }} &middot; Make-up credit</h2><span class="status {% if not credit.available %}inactive{% endif %}">{{ credit.status_label }}</span></div>
+<dl class="details"><div><dt>Lesson</dt><dd>{{ credit.snapshot.service }} &middot; {{ credit.snapshot.duration_minutes }} minutes</dd></div><div><dt>Family</dt><dd>{{ credit.snapshot.household }}</dd></div><div><dt>Use by (lesson must finish)</dt><dd>{{ credit.expires_at|date:'M j, Y' }} at {{ credit.expires_at|time:'g:i A' }}</dd></div><div><dt>Original lesson</dt><dd><a href="{% url 'scheduling:lesson_series' school_slug=business.slug public_id=credit.source.series.public_id %}#lesson-{{ credit.source_id }}">{{ credit.source.starts_at|date:'M j, Y' }}</a></dd></div></dl>
+<p>One lesson, not a money balance. A family cancellation with at least {{ credit.snapshot.policy.notice_hours }} hours' notice restores this credit; late cancellation forfeits it. Studio cancellation restores it. The original expiry never extends.</p>
+<div class="actions">{% if credit.available and can_edit_sessions %}<a class="button primary" href="{% url 'scheduling:lesson_credit_book' school_slug=business.slug public_id=credit.public_id %}">Book make-up</a>{% endif %}{% if credit.used_occurrence_id %}<a href="{% url 'scheduling:lesson_series' school_slug=business.slug public_id=credit.used_occurrence.series.public_id %}">Booked make-up</a>{% endif %}{% if credit.state == 'available' and can_edit_setup %}<a href="{% url 'scheduling:lesson_credit_revoke' school_slug=business.slug public_id=credit.public_id %}">Revoke credit</a>{% endif %}</div>
+<h3>Credit history</h3>
+<div class="table-wrap lesson-table"><table><thead><tr><th>Recorded</th><th>Action</th><th>Lesson</th><th>By</th><th>Reason</th></tr></thead><tbody>
+{% for event in events %}<tr><td>{{ event.created_at|date:'M j, Y' }} {{ event.created_at|time:'g:i A' }}</td><td>{{ event.get_kind_display }}</td><td>{% if event.occurrence %}{% timezone event.occurrence.series.snapshot.timezone %}<a href="{% url 'scheduling:lesson_series' school_slug=business.slug public_id=event.occurrence.series.public_id %}#lesson-{{ event.occurrence_id }}">{{ event.occurrence.starts_at|date:'M j, Y' }} {{ event.occurrence.starts_at|time:'g:i A' }}</a>{% endtimezone %}{% else %}-{% endif %}</td><td>{{ event.actor.username|default:'Former staff member' }}</td><td>{{ event.reason }}</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

@@ -1,0 +1,5 @@
+{% extends 'scheduling/base.html' %}
+{% block content %}<a class="back-link" href="{% url 'scheduling:reservations' school_slug=business.slug %}">All reservations</a><h2>Create reservation</h2>
+<p>{% if source.purchaser_name %}{{ source.purchaser_name }}{% else %}{{ source.organizer_name }}{% endif %}</p>
+<p class="notice">This quote is fixed after creation. Capacity is held for up to 30 minutes. The deposit confirms the reservation; a zero deposit requires full payment. A free booking confirms immediately.</p>
+<form method="post" class="setup-form">{% csrf_token %}{{ form.non_field_errors }}{{ form.source_revision }}{{ form.source_revision.errors }}{% for field in form.visible_fields %}<div class="form-field{% if field.field.widget.input_type == 'checkbox' %} check-field{% endif %}">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}<button class="primary" type="submit">Create reservation</button></form>{% endblock %}

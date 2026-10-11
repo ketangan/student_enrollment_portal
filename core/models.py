@@ -613,8 +613,8 @@ class Submission(models.Model):
         last = data.get("student_last_name") or data.get("last_name") or data.get("child_last_name")
         if first or last:
             parts.append(f"{first or ''} {last or ''}".strip())
-        elif data.get("applicant_name"):
-            parts.append(str(data["applicant_name"]).strip())
+        elif data.get("applicant_name") or data.get("student_name"):
+            parts.append(str(data.get("applicant_name") or data["student_name"]).strip())
 
         # Program name — use already-cached FK instance (free) or fetch name-only (cheap).
         if self.program_id:
@@ -694,7 +694,7 @@ class Submission(models.Model):
             return f"{first or ''} {last or ''}".strip()
 
         # TSCA
-        applicant = data.get("applicant_name")
+        applicant = data.get("applicant_name") or data.get("student_name")
         if applicant:
             return str(applicant).strip()
 

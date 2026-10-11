@@ -339,6 +339,10 @@
       {% if can_mutate %}
       <div class="dash-card" style="padding:18px 22px;">
         <h2 class="sidebar-label">Enrollment</h2>
+        {% if booking_admissions %}
+        <p>{{ booking_admissions.message }}</p>
+        <p><a href="{{ booking_admissions.url }}">Admissions progress &amp; approvals &rarr;</a></p>
+        {% endif %}
         {% if lead.converted_submission_id %}
           {% if converted_submission_url %}
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">

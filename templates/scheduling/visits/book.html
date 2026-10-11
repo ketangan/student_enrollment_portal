@@ -1,0 +1,5 @@
+{% extends 'scheduling/visits/public_base.html' %}
+{% block content %}{% if case %}<a href="{% url 'scheduling:playdates' school_slug=business.slug token=case.submission.status_token %}">All playdate times</a>{% else %}<a href="{% url 'scheduling:visit_catalogue' school_slug=business.slug %}">All tour times</a>{% endif %}{% include 'scheduling/visits/time.html' %}<p>{{ places_left }} places available &middot; No payment required</p>
+{% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
+<form method="post" class="setup-form" novalidate>{% csrf_token %}<input type="hidden" name="booking_token" value="{{ booking_token }}">{{ form.non_field_errors }}
+{% for field in form %}<div class="form-field {% if field.field.widget.input_type == 'checkbox' %}check-field{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}<button class="primary" type="submit">Confirm {{ slot.program.get_kind_display|lower }}</button></form>{% endblock %}

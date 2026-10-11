@@ -1,0 +1,18 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Workshop Prep - {{ item.snapshot.name }}{% endblock %}
+{% block page_heading %}{% include 'scheduling/reservation_heading.html' %}{% endblock %}
+{% block content %}
+<details class="reservation-section reservation-summary"><summary>Reservation details</summary>
+{% include 'scheduling/reservation_summary.html' %}
+{% include 'scheduling/reservation_participants.html' %}
+</details>
+<section class="reservation-section" aria-labelledby="prep-heading"><div class="section-heading"><h2 id="prep-heading">Workshop Prep</h2>{% include 'scheduling/preparation_status.html' with reservation=item %}</div>
+{% if item.state == 'completed' %}<p class="muted">Completed. Materials used are recorded below.</p>
+{% elif item.state != 'confirmed' %}<p class="muted">{% if item.state == 'canceled' %}This reservation is canceled. No preparation is required.{% else %}Preparation is on hold until this reservation is confirmed.{% endif %}</p>{% endif %}
+{% if not item.camp_registration_id %}<dl class="reservation-facts"><div><dt>Room</dt><dd>{{ item.room.name|default:"Not assigned" }}</dd></div></dl>{% endif %}
+{% include 'scheduling/occurrences.html' %}
+{% if customer_notes or preparation_notes %}<dl class="reservation-facts prep-notes">{% if customer_notes %}<div><dt>Customer notes</dt><dd>{{ customer_notes|linebreaksbr }}</dd></div>{% endif %}{% if preparation_notes %}<div><dt>Preparation notes</dt><dd>{{ preparation_notes|linebreaksbr }}</dd></div>{% endif %}</dl>{% endif %}
+</section>
+{% include 'scheduling/stock_usage.html' %}
+{% if party_materials and not allocations %}<section class="reservation-section"><h2>Requested materials</h2><ul>{% for material in party_materials %}<li>{{ material.quantity }} &times; {{ material.name }}</li>{% endfor %}</ul></section>{% endif %}
+{% endblock %}

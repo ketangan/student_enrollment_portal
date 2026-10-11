@@ -1,0 +1,9 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Booking offers{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:lessons' school_slug=business.slug %}">Lessons</a>
+<div class="section-heading"><h2>Booking offers</h2><a class="button primary" href="{% url 'scheduling:lesson_booking_offer_new' school_slug=business.slug %}">Add offer</a></div>
+<p class="notice">Local booking preview. Confirmation messages are saved, not sent. Online payment is not enabled.</p>
+{% if preview_enabled %}<p><a href="{% url 'scheduling:lesson_trials' school_slug=business.slug %}" target="_blank" rel="noopener">Open public trial page</a></p>{% endif %}
+{% for offer in offers %}<article class="session-row"><div><strong>{{ offer.title }}</strong><p>{{ offer.teacher }} &middot; {{ offer.service.duration_minutes }} min</p><p>{{ offer.location }}{% if offer.room %} &middot; {{ offer.room.name }}{% endif %}</p></div><div><span class="status {% if not offer.published %}inactive{% endif %}">{{ offer.published|yesno:'Published,Draft' }}</span><p>{% if offer.public_trials %}Public trials{% endif %}{% if offer.family_booking %} &middot; Families{% endif %}</p></div><div>{% if offer.fee_cents %}${{ offer.price|floatformat:2 }} &middot; Pay at studio{% else %}Free{% endif %}<p>{{ offer.notice_hours }} hours notice &middot; {{ offer.horizon_days }} days ahead</p></div><a href="{% url 'scheduling:lesson_booking_offer_edit' school_slug=business.slug pk=offer.pk %}">Edit {{ offer.title }}</a></article>{% empty %}<p>No booking offers yet.</p>{% endfor %}
+{% endblock %}

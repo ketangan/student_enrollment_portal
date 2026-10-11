@@ -1,0 +1,45 @@
+{% extends 'scheduling/base.html' %}{% load tz %}
+{% block title %}Tours &amp; playdates{% endblock %}
+{% block content %}
+{% include 'scheduling/location_filter.html' %}
+<div class="section-heading"><h2>Tours &amp; playdates</h2><div class="actions">{% if can_edit_setup and can_configure_admissions %}<a href="{% url 'scheduling:admission_policy' school_slug=business.slug %}">Admissions workflow</a>{% endif %}<a href="{% url 'scheduling:visit_catalogue' school_slug=business.slug %}">Family tour page</a>{% if can_edit_setup %}<a class="button primary" href="{% url 'scheduling:visit_program_new' school_slug=business.slug %}">Add visit</a>{% endif %}</div></div>
+{% if can_edit_setup and message_preview_available %}<p><a href="{% url 'scheduling:visit_setup' school_slug=business.slug %}">Visit setup &amp; readiness</a> · <a href="{% url 'scheduling:messages' school_slug=business.slug %}">Local message inbox</a></p>{% endif %}
+{% for program in programs %}<div class="section-heading"><div><h3>{{ program.offering.name }}</h3><p>{{ program.offering.location.name }} &middot; {% if program.offering.is_published %}Bookings open{% else %}Bookings closed{% endif %} &middot; {% if program.kind == 'playdate' %}Application-linked playdates{% elif program.capture_leads %}Connected to enrollment leads{% else %}Booking only{% endif %}</p></div><div class="actions">{% if can_edit_setup %}<a href="{% url 'scheduling:visit_program_edit' school_slug=business.slug pk=program.pk %}">Settings</a>{% endif %}{% if can_edit_sessions %}<a class="button" href="{% url 'scheduling:visit_slot_new' school_slug=business.slug program_pk=program.pk %}">Add time</a><a class="button" href="{% url 'scheduling:visit_repeat' school_slug=business.slug program_pk=program.pk %}">Repeat times</a>{% endif %}</div></div>{% empty %}<p>No visits yet.</p>{% endfor %}
+<h3>Upcoming times</h3>
+<div class="table-wrap visit-table">
+  <table aria-label="Visit times">
+    <thead><tr><th>Visit</th><th>Date &amp; time</th><th>Room</th><th>Host</th><th>Booked / places</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for slot in slots %}{% timezone slot.program.offering.location.timezone_name %}
+      <tr>
+        <td>{{ slot.program.offering.name }}</td>
+        <td>{{ slot.session.starts_at|date:'D, M j, Y' }}<br>{{ slot.session.starts_at|date:'g:i A' }} - {{ slot.session.ends_at|date:'g:i A' }}</td>
+        <td>{{ slot.session.room.name }}</td>
+        <td>{{ slot.host.user.get_full_name|default:slot.host.user.username }}</td>
+        <td>{{ slot.places_taken }} / {{ slot.session.capacity }}</td>
+        <td><span class="status {% if slot.booking_status != 'Open' %}inactive{% endif %}">{{ slot.booking_status }}</span></td>
+        <td>{% if can_edit_sessions %}<a href="{% url 'scheduling:visit_slot_edit' school_slug=business.slug program_pk=slot.program_id pk=slot.pk %}">Edit</a>{% endif %}</td>
+      </tr>
+      {% endtimezone %}{% empty %}<tr><td colspan="7">No upcoming visit times.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+<h3>Family bookings</h3>
+<div class="table-wrap visit-table">
+  <table aria-label="Family bookings">
+    <thead><tr><th>Parent / guardian</th><th>Child</th><th>Visit date</th><th>Attending</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for item in bookings %}{% timezone item.slot.program.offering.location.timezone_name %}
+      <tr>
+        <td><a href="{% url 'scheduling:visit_detail' school_slug=business.slug public_id=item.public_id %}">{{ item.contact_name }}</a></td>
+        <td>{{ item.child_name }}</td>
+        <td>{{ item.slot.session.starts_at|date:'M j, Y, g:i A' }}</td>
+        <td>{{ item.adults }} adult{{ item.adults|pluralize }}, {{ item.children }} child{{ item.children|pluralize:'ren' }}</td>
+        <td><span class="status {% if item.state == 'canceled' %}inactive{% elif item.state == 'no_show' %}draft{% endif %}">{{ item.get_state_display }}</span></td>
+      </tr>
+      {% endtimezone %}{% empty %}<tr><td colspan="5">No family bookings yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="actions">{% if bookings.has_previous %}<a href="?location={{ selected_location.pk }}&amp;page={{ bookings.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ bookings.number }} of {{ bookings.paginator.num_pages }}</span>{% if bookings.has_next %}<a href="?location={{ selected_location.pk }}&amp;page={{ bookings.next_page_number }}">Next</a>{% endif %}</div>
+{% endblock %}

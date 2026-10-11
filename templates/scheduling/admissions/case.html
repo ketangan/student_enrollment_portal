@@ -1,0 +1,30 @@
+{% extends 'scheduling/base.html' %}
+{% load tz %}
+{% block title %}Admissions progress{% endblock %}
+{% block content %}
+<style>.admission-progress section { padding: 22px 0; border-top: 1px solid #dce2de; } .admission-progress { max-width: 760px; } .admission-progress h3 { margin: 0 0 12px; }</style>
+<a href="{% url 'school_lead_detail' school_slug=business.slug lead_id=case.lead_id %}">Enrollment lead</a>
+<h2>Admissions progress</h2><p>{{ case.lead.name }} &middot; {{ case.lead.email }}</p>
+<div class="admission-progress">
+<section><h3>1. Tour</h3>
+{% if case.tour_id %}<p>{{ case.tour.get_state_display }} &middot; {{ case.tour.child_name }}</p><a href="{% url 'scheduling:visit_detail' school_slug=business.slug public_id=case.tour.public_id %}">Tour booking &amp; attendance</a>
+{% else %}<p>No tour booked.</p>{% endif %}</section>
+<section><h3>2. Application</h3>
+{% if case.submission_id %}<p>Submitted</p><a href="{% url 'school_submission_detail' school_slug=business.slug submission_id=case.submission_id %}">View application</a>
+{% elif application_reason %}<p>{{ application_reason }}</p>{% else %}<p>Ready for the family to apply.</p>{% if can_approve %}<form method="post" action="{% url 'school_lead_start_enrollment' school_slug=business.slug lead_id=case.lead_id %}">{% csrf_token %}<button class="primary">Open application</button></form>{% endif %}{% endif %}
+{% if can_approve and case.policy.application_release == 'staff' and not case.submission_id and not case.application_released_at %}
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="release_application"><input type="hidden" name="revision" value=""><button class="primary">Release application</button></form>{% endif %}
+</section>
+<section><h3>3. Playdate</h3>
+{% if booking_admissions.booking %}{% with item=booking_admissions.booking %}{% timezone item.slot.program.offering.location.timezone_name %}
+<p>{{ item.get_state_display }} &middot; <strong>{{ item.slot.session.starts_at|date:'D, M j, Y, g:i A' }}</strong></p>
+<p>{{ item.slot.program.offering.location.name }} &middot; {{ item.slot.session.room.name }}</p>
+<a href="{% url 'scheduling:visit_detail' school_slug=business.slug public_id=item.public_id %}">Playdate booking &amp; attendance</a>
+{% endtimezone %}{% endwith %}
+{% else %}<p>{{ playdate_reason|default:'Ready for the family to choose a playdate.' }}</p>{% endif %}
+{% if case.submission_id %}<p><a href="{% url 'family_status' school_slug=business.slug token=case.submission.status_token %}">Parent status page</a></p>{% endif %}
+{% if can_approve and case.policy.playdate_release == 'staff' and case.submission_id and not case.playdate_released_at %}
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="release_playdate"><input type="hidden" name="revision" value=""><button class="primary">Release playdate booking</button></form>{% endif %}
+</section>
+</div>
+{% endblock %}

@@ -27,6 +27,7 @@ from core.views import admin_download_submission_file, ratelimited_error_view
 from core.views_health import healthz
 from core.views_login import login_view, logout_view, demo_access_view
 from core.views_webhooks import webhook_lead_intake_view
+from scheduling.experience_demo.previews import preview as booking_integration_preview
 
 handler429 = ratelimited_error_view
 
@@ -57,6 +58,9 @@ urlpatterns = [
     ), name="password_reset_complete"),
 
     path("ops/", include("core.urls_ops")),
+    path("bookings/", include("scheduling.urls")),
+    path("demo/plushumi/integrations/", booking_integration_preview, name="booking_integration_preview"),
+    path("demo/plushumi/integrations/<slug:variant>.html", booking_integration_preview, name="booking_integration_variant"),
     path("admin/uploads/<int:file_id>/", admin_download_submission_file, name="admin_download_submission_file"),
     # Anyone who lands on the Django admin login (wrong URL, old bookmark) gets sent
     # to the real app login. Must be declared before the admin.site.urls mount.
@@ -69,4 +73,3 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-

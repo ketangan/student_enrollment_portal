@@ -1,0 +1,20 @@
+{% extends 'scheduling/visits/public_base.html' %}
+{% block content %}
+<section class="visit-receipt">
+  <h1>{% if item.state == 'booked' %}Your {{ item.slot.program.get_kind_display|lower }} is confirmed{% else %}{{ item.slot.program.get_kind_display }}: {{ item.get_state_display }}{% endif %}</h1>
+  {% include 'scheduling/visits/time.html' with slot=item.slot %}
+  <p>{{ item.contact_name }} &middot; {{ item.child_name }}</p>
+  <p>{{ item.adults }} adult{{ item.adults|pluralize }} and {{ item.children }} child{{ item.children|pluralize:'ren' }}</p>
+  <p>No payment required.</p>
+  {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+  {% if pilot %}<p>Questions? <a href="mailto:{{ pilot.contact_email }}">{{ pilot.contact_email }}</a></p>
+  {% if can_change %}<details><summary>Change your visit time</summary><form method="post" class="setup-form" action="{% url 'scheduling:visit_family_change' school_slug=business.slug public_id=item.public_id %}">{% csrf_token %}{% include 'scheduling/visits/move_fields.html' %}</form></details>
+  <details><summary>Cancel this visit</summary><form method="post" action="{% url 'scheduling:visit_family_change' school_slug=business.slug public_id=item.public_id %}">{% csrf_token %}<input type="hidden" name="version" value="{{ item.version }}"><p>This releases your places. Your application stays saved.</p><button name="action" value="cancel">Confirm cancellation</button></form></details>
+  {% elif item.state == 'booked' %}<p>Contact the school to change this visit.</p>{% endif %}
+  {% else %}<p>Please contact the school if you need to change your booking.</p>{% endif %}
+  {% if admissions %}<h2>Application</h2><p>{{ admissions.message }}</p>{% if admissions.status_url %}<a href="{{ admissions.status_url }}">View application status</a>{% elif admissions.allowed %}<form method="post" action="{% url 'scheduling:visit_application' school_slug=business.slug public_id=item.public_id %}">{% csrf_token %}<button class="primary">Start application</button></form>{% endif %}{% endif %}
+  {% if item.admission_case_id %}<p><a href="{% url 'family_status' school_slug=business.slug token=item.admission_case.submission.status_token %}">Application status</a></p>{% endif %}
+  {% if not item.admission_case_id %}<a href="{% url 'scheduling:visit_catalogue' school_slug=business.slug %}">All tour times</a>{% endif %}
+  {% if pilot %}<p><a href="{% url 'scheduling:visit_recover' school_slug=business.slug %}">Email me a return link</a></p><form method="post" action="{% url 'scheduling:visit_family_change' school_slug=business.slug public_id=item.public_id %}">{% csrf_token %}<button name="action" value="signout">Close visit access</button></form>{% endif %}
+</section>
+{% endblock %}

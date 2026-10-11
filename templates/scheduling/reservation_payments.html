@@ -1,0 +1,20 @@
+<div class="reservation-payment-actions">
+{% if item.state != 'canceled' %}<a class="button primary" href="{{ payment_url }}">Open customer payment page</a>{% endif %}
+{% if item.state == 'canceled' and amounts.net_cents %}<a class="button" href="{% url 'scheduling:refund_create' school_slug=business.slug public_id=item.public_id %}">Review refund</a>{% endif %}
+{% if item.state == 'completed' and overpaid %}<a class="button" href="{% url 'scheduling:refund_create' school_slug=business.slug public_id=item.public_id %}">Refund excess payment</a>{% endif %}
+{% if item.state == 'confirmed' and overpaid %}<a class="button" href="{% url 'scheduling:refund_create' school_slug=business.slug public_id=item.public_id %}">Refund excess payment</a>{% endif %}
+</div>
+{% if attempts or refunds or item.state == 'review' %}<details class="reservation-payment-status" {% if checkout_pending or refunds or item.state == 'review' %}open{% endif %}><summary>Payment &amp; refund status</summary>
+{% for attempt in attempts %}<div class="payment-operation"><h3>{{ attempt.get_state_display }} &middot; ${{ attempt.amount|floatformat:2 }}</h3>
+{% if attempt.attention %}<p class="notice error" role="alert">{{ attempt.attention }}</p>{% endif %}
+{% if attempt.state != 'paid' and attempt.state != 'expired' %}
+{% if attempt.close_requested %}<p>Checkout closure requested. Waiting for verification.</p>{% endif %}
+<form method="post" action="{% url 'scheduling:payment_recover' school_slug=business.slug public_id=item.public_id attempt_id=attempt.public_id %}">{% csrf_token %}<button name="action" value="check">Check payment status</button></form>
+<form class="withdraw-form" method="post" action="{% url 'scheduling:payment_recover' school_slug=business.slug public_id=item.public_id attempt_id=attempt.public_id %}">{% csrf_token %}<label><input type="checkbox" name="confirm" value="yes" required> Stop this checkout from accepting payment</label><button name="action" value="close">Close checkout</button></form>
+{% endif %}</div>{% endfor %}
+{% if item.state == 'review' %}<form class="withdraw-form" method="post" action="{% url 'scheduling:payment_review' school_slug=business.slug public_id=item.public_id %}">{% csrf_token %}<label><input type="checkbox" name="confirm" value="yes" required> Confirm this booking if capacity and payment are valid</label><button>Recheck and confirm</button></form>{% endif %}
+{% for refund in refunds %}<div class="payment-operation"><h3>{{ refund.get_state_display }} &middot; ${{ refund.amount|floatformat:2 }}</h3><p>{{ refund.reason }}</p>
+{% if refund.attention %}<p class="notice error" role="alert">{{ refund.attention }}</p>{% endif %}
+{% if refund.state == 'requires_action' %}<p class="notice error">Check this refund in the payment provider's dashboard. It has not been recorded as completed.</p>{% endif %}
+{% if refund.state != 'succeeded' and refund.state != 'failed' and refund.state != 'canceled' %}<form method="post" action="{% url 'scheduling:refund_recover' school_slug=business.slug public_id=item.public_id refund_id=refund.public_id %}">{% csrf_token %}<button>Check refund status</button></form>{% endif %}</div>{% endfor %}
+</details>{% endif %}

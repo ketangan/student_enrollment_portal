@@ -1,0 +1,26 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Admissions workflow{% endblock %}
+{% block content %}
+<style>
+  .admission-settings fieldset { border: 0; padding: 0; margin: 0 0 24px; min-width: 0; }
+  .admission-settings legend { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+  .admission-settings .status-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .admission-settings .status-options label { display: flex; gap: 10px; align-items: center; font-size: 14px; }
+  .admission-settings .status-options input { width: 20px; height: 20px; flex-shrink: 0; }
+  @media(max-width: 500px) { .admission-settings .status-options { grid-template-columns: 1fr; } }
+</style>
+<h2>Admissions workflow</h2>
+<form method="post" class="setup-form admission-settings" novalidate>{% csrf_token %}
+{{ form.non_field_errors }}{% include 'scheduling/form_hidden_fields.html' %}
+{% for field in form.visible_fields %}
+{% if field.name == 'eligible_statuses' %}
+<fieldset><legend>{{ field.label }}</legend><div class="status-options">
+{% for choice in field %}<label>{{ choice.tag }} {{ choice.choice_label }}</label>{% endfor %}
+</div>{{ field.errors }}</fieldset>
+{% else %}
+<div class="form-field {% if field.field.widget.input_type == 'checkbox' %}check-field{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>
+{% endif %}
+{% endfor %}
+<div class="actions"><button class="primary">Save workflow</button><a href="{% url 'scheduling:visits' school_slug=business.slug %}">Cancel</a></div>
+</form>
+{% endblock %}

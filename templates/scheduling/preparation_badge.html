@@ -1,0 +1,4 @@
+{% if item.state == 'canceled' %}<span class="prep-badge muted"><i data-lucide="minus" aria-hidden="true"></i> Not required</span>
+{% elif item.state == 'completed' or item.prepared_at or item.materials_used %}<span class="prep-badge prep-complete"><i data-lucide="circle-check" aria-hidden="true"></i> Complete</span>
+{% elif item.state == 'confirmed' %}<span class="prep-badge prep-pending"><i data-lucide="clock" aria-hidden="true"></i> Preparation Pending</span>
+{% else %}<span class="prep-badge muted"><i data-lucide="pause" aria-hidden="true"></i> On hold</span>{% endif %}

@@ -1150,7 +1150,18 @@
         </div>
       </div>
 
-      {% if playdate %}
+      {% if booking_admissions %}
+      <section class="dash-card" style="padding:18px 22px;">
+        <h2 class="sidebar-label">Playdate</h2>
+        {% if booking_admissions.booking %}
+        <p>{{ booking_admissions.booking.get_state_display }} &middot; {{ booking_admissions.booking.child_name }}</p>
+        {% include 'scheduling/visits/time.html' with slot=booking_admissions.booking.slot %}
+        {% endif %}
+        <p>{{ booking_admissions.message|default:'Ready for the family to choose a playdate.' }}</p>
+        {% if linked_lead %}<p><a href="{% url 'scheduling:admission_case' school_slug=school_slug lead_pk=linked_lead.pk %}">Admissions progress</a></p>{% endif %}
+        <a href="{{ booking_admissions.url }}">Parent playdate page</a>
+      </section>
+      {% elif playdate %}
       <section class="dash-card" id="playdate-schedule" aria-labelledby="playdate-heading" style="padding:18px 22px;">
         <h2 class="sidebar-label" id="playdate-heading">Playdate Schedule</h2>
         {% if playdate.label %}

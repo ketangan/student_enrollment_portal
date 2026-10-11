@@ -1,0 +1,3 @@
+{% extends 'scheduling/public_base.html' %}
+{% block title %}School visits{% endblock %}
+{% block public_home %}{% url 'scheduling:visit_catalogue' school_slug=business.slug %}{% endblock %}

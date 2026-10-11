@@ -1,0 +1,12 @@
+{% extends 'scheduling/family_base.html' %}{% load tz %}
+{% block title %}Lesson booking{% endblock %}
+{% block content %}{% timezone series.snapshot.timezone %}
+<h1>{% if item.state == 'scheduled' %}Your lesson is booked{% else %}Lesson {{ item.get_state_display|lower }}{% endif %}</h1>
+<section class="location-section"><h2>{{ series.snapshot.student }} &middot; {{ series.snapshot.service }}</h2>
+<p><strong>{{ item.starts_at|date:'l, M j, Y' }} at {{ item.starts_at|time:'g:i A' }}</strong> &middot; {{ series.snapshot.duration_minutes }} minutes</p><p>{{ series.snapshot.teacher }} &middot; {{ series.snapshot.location }}{% if series.snapshot.room %} &middot; {{ series.snapshot.room }}{% endif %}</p>
+<p>{% if booking.order_id %}Quoted price: ${{ booking.order.total|floatformat:2 }}. Please contact the studio about payment or refunds.{% else %}No charge.{% endif %}</p>
+<p class="muted">Reference: {{ booking.public_id }}</p></section>
+<p class="notice">Local preview: your confirmation is saved, but no email has been sent.</p>
+<p>Contact the studio to change or cancel this lesson.</p>
+{% if booking.grant_id %}<a class="button primary" href="{% url 'scheduling:family_schedule' school_slug=business.slug %}">Back to family schedule</a>{% else %}<a href="{% url 'scheduling:lesson_trials' school_slug=business.slug %}">Trial lessons</a>{% endif %}
+{% endtimezone %}{% endblock %}

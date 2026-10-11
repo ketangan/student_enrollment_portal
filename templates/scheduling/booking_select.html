@@ -1,0 +1,14 @@
+{% extends 'scheduling/family_base.html' %}{% load tz %}
+{% block title %}{{ offer.title }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{% if family %}{% url 'scheduling:family_booking' school_slug=business.slug %}{% else %}{% url 'scheduling:lesson_trials' school_slug=business.slug %}{% endif %}">All lessons</a>
+<h1>{{ offer.title }}</h1><p>{{ offer.teacher }} &middot; {{ offer.service.duration_minutes }} minutes &middot; {{ offer.location }}{% if offer.room %} &middot; {{ offer.room.name }}{% endif %}</p>
+<p>{% if offer.fee_cents %}<strong>${{ offer.price|floatformat:2 }}</strong> &middot; Payment collected by the studio{% else %}Free lesson{% endif %}</p>
+<form method="get" class="actions family-filters">{{ selection.as_div }}<button type="submit">Show times</button></form>
+{% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+{% if slots %}<form method="post" class="lesson-booking-form">{% csrf_token %}
+<fieldset class="slot-fieldset"><legend>Available times</legend><div class="booking-slots">{% for slot in slots %}{% timezone offer.location.timezone_name %}<label><input type="radio" name="slot" value="{{ slot.token }}" required><span>{{ slot.starts_at|time:'g:i A' }}</span></label>{% endtimezone %}{% endfor %}</div></fieldset>
+{% if form %}<div class="setup-form">{% include 'scheduling/lesson_fields.html' %}</div>{% endif %}
+<p>Contact the studio to change or cancel a booking.</p><button type="submit" class="primary">Book this lesson{% if offer.fee_cents %} &middot; ${{ offer.price|floatformat:2 }} at studio{% endif %}</button>
+</form>{% elif not selection.errors %}<p class="notice">No times available on this date. Choose another date.</p>{% endif %}
+{% endblock %}

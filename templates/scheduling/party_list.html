@@ -1,0 +1,13 @@
+{% extends 'scheduling/base.html' %}{% load tz %}
+{% block title %}Party inquiries{% endblock %}
+{% block content %}
+{% include 'scheduling/location_filter.html' %}
+<h2>Party inquiries</h2><p class="muted">Original inquiries and their current reservation status.</p>
+<nav class="actions list-filter" aria-label="Party filter"><a href="?location={{ selected_location.pk }}" {% if not review_only %}aria-current="page"{% endif %}>All inquiries</a><a href="?review=1&amp;location={{ selected_location.pk }}" {% if review_only %}aria-current="page"{% endif %}>Awaiting review</a></nav>
+<div class="table-wrap request-table" tabindex="0" role="region" aria-label="Party inquiries"><table><thead><tr><th scope="col">Organizer</th><th scope="col">Workshop / preferred time</th><th scope="col">Group / space</th><th scope="col">Status</th></tr></thead><tbody>
+{% for item in items %}<tr><th scope="row"><a href="{% url 'scheduling:party_detail' school_slug=business.slug public_id=item.public_id %}">{{ item.organizer_name }}</a><p class="muted">{{ item.organizer_email }}</p></th>
+<td>{{ item.offering_snapshot.workshop }}{% timezone item.offering_snapshot.timezone %}<p class="muted">{{ item.starts_at|date:"M j, Y, g:i A" }}</p>{% endtimezone %}</td>
+<td>{{ item.group_size }} participants<p class="muted">{{ item.get_space_display }}</p></td><td>{% if item.reservation %}<a href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.reservation.public_id %}">{% include 'scheduling/reservation_status.html' with item=item.reservation %}</a>{% else %}<span class="status {% if item.status == 'pending' %}draft{% elif item.status == 'reviewed' %}info{% else %}inactive{% endif %}">{{ item.get_status_display }}</span>{% endif %}</td></tr>
+{% empty %}<tr><td colspan="4">{% if review_only %}No inquiries awaiting review.{% else %}No party inquiries yet.{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+{% if items.has_other_pages %}<nav class="pagination" aria-label="Party inquiry pages">{% if items.has_previous %}<a aria-label="Previous page" href="?location={{ selected_location.pk }}&amp;page={{ items.previous_page_number }}{% if review_only %}&amp;review=1{% endif %}">&larr;</a>{% endif %}<span>{{ items.number }} / {{ items.paginator.num_pages }}</span>{% if items.has_next %}<a aria-label="Next page" href="?location={{ selected_location.pk }}&amp;page={{ items.next_page_number }}{% if review_only %}&amp;review=1{% endif %}">&rarr;</a>{% endif %}</nav>{% endif %}
+{% endblock %}

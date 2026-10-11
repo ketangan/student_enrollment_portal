@@ -1,0 +1,23 @@
+{% extends 'scheduling/base.html' %}{% load material_numbers %}{% load static %}
+{% block title %}{{ catalog.name }} | Catalog{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:catalogs' school_slug=business.slug %}"><i data-lucide="arrow-left" aria-hidden="true"></i> Catalog</a>
+<div class="section-heading"><h2>{{ catalog.name }}</h2>{% if can_edit_setup %}<div class="actions"><a class="button" href="{% url 'scheduling:inventory_catalog_edit' school_slug=business.slug catalog_pk=catalog.pk %}">Rename</a><a class="button primary" href="{% url 'scheduling:catalog_design_new' school_slug=business.slug catalog_pk=catalog.pk %}"><i data-lucide="plus" aria-hidden="true"></i> Add design</a></div>{% endif %}</div>
+<form method="get" class="stock-filter"><label>Search designs<input type="search" name="q" value="{{ query }}" maxlength="100" placeholder="Design name"></label><button class="primary">Search</button>{% if query %}<a href="?">Clear</a>{% endif %}</form>
+<div class="design-catalog">
+{% for design in designs %}
+<details class="design-entry" {% if forloop.first %}open{% endif %}>
+<summary class="design-entry-heading">
+<i data-lucide="chevron-right" class="design-disclosure" aria-hidden="true"></i>
+{% if design.option.image_url %}<img class="design-catalog-photo" src="{{ design.option.image_url }}" alt="{{ design.option.label }}">{% elif design.preview %}<span class="design-catalog-photo" role="img" aria-label="{{ design.option.label }}" style="background-image:url('{{ design.reference_image }}');background-size:500% 300%;background-position:{{ design.preview.x }} {{ design.preview.y }}"></span>{% else %}<span class="design-catalog-placeholder"><i data-lucide="shapes" aria-hidden="true"></i></span>{% endif %}
+<div><h3>{{ design.option.label }}</h3><span class="status {% if not design.option.is_active %}inactive{% endif %}">{% if design.option.is_active %}Visible{% else %}Hidden{% endif %}</span></div>
+{% if can_edit_setup %}<a class="button design-edit" href="{% url 'scheduling:catalog_design_edit' school_slug=business.slug catalog_pk=catalog.pk pk=design.option.pk %}"><i data-lucide="pencil" aria-hidden="true"></i> Edit design</a>{% endif %}
+</summary>
+<div class="table-wrap"><table class="dash-table recipe-summary"><thead><tr><th>Color / variant</th><th>Materials for one participant</th><th>Recipe</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
+{% for variant in design.variants %}<tr><th scope="row">{{ variant.name }}{% if not variant.is_active %} <span class="status inactive">Hidden</span>{% endif %}</th><td>{% for row in variant.requirements.all %}<span class="recipe-material">{{ row.material.name }} <strong>{{ row.quantity|material_amount }} {{ row.material.unit }}</strong></span>{% empty %}<span class="muted">No recipe</span>{% endfor %}</td><td><span class="prep-badge {% if variant.recipe_ready %}prep-complete{% else %}prep-pending{% endif %}">{% if variant.recipe_ready %}Ready{% else %}Needs attention{% endif %}</span></td><td>{% if can_edit_setup %}<a class="button" href="{% url 'scheduling:catalog_recipe' school_slug=business.slug catalog_pk=catalog.pk pk=variant.pk %}">Edit recipe</a>{% endif %}</td></tr>{% empty %}<tr><td colspan="4">No colors selected.</td></tr>{% endfor %}
+</tbody></table></div>
+</details>
+{% empty %}<p class="empty-state">{% if query %}No designs match your search.{% else %}No designs yet.{% endif %}</p>{% endfor %}
+</div>
+{% if page_obj.has_other_pages %}<nav class="pagination" aria-label="Design pages">{% if page_obj.has_previous %}<a href="?q={{ query|urlencode }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}<span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a href="?q={{ query|urlencode }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
+{% endblock %}
