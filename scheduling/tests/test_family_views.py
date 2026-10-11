@@ -176,6 +176,7 @@ def test_https_same_origin_csrf_post_and_persistent_family_session(music):
 
 
 @override_settings(RATELIMIT_ENABLE=True)
+@pytest.mark.usefixtures("rate_limit_clock")
 def test_exchange_rate_limited(music):
     cache.clear()
     client=Client()

@@ -337,6 +337,7 @@ def test_tenant_and_receipt_privacy_escaping_and_injected_fields(client, party_o
     assert client.get(route("parties", party_offering)).status_code == 404
 
 
+@pytest.mark.usefixtures("rate_limit_clock")
 def test_csrf_rate_limiting_and_empty_list(party_offering, booking_member):
     client = Client(enforce_csrf_checks=True)
     data = begin(client, party_offering)

@@ -208,6 +208,7 @@ def test_csrf_protection_for_guest_and_staff(music,offer):
     assert client.post(path(music,"lesson_booking_offer_new"),offer_data(offer)).status_code==403
 
 
+@pytest.mark.usefixtures("rate_limit_clock")
 def test_rate_limits_prevent_repeated_booking_submissions(music,offer,settings):
     from django.core.cache import cache
     settings.RATELIMIT_ENABLE=True

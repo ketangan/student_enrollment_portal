@@ -347,6 +347,7 @@ def test_cross_tenant_ids_and_public_data_remain_private(client, booking_member,
     assert b"Alex Parent" not in public.content and b"alex@example.com" not in public.content
 
 
+@pytest.mark.usefixtures("rate_limit_clock")
 def test_csrf_rate_limits_and_empty_request_list(booking_member, workshop):
     client = Client(enforce_csrf_checks=True)
     data = begin(client, workshop)

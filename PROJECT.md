@@ -12,6 +12,15 @@ The comparison hub is https://demo.mypontora.com/demo/plushumi/integrations/.
 Read [the production release checklist](docs/scheduling-shared-production-release.md)
 for migration rehearsal, regression evidence, rollback and final deployment status.
 
+October 10 post-release audit: SBMC is active at USD 24.99/month in Stripe, with no
+pending cancellation or payment deadline. Shared billing code WAS included in the
+release, but the existing Stripe endpoint subscribes only to checkout/subscription
+events, not the invoice events required for new alerts/recovery. Provider setup and
+end-to-end email verification remain open; do not claim those are fully operational.
+See [payment activation status](docs/payment-alerts-and-recovery.md).
+The documentation-only CI failure was a real-clock rate-window test assumption;
+the deployed merge's CI passed. Its correction is test-only, with no production restart.
+
 Kid Works go-live (October 8, 2026): the agreement is signed; configuration and launch
 acceptance are pending. Use the [Kid Works go-live checklist](docs/kidworks-go-live.md)
 before making changes. Dinuka's meeting requirements supersede the outdated website

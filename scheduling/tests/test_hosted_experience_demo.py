@@ -3,11 +3,11 @@ from types import SimpleNamespace
 
 import pytest
 from django.contrib.auth import get_user_model
-from django.core.cache import cache
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import Client
 from django.urls import reverse
+from django_ratelimit import core as ratelimit_core
 
 from core.models import School
 from scheduling.experience_demo import config
@@ -130,14 +130,28 @@ def test_csrf_not_disabled_for_hosted_customer_posts(demo, hosted):
     assert response.status_code == 403
 
 
-def test_hosted_get_and_post_abuse_limits(demo, hosted, settings):
+@pytest.mark.parametrize("method,endpoint,limit,allowed_status", [
+    ("get", "start", 60, 200),
+    ("post", "choose", 10, 400),
+])
+@pytest.mark.parametrize("at_window_end", [False, True])
+def test_hosted_get_and_post_abuse_limits(
+        demo, hosted, settings, rate_limit_clock, method, endpoint, limit,
+        allowed_status, at_window_end):
     settings.RATELIMIT_ENABLE = True
-    cache.clear()
-    try:
-        results = [hosted.get(url("start"), secure=True).status_code for _ in range(61)]
-        assert results[-1] in {403, 429}
-        session = demo.locations.first().offerings.first().sessions.first()
-        results = [hosted.post(url("choose", pk=session.pk), {}, secure=True).status_code for _ in range(11)]
-        assert results[-1] in {403, 429}
-    finally:
-        cache.clear()
+    session = demo.locations.first().offerings.first().sessions.first()
+    path = url(endpoint, **({"pk": session.pk} if endpoint == "choose" else {}))
+    send = getattr(hosted, method)
+    window_end = ratelimit_core._get_window("127.0.0.1", 60)
+    if at_window_end:
+        rate_limit_clock.now = window_end
+
+    results = [send(path, secure=True).status_code for _ in range(limit)]
+    assert results == [allowed_status] * limit
+    assert send(path, secure=True).status_code == 403
+    assert send(path, secure=True, REMOTE_ADDR="192.0.2.17").status_code == allowed_status
+
+    rate_limit_clock.now = window_end
+    assert send(path, secure=True).status_code == 403
+    rate_limit_clock.now = window_end + 1
+    assert send(path, secure=True).status_code == allowed_status

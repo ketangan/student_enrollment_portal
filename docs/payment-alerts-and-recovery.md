@@ -1,9 +1,23 @@
 # Payment alerts and subscription recovery
 
-Status: implemented locally; deployment and real Stripe/email verification are still required.
-No production data, live Stripe configuration, cards, or customer emails were changed.
+Status (October 10, 2026): code and migrations deployed in `31220c5`; provider setup
+and real Stripe/email verification are NOT complete. Do not describe payment alerts
+or seven-day invoice-failure recovery as operational yet.
 
-## Isolated release verification
+A read-only live check found the platform webhook enabled on the existing Render
+hostname for `checkout.session.completed`, `customer.subscription.updated` and
+`customer.subscription.deleted` only. The invoice events in the setup checklist below
+are not subscribed. No webhook, card, price or subscription setting was changed.
+SBMC remains active at USD 24.99/month, with no pending cancellation, no local payment
+deadline and no scheduling profile. This confirms current state, not a simulated/live
+end-to-end renewal, decline or email-delivery test.
+
+The deployed release DID change shared billing code: alerts/recovery, owner-only billing
+access, duplicate-subscription protection, Stripe-backed custom-plan portal access and
+per-request Stripe credentials. These are shared behaviors, not Kid Works-only changes.
+An active SBMC subscription is not migrated to a new price or charged by the deployment.
+
+## Historical Isolated Release Verification
 
 The enrollment/billing release is packaged independently of the still-uncommitted scheduling module.
 It includes platform subscription/invoice alerts, school-owned application-payment alerts, the shared

@@ -50,6 +50,30 @@ October 10, 2026 (Pacific). Released and verified on the existing shared service
   `/demo/plushumi/integrations/`, with `inline.html` and `modal.html` beneath it.
   Both wrappers embed the actual customer workflow, never a copied form.
 
+## Post-release CI Follow-up
+
+- The deployed merge's run `38115747467` passed. Documentation-only follow-up
+  `9f24e41` failed in run `38116354511`; application code was identical and that
+  documentation commit did not trigger another Render deployment.
+- Failure: `test_hosted_get_and_post_abuse_limits` expected request 61 to be blocked,
+  but its real-clock loop could cross django-ratelimit's IP-offset minute window.
+  A new window legitimately accepts that request. This was a nondeterministic test,
+  not a payment failure or evidence of a production payment regression.
+- Correction is confined to tests: an opt-in controlled clock for the limiter and
+  cache, explicit allowed/blocked limits, independent-IP behavior and recovery after
+  the window boundary. Four other scheduling rate-limit tests use the same fixture.
+  No production rate, payment code, migration or provider configuration is changed.
+- A read-only provider audit confirmed SBMC active at USD 24.99/month without a
+  pending cancellation or local payment deadline. It also found invoice webhook
+  subscriptions still missing: [billing activation status](payment-alerts-and-recovery.md).
+  Shared billing code was deployed; billing notification activation is not complete.
+- Local correction verification: 3,700 Python tests and 49 JavaScript tests passed;
+  measured scheduling/payment/testing code has 99.48% combined statement/branch
+  coverage, with every measured module above 90%. Migration drift check passed.
+  The billing/settings page was also checked read-only for SBMC: active subscription,
+  no overdue banner, no scheduling menu. No live payment or customer email was tested.
+  The corrective commit uses `[skip render]`; GitHub CI must be checked independently.
+
 ## Hosted Demo Controls
 
 - Defaults are off. Set `BOOKING_HOSTED_DEMO_SLUGS=plushumi-demo` and
