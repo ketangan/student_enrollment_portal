@@ -4,10 +4,11 @@ This file is the canonical reference for decisions made, work completed, work in
 and work planned. Update it after every meaningful commit or decision. It is written for
 both human and AI readability — future sessions should read this before doing anything.
 
-October 10 release decision: reuse the existing Render service and shared database;
-the user authorized production deployment after all release checks pass. Hosted Plushumi
-must remain a demo tenant; no SBMC scheduling activation or global Stripe mode change.
-The pending scheduling release now includes guarded same-origin integration previews.
+October 10 release completed: revision `31220c5` is live on the existing Render service
+and shared database after CI passed. All 28 migrations ran automatically. Hosted Plushumi
+is a demo-only tenant; SBMC scheduling remains disabled and its active subscription and
+live enrollment pages passed verification. Real Stripe/Wix/Notion connections remain off.
+The comparison hub is https://demo.mypontora.com/demo/plushumi/integrations/.
 Read [the production release checklist](docs/scheduling-shared-production-release.md)
 for migration rehearsal, regression evidence, rollback and final deployment status.
 
@@ -23,10 +24,11 @@ see [impact analysis, tests and rollout notes](docs/kidworks-kw05-verification.m
 Kid Works has a reviewed per-school Starter override configuration and an explicit
 60-day trial-start workflow tied to the sent written go-live notice. Demos and setup
 do not consume that trial; checkout is blocked through its free period. Normal live
-schools retain existing defaults. This is not deployed or activated for Dinuka;
+schools retain existing defaults. The code was deployed October 10, but is not activated for Dinuka;
 KW-01/02/04 and the clean production launch/acceptance gates remain pending.
 
-October 8 release packaging: KW-05 and shared payment alerts/recovery are isolated from
+Historical October 8 release packaging (superseded by the October 10 release above):
+KW-05 and shared payment alerts/recovery were isolated from
 the pending scheduling release. The enrollment-only release passes 2,079 tests; the full
 local workspace passes 179 focused integration tests after optional-module separation.
 Desktop/mobile billing checks passed. See [payment release notes](docs/payment-alerts-and-recovery.md)

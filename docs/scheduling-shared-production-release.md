@@ -1,6 +1,40 @@
 # Shared Production Release: Plushumi Demo
 
-October 10, 2026. Release authorized after verification. Deployment pending.
+October 10, 2026 (Pacific). Released and verified on the existing shared service.
+
+## Deployed Result
+
+- GitHub PR #1 merged after CI passed: application revision `31220c5`.
+- Render deployment `dep-db5i4b7avr4c73f494h0` is live. Startup automatically applied
+  all 28 migrations; production has core 0062, payments 0003 and scheduling 0023.
+- Completed Render export: October 11, 2026 at 05:22 UTC. A separate private local
+  logical backup was restored successfully for the PostgreSQL 18 rehearsal.
+- The hosted seed committed 15 fictional Plushumi reservations. It verified all
+  pre-existing School rows and the 261 enrollment submissions were unchanged.
+  No scheduling profile was enabled for another school. A sixteenth fictional
+  reservation, `Pontora Release Check`, records the live browser verification.
+- SBMC live dashboard, submissions, leads, settings and billing were checked in
+  the browser. Its active custom subscription and existing navigation remained
+  unchanged. Public application, inquiry and parent-status pages returned 200.
+- Both hosted embeds load the actual booking workflow. Live browser checks covered
+  participant selection, review, simulated failure without confirmation, simulated
+  success, staff preparation and its reservation audit entry. The 390px modal had
+  no horizontal overflow; close, reopen, Escape and focus restoration passed.
+- Anonymous staff preparation redirects to login and remains frame-denied.
+  Customer demo pages allow same-origin frames only; wrapper pages remain noindex.
+- Admin access uses the existing Pontora operator account. The newly seeded
+  `plushumi-admin` has no usable password; no local `admin` password was deployed.
+- No real Stripe charge, Wix checkout, Notion sync or confirmation email was sent.
+  Payment controls explicitly simulate success/failure. Provider connections and
+  cross-origin Wix certification remain separate release gates, not completed work.
+
+### Live Links
+
+- Comparison hub: https://demo.mypontora.com/demo/plushumi/integrations/
+- Inline: https://demo.mypontora.com/demo/plushumi/integrations/inline.html
+- Modal: https://demo.mypontora.com/demo/plushumi/integrations/modal.html
+- Admin: https://app.mypontora.com/bookings/plushumi-demo/
+- Original storyboard: https://demo.mypontora.com/demo/plushumi/
 
 ## Scope and Architecture
 
@@ -45,8 +79,8 @@ October 10, 2026. Release authorized after verification. Deployment pending.
 - Database: PostgreSQL 18, Basic-256mb, 8.84% of 1 GB used at inspection.
 - Web: Starter, 512 MB / 0.5 CPU; observed recent memory around 35% and low traffic.
   This is headroom evidence, not a load-test guarantee.
-- Point-in-time recovery available for the prior three days. A Render export was
-  requested; a separate private local PostgreSQL 18 logical backup completed.
+- Point-in-time recovery available for the prior three days. A Render export and
+  a separate private local PostgreSQL 18 logical backup completed.
 - Restored that backup into an isolated local PostgreSQL 18 cluster. All 28 pending
   migrations applied: core 0061-0062, payments 0001-0003, scheduling 0001-0023.
 - Compared hashes/counts of original columns in all 18 existing core tables before
@@ -59,7 +93,8 @@ October 10, 2026. Release authorized after verification. Deployment pending.
 - Migration drift and static collection dry-run passed. Secret-pattern scan clean.
 - Browser: real embedded start/selections/review, simulated decline/success,
   desktop and 390px modal, close/reopen/Escape/focus, no horizontal overflow.
-- CI now uses PostgreSQL 18 to match Render. CI completion is required before merge.
+- CI uses PostgreSQL 18 to match Render. Run `38115062278` passed before merge:
+  3,697 tests, two warnings, 653.08 seconds; coverage gate 99.48%.
 
 ## Deploy and Verify
 
