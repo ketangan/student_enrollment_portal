@@ -1,5 +1,5 @@
 from collections import Counter
-from datetime import timezone as utc_timezone
+from datetime import timedelta, timezone as utc_timezone
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 import uuid
@@ -32,16 +32,21 @@ def money(cents):
     return Decimal(cents) / 100
 
 
-def sessions(profile):
+def booking_cutoff(*, online=False):
+    from scheduling.checkout import CHECKOUT_LEAD_TIME
+    return timezone.now() + (CHECKOUT_LEAD_TIME if online else timedelta())
+
+
+def sessions(profile, *, online=False):
     return Session.objects.filter(offering__location__profile=profile,
         offering__is_published=True, offering__visit_program__isnull=True, is_published=True,
-        starts_at__gt=timezone.now(), camps__isnull=True).select_related("offering__location__profile", "room").prefetch_related("camps").order_by("starts_at", "pk")
+        starts_at__gt=booking_cutoff(online=online), camps__isnull=True).select_related("offering__location__profile", "room").prefetch_related("camps").order_by("starts_at", "pk")
 
 
-def session_rows(profile):
+def session_rows(profile, *, online=False):
     result = []
     catalogs = {}
-    for session in sessions(profile)[:240]:
+    for session in sessions(profile, online=online)[:240]:
         key = ("catalog", session.offering.inventory_catalog_id) if session.offering.inventory_catalog_id else ("workshop", session.offering_id)
         if key not in catalogs:
             catalogs[key] = requests.catalog_for(session.offering)
@@ -109,6 +114,8 @@ def begin(profile, session, data, browser, config):
     profile.refresh_from_db()
     if not available(profile, require_intake=True):
         raise Http404
+    if session.starts_at <= booking_cutoff(online=bool(config.get("stripe_checkout"))):
+        raise ValidationError("Online booking has closed for this session. Choose another time.")
     catalog = requests.catalog_for(session.offering)
     body = payload(data, catalog)
     try:

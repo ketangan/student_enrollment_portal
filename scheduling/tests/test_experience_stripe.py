@@ -43,6 +43,39 @@ def open_stripe(browser, route, monkeypatch):
     return PaymentAttempt.objects.get(), create
 
 
+def test_online_calendar_and_direct_selection_hide_checkout_cutoff(stripe_demo, browser):
+    session, data = form_data(browser, stripe_demo, count=1)
+    start = timezone.now() + timedelta(minutes=30)
+    type(session).objects.filter(pk=session.pk).update(starts_at=start, ends_at=start + timedelta(hours=1))
+    response = browser.get(url("start"))
+    assert session.pk not in [row["id"] for row in response.context["sessions"]]
+    assert browser.get(url("choose", pk=session.pk)).status_code == 404
+    assert browser.post(url("choose", pk=session.pk), data).status_code == 404
+    PaymentAccount.objects.filter(school=stripe_demo.school).update(enabled=False)
+    assert session.pk in [row["id"] for row in browser.get(url("start")).context["sessions"]]
+    assert browser.get(url("choose", pk=session.pk)).status_code == 200
+
+
+def test_review_crossing_payment_cutoff_creates_no_reservation(stripe_demo, browser, monkeypatch):
+    from scheduling.experience_demo.config import context
+    from scheduling.requests import browser_key
+    now = timezone.now()
+    session, data = form_data(browser, stripe_demo, count=1)
+    type(session).objects.filter(pk=session.pk).update(starts_at=now + timedelta(minutes=50),
+        ends_at=now + timedelta(minutes=110))
+    review = browser.post(url("choose", pk=session.pk), data)
+    assert review.status_code == 200
+    data.update(action="checkout", review_token=review.context["review_token"])
+    request = review.wsgi_request
+    profile, config = context(request, SLUG)
+    session.refresh_from_db()
+    monkeypatch.setattr(timezone, "now", lambda: now + timedelta(minutes=11))
+    with pytest.raises(ValidationError, match="Choose another time"):
+        service.begin(profile, session, data, browser_key(request), config)
+    assert not stripe_demo.reservations.exists()
+    assert not stripe_demo.school.paymentorder_set.exists()
+
+
 def test_verified_payment_and_duplicate_returns(stripe_demo, browser, monkeypatch):
     route, item = booking(browser, stripe_demo)
     html = browser.get(route).content

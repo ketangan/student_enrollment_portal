@@ -113,6 +113,10 @@ pre-migration database backup was taken. Hosted payment evidence is still pendin
 An additional 311 billing/payment tests passed with independent gateway coverage: all modified
 test-checkout transport lines/branches are covered. That targeted run covers 86.34% of the entire
 pre-existing billing gateway; it is not a claim of full subscription-gateway coverage.
+Final review found and fixed a calendar/payment cutoff mismatch: online demo availability now
+uses the existing shared 40-minute checkout cutoff, including direct links and stale reviews.
+The offline simulator keeps its existing availability. All 118 affected demo/payment tests passed;
+the final release must pass full CI with this follow-up before deployment.
 
 ### October 10: Real Stripe Test Checkout (Historical Local Rehearsal)
 

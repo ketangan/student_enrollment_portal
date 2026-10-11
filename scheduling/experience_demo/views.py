@@ -44,7 +44,7 @@ def page(request, template, profile, config, values=None, status=200):
 @ratelimit(key="ip", rate="60/m", block=True)
 def start(request, school_slug):
     profile, config = context(request, school_slug)
-    rows = service.session_rows(profile) if profile.native_reservations_enabled else []
+    rows = service.session_rows(profile, online=config.get("stripe_checkout", False)) if profile.native_reservations_enabled else []
     order = {location["name"]: index for index, location in enumerate(config["locations"])}
     rows.sort(key=lambda row: order.get(row["location"], len(order)))
     return page(request, "start", profile, config, {"sessions": rows, "step": 1})
@@ -90,7 +90,8 @@ def choose(request, school_slug, pk):
         offering__visit_program__isnull=True)
     browser = requests.browser_key(request, create=True)
     catalog = requests.catalog_for(session.offering)
-    if not requests.accepts_reservations(session, catalog):
+    if (not requests.accepts_reservations(session, catalog)
+            or session.starts_at <= service.booking_cutoff(online=config.get("stripe_checkout", False))):
         raise Http404("This session is no longer available.")
     error, status = "", 200
     if request.method == "POST":
