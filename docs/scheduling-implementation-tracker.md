@@ -9,13 +9,16 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
-- **Hosted booking sandbox: release verification in progress.** User approved Pontora's shared
+- **Hosted booking sandbox: deployed and verified for the demo.** User approved Pontora's shared
   sandbox for demo businesses because Connect is not enabled. Superadmin payment-account settings
   replace the single-school environment switch; shared payment code has no customer-name branches.
-  Dedicated booking test credentials and a separate signed test webhook are configured. Activation
-  requires payment migration 0004, green CI, and provider/browser checks. `STRIPE_MODE` and SBMC
-  subscription settings stay unchanged. User declined a paid recovery job; manual recovery is the
-  accepted demo fallback. This does not complete the broader B1 subscription/email work below.
+  Dedicated booking test credentials and a separate signed test webhook are configured. Revision
+  `398f887` is live after green CI; payment migration 0004 ran automatically. Hosted desktop/mobile,
+  decline/success, unpaid retry, duplicate-event and webhook-only confirmation checks passed.
+  3,748 Python and 49 JavaScript tests passed; measured scheduling/payment coverage is 99.48%.
+  Baseline comparison confirms unchanged existing Render variables, SBMC school/subscription and
+  working enrollment pages. User declined a paid recovery job; manual recovery is the accepted
+  demo fallback. This does not complete broader B1 subscription/email work or a live paid pilot.
 
 - **P2 preview cleanup: Ready for your test.** Comparison options now navigate to
   a full booking page or the popup's own page; the old inline URL redirects rather than nesting
@@ -300,16 +303,16 @@ is active at USD 24.99/month; this task must not change its price or trigger a c
 7. Record sandbox/email evidence, then obtain live-activation approval and verify SBMC's
    subscription, price, owner access and normal enrollment pages remain unchanged.
 
-Hosted booking sandbox follow-up (October 11): deployment verification in progress. The dedicated
-test key/account identity and separate booking webhook are configured. Enable only Plushumi's
-demo `PaymentAccount` after migration 0004 and green CI. Other demo businesses can use the same
+Hosted booking sandbox follow-up (October 11): deployed and verified. The dedicated
+test key/account identity and separate booking webhook are configured. Only Plushumi's
+demo `PaymentAccount` is enabled after migration 0004 and green CI. Other demo businesses can use the same
 superadmin settings without code or per-school environment variables. Shared `STRIPE_MODE` stays
 live; booking credentials never fall back to subscription credentials.
 Hosted testing caught Stripe's rejection of the legacy payment-method request field. The
 booking-only correction uses a separate card-only test configuration and checks resolved
-methods during creation and recovery. A real unpaid API probe passed. The demo account is
-temporarily disabled until the corrected release passes regression and hosted payment checks;
-SBMC's live subscription checkout and Stripe default configurations are unchanged.
+methods during creation and recovery. The corrected release passed local regression, CI and real
+hosted card checks before final acceptance. SBMC's live subscription checkout and Stripe default
+configurations are unchanged. [Provider/browser evidence](scheduling-plushumi-demo.md#hosted-acceptance-evidence).
 
 Manual checks for this slice:
 1. As superadmin, open **Payments > Payment accounts**. Add a demo business, choose

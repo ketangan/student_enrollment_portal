@@ -1,7 +1,7 @@
 # Plushumi Working Demo
 
 Status: the working demo is hosted on the existing shared service. Shared sandbox Stripe
-activation is being verified (see below). Wix/Notion remain off. This is not a finished
+checkout is enabled and verified for Plushumi (see below). Wix/Notion remain off. This is not a finished
 self-service workshop product.
 
 [Customer booking](http://localhost:8002/bookings/plushumi-demo/experience/) |
@@ -72,7 +72,7 @@ No payment logic, provider settings, schema or other-school pages were changed.
 
 ### October 11: Hosted Booking Sandbox
 
-Release verification in progress. This supersedes the older local-only Stripe notes below.
+Deployed and verified for demo use. This supersedes the older local-only Stripe notes below.
 User approved Pontora's existing sandbox for demos and declined an additional paid recovery job.
 Real customer funds still require the merchant-owned account design; this change enables test
 payments only and must never route a customer's live revenue through the shared demo sandbox.
@@ -125,14 +125,46 @@ Hosted verification caught a provider compatibility failure: Stripe rejected the
 configuration, and validates the resolved card-only methods on both checkout creation and
 reconciliation. Unsupported/deferred methods cannot expose a checkout link or settle through
 recovery. Stripe accepted and immediately expired an unpaid API probe using this configuration;
-actual browser decline/success verification is still pending the corrected release. Plushumi's
-account is temporarily disabled during this correction. Live subscription checkout is unchanged.
+Plushumi's account was temporarily disabled during that correction. The corrected release then
+passed the hosted checks below. Live subscription checkout is unchanged.
 
 Correction verification: **3,748 Python tests passed** (351.69 seconds; two existing warnings),
 **49 JavaScript tests passed**, and migration drift/diff checks passed. Measured scheduling/shared
 payment coverage is **99.48%**, with every measured module above 90%; checkout is 100% and
 operator settings 98.75%. A fresh 390px browser saved and disabled the shared sandbox setting
 without overflow. These are pre-release results, not a substitute for the hosted card rehearsal.
+
+#### Hosted Acceptance Evidence
+
+- Runtime revision `398f88785535131a3447e27e67dfa9d200471228`; GitHub CI run
+  `38176700729` passed. Render deployment `dep-db606avavr4c73a9v0vg` became live at
+  2026-10-11 21:45:36 UTC. Payment migration 0004 was already applied by startup; no further
+  migration was introduced by the compatibility correction.
+- Full-page and popup flows used the actual customer pages and opened `checkout.stripe.com`
+  at the top level. Fresh 1280px and 390px browsers were exercised; confirmation/review images
+  were visually inspected and page-overflow checks passed.
+- The documented decline card produced Stripe's actual declined-card error. Provider state
+  stayed unpaid, the reservation stayed held and no ledger receipt was created. Retrying with
+  the success card produced exactly one $65 test receipt and a confirmed reservation.
+- Stripe's unpaid Back action preserved participant selections. Retrying reused the same
+  provider checkout rather than creating another attempt. Mobile successful checkout returned
+  to the confirmed booking, which remained correct after refresh.
+- A second test payment was submitted with all browser requests back to Pontora blocked,
+  then the browser closed while still on Stripe. Independent database/provider checks found
+  one signed completion webhook, one $65 test receipt and a confirmed reservation.
+- Replaying an already-received signed completion event returned 200 and left exactly one
+  ledger receipt and one event receipt. Three successful fictional QA bookings were retained.
+  One earlier API-rejected QA attempt remains unpaid/unknown for operator investigation; no
+  payment was fabricated or its uncertain-state safeguards bypassed to clear the record.
+- Final baseline comparison: no existing Render variable, SBMC school field or live subscription
+  field changed. SBMC application, inquiry and parent-status pages returned 200; no other school
+  gained a scheduling profile/payment account. Original Plushumi storyboard still returned 200.
+- Stripe's existing sandbox displays **New business sandbox** on its hosted page. No live money,
+  live merchant/default configuration, paid recovery job, Wix connection or Notion connection
+  was introduced. Test-email delivery and wider subscription recovery remain B1 work.
+
+The final evidence update changes documentation only; the runtime release above is the verified
+deployment. Use [the hosted comparison hub](https://demo.mypontora.com/demo/plushumi/integrations/).
 
 ### October 10: Real Stripe Test Checkout (Historical Local Rehearsal)
 
