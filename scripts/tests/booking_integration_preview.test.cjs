@@ -80,11 +80,9 @@ test('Escape from embedded content closes modal unless already handled',()=>{
   let prevented=false;ui.doc.emit('keydown',{key:'Escape',defaultPrevented:false,preventDefault:()=>{prevented=true;}});
   assert.equal(ui.dialog.open,false);assert.equal(prevented,true);
 });
-test('wrappers contain only a real iframe, never a re-created booking form',()=>{
-  for(const file of ['inline.html','modal.html']){
-    const html=fs.readFileSync(path.join(__dirname,'../../templates/scheduling/experience/integrations',file),'utf8');
-    assert.equal((html.match(/<iframe\b/g)||[]).length,1);
-    assert.doesNotMatch(html,/<form\b|srcdoc=|id="studio"|id="dates"/);
-    assert.match(html,/data-url="\/bookings\/plushumi-demo\/experience\/"/);
-  }
+test('popup contains only a real iframe, never a re-created booking form',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'../../templates/scheduling/experience/integrations/modal.html'),'utf8');
+  assert.equal((html.match(/<iframe\b/g)||[]).length,1);
+  assert.doesNotMatch(html,/<form\b|srcdoc=|id="studio"|id="dates"/);
+  assert.match(html,/data-url="\/bookings\/plushumi-demo\/experience\/"/);
 });

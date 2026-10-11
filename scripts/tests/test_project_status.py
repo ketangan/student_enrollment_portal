@@ -139,6 +139,19 @@ def test_inventory_verification_and_manual_steps_are_browsable():
     assert any(row["ID"] == "P3" for row in viewer.milestone_records(source))
 
 
+def test_stripe_followup_is_planned_and_browsable_with_acceptance_checks():
+    source = (viewer.ROOT / "docs/scheduling-implementation-tracker.md").read_text()
+    row = next(row for row in viewer.milestone_records(source) if row["ID"] == "B1")
+    assert row["Status"] == "Planned"
+    steps = viewer.manual_steps(source)["B1"]
+    for requirement in ("invoice.paid", "invoice.payment_failed", "send_payment_notifications",
+                        "Parent payment failures", "card", "seven-day", "SBMC"):
+        assert requirement in steps
+    assert 'href="/payment-recovery"' in viewer.overview(source)
+    status, _, body = viewer.response("/payment-recovery")
+    assert status == 200 and b"NOT complete" in body
+
+
 def test_m9a_verification_is_browsable_without_claiming_m9_complete():
     html = viewer.render_document("[Tours](scheduling-m9a-verification.md)", "docs/scheduling-implementation-tracker.md")
     assert 'href="/verification-m9a"' in html

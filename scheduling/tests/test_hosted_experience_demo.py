@@ -86,14 +86,34 @@ def test_hosted_opt_in_required_for_seed_and_routes(hosted):
 @pytest.mark.parametrize("variant", ["", "index.html", "inline.html", "modal.html"])
 def test_real_flow_wrappers_are_guarded_and_same_origin(demo, hosted, variant):
     response = hosted.get(ROOT + variant, secure=True)
-    assert response.status_code == 200
+    assert response.status_code == (302 if variant == "inline.html" else 200)
     assert response["X-Frame-Options"] == "DENY"
     assert "frame-src 'self'" in response["Content-Security-Policy"]
     assert "noindex" in response["X-Robots-Tag"]
-    if variant in {"inline.html", "modal.html"}:
+    if variant == "inline.html":
+        assert response.url == url("start")
+    if variant == "modal.html":
         assert b'data-url="/bookings/plushumi-demo/experience/"' in response.content
         assert b'<form' not in response.content
     assert hosted.post(ROOT + variant, secure=True).status_code == 405
+
+
+def test_booking_option_navigates_to_real_page_with_one_header(demo, hosted):
+    hub = hosted.get(ROOT, secure=True)
+    assert b'href="inline.html"' in hub.content and b'href="modal.html"' in hub.content
+    assert b"Booking page" in hub.content and b"View inline preview" not in hub.content
+    redirect = hosted.get(ROOT + "inline.html", secure=True)
+    assert redirect.status_code == 302 and redirect.url == url("start")
+    response = hosted.get(redirect.url, secure=True)
+    assert response.status_code == 200
+    assert response.content.count(b'<header class="brandbar">') == 1
+    assert b"<iframe" not in response.content
+    for page in (hub, response, hosted.get(ROOT + "modal.html", secure=True)):
+        assert b'class="preview-note"' not in page.content
+        assert b'class="demo-bar"' not in page.content
+        assert b"View assumptions" not in page.content
+        assert b"not connected" not in page.content
+        assert b"Same workshop and participant selections" not in page.content
 
 
 def test_only_public_demo_pages_can_be_framed(demo, hosted):
@@ -107,15 +127,17 @@ def test_only_public_demo_pages_can_be_framed(demo, hosted):
     assert hosted.get(ROOT + "unknown.html", secure=True).status_code == 404
 
 
-def test_wrong_host_plain_http_and_non_demo_tenant_rejected(demo, hosted):
-    assert hosted.get(ROOT).status_code == 404
-    assert hosted.get(ROOT, secure=True, HTTP_HOST="app.mypontora.com").status_code == 404
+@pytest.mark.parametrize("variant", ["", "inline.html", "modal.html"])
+def test_wrong_host_plain_http_and_non_demo_tenant_rejected(demo, hosted, variant):
+    path = ROOT + variant
+    assert hosted.get(path).status_code == 404
+    assert hosted.get(path, secure=True, HTTP_HOST="app.mypontora.com").status_code == 404
     config.settings.BOOKING_HOSTED_DEMO_HOSTS = []
-    assert hosted.get(ROOT, secure=True).status_code == 404
+    assert hosted.get(path, secure=True).status_code == 404
     config.settings.BOOKING_HOSTED_DEMO_HOSTS = [HOST]
     demo.school.is_demo = False
     demo.school.save()
-    assert hosted.get(ROOT, secure=True).status_code == 404
+    assert hosted.get(path, secure=True).status_code == 404
 
 
 def test_disabled_school_rejected(demo, hosted):

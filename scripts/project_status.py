@@ -14,6 +14,7 @@ from markdown_it import MarkdownIt
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCUMENTS = {
+    "/payment-recovery": ("Stripe alerts and recovery follow-up", "docs/payment-alerts-and-recovery.md"),
     "/verification-p3": ("Shared inventory and staff settings", "docs/scheduling-p3-verification.md"),
     "/plushumi-demo": ("Plushumi working demo", "docs/scheduling-plushumi-demo.md"),
     "/integrated-demo": ("School demo walkthrough", "docs/scheduling-integrated-demo.md"),

@@ -18,13 +18,13 @@
     host.dataset.state = 'loading';
     host.setAttribute('aria-busy', 'true');
     title.textContent = 'Loading workshop booking...';
-    detail.textContent = 'Connecting to the Pontora demo.';
+    detail.textContent = '';
     actions.hidden = true;
     frame.src = bookingURL.href;
     timeout = setTimeout(() => {
       host.dataset.state = 'slow';
       title.textContent = 'Booking is taking longer to load';
-      detail.textContent = 'The demo may be unavailable, or embedding may be blocked. You can retry or open it separately.';
+      detail.textContent = 'Please retry or open booking in a new tab.';
       actions.hidden = false;
     }, 12000);
   }
@@ -51,7 +51,7 @@
     } catch {
       host.dataset.state = 'error';
       title.textContent = 'Booking could not be embedded';
-      detail.textContent = 'The Pontora demo or its approved embedding configuration is unavailable. No replacement form is shown.';
+      detail.textContent = 'Please retry or open booking in a new tab.';
       actions.hidden = false;
     }
   });

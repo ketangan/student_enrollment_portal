@@ -17,7 +17,9 @@ pending cancellation or payment deadline. Shared billing code WAS included in th
 release, but the existing Stripe endpoint subscribes only to checkout/subscription
 events, not the invoice events required for new alerts/recovery. Provider setup and
 end-to-end email verification remain open; do not claim those are fully operational.
-See [payment activation status](docs/payment-alerts-and-recovery.md).
+See [payment activation status](docs/payment-alerts-and-recovery.md) and milestone **B1**
+in the [implementation tracker](docs/scheduling-implementation-tracker.md#manual-testing)
+for the open setup, delivery and recovery checklist.
 The documentation-only CI failure was a real-clock rate-window test assumption;
 the deployed merge's CI passed. Its correction is test-only, with no production restart.
 

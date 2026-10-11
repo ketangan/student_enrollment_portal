@@ -4,6 +4,10 @@ October 10, 2026 (Pacific). Released and verified on the existing shared service
 
 ## Deployed Result
 
+Presentation follow-up: [booking-page/popup cleanup](scheduling-plushumi-demo.md#preview-navigation-and-copy-cleanup)
+replaces the earlier inline wrapper. Historical initial-deployment evidence below describes
+revision `31220c5`; the later cleanup does not change payment logic, data or schema.
+
 - GitHub PR #1 merged after CI passed: application revision `31220c5`.
 - Render deployment `dep-db5i4b7avr4c73f494h0` is live. Startup automatically applied
   all 28 migrations; production has core 0062, payments 0003 and scheduling 0023.

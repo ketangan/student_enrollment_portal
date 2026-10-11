@@ -9,6 +9,22 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
+- **P2 preview cleanup: Ready for your test.** Comparison options now navigate to
+  a full booking page or the popup's own page; the old inline URL redirects rather than nesting
+  another complete page/header. Redundant preview/integration copy is removed. Real booking
+  forms and concise simulated-payment notices remain. Desktop, laptop, mobile and local
+  participant-to-confirmation browser checks passed. 3,705 Python and 49 JavaScript tests
+  passed, with no migration drift. The changed redirect and popup JavaScript have 100%
+  statement/branch coverage. No shared payment or Enrollment runtime changes.
+  [Walkthrough](scheduling-plushumi-demo.md#preview-navigation-and-copy-cleanup).
+
+- **B1 / Stripe activation follow-up: Planned, not operational yet.** The live platform
+  webhook is missing invoice events needed for payment emails and seven-day recovery.
+  Verify sender/recipient configuration, retry delivery, school-owned payment endpoints,
+  and sandbox success/failure/card-update/recovery before enabling the live behavior.
+  This is shared billing work for all schools, not Plushumi-only. No live billing settings
+  are being changed as part of the demo presentation cleanup. Expand B1 below for the checklist.
+
 - October 10: **Shared production release deployed and verified.** Revision `31220c5` is live on the existing Render service/database; all 28 migrations ran automatically. Scheduling remains disabled for existing schools. SBMC live admin/public pages and its active subscription passed checks. Plushumi has 15 fictional sample reservations plus one live-browser test booking. Inline/modal customer selection, simulated decline/success, staff preparation/audit, mobile sizing and access protections passed. 3,697 Python and 49 JavaScript tests passed; measured Python coverage is 99.48%, including the CI gate. Real Stripe/Wix/Notion connections remain gated. [Live comparison hub](https://demo.mypontora.com/demo/plushumi/integrations/) · [Release evidence and limitations](scheduling-shared-production-release.md).
 
 - October 6: **Pasadena booking rehearsal is Ready for your test.** Cozy Creations has three October 11 sessions and four confirmed sample bookings / seven participants. Compact calendar/time slots, closer color swatches, larger selection preview and per-participant review/checkout thumbnails are verified at desktop/390px. **140 affected Python tests**, **38 JavaScript tests**, **98.84% measured Python coverage**; new additive seed is 100% covered. Existing demo data preserved, normal material holds applied, no migration/shared Enrollment/payment edit or push. [Manual walkthrough](scheduling-plushumi-demo.md#pasadena-booking-rehearsal).
@@ -133,6 +149,7 @@ gates, repeated payment requests and duplicate verified events. No external Stri
 
 | ID | Deliverable | Acceptance check | Dependencies | Status |
 | --- | --- | --- | --- | --- |
+| B1 | Activate and verify shared Stripe alerts and subscription recovery | Verified payment/failure emails, recoverable seven-day grace, card updates and school-owned payment isolation | Authorized Stripe configuration; verified email delivery/retries; sandbox rehearsal before live activation | Planned |
 | P3 | Shared catalog, raw-material inventory and enrollment-aligned staff settings | Workshops, parties and camps share designs, color recipes and per-studio material holds; preparation precedes atomic completion; customer photos, stock alerts and consistent date/time controls | Additive local migrations 0019-0023; no Wix/Notion stock authority or production activation | Ready for your test |
 | P2 | Plushumi branded working demo matching the six shared concept screens | Studio/session selection, visual per-person choices, group layout, review, simulated checkout, saved confirmation/calendar and staff preparation/proposed Notion projection | Existing native booking/payment services; isolated fictional data; connected M4 deferred | Ready for your test |
 | M9d | Integrated school demo, navigation and setup access | Ordinary school admin can configure and exercise every implemented capability; disabled schools and standalone bookings remain unchanged | Existing local capabilities; isolated fictional data; no new migration or provider access | Ready for your test |
@@ -246,6 +263,31 @@ belong in this tracker. Existing application-fee fail-open/order-binding issues 
 impact-reviewed enrollment fix; M5b does not migrate that live flow to the new order ledger.
 
 ## Manual Testing
+
+### B1
+
+TODO: finish Stripe configuration and end-to-end verification for **all schools**.
+The code is deployed, but this feature is not fully operational. Current SBMC subscription
+is active at USD 24.99/month; this task must not change its price or trigger a charge.
+
+1. Keep existing platform checkout/subscription events. Add and verify signed delivery of
+   `invoice.paid`, `invoice.payment_failed`, `invoice.payment_action_required`,
+   `invoice.finalization_failed`, `invoice.voided`, and `invoice.marked_uncollectible`.
+2. Verify sender and `PAYMENT_ALERT_RECIPIENTS` (Ketan or his approved alias), actual email
+   receipt, and a scheduled `send_payment_notifications` retry job with failure monitoring.
+3. Verify each school-owned application-fee endpoint/signing secret and the booking test
+   endpoint independently. Parent payment failures must never suspend a school's subscription.
+4. In Stripe sandbox, test initial payment, recurring renewal, decline, authentication needed,
+   duplicate/delayed webhooks, and delivery retries. Confirm the correct tenant and amount.
+5. Test card replacement in the existing Stripe portal; changing a card alone must not clear
+   unpaid debt. Verify the seven-day banner, enrollment AND scheduling lockout, billing-owner
+   recovery access, successful payment restoration, and multiple unpaid invoices.
+6. Review existing overdue invoices and retry/cancellation settings before live activation.
+   Do not replay historical failures blindly: their original dates can cause immediate lockout.
+7. Record sandbox/email evidence, then obtain live-activation approval and verify SBMC's
+   subscription, price, owner access and normal enrollment pages remain unchanged.
+
+[Detailed setup and scope](payment-alerts-and-recovery.md). No live charge is needed.
 
 ### P3
 
@@ -1253,6 +1295,7 @@ time or autonomous background work. Re-estimate after each accepted milestone.
 
 | Milestone | Difficulty | Focused effort | Major checkpoint |
 | --- | --- | --- | --- |
+| B1 | High: shared billing and customer-access risk | 4-8 focused hours; provider access and email setup may extend this | Verified provider events, emails and sandbox recovery; reviewed live activation |
 | P1 | High: product access, data preservation and usability | 12-20 hours | Focused workshop/music workspaces and repeatable safe release checks |
 | M4a | High: credentials, tenant boundaries and adapter contracts | 8-14 hours | Reusable configuration and locally verified payload preview; part of M4, not additional scope |
 | M1a | Medium-high: security boundary | 6-10 hours | Standalone access works; enrollment remains isolated |

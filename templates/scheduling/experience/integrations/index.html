@@ -10,10 +10,6 @@
   <link rel="stylesheet" href="{% static 'scheduling/integrations/options.css' %}">
 </head>
 <body>
-  <aside class="preview-note" aria-label="Preview status">
-    <div><strong>Pontora x The Plushie Workshop</strong><span>Integration previews &middot; demo review</span></div>
-    <a href="https://demo.mypontora.com/demo/plushumi/" target="_blank" rel="noopener">Original walkthrough &nearr;</a>
-  </aside>
   <a class="skip-link" href="#options">Skip to integration options</a>
   <header class="options-brand">
     <img src="/static/demo/plushumi/assets/logo.png" width="125" height="96" alt="The Plushie Workshop">
@@ -22,17 +18,14 @@
     <header class="options-intro">
       <p class="eyebrow">Website integration</p>
       <h1>The Plushie Workshop</h1>
-      <p>Two ways to bring your booking experience into your existing website.</p>
-      <p class="options-context">Same workshop and participant selections as the original walkthrough. Only how customers open the booking flow changes.</p>
     </header>
     <section id="options" class="options-grid" aria-label="Integration options">
       <article class="option">
-        <a class="option-image" href="inline.html" tabindex="-1" aria-hidden="true"><img src="{% static 'scheduling/integrations/inline-overview.png' %}" width="1280" height="900" alt=""></a>
+        <a class="option-image" href="inline.html" tabindex="-1" aria-hidden="true"><img src="{% static 'scheduling/integrations/booking-overview.png' %}" width="1280" height="900" alt=""></a>
         <div class="option-body">
           <span class="option-number">01</span>
-          <h2>Book within the page</h2>
-          <p>The booking flow sits in the workshop page, where the current scheduling area is.</p>
-          <a class="option-link" href="inline.html">View inline preview <span aria-hidden="true">&rarr;</span></a>
+          <h2>Booking page</h2>
+          <a class="option-link" href="inline.html">Open booking page <span aria-hidden="true">&rarr;</span></a>
         </div>
       </article>
       <article class="option">
@@ -40,25 +33,11 @@
         <div class="option-body">
           <span class="option-number">02</span>
           <h2>Open from a booking button</h2>
-          <p>A &ldquo;Book Your Workshop&rdquo; button opens the same flow in a large popup.</p>
           <a class="option-link" href="modal.html">View popup preview <span aria-hidden="true">&rarr;</span></a>
         </div>
       </article>
     </section>
-    <section class="same-flow" aria-labelledby="flow-title">
-      <h2 id="flow-title">One customer journey</h2>
-      <ol class="flow-steps">
-        <li><span>1</span><div><strong>Your workshop</strong><small>Studio, date, time and participants</small></div></li>
-        <li><span>2</span><div><strong>Your plushies</strong><small>Design and color for each participant</small></div></li>
-        <li><span>3</span><div><strong>Review &amp; checkout</strong><small>One summary of everyone's choices</small></div></li>
-      </ol>
-    </section>
-    <aside class="integration-boundary" aria-label="Integration status">
-      <h2>What is connected?</h2>
-      <p>Both previews load the real Pontora demo. The surrounding website is representative only.</p>
-      <p><strong>Wix checkout and Notion sync are not connected.</strong> The intended checkout handoff and staff preparation view remain as proposed in the original walkthrough. Their final connection needs validation with your Wix setup and Notion database.</p>
-    </aside>
   </main>
-  <footer class="site-footer"><span>Prepared for The Plushie Workshop</span><a href="https://demo.mypontora.com/demo/plushumi/?screen=5" target="_blank" rel="noopener">Original staff preparation concept &nearr;</a></footer>
+  <footer class="site-footer"><span>Pontora x The Plushie Workshop</span></footer>
 </body>
 </html>

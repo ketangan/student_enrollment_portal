@@ -1,7 +1,7 @@
 # Plushumi Working Demo
 
-Status: P3 Catalog / Materials Inventory usability updates are **Ready for your test**. Local demo only, not a
-connected Wix/Notion integration or a finished self-service workshop product.
+Status: the working demo is hosted on the existing shared service. Real Stripe/Wix/Notion
+connections remain off there. This is not a finished self-service workshop product.
 
 [Customer booking](http://localhost:8002/bookings/plushumi-demo/experience/) |
 [Reservations and preparation](http://localhost:8002/bookings/plushumi-demo/reservations/) |
@@ -25,14 +25,44 @@ inside their container on phones.
 
 ## Pasadena Booking Rehearsal
 
+### Preview Navigation and Copy Cleanup
+
+The first comparison option now opens the **actual booking page** as a full page.
+Previously shared `integrations/inline.html` links redirect there; it is no longer labeled
+an inline-embed demonstration. The popup option still opens the actual same-origin flow
+from its own page, with honest loading/retry behavior. Neither option recreates the form.
+
+Removed the preview ribbon, repeated Wix/Notion explanations and nested full-page wrapper.
+Keep concise simulated-payment/test-card notices at checkout; no real connection is implied.
+The original six-screen storyboard is untouched. No payment service, schema, feature flag,
+SBMC page, production data or provider configuration changes in this cleanup.
+
+Manual checks:
+1. From the comparison hub choose **Open booking page**: the address changes to
+   `/bookings/plushumi-demo/experience/`, with one brand header and no frame/container.
+2. Go back and choose **View popup preview**, then **Book Your Workshop**. Check loading,
+   real studio/session choices, next-step navigation, close/Escape and reopen with selections retained.
+3. At desktop, laptop and phone sizes, verify no horizontal overflow or redundant preview banners.
+4. Locally rehearse participant choices, review, simulated decline/success and confirmation.
+   The hosted demo remains a simulation; no Stripe charge or customer email is needed.
+5. Open the local tracker and expand **B1** for outstanding shared Stripe setup and recovery checks.
+
+Browser verification: 1280px, 1024px and 390px passed. The actual local booking flow passed
+review, simulated decline, success and confirmation with one fictional `Preview Cleanup QA`
+reservation. Updated comparison thumbnails are screenshots of the real pages.
+Automated verification: 3,705 full Python tests, 185 focused demo/tracker tests and
+49 JavaScript tests passed. The changed redirect and popup script have 100% statement/branch
+coverage; every measured Python module exceeds 90%. Migration drift check passed.
+
 ### October 10: Real Stripe Test Checkout
 
 The local [inline preview](http://localhost:8002/integration-preview/inline.html) and
 [modal preview](http://localhost:8002/integration-preview/modal.html) now offer actual
 Stripe test Checkout when the isolated preview is launched with `serve.py --stripe-test`.
 This is explicitly a **Pontora-managed payments alternative**, not a Wix integration.
-Stripe displays Pontora's existing test account as **New business sandbox**. Nothing
-has been published to `demo.mypontora.com`; isolated cloud hosting remains pending.
+Stripe displays Pontora's existing test account as **New business sandbox**. This describes
+the earlier local-only Stripe rehearsal, not the hosted release: the shared hosted demo
+uses simulated checkout and has no real Stripe connection enabled.
 
 Manual rehearsal:
 1. Choose Pasadena, Cozy Creations, a future session and participant selections.

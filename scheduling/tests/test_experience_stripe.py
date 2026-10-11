@@ -189,7 +189,7 @@ def test_adapter_refuses_unavailable_demo(stripe_demo, browser, monkeypatch):
 def test_disabled_mode_preserves_existing_simulation(demo, browser):
     session, data = form_data(browser, demo, count=1)
     review = browser.post(url("choose", pk=session.pk), data)
-    assert b"calculated at Wix checkout" in review.content
+    assert b"Demo checkout. No payment is collected." in review.content
     data.update(action="checkout", review_token=review.context["review_token"])
     response = browser.post(url("choose", pk=session.pk), data)
     assert b"Simulate successful checkout" in browser.get(response.url).content

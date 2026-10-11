@@ -22,8 +22,6 @@ strong{font-weight:700}
 .eyebrow{text-transform:uppercase;font-size:11px;font-weight:700;margin-bottom:12px;color:#787878}
 .skip{position:absolute;left:-9999px}
 .skip:focus{left:10px;top:10px;z-index:10;background:white;padding:8px}
-.demo-bar{padding:7px 4%;background:#252525;color:white;display:flex;gap:12px;justify-content:space-between;font-size:11px}
-.demo-bar a{margin-left:12px}
 .brandbar{background:#ff8a92;display:grid;grid-template-columns:1fr 125px 1fr;align-items:center;gap:24px;padding:8px 4%;min-height:112px}
 .brand-logo{display:flex;justify-content:center}
 .brandbar img{width:125px;height:96px;object-fit:contain}

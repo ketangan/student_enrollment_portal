@@ -247,7 +247,7 @@ def held(browser, demo, count=2):
     assert review.status_code == 200
     assert review.context["total"] == 65*count
     assert b"This demo charges nothing" not in review.content
-    assert b"Tax and final charges would be calculated at Wix checkout" in review.content
+    assert b"Demo checkout. No payment is collected." in review.content
     data.update(action="checkout", review_token=review.context["review_token"])
     result = browser.post(url("choose", pk=session.pk), data)
     assert result.status_code == 302
@@ -309,7 +309,7 @@ def test_customer_mock_presentation_preserves_review_and_confirmation_contract(d
     assert len(confirmation.find("article", **{"class": "review-person"})) == 2
     assert confirmation.find("img", **{"class": "workshop-photo"})[0]["src"]
     assert b"Confirmation email preview (not sent)" in response.content
-    assert b"No sync has run." in response.content
+    assert b"Next: Notion preparation sync" not in response.content
 
 
 def test_local_cancel_refund_is_simulated_idempotent_and_audited(demo, browser):
@@ -535,7 +535,8 @@ def test_legacy_preview_binding_backfill_preserves_staff_edits(demo):
 def test_complete_customer_staff_and_projection_journey(demo, browser):
     start = browser.get(url("start"))
     assert start.status_code == 200 and len(start.context["sessions"]) == 45
-    assert b"Wix &amp; Notion not connected" in start.content
+    assert b"Wix &amp; Notion not connected" not in start.content
+    assert b'class="demo-bar"' not in start.content
     assert b"Local working demo" not in start.content
     assert b"No real money is collected" not in start.content
     item = confirmed(browser, demo)

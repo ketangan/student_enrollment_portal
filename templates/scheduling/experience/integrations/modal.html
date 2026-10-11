@@ -5,17 +5,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>Plushie Workshop | Modal integration preview</title>
+  <title>The Plushie Workshop | Book a workshop</title>
   <link rel="stylesheet" href="{% static 'scheduling/integrations/preview.css' %}">
-  <link rel="stylesheet" href="{% static 'scheduling/integrations/options.css' %}">
   <script defer src="/static/demo/plushumi/assets/lucide.js"></script>
   <script defer src="{% static 'scheduling/integrations/preview.js' %}"></script>
 </head>
 <body data-mode="modal">
-  <aside class="preview-note" aria-label="About this preview">
-    <div><strong>Modal integration preview</strong><span>Representative surrounding page. Real Pontora demo, using test data.</span></div>
-    <nav class="preview-links" aria-label="Integration previews"><a href="index.html">All options</a><a href="inline.html">Compare inline <i data-lucide="arrow-up-right" aria-hidden="true"></i></a></nav>
-  </aside>
   <a class="skip-link" href="#booking">Skip to booking</a>
   <header class="site-header">
     <details class="site-menu"><summary aria-label="Open navigation"><i data-lucide="menu" aria-hidden="true"></i><span>Menu</span></summary><nav aria-label="Plushie website"><a href="https://www.theplushieworkshop.com/the-plushie-workshop-locations" target="_blank" rel="noopener">Workshops</a><a href="https://www.theplushieworkshop.com/birthday-party-special-event" target="_blank" rel="noopener">Parties &amp; events</a><a href="https://www.theplushieworkshop.com/faq" target="_blank" rel="noopener">FAQ</a></nav></details>
@@ -26,7 +21,6 @@
     <section id="booking" class="booking-intro modal-intro" aria-labelledby="page-title">
       <p class="eyebrow">The Plushie Workshop / LA &amp; Pasadena</p>
       <h1 id="page-title">Book Your Workshop</h1>
-      <p>Choose a workshop time, then pick a design and color for each person joining you.</p>
       <div class="workshop-meta"><span><i data-lucide="heart" aria-hidden="true"></i> Guided plushie-making</span><span><i data-lucide="map-pin" aria-hidden="true"></i> 12 S Fair Oaks Ave, Pasadena</span></div>
       <button id="open-booking" class="book-button" type="button" aria-haspopup="dialog">Book Your Workshop <i data-lucide="arrow-right" aria-hidden="true"></i></button>
       <noscript><p><a href="/bookings/plushumi-demo/experience/">Open the real booking flow</a></p></noscript>
@@ -36,12 +30,12 @@
       <div><h2>A little creativity. Something to take home.</h2><p>A guided plushie-making session in the Pasadena studio.</p><a href="https://www.theplushieworkshop.com/plushie-making-workshop-la-pasadena" target="_blank" rel="noopener">View the current Plushie page <i data-lucide="arrow-up-right" aria-hidden="true"></i></a></div>
     </section>
   </main>
-  <footer class="site-footer"><span>The Plushie Workshop</span><span>Integration preview by Pontora</span></footer>
+  <footer class="site-footer"><span>The Plushie Workshop</span></footer>
   <dialog id="booking-dialog" aria-labelledby="dialog-title">
     <div class="dialog-shell">
-      <header class="dialog-header"><div><h2 id="dialog-title">Book your workshop</h2><span>Actual Pontora demo</span></div><div class="dialog-actions"><a class="direct-link" href="/bookings/plushumi-demo/experience/" target="_blank" rel="noopener" aria-label="Open booking separately" title="Open booking separately"><i data-lucide="external-link" aria-hidden="true"></i></a><button id="close-booking" type="button" autofocus aria-label="Close booking" title="Close booking"><i data-lucide="x" aria-hidden="true"></i></button></div></header>
+      <header class="dialog-header"><h2 id="dialog-title">Book your workshop</h2><div class="dialog-actions"><button id="close-booking" type="button" autofocus aria-label="Close booking" title="Close booking"><i data-lucide="x" aria-hidden="true"></i></button></div></header>
       <div class="embed-host" data-state="idle">
-        <div class="loading-panel" role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><strong>Loading workshop booking...</strong><span class="loading-detail">Connecting to the Pontora demo.</span><div class="load-actions" hidden><button type="button" class="retry-button">Retry</button><a class="direct-link" href="/bookings/plushumi-demo/experience/" target="_blank" rel="noopener">Open booking in a new tab</a></div></div>
+        <div class="loading-panel" role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><strong>Loading workshop booking...</strong><span class="loading-detail"></span><div class="load-actions" hidden><button type="button" class="retry-button">Retry</button><a class="direct-link" href="/bookings/plushumi-demo/experience/" target="_blank" rel="noopener">Open booking in a new tab</a></div></div>
         <iframe title="The Plushie Workshop - actual Pontora demo booking" data-booking-frame data-url="/bookings/plushumi-demo/experience/" referrerpolicy="same-origin"></iframe>
       </div>
     </div>
