@@ -305,6 +305,7 @@ BOOKING_HOSTED_DEMO_HOSTS = [value.strip().lower() for value in os.getenv("BOOKI
 PAYMENTS_STRIPE_TEST_SECRET_KEY = os.getenv("PAYMENTS_STRIPE_TEST_SECRET_KEY", "").strip()
 PAYMENTS_STRIPE_TEST_WEBHOOK_SECRET = os.getenv("PAYMENTS_STRIPE_TEST_WEBHOOK_SECRET", "").strip()
 PAYMENTS_STRIPE_TEST_ACCOUNT_ID = os.getenv("PAYMENTS_STRIPE_TEST_ACCOUNT_ID", "").strip()
+PAYMENTS_STRIPE_TEST_METHOD_CONFIG = os.getenv("PAYMENTS_STRIPE_TEST_METHOD_CONFIG", "").strip()
 
 # Absolute base URL — fallback for local dev. In production set all three explicitly.
 # APP_BASE_URL  → production app  (e.g. https://app.mypontora.com)

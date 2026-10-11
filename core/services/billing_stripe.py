@@ -45,8 +45,15 @@ def create_order_checkout(attempt):
     client = _merchant_test_client(order.merchant_reference, scope=order.account.scope)
     metadata = {"payment_order": str(order.public_id), "payment_attempt": str(attempt.public_id),
                 "purpose": order.purpose}
+    method_options = {}
+    if order.account.scope == "platform_demo":
+        from django.core.exceptions import ValidationError
+        configuration = settings.PAYMENTS_STRIPE_TEST_METHOD_CONFIG
+        if not configuration.startswith("pmc_"):
+            raise ValidationError("The booking sandbox payment methods are not configured.")
+        method_options["payment_method_configuration"] = configuration
     result = client.v1.checkout.sessions.create(params={
-        "mode": "payment", "payment_method_types": ["card"],
+        "mode": "payment", **method_options,
         "line_items": [{"price_data": {"currency": order.currency, "unit_amount": attempt.amount_cents,
             "product_data": {"name": order.description}}, "quantity": 1}],
         "metadata": metadata, "payment_intent_data": {"metadata": metadata},

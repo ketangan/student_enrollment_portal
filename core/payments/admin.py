@@ -36,6 +36,8 @@ class PaymentAccountForm(forms.ModelForm):
                 raise forms.ValidationError("Configure the shared booking sandbox account ID; it cannot be overridden here.")
             if not self.instance.pk:
                 values["reference"] = configured
+            if values.get("enabled") and not settings.PAYMENTS_STRIPE_TEST_METHOD_CONFIG.startswith("pmc_"):
+                self.add_error("enabled", "Configure the shared sandbox's card-only payment methods before enabling checkout.")
         elif "reference" in self.fields and not reference:
             self.add_error("reference", "Enter the connected test account ID.")
         if school and not school.is_demo:

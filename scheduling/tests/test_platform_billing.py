@@ -69,6 +69,7 @@ def test_booking_verified_settlement_notifies_once(booking_attempt, settings):
     settings.PAYMENT_ALERT_TEST_EVENTS = True
     item = booking_attempt
     session = {"id": "cs_test_local", "mode": "payment", "livemode": False, "currency": "usd",
+        "payment_method_types": ["card"],
         "amount_total": 2500, "status": "complete", "payment_status": "paid", "payment_intent": "pi_booking",
         "metadata": {"payment_attempt": str(item.public_id), "payment_order": str(item.order.public_id), "purpose": "booking"}}
     apply_snapshot(item, session)

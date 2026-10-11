@@ -53,7 +53,10 @@ def prepare_attempt(order, *, return_url):
 def _validate_session(attempt, session):
     order = attempt.order
     metadata = session.get("metadata") or {}
+    # Deferred methods need another settlement lifecycle. This guard also covers
+    # recovery, so an unsupported checkout cannot become usable after a retry.
     if (session.get("livemode") is not False or session.get("mode") != "payment"
+            or session.get("payment_method_types") != ["card"]
             or session.get("currency") != order.currency
             or type(session.get("amount_total")) is not int or session["amount_total"] != attempt.amount_cents
             or metadata.get("payment_order") != str(order.public_id)

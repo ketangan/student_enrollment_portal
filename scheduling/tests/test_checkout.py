@@ -48,6 +48,7 @@ def prepare(item):
 
 def session_for(attempt, *, status="open"):
     return {"id": "cs_test_" + attempt.public_id.hex, "mode": "payment", "livemode": False,
+        "payment_method_types": ["card"],
         "amount_total": attempt.amount_cents, "currency": "usd", "status": status,
         "payment_status": "paid" if status == "complete" else "unpaid",
         "payment_intent": "pi_" + attempt.public_id.hex if status == "complete" else None,
@@ -127,7 +128,9 @@ def test_transport_uses_explicit_account_card_only_and_stable_key(inventory, mer
     kwargs = sdk.v1.checkout.sessions.create.call_args.kwargs
     assert kwargs["options"] == {"idempotency_key": f"payment-attempt:{attempt.public_id}"}
     params = kwargs["params"]
-    assert params["payment_method_types"] == ["card"] and params["mode"] == "payment"
+    assert params["mode"] == "payment"
+    assert "payment_method_types" not in params
+    assert "payment_method_configuration" not in params
     assert params["line_items"][0]["price_data"]["unit_amount"] == 2500
     assert params["payment_intent_data"]["metadata"] == params["metadata"]
     assert 30*60 < params["expires_at"] - time.time() <= 35*60

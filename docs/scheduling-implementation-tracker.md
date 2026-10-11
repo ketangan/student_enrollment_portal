@@ -287,6 +287,9 @@ is active at USD 24.99/month; this task must not change its price or trigger a c
    receipt, and a scheduled `send_payment_notifications` retry job with failure monitoring.
 3. Verify each school-owned application-fee endpoint/signing secret and the booking test
    endpoint independently. Parent payment failures must never suspend a school's subscription.
+   Also verify current Stripe API compatibility for new subscription/application checkout:
+   the booking sandbox rejected the legacy `payment_method_types` request field. That correction
+   is booking-only; live checkout was deliberately not changed or exercised in this demo release.
 4. In Stripe sandbox, test initial payment, recurring renewal, decline, authentication needed,
    duplicate/delayed webhooks, and delivery retries. Confirm the correct tenant and amount.
 5. Test card replacement in the existing Stripe portal; changing a card alone must not clear
@@ -302,6 +305,11 @@ test key/account identity and separate booking webhook are configured. Enable on
 demo `PaymentAccount` after migration 0004 and green CI. Other demo businesses can use the same
 superadmin settings without code or per-school environment variables. Shared `STRIPE_MODE` stays
 live; booking credentials never fall back to subscription credentials.
+Hosted testing caught Stripe's rejection of the legacy payment-method request field. The
+booking-only correction uses a separate card-only test configuration and checks resolved
+methods during creation and recovery. A real unpaid API probe passed. The demo account is
+temporarily disabled until the corrected release passes regression and hosted payment checks;
+SBMC's live subscription checkout and Stripe default configurations are unchanged.
 
 Manual checks for this slice:
 1. As superadmin, open **Payments > Payment accounts**. Add a demo business, choose

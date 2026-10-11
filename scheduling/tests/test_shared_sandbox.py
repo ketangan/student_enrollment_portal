@@ -24,6 +24,7 @@ pytestmark = pytest.mark.django_db
 def shared_demo(stripe_demo, settings):
     settings.PAYMENTS_STRIPE_TEST_ACCOUNT_ID = "acct_sharedSandbox"
     settings.PAYMENTS_STRIPE_TEST_WEBHOOK_SECRET = "whsec_booking_sandbox"
+    settings.PAYMENTS_STRIPE_TEST_METHOD_CONFIG = "pmc_shared_cards"
     settings.STRIPE_MODE = "live"
     settings.STRIPE_SECRET_KEY = "sk_live_never_use_for_demo"
     account = PaymentAccount.objects.get(school=stripe_demo.school)
@@ -62,6 +63,9 @@ def test_test_transport_omits_connected_scope_and_never_uses_live_key(shared_dem
     monkeypatch.setattr(stripe, "StripeClient", factory)
     original_global_key = stripe.api_key
     assert gateway.create_order_checkout(attempt)["livemode"] is False
+    params = sdk.v1.checkout.sessions.create.call_args.kwargs["params"]
+    assert "payment_method_types" not in params
+    assert params["payment_method_configuration"] == "pmc_shared_cards"
     attempt.provider_session = "cs_test_provider"
     assert gateway.retrieve_order_checkout(attempt)["livemode"] is False
     assert gateway.expire_order_checkout(attempt, attempt.provider_session)["status"] == "expired"
@@ -73,6 +77,26 @@ def test_test_transport_omits_connected_scope_and_never_uses_live_key(shared_dem
         assert call.args == ("sk_test_local_only",)
         assert "stripe_account" not in call.kwargs
     assert stripe.api_key == original_global_key
+
+
+@pytest.mark.parametrize("methods", [["card", "us_bank_account"], ["link"], None])
+def test_checkout_never_exposes_unsupported_deferred_methods(shared_demo, browser, settings, monkeypatch, methods):
+    route, item = booking(browser, shared_demo)
+    attempt = checkout.prepare_attempt(item.reservation.order, return_url="https://demo.example.com/return")
+    sdk = MagicMock()
+    sdk.v1.checkout.sessions.create.return_value = {**session_for(attempt), "payment_method_types": methods}
+    monkeypatch.setattr(stripe, "StripeClient", MagicMock(return_value=sdk))
+    with pytest.raises(ValidationError, match="could not be verified"):
+        checkout.open_checkout(attempt)
+    attempt.refresh_from_db()
+    assert attempt.state == "unknown" and not attempt.checkout_url
+    with pytest.raises(ValidationError, match="does not match"):
+        checkout.apply_snapshot(attempt, sdk.v1.checkout.sessions.create.return_value)
+    settings.PAYMENTS_STRIPE_TEST_METHOD_CONFIG = ""
+    sdk.reset_mock()
+    with pytest.raises(ValidationError, match="not configured"):
+        gateway.create_order_checkout(attempt)
+    sdk.v1.checkout.sessions.create.assert_not_called()
 
 
 @pytest.mark.parametrize("change", ["live_event", "live_session", "account_envelope", "amount", "order", "bad_secret"])

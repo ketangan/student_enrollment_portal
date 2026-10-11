@@ -84,7 +84,9 @@ Only superadmins can do this. Existing bindings cannot be changed or deleted thr
 checkout can be disabled without discarding pending payment verification.
 
 One-time deployment settings: `PAYMENTS_STRIPE_TEST_SECRET_KEY` (test key only),
-`PAYMENTS_STRIPE_TEST_ACCOUNT_ID`, and `PAYMENTS_STRIPE_TEST_WEBHOOK_SECRET`. The separate
+`PAYMENTS_STRIPE_TEST_ACCOUNT_ID`, `PAYMENTS_STRIPE_TEST_WEBHOOK_SECRET`, and
+`PAYMENTS_STRIPE_TEST_METHOD_CONFIG` (a dedicated, non-default, card-only test payment-method
+configuration). Do not edit Stripe's existing default or live method configurations. The separate
 platform-scope test endpoint is `/bookings/stripe/test/webhook/`; events are
 `checkout.session.completed`, `checkout.session.expired`, and `payment_intent.payment_failed`.
 No per-school credentials or customer-name checks exist in the reusable payment components.
@@ -117,6 +119,20 @@ Final review found and fixed a calendar/payment cutoff mismatch: online demo ava
 uses the existing shared 40-minute checkout cutoff, including direct links and stale reviews.
 The offline simulator keeps its existing availability. All 118 affected demo/payment tests passed;
 the final release must pass full CI with this follow-up before deployment.
+
+Hosted verification caught a provider compatibility failure: Stripe rejected the old
+`payment_method_types` request field. Booking checkout now uses the dedicated test method
+configuration, and validates the resolved card-only methods on both checkout creation and
+reconciliation. Unsupported/deferred methods cannot expose a checkout link or settle through
+recovery. Stripe accepted and immediately expired an unpaid API probe using this configuration;
+actual browser decline/success verification is still pending the corrected release. Plushumi's
+account is temporarily disabled during this correction. Live subscription checkout is unchanged.
+
+Correction verification: **3,748 Python tests passed** (351.69 seconds; two existing warnings),
+**49 JavaScript tests passed**, and migration drift/diff checks passed. Measured scheduling/shared
+payment coverage is **99.48%**, with every measured module above 90%; checkout is 100% and
+operator settings 98.75%. A fresh 390px browser saved and disabled the shared sandbox setting
+without overflow. These are pre-release results, not a substitute for the hosted card rehearsal.
 
 ### October 10: Real Stripe Test Checkout (Historical Local Rehearsal)
 

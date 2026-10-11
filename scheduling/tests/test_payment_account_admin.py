@@ -20,6 +20,7 @@ def configured(settings):
     settings.PAYMENTS_STRIPE_TEST_SECRET_KEY = "sk_test_booking"
     settings.PAYMENTS_STRIPE_TEST_WEBHOOK_SECRET = "whsec_booking"
     settings.PAYMENTS_STRIPE_TEST_ACCOUNT_ID = "acct_shared"
+    settings.PAYMENTS_STRIPE_TEST_METHOD_CONFIG = "pmc_cards"
 
 
 @pytest.fixture
@@ -121,6 +122,13 @@ def test_shared_account_cannot_override_render_binding(configured, settings, con
     school = School.objects.create(slug="shared-account-demo", is_demo=True)
     form = PaymentAccountForm(data={"school": school.pk, "scope": "platform_demo", "reference": submitted_id})
     assert not form.is_valid() and "__all__" in form.errors
+
+
+def test_shared_account_requires_method_configuration(configured, settings):
+    settings.PAYMENTS_STRIPE_TEST_METHOD_CONFIG = ""
+    school = School.objects.create(slug="shared-method-config", is_demo=True)
+    form = PaymentAccountForm(data={"school": school.pk, "scope": "platform_demo", "enabled": True})
+    assert not form.is_valid() and "enabled" in form.errors
 
 
 @pytest.mark.parametrize("configured_id", ["acct_shared", "", "acct_replaced"])
