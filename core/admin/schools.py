@@ -80,11 +80,21 @@ class SchoolAdminForm(forms.ModelForm):
 
         overrides: dict[str, bool] = {}
         for key, value in v.items():
-            if defaults.get(key) != value:
+            preserve_contract_override = (
+                self.instance.trial_requires_activation
+                and key in self.instance.feature_flags
+            )
+            if defaults.get(key) != value or preserve_contract_override:
                 overrides[key] = value
 
         # also allow clearing an override by omitting it from JSON (we just won't store it)
         return overrides
+
+    def clean(self):
+        from core.forms_trial import validate_deferred_trial_edit
+        values = super().clean()
+        validate_deferred_trial_edit(self.instance, values)
+        return values
 
 
 @admin.register(School)
@@ -206,4 +216,3 @@ class SchoolAdmin(admin.ModelAdmin):
         return mark_safe(html)
 
     embed_snippet.short_description = "Embed on your website"
-    

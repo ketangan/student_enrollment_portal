@@ -56,10 +56,29 @@ class SchoolAdminRedirectMiddleware:
         from core.views_school_common import TrialExpiredError
         if isinstance(exception, TrialExpiredError):
             from django.contrib import messages
-            messages.error(
-                request,
-                "Your free trial has expired. Please upgrade your plan to continue.",
-            )
+            # Payment expiry already has a persistent banner on the billing page.
+            if exception.reason != "payment":
+                messages.error(
+                    request,
+                    "Your free trial has expired. Please upgrade your plan to continue.",
+                )
             return redirect(
                 reverse("school_billing", kwargs={"school_slug": exception.school_slug})
             )
+
+    def process_view(self, request, view_func, view_args, view_kwargs):
+        # Apply the same school suspension to public enrollment/status links.
+        # Provider webhooks must keep working to settle existing payments.
+        slug = view_kwargs.get("school_slug")
+        if not slug or not request.path.startswith(("/schools/", "/bookings/")):
+            return None
+        if "/admin/" in request.path or getattr(request.user, "is_superuser", False):
+            return None
+        from core.models import School
+        school = School.objects.filter(slug=slug).first()
+        if school and school.is_payment_access_expired:
+            from core.services.billing_access import billing_role
+            if request.path.startswith("/bookings/") and billing_role(request.user, school):
+                return redirect("school_billing", school_slug=school.slug)
+            from django.shortcuts import render
+            return render(request, "school_unavailable.html", {"school": school}, status=403)

@@ -1,0 +1,10 @@
+{% load booking_navigation %}<section class="reservation-section" aria-labelledby="participants-title">
+  <div class="section-heading"><h2 id="participants-title">Participants &amp; selections</h2><span class="muted">{{ item.quantity }} participant{{ item.quantity|pluralize }}</span></div>
+  {% if participant_table.rows %}
+  <div class="table-wrap participant-table" role="region" aria-label="Participant selections" tabindex="0">
+    <table class="dash-table"><thead><tr><th scope="col">Participant</th>{% for column in participant_table.columns %}<th scope="col">{{ column }}</th>{% endfor %}</tr></thead><tbody>
+    {% for person in participant_table.rows %}<tr><th scope="row"><div class="dash-student-cell"><span class="dash-initials" aria-hidden="true">{{ person.name|booking_initials }}</span><strong>{{ person.name }}</strong></div></th>{% for value in person.values %}<td>{% if value %}{{ value }}{% else %}<span class="muted">Not selected</span>{% endif %}</td>{% endfor %}</tr>{% endfor %}
+    </tbody></table>
+  </div>
+  {% else %}<p class="muted">Individual participant names and selections were not collected for this reservation.</p>{% endif %}
+</section>

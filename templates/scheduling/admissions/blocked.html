@@ -1,0 +1,2 @@
+{% extends 'scheduling/visits/public_base.html' %}
+{% block content %}<h1>Your next step</h1><p role="status">{{ reason }}</p><a href="{% url 'scheduling:visit_catalogue' school_slug=business.slug %}">School tours</a>{% endblock %}

@@ -12,7 +12,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15
+        image: postgres:18
         env:
           POSTGRES_DB: ci_test
           POSTGRES_USER: postgres
@@ -26,7 +26,8 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/ci_test
+      PONTORA_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_pontora_ci
+      DJANGO_SETTINGS_MODULE: testing.settings
       DJANGO_SECRET_KEY: ci-only-secret-key-not-used-in-production
 
     steps:
@@ -34,14 +35,28 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+          python-version: '3.14'
           cache: 'pip'
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-      - name: Run migrations
-        run: python manage.py migrate --noinput
-      - name: Run tests
-        run: python -m pytest -q
+      - name: Check migration drift
+        run: python manage.py makemigrations --check --dry-run
+      - name: Set up Node for scheduling UI tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test scheduling browser controls
+        run: node --test --experimental-test-coverage --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 scripts/tests/*.test.cjs
+      - name: Test with local-only providers and coverage gate
+        run: python -m coverage run --source=scheduling,core.payments,testing -m pytest
+      - name: Enforce coverage floor
+        run: python -m coverage report --fail-under=90
+      - name: Export module coverage
+        run: python -m coverage json -o coverage.json
+      - name: Check every measured module
+        run: python -m testing.coverage_gate coverage.json
+      - name: Export coverage
+        run: python -m coverage xml

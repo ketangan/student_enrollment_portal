@@ -1,0 +1,9 @@
+<fieldset class="participant" data-participant>
+<legend>Participant <span data-number>{{ number }}</span></legend>
+{{ form.non_field_errors }}<div class="form-field">{{ form.name.label_tag }}{{ form.name }}{{ form.name.errors }}</div>
+{% for selection in form.selection_fields %}<fieldset class="choice-field"><legend>{{ selection.group.name }}</legend>{{ selection.field.errors }}
+<div class="option-grid">{% for option in selection.options %}<label class="option-tile" for="id_{{ selection.field.html_name }}_{{ forloop.counter0 }}">
+<input id="id_{{ selection.field.html_name }}_{{ forloop.counter0 }}" type="radio" name="{{ selection.field.html_name }}" value="{{ option.pk }}" required {% if selection.field.errors %}aria-invalid="true" aria-describedby="{{ selection.field.auto_id }}_error"{% endif %} {% if selection.field.value == option.pk|stringformat:"s" %}checked{% endif %}>
+{% if option.image_url %}<img src="{{ option.image_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
+{% if option.swatch %}<span class="color-swatch" style="background-color:{{ option.swatch }}" aria-hidden="true"></span>{% endif %}<span>{{ option.label }}</span></label>{% endfor %}</div></fieldset>{% endfor %}
+</fieldset>

@@ -1,0 +1,29 @@
+<div class="design-main-fields">
+  {% for field in form.design_fields %}
+  <div class="form-field{% if field.field.widget.input_type == 'checkbox' %} check-field{% endif %}">
+    {{ field.label_tag }}{{ field }}{{ field.errors }}
+  </div>
+  {% endfor %}
+</div>
+<fieldset class="design-colors">
+  <legend>Available colors</legend>
+  {{ form.colors.errors }}
+  <div class="design-color-head" aria-hidden="true"><span>Color</span><span>Photo URL</span></div>
+  <div class="design-color-grid">
+    {% for row in form.color_rows %}
+    <div class="design-color-option">
+      <label class="design-color-toggle" for="color-{{ row.color.pk }}">
+        <input type="checkbox" name="colors" id="color-{{ row.color.pk }}" value="{{ row.color.pk }}" {% if row.selected %}checked{% endif %}>
+        <span class="color-swatch" style="background:{{ row.color.swatch|default:'#e5e7eb' }}" aria-hidden="true"></span>
+        <span>{{ row.color.label }}</span>
+      </label>
+      <div class="design-color-photo">
+        <label class="sr-only" for="{{ row.image.id_for_label }}">{{ row.image.label }}</label>
+        {{ row.image }}{{ row.image.errors }}
+      </div>
+    </div>
+    {% empty %}
+    <p class="muted">No active colors.</p>
+    {% endfor %}
+  </div>
+</fieldset>

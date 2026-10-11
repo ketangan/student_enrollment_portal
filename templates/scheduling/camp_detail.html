@@ -1,0 +1,13 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}{{ camp.name }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:camps' school_slug=business.slug %}">All camps</a>
+<div class="section-heading"><div><h2>{{ camp.name }}</h2><p>{{ camp.offering.location.name }} &middot; {{ dates|length }} sessions</p></div><div class="actions"><span class="status{% if not camp.is_open %} inactive{% endif %}">{% if camp.is_open %}Registration open{% else %}Registration closed{% endif %}</span>{% if can_edit_setup %}<a class="button" href="{% url 'scheduling:camp_edit' school_slug=business.slug offering_pk=camp.offering_id pk=camp.pk %}">Edit camp</a>{% endif %}</div></div>
+<p>{{ camp.description|linebreaksbr }}</p>
+<dl class="details"><div><dt>Full camp / participant</dt><dd>${{ camp.price|floatformat:2 }} USD</dd></div><div><dt>Deposit / participant</dt><dd>{% if camp.deposit %}${{ camp.deposit|floatformat:2 }}{% else %}Full payment{% endif %}</dd></div><div><dt>Places left across all dates</dt><dd>{{ remaining }}</dd></div><div><dt>Payment method</dt><dd>{% if camp.online %}Stripe test checkout{% else %}Offline test records{% endif %}</dd></div></dl>
+{% if registration_error %}<p class="notice">{{ registration_error }}</p>{% else %}<p><a class="button primary" href="{% url 'scheduling:camp_register' school_slug=business.slug pk=camp.pk %}">Open customer registration</a></p>{% endif %}
+{% include 'scheduling/camp_dates.html' with staff=True %}
+<h2 class="roster-heading">Registrations</h2><div class="table-wrap"><table><thead><tr><th>Contact</th><th>Participants &amp; choices</th><th>All-date reservation</th><th>Total</th></tr></thead><tbody>
+{% for registration in items %}<tr><th><a href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=registration.reservation.public_id %}">{{ registration.purchaser_name }}</a><p class="muted">{{ registration.purchaser_email }}</p></th><td>{% for participant in registration.participants %}<p><strong>{{ participant.name }}</strong>{% for choice in participant.selections %}<br>{{ choice.group }}: {{ choice.option }}{% endfor %}</p>{% endfor %}</td><td>{% include 'scheduling/reservation_status.html' with item=registration.reservation %}</td><td>${{ registration.reservation.order.total|floatformat:2 }}</td></tr>{% empty %}<tr><td colspan="4">No registrations yet.</td></tr>{% endfor %}
+</tbody></table></div>{% include 'scheduling/pagination.html' with page=items %}
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends 'scheduling/base.html' %}{% load tz booking_navigation %}
+{% block title %}{{ business }}{% endblock %}
+{% block page_heading %}{% endblock %}
+{% block content %}
+<div class="booking-dashboard-heading"><div class="dash-greeting">
+  <h1 class="dash-greeting-title">{{ greeting|default:'Dashboard' }}</h1>
+  <p class="dash-greeting-sub">Here's what needs your attention today.</p>
+</div>
+<div class="booking-dashboard-tools"><div class="actions">
+{% if experience_demo_available %}<a class="button" href="{% url 'scheduling:experience_start' school_slug=business.slug %}">Customer demo</a>{% endif %}
+{% if features.lessons and profile.lessons_enabled %}<a class="button" href="{% url 'scheduling:lessons' school_slug=business.slug %}">Open lesson calendar</a>{% endif %}
+{% if request.user.is_superuser %}<a href="{% url 'scheduling:features' school_slug=business.slug %}">Manage available features</a>{% endif %}
+</div></div>
+</div>
+{% if not features.workshops and not features.lessons and not features.visits %}
+<p class="notice">Your booking features have not been activated yet. Contact your Pontora administrator.</p>
+{% else %}
+<section class="dash-kpi-grid" aria-label="Needs attention">
+{% for item in dashboard_cards %}<div class="dash-kpi-card{% if item.accent %} dash-kpi-card--{{ item.accent }}{% endif %}">
+  <div class="dash-kpi-header"><div class="dash-kpi-icon dash-kpi-icon--{{ item.color }}"><i data-lucide="{{ item.icon }}" aria-hidden="true"></i></div><span class="dash-kpi-label">{{ item.label }}</span></div>
+  <div class="dash-kpi-count">{{ item.count }}</div><div class="dash-kpi-sub">{{ item.sub }}</div>
+  <a class="dash-kpi-link dash-kpi-link--{{ item.color }}" href="{{ item.url }}">{{ item.action }} &rarr;</a>
+</div>{% endfor %}
+</section>
+<div class="dash-grid booking-dashboard-grid">
+<section aria-labelledby="agenda-heading" class="dash-card">
+<div class="dash-card-header"><div><h2 id="agenda-heading" class="dash-card-title">Upcoming Sessions</h2><p class="muted agenda-range">Next 7 days</p></div>{% if features.workshops %}<a class="dash-card-link" href="{% url 'scheduling:workshops' school_slug=business.slug %}{% if selected_location %}?location={{ selected_location.pk }}{% endif %}">All workshop sessions &rarr;</a>{% endif %}</div>
+<ol class="agenda-list">{% for item in agenda %}{% timezone item.zone %}{% with local_start=item.start|localtime local_end=item.end|localtime %}
+<li><div class="agenda-time"><strong>{{ local_start|date:"D, M j" }}</strong><span>{{ local_start|date:"g:i A" }} &ndash; {% if local_start.date != local_end.date %}{{ local_end|date:"M j, " }}{% endif %}{{ local_end|date:"g:i A" }}</span></div>
+<div><a href="{{ item.url }}">{{ item.label }}</a><p class="muted">{{ item.location }} &middot; {{ item.room }}</p>{% if item.reservation_count != None %}<p class="agenda-reservations"><strong>{{ item.reservation_count }}</strong> confirmed reservation{{ item.reservation_count|pluralize }}</p>{% endif %}</div>{% if item.reservation_count == None %}<span class="status">{{ item.kind }}</span>{% endif %}</li>
+{% endwith %}{% endtimezone %}{% empty %}<li class="empty-state">Nothing scheduled in the next 7 days.</li>{% endfor %}</ol>
+{% if agenda_truncated %}<p class="muted">Showing the next 20 events. Open the relevant calendar or session list for the full schedule.</p>{% endif %}
+</section>
+<aside class="dash-card booking-activity" aria-labelledby="activity-heading">
+  <div class="dash-card-header"><h2 id="activity-heading" class="dash-card-title">Recent Activity</h2></div>
+  {% for event in recent_activity %}<div class="dash-activity-item">
+    <div class="dash-initials dash-initials--sm">{{ event.name|booking_initials }}</div>
+    <div class="dash-activity-body"><div class="dash-activity-who"><a href="{{ event.url }}">{{ event.name }}</a></div><div class="dash-activity-what">{{ event.action }}</div><div class="dash-activity-when">{{ event.created_at|timesince }} ago</div></div>
+  </div>{% empty %}<p class="dash-no-data">No recent booking activity.</p>{% endfor %}
+</aside>
+</div>
+{% endif %}
+{% if can_edit_setup %}<details class="setup-checklist" {% if setup_remaining %}open{% endif %}>
+<summary>Setup checklist <span class="muted">All locations &middot; {{ setup_remaining }} remaining</span></summary>
+<ol>{% for step in setup_steps %}<li><a href="{{ step.url }}">{{ step.label }}</a><span class="status {% if not step.complete %}draft{% endif %}">{% if step.complete %}Configured{% else %}Not set up{% endif %}</span></li>{% endfor %}</ol>
+</details>{% endif %}
+<p class="muted workspace-role">{{ role_label }}{% if request.user.is_superuser %} (operator){% endif %} &middot; {{ request.user.get_username }}</p>
+{% endblock %}

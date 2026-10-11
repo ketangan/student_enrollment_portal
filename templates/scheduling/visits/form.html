@@ -1,0 +1,6 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}{{ heading }}{% endblock %}
+{% block content %}<h2>{{ heading }}</h2><form method="post" class="setup-form" novalidate>{% csrf_token %}
+{{ form.non_field_errors }}{% include 'scheduling/form_hidden_fields.html' %}
+{% for field in form.visible_fields %}<div class="form-field {% if field.field.widget.input_type == 'checkbox' %}check-field{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}
+<div class="actions"><button class="primary" type="submit">Save</button><a href="{% url 'scheduling:visits' school_slug=business.slug %}">Cancel</a></div></form>{% endblock %}

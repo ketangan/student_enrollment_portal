@@ -1,0 +1,7 @@
+{% extends 'scheduling/visits/public_base.html' %}
+{% block content %}<a href="{% url 'family_status' school_slug=business.slug token=case.submission.status_token %}">Application status</a>
+<h1>Choose a playdate</h1><p>{{ case.submission.student_display_name }}</p>
+{% if reason %}<p role="status">{{ reason }}</p>{% else %}
+<div class="visit-grid">{% for slot in slots %}<article class="visit-card">{% include 'scheduling/visits/time.html' %}
+<p>{{ slot.places_left }} places available</p>{% if slot.places_left %}<a class="button primary" href="{% url 'scheduling:playdate_book' school_slug=business.slug token=case.submission.status_token pk=slot.pk %}">Choose this playdate</a>{% else %}<p>Full</p>{% endif %}</article>
+{% empty %}<p>No playdate times are available yet. Please contact the school.</p>{% endfor %}</div>{% endif %}{% endblock %}

@@ -1,0 +1,32 @@
+.booking-calendar.flatpickr-calendar {width:320px;max-width:calc(100vw - 16px);padding:12px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 12px 32px #11182726;font:14px/1.5 system-ui,sans-serif;letter-spacing:0;color:#374151;box-sizing:border-box}
+.booking-calendar .flatpickr-months {padding-bottom:12px;border-bottom:1px solid #e5e7eb}
+.booking-calendar .flatpickr-month {height:36px;color:#374151}
+.booking-calendar .flatpickr-current-month {font-size:17px;padding-top:4px}
+.booking-calendar .flatpickr-current-month .cur-month {font-weight:500}
+.booking-calendar .flatpickr-current-month input.cur-year {font-weight:500}
+.booking-calendar .flatpickr-prev-month,.booking-calendar .flatpickr-next-month {top:10px;padding:10px;height:36px}
+.booking-calendar .flatpickr-innerContainer,.booking-calendar .flatpickr-rContainer,.booking-calendar .flatpickr-days,.booking-calendar .dayContainer {width:100%;min-width:0;max-width:100%}
+.booking-calendar .flatpickr-weekdays {margin:8px 0;height:30px}
+.booking-calendar .flatpickr-weekday {font-size:12px;font-weight:500;color:#6b7280}
+.booking-calendar .flatpickr-day {height:39px;line-height:37px;border-radius:6px;max-width:none;flex-basis:14.2857%;color:#374151}
+.booking-calendar .flatpickr-day.weekend {color:#b45353}
+.booking-calendar .flatpickr-day.prevMonthDay,.booking-calendar .flatpickr-day.nextMonthDay,.booking-calendar .flatpickr-day.flatpickr-disabled {color:#b6bac2}
+.booking-calendar .flatpickr-day:hover,.booking-calendar .flatpickr-day:focus {background:#dbeafe;border-color:#93c5fd;outline:none}
+.booking-calendar .flatpickr-day.selected {background:#2563eb;border-color:#2563eb;color:white}
+.booking-calendar .flatpickr-day.today:not(.selected) {border-color:#2563eb}
+.booking-calendar .flatpickr-time {height:auto;max-height:none;display:grid;grid-template-columns:56px 1fr 12px 56px;align-items:center;gap:6px;padding:12px 0;margin-top:10px;overflow:visible;border-top:1px solid #e5e7eb}
+.booking-calendar .flatpickr-time .numInputWrapper {width:100%;height:38px;float:none;border:1px solid #d1d5db;border-radius:6px;grid-row:1}
+.booking-calendar .flatpickr-time .numInputWrapper:first-child {grid-column:1}
+.booking-calendar .flatpickr-time .numInputWrapper:nth-child(3) {grid-column:4}
+.booking-calendar .flatpickr-time input {width:100%;height:36px;font-size:15px;background:white;border-radius:6px;color:#374151;padding:0 8px}
+.booking-calendar .flatpickr-time .flatpickr-time-separator {width:auto;grid-column:3;grid-row:1;height:auto;line-height:38px}
+.booking-calendar .flatpickr-am-pm {display:none}
+.booking-calendar .calendar-periods {display:flex;gap:4px;grid-column:2;grid-row:1}
+.booking-calendar button {font:inherit;cursor:pointer;letter-spacing:0;border:1px solid transparent;background:white;color:#4b5563;padding:8px;border-radius:6px;box-shadow:none}
+.booking-calendar .calendar-periods button {border-color:#d1d5db;padding:8px 6px;flex:1;font-size:13px}
+.booking-calendar .calendar-periods button[aria-pressed=true] {background:#2563eb;border-color:#2563eb;color:white}
+.booking-calendar button:hover {background:#eff6ff;color:#1d4ed8}
+.booking-calendar button:focus-visible {outline:2px solid #2563eb;outline-offset:2px}
+.booking-calendar .calendar-footer {display:flex;justify-content:space-between;border-top:1px solid #e5e7eb;padding-top:8px;margin-top:4px}
+.booking-calendar.flatpickr-calendar {max-height:calc(100vh - 16px);overflow-y:auto}
+input.flatpickr-input[readonly] {cursor:pointer}

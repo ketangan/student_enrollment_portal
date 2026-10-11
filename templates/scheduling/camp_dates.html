@@ -1,0 +1,4 @@
+{% load tz %}
+{% timezone camp.offering.location.timezone_name %}<div class="table-wrap"><table><thead><tr><th>Date</th><th>Time</th><th>Room</th>{% if staff %}<th>Preparation</th>{% endif %}</tr></thead><tbody>
+{% for session in dates %}<tr><th>{{ session.starts_at|date:"D, M j, Y" }}</th><td>{{ session.starts_at|date:"g:i A" }} &ndash; {% if session.starts_at.date != session.ends_at.date %}{{ session.ends_at|date:"M j" }} {% endif %}{{ session.ends_at|date:"g:i A" }}</td><td>{{ session.room.name|default:"Not assigned" }}</td>{% if staff %}<td><a href="{% url 'scheduling:preparation' school_slug=business.slug pk=session.pk %}">View roster</a></td>{% endif %}</tr>{% endfor %}
+</tbody></table></div>{% endtimezone %}

@@ -138,6 +138,12 @@ class OpsSchoolEditForm(forms.ModelForm):
             raise forms.ValidationError("Must be a JSON object.")
         return v
 
+    def clean(self):
+        from core.forms_trial import validate_deferred_trial_edit
+        values = super().clean()
+        validate_deferred_trial_edit(self.instance, values)
+        return values
+
     def save(self, commit=True):
         instance = super().save(commit=False)
         flags = dict(self.cleaned_data.get("feature_flags") or {})

@@ -928,6 +928,8 @@ def school_settings_view(request, school_slug: str):
 
     ctx = _school_admin_base_context(request, school, "settings")
     _VALID_TABS = {"general", "email", "team", "billing", "forms"}
+    if ctx["scheduling_entry"]:
+        _VALID_TABS.add("scheduling")
     _OWNER_ONLY_TABS = {"team", "billing"}
     active_tab = request.GET.get("tab", "general")
     if active_tab not in _VALID_TABS:
@@ -1056,9 +1058,16 @@ def school_billing_view(request, school_slug: str):
         is_stripe_configured,
     )
     school = _get_accessible_school_for_admin(request, school_slug)
-    require_school_role(request, school, "owner")
+    from core.services.billing_access import billing_role, require_billing_owner
+    payment_overdue = school.is_payment_overdue
+    can_manage_billing = billing_role(request.user, school) == "owner"
+    if not payment_overdue:
+        require_billing_owner(request, school)
+    if school.subscription_checkout_paused and not payment_overdue:
+        return render(request, "school_admin/billing_pending.html",
+                      _school_admin_base_context(request, school, "billing"))
     stripe_configured = is_stripe_configured()
-    pricing_flat = get_pricing_options() if stripe_configured else []
+    pricing_flat = get_pricing_options() if stripe_configured and not payment_overdue else []
 
     # Group flat list into {plan: {monthly, annual}} for clean template rendering
     pricing: dict = {}
@@ -1081,7 +1090,9 @@ def school_billing_view(request, school_slug: str):
         if end_date and end_date < djtz.now():
             cancel_overdue = True
 
-    if is_locked:
+    if payment_overdue:
+        billing_state = "payment_overdue"
+    elif is_locked:
         billing_state = "ended_locked"
     elif school.plan == ff.PLAN_CUSTOM and school.is_active:
         billing_state = "custom"
@@ -1095,6 +1106,7 @@ def school_billing_view(request, school_slug: str):
     founder_pricing_options = []
     if (
         stripe_configured
+        and not payment_overdue
         and is_founder_pricing_enabled(school)
         and school.plan not in ff.MANUALLY_MANAGED_PLANS
         and not school.has_active_stripe_subscription
@@ -1103,7 +1115,6 @@ def school_billing_view(request, school_slug: str):
 
     plan_display = dict(ff.PLAN_CHOICES).get(school.plan, school.plan)
 
-    from core.models import TRIAL_LENGTH_DAYS
     billing_url = reverse("school_billing", kwargs={"school_slug": school_slug})
     ctx = _school_admin_base_context(request, school, "billing")
     ctx.update({
@@ -1111,6 +1122,9 @@ def school_billing_view(request, school_slug: str):
         "pricing": pricing,
         "founder_pricing_options": founder_pricing_options,
         "billing_state": billing_state,
+        "can_manage_billing": can_manage_billing,
+        "can_open_portal": can_manage_billing and bool(school.stripe_customer_id)
+            and (has_subscription or payment_overdue),
         "has_subscription": has_subscription,
         "cancel_at": school.stripe_cancel_at,
         "current_period_end": school.stripe_current_period_end,
@@ -1121,7 +1135,7 @@ def school_billing_view(request, school_slug: str):
         "billing_url": billing_url,
         "checkout_url": reverse("school_billing_checkout", kwargs={"school_slug": school_slug}),
         "portal_url": reverse("school_billing_portal", kwargs={"school_slug": school_slug}),
-        "trial_length_days": TRIAL_LENGTH_DAYS,
+        "trial_length_days": school.trial_duration_days,
     })
     return render(request, "school_admin/billing.html", ctx)
 
@@ -1140,9 +1154,17 @@ def school_billing_checkout_view(request, school_slug: str):
         is_stripe_configured,
     )
     school = _get_accessible_school_for_admin(request, school_slug)
-    require_school_role(request, school, "owner")
+    from core.services.billing_access import require_billing_owner
+    require_billing_owner(request, school)
     from core.services.url_builder import app_reverse
     billing_url = app_reverse("school_billing", kwargs={"school_slug": school_slug})
+
+    if school.subscription_checkout_paused:
+        return redirect(billing_url)
+
+    if school.is_payment_overdue or school.has_active_stripe_subscription:
+        messages.error(request, "Manage your existing subscription in Billing instead of starting another one.")
+        return redirect(billing_url)
 
     if not is_stripe_configured():
         messages.error(request, "Billing is not configured.")
@@ -1199,14 +1221,18 @@ def school_billing_portal_view(request, school_slug: str):
     """
     from core.services.billing_stripe import create_portal_session
     school = _get_accessible_school_for_admin(request, school_slug)
-    require_school_role(request, school, "owner")
+    from core.services.billing_access import require_billing_owner
+    require_billing_owner(request, school)
     from core.services.url_builder import app_reverse
     billing_url = app_reverse("school_billing", kwargs={"school_slug": school_slug})
 
-    if school.plan in ff.MANUALLY_MANAGED_PLANS:
+    if school.subscription_checkout_paused:
+        return redirect(billing_url)
+
+    if school.plan in ff.MANUALLY_MANAGED_PLANS and not school.has_active_stripe_subscription and not school.is_payment_overdue:
         messages.error(request, "Your plan is managed by Pontora. Contact us to make changes.")
         return redirect(billing_url)
-    if not school.has_active_stripe_subscription:
+    if not school.has_active_stripe_subscription and not (school.is_payment_overdue and school.stripe_customer_id):
         messages.error(request, "No active Stripe subscription is available to manage yet.")
         return redirect(billing_url)
 

@@ -1,0 +1,5 @@
+{% load static %}
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ business }} | {% block title %}Workshop request{% endblock %}</title><link rel="stylesheet" href="{% static 'scheduling/workspace.css' %}"><link rel="icon" href="{% static 'favicon.png' %}"></head><body>
+{% include 'scheduling/date_picker_assets.html' %}
+<header class="topbar"><a class="brand" href="{% block public_home %}{% url 'scheduling:public_schedule' school_slug=business.slug %}{% endblock %}"><img src="{% static 'pontora-wordmark-nav.png' %}" alt="Pontora" width="120" height="36"><span>{{ business }}</span></a></header>
+<main>{% block content %}{% endblock %}</main>{% block scripts %}{% endblock %}</body></html>

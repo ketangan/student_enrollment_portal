@@ -1,0 +1,7 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Lesson bookings{% endblock %}
+{% block content %}<a class="back-link" href="{% url 'scheduling:lessons' school_slug=business.slug %}">Lessons</a>
+<h2>Lesson bookings</h2>
+{% for booking in bookings %}<article class="session-row"><div><a href="{% url 'scheduling:lesson_booking_detail' school_slug=business.slug public_id=booking.public_id %}">{{ booking.series.snapshot.student }} &middot; {{ booking.series.snapshot.booking_offer }}</a><p>{{ booking.contact_name }} &middot; {{ booking.contact_email }}</p></div><div>{{ booking.created_at|date:'M j, Y' }}<p>{{ booking.grant_id|yesno:'Family booking,Public trial' }}</p></div></article>{% empty %}<p>No self-service bookings yet.</p>{% endfor %}
+<nav class="pagination" aria-label="Booking pages">{% if bookings.has_previous %}<a href="?page={{ bookings.previous_page_number }}">Previous</a>{% endif %}<span>{{ bookings.number }} / {{ bookings.paginator.num_pages }}</span>{% if bookings.has_next %}<a href="?page={{ bookings.next_page_number }}">Next</a>{% endif %}</nav>
+{% endblock %}

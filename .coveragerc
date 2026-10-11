@@ -1,0 +1,9 @@
+[run]
+branch = True
+omit =
+    */tests/*
+    */migrations/*
+
+[report]
+show_missing = True
+precision = 2

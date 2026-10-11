@@ -1,0 +1,28 @@
+school:
+  slug: preschool-demo
+  display_name: Garden Preschool Demo
+form:
+  title: Preschool application
+  sections:
+    - title: Family
+      fields:
+        - {key: student_name, label: Child's name, type: text, required: true}
+        - {key: guardian_name, label: Parent or guardian, type: text, required: true}
+        - {key: contact_email, label: Email, type: email, required: true}
+admin:
+  require_enrollment_approval: true
+  submission_statuses: [New, In Review, Playdate Scheduled, Playdate Completed, Enrolled, Archived]
+  default_submission_status: New
+  lead_workflow:
+    status_labels:
+      trial_scheduled: Tour Scheduled
+      trial_completed: Tour Completed
+    transitions:
+      trial_completed:
+        - {label: Contact family, status: contacted}
+leads:
+  confirmation_enabled: false
+  notify_to: ""
+  fields:
+    - {key: student_name, label: Child's name, type: text}
+    - {key: tour_slot, label: Tour time, type: text}

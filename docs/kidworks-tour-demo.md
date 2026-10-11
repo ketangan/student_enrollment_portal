@@ -1,5 +1,10 @@
 # Kid Works tour demo
 
+Historical demo implementation notes. For go-live work, use the
+[Kid Works go-live checklist](kidworks-go-live.md). Dinuka clarified in the October 2
+meeting that playdates follow enrollment; the demo sequence below is not the approved
+live workflow. Demo times, capacities and the $50 placeholder are not approved settings.
+
 ## Scope and impact
 
 - Only `kidworks-childrens-center` opts into appointment capture and tour labels.

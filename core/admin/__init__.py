@@ -60,10 +60,12 @@ def _school_aware_has_permission(request):
         return False
 
     # If school is inactive, block access EXCEPT billing and logout
-    if not school.is_active:
+    if not school.is_active or school.is_payment_access_expired:
         path = request.path
         # Allow billing pages (so they can re-subscribe) and logout
-        if path.startswith('/admin/billing') or path.startswith('/admin/logout'):
+        from django.conf import settings
+        prefix = '/' + settings.ADMIN_URL.strip('/') + '/'
+        if path.startswith(prefix + 'billing') or path.startswith(prefix + 'logout'):
             return True
         # Block everything else
         return False

@@ -27,7 +27,9 @@
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#166534;margin-bottom:4px;">Plan</div>
         <div style="font-size:13px;font-weight:600;text-transform:capitalize;">{{ school.plan }}</div>
       </div>
-      {% if school.trial_end_date %}
+      {% if school.trial_pending_activation %}
+      <p>{{ school.trial_duration_days }}-day trial awaiting written go-live. No trial days used.</p>
+      {% elif school.trial_end_date %}
       <div style="background:#fff;border:1px solid #bbf7d0;border-radius:6px;padding:12px 14px;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#166534;margin-bottom:4px;">Trial Ends</div>
         <div style="font-size:13px;font-weight:600;">{{ school.trial_end_date|date:"M j, Y" }}</div>
@@ -160,10 +162,11 @@
         <div id="trial-days-row" style="display:{% if not post or post.plan == 'trial' or not post.plan %}flex{% else %}none{% endif %};align-items:center;gap:10px;">
           <label style="font-size:13px;white-space:nowrap;">Trial length:</label>
           <input type="number" name="trial_days" min="1" max="365"
-                 value="{{ post.trial_days|default:'30' }}"
+                 value="{{ post.trial_days|default:school.trial_duration_days }}"
                  style="width:80px;padding:7px 10px;border:1px solid var(--dash-border);border-radius:6px;font-size:13px;background:var(--dash-bg);color:var(--dash-text);">
           <span style="font-size:13px;color:var(--dash-muted);">days</span>
         </div>
+        {% if school.trial_requires_activation %}<p>The trial stays unstarted during setup. Record the written go-live notice separately when the school is ready.</p>{% endif %}
       </fieldset>
 
       <!-- Demo data cleanup -->

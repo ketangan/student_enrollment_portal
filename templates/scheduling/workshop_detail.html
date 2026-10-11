@@ -1,0 +1,59 @@
+{% extends 'scheduling/base.html' %}
+{% load tz %}
+{% block title %}{{ offering.name }}{% endblock %}
+{% block page_heading %}
+<a class="back-link" href="{% url 'scheduling:workshops' school_slug=business.slug %}"><i data-lucide="arrow-left" aria-hidden="true"></i> Workshops</a>
+<div class="workshop-heading">
+  <div><h1>{{ offering.name }}</h1><p>{{ offering.location.name }}</p></div>
+  <div class="actions">
+    <span class="status {% if not offering.is_published %}draft{% endif %}">{% if offering.is_published %}Published{% else %}Draft{% endif %}</span>
+    {% if can_edit_setup %}
+    <a class="button" href="{% url 'scheduling:workshop_edit' school_slug=business.slug pk=offering.pk %}"><i data-lucide="pencil" aria-hidden="true"></i> Edit details</a>
+    <form method="post" action="{% url 'scheduling:workshop_publish' school_slug=business.slug pk=offering.pk %}">{% csrf_token %}<button name="action" value="{% if offering.is_published %}unpublish{% else %}publish{% endif %}" class="{% if not offering.is_published %}primary{% endif %}">{% if offering.is_published %}Unpublish{% else %}Publish workshop{% endif %}</button></form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+{% if offering.inventory_catalog_id %}
+<section class="workshop-materials" aria-label="Workshop inventory">
+  <dl><dt>Materials Catalog</dt><dd>{{ offering.inventory_catalog.name }}</dd></dl>
+  <a class="button" href="{% url 'scheduling:inventory_catalog' school_slug=business.slug catalog_pk=offering.inventory_catalog_id %}"><i data-lucide="book-open" aria-hidden="true"></i> View Catalog</a>
+</section>
+{% else %}
+<details class="workshop-options">
+  <summary>Booking options</summary>
+  {% if can_edit_setup %}<p><a class="button" href="{% url 'scheduling:choice_new' school_slug=business.slug offering_pk=offering.pk %}">Add choice</a></p>{% endif %}
+  {% for group in choice_groups %}
+  <section class="choice-setup"><div class="section-heading"><h3>{{ group.name }}{% if not group.is_active %} <span class="status inactive">Hidden</span>{% endif %}</h3>{% if can_edit_setup %}<div class="actions"><a href="{% url 'scheduling:choice_edit' school_slug=business.slug offering_pk=offering.pk group_pk=group.pk %}">Edit choice</a><a href="{% url 'scheduling:option_new' school_slug=business.slug offering_pk=offering.pk group_pk=group.pk %}">Add option</a></div>{% endif %}</div>
+  <ul class="option-list">{% for option in group.options.all %}<li>{% if option.swatch %}<span class="color-swatch" style="background-color:{{ option.swatch }}" aria-hidden="true"></span>{% endif %}<span>{{ option.label }}</span>{% if not option.is_active %}<span class="status inactive">Hidden</span>{% endif %}{% if can_edit_setup %}<a href="{% url 'scheduling:option_edit' school_slug=business.slug offering_pk=offering.pk group_pk=group.pk option_pk=option.pk %}" aria-label="Edit {{ option.label }}">Edit</a>{% endif %}</li>{% empty %}<li>No options yet.</li>{% endfor %}</ul></section>
+  {% empty %}<p class="muted">No booking options configured.</p>{% endfor %}
+</details>
+{% endif %}
+<section class="workshop-sessions" aria-labelledby="sessions-heading">
+  <div class="section-heading"><h2 id="sessions-heading">Sessions</h2>{% if can_edit_sessions %}<a class="button primary" href="?edit_session=new#session-new"><i data-lucide="plus" aria-hidden="true"></i> Add session</a>{% endif %}</div>
+  {% timezone offering.location.timezone_name %}
+  {% if adding_session %}<div class="session-new-editor" id="session-new">{% include 'scheduling/session_inline_form.html' %}</div>{% endif %}
+  <div class="dash-card workshop-session-table"><div class="dash-table-scroll" role="region" aria-label="Workshop sessions" tabindex="0">
+  <table class="dash-table">
+    <colgroup><col class="session-date-col"><col class="session-time-col"><col class="session-room-col"><col class="session-capacity-col"><col class="session-status-col"><col class="session-actions-col"></colgroup>
+    <thead><tr><th scope="col">Date</th><th scope="col">Time</th><th scope="col">Room</th><th scope="col" class="number">Capacity</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+    <tbody>
+    {% for session in sessions %}{% with starts_at=session.starts_at|localtime ends_at=session.ends_at|localtime %}
+      <tr id="session-{{ session.pk }}"{% if editing_session.pk == session.pk %} class="session-selected"{% endif %}>
+        <td><strong>{{ starts_at|date:"D, M j, Y" }}</strong></td>
+        <td>{{ starts_at|date:"g:i A" }} &ndash; {% if starts_at.date != ends_at.date %}{{ ends_at|date:"M j, Y" }} {% endif %}{{ ends_at|date:"g:i A" }}</td>
+        <td>{{ session.room.name|default:"Unassigned" }}</td><td class="number">{{ session.capacity }}</td>
+        <td><span class="status {% if not session.is_published %}draft{% endif %}">{% if session.is_published %}Published{% else %}Draft{% endif %}</span></td>
+        <td>{% if can_edit_sessions %}<div class="session-actions">
+          <a class="dash-action-btn dash-action-btn--secondary" href="?edit_session={{ session.pk }}#session-{{ session.pk }}" aria-label="Edit session {{ session.pk }}" title="Edit session" aria-expanded="{% if editing_session.pk == session.pk %}true{% else %}false{% endif %}"><i data-lucide="pencil" aria-hidden="true"></i><span class="sr-only">Edit session</span></a>
+          <form method="post" action="{% url 'scheduling:session_publish' school_slug=business.slug pk=session.pk %}">{% csrf_token %}<button class="dash-action-btn dash-action-btn--secondary" name="action" value="{% if session.is_published %}unpublish{% else %}publish{% endif %}" title="{% if session.is_published %}Unpublish session{% else %}Publish session{% endif %}" aria-label="{% if session.is_published %}Unpublish{% else %}Publish{% endif %} session {{ session.pk }}"><i data-lucide="{% if session.is_published %}eye-off{% else %}eye{% endif %}" aria-hidden="true"></i><span class="sr-only">{% if session.is_published %}Unpublish{% else %}Publish{% endif %} session</span></button></form>
+        </div>{% endif %}</td>
+      </tr>
+      {% if editing_session.pk == session.pk %}<tr class="session-editor-row"><td colspan="6">{% include 'scheduling/session_inline_form.html' %}</td></tr>{% endif %}
+    {% endwith %}{% empty %}<tr><td colspan="6">No sessions yet.</td></tr>{% endfor %}
+    </tbody>
+  </table></div></div>
+  {% endtimezone %}
+</section>
+{% endblock %}

@@ -1,4 +1,4 @@
-{% load static %}
+{% load static booking_navigation %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -11,6 +11,7 @@
   {% block extra_css %}{% endblock %}
 </head>
 <body class="dash-body">
+  {% booking_school_entry school as scheduling_entry %}
 
   <!-- Top navigation -->
   <header class="dash-header">
@@ -22,6 +23,9 @@
     </div>
 
     <nav class="dash-nav">
+      {% if billing_only %}
+      <a href="{% url 'scheduling:workspace' school_slug=school.slug %}" class="dash-nav-link">Scheduling</a>
+      {% else %}
       <a href="{% url 'school_dashboard' school.slug %}"
          class="dash-nav-link{% if active_nav == 'dashboard' %} dash-nav-link--active{% endif %}">Dashboard</a>
       <a href="{% url 'school_submissions' school.slug %}"
@@ -39,6 +43,10 @@
       {% if is_editor %}
       <a href="{% url 'school_settings' school.slug %}"
          class="dash-nav-link{% if active_nav == 'settings' or active_nav == 'programs' %} dash-nav-link--active{% endif %}">Settings</a>
+      {% endif %}
+      {% if scheduling_entry %}
+      <a href="{{ scheduling_entry.url }}" class="dash-nav-link">Scheduling</a>
+      {% endif %}
       {% endif %}
     </nav>
 
@@ -71,9 +79,11 @@
             {{ request.user.get_full_name|default:request.user.username }}
           </div>
           <!-- Change password -->
+          {% if not billing_only %}
           <a href="{% url 'school_password_change' school.slug %}" class="dash-menu-item">
             Change Password
           </a>
+          {% endif %}
           <!-- Theme selector -->
           <div style="border-top:1px solid var(--dash-border,#e2e8f0);padding:6px 0;margin-top:2px;">
             <div style="padding:5px 14px 3px;font-size:10px;font-weight:700;
@@ -188,11 +198,25 @@
   </script>
 
   <!-- Trial banner -->
+  {% if school.is_payment_overdue %}
+  <div class="dash-trial-banner" role="status" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:12px 20px;">
+    {% if school.is_payment_access_expired %}
+    <span>Subscription payment overdue. School access is paused.</span>
+    {% else %}
+    <span>Subscription payment failed. Resolve it by {{ school.payment_grace_ends_at|date:"M j, Y, g:i A" }} to keep access.</span>
+    {% endif %}
+    <a href="{% url 'school_billing' school.slug %}">Review billing</a>
+  </div>
+  {% endif %}
   {% if school.show_trial_banner and not request.user.is_superuser %}
   <div class="dash-trial-banner">
     {% if school.trial_days_left > 0 %}
       ⚡ Trial ends in {{ school.trial_days_left }} day{{ school.trial_days_left|pluralize }} — New submissions will stop after this.
+      {% if school.subscription_checkout_paused %}
+      <a href="{% url 'school_billing' school.slug %}">View trial details</a>
+      {% else %}
       <a href="{% url 'school_billing' school.slug %}">Upgrade now →</a>
+      {% endif %}
     {% else %}
       Your trial has expired — new submissions are paused. <a href="{% url 'school_billing' school.slug %}">Upgrade to resume →</a>
     {% endif %}

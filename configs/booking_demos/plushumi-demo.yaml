@@ -1,0 +1,44 @@
+name: The Plushie Workshop
+owner: plushumi-admin
+logo: /static/demo/plushumi/assets/logo.png
+photo: /static/demo/plushumi/assets/workshop.jpg
+design_image: /static/demo/plushumi/assets/designs.jpg
+price_cents: 6500
+policy_revision: concept-1
+design_group: Design
+color_group: Color
+age_group: Age
+locations:
+  - {name: 'Pasadena, CA', zone: America/Los_Angeles}
+  - {name: 'New York, NY', zone: America/New_York}
+  - {name: 'Houston, TX', zone: America/Chicago}
+  - {name: 'Dallas, TX', zone: America/Chicago}
+  - {name: 'Charlotte, NC', zone: America/New_York}
+designs:
+  - {name: Unicorn, x: '28%', y: '0%'}
+  - {name: Cat, x: '50%', y: '0%'}
+  - {name: Bunny, x: '74%', y: '0%'}
+  - {name: Chinchilla, x: '28%', y: '50%'}
+  - {name: Bear, x: '50%', y: '50%'}
+  - {name: Dog, x: '74%', y: '50%'}
+  - {name: Blue-spike Dino, x: '28%', y: '100%'}
+  - {name: Duck, x: '50%', y: '100%'}
+  - {name: Pink-spike Dino, x: '74%', y: '100%'}
+colors:
+  - {name: White, hex: '#fafafa'}
+  - {name: Pink, hex: '#f6b3cd'}
+  - {name: Purple, hex: '#b99bd3'}
+  - {name: Blue, hex: '#9bcce8'}
+  - {name: Yellow, hex: '#f5db66'}
+  - {name: Brown, hex: '#906447'}
+  - {name: Beige, hex: '#d6c4a6'}
+  - {name: Grey, hex: '#aaaaaa'}
+  - {name: Black, hex: '#333333'}
+mapping:
+  title: Workshop
+  booking_id: Booking reference
+  contact_name: Contact
+  contact_email: Email
+  schedule: Session
+  status: Booking status
+  participants: Participant selections

@@ -1,0 +1,12 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Cancel reservation{% endblock %}
+{% block page_heading %}{% include 'scheduling/reservation_heading.html' %}{% endblock %}
+{% block content %}<section class="reservation-section cancellation-review"><h2>Cancel reservation</h2>
+<p>This releases {{ item.quantity }} reserved place{{ item.quantity|pluralize }}. Choose whether to keep or refund the remaining payment.</p>
+<p><strong>${{ amounts.net|floatformat:2 }}</strong> currently received after refunds.</p>
+<form method="post" class="setup-form">{% csrf_token %}{{ form.key }}{{ form.key.errors }}{{ form.non_field_errors }}
+<fieldset class="cancellation-options"><legend>{{ form.resolution.label }}</legend>{{ form.resolution }}{{ form.resolution.errors }}</fieldset>
+<p class="muted">Refunds go to the original payment method. Payments made outside Pontora must be refunded through their original provider.</p>
+<div class="form-field">{{ form.reason.label_tag }}{{ form.reason }}{{ form.reason.errors }}</div>
+<div class="actions"><button type="submit" class="booking-danger booking-danger-solid">Confirm cancellation</button><a class="button" href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.public_id %}">Keep reservation</a></div>
+</form></section>{% endblock %}

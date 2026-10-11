@@ -1,0 +1,7 @@
+{% extends 'scheduling/family_base.html' %}
+{% block title %}{% if family %}Book a lesson{% else %}Trial lessons{% endif %}{% endblock %}
+{% block content %}
+{% if family %}<a class="back-link" href="{% url 'scheduling:family_schedule' school_slug=business.slug %}">Family schedule</a>{% endif %}
+<h1>{% if family %}Book a lesson{% else %}Trial lessons{% endif %}</h1>
+{% for offer in offers %}<article class="family-lesson"><div><h2>{{ offer.title }}</h2><p>{{ offer.service.subject }} &middot; {{ offer.service.duration_minutes }} minutes</p></div><div><strong>{{ offer.teacher }}</strong><p>{{ offer.location }}{% if offer.room %} &middot; {{ offer.room.name }}{% endif %}</p><p>{% if offer.fee_cents %}${{ offer.price|floatformat:2 }} &middot; Pay at studio{% else %}Free{% endif %}</p></div><div><a class="button primary" href="{% if family %}{% url 'scheduling:family_lesson_book' school_slug=business.slug public_id=offer.public_id %}{% else %}{% url 'scheduling:lesson_trial_book' school_slug=business.slug public_id=offer.public_id %}{% endif %}">Choose a time</a></div></article>{% empty %}<p>No lessons are available for online booking. Please contact the studio.</p>{% endfor %}
+{% endblock %}

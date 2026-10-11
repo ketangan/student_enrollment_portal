@@ -184,9 +184,12 @@ success:
       # message: ""   # optional — leave blank to use the default message
 
 admin:
+  require_enrollment_approval: true
   submission_statuses:
     - New
     - In Review
+    - Playdate Scheduled
+    - Playdate Completed
     - Contacted
     - Needs Follow Up
     - Archived
@@ -194,6 +197,9 @@ admin:
     - Closed
   default_submission_status: New
   lead_workflow:
+    status_labels:
+      trial_scheduled: Tour Scheduled
+      trial_completed: Tour Completed
     filters:
       new_leads:
         label: "New"
@@ -215,7 +221,7 @@ admin:
         - label: "Lost"
           status: lost
       contacted:
-        - label: "Schedule Trial"
+        - label: "Schedule Tour"
           status: trial_scheduled
         - label: "Lost"
           status: lost

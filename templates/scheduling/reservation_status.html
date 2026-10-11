@@ -1,0 +1,1 @@
+<span class="status {% if item.state == 'held' %}draft{% elif item.state == 'review' %}error{% elif item.state == 'canceled' %}inactive{% endif %}">{{ item.state_label }}</span>

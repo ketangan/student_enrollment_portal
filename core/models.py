@@ -15,6 +15,7 @@ from core.services.form_utils import resolve_label
 from core.services import feature_flags as ff
 from core.services.admin_themes import THEME_CHOICES, DEFAULT_THEME_KEY
 from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 # How many days a trial lasts. Single source of truth — do not hardcode elsewhere.
 TRIAL_LENGTH_DAYS = 30
@@ -143,11 +144,17 @@ class School(models.Model):
     # Trial billing
     trial_started_at = models.DateTimeField(null=True, blank=True)
     trial_end_date = models.DateField(null=True, blank=True)
+    trial_duration_days = models.PositiveSmallIntegerField(
+        default=TRIAL_LENGTH_DAYS, db_default=TRIAL_LENGTH_DAYS, editable=False,
+        validators=[MinValueValidator(1), MaxValueValidator(365)],
+    )
+    trial_requires_activation = models.BooleanField(default=False, db_default=False, editable=False)
 
     # Stripe billing (platform subscription)
     stripe_customer_id = models.CharField(max_length=255, blank=True, default="")
     stripe_subscription_id = models.CharField(max_length=255, blank=True, default="")
     stripe_subscription_status = models.CharField(max_length=50, blank=True, default="")
+    payment_grace_ends_at = models.DateTimeField(null=True, blank=True, editable=False)
     is_active = models.BooleanField(default=True)
     is_demo = models.BooleanField(default=False, db_index=True)
     activity_tracking_enabled = models.BooleanField(default=False)
@@ -214,14 +221,25 @@ class School(models.Model):
     @property
     def trial_ends_at(self):
         """UTC datetime when the trial expires, or None if not a trial school."""
-        if not self.is_trial_plan or not self.trial_started_at:
+        if self.is_demo or not self.is_trial_plan or not self.trial_started_at:
             return None
         if self.trial_end_date:
             # Superadmin override: school gets the full override date (23:59:59 UTC)
             return timezone.make_aware(
                 datetime.combine(self.trial_end_date, time(23, 59, 59))
             )
-        return self.trial_started_at + timedelta(days=TRIAL_LENGTH_DAYS)
+        return self.trial_started_at + timedelta(days=self.trial_duration_days)
+
+    @property
+    def trial_pending_activation(self) -> bool:
+        return bool(self.is_trial_plan and self.trial_requires_activation
+                    and not self.is_demo and self.trial_started_at is None)
+
+    @property
+    def subscription_checkout_paused(self) -> bool:
+        return self.is_demo or (
+            self.trial_requires_activation and self.is_trial_plan and not self.is_trial_expired
+        )
 
     @property
     def trial_days_left(self) -> int:
@@ -247,12 +265,13 @@ class School(models.Model):
     @property
     def show_trial_banner(self) -> bool:
         """Show the trial countdown/expired banner only in the final N days (see TRIAL_BANNER_THRESHOLD_DAYS)."""
-        return self.is_trial_plan and self.trial_days_left <= TRIAL_BANNER_THRESHOLD_DAYS
+        return bool(self.trial_ends_at and self.trial_days_left <= TRIAL_BANNER_THRESHOLD_DAYS)
 
     def save(self, *args, **kwargs):
         # Auto-start the trial clock the first time a school is saved as plan="trial".
         # Never overrides an explicitly set trial_started_at.
-        if self.plan == ff.PLAN_TRIAL and self.trial_started_at is None:
+        if (self.plan == ff.PLAN_TRIAL and self.trial_started_at is None
+                and not self.is_demo and not self.trial_requires_activation):
             self.trial_started_at = timezone.now()
         super().save(*args, **kwargs)
 
@@ -277,6 +296,45 @@ class School(models.Model):
             and self.stripe_subscription_id
             and self.stripe_subscription_status in ("active", "trialing", "past_due", "unpaid")
         )
+
+    @property
+    def is_payment_overdue(self):
+        return bool(not self.is_demo and self.payment_grace_ends_at)
+
+    @property
+    def is_payment_access_expired(self):
+        return bool(self.is_payment_overdue and timezone.now() >= self.payment_grace_ends_at)
+
+    @property
+    def is_access_expired(self):
+        return self.is_trial_expired or self.is_payment_access_expired
+
+
+class BillingInvoice(models.Model):
+    """Platform invoice state only; parent payments never affect school access."""
+
+    school = models.ForeignKey(School, on_delete=models.PROTECT, related_name="billing_invoices")
+    provider_id = models.CharField(max_length=255, unique=True)
+    subscription_id = models.CharField(max_length=255)
+    livemode = models.BooleanField()
+    status = models.CharField(max_length=32)
+    first_failed_at = models.DateTimeField(null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class PaymentNotification(models.Model):
+    """Durable outbox, shared by subscription and school-owned payments."""
+
+    key = models.CharField(max_length=255, unique=True)
+    school = models.ForeignKey(School, null=True, on_delete=models.SET_NULL)
+    recipients = models.JSONField(default=list)
+    subject = models.CharField(max_length=255)
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+    attempts = models.PositiveIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(default=timezone.now, db_index=True)
+    last_error = models.CharField(max_length=100, blank=True)
 
 
 class SchoolAdminMembership(models.Model):
@@ -555,8 +613,8 @@ class Submission(models.Model):
         last = data.get("student_last_name") or data.get("last_name") or data.get("child_last_name")
         if first or last:
             parts.append(f"{first or ''} {last or ''}".strip())
-        elif data.get("applicant_name"):
-            parts.append(str(data["applicant_name"]).strip())
+        elif data.get("applicant_name") or data.get("student_name"):
+            parts.append(str(data.get("applicant_name") or data["student_name"]).strip())
 
         # Program name — use already-cached FK instance (free) or fetch name-only (cheap).
         if self.program_id:
@@ -636,7 +694,7 @@ class Submission(models.Model):
             return f"{first or ''} {last or ''}".strip()
 
         # TSCA
-        applicant = data.get("applicant_name")
+        applicant = data.get("applicant_name") or data.get("student_name")
         if applicant:
             return str(applicant).strip()
 

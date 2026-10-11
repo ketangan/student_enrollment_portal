@@ -1,0 +1,19 @@
+{% extends 'scheduling/public_base.html' %}{% load static %}
+{% block title %}{{ camp.name }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:public_schedule' school_slug=business.slug %}">All workshops</a>
+<div class="section-heading"><div><h1>{{ camp.name }}</h1><p>{{ camp.offering.location.name }} &middot; {{ dates|length }} required sessions</p></div><span class="status{% if not remaining %} inactive{% endif %}">{% if remaining %}{{ remaining }} places left{% else %}Full{% endif %}</span></div>
+<p>{{ camp.description|linebreaksbr }}</p>
+{% include 'scheduling/camp_dates.html' %}
+<p><strong>${{ camp.price|floatformat:2 }} USD per participant for all dates.</strong>{% if camp.deposit %} Deposit: ${{ camp.deposit|floatformat:2 }} per participant.{% endif %}</p>
+{% if camp.price %}<p class="notice">Places are held for 30 minutes, then released unless payment is confirmed or checkout verification is pending.{% if not camp.online %} Payment is arranged with the studio; this form does not charge a card.{% endif %}</p>{% endif %}
+{% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+{% if remaining or error %}<div class="request-layout"><form method="post" id="workshop-request" data-max-participants="{{ participants.max_num }}">{% csrf_token %}<input type="hidden" name="request_token" value="{{ request_token }}">
+<section class="request-contact"><h2>Your details</h2>{{ purchaser.non_field_errors }}{% for field in purchaser %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}</section>
+{{ participants.management_form }}{{ participants.non_form_errors }}<div id="participants">{% for form in participants %}{% include 'scheduling/participant_fields.html' with number=forloop.counter %}{% endfor %}</div>
+<div class="actions participant-actions"><button type="button" id="add-participant">Add participant</button><button type="button" id="remove-participant">Remove last participant</button></div><p id="participant-count" class="muted" role="status"></p>
+<div class="actions form-actions"><button class="primary">{% if camp.price %}Hold places for all {{ dates|length }} sessions{% else %}Register for all {{ dates|length }} sessions{% endif %}</button></div>
+<template id="empty-participant">{% include 'scheduling/participant_fields.html' with form=participants.empty_form number="" %}</template></form>
+<aside class="choice-reference">{% for group in catalog %}{% if group.reference_image %}<figure><img src="{{ group.reference_image }}" alt="{{ group.name }} reference" referrerpolicy="no-referrer"><figcaption>{{ group.name }}</figcaption></figure>{% endif %}{% endfor %}</aside></div>{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% static 'scheduling/request.js' %}" defer></script>{% endblock %}

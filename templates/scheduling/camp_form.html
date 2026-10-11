@@ -1,0 +1,10 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Camp setup{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:camps' school_slug=business.slug %}">All camps</a>
+<div class="section-heading"><div><h2>{% if form.instance.pk %}Edit camp{% else %}Create camp{% endif %}</h2><p>{{ offering.name }} &middot; {{ offering.location.name }}</p></div><a href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=offering.pk %}">Manage sessions &amp; choices</a></div>
+<form method="post" class="setup-form">{% csrf_token %}{{ form.non_field_errors }}
+{% include 'scheduling/form_hidden_fields.html' %}
+{% for field in form.visible_fields %}<div class="form-field{% if field.name == 'sessions' %} camp-session-choices{% elif field.field.widget.input_type == 'checkbox' %} check-field{% endif %}">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+<div class="actions"><button class="primary">Save camp</button><a class="button" href="{% url 'scheduling:camps' school_slug=business.slug %}">Cancel</a></div></form>
+{% endblock %}

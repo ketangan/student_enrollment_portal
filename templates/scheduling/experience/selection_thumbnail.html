@@ -1,0 +1,6 @@
+<div class="selection-thumbnail" role="img" aria-label="{{ person.preview.label|default:'Plushie selection' }}{% if not person.preview.exact %} (illustrative preview){% endif %}">
+{% if person.preview.image %}<img src="{{ person.preview.image }}" alt="">
+{% elif person.preview.x %}<span class="photo-art" style="background-image:url('{{ demo.design_image }}');background-position:{{ person.preview.x }} {{ person.preview.y }};{% if person.preview.y == '50%' %}aspect-ratio:1 / 1.08{% elif person.preview.y == '100%' %}aspect-ratio:1 / 1.15{% endif %}"></span>
+{% else %}<i data-lucide="image" aria-hidden="true"></i>{% endif %}
+{% if not person.preview.exact %}<span class="tint" style="--color:{{ person.preview.swatch }}"></span>{% endif %}
+</div>

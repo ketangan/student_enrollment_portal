@@ -1,0 +1,1 @@
+<div class="table-wrap"><table><thead><tr><th>Participant</th><th>Age</th><th>Design</th><th>Color</th></tr></thead><tbody>{% for person in people %}<tr><td>{{ person.name }}</td><td>{{ person.age }}</td><td>{{ person.design }}</td><td><span class="swatch" style="--color:{{ person.swatch }}"></span>{{ person.color }}</td></tr>{% endfor %}</tbody></table></div>

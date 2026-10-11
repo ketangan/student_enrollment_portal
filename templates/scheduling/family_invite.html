@@ -1,0 +1,13 @@
+{% extends 'scheduling/base.html' %}{% load static %}
+{% block title %}Private schedule access{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'scheduling/family.css' %}">
+<a class="back-link" href="{% url 'scheduling:family_access' school_slug=business.slug %}">Family access</a>
+<h2>{{ household.name }}: private schedule access</h2>
+<form method="post" class="setup-form family-invite" novalidate>{% csrf_token %}
+{{ form.non_field_errors }}{% include 'scheduling/form_hidden_fields.html' %}
+{% for field in form.visible_fields %}{% if field.name == 'students' %}<fieldset class="choice-field form-field"><legend>{{ field.label }}</legend>{{ field }}{{ field.errors }}</fieldset>{% else %}<div class="form-field {% if field.field.widget.input_type == 'checkbox' %}check-field{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}
+<p class="muted">Share the link only with the verified guardian above. It opens once, within 24 hours. No email is sent automatically.</p>
+<button class="primary" type="submit">Create access link</button>
+</form>
+{% endblock %}

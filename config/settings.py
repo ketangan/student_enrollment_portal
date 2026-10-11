@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import json
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
@@ -92,6 +93,8 @@ if IS_PROD and SENTRY_DSN:
 
 INSTALLED_APPS = [
     'core',
+    'scheduling.apps.SchedulingConfig',
+    'core.payments.apps.PaymentsConfig',
     'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -288,6 +291,20 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@example.com")
 # WARNING: the fallback "noreply@example.com" is not a real verified sender.
 # Always set DEFAULT_FROM_EMAIL explicitly in production/staging env vars.
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
+PAYMENT_ALERT_RECIPIENTS = [address.strip() for address in os.getenv(
+    "PAYMENT_ALERT_RECIPIENTS", "ketan@mypontora.com"
+).split(",") if address.strip()]
+PAYMENT_ALERT_TEST_EVENTS = os.getenv("PAYMENT_ALERT_TEST_EVENTS", "false").lower() == "true"
+# School-owned Stripe webhook secrets, keyed by school slug. Keep out of YAML/Git.
+APP_FEE_WEBHOOK_SECRETS = json.loads(os.getenv("APP_FEE_WEBHOOK_SECRETS", "{}"))
+
+# Hosted booking demos share infrastructure, not live payment credentials.
+# Explicit tenant and hostname allowlists are required; an empty list disables access.
+BOOKING_HOSTED_DEMO_SLUGS = [value.strip() for value in os.getenv("BOOKING_HOSTED_DEMO_SLUGS", "").split(",") if value.strip()]
+BOOKING_HOSTED_DEMO_HOSTS = [value.strip().lower() for value in os.getenv("BOOKING_HOSTED_DEMO_HOSTS", "").split(",") if value.strip()]
+BOOKING_DEMO_STRIPE_SCHOOL = os.getenv("BOOKING_DEMO_STRIPE_SCHOOL", "").strip()
+PAYMENTS_STRIPE_TEST_SECRET_KEY = os.getenv("PAYMENTS_STRIPE_TEST_SECRET_KEY", "").strip()
+PAYMENTS_STRIPE_TEST_WEBHOOK_SECRET = os.getenv("PAYMENTS_STRIPE_TEST_WEBHOOK_SECRET", "").strip()
 
 # Absolute base URL — fallback for local dev. In production set all three explicitly.
 # APP_BASE_URL  → production app  (e.g. https://app.mypontora.com)

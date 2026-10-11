@@ -17,6 +17,8 @@ from django.db import IntegrityError, transaction
 from django.db.models import Case, Count, Exists, F, IntegerField, OuterRef, Q, Value, When
 from django.db.models.functions import Coalesce
 from django.http import Http404, HttpResponse, FileResponse, JsonResponse
+from scheduling.admission_gates import lead_application_gate
+from scheduling.admissions import lead_context as booking_lead_context
 from django.shortcuts import get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
 from django.shortcuts import render, redirect
@@ -643,6 +645,8 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
     lead = get_object_or_404(with_admissions_status(Lead.objects.filter(school=school), config_raw), id=lead_id)
     status = displayed_lead_status(lead)
 
+    booking_admissions = booking_lead_context(lead)
+
     # Workflow transitions for inline status buttons.
     workflow_transitions = get_lead_workflow_transitions(config_raw)
     status_transitions = workflow_transitions.get(status, [])
@@ -669,7 +673,18 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
             "school_submission_detail",
             kwargs={"school_slug": school_slug, "submission_id": lead.converted_submission_id},
         )
-    elif lead.status != LEAD_STATUS_LOST:
+    elif booking_admissions and booking_admissions["allowed"]:
+        from django.core.exceptions import ValidationError
+        from scheduling.admissions import prepare_lead_draft
+        from core.services.url_builder import request_reverse
+        try:
+            existing_draft = prepare_lead_draft(lead)
+        except ValidationError as exc:
+            booking_admissions.update(allowed=False, message=" ".join(exc.messages))
+        else:
+            resume_url = request_reverse(request, "apply_resume", kwargs={"school_slug": school_slug, "token": existing_draft.token})
+            form_url = resume_url
+    elif lead.status != LEAD_STATUS_LOST and not booking_admissions:
         start_enrollment_url = reverse(
             "school_lead_start_enrollment",
             kwargs={"school_slug": school_slug, "lead_id": lead_id},
@@ -809,6 +824,7 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
     ctx = _school_admin_base_context(request, school, "leads")
     ctx.update({
         "lead": lead,
+        "booking_admissions": booking_admissions,
         "status_transitions": status_transitions,
         "status_css": _LEAD_STATUS_CSS.get(status, "dash-badge--gray"),
         "audit_log": audit_log,
@@ -848,6 +864,7 @@ def school_lead_detail_view(request, school_slug: str, lead_id: int):
 
 @login_required
 @require_http_methods(["POST"])
+@lead_application_gate
 def school_lead_start_enrollment_view(request, school_slug: str, lead_id: int):
     """
     Create or reuse a DraftSubmission for a lead, set the session, and redirect
@@ -873,6 +890,14 @@ def school_lead_start_enrollment_view(request, school_slug: str, lead_id: int):
     if lead.status == LEAD_STATUS_LOST:
         messages.warning(request, "Cannot start enrollment for a lost lead.")
         return redirect(detail_url)
+
+    if booking_lead_context(lead):
+        from scheduling.admissions import prepare_lead_draft
+        draft = prepare_lead_draft(lead)
+        request.session[_draft_session_key(school_slug)] = draft.pk
+        if request.POST.get("action") == "copy":
+            return redirect(detail_url)
+        return redirect("apply_resume", school_slug=school_slug, token=draft.token)
 
     config = _safe_load_school_config(school_slug)
     config_raw = getattr(config, "raw", {}) or {}
@@ -1657,6 +1682,7 @@ def school_lead_send_message_view(request, school_slug: str, lead_id: int):
 
 @login_required
 @require_http_methods(["POST"])
+@lead_application_gate
 def school_lead_resend_resume_link_view(request, school_slug: str, lead_id: int):
     """
     Resend the draft resume link to the lead's email address.

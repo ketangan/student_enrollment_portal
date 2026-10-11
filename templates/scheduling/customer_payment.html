@@ -1,0 +1,15 @@
+{% extends 'scheduling/public_base.html' %}
+{% block title %}Reservation payment{% endblock %}
+{% block content %}
+<div class="section-heading"><div><h2>{{ item.snapshot.workshop }}</h2><p>{{ business.display_name }}</p></div><span class="status draft">Test checkout</span></div>
+{% if error %}<p role="alert" class="notice error">{{ error }}</p>{% endif %}
+<dl class="details"><div><dt>Reservation</dt><dd>{{ item.state_label }}</dd></div>
+<div><dt>Total</dt><dd>${{ item.order.total|floatformat:2 }}</dd></div>
+<div><dt>Payment verified</dt><dd>${{ amounts.net|floatformat:2 }}</dd></div>
+<div><dt>Balance remaining</dt><dd>${{ amounts.outstanding|floatformat:2 }}</dd></div></dl>
+{% if ready %}<form method="post">{% csrf_token %}<button class="primary" type="submit">Pay ${{ due|floatformat:2 }} in test checkout</button></form>
+<p class="muted">Payment confirmation appears here after verification. Returning from checkout alone does not confirm payment.</p>
+{% elif amounts.outstanding_cents == 0 %}<p class="notice">Payment has been verified.</p>
+{% else %}<p class="notice">Online checkout is unavailable. Please contact the studio.</p>{% endif %}
+{% include 'scheduling/occurrences.html' %}
+{% endblock %}

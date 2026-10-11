@@ -1,0 +1,22 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Messages{% endblock %}
+{% block content %}
+<h2>Messages</h2>
+<p class="notice">Local testing only. Messages stay on this computer; no email is sent to families.</p>
+{% if can_edit_setup %}
+<section class="location-section"><h3>Processing</h3>
+<form method="post" class="setup-form">{% csrf_token %}<input type="hidden" name="action" value="settings">
+{{ settings_form.non_field_errors }}{% include 'scheduling/form_hidden_fields.html' with form=settings_form %}
+{% for field in settings_form.visible_fields %}<div class="form-field check-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+<button type="submit">Save settings</button></form>
+{% if profile.message_preview_enabled %}<form method="post" class="setup-form">{% csrf_token %}<input type="hidden" name="action" value="process">
+{{ process_form.non_field_errors }}
+{% for field in process_form.visible_fields %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+<button type="submit">Process local queue</button></form>{% else %}<p>Processing is paused. Saved confirmations remain available.</p>{% endif %}
+</section>{% endif %}
+<section class="location-section"><h3>Confirmation queue</h3>
+<div class="table-scroll message-table" tabindex="0" role="region" aria-label="Confirmation queue"><table><thead><tr><th>Created</th><th>Message</th><th>Recipient</th><th>Status</th><th>Attempts</th></tr></thead>
+<tbody>{% for item in queued_messages %}<tr><td>{{ item.created_at|date:'M j, g:i A' }}</td><td><a href="{% url 'scheduling:message_detail' school_slug=business.slug public_id=item.public_id %}">{{ item.subject }}</a></td><td>{{ item.recipient }}</td><td>{{ item.get_state_display }}{% if item.state == 'queued' or item.state == 'retry' %}{% if item.blocking_message_id %}<p>Waiting for <a href="{% url 'scheduling:message_detail' school_slug=business.slug public_id=item.blocking_message_id %}">earlier message</a></p>{% endif %}{% endif %}</td><td>{{ item.attempts }}</td></tr>{% empty %}<tr><td colspan="5">No confirmation messages yet.</td></tr>{% endfor %}</tbody></table></div>
+{% if queued_messages.has_other_pages %}<nav aria-label="Message pages">{% if queued_messages.has_previous %}<a href="?page={{ queued_messages.previous_page_number }}">Previous</a>{% endif %} Page {{ queued_messages.number }} of {{ queued_messages.paginator.num_pages }} {% if queued_messages.has_next %}<a href="?page={{ queued_messages.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
+</section>
+{% endblock %}

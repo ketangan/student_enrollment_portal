@@ -1,0 +1,15 @@
+{% extends 'scheduling/base.html' %}{% load static %}
+{% block title %}{{ variant.name }} | Material recipe{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:inventory_catalog' school_slug=business.slug catalog_pk=catalog.pk %}"><i data-lucide="arrow-left" aria-hidden="true"></i> {{ catalog.name }}</a>
+<div class="section-heading"><div><h2>{{ variant.name }}</h2><p class="muted">Materials per participant</p></div><a class="button" href="{% url 'scheduling:material_new' school_slug=business.slug %}">Add material</a></div>
+<nav class="recipe-colors" aria-label="Color recipes">{% for sibling in siblings %}<a href="{% url 'scheduling:catalog_recipe' school_slug=business.slug catalog_pk=catalog.pk pk=sibling.pk %}" {% if sibling.pk == variant.pk %}aria-current="page"{% endif %}>{{ sibling.name }}</a>{% endfor %}</nav>
+<form method="post" id="recipe-form">{% csrf_token %}{{ revision }}{{ rows.management_form }}{{ rows.non_form_errors }}
+<div class="table-wrap"><table class="dash-table"><thead><tr><th>Raw material</th><th>Amount for one participant</th><th>Remove</th></tr></thead><tbody id="recipe-rows">
+{% for row in rows %}<tr class="recipe-row" {% if row.DELETE.value %}hidden{% endif %}><td>{{ row.id }}{{ row.material }}{{ row.material.errors }}{{ row.non_field_errors }}</td><td>{{ row.quantity }}{{ row.quantity.errors }}</td><td>{{ row.DELETE.as_hidden }}<button type="button" class="icon-button recipe-delete" aria-label="Remove material row" title="Remove material row"><i data-lucide="trash-2" aria-hidden="true"></i></button></td></tr>{% endfor %}
+</tbody></table></div>
+<template id="recipe-empty"><tr class="recipe-row"><td>{{ rows.empty_form.id }}{{ rows.empty_form.material }}</td><td>{{ rows.empty_form.quantity }}</td><td>{{ rows.empty_form.DELETE.as_hidden }}<button type="button" class="icon-button recipe-delete" aria-label="Remove material row" title="Remove material row"><i data-lucide="trash-2" aria-hidden="true"></i></button></td></tr></template>
+<div class="actions recipe-actions"><button type="button" id="add-recipe-row"><i data-lucide="plus" aria-hidden="true"></i> Add material row</button><button class="primary" type="submit">Save recipe</button><a href="{% url 'scheduling:inventory_catalog' school_slug=business.slug catalog_pk=catalog.pk %}">Cancel</a></div>
+</form>
+<script src="{% static 'scheduling/recipes.js' %}" defer></script>
+{% endblock %}

@@ -1,0 +1,8 @@
+{% load tz %}
+<dl class="reservation-facts">
+  <div><dt>{% if item.camp_registration_id %}Camp dates{% else %}Scheduled{% endif %}</dt><dd>{% include 'scheduling/reservation_time.html' %}</dd></div>
+  <div><dt>Participants</dt><dd>{{ item.quantity }}</dd></div>
+  <div><dt>Contact</dt><dd>{% if contact_email %}<a href="mailto:{{ contact_email }}">{{ contact_email }}</a>{% else %}Not provided{% endif %}</dd></div>
+  <div><dt>Studio</dt><dd>{{ reservation_location.name }}</dd></div>
+  {% if item.state == 'held' %}<div><dt>Hold deadline</dt><dd>{% timezone item.snapshot.timezone %}{{ item.hold_until|date:"M j, g:i A" }}{% endtimezone %}</dd></div>{% endif %}
+</dl>

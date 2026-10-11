@@ -1,0 +1,16 @@
+{% extends 'scheduling/public_base.html' %}{% load static tz %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:public_schedule' school_slug=business.slug %}">All workshops</a>
+<div class="request-heading"><h1>{{ session.offering.name }}</h1>{% timezone session.offering.location.timezone_name %}<p>{{ session.starts_at|date:"D, M j, Y" }} &middot; {{ session.starts_at|date:"g:i A" }} &ndash; {{ session.ends_at|date:"g:i A" }}</p>{% endtimezone %}<p class="muted">{{ session.offering.location.name }}{% if session.room %} &middot; {{ session.room.name }}{% endif %}</p></div>
+<p class="notice">Request only. Your place is not reserved and no payment is collected.</p>
+{% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
+<div class="request-layout"><form method="post" id="workshop-request" data-max-participants="{{ participants.max_num }}">{% csrf_token %}<input type="hidden" name="request_token" value="{{ request_token }}">
+<section class="request-contact"><h2>Your details</h2>{{ purchaser.non_field_errors }}{% for field in purchaser %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}</section>
+{{ participants.management_form }}{{ participants.non_form_errors }}
+<div id="participants">{% for form in participants %}{% include 'scheduling/participant_fields.html' with number=forloop.counter %}{% endfor %}</div>
+<div class="actions participant-actions"><button type="button" id="add-participant">Add participant</button><button type="button" id="remove-participant">Remove last participant</button></div>
+<p id="participant-count" class="muted" role="status"></p><div class="actions form-actions"><button class="primary" type="submit">Submit request</button></div>
+<template id="empty-participant">{% include 'scheduling/participant_fields.html' with form=participants.empty_form number="" %}</template>
+</form><aside class="choice-reference">{% for group in catalog %}{% if group.reference_image %}<figure><img src="{{ group.reference_image }}" alt="{{ group.name }} reference" referrerpolicy="no-referrer"><figcaption>{{ group.name }}</figcaption></figure>{% endif %}{% endfor %}</aside></div>
+{% endblock %}
+{% block scripts %}<script src="{% static 'scheduling/request.js' %}" defer></script>{% endblock %}

@@ -1,0 +1,11 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Complete reservation{% endblock %}
+{% block page_heading %}{% include 'scheduling/reservation_heading.html' %}{% endblock %}
+{% block content %}
+<section class="reservation-section"><h2>Complete this reservation?</h2>
+{% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+{% include 'scheduling/reservation_summary.html' %}
+{% if item.state == 'confirmed' %}<p class="completion-explanation">Confirm once all participants have finished. This marks the reservation Completed and deducts its reserved materials from stock. Materials already recorded as used will not be deducted again.</p><p class="muted">Payments stay unchanged. This action cannot be undone here.</p>
+<form method="post" class="actions">{% csrf_token %}<button class="primary" name="action" value="complete"><i data-lucide="circle-check" aria-hidden="true"></i> {{ completion_label }}</button><a class="button" href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.public_id %}">Go back</a></form>
+{% else %}<p>This reservation is {{ item.get_state_display|lower }}.</p><a class="button" href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.public_id %}">Back to reservation</a>{% endif %}</section>
+{% endblock %}

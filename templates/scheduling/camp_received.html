@@ -1,0 +1,12 @@
+{% extends 'scheduling/public_base.html' %}{% load tz %}
+{% block title %}Camp registration{% endblock %}
+{% block content %}
+<h1>{{ item.snapshot.workshop }}</h1><p class="status">{{ item.state_label }}</p>
+<p>{{ registration.purchaser_name }} &middot; {{ item.quantity }} participant{{ item.quantity|pluralize }}</p>
+<dl class="details"><div><dt>Full camp total</dt><dd>${{ item.order.total|floatformat:2 }} USD</dd></div><div><dt>Deposit</dt><dd>{% if item.order.deposit %}${{ item.order.deposit|floatformat:2 }}{% else %}Full payment{% endif %}</dd></div></dl>
+{% if item.state == 'held' %}{% timezone item.snapshot.timezone %}<p>Hold deadline: {{ item.hold_until|date:"M j, Y, g:i A" }}. Unpaid places may be released after this time.</p>{% endtimezone %}{% endif %}
+{% if payment_url %}<p><a class="button primary" href="{{ payment_url }}">View payment &amp; balance</a></p>{% elif item.state == 'held' %}<p>Contact the studio to arrange payment. No money was collected by this form.</p>{% endif %}
+{% include 'scheduling/occurrences.html' %}
+<h2 class="roster-heading">Participants</h2>{% for participant in registration.participants %}<p><strong>{{ participant.name }}</strong>{% for choice in participant.selections %}<br>{{ choice.group }}: {{ choice.option }}{% endfor %}</p>{% endfor %}
+<p><a href="{% url 'scheduling:public_schedule' school_slug=business.slug %}">Back to schedule</a></p>
+{% endblock %}

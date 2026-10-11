@@ -1,0 +1,12 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Workspaces{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">Pontora Bookings</p><h1>Workspaces</h1></div></div>
+{% if profiles %}
+<ul class="workspace-list">
+  {% for item in profiles %}<li><a href="{% url 'scheduling:workspace' school_slug=item.school.slug %}"><strong>{{ item.school }}</strong><span>{{ item.school.slug }}</span></a></li>{% endfor %}
+</ul>
+{% else %}
+<section class="empty-state"><h2>No Bookings access</h2><p>Contact your account owner to request access.</p></section>
+{% endif %}
+{% endblock %}

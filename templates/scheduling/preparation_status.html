@@ -1,0 +1,12 @@
+{% load tz %}{% if reservation.state == 'confirmed' %}
+<div class="preparation-control">
+  <div>{% if materials_used %}<span class="status">Materials used</span>{% elif reservation.prepared_at %}<span class="status">Prepared</span><p class="muted">{% timezone reservation.snapshot.timezone %}{{ reservation.prepared_at|date:'M j, g:i A' }}{% endtimezone %}{% if reservation.prepared_by %} &middot; {{ reservation.prepared_by.get_username }}{% endif %}</p>{% else %}<span class="status draft">Preparation Pending</span>{% endif %}</div>
+  {% if can_edit_sessions and not materials_used %}
+  <form method="post" action="{% url 'scheduling:preparation_update' school_slug=business.slug public_id=reservation.public_id %}">
+    {% csrf_token %}{{ preparation_form.edit_revision }}
+    {% if prep_return == True %}<input type="hidden" name="return_to" value="preparation">{% endif %}
+    {% if reservation.prepared_at %}<button name="action" value="reopen">Reopen preparation</button>{% else %}<button class="primary" name="action" value="prepare">Mark prepared</button>{% endif %}
+  </form>
+  {% endif %}
+</div>
+{% endif %}

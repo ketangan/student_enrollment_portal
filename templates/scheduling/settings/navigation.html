@@ -1,0 +1,5 @@
+<nav class="settings-tabs" aria-label="{{ booking_navigation.section.label }} sections">
+  {% for item in booking_navigation.section.tabs %}
+  <a class="settings-tab{% if item.active %} active{% endif %}" href="{{ item.url }}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }}</a>
+  {% endfor %}
+</nav>

@@ -1,0 +1,15 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}{% if editing %}Edit{% else %}Add{% endif %} {{ entity_label }}{% endblock %}
+{% block content %}
+{% if kind == 'workshops' %}<a class="back-link" href="{% if editing %}{% url 'scheduling:workshop_detail' school_slug=business.slug pk=form.instance.pk %}{% else %}{% url 'scheduling:workshops' school_slug=business.slug %}{% endif %}"><i data-lucide="arrow-left" aria-hidden="true"></i> {% if editing %}{{ form.instance.name }}{% else %}Workshops{% endif %}</a>{% endif %}
+<h2>{% if editing %}Edit{% else %}Add{% endif %} {{ entity_label }}</h2>
+{% if session_location %}<p class="muted">{{ form.instance.offering.name }} &middot; {{ session_location.name }} &middot; {{ session_location.timezone_name }}</p>{% endif %}
+<form method="post" class="setup-form" novalidate>
+  {% csrf_token %}
+  {% if form.errors and not form.edit_revision.errors %}<div class="notice error" role="alert">Please correct the fields below.{{ form.non_field_errors }}</div>{% endif %}
+  {% include 'scheduling/form_hidden_fields.html' %}
+  {% for field in form.visible_fields %}<div class="form-field {% if field.field.widget.input_type == 'checkbox' %}check-field{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span aria-hidden="true"> *</span>{% endif %}</label>{{ field }}{{ field.errors }}</div>{% endfor %}
+  <div class="actions form-actions"><button class="primary" type="submit">Save {{ entity_label }}</button>
+  {% if kind == 'sessions' %}<a href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=form.instance.offering_id %}">Cancel</a>{% elif kind == 'workshops' and editing %}<a href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=form.instance.pk %}">Cancel</a>{% elif kind == 'workshops' %}<a href="{% url 'scheduling:workshops' school_slug=business.slug %}">Cancel</a>{% else %}<a href="{% url 'scheduling:locations' school_slug=business.slug %}">Cancel</a>{% endif %}</div>
+</form>
+{% endblock %}

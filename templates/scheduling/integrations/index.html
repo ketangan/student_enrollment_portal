@@ -1,0 +1,11 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Integrations{% endblock %}
+{% block content %}
+<div class="section-heading"><h2>Integrations</h2><div class="actions">{% for provider in providers %}<a class="button" href="{% url 'scheduling:integration_new' school_slug=business.slug provider_key=provider.key %}">Add {{ provider.label }}</a>{% endfor %}</div></div>
+<p class="notice">Setup only. Connections are not active; no data is being sent. Existing booking and payment settings are unchanged.</p>
+<div class="connection-list">
+{% for connection in connections %}
+<article class="connection-row"><div><h3><a href="{% url 'scheduling:integration_edit' school_slug=business.slug pk=connection.pk %}">{{ connection.label }}</a></h3><p>{{ connection.provider_spec.label }} · {{ connection.get_environment_display }}{% if connection.provider_spec.role == 'destination' %} · From {{ connection.source|default:'Pontora Bookings' }}{% endif %}</p></div><span class="status draft">Not connected</span><a href="{% url 'scheduling:integration_edit' school_slug=business.slug pk=connection.pk %}">Settings</a></article>
+{% empty %}<p class="empty-state">No connections configured.</p>{% endfor %}
+</div>
+{% endblock %}

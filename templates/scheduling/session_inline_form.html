@@ -1,0 +1,11 @@
+<form method="post" action="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=offering.pk %}#session-{% if editing_session %}{{ editing_session.pk }}{% else %}new{% endif %}" class="session-inline-form" aria-label="{% if editing_session %}Edit session{% else %}Add session{% endif %}" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="session_id" value="{% if editing_session %}{{ editing_session.pk }}{% else %}new{% endif %}">
+  <h3>{% if editing_session %}Edit session{% else %}New session{% endif %}</h3>
+  {% if session_form.errors %}<div class="notice error" role="alert">Session not saved. Please review the fields below.{{ session_form.non_field_errors }}</div>{% endif %}
+  {% include 'scheduling/form_hidden_fields.html' with form=session_form %}
+  <div class="session-fields">
+    {% for field in session_form.visible_fields %}<div class="form-field"><label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span aria-hidden="true"> *</span>{% endif %}</label>{{ field }}{{ field.errors }}</div>{% endfor %}
+    <div class="actions session-save-actions"><button class="primary" type="submit"><i data-lucide="check" aria-hidden="true"></i> Save</button><a class="button" href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=offering.pk %}{% if editing_session %}#session-{{ editing_session.pk }}{% endif %}">Cancel</a></div>
+  </div>
+</form>

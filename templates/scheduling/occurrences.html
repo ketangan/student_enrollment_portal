@@ -1,0 +1,8 @@
+{% load tz %}
+{% if item.camp_registration_id %}
+<h2 class="roster-heading">Camp dates</h2>
+{% timezone item.snapshot.timezone %}<div class="table-wrap"><table><thead><tr><th>Date</th><th>Time</th><th>Room</th><th>Allocated total</th></tr></thead><tbody>
+{% for occurrence in item.occurrences.all %}<tr><th>{{ occurrence.starts_at|date:"D, M j, Y" }}</th><td>{{ occurrence.starts_at|date:"g:i A" }} &ndash; {% if occurrence.starts_at.date != occurrence.ends_at.date %}{{ occurrence.ends_at|date:"M j" }} {% endif %}{{ occurrence.ends_at|date:"g:i A" }}</td><td>{{ occurrence.room_name|default:"Not assigned" }}</td><td>${{ occurrence.total|floatformat:2 }}</td></tr>{% endfor %}
+</tbody></table></div>{% endtimezone %}
+<p class="muted">One booking for all dates. These amounts are included in your camp total, not additional charges.</p>
+{% endif %}

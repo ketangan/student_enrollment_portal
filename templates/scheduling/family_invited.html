@@ -1,0 +1,15 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Access link created{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:family_access' school_slug=business.slug %}">Family access</a>
+<h2>Access for {{ grant.recipient_name }}</h2>
+<p>{{ grant.recipient_email }}</p>
+<p>Permission: {{ grant.allow_booking|yesno:'View schedules and book single lessons,Read-only schedules' }}</p>
+<p>Students: {% for student in grant.students.all %}{{ student.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+{% if invite_url %}<div class="form-field setup-form"><label for="invite-url">Private schedule link</label><textarea id="invite-url" rows="4" readonly>{{ invite_url }}</textarea></div>
+<p class="muted">Share this link with the guardian. It opens once; their private schedule stays available in that browser until access expires.</p>
+{% else %}<p class="notice">This link was already created. The secret is only shown once. Revoke this access and create a new link if it was lost.</p>{% endif %}
+<p>Link opens until {{ grant.token_expires_at|date:'M j, Y, g:i A' }}. Schedule access ends {{ grant.expires_at|date:'M j, Y, g:i A' }}.</p>
+<p><a class="button primary" href="{% url 'scheduling:family_preview' school_slug=business.slug public_id=grant.public_id %}" target="_blank" rel="noopener noreferrer">Preview family view</a></p>
+<p><a href="{% url 'scheduling:family_revoke' school_slug=business.slug public_id=grant.public_id %}">Revoke this access</a></p>
+{% endblock %}

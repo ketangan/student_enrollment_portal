@@ -1,0 +1,17 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Lesson booking{% endblock %}
+{% block content %}<a class="back-link" href="{% url 'scheduling:lesson_bookings' school_slug=business.slug %}">Lesson bookings</a>
+<h2>{{ series.snapshot.student }} &middot; {{ series.snapshot.service }}</h2>
+<p>{{ booking.contact_name }} &middot; {{ booking.contact_email }}</p>
+<p><a href="{% url 'scheduling:lesson_series' school_slug=business.slug public_id=series.public_id %}">Schedule, attendance &amp; changes</a></p>
+{% if amounts %}<section class="location-section"><h3>Test payment ledger</h3>
+{% if item.state == 'canceled' %}<p class="notice">Lesson canceled. {% if amounts.net_cents %}${{ amounts.net|floatformat:2 }} is still received. Review any refund; cancellation does not return money.{% else %}No money is held.{% endif %}</p>{% endif %}
+<dl class="details"><div><dt>Quoted</dt><dd>${{ booking.order.total|floatformat:2 }}</dd></div><div><dt>Received</dt><dd>${{ amounts.paid|floatformat:2 }}</dd></div><div><dt>Refunded</dt><dd>${{ amounts.refunded|floatformat:2 }}</dd></div>{% if item.state != 'canceled' %}<div><dt>Outstanding</dt><dd>${{ amounts.outstanding|floatformat:2 }}</dd></div>{% endif %}</dl>
+{% for entry in entries %}<p>{{ entry.get_kind_display }} &middot; ${{ entry.amount|floatformat:2 }} &middot; {{ entry.reference }}</p>{% endfor %}
+{% if can_edit_sessions %}<form method="post" class="setup-form">{% csrf_token %}{% include 'scheduling/lesson_fields.html' %}<button type="submit">Record test payment / refund</button></form>{% endif %}</section>{% else %}<p>No charge for this booking.</p>{% endif %}
+<section class="location-section"><h3>Confirmation history</h3><p class="notice">Saved, not sent. Customer email delivery is not enabled.</p>
+{% for notice in notices %}<details class="booking-notice"><summary>{{ notice.subject }} &middot; {{ notice.created_at|date:'M j, Y, g:i A' }}</summary><p>To: {{ notice.recipient }}</p><pre>{{ notice.body }}</pre>
+{% if message_preview_available %}{% if notice.delivery_id %}<a href="{% url 'scheduling:message_detail' school_slug=business.slug public_id=notice.delivery.public_id %}">{{ notice.delivery.get_state_display }} &middot; Delivery history</a>
+{% elif forloop.first and can_edit_setup %}<form method="post" action="{% url 'scheduling:lesson_notice_queue' school_slug=business.slug pk=notice.pk %}">{% csrf_token %}<label><input type="checkbox" name="confirm" value="yes" required> Queue this latest confirmation for local testing</label><button type="submit">Queue confirmation</button></form>{% endif %}{% endif %}
+</details>{% endfor %}</section>
+{% endblock %}

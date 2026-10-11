@@ -1,0 +1,10 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Workshops{% endblock %}
+{% block content %}
+<div class="section-heading"><h2>Workshops</h2>{% if can_edit_setup %}<a class="button primary" href="{% url 'scheduling:workshop_new' school_slug=business.slug %}"><i data-lucide="plus" aria-hidden="true"></i> Add workshop</a>{% endif %}</div>
+{% include 'scheduling/location_filter.html' %}
+<div class="dash-card workshop-table"><div class="dash-table-scroll" role="region" aria-label="Workshops" tabindex="0"><table class="dash-table"><colgroup><col class="workshop-name-col"><col><col><col><col class="workshop-action-col"></colgroup><thead><tr><th scope="col">Workshop</th><th scope="col">Location</th><th scope="col" class="number">Upcoming sessions</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead><tbody>
+{% for offering in offerings %}<tr><td><a class="dash-student-name" href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=offering.pk %}">{{ offering.name }}</a></td><td>{{ offering.location.name }}</td><td class="number">{{ offering.upcoming_count }}</td><td><span class="status {% if not offering.is_published %}draft{% endif %}">{% if offering.is_published %}Published{% else %}Draft{% endif %}</span></td><td><a class="dash-action-btn dash-action-btn--secondary" href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=offering.pk %}" aria-label="Open {{ offering.name }} at {{ offering.location.name }}">Open</a></td></tr>
+{% empty %}<tr><td colspan="5" class="empty-state">No workshops yet.</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endblock %}

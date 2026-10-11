@@ -1,0 +1,16 @@
+{% extends 'scheduling/base.html' %}{% load tz %}
+{% block title %}Book make-up{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:lesson_credit' school_slug=business.slug public_id=credit.public_id %}">Credit history</a>
+<h2>Book make-up</h2>
+<p>{{ credit.snapshot.student }} &middot; {{ credit.snapshot.service }} &middot; {{ credit.snapshot.duration_minutes }} minutes</p>
+{% timezone credit.snapshot.timezone %}<p>Lesson must finish by {{ credit.expires_at|date:'M j, Y' }} at {{ credit.expires_at|time:'g:i A' }}. Status: {{ credit.status_label }}.</p>{% endtimezone %}
+<form method="post" novalidate>{% csrf_token %}
+<div class="setup-form">{% include 'scheduling/lesson_fields.html' %}</div>
+{% if rows %}<h3>Make-up preview</h3>
+<div class="table-wrap lesson-table"><table><thead><tr><th>Lesson date / time</th><th>Outcome</th></tr></thead><tbody>
+{% for row in rows %}<tr><td>{% timezone zone %}{{ row.starts_at|date:'D, M j, Y' }}<p>{{ row.starts_at|time:'g:i A' }} &ndash; {{ row.ends_at|time:'g:i A' }}</p>{% endtimezone %}</td><td>{% if row.state == 'scheduled' %}Available &middot; uses one lesson credit{% else %}<span class="status inactive">Unavailable</span><p>{{ row.reason }}</p>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div><input type="hidden" name="preview_token" value="{{ token }}">{% endif %}
+<div class="actions form-actions"><button type="submit" name="action" value="preview">Preview make-up</button>{% if can_confirm %}<button class="primary" type="submit" name="action" value="confirm">Book using credit</button>{% endif %}</div>
+</form>
+{% endblock %}

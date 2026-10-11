@@ -22,6 +22,9 @@ def _post_login_redirect(request, next_url=""):
     ).select_related("school").first()
     if membership:
         return redirect("school_dashboard", school_slug=membership.school.slug)
+    from scheduling.access import accessible_profiles
+    if accessible_profiles(request.user).exists():
+        return redirect("scheduling:index")
     logout(request)
     return redirect("login")
 

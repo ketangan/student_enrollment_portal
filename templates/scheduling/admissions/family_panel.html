@@ -1,0 +1,10 @@
+{% load tz %}
+<div class="card"><div class="card__title">Playdate</div>
+{% if booking_admissions.booking %}{% with item=booking_admissions.booking %}{% timezone item.slot.program.offering.location.timezone_name %}
+<p>{{ item.get_state_display }} &middot; <strong>{{ item.slot.session.starts_at|date:'D, M j, Y, g:i A' }}</strong></p>
+<p>{{ item.slot.program.offering.location.name }} &middot; {{ item.slot.session.room.name }}</p>
+{% endtimezone %}{% endwith %}{% endif %}
+{% if booking_admissions.allowed %}<a class="btn-change" href="{{ booking_admissions.url }}">Choose a playdate</a>
+{% else %}<p>{{ booking_admissions.message }}</p>{% endif %}
+{% if booking_admissions.booking and booking_admissions.recovery_url %}<a href="{{ booking_admissions.recovery_url }}">Email me a link to manage this visit</a>{% endif %}
+</div>
