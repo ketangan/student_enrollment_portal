@@ -9,7 +9,7 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
-- **Superadmin directory correction: locally verified; deployment pending.**
+- **Superadmin directory correction: deployed; live directory verified.**
   The prior release incorrectly hid demo clients from the production Schools directory.
   The superadmin-only directory now lists all schools by default, labels their environment,
   and offers an All environments / Production / Demo filter. Edit and Open use the school's
@@ -25,6 +25,16 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
   and destination helper have 100% measured statement/branch coverage. Desktop and
   mobile browser checks covered search, environment filters, canonical navigation,
   scheduling magic-link controls, SBMC enrollment access, and production audit isolation.
+  Release commit `8d42914` passed CI run `38299918041`: 3,804 Python tests,
+  48 JavaScript tests, 99.45% measured combined coverage, and every measured module
+  above 90%. Render deployment `dep-db6jqa59fdbs73fnkp5g` went live October 12 at
+  20:05 UTC. Hosted checks confirmed all nine schools appear on the production directory,
+  Plushie's Edit/Open URLs use the demo host, environment filters work, the SBMC dashboard
+  opens normally, and production audit history excludes demo activity. Read-only checks
+  confirmed SBMC and Render configuration fingerprints unchanged. After the user signed
+  into the demo domain as superadmin, hosted verification also confirmed Plushie settings,
+  scheduling magic-link controls, and Open School Admin reaching bookings as the operator.
+  No cross-domain session bypass was added.
 
 - **Demo access and portal separation: deployed and verified.**
   Canonical rule: `app.mypontora.com` is production, `demo.mypontora.com` is demo.
