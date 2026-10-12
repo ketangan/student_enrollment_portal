@@ -4,10 +4,21 @@ October 10, 2026 (Pacific). Released and verified on the existing shared service
 
 October 12 access update: the hosted demo-only account now has the
 user-requested password and has been verified through https://demo.mypontora.com/login/.
-The follow-up release is authorized after checks. It includes the shared menu,
+The follow-up release is deployed and verified. It includes the shared menu,
 operator/Django portal scoping, account-bound scheduling magic links, configured Customer
 demo navigation, and the rename to `plushie_admin`. Core migrations 0063 and 0064 are
-additive. Hosted rename/audit cleanup and release verification are pending. See
+additive and applied automatically. Revision `357a4b5` passed CI `38291587182`, then
+Render deployment `dep-db6inllg1s2s739fdh40` went live October 12, 18:51 UTC. The
+verified Render backup completed at 18:23 UTC; no production DB was copied locally
+for this release. Hosted maintenance renamed the account and deleted 65 old audit
+entries, preserving memberships, permissions, password and business/payment records.
+Normal login, the 14-day scheduling-only magic link and its superadmin panel passed
+hosted browser checks. Demo/production operator lists and audits are separated; shared
+physical storage and global operator accounts remain intentional. SBMC admin/public
+pages and active Founder billing passed checks, and its school/subscription fields,
+submission count and existing Render variables matched the pre-release fingerprints.
+Final regression: 3,792 Python tests, 48 JavaScript tests, 99.45% measured combined
+coverage, every measured module over 90%, no migration drift. See
 [current portal access notes](scheduling-plushumi-demo.md#portal-access-and-environment-separation).
 The initial-release evidence below is historical, not the current password/payment status.
 

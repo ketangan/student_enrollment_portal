@@ -10,12 +10,12 @@ self-service workshop product.
 and database storage, but that does not make their portal views interchangeable.
 Always share the demo domain for Plushumi's current fictional workspace.
 
-Staff login: https://demo.mypontora.com/login/ (release target username `plushie_admin`).
-The account rename is rehearsed locally; hosted maintenance follows deployment. This active account
+Staff login: https://demo.mypontora.com/login/ (username `plushie_admin`).
+The hosted rename and normal/passwordless browser login checks are complete. This active account
 has only its demo scheduling-owner membership, no enrollment membership, no Django staff
 flag and no superuser access. Credentials are supplied separately, not committed here.
 
-October 12 access release: **authorized; final regression/release checks in progress**:
+October 12 access release: **deployed and verified**, revision `357a4b5`:
 - One account-menu component now serves enrollment and scheduling, including the same
   theme controls, password action and permission-controlled operator links. Integrated
   schools retain their enrollment link; scheduling-only clients do not gain one.
@@ -37,15 +37,23 @@ October 12 access release: **authorized; final regression/release checks in prog
   Core migration `0064_demo_access_recipient` preserves legacy enrollment links.
 - `maintain_demo_account` defaults to dry run and validates a demo-only account before
   renaming or deleting its old actor/account audit entries. It does not delete reservations,
-  payments or other business records. Hosted dry run found 65 old audit entries.
+  payments or other business records. Hosted maintenance deleted exactly 65 old audit entries
+  after Render's October 12, 18:23 UTC backup completed. No production DB was copied locally.
 - No checkout/subscription processing, Stripe configuration or SBMC school/billing settings
   changed. The payment-account Django admin list/form is environment-scoped like other lists.
 
 Local review uses http://localhost:8006/bookings/plushumi-demo/ for demo and
 http://127.0.0.1:8006/schools/south-bay-music/admin/ for production-style routing,
 both against the isolated local preview database. The existing 8002 server is untouched.
-The user authorized main deployment after thorough verification. Back up before permanent
-audit cleanup; confirm migrations 0063 and 0064 applied through Render's existing startup.
+Core migrations 0063 and 0064 applied through Render's existing startup; both database
+defaults were checked to preserve writes from pre-release workers during rolling deployment.
+The hosted superadmin Demo Access Link panel shows Scheduling access for `plushie_admin`.
+Use its Copy button to share the current link; do not commit bearer links to repository docs.
+The link created during this release expires October 26, 2026; generating a replacement
+invalidates it. Hosted checks verified reciprocal portal list/audit separation, shared menus,
+mobile popup navigation and SBMC enrollment/billing/public pages. Final full regression:
+3,792 Python and 48 JavaScript tests passed; 99.45% measured combined coverage, with every
+measured module over 90%. GitHub CI `38291587182` passed before the live deployment.
 
 Previous baseline verification: 3,763 Python tests and 48 JavaScript tests passed. The new portal helper
 and menu tag are 100% covered; audit attribution is 98.33% combined statement/branch
@@ -60,8 +68,8 @@ Critical review restored the permission-aware Enrollment admin link lost during 
 consolidation and corrected shared CSS specificity/box sizing. Four domain-link tests
 now explicitly create demo schools for demo-host requests; their link assertions were
 not weakened. Read-only hosted attribution found 1,076 production, 327 demo and 46
-unclassifiable historical events. No hosted audit rows were changed. The actual migration
-ran only against local test/preview databases at that stage. Current final release results
+unclassifiable historical events. At that earlier review stage, no hosted audit rows were
+changed; migrations ran only against local test/preview databases. Current final release results
 are recorded in the implementation tracker and shared-production release notes.
 
 [Customer booking](http://localhost:8002/bookings/plushumi-demo/experience/) |

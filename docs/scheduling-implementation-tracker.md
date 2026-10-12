@@ -9,18 +9,19 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
-- **Demo access and portal separation: release authorized; final checks in progress.**
+- **Demo access and portal separation: deployed and verified.**
   Canonical rule: `app.mypontora.com` is production, `demo.mypontora.com` is demo.
   Enrollment/bookings share one account menu. Operator/Django admin lists, form choices,
   reports, audit history and login/workspace selection are environment-scoped. Global
   operator accounts and infrastructure incidents remain shared; storage is not split.
-  The demo account becomes `plushie_admin`; Customer demo opens the existing comparison
+  The demo account is `plushie_admin`; Customer demo opens the existing comparison
   hub. Superadmin can generate a scheduling-only passwordless link using the existing panel.
   Core migrations 0063 and 0064 label historical audit events and bind magic-link recipients.
-  Exact-account audit cleanup is dry-run-first; hosted deletion remains pending backup
-  and deployment. Checkout/subscription processing and SBMC settings are unchanged.
+  Exact-account maintenance deleted 65 old hosted audit entries after a verified Render
+  backup; no reservations or payment records were deleted. Checkout/subscription processing
+  and SBMC settings are unchanged.
   Desktop/390px checks passed for login, magic links, menus, themes, navigation and isolation.
-  Verification before push: **3,790 Python tests and 48 JavaScript tests passed**;
+  Final verification: **3,792 Python tests and 48 JavaScript tests passed**;
   every measured module exceeds 90% combined statement/branch coverage (99.45% overall).
   New magic-link, account maintenance, admin scoping and menu modules are 100% covered;
   portal helper 95.52%, audit attribution 98.33%. Migration drift check passed (existing
@@ -30,11 +31,20 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
   demo banner. Final review also scoped the operator's add-member email lookup and safely
   rejects ambiguous emails; all 121 affected tests and the real browser form check passed.
   Render confirmed a completed backup dated October 12, 18:23 UTC; no production DB was
-  copied locally. The exact final commit must pass GitHub CI before deployment.
+  copied locally. Revision `357a4b5` passed GitHub CI run `38291587182` before Render
+  deployment `dep-db6inllg1s2s739fdh40` went live at October 12, 18:51 UTC.
   Rolling-deploy review: migrations retain database defaults for audit environment and
   magic-link destination, so pre-release workers can still insert records during rollout
   or a code rollback. The historical-model compatibility test and 29 access tests passed
-  against a freshly migrated disposable database; full regression is repeating.
+  against a freshly migrated disposable database; the full regression also passed.
+  Hosted checks verified normal and passwordless login, the superadmin Demo Access Link
+  panel, shared menus, Customer demo navigation, real booking-page/popup participant
+  navigation, phone layout/focus restoration, reciprocal operator list/audit separation,
+  production Django admin scoping, and SBMC admin/billing/public forms. No new payment was
+  submitted. Chrome extension message-channel warnings were present before and after
+  deployment; no booking application console error was observed. Final read-only comparison
+  confirmed unchanged SBMC school/subscription fields, submission count and existing Render
+  settings. Core migrations 0063/0064 and their rolling-deploy defaults are verified live.
   [Scope and review URLs](scheduling-plushumi-demo.md#portal-access-and-environment-separation).
 
   <details>
