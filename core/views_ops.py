@@ -293,9 +293,12 @@ def ops_school_member_add_view(request, slug):
         return redirect("ops_school_detail", slug=slug)
 
     try:
-        user = User.objects.get(email__iexact=email)
+        user = scope_users(User.objects.all(), request).get(email__iexact=email)
     except User.DoesNotExist:
         messages.error(request, f"No user found with email '{email}'. Create the user first.")
+        return redirect("ops_school_detail", slug=slug)
+    except User.MultipleObjectsReturned:
+        messages.error(request, "More than one account uses this email. Give the intended account a unique email first.")
         return redirect("ops_school_detail", slug=slug)
 
     existing = SchoolAdminMembership.objects.filter(user=user, school=school).first()

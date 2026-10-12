@@ -218,6 +218,25 @@ def test_account_rename_without_cleanup_keeps_audit(portals):
     assert AdminAuditLog.objects.filter(pk=audit.pk).exists()
 
 
+def test_add_member_by_email_respects_environment_and_rejects_ambiguity(client, portals):
+    client.force_login(portals.operator)
+    portals.owner.email = "demo-owner@example.com"
+    portals.owner.save(update_fields=["email"])
+    path = reverse("ops_school_member_add", args=[portals.live.slug])
+    response = client.post(path, {"email": portals.owner.email}, HTTP_HOST="app.example.com")
+    assert response.status_code == 302
+    assert not SchoolAdminMembership.objects.filter(user=portals.owner, school=portals.live).exists()
+    live_owner = get_user_model().objects.create_user("live-owner", email="live-owner@example.com")
+    response = client.post(path, {"email": live_owner.email}, HTTP_HOST="app.example.com")
+    assert response.status_code == 302
+    assert SchoolAdminMembership.objects.filter(user=live_owner, school=portals.live).exists()
+    get_user_model().objects.create_user("ambiguous-one", email="duplicate@example.com")
+    get_user_model().objects.create_user("ambiguous-two", email="duplicate@example.com")
+    response = client.post(path, {"email": "duplicate@example.com"}, HTTP_HOST="app.example.com", follow=True)
+    assert b"More than one account uses this email" in response.content
+    assert SchoolAdminMembership.objects.filter(school=portals.live).count() == 1
+
+
 def test_customer_demo_destination_is_configurable_and_rejects_external_paths(portals, settings, monkeypatch):
     from scheduling.experience_demo import config
     fallback = reverse("scheduling:experience_start", args=[portals.demo.slug])

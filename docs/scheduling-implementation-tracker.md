@@ -27,7 +27,10 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
   Jazzmin warning). SBMC dashboard, submissions, leads, reports, settings, billing and
   public forms passed browser checks without data/payment changes. Critical review fixed
   missing branding-file fallback and removed the hardcoded business name from the shared
-  demo banner. A Render-hosted backup was requested; no production DB was copied locally.
+  demo banner. Final review also scoped the operator's add-member email lookup and safely
+  rejects ambiguous emails; all 121 affected tests and the real browser form check passed.
+  Render confirmed a completed backup dated October 12, 18:23 UTC; no production DB was
+  copied locally. The exact final commit must pass GitHub CI before deployment.
   [Scope and review URLs](scheduling-plushumi-demo.md#portal-access-and-environment-separation).
 
   <details>
