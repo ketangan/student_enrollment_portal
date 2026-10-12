@@ -237,6 +237,18 @@ def test_add_member_by_email_respects_environment_and_rejects_ambiguity(client, 
     assert SchoolAdminMembership.objects.filter(school=portals.live).count() == 1
 
 
+def test_pre_release_models_can_still_write_during_rolling_deployment(portals):
+    from django.db import connection
+    from django.db.migrations.executor import MigrationExecutor
+    previous = MigrationExecutor(connection).loader.project_state([("core", "0062_payment_notifications")]).apps
+    audit = previous.get_model("core", "AdminAuditLog").objects.create(action="add", object_repr="Old worker")
+    token = previous.get_model("core", "DemoAccessToken").objects.create(
+        school_id=portals.demo.pk, expires_at=timezone.now()+timezone.timedelta(days=1))
+    assert AdminAuditLog.objects.get(pk=audit.pk).environment == "unknown"
+    current = DemoAccessToken.objects.get(pk=token.pk)
+    assert current.destination == "enrollment" and current.recipient_id is None
+
+
 def test_customer_demo_destination_is_configurable_and_rejects_external_paths(portals, settings, monkeypatch):
     from scheduling.experience_demo import config
     fallback = reverse("scheduling:experience_start", args=[portals.demo.slug])

@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='demoaccesstoken',
             name='destination',
-            field=models.CharField(choices=[('enrollment', 'Enrollment'), ('scheduling', 'Scheduling')], default='enrollment', max_length=16),
+            field=models.CharField(choices=[('enrollment', 'Enrollment'), ('scheduling', 'Scheduling')], db_default='enrollment', default='enrollment', max_length=16),
         ),
         migrations.AddField(
             model_name='demoaccesstoken',

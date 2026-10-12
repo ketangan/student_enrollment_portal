@@ -64,7 +64,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='adminauditlog',
             name='environment',
-            field=models.CharField(choices=[('production', 'Production'), ('demo', 'Demo'), ('unknown', 'Unclassified legacy')], db_index=True, default='unknown', max_length=16),
+            field=models.CharField(choices=[('production', 'Production'), ('demo', 'Demo'), ('unknown', 'Unclassified legacy')], db_default='unknown', db_index=True, default='unknown', max_length=16),
         ),
         migrations.RunPython(backfill, migrations.RunPython.noop),
     ]

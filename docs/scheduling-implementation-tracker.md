@@ -31,6 +31,10 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
   rejects ambiguous emails; all 121 affected tests and the real browser form check passed.
   Render confirmed a completed backup dated October 12, 18:23 UTC; no production DB was
   copied locally. The exact final commit must pass GitHub CI before deployment.
+  Rolling-deploy review: migrations retain database defaults for audit environment and
+  magic-link destination, so pre-release workers can still insert records during rollout
+  or a code rollback. The historical-model compatibility test and 29 access tests passed
+  against a freshly migrated disposable database; full regression is repeating.
   [Scope and review URLs](scheduling-plushumi-demo.md#portal-access-and-environment-separation).
 
   <details>

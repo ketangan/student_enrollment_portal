@@ -1010,7 +1010,7 @@ class Lead(models.Model):
 
 
 class AdminAuditLog(models.Model):
-    environment = models.CharField(max_length=16, default="unknown", db_index=True,
+    environment = models.CharField(max_length=16, default="unknown", db_default="unknown", db_index=True,
         choices=(("production", "Production"), ("demo", "Demo"), ("unknown", "Unclassified legacy")))
     ACTION_ADD = "add"
     ACTION_CHANGE = "change"
@@ -1286,7 +1286,7 @@ class DemoAccessToken(models.Model):
     last_used_at = models.DateTimeField(null=True, blank=True)
     pages_visited = models.JSONField(default=list, blank=True)
     purpose = models.CharField(max_length=20, choices=PURPOSE_CHOICES, default=PURPOSE_DEMO)
-    destination = models.CharField(max_length=16, default="enrollment",
+    destination = models.CharField(max_length=16, default="enrollment", db_default="enrollment",
         choices=(("enrollment", "Enrollment"), ("scheduling", "Scheduling")))
     recipient = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
         related_name="portal_access_tokens")
