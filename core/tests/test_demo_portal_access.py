@@ -129,6 +129,69 @@ def test_legacy_enrollment_links_and_explicit_destination_still_work(client, por
     assert generate_demo_link(portals.demo, portals.operator, "scheduling").destination == "scheduling"
 
 
+@pytest.mark.parametrize("host", ["app.example.com", "demo.example.com", "testserver"])
+def test_superadmin_directory_discovers_all_schools_and_routes_to_correct_portal(client, portals, host):
+    client.force_login(portals.operator)
+    response = client.get("/ops/schools/", HTTP_HOST=host)
+    assert response.status_code == 200
+    schools = {school.pk: school for school in response.context["schools"]}
+    assert set(schools) == {portals.demo.pk, portals.live.pk}
+    assert schools[portals.demo.pk].ops_detail_url == "https://demo.example.com/ops/schools/prospect/"
+    assert schools[portals.demo.pk].admin_url == "https://demo.example.com/bookings/prospect/"
+    assert schools[portals.live.pk].admin_url == "https://app.example.com/schools/live-school/admin/"
+    assert b'All environments' in response.content
+    for school in schools.values():
+        assert school.ops_detail_url.encode() in response.content
+        assert school.admin_url.encode() in response.content
+    detail = client.get(schools[portals.demo.pk].ops_detail_url, HTTP_HOST="demo.example.com")
+    assert detail.status_code == 200
+    assert detail.context["school_admin_url"] == schools[portals.demo.pk].admin_url
+    assert detail.context["demo_destinations"] == [("scheduling", "Scheduling")]
+
+
+@pytest.mark.parametrize("environment,expected", [("", "both"), ("demo", "demo"), ("production", "live"), ("invalid", "both")])
+def test_directory_environment_filter_and_search_combine(client, portals, environment, expected):
+    client.force_login(portals.operator)
+    response = client.get("/ops/schools/", {"environment": environment}, HTTP_HOST="app.example.com")
+    assert {s.pk for s in response.context["schools"]} == (
+        {portals.demo.pk, portals.live.pk} if expected == "both" else {getattr(portals, expected).pk}
+    )
+    response = client.get("/ops/schools/", {"environment": environment, "q": "prospect"}, HTTP_HOST="app.example.com")
+    assert {s.pk for s in response.context["schools"]} == (set() if expected == "live" else {portals.demo.pk})
+
+
+@pytest.mark.parametrize("integrated", [False, True])
+def test_directory_preserves_enrollment_destination_for_disabled_or_integrated_scheduling(client, portals, integrated):
+    if integrated:
+        SchoolAdminMembership.objects.create(school=portals.demo, user=portals.owner)
+    else:
+        portals.profile.enabled = False
+        portals.profile.save()
+    client.force_login(portals.operator)
+    response = client.get("/ops/schools/", {"q": "prospect"})
+    assert response.context["schools"][0].admin_url == "https://demo.example.com/schools/prospect/admin/"
+
+
+@pytest.mark.parametrize("status,expected_count", [("active", 0), ("inactive", 1)])
+def test_directory_combines_environment_status_and_plan_filters(client, portals, status, expected_count):
+    portals.demo.is_active = False
+    portals.demo.save()
+    client.force_login(portals.operator)
+    response = client.get("/ops/schools/", {
+        "environment": "demo", "status": status, "plan": portals.demo.plan,
+    }, HTTP_HOST="app.example.com")
+    assert len(response.context["schools"]) == expected_count
+
+
+def test_directory_is_superadmin_only(client, portals):
+    for user in (None, portals.owner):
+        if user:
+            client.force_login(user)
+        response = client.get("/ops/schools/", HTTP_HOST="demo.example.com")
+        assert response.status_code == 302
+        assert portals.live.display_name.encode() not in response.content
+
+
 def test_ops_lists_counters_filters_reports_and_details_are_scoped(client, portals):
     client.force_login(portals.operator)
     for school in (portals.demo, portals.live):
@@ -138,7 +201,7 @@ def test_ops_lists_counters_filters_reports_and_details_are_scoped(client, porta
     for host, school, other in [("demo.example.com", portals.demo, portals.live), ("app.example.com", portals.live, portals.demo)]:
         dashboard = client.get("/ops/", HTTP_HOST=host)
         assert dashboard.context["total_schools"] == 1
-        for path in ("/ops/schools/", "/ops/submissions/", "/ops/leads/", "/ops/reports/", "/ops/incidents/", "/ops/diagnostics/"):
+        for path in ("/ops/submissions/", "/ops/leads/", "/ops/reports/", "/ops/incidents/", "/ops/diagnostics/"):
             response = client.get(path, HTTP_HOST=host)
             assert response.status_code == 200
             assert school.display_name.encode() in response.content

@@ -17,6 +17,11 @@
     <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
       <input type="text" name="q" value="{{ q }}" placeholder="Search name or slug…"
              style="flex:1;min-width:180px;padding:7px 12px;border:1px solid var(--dash-border);border-radius:8px;font-size:13px;">
+      <select name="environment" aria-label="Environment" class="dash-select" style="width:auto;padding:7px 28px 7px 10px;">
+        <option value="">All environments</option>
+        <option value="production" {% if environment_filter == 'production' %}selected{% endif %}>Production</option>
+        <option value="demo" {% if environment_filter == 'demo' %}selected{% endif %}>Demo</option>
+      </select>
       <select name="plan" class="dash-select" style="width:auto;padding:7px 28px 7px 10px;">
         <option value="">All Plans</option>
         {% for val, label in plan_choices %}
@@ -29,7 +34,7 @@
         <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
       </select>
       <button type="submit" style="padding:7px 16px;background:var(--dash-primary);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Filter</button>
-      {% if q or plan_filter or status_filter %}
+      {% if q or plan_filter or status_filter or environment_filter %}
       <a href="{% url 'ops_schools_list' %}" style="font-size:13px;color:var(--dash-muted);text-decoration:none;padding:7px 4px;">Clear</a>
       {% endif %}
     </form>
@@ -57,9 +62,10 @@
           {% for s in schools %}
           <tr>
             <td style="font-weight:600;">
-              <a href="{% url 'ops_school_detail' s.slug %}" style="color:var(--dash-text);text-decoration:none;">
+              <a href="{{ s.ops_detail_url }}" style="color:var(--dash-text);text-decoration:none;">
                 {{ s.display_name|default:s.slug }}
               </a>
+              <div style="font-size:11px;font-weight:400;color:var(--dash-muted);margin-top:4px;">{% if s.is_demo %}Demo{% else %}Production{% endif %}</div>
             </td>
             <td style="font-family:monospace;font-size:11px;color:var(--dash-muted);">{{ s.slug }}</td>
             <td style="text-transform:capitalize;font-size:12px;">{{ s.plan }}</td>
@@ -86,11 +92,11 @@
             <td style="font-size:13px;color:var(--dash-muted);">{{ s.member_count }}</td>
             <td style="font-size:12px;color:var(--dash-muted);">{{ s.created_at|date:"M j, Y" }}</td>
             <td style="white-space:nowrap;">
-              <a href="{% url 'ops_school_detail' s.slug %}"
+              <a href="{{ s.ops_detail_url }}"
                  class="dash-action-btn dash-action-btn--secondary" style="font-size:11px;padding:3px 10px;">
                 Edit
               </a>
-              <a href="{% url 'school_dashboard' s.slug %}"
+              <a href="{{ s.admin_url }}"
                  class="dash-action-btn dash-action-btn--secondary" style="font-size:11px;padding:3px 10px;margin-left:4px;"
                  target="_blank">
                 Open ↗
@@ -106,7 +112,7 @@
       <div class="dash-empty-icon">🏫</div>
       <div class="dash-empty-title">No schools found</div>
       <div class="dash-empty-sub">
-        {% if q or plan_filter or status_filter %}
+        {% if q or plan_filter or status_filter or environment_filter %}
           No schools match the current filters.
           <a href="{% url 'ops_schools_list' %}" style="color:var(--dash-primary);">Clear filters</a>
         {% else %}

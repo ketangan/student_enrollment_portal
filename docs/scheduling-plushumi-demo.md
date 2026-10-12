@@ -19,9 +19,12 @@ October 12 access release: **deployed and verified**, revision `357a4b5`:
 - One account-menu component now serves enrollment and scheduling, including the same
   theme controls, password action and permission-controlled operator links. Integrated
   schools retain their enrollment link; scheduling-only clients do not gain one.
-- The configured host scopes login/workspace selection, operator schools/users,
+- The configured host scopes login/workspace selection, operator users,
   submissions, leads, reports, tenant incidents, related form choices and audit views.
   Django admin lists and Recent Actions use the same boundary.
+  Follow-up correction: the superadmin Schools directory is intentionally global,
+  with environment labels/filtering and canonical-host links. This restores discovery
+  of demo clients from the production operator portal without combining their records.
   Wrong-host tenant reads redirect to the canonical domain; writes are rejected rather
   than replayed across domains. Local combined-host development still works.
 - Audit events retain their recorded environment. Migration `core.0063_audit_environment`

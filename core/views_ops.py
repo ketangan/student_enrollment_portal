@@ -136,11 +136,21 @@ def ops_mock_template_detail_view(request, source_id):
 
 # ── Schools list + create ─────────────────────────────────────────────────────
 
+def _school_admin_url(school, has_enrollment_members):
+    from core.services.url_builder import app_reverse, demo_reverse
+
+    profile = getattr(school, "scheduling_profile", None)
+    destination = "scheduling:workspace" if profile and profile.enabled and not has_enrollment_members else "school_dashboard"
+    build_url = demo_reverse if school.is_demo else app_reverse
+    return build_url(destination, kwargs={"school_slug": school.slug})
+
+
 @ops_required
 def ops_schools_list_view(request):
     from core.services.feature_flags import PLAN_CHOICES
 
-    qs = scope_schools(School.objects.all(), request).annotate(
+    # The superadmin directory is cross-environment; records open on their own host.
+    qs = School.objects.select_related("scheduling_profile").annotate(
         submission_count=Count("submissions", distinct=True),
         lead_count=Count("leads", distinct=True),
         member_count=Count("admin_memberships", distinct=True),
@@ -149,6 +159,11 @@ def ops_schools_list_view(request):
     q = request.GET.get("q", "").strip()
     plan_filter = request.GET.get("plan", "").strip()
     status_filter = request.GET.get("status", "").strip()
+    environment_filter = request.GET.get("environment", "").strip()
+    if environment_filter not in {"demo", "production"}:
+        environment_filter = ""
+    if environment_filter:
+        qs = qs.filter(is_demo=environment_filter == "demo")
 
     if q:
         qs = qs.filter(Q(display_name__icontains=q) | Q(slug__icontains=q))
@@ -159,9 +174,17 @@ def ops_schools_list_view(request):
     elif status_filter == "inactive":
         qs = qs.filter(is_active=False)
 
+    from core.services.url_builder import app_reverse, demo_reverse
+    schools = list(qs)
+    for school in schools:
+        build_url = demo_reverse if school.is_demo else app_reverse
+        school.ops_detail_url = build_url("ops_school_detail", kwargs={"slug": school.slug})
+        school.admin_url = _school_admin_url(school, school.member_count)
+
     return render(request, "ops/schools_list.html", {
         "active_nav": "schools",
-        "schools": qs,
+        "schools": schools,
+        "environment_filter": environment_filter,
         "q": q,
         "plan_filter": plan_filter,
         "status_filter": status_filter,
@@ -269,6 +292,7 @@ def ops_school_detail_view(request, slug):
         "lead_count": lead_count,
         "demo_token": demo_token,
         "demo_destinations": demo_destinations,
+        "school_admin_url": _school_admin_url(school, bool(members)),
         "demo_link": demo_link,
         "onboarding_link": onboarding_link,
         "checklist_items": checklist_items,

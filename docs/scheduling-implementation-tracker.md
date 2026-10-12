@@ -9,9 +9,27 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
+- **Superadmin directory correction: locally verified; deployment pending.**
+  The prior release incorrectly hid demo clients from the production Schools directory.
+  The superadmin-only directory now lists all schools by default, labels their environment,
+  and offers an All environments / Production / Demo filter. Edit and Open use the school's
+  canonical host; scheduling-only clients open their bookings workspace. Audit logs,
+  submissions, leads, permissions, and wrong-host write protection remain scoped.
+  Manual checks: open Schools on the production host, find Plushie, filter each environment,
+  open Plushie settings on the demo host, confirm the scheduling magic-link panel, and open
+  the bookings workspace. Confirm SBMC still opens enrollment on the production host.
+  Separate sign-in on each hostname remains intentional; no shared cookies were introduced.
+  No migrations, payment changes, or customer configuration changes are needed.
+  Full local regression suite and 48 JavaScript tests passed; the final 205-test focused
+  run includes the added status-filter cases and documentation checks. Directory view
+  and destination helper have 100% measured statement/branch coverage. Desktop and
+  mobile browser checks covered search, environment filters, canonical navigation,
+  scheduling magic-link controls, SBMC enrollment access, and production audit isolation.
+
 - **Demo access and portal separation: deployed and verified.**
   Canonical rule: `app.mypontora.com` is production, `demo.mypontora.com` is demo.
-  Enrollment/bookings share one account menu. Operator/Django admin lists, form choices,
+  Enrollment/bookings share one account menu. Except for the cross-environment superadmin
+  school directory described above, operator/Django admin lists, form choices,
   reports, audit history and login/workspace selection are environment-scoped. Global
   operator accounts and infrastructure incidents remain shared; storage is not split.
   The demo account is `plushie_admin`; Customer demo opens the existing comparison

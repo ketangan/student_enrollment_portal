@@ -10,7 +10,7 @@
       {{ school.display_name|default:school.slug }}
       {% if school.is_demo %}<span style="font-size:12px;font-weight:600;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;margin-left:8px;">Demo</span>{% endif %}
     </h1>
-    <a href="{% url 'school_dashboard' school.slug %}"
+    <a href="{{ school_admin_url }}"
        class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;" target="_blank">
       Open School Admin ↗
     </a>
