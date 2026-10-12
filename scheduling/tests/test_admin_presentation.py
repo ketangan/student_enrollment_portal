@@ -46,12 +46,12 @@ def test_prep_participants_are_inside_closed_summary_but_materials_stay_visible(
 
 @pytest.mark.parametrize("route", ["workspace", "reservations", "workshops", "settings", "locations", "access"])
 def test_plushumi_demo_brand_and_static_banners_on_all_admin_sections(demo, browser, route):
-    browser.force_login(get_user_model().objects.get(username="plushumi-admin"))
+    browser.force_login(get_user_model().objects.get(username="plushie_admin"))
     flags_before = dict(demo.school.feature_flags)
     intake_before = demo.native_reservations_enabled
     response = browser.get(reverse(f"scheduling:{route}", kwargs={"school_slug": demo.school.slug}))
     assert response.status_code == 200
-    assert response.context["plushumi_admin_demo"] is True
+    assert response.context["branded_admin_demo"] is True
     assert b'alt="The Plushie Workshop"' in response.content
     assert b'assets/logo.png' in response.content
     assert b'class="dash-school-name"' not in response.content
@@ -77,10 +77,10 @@ def test_demo_banner_and_logo_do_not_leak_to_other_workspaces(demo, browser, mon
         demo.school.feature_flags["booking_experience_demo"] = False
     demo.school.display_name = "Business without demo branding"
     demo.school.save()
-    browser.force_login(get_user_model().objects.get(username="plushumi-admin"))
+    browser.force_login(get_user_model().objects.get(username="plushie_admin"))
     response = browser.get(reverse("scheduling:workspace", kwargs={"school_slug": demo.school.slug}))
     assert response.status_code == 200
-    assert not response.context["plushumi_admin_demo"]
+    assert not response.context["branded_admin_demo"]
     assert b'class="dash-school-name">Business without demo branding</div>' in response.content
     assert b"booking-demo-banner" not in response.content
     assert b"booking-demo-trial" not in response.content

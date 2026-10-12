@@ -182,7 +182,7 @@ Enrollment Request Demo being tested remain unchanged. See
 Final P2 verification: 3,119 tests passed, two existing warnings, 207.94 seconds. New Python
 code has 99.58% combined statement/branch coverage; every measured module meets 90%.
 Desktop/mobile customer and staff flows, failure/cancellation, mapping and restart persistence
-were verified. Local `plushumi-admin` / `admin` owns scheduling only. No migration or push.
+were verified. Local `plushie_admin` / `admin` owns scheduling only. No migration or push.
 
 October 5: P3 adds an optional shared inventory catalog with per-studio stock across workshops,
 parties, camps and preparation. Reservation holds, consumption and adjustments share existing

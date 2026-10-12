@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 from django import forms
 from django.core.exceptions import PermissionDenied
 from django.contrib import admin, messages
+from core.admin.portal_scope import PortalScopedAdminMixin
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
@@ -79,7 +80,7 @@ class SubmissionFileInline(admin.TabularInline):
 
 
 @admin.register(Submission)
-class SubmissionAdmin(admin.ModelAdmin):
+class SubmissionAdmin(PortalScopedAdminMixin, admin.ModelAdmin):
     class Media:
         css = {"all": ("admin/submission_yaml_form.css",)}
         js = ("admin_actions.js",)

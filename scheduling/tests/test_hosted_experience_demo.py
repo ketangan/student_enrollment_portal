@@ -32,7 +32,7 @@ def test_hosted_seed_is_additive_and_preserves_existing_schools(hosted):
     school = School.objects.create(slug="sbmc-protected", display_name="SBMC", feature_flags={"leads": True})
     before = School.objects.filter(pk=school.pk).values().get()
     call_command("seed_booking_experience_demo", SLUG, hosted=True)
-    owner = get_user_model().objects.get(username="plushumi-admin")
+    owner = get_user_model().objects.get(username="plushie_admin")
     assert not owner.has_usable_password() and not owner.is_staff and not owner.is_superuser
     profile = SchedulingProfile.objects.get(school__slug=SLUG)
     assert profile.school.is_demo
@@ -59,7 +59,7 @@ def test_hosted_seed_forbids_reset_and_password(hosted, options):
 
 
 def test_seed_cannot_adopt_existing_unrelated_user(hosted):
-    get_user_model().objects.create_user(username="plushumi-admin", password="keep-me")
+    get_user_model().objects.create_user(username="plushie_admin", password="keep-me")
     with pytest.raises(CommandError, match="existing account"):
         call_command("seed_booking_experience_demo", SLUG, hosted=True)
     assert not School.objects.filter(slug=SLUG).exists()
@@ -123,7 +123,7 @@ def test_only_public_demo_pages_can_be_framed(demo, hosted):
     assert response.status_code == 200
     assert response["X-Frame-Options"] == "SAMEORIGIN"
     assert response["Content-Security-Policy"] == "frame-ancestors 'self'"
-    hosted.force_login(get_user_model().objects.get(username="plushumi-admin"))
+    hosted.force_login(get_user_model().objects.get(username="plushie_admin"))
     response = hosted.get(url("preparation"), secure=True)
     assert response.status_code == 200 and response["X-Frame-Options"] == "DENY"
     assert hosted.get(ROOT + "unknown.html", secure=True).status_code == 404

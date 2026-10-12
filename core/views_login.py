@@ -5,6 +5,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_GET
 from django_ratelimit.decorators import ratelimit
 
 DEMO_SESSION_TOKEN_KEY = "demo_token_id"
@@ -17,13 +19,14 @@ def _post_login_redirect(request, next_url=""):
     if request.user.is_superuser:
         return redirect("ops_dashboard")
     from core.models import SchoolAdminMembership
-    membership = SchoolAdminMembership.objects.filter(
+    from core.services.portal_environment import scope_schools
+    membership = scope_schools(SchoolAdminMembership.objects.filter(
         user=request.user, is_active=True
-    ).select_related("school").first()
+    ).select_related("school"), request, "school__").first()
     if membership:
         return redirect("school_dashboard", school_slug=membership.school.slug)
     from scheduling.access import accessible_profiles
-    if accessible_profiles(request.user).exists():
+    if scope_schools(accessible_profiles(request.user), request, "school__").exists():
         return redirect("scheduling:index")
     logout(request)
     return redirect("login")
@@ -92,14 +95,24 @@ def logout_view(request):
     return redirect("login")
 
 
+@never_cache
+@require_GET
 def demo_access_view(request, token):
     """Magic-link handler: validate token, log in as school's demo admin, redirect to dashboard."""
     from core.models import DemoAccessToken, AdminAuditLog
 
     try:
-        demo_token = DemoAccessToken.objects.select_related("school").get(token=token)
+        demo_token = DemoAccessToken.objects.select_related("school", "recipient").get(token=token)
     except DemoAccessToken.DoesNotExist:
         return render(request, "demo_expired.html", {"reason": "not_found"}, status=404)
+
+    from core.services.portal_environment import request_environment
+    from core.services.url_builder import app_reverse, demo_reverse
+    expected = "demo" if demo_token.school.is_demo and demo_token.purpose == demo_token.PURPOSE_DEMO else "production"
+    environment = request_environment(request)
+    if environment and environment != expected:
+        canonical = demo_reverse if expected == "demo" else app_reverse
+        return redirect(canonical("demo_access", kwargs={"token": demo_token.token}))
 
     # Old demo links to a converted school → redirect to their live enrollment form.
     # Onboarding tokens always log in normally regardless of is_demo.
@@ -112,15 +125,17 @@ def demo_access_view(request, token):
             "school": demo_token.school,
         })
 
-    membership = demo_token.school.admin_memberships.select_related("user").first()
-    if not membership:
+    from core.services.demo_access import resolve_recipient
+    user = resolve_recipient(demo_token)
+    if user is None:
         return render(request, "demo_expired.html", {
             "reason": "no_user",
             "school": demo_token.school,
         })
 
-    user = membership.user
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    request.session.pop(DEMO_SESSION_TOKEN_KEY, None)
+    request.session.pop(DEMO_SESSION_PAGES_KEY, None)
     # Only set demo session for demo-purpose tokens — onboarding tokens skip the demo banner.
     if demo_token.purpose == demo_token.PURPOSE_DEMO:
         request.session[DEMO_SESSION_TOKEN_KEY] = demo_token.pk
@@ -138,4 +153,5 @@ def demo_access_view(request, token):
         extra={"name": "demo_access", "school": demo_token.school.slug},
     )
 
-    return redirect("school_dashboard", school_slug=demo_token.school.slug)
+    destination = "scheduling:workspace" if demo_token.destination == "scheduling" else "school_dashboard"
+    return redirect(destination, school_slug=demo_token.school.slug)

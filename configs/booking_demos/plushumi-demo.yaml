@@ -1,5 +1,7 @@
 name: The Plushie Workshop
-owner: plushumi-admin
+owner: plushie_admin
+customer_demo_path: /demo/plushumi/integrations/
+admin_branding: true
 logo: /static/demo/plushumi/assets/logo.png
 photo: /static/demo/plushumi/assets/workshop.jpg
 design_image: /static/demo/plushumi/assets/designs.jpg

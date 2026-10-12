@@ -166,6 +166,21 @@ body.dash-mint .dash-trial-banner { background:#d1fae5; color:#065f46; }
 .dash-menu-item--danger { color: #dc2626; }
 .dash-menu-item--danger:hover { background: rgba(220,38,38,0.08); }
 
+/* Shared enrollment and scheduling account menu. */
+.dash-account { position: relative; line-height: normal; }
+.dash-account, .dash-account * { box-sizing: border-box; }
+.dash-body .dash-account .dash-account-avatar { box-sizing: border-box; width: 32px; height: 32px; min-height: 32px; padding: 0; border-radius: 50%; background: var(--dash-primary); color: #fff; font-family: inherit; font-size: 13px; font-weight: 700; line-height: 1.4; border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.dash-account-panel { position: absolute; right: 0; top: 40px; width: 190px; max-width: calc(100vw - 32px); background: var(--dash-card); border: 1px solid var(--dash-border); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.15); z-index: 200; padding: 6px 0; }
+.dash-account-panel[hidden] { display: none; }
+.dash-account-name { padding: 8px 14px; font-size: 12px; color: var(--dash-muted); border-bottom: 1px solid var(--dash-border); margin-bottom: 4px; overflow-wrap: anywhere; }
+.dash-account .dash-account-section { border-top: 1px solid var(--dash-border); padding: 6px 0 0; margin: 2px 0 0; }
+.dash-account-label { padding: 5px 14px 3px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--dash-muted); }
+.dash-body .dash-account .dash-menu-item { box-sizing: border-box; border: 0; border-radius: 0; background: transparent; color: var(--dash-text); font-family: inherit; font-size: 13px; font-weight: 400; line-height: 1.4; padding: 8px 14px; min-height: 36px; text-decoration: none; }
+.dash-body .dash-account .dash-menu-item:hover { background: var(--dash-bg); }
+.dash-body .dash-account .dash-menu-item--danger { color: #dc2626; }
+.dash-account .dash-theme-option { display: flex; align-items: center; gap: 10px; }
+.dash-theme-option span { width: 10px; font-size: 10px; color: var(--dash-primary); }
+
 /* ── Trial banner ────────────────────────────────────────────────────── */
 
 .dash-trial-banner {

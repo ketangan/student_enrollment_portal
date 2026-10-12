@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Prefetch, Q
-from django.http import HttpResponseBadRequest
+from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -22,15 +22,34 @@ from .setup import build_form, edit_permission, records, save_setup, set_publica
 @login_required
 @require_GET
 def index(request):
-    profiles = list(accessible_profiles(request.user))
+    from core.services.portal_environment import scope_schools
+    profiles = list(scope_schools(accessible_profiles(request.user), request, "school__"))
     if len(profiles) == 1:
         return redirect("scheduling:workspace", school_slug=profiles[0].school.slug)
     return render(request, "scheduling/index.html", {"profiles": profiles})
 
 
+@never_cache
+@login_required
+@require_http_methods(["GET", "POST"])
+def password_change(request, school_slug):
+    from django.contrib.auth import update_session_auth_hash
+    from django.contrib.auth.forms import PasswordChangeForm
+    profile, role = require_access(request.user, school_slug)
+    form = PasswordChangeForm(request.user, data=request.POST if request.method == "POST" else None)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        update_session_auth_hash(request, form.user)
+        messages.success(request, "Password updated successfully.")
+        return redirect("scheduling:workspace", school_slug=school_slug)
+    context = _context(request, profile, role, "overview")
+    context["form"] = form
+    return render(request, "scheduling/password_change.html", context)
+
+
 def _context(request, profile, role, active_nav):
     from .messaging import preview_enabled
-    from .experience_demo.config import available
+    from .experience_demo.config import available, configuration, customer_demo_url
     from .navigation import workspace_navigation
     context = {
         "features": {key: has_capability(profile, key) for key in CAPABILITIES},
@@ -44,10 +63,15 @@ def _context(request, profile, role, active_nav):
         "can_edit_sessions": has_permission(role, "sessions.edit"),
         "active_nav": active_nav,
     }
-    context["plushumi_admin_demo"] = (
-        context["experience_demo_available"] and profile.school.slug == "plushumi-demo"
-    )
+    try:
+        demo_config = configuration(profile.school.slug) if context["experience_demo_available"] else {}
+    except Http404:
+        demo_config = {}
+    context["branded_admin_demo"] = demo_config.get("admin_branding") is True
+    context["demo_admin_logo"] = demo_config.get("logo", "")
     context["booking_navigation"] = workspace_navigation(context)
+    if context["experience_demo_available"]:
+        context["customer_demo_url"] = customer_demo_url(profile)
     from .location_filters import staff_location
     context.update(staff_location(request, profile))
     section = context["booking_navigation"]["section"]

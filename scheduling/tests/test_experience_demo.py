@@ -162,7 +162,7 @@ def test_preview_missing_design_and_custom_photo_fallback(demo):
 
 def test_admin_created_workshop_is_bookable_without_unpaid_intake(demo, browser):
     staff = Client(HTTP_HOST="localhost:8002")
-    staff.force_login(get_user_model().objects.get(username="plushumi-admin"))
+    staff.force_login(get_user_model().objects.get(username="plushie_admin"))
     location = Location.objects.get(profile=demo, name="Charlotte, NC")
     original = Offering.objects.filter(location=location).first()
     def admin_url(name, **kwargs):
@@ -338,7 +338,7 @@ def test_local_cancel_refund_is_simulated_idempotent_and_audited(demo, browser):
     from core.payments.service import totals
     from core.payments.models import Refund
     item = confirmed(browser, demo)
-    owner = get_user_model().objects.get(username="plushumi-admin")
+    owner = get_user_model().objects.get(username="plushie_admin")
     browser.force_login(owner)
     target = reverse("scheduling:reservation_cancel", kwargs={"school_slug": SLUG, "public_id": item.reservation.public_id})
     data = {"key": uuid.uuid4(), "resolution": "with_refund", "reason": "Local cancellation rehearsal"}
@@ -356,7 +356,7 @@ def test_local_cancel_refund_is_simulated_idempotent_and_audited(demo, browser):
 def test_local_refund_cannot_bypass_real_payment_guards(demo, browser, monkeypatch, mismatch):
     from scheduling.cancellation import cancel
     item = confirmed(browser, demo)
-    owner = get_user_model().objects.get(username="plushumi-admin")
+    owner = get_user_model().objects.get(username="plushie_admin")
     receipt = item.reservation.order.entries.get()
     if mismatch == "not_demo":
         demo.school.is_demo = False; demo.school.save()
@@ -401,7 +401,7 @@ def test_catalog_group_renames_keep_customer_pickers_and_receipt(demo, browser):
 def test_consumed_materials_leave_preparation_queue(demo, browser):
     from scheduling import inventory
     item = confirmed(browser, demo)
-    owner = get_user_model().objects.get(username="plushumi-admin")
+    owner = get_user_model().objects.get(username="plushie_admin")
     inventory.consume(owner, SLUG, item.reservation.public_id)
     browser.force_login(owner)
     response = browser.get(url("preparation"), {"session": item.session_id})
@@ -417,7 +417,7 @@ def test_completed_receipt_cannot_restart_checkout_and_drops_from_prep(demo, bro
     from scheduling.completion import complete
     from scheduling.models import StockAdjustment, StockLevel
     item = confirmed(browser, demo)
-    owner = get_user_model().objects.get(username="plushumi-admin")
+    owner = get_user_model().objects.get(username="plushie_admin")
     complete(owner, SLUG, item.reservation.public_id)
     entries = list(LedgerEntry.objects.values())
     counts = list(StockLevel.objects.values_list("pk", "on_hand"))
@@ -439,7 +439,7 @@ def test_prepared_booking_updates_roster_without_consuming_stock(demo, browser):
     from scheduling import preparation
     from scheduling.models import StockLevel, StockAdjustment
     item = confirmed(browser, demo)
-    browser.force_login(get_user_model().objects.get(username="plushumi-admin"))
+    browser.force_login(get_user_model().objects.get(username="plushie_admin"))
     counts = list(StockLevel.objects.values_list("pk", "on_hand"))
     adjustments = list(StockAdjustment.objects.values())
     target = reverse("scheduling:preparation_update", kwargs={"school_slug": SLUG, "public_id": item.reservation.public_id})
@@ -472,7 +472,7 @@ def test_pausing_intake_keeps_existing_checkout_receipt_and_staff_views(demo, br
     assert browser.post(url("booking", public_id=item.public_id), {"action": "complete"}).status_code == 302
     assert b"Demo booking confirmed" in browser.get(url("booking", public_id=item.public_id)).content
     assert browser.get(url("calendar", public_id=item.public_id)).status_code == 200
-    browser.force_login(get_user_model().objects.get(username="plushumi-admin"))
+    browser.force_login(get_user_model().objects.get(username="plushie_admin"))
     assert browser.get(url("preparation")).context["selected"].pk == item.session_id
     assert browser.get(url("integration", public_id=item.public_id)).status_code == 200
     assert Reservation.objects.count() == LedgerEntry.objects.count() == 1
@@ -484,7 +484,7 @@ def test_staff_workshop_reservations_and_missing_choices_are_visible(demo, brows
     body = service.payload(body, requests.catalog_for(session.offering))
     browser_key = signing.loads(data["request_token"], salt=requests.TOKEN_SALT)["browser"]
     item, _, _ = requests.submit_request(SLUG, session.pk, body, browser_key)
-    owner = get_user_model().objects.get(username="plushumi-admin")
+    owner = get_user_model().objects.get(username="plushie_admin")
     from scheduling import reservations
     booking = reservations.create_reservation(owner, SLUG, "workshop", item.public_id, total_cents=13000, deposit_cents=0)
     reservations.settle_offline(owner, SLUG, booking.public_id, key=uuid.uuid4(), kind="payment", amount_cents=13000, reference="Local staff booking")
@@ -570,7 +570,7 @@ def test_complete_customer_staff_and_projection_journey(demo, browser):
     assert calendar.status_code == 200 and b"BEGIN:VCALENDAR" in calendar.content
     assert b"Not a real reservation" in calendar.content
     assert browser.get(url("preparation")).status_code == 302
-    browser.force_login(get_user_model().objects.get(username="plushumi-admin"))
+    browser.force_login(get_user_model().objects.get(username="plushie_admin"))
     prep = browser.get(url("preparation"), {"session": item.session_id})
     assert prep.status_code == 200 and len(prep.context["rows"]) == 2
     assert len(prep.context["totals"]) == 4
@@ -586,7 +586,7 @@ def test_complete_customer_staff_and_projection_journey(demo, browser):
     workspace = browser.get(reverse("scheduling:workspace", kwargs={"school_slug": SLUG}))
     assert b">Reservations</a>" in workspace.content and b"Enrollment admin" not in workspace.content
     assert "Workshop Prep" not in [tab["label"] for tab in prep.context["booking_navigation"]["section"]["tabs"]]
-    assert not SchoolAdminMembership.objects.filter(user__username="plushumi-admin").exists()
+    assert not SchoolAdminMembership.objects.filter(user__username="plushie_admin").exists()
 
 
 def test_checkout_retries_share_booking_order_and_ledger(demo, browser):
@@ -705,7 +705,7 @@ def test_preview_gates_fail_closed(demo, browser, guard, settings):
 
 
 def test_preparation_scope_bad_session_and_empty_state(demo, browser):
-    browser.force_login(get_user_model().objects.get(username="plushumi-admin"))
+    browser.force_login(get_user_model().objects.get(username="plushie_admin"))
     assert browser.get(url("preparation"), {"session": "oops"}).status_code == 404
     assert browser.get(url("preparation"), {"session": "99999999"}).status_code == 404
     assert b"No confirmed workshop bookings" in browser.get(url("preparation")).content
@@ -720,7 +720,7 @@ def test_seed_idempotent_scoped_and_safe(demo):
     counts = [Session.objects.count(), Location.objects.count(), Camp.objects.count()]
     call_command("seed_booking_experience_demo", SLUG, password="admin")
     assert counts == [Session.objects.count(), Location.objects.count(), Camp.objects.count()]
-    assert get_user_model().objects.get(username="plushumi-admin").check_password("admin")
+    assert get_user_model().objects.get(username="plushie_admin").check_password("admin")
     assert not SchedulingProfile.objects.filter(school=other).exists()
     assert School.objects.get(pk=other.pk).feature_flags == {"keep": True}
 
@@ -740,7 +740,7 @@ def test_seed_refuses_connected_school(local, field, value):
 
 @pytest.mark.parametrize("kind", ["operator", "enrollment", "shared"])
 def test_seed_never_changes_shared_password(local, kind):
-    user = get_user_model().objects.create_user("plushumi-admin", password="keep", is_superuser=kind == "operator")
+    user = get_user_model().objects.create_user("plushie_admin", password="keep", is_superuser=kind == "operator")
     school = School.objects.create(slug="other")
     if kind == "enrollment": SchoolAdminMembership.objects.create(user=user, school=school)
     if kind == "shared": SchedulingMembership.objects.create(user=user, profile=SchedulingProfile.objects.create(school=school))
@@ -775,7 +775,7 @@ def test_projection_validation_is_reported_not_a_server_error(demo, browser):
     item = confirmed(browser, demo)
     item.purchaser_email = "a"*190 + "@example.invalid"
     item.save()
-    browser.force_login(get_user_model().objects.get(username="plushumi-admin"))
+    browser.force_login(get_user_model().objects.get(username="plushie_admin"))
     response = browser.get(url("integration", public_id=item.public_id))
     assert response.status_code == 400 and b"invalid time range or email" in response.content
 
@@ -831,5 +831,5 @@ def test_preview_refuses_bypassing_review_policy_and_handles_invalid_request(dem
 def test_prepare_only_links_granted_integrations(demo, browser):
     confirmed(browser, demo)
     demo.capabilities.remove("integrations"); demo.save()
-    browser.force_login(get_user_model().objects.get(username="plushumi-admin"))
+    browser.force_login(get_user_model().objects.get(username="plushie_admin"))
     assert b"Preview Notion mapping</a>" not in browser.get(url("preparation")).content

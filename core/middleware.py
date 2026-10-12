@@ -4,6 +4,44 @@ from django.shortcuts import redirect
 from django.urls import reverse
 
 
+class PortalEnvironmentMiddleware:
+    """Keep tenant pages on their configured host without redirecting writes."""
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from core.services.portal_environment import current_environment, request_environment
+        token = current_environment.set(request_environment(request) or "unknown")
+        try:
+            return self.get_response(request)
+        finally:
+            current_environment.reset(token)
+
+    def process_view(self, request, view_func, view_args, view_kwargs):
+        from core.models import School
+        from core.services.portal_environment import request_environment, school_environment
+        environment = request_environment(request)
+        if environment == "production" and request.path.startswith("/demo/"):
+            from core.services.url_builder import demo_url
+            from django.http import HttpResponseForbidden
+            if request.method not in {"GET", "HEAD"}:
+                return HttpResponseForbidden("Open the demo portal before making changes.")
+            return redirect(demo_url(request.get_full_path()))
+        slug = view_kwargs.get("school_slug")
+        if request.path.startswith("/ops/schools/"):
+            slug = view_kwargs.get("slug")
+        if not environment or not slug or not request.path.startswith(("/schools/", "/bookings/", "/ops/schools/")):
+            return None  # Provider callbacks retain their configured endpoint and signature checks.
+        school = School.objects.filter(slug=slug).first()
+        if school is None or school_environment(school) == environment:
+            return None
+        if request.method not in {"GET", "HEAD"}:
+            from django.http import HttpResponseForbidden
+            return HttpResponseForbidden("Open this workspace on its demo or production portal before making changes.")
+        from core.services.url_builder import app_url, demo_url
+        return redirect((demo_url if school.is_demo else app_url)(request.get_full_path()))
+
+
 class SchoolAdminRedirectMiddleware:
     """
     Redirects non-superuser school admins away from the Django admin index

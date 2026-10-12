@@ -21,17 +21,6 @@
 .booking-admin .booking-page-heading { margin-bottom: 20px; }
 .booking-admin .booking-page-heading h1 { margin: 0 0 4px; font-weight: 700; }
 .booking-admin .booking-page-heading p { margin: 0; font-size: 13px; color: var(--dash-muted); }
-.booking-admin .booking-account { position: relative; }
-.booking-admin .booking-avatar { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--dash-primary); color: white; font-size: 13px; font-weight: 700; cursor: pointer; list-style: none; }
-.booking-admin .booking-avatar::-webkit-details-marker { display: none; }
-.booking-admin .booking-account-panel { position: absolute; right: 0; top: 40px; width: 210px; max-width: calc(100vw - 32px); padding: 6px 0; border: 1px solid var(--dash-border); border-radius: 8px; background: var(--dash-card); box-shadow: 0 4px 12px rgba(0,0,0,.15); z-index: 60; }
-.booking-admin .booking-account-name { padding: 8px 14px; border-bottom: 1px solid var(--dash-border); margin-bottom: 4px; font-size: 12px; color: var(--dash-muted); overflow-wrap: anywhere; }
-.booking-admin .booking-account-panel .dash-menu-item { border: 0; border-radius: 0; background: transparent; color: var(--dash-text); font-size: 13px; font-weight: 400; min-height: 36px; }
-.booking-admin .booking-account-panel .dash-menu-item:hover { background: var(--dash-bg); }
-.booking-admin .booking-account-panel .dash-menu-item--danger { color: #dc2626; }
-.booking-admin .booking-account-panel form { border-top: 1px solid var(--dash-border); margin: 8px 0 0; }
-.booking-admin .booking-theme-label { display: block; margin: 8px 14px 4px; font-size: 12px; color: var(--dash-muted); }
-.booking-admin .booking-theme { margin: 0 14px; width: calc(100% - 28px); font-size: 13px; min-height: 36px; padding: 6px 10px; }
 .booking-admin .brand, .booking-admin .setup-overview a, .booking-admin .empty-state h2 { color: var(--dash-text); }
 .booking-admin .brand span, .booking-admin .topbar, .booking-admin .tabs, .booking-admin .details > div,
 .booking-admin td, .booking-admin th, .booking-admin .choice-setup, .booking-admin .location-section,

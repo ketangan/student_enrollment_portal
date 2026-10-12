@@ -1010,6 +1010,8 @@ class Lead(models.Model):
 
 
 class AdminAuditLog(models.Model):
+    environment = models.CharField(max_length=16, default="unknown", db_index=True,
+        choices=(("production", "Production"), ("demo", "Demo"), ("unknown", "Unclassified legacy")))
     ACTION_ADD = "add"
     ACTION_CHANGE = "change"
     ACTION_DELETE = "delete"
@@ -1068,6 +1070,12 @@ class AdminAuditLog(models.Model):
 
     def __str__(self) -> str:
         return f"{self.created_at} {self.action} {self.model_label}#{self.object_id}"
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and self.environment == "unknown":
+            from core.services.audit_environment import infer_environment
+            self.environment = infer_environment(self, using=kwargs.get("using") or "default")
+        super().save(*args, **kwargs)
 
     @property
     def human_model_label(self) -> str:
@@ -1278,6 +1286,10 @@ class DemoAccessToken(models.Model):
     last_used_at = models.DateTimeField(null=True, blank=True)
     pages_visited = models.JSONField(default=list, blank=True)
     purpose = models.CharField(max_length=20, choices=PURPOSE_CHOICES, default=PURPOSE_DEMO)
+    destination = models.CharField(max_length=16, default="enrollment",
+        choices=(("enrollment", "Enrollment"), ("scheduling", "Scheduling")))
+    recipient = models.ForeignKey(User, null=True, blank=True, on_delete=models.CASCADE,
+        related_name="portal_access_tokens")
 
     class Meta:
         ordering = ["-created_at"]
@@ -1287,7 +1299,7 @@ class DemoAccessToken(models.Model):
 
     @property
     def is_expired(self) -> bool:
-        return timezone.now() > self.expires_at
+        return timezone.now() >= self.expires_at
 
     @property
     def days_remaining(self) -> int:

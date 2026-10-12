@@ -93,7 +93,7 @@ def test_camps_and_stock_follow_header_location(client, camp, inventory, second_
 
 
 def test_prep_filters_before_selection_and_rejects_foreign_session(demo, browser):
-    browser.force_login(get_user_model().objects.get(username="plushumi-admin"))
+    browser.force_login(get_user_model().objects.get(username="plushie_admin"))
     places = list(demo.locations.order_by("pk"))
     selected = places[-1]
     response = browser.get(url(demo), {"location": selected.pk})

@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 from django.contrib import admin
+from core.admin.portal_scope import PortalScopedAdminMixin
 
 from core.admin.common import _is_superuser
 from core.models import SchoolAdminMembership
 
 
 @admin.register(SchoolAdminMembership)
-class SchoolAdminMembershipAdmin(admin.ModelAdmin):
+class SchoolAdminMembershipAdmin(PortalScopedAdminMixin, admin.ModelAdmin):
     list_display = ("user", "school")
     search_fields = ("user__username", "school__slug", "school__display_name")
     actions = None
@@ -28,4 +29,3 @@ class SchoolAdminMembershipAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return _is_superuser(request.user)
-    

@@ -5,6 +5,7 @@ import logging
 from datetime import timedelta
 
 from django.contrib import admin, messages
+from core.admin.portal_scope import PortalScopedAdminMixin
 from django.db.models import Case, IntegerField, Q, Value, When
 from django.urls import reverse
 from django.utils import timezone
@@ -87,7 +88,7 @@ class FollowUpFilter(admin.SimpleListFilter):
 
 
 @admin.register(Lead)
-class LeadAdmin(admin.ModelAdmin):
+class LeadAdmin(PortalScopedAdminMixin, admin.ModelAdmin):
     class Media:
         js = ("admin_actions.js",)
 

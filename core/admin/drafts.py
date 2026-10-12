@@ -1,5 +1,6 @@
 # core/admin/drafts.py
 from django.contrib import admin
+from core.admin.portal_scope import PortalScopedAdminMixin
 from django.utils.formats import date_format
 from django.utils import timezone
 
@@ -8,7 +9,7 @@ from core.models import DraftSubmission
 
 
 @admin.register(DraftSubmission)
-class DraftSubmissionAdmin(admin.ModelAdmin):
+class DraftSubmissionAdmin(PortalScopedAdminMixin, admin.ModelAdmin):
     list_display = (
         "school", "email", "form_key", "last_form_key",
         "created_at_pretty", "updated_at_pretty", "token_expires_at_pretty",

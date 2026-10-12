@@ -1,9 +1,10 @@
 from django.contrib import admin
+from core.admin.portal_scope import PortalScopedAdminMixin
 
 from .models import SchedulingMembership, SchedulingProfile
 
 
-class OperatorOnlyAdmin(admin.ModelAdmin):
+class OperatorOnlyAdmin(PortalScopedAdminMixin, admin.ModelAdmin):
     def has_module_permission(self, request):
         return request.user.is_active and request.user.is_superuser
 
@@ -32,6 +33,7 @@ class SchedulingProfileAdmin(OperatorOnlyAdmin):
 
 @admin.register(SchedulingMembership)
 class SchedulingMembershipAdmin(OperatorOnlyAdmin):
+    portal_school_lookup = "profile__school__"
     list_display = ("user", "profile", "role", "is_active")
     list_filter = ("role", "is_active")
     search_fields = ("user__username", "profile__school__slug")

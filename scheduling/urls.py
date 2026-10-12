@@ -23,6 +23,7 @@ from . import views_inventory as inventory
 app_name = "scheduling"
 
 urlpatterns = [
+    path("<slug:school_slug>/password/", views.password_change, name="password_change"),
     path("<slug:school_slug>/reservations/<uuid:public_id>/preparation/", views_reservations.preparation_update, name="preparation_update"),
     path("<slug:school_slug>/settings/", inventory.settings_home, name="settings"),
     path("<slug:school_slug>/catalog/", inventory.catalogs, name="catalogs"),

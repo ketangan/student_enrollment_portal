@@ -7,7 +7,7 @@
   <p class="dash-greeting-sub">Here's what needs your attention today.</p>
 </div>
 <div class="booking-dashboard-tools"><div class="actions">
-{% if experience_demo_available %}<a class="button" href="{% url 'scheduling:experience_start' school_slug=business.slug %}">Customer demo</a>{% endif %}
+{% if experience_demo_available %}<a class="button" href="{{ customer_demo_url }}">Customer demo</a>{% endif %}
 {% if features.lessons and profile.lessons_enabled %}<a class="button" href="{% url 'scheduling:lessons' school_slug=business.slug %}">Open lesson calendar</a>{% endif %}
 {% if request.user.is_superuser %}<a href="{% url 'scheduling:features' school_slug=business.slug %}">Manage available features</a>{% endif %}
 </div></div>

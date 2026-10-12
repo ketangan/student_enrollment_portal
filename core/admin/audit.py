@@ -74,11 +74,12 @@ def log_admin_audit(
 @admin.register(AdminAuditLog)
 class AdminAuditLogAdmin(admin.ModelAdmin):
     actions = None
-    list_filter = ("action", "model_label", "created_at")
+    list_filter = ("environment", "action", "model_label", "created_at")
     search_fields = ("object_id", "object_repr", "actor__username", "actor__email", "path")
-    list_display = ("created_at", "action", "model_label", "object_id", "actor", "short_path")
+    list_display = ("created_at", "environment", "action", "model_label", "object_id", "actor", "short_path")
     readonly_fields = (
         "created_at",
+        "environment",
         "actor",
         "action",
         "model_label",
@@ -93,6 +94,10 @@ class AdminAuditLogAdmin(admin.ModelAdmin):
 
     def has_module_permission(self, request):
         return _is_superuser(request.user)
+
+    def get_queryset(self, request):
+        from core.services.portal_environment import scope_audit
+        return scope_audit(super().get_queryset(request), request)
 
     def has_view_permission(self, request, obj=None):
         return _is_superuser(request.user)
@@ -115,4 +120,3 @@ class AdminAuditLogAdmin(admin.ModelAdmin):
         return format_html("<code>{}</code>", p)
 
     short_path.short_description = "Path"
-    

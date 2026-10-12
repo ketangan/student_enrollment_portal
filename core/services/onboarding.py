@@ -158,6 +158,7 @@ def convert_demo_to_customer(
         # 7. Create onboarding magic link (app domain, no demo banner)
         magic_token = DemoAccessToken.objects.create(
             school=school,
+            recipient=user,
             expires_at=now + timedelta(days=7),
             created_by=actor,
             purpose=DemoAccessToken.PURPOSE_ONBOARDING,
@@ -309,6 +310,7 @@ def send_welcome_email(school: School, actor: User) -> bool:
 
     magic_token = DemoAccessToken.objects.create(
         school=school,
+        recipient=admin,
         expires_at=now + timedelta(days=7),
         created_by=actor,
         purpose=DemoAccessToken.PURPOSE_ONBOARDING,

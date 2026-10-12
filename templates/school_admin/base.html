@@ -1,4 +1,4 @@
-{% load static booking_navigation %}
+{% load static booking_navigation account_menu %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -58,76 +58,7 @@
               class="dash-mobile-menu-btn"
               aria-label="Open navigation"
               aria-expanded="false">&#9776;</button>
-      <!-- User menu -->
-      <div style="position:relative;">
-        <button id="user-menu-btn"
-                style="width:32px;height:32px;border-radius:50%;background:var(--dash-primary,#4f46e5);
-                       color:#fff;font-size:13px;font-weight:700;border:none;cursor:pointer;
-                       display:flex;align-items:center;justify-content:center;"
-                aria-label="User menu"
-                onclick="(function(){var d=document.getElementById('user-menu-dropdown');d.style.display=d.style.display==='block'?'none':'block';})()">
-          {{ user_initial }}
-        </button>
-        <div id="user-menu-dropdown"
-             style="display:none;position:absolute;right:0;top:40px;min-width:190px;
-                    background:var(--dash-card,#fff);border:1px solid var(--dash-border,#e2e8f0);
-                    border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:200;
-                    padding:6px 0;">
-          <!-- Username -->
-          <div style="padding:8px 14px 8px;font-size:12px;color:var(--dash-muted,#64748b);
-                      border-bottom:1px solid var(--dash-border,#e2e8f0);margin-bottom:4px;">
-            {{ request.user.get_full_name|default:request.user.username }}
-          </div>
-          <!-- Change password -->
-          {% if not billing_only %}
-          <a href="{% url 'school_password_change' school.slug %}" class="dash-menu-item">
-            Change Password
-          </a>
-          {% endif %}
-          <!-- Theme selector -->
-          <div style="border-top:1px solid var(--dash-border,#e2e8f0);padding:6px 0;margin-top:2px;">
-            <div style="padding:5px 14px 3px;font-size:10px;font-weight:700;
-                        text-transform:uppercase;letter-spacing:.08em;
-                        color:var(--dash-muted,#64748b);">
-              Theme
-            </div>
-            <button type="button" onclick="dashSetTheme('clean')"
-                    class="dash-menu-item"
-                    style="display:flex;align-items:center;gap:10px;">
-              <span style="width:10px;font-size:10px;color:var(--dash-primary,#2563eb);" id="check-clean">✓</span>
-              Clean
-            </button>
-            <button type="button" onclick="dashSetTheme('midnight')"
-                    class="dash-menu-item"
-                    style="display:flex;align-items:center;gap:10px;">
-              <span style="width:10px;font-size:10px;color:var(--dash-primary,#2563eb);" id="check-midnight"></span>
-              Midnight
-            </button>
-            <button type="button" onclick="dashSetTheme('mint')"
-                    class="dash-menu-item"
-                    style="display:flex;align-items:center;gap:10px;">
-              <span style="width:10px;font-size:10px;color:var(--dash-primary,#2563eb);" id="check-mint"></span>
-              Mint
-            </button>
-          </div>
-          {% if request.user.is_superuser %}
-          <div style="height:1px;background:var(--dash-border,#e2e8f0);margin:2px 0;"></div>
-          <a href="{% url 'ops_dashboard' %}" class="dash-menu-item">
-            Ops Portal ↗
-          </a>
-          <a href="{% url 'admin:index' %}" class="dash-menu-item">
-            Django Admin ↗
-          </a>
-          {% endif %}
-          <div style="height:1px;background:var(--dash-border,#e2e8f0);margin:2px 0;"></div>
-          <form method="post" action="{% url 'logout' %}" style="margin:0;">
-            {% csrf_token %}
-            <button type="submit" class="dash-menu-item dash-menu-item--danger">
-              Sign out
-            </button>
-          </form>
-        </div>
-      </div>
+      {% account_menu %}
     </div>
   </header>
 
@@ -142,40 +73,8 @@
   {% endif %}
 
   <script>
-  // ── Theme picker (3 themes, localStorage) ────────────────────────────────
-  (function () {
-    var KEY = 'dash_theme';
-    var THEME_CLS = { clean: '', midnight: 'dash-midnight', mint: 'dash-mint' };
-    var ALL_CLS   = ['dash-midnight', 'dash-mint'];
-
-    function applyTheme(name) {
-      var cls = THEME_CLS[name] || '';
-      ALL_CLS.forEach(function(c){ document.body.classList.remove(c); });
-      if (cls) document.body.classList.add(cls);
-      // Show checkmark next to active theme only
-      ['clean', 'midnight', 'mint'].forEach(function(k) {
-        var el = document.getElementById('check-' + k);
-        if (el) el.textContent = (k === name) ? '✓' : '';
-      });
-    }
-
-    // Restore preference before first paint to avoid flash.
-    var saved = localStorage.getItem(KEY) || 'clean';
-    applyTheme(saved);
-
-    window.dashSetTheme = function(name) {
-      localStorage.setItem(KEY, name);
-      applyTheme(name);
-    };
-  }());
-
-  // ── User menu: close on outside click ────────────────────────────────────
+  // Mobile navigation
   document.addEventListener('click', function(e) {
-    var btn = document.getElementById('user-menu-btn');
-    var dd  = document.getElementById('user-menu-dropdown');
-    if (btn && dd && !btn.contains(e.target) && !dd.contains(e.target)) {
-      dd.style.display = 'none';
-    }
     // Mobile nav: close on outside click
     var mBtn = document.getElementById('mobile-nav-btn');
     var nav  = document.querySelector('.dash-nav');

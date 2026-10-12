@@ -4,6 +4,7 @@ import re
 from django.conf import settings
 from django.http import Http404
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 import yaml
 
 from core.payments.models import PaymentAccount
@@ -48,6 +49,19 @@ def configuration(slug):
     if not path.is_file():
         raise Http404
     return yaml.safe_load(path.read_text())
+
+
+def customer_demo_url(profile):
+    """A configured comparison page, or the ordinary customer booking entry."""
+    fallback = reverse("scheduling:experience_start", kwargs={"school_slug": profile.school.slug})
+    try:
+        path = configuration(profile.school.slug).get("customer_demo_path", "")
+    except Http404:
+        return fallback
+    if isinstance(path, str) and path.startswith("/") and not path.startswith("//") and "\\" not in path:
+        from core.services.url_builder import demo_url
+        return demo_url(path)
+    return fallback
 
 
 def context(request, slug):

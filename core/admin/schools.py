@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils.html import format_html, mark_safe
 
 from core.admin.audit import log_admin_audit
+from core.admin.portal_scope import PortalScopedAdminMixin
 from core.admin.common import _has_school_membership, _is_superuser, _membership_school_id
 from core.models import School
 from core.services.feature_flags import default_flags_for_plan, merge_flags
@@ -98,7 +99,8 @@ class SchoolAdminForm(forms.ModelForm):
 
 
 @admin.register(School)
-class SchoolAdmin(admin.ModelAdmin):
+class SchoolAdmin(PortalScopedAdminMixin, admin.ModelAdmin):
+    portal_school_lookup = ""
     form = SchoolAdminForm
     list_display = (
         "slug",

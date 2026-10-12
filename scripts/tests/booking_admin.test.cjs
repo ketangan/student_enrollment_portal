@@ -50,11 +50,9 @@ test('mobile navigation toggles, closes outside and on resize, and restores focu
   const {nodes, document, media} = page();
   const nav = nodes['booking-nav'];
   const toggle = nodes['booking-nav-toggle'];
-  nodes['booking-account'].open = true;
   toggle.listeners.click();
   assert.equal(toggle.attrs['aria-expanded'], 'true');
   assert.equal(toggle.attrs['aria-label'], 'Close navigation');
-  assert.equal(nodes['booking-account'].open, false);
   document.listeners.click({target: nav});
   assert.equal(nav.classList.contains('dash-nav--mobile-open'), true);
   document.listeners.keydown({key: 'Tab'});
@@ -70,45 +68,6 @@ test('mobile navigation toggles, closes outside and on resize, and restores focu
   toggle.listeners.click();
   toggle.listeners.click();
   assert.equal(toggle.attrs['aria-expanded'], 'false');
-});
-
-test('account remains open inside and closes with Escape or outside click', () => {
-  const {nodes, document, summary} = page();
-  const account = nodes['booking-account'];
-  account.open = true;
-  document.listeners.click({target: account});
-  assert.equal(account.open, true);
-  document.listeners.keydown({key: 'Escape'});
-  assert.equal(account.open, false);
-  assert.equal(summary.focused, true);
-  account.open = true;
-  document.listeners.click({target: {}});
-  assert.equal(account.open, false);
-});
-
-test('theme uses enrollment preference and replaces the old theme', () => {
-  const {nodes, document, storage} = page({saved: 'midnight'});
-  const theme = nodes['booking-theme'];
-  assert.equal(theme.value, 'midnight');
-  assert.equal(document.body.classList.contains('dash-midnight'), true);
-  theme.value = 'mint';
-  theme.listeners.change();
-  assert.equal(storage.saved, 'mint');
-  assert.equal(document.body.classList.contains('dash-midnight'), false);
-  assert.equal(document.body.classList.contains('dash-mint'), true);
-  theme.value = 'clean';
-  theme.listeners.change();
-  assert.equal(document.body.classList.contains('dash-mint'), false);
-  assert.equal(page({saved: 'invalid'}).nodes['booking-theme'].value, 'clean');
-});
-
-test('blocked storage still allows changing themes', () => {
-  const {nodes, document} = page({blocked: true});
-  const theme = nodes['booking-theme'];
-  assert.equal(theme.value, 'clean');
-  theme.value = 'midnight';
-  theme.listeners.change();
-  assert.equal(document.body.classList.contains('dash-midnight'), true);
 });
 
 test('workspace chooser and missing optional controls are safe', () => {

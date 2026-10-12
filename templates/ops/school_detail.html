@@ -343,6 +343,7 @@
         </button>
       </div>
       <div style="display:flex;gap:20px;font-size:12px;color:var(--dash-muted);flex-wrap:wrap;">
+        {% if demo_token.recipient %}<span>{{ demo_token.get_destination_display }} access: <strong>{{ demo_token.recipient.username }}</strong></span>{% endif %}
         <span>Login link expires <strong style="color:var(--dash-text);">{{ demo_token.expires_at|date:"M j, Y" }}</strong></span>
         <span>
           <strong style="color:{% if demo_token.days_remaining <= 3 %}#dc2626{% elif demo_token.days_remaining <= 7 %}#d97706{% else %}var(--dash-text){% endif %};">
@@ -377,6 +378,12 @@
 
     <form method="post" action="{% url 'ops_demo_token_generate' school.slug %}">
       {% csrf_token %}
+      {% if demo_destinations|length > 1 %}
+      <label for="demo-destination">Open after login</label>
+      <select id="demo-destination" name="destination" class="dash-select">
+        {% for value, label in demo_destinations %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+      </select>
+      {% endif %}
       <button type="submit" class="dash-action-btn dash-action-btn--primary" style="font-size:12px;">
         {% if demo_token %}Generate New Link (14 days){% else %}Generate Demo Link{% endif %}
       </button>

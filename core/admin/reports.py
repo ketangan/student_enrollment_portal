@@ -8,6 +8,7 @@ from django.urls import path, reverse
 
 from core.admin.common import _is_superuser, _membership_school_id
 from core.models import School
+from core.services.portal_environment import scope_schools
 from core.views import admin_theme_api
 from core.admin.billing import get_billing_urls
 
@@ -18,7 +19,7 @@ def admin_reports_hub_view(request):
         raise Http404("Page not found")
 
     if _is_superuser(user):
-        schools = School.objects.all().order_by("display_name", "slug")
+        schools = scope_schools(School.objects.all(), request).order_by("display_name", "slug")
         context = admin.site.each_context(request)
         context.update({
             "schools": schools,
@@ -31,7 +32,7 @@ def admin_reports_hub_view(request):
     if not school_id:
         raise Http404("Page not found")
 
-    school = School.objects.filter(id=school_id).first()
+    school = scope_schools(School.objects.all(), request).filter(id=school_id).first()
     if not school:
         raise Http404("Page not found")
 

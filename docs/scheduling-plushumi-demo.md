@@ -4,13 +4,73 @@ Status: the working demo is hosted on the existing shared service. Shared sandbo
 checkout is enabled and verified for Plushumi (see below). Wix/Notion remain off. This is not a finished
 self-service workshop product.
 
+## Portal Access and Environment Separation
+
+`app.mypontora.com` is production; `demo.mypontora.com` is demo. They share hosting
+and database storage, but that does not make their portal views interchangeable.
+Always share the demo domain for Plushumi's current fictional workspace.
+
+Staff login: https://demo.mypontora.com/login/ (release target username `plushie_admin`).
+The account rename is rehearsed locally; hosted maintenance follows deployment. This active account
+has only its demo scheduling-owner membership, no enrollment membership, no Django staff
+flag and no superuser access. Credentials are supplied separately, not committed here.
+
+October 12 access release: **authorized; final regression/release checks in progress**:
+- One account-menu component now serves enrollment and scheduling, including the same
+  theme controls, password action and permission-controlled operator links. Integrated
+  schools retain their enrollment link; scheduling-only clients do not gain one.
+- The configured host scopes login/workspace selection, operator schools/users,
+  submissions, leads, reports, tenant incidents, related form choices and audit views.
+  Django admin lists and Recent Actions use the same boundary.
+  Wrong-host tenant reads redirect to the canonical domain; writes are rejected rather
+  than replayed across domains. Local combined-host development still works.
+- Audit events retain their recorded environment. Migration `core.0063_audit_environment`
+  attributes historical events using school/profile evidence, never actor identity or
+  Stripe test/live mode. Unknown historical events are retained as unclassified and are
+  not silently assigned to production. This is portal separation, not separate databases.
+  Global operator accounts and unattributed infrastructure incidents remain shared.
+- Customer demo reads its destination from the demo configuration and opens the existing
+  two-option comparison hub. Shared menu components contain no customer-name branch.
+- Superadmin's existing Demo Access Link panel supports scheduling-only accounts.
+  Links are bound to an active recipient/workspace, expire after 14 days and replacement
+  revokes old demo links. They cannot grant another school's access or superuser access.
+  Core migration `0064_demo_access_recipient` preserves legacy enrollment links.
+- `maintain_demo_account` defaults to dry run and validates a demo-only account before
+  renaming or deleting its old actor/account audit entries. It does not delete reservations,
+  payments or other business records. Hosted dry run found 65 old audit entries.
+- No checkout/subscription processing, Stripe configuration or SBMC school/billing settings
+  changed. The payment-account Django admin list/form is environment-scoped like other lists.
+
+Local review uses http://localhost:8006/bookings/plushumi-demo/ for demo and
+http://127.0.0.1:8006/schools/south-bay-music/admin/ for production-style routing,
+both against the isolated local preview database. The existing 8002 server is untouched.
+The user authorized main deployment after thorough verification. Back up before permanent
+audit cleanup; confirm migrations 0063 and 0064 applied through Render's existing startup.
+
+Previous baseline verification: 3,763 Python tests and 48 JavaScript tests passed. The new portal helper
+and menu tag are 100% covered; audit attribution is 98.33% combined statement/branch
+covered; shared menu JavaScript is 100%. Every measured Python module exceeds 90%
+(99.47% across the measured scheduling/payment/test-safety and new helper modules).
+Desktop 1280px and phone 390px browser checks verified matching menu dimensions and
+typography, hover state, themes, password links, keyboard close/focus and no overflow
+or JavaScript errors. Schema drift and whitespace checks passed. The existing duplicate
+Jazzmin template-library warning remains; no new warning was introduced.
+
+Critical review restored the permission-aware Enrollment admin link lost during menu
+consolidation and corrected shared CSS specificity/box sizing. Four domain-link tests
+now explicitly create demo schools for demo-host requests; their link assertions were
+not weakened. Read-only hosted attribution found 1,076 production, 327 demo and 46
+unclassifiable historical events. No hosted audit rows were changed. The actual migration
+ran only against local test/preview databases at that stage. Current final release results
+are recorded in the implementation tracker and shared-production release notes.
+
 [Customer booking](http://localhost:8002/bookings/plushumi-demo/experience/) |
 [Reservations and preparation](http://localhost:8002/bookings/plushumi-demo/reservations/) |
 [Catalog](http://localhost:8002/bookings/plushumi-demo/catalog/) |
 [Materials Inventory](http://localhost:8002/bookings/plushumi-demo/settings/) |
 [Admin workspace](http://localhost:8002/bookings/plushumi-demo/)
 
-Local studio admin: `plushumi-admin` / `admin`. This account has scheduling access only,
+Local studio admin: `plushie_admin` / `admin`. This account has scheduling access only,
 not enrollment or operator access. Use localhost while Enrollment Request Demo stays on
 127.0.0.1 so the two school logins do not overwrite each other's browser cookies.
 

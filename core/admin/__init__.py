@@ -117,6 +117,17 @@ def _trial_aware_each_context(request):
 
 admin.site.each_context = _trial_aware_each_context
 
+from .portal_scope import scope_admin_history
+
+_original_get_log_entries = admin.site.get_log_entries
+
+
+def _portal_log_entries(request):
+    return scope_admin_history(_original_get_log_entries(request), request)
+
+
+admin.site.get_log_entries = _portal_log_entries
+
 
 __all__ = [
     # django admin module shim

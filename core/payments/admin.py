@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib import admin
 
 from core.models import School
+from core.admin.portal_scope import PortalScopedAdminMixin
 from .models import PaymentAccount
 
 
@@ -54,7 +55,7 @@ class PaymentAccountForm(forms.ModelForm):
 
 
 @admin.register(PaymentAccount)
-class PaymentAccountAdmin(admin.ModelAdmin):
+class PaymentAccountAdmin(PortalScopedAdminMixin, admin.ModelAdmin):
     form = PaymentAccountForm
     list_display = ("school", "scope", "reference", "enabled")
     list_select_related = ("school",)

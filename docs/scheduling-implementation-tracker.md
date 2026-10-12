@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: October 11, 2026.
+Updated: October 12, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -8,6 +8,55 @@ Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 This Markdown file remains the source of truth; the viewer does not edit milestone status.
 
 ## Current Status
+
+- **Demo access and portal separation: release authorized; final checks in progress.**
+  Canonical rule: `app.mypontora.com` is production, `demo.mypontora.com` is demo.
+  Enrollment/bookings share one account menu. Operator/Django admin lists, form choices,
+  reports, audit history and login/workspace selection are environment-scoped. Global
+  operator accounts and infrastructure incidents remain shared; storage is not split.
+  The demo account becomes `plushie_admin`; Customer demo opens the existing comparison
+  hub. Superadmin can generate a scheduling-only passwordless link using the existing panel.
+  Core migrations 0063 and 0064 label historical audit events and bind magic-link recipients.
+  Exact-account audit cleanup is dry-run-first; hosted deletion remains pending backup
+  and deployment. Checkout/subscription processing and SBMC settings are unchanged.
+  Desktop/390px checks passed for login, magic links, menus, themes, navigation and isolation.
+  Verification before push: **3,790 Python tests and 48 JavaScript tests passed**;
+  every measured module exceeds 90% combined statement/branch coverage (99.45% overall).
+  New magic-link, account maintenance, admin scoping and menu modules are 100% covered;
+  portal helper 95.52%, audit attribution 98.33%. Migration drift check passed (existing
+  Jazzmin warning). SBMC dashboard, submissions, leads, reports, settings, billing and
+  public forms passed browser checks without data/payment changes. Critical review fixed
+  missing branding-file fallback and removed the hardcoded business name from the shared
+  demo banner. A Render-hosted backup was requested; no production DB was copied locally.
+  [Scope and review URLs](scheduling-plushumi-demo.md#portal-access-and-environment-separation).
+
+  <details>
+  <summary>Manual review: shared menu, demo login and environment separation</summary>
+
+  1. Locally use `booking-sandbox-reviewer` / `admin` at port 8006. Use `localhost`
+     for demo and `127.0.0.1` for production-style routing; these use only the local preview DB.
+  2. Compare the account menu on Plushumi bookings and SBMC enrollment. Verify matching
+     controls, Clean/Midnight/Mint persistence, password link, Escape and outside-click close.
+     Repeat at laptop and phone widths. Operator links should appear only for a superuser.
+  3. Sign in as `plushie_admin` / `admin` on the demo host. It should open its scheduling
+     workspace, not enrollment or the operator portal. A demo-only login must not select a
+     production workspace. Do not change the shared demo password while rehearsing.
+  4. Open a demo workspace through the production host and vice versa. Reads should switch
+     to the matching host. A wrong-host write must fail without changing any record.
+  5. As operator, compare schools, users, submissions, leads, reports, audit and Django admin
+     on both hostnames. Searches, filters, dropdowns and Recent Actions must not reintroduce
+     another environment. Background booking events follow their business's environment.
+  6. In demo Ops > Schools > Plushumi, generate a Demo Access Link. Open it in a private
+     window: scheduling opens without a password, with no enrollment/operator access.
+     Generate a replacement: the previous link must stop working. A link tied to a disabled
+     member/workspace must not log in. Never share the operator's own session.
+  7. In the account menu, Customer demo must open `/demo/plushumi/integrations/`.
+     Test both the full booking page and popup, including mobile navigation.
+  8. Before release, back up the shared DB. Render startup applies migrations 0063/0064.
+     Run exact-account maintenance only after dry-run review. Verify renamed normal login,
+     new magic link, audit separation and SBMC pages on the hosted domains after release.
+
+  </details>
 
 - **Hosted booking sandbox: deployed and verified for the demo.** User approved Pontora's shared
   sandbox for demo businesses because Connect is not enabled. Superadmin payment-account settings
@@ -339,7 +388,7 @@ Latest targeted verification: 174 Python checks and 35 JavaScript checks. Change
 modules have 97.19% combined statement/branch coverage; each exceeds 95%. Final regression
 totals are recorded in Current Status. [Impact and detailed steps](scheduling-plushumi-demo.md#catalog-and-scheduling-usability).
 
-Local login: `plushumi-admin` / `admin`.
+Local login: `plushie_admin` / `admin`.
 
 **Current manual test: Catalog, Materials Inventory and Workshop Prep**
 
@@ -383,7 +432,7 @@ See [implementation and reset details](scheduling-plushumi-demo.md#catalog-mater
 records are superseded by the new raw-material model and clean fixture dataset above.
 
 - Open [Setup > Inventory](http://localhost:8002/bookings/plushumi-demo/settings/).
-- Local login: `plushumi-admin` / `admin`.
+- Local login: `plushie_admin` / `admin`.
 - Catalogs are optional, reusable booking settings, not a Plushumi-specific inventory engine.
 - Studio stock is fictional: initially 40 of every configured design/color combination per studio.
   These are not verified Plushumi stock counts or supported design/color combinations.
@@ -588,7 +637,7 @@ Status: Ready for your test. Local demo only. Connected M4 remains deferred.
 
 - Customer: [Plushumi working demo](http://localhost:8002/bookings/plushumi-demo/experience/).
 - Staff: [Studio preparation](http://localhost:8002/bookings/plushumi-demo/experience/preparation/).
-- Local username: `plushumi-admin`. Password: `admin`. No enrollment or operator access.
+- Local username: `plushie_admin`. Password: `admin`. No enrollment or operator access.
 - Use `localhost` for this demo while keeping Enrollment Request Demo on `127.0.0.1`;
   the separate host cookies avoid replacing the school-admin login you are currently testing.
 

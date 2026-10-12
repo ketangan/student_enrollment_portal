@@ -1,9 +1,10 @@
 from django.contrib import admin
+from core.admin.portal_scope import PortalScopedAdminMixin
 from core.models import SchoolProgram
 
 
 @admin.register(SchoolProgram)
-class SchoolProgramAdmin(admin.ModelAdmin):
+class SchoolProgramAdmin(PortalScopedAdminMixin, admin.ModelAdmin):
     list_display = [
         "school", "name", "code", "capacity", "auto_enroll",
         "waitlist_enabled", "is_active", "display_order", "created_at",

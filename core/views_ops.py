@@ -7,7 +7,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.core.paginator import Paginator
-from django.db.models import Count, FloatField, Max, Q, Value
+from django.db.models import Count, FloatField, Max, Prefetch, Q, Value
 from django.db.models.functions import Cast, NullIf
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -17,6 +17,7 @@ from django.views.decorators.http import require_POST
 
 from core.models import AdminAuditLog, DemoAccessToken, Lead, OnboardingChecklistItem, OpsIncident, School, SchoolAdminMembership, Submission
 from core.services import outreach_clicks
+from core.services.portal_environment import scope_audit, scope_schools, scope_users, scope_incidents, scope_form_choices
 from core.services.mock_template_sources import (
     MockTemplateSourceError,
     fetch_mock_template_source,
@@ -56,11 +57,12 @@ def ops_dashboard_view(request):
     now = timezone.now()
     seven_days = now + timezone.timedelta(days=7)
 
-    total_schools = School.objects.count()
-    active_schools = School.objects.filter(is_active=True).count()
+    schools = scope_schools(School.objects.all(), request)
+    total_schools = schools.count()
+    active_schools = schools.filter(is_active=True).count()
     inactive_schools = total_schools - active_schools
 
-    trial_schools = School.objects.filter(plan="trial", is_active=True, trial_started_at__isnull=False)
+    trial_schools = schools.filter(plan="trial", is_active=True, trial_started_at__isnull=False)
     expiring_soon = []
     expired = []
     for school in trial_schools:
@@ -75,12 +77,12 @@ def ops_dashboard_view(request):
     expiring_soon.sort(key=lambda s: s.trial_ends_at)
     expired.sort(key=lambda s: s.trial_ends_at, reverse=True)
 
-    total_users = User.objects.filter(is_active=True).count()
+    total_users = scope_users(User.objects.filter(is_active=True), request).count()
 
-    recent_schools = School.objects.order_by("-created_at")[:5]
+    recent_schools = schools.order_by("-created_at")[:5]
 
     recent_activity = (
-        AdminAuditLog.objects
+        scope_audit(AdminAuditLog.objects, request)
         .select_related("actor")
         .order_by("-created_at")[:15]
     )
@@ -138,7 +140,7 @@ def ops_mock_template_detail_view(request, source_id):
 def ops_schools_list_view(request):
     from core.services.feature_flags import PLAN_CHOICES
 
-    qs = School.objects.annotate(
+    qs = scope_schools(School.objects.all(), request).annotate(
         submission_count=Count("submissions", distinct=True),
         lead_count=Count("leads", distinct=True),
         member_count=Count("admin_memberships", distinct=True),
@@ -174,7 +176,11 @@ def ops_school_create_view(request):
     if request.method == "POST":
         form = OpsSchoolCreateForm(request.POST)
         if form.is_valid():
-            school = form.save()
+            school = form.save(commit=False)
+            from core.services.portal_environment import request_environment
+            if request_environment(request):
+                school.is_demo = request_environment(request) == "demo"
+            school.save()
             _log(request, "add", "core.school", school.pk, str(school),
                  {"name": "create_school", "slug": school.slug, "plan": school.plan})
             messages.success(request, f"School '{school.display_name or school.slug}' created.")
@@ -214,7 +220,7 @@ def ops_school_detail_view(request, slug):
         form = OpsSchoolEditForm(instance=school)
 
     members = school.admin_memberships.select_related("user").all()
-    recent_audit = AdminAuditLog.objects.filter(
+    recent_audit = scope_audit(AdminAuditLog.objects, request).filter(
         model_label="core.school", object_id=str(school.pk)
     ).order_by("-created_at")[:20]
 
@@ -222,7 +228,8 @@ def ops_school_detail_view(request, slug):
     submission_count = Submission.objects.filter(school=school).count()
     lead_count = Lead.objects.filter(school=school).count()
 
-    demo_token = DemoAccessToken.objects.filter(school=school).order_by("-created_at").first()
+    purpose = DemoAccessToken.PURPOSE_DEMO if school.is_demo else DemoAccessToken.PURPOSE_ONBOARDING
+    demo_token = DemoAccessToken.objects.filter(school=school, purpose=purpose).select_related("recipient").order_by("-created_at").first()
     from core.services.url_builder import demo_reverse, app_reverse
     demo_link = (
         demo_reverse("demo_access", kwargs={"token": demo_token.token})
@@ -249,6 +256,9 @@ def ops_school_detail_view(request, slug):
         object_id=str(school.pk),
         extra__name="customer_welcome_email_sent",
     ).exists()
+    from core.services.demo_access import eligible_members
+    demo_destinations = [(key, label) for key, label in (("enrollment", "Enrollment"), ("scheduling", "Scheduling"))
+        if school.is_demo and eligible_members(school, key).exists()]
     return render(request, "ops/school_detail.html", {
         "active_nav": "schools",
         "school": school,
@@ -258,6 +268,7 @@ def ops_school_detail_view(request, slug):
         "submission_count": submission_count,
         "lead_count": lead_count,
         "demo_token": demo_token,
+        "demo_destinations": demo_destinations,
         "demo_link": demo_link,
         "onboarding_link": onboarding_link,
         "checklist_items": checklist_items,
@@ -322,7 +333,8 @@ def ops_school_member_remove_view(request, slug, user_id):
 
 @ops_required
 def ops_users_list_view(request):
-    qs = User.objects.prefetch_related("school_memberships__school").order_by("-date_joined")
+    memberships = scope_schools(SchoolAdminMembership.objects.select_related("school"), request, "school__")
+    qs = scope_users(User.objects.all(), request).prefetch_related(Prefetch("school_memberships", queryset=memberships)).order_by("-date_joined")
 
     q = request.GET.get("q", "").strip()
     role_filter = request.GET.get("role", "").strip()
@@ -358,7 +370,7 @@ def ops_users_list_view(request):
 def ops_user_detail_view(request, user_id):
     from core.forms_ops import OpsUserEditForm
 
-    target_user = get_object_or_404(User, pk=user_id)
+    target_user = get_object_or_404(scope_users(User.objects.all(), request), pk=user_id)
 
     if request.method == "POST":
         form = OpsUserEditForm(request.POST, instance=target_user)
@@ -375,11 +387,11 @@ def ops_user_detail_view(request, user_id):
     else:
         form = OpsUserEditForm(instance=target_user)
 
-    membership = SchoolAdminMembership.objects.filter(
+    membership = scope_schools(SchoolAdminMembership.objects.all(), request, "school__").filter(
         user=target_user, is_active=True
     ).select_related("school").first()
 
-    _user_logs = AdminAuditLog.objects.filter(
+    _user_logs = scope_audit(AdminAuditLog.objects, request).filter(
         model_label="auth.user", object_id=str(target_user.pk)
     )
     recent_audit = _user_logs.exclude(
@@ -404,7 +416,7 @@ def ops_user_create_view(request):
     from core.forms_ops import OpsUserCreateForm
 
     if request.method == "POST":
-        form = OpsUserCreateForm(request.POST)
+        form = scope_form_choices(OpsUserCreateForm(request.POST), request)
         if form.is_valid():
             user = form.save(commit=False)
             user.set_password(form.cleaned_data["password"])
@@ -425,7 +437,7 @@ def ops_user_create_view(request):
             messages.success(request, f"User '{user.email or user.username}' created.")
             return redirect("ops_user_detail", user_id=user.pk)
     else:
-        form = OpsUserCreateForm()
+        form = scope_form_choices(OpsUserCreateForm(), request)
 
     return render(request, "ops/user_form.html", {
         "active_nav": "users",
@@ -438,7 +450,7 @@ def ops_user_create_view(request):
 @ops_required
 @require_POST
 def ops_user_deactivate_view(request, user_id):
-    target_user = get_object_or_404(User, pk=user_id)
+    target_user = get_object_or_404(scope_users(User.objects.all(), request), pk=user_id)
     if target_user.pk == request.user.pk:
         messages.error(request, "You cannot deactivate your own account.")
         return redirect("ops_user_detail", user_id=user_id)
@@ -455,7 +467,7 @@ def ops_user_deactivate_view(request, user_id):
 @ops_required
 @require_POST
 def ops_user_reset_password_view(request, user_id):
-    target_user = get_object_or_404(User, pk=user_id)
+    target_user = get_object_or_404(scope_users(User.objects.all(), request), pk=user_id)
     new_password = request.POST.get("new_password", "").strip()
     confirm = request.POST.get("confirm_password", "").strip()
 
@@ -486,7 +498,8 @@ _OPS_PAGE_SIZE = 50
 def ops_submissions_view(request):
     from core.views import STATUS_ENROLLED, STATUS_DECLINED
 
-    qs = Submission.objects.select_related("school").order_by("-created_at")
+    scoped = scope_schools(Submission.objects.all(), request, "school__")
+    qs = scoped.select_related("school").order_by("-created_at")
 
     school_filter = request.GET.get("school", "").strip()
     status_filter = request.GET.get("status", "").strip()
@@ -517,13 +530,13 @@ def ops_submissions_view(request):
     paginator = Paginator(qs, _OPS_PAGE_SIZE)
     page_obj = paginator.get_page(request.GET.get("page"))
 
-    all_schools = School.objects.order_by("display_name", "slug").values("slug", "display_name")
+    all_schools = scope_schools(School.objects.all(), request).order_by("display_name", "slug").values("slug", "display_name")
     status_choices = (
-        Submission.objects.values_list("status", flat=True)
+        scoped.values_list("status", flat=True)
         .distinct().order_by("status")
     )
     form_key_choices = (
-        Submission.objects.values_list("form_key", flat=True)
+        scoped.values_list("form_key", flat=True)
         .distinct().order_by("form_key")
     )
 
@@ -548,7 +561,7 @@ def ops_submissions_view(request):
 def ops_leads_view(request):
     from core.models import LEAD_STATUS_CHOICES, LEAD_SOURCE_CHOICES
 
-    qs = Lead.objects.select_related("school").order_by("-created_at")
+    qs = scope_schools(Lead.objects.all(), request, "school__").select_related("school").order_by("-created_at")
 
     school_filter = request.GET.get("school", "").strip()
     status_filter = request.GET.get("status", "").strip()
@@ -584,7 +597,7 @@ def ops_leads_view(request):
     paginator = Paginator(qs, _OPS_PAGE_SIZE)
     page_obj = paginator.get_page(request.GET.get("page"))
 
-    all_schools = School.objects.order_by("display_name", "slug").values("slug", "display_name")
+    all_schools = scope_schools(School.objects.all(), request).order_by("display_name", "slug").values("slug", "display_name")
 
     return render(request, "ops/leads.html", {
         "active_nav": "leads",
@@ -609,7 +622,7 @@ def ops_reports_view(request):
     from core.views import STATUS_ENROLLED
 
     school_rows = list(
-        School.objects.annotate(
+        scope_schools(School.objects.all(), request).annotate(
             sub_count=Count("submissions", distinct=True),
             lead_count=Count("leads", distinct=True),
             converted_lead_count=Count(
@@ -664,15 +677,15 @@ def ops_reports_view(request):
 @require_POST
 def ops_demo_token_generate_view(request, slug):
     school = get_object_or_404(School, slug=slug)
-    expires_at = timezone.now() + timezone.timedelta(days=14)
-    token = DemoAccessToken.objects.create(
-        school=school,
-        expires_at=expires_at,
-        created_by=request.user,
-    )
+    from core.services.demo_access import generate_demo_link
+    try:
+        token = generate_demo_link(school, request.user, request.POST.get("destination") or None)
+    except ValueError as exc:
+        messages.error(request, str(exc))
+        return redirect("ops_school_detail", slug=slug)
     _log(request, "action", "core.demoaccesstoken", token.pk, str(token),
          {"name": "generate_demo_token", "school": slug})
-    messages.success(request, f"Demo link generated — expires {expires_at.strftime('%b %d, %Y')}.")
+    messages.success(request, f"Demo link generated — expires {token.expires_at.strftime('%b %d, %Y')}.")
     return redirect("ops_school_detail", slug=slug)
 
 
@@ -831,7 +844,8 @@ def ops_activity_tracking_toggle_view(request, slug):
 
 @ops_required
 def ops_audit_log_view(request):
-    qs = AdminAuditLog.objects.select_related("actor").order_by("-created_at")
+    scoped = scope_audit(AdminAuditLog.objects, request)
+    qs = scoped.select_related("actor").order_by("-created_at")
 
     actor_filter = request.GET.get("actor", "").strip()
     action_filter = request.GET.get("action", "").strip()
@@ -875,7 +889,7 @@ def ops_audit_log_view(request):
     page_obj = paginator.get_page(request.GET.get("page"))
 
     actor_choices = (
-        AdminAuditLog.objects
+        scoped
         .exclude(actor__isnull=True)
         .values_list("actor__username", flat=True)
         .distinct()
@@ -984,7 +998,7 @@ def ops_audit_clicks_delete_view(request):
 
 @ops_required
 def ops_incidents_list_view(request):
-    qs = OpsIncident.objects.select_related("affected_school", "affected_user", "created_by")
+    qs = scope_incidents(OpsIncident.objects.all(), request).select_related("affected_school", "affected_user", "created_by")
 
     q = request.GET.get("q", "").strip()
     status_filter = request.GET.get("status", "").strip()
@@ -1017,7 +1031,7 @@ def ops_incidents_list_view(request):
 
 @ops_required
 def ops_incident_detail_view(request, pk):
-    incident = get_object_or_404(OpsIncident, pk=pk)
+    incident = get_object_or_404(scope_incidents(OpsIncident.objects.all(), request), pk=pk)
     return render(request, "ops/incident_detail.html", {
         "active_nav": "incidents",
         "incident": incident,
@@ -1028,7 +1042,7 @@ def ops_incident_detail_view(request, pk):
 def ops_incident_create_view(request):
     from core.forms_ops import OpsIncidentForm
     if request.method == "POST":
-        form = OpsIncidentForm(request.POST)
+        form = scope_form_choices(OpsIncidentForm(request.POST), request)
         if form.is_valid():
             incident = form.save(commit=False)
             incident.created_by = request.user
@@ -1037,7 +1051,7 @@ def ops_incident_create_view(request):
             return redirect("ops_incident_detail", pk=incident.pk)
     else:
         # Pre-fill occurred_at with now
-        form = OpsIncidentForm(initial={"occurred_at": timezone.now().strftime("%Y-%m-%dT%H:%M")})
+        form = scope_form_choices(OpsIncidentForm(initial={"occurred_at": timezone.now().strftime("%Y-%m-%dT%H:%M")}), request)
     return render(request, "ops/incident_form.html", {
         "active_nav": "incidents",
         "form": form,
@@ -1049,15 +1063,15 @@ def ops_incident_create_view(request):
 @ops_required
 def ops_incident_edit_view(request, pk):
     from core.forms_ops import OpsIncidentForm
-    incident = get_object_or_404(OpsIncident, pk=pk)
+    incident = get_object_or_404(scope_incidents(OpsIncident.objects.all(), request), pk=pk)
     if request.method == "POST":
-        form = OpsIncidentForm(request.POST, instance=incident)
+        form = scope_form_choices(OpsIncidentForm(request.POST, instance=incident), request)
         if form.is_valid():
             form.save()
             messages.success(request, "Incident updated.")
             return redirect("ops_incident_detail", pk=incident.pk)
     else:
-        form = OpsIncidentForm(instance=incident)
+        form = scope_form_choices(OpsIncidentForm(instance=incident), request)
     return render(request, "ops/incident_form.html", {
         "active_nav": "incidents",
         "form": form,
@@ -1117,8 +1131,8 @@ def ops_diagnostics_view(request):
     extra_instructions = ""
     selected_school_id = ""
 
-    schools = School.objects.order_by("display_name", "slug")
-    recent_incidents = OpsIncident.objects.select_related(
+    schools = scope_schools(School.objects.all(), request).order_by("display_name", "slug")
+    recent_incidents = scope_incidents(OpsIncident.objects.all(), request).select_related(
         "affected_school", "affected_user"
     ).order_by("-occurred_at")[:8]
 
@@ -1144,9 +1158,9 @@ def ops_diagnostics_view(request):
             # Build audit log context if a school is specified
             audit_ctx = ""
             if selected_school_id:
-                school = School.objects.filter(pk=selected_school_id).first()
+                school = schools.filter(pk=selected_school_id).first()
                 if school:
-                    recent_logs = AdminAuditLog.objects.filter(
+                    recent_logs = scope_audit(AdminAuditLog.objects, request).filter(
                         Q(model_label="core.school", object_id=str(school.pk)) |
                         Q(actor__school_memberships__school=school)
                     ).select_related("actor").order_by("-created_at").distinct()[:15]

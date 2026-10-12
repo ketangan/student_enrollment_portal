@@ -1,0 +1,24 @@
+{% load static %}
+<div class="dash-account">
+  <button id="user-menu-btn" class="dash-account-avatar" type="button" aria-label="User menu"
+          aria-expanded="false" aria-controls="user-menu-dropdown">{{ initial }}</button>
+  <div id="user-menu-dropdown" class="dash-account-panel" hidden>
+    <div class="dash-account-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+    {% if password_url %}<a href="{{ password_url }}" class="dash-menu-item">Change Password</a>{% endif %}
+    {% for link in workspace_links %}<a href="{{ link.url }}" class="dash-menu-item">{{ link.label }}</a>{% endfor %}
+    <div class="dash-account-section" role="group" aria-label="Theme">
+      <div class="dash-account-label">Theme</div>
+      <button type="button" class="dash-menu-item dash-theme-option" data-dash-theme="clean" aria-pressed="true"><span aria-hidden="true">&#10003;</span>Clean</button>
+      <button type="button" class="dash-menu-item dash-theme-option" data-dash-theme="midnight" aria-pressed="false"><span aria-hidden="true"></span>Midnight</button>
+      <button type="button" class="dash-menu-item dash-theme-option" data-dash-theme="mint" aria-pressed="false"><span aria-hidden="true"></span>Mint</button>
+    </div>
+    {% if request.user.is_superuser %}
+    <div class="dash-account-section">
+      <a href="{% url 'ops_dashboard' %}" class="dash-menu-item">Ops Portal &#8599;</a>
+      <a href="{% url 'admin:index' %}" class="dash-menu-item">Django Admin &#8599;</a>
+    </div>
+    {% endif %}
+    <form class="dash-account-section" method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="dash-menu-item dash-menu-item--danger">Sign out</button></form>
+  </div>
+</div>
+<script src="{% static 'admin/account-menu.js' %}"></script>

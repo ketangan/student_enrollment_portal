@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from django import forms
 from django.contrib import admin
+from core.admin.portal_scope import PortalScopedAdminMixin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.forms import UserCreationForm
@@ -76,7 +77,8 @@ class UserSuperuserAddForm(UserCreationForm):
 
 
 @admin.register(UserModel)
-class SchoolScopedUserAdmin(DjangoUserAdmin):
+class SchoolScopedUserAdmin(PortalScopedAdminMixin, DjangoUserAdmin):
+    portal_users = True
     actions = None
     list_filter = ()
     ordering = ("username",)
@@ -107,7 +109,7 @@ class SchoolScopedUserAdmin(DjangoUserAdmin):
 
         return qs.filter(
             is_superuser=False,
-            school_membership__school_id=school_id,
+            school_memberships__school_id=school_id,
         )
 
     def get_form(self, request, obj=None, **kwargs):
@@ -181,4 +183,3 @@ class SchoolScopedUserAdmin(DjangoUserAdmin):
         if not _is_superuser(request.user):
             extra_context["show_delete"] = False
         return super().changeform_view(request, object_id, form_url, extra_context)
-    

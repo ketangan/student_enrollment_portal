@@ -2,13 +2,15 @@
 from __future__ import annotations
 
 from django.contrib import admin
+from core.admin.portal_scope import PortalScopedAdminMixin
 
 from core.admin.common import _is_superuser
 from core.models import AdminPreference
 
 
 @admin.register(AdminPreference)
-class AdminPreferenceAdmin(admin.ModelAdmin):
+class AdminPreferenceAdmin(PortalScopedAdminMixin, admin.ModelAdmin):
+    portal_user_lookup = "user"
     """Read-only view for superusers to see/debug user theme choices.
 
     Hidden from the sidebar via JAZZMIN_SETTINGS["hide_models"],

@@ -2,6 +2,15 @@
 
 October 10, 2026 (Pacific). Released and verified on the existing shared service.
 
+October 12 access update: the hosted demo-only account now has the
+user-requested password and has been verified through https://demo.mypontora.com/login/.
+The follow-up release is authorized after checks. It includes the shared menu,
+operator/Django portal scoping, account-bound scheduling magic links, configured Customer
+demo navigation, and the rename to `plushie_admin`. Core migrations 0063 and 0064 are
+additive. Hosted rename/audit cleanup and release verification are pending. See
+[current portal access notes](scheduling-plushumi-demo.md#portal-access-and-environment-separation).
+The initial-release evidence below is historical, not the current password/payment status.
+
 ## Deployed Result
 
 Presentation follow-up: [booking-page/popup cleanup](scheduling-plushumi-demo.md#preview-navigation-and-copy-cleanup)
@@ -27,7 +36,7 @@ revision `31220c5`; the later cleanup does not change payment logic, data or sch
 - Anonymous staff preparation redirects to login and remains frame-denied.
   Customer demo pages allow same-origin frames only; wrapper pages remain noindex.
 - Admin access uses the existing Pontora operator account. The newly seeded
-  `plushumi-admin` has no usable password; no local `admin` password was deployed.
+  `plushie_admin` has no usable password; no local `admin` password was deployed.
 - No real Stripe charge, Wix checkout, Notion sync or confirmation email was sent.
   Payment controls explicitly simulate success/failure. Provider connections and
   cross-origin Wix certification remain separate release gates, not completed work.
@@ -37,7 +46,7 @@ revision `31220c5`; the later cleanup does not change payment logic, data or sch
 - Comparison hub: https://demo.mypontora.com/demo/plushumi/integrations/
 - Inline: https://demo.mypontora.com/demo/plushumi/integrations/inline.html
 - Modal: https://demo.mypontora.com/demo/plushumi/integrations/modal.html
-- Admin: https://app.mypontora.com/bookings/plushumi-demo/
+- Admin: https://demo.mypontora.com/bookings/plushumi-demo/
 - Original storyboard: https://demo.mypontora.com/demo/plushumi/
 
 ## Scope and Architecture

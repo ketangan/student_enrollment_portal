@@ -91,7 +91,7 @@ def test_lead_links_redirect_and_email_stay_in_environment(client, settings, slu
 @pytest.mark.django_db
 @pytest.mark.parametrize("host", ["demo.mypontora.com", "app.mypontora.com"])
 def test_parent_save_resume_email_stays_on_same_domain(client, host):
-    school = SchoolFactory(slug="kidworks-childrens-center", plan="pro")
+    school = SchoolFactory(slug="kidworks-childrens-center", plan="pro", is_demo=(host == "demo.mypontora.com"))
     response = client.post(reverse("apply", kwargs={"school_slug": school.slug}), {
         "_action": "save_draft", "child_first_name": "Avery", "guardian_email": "parent@example.com",
     }, HTTP_HOST=host, secure=True)
@@ -115,7 +115,7 @@ def test_resume_email_without_request_keeps_app_default():
 @pytest.mark.parametrize("host", ["demo.mypontora.com", "app.mypontora.com", "127.0.0.1:8001"])
 def test_status_links_and_admin_emails_stay_in_environment(client, settings, slug, email_key, host):
     settings.DEBUG = True
-    school = SchoolFactory(slug=slug, plan="pro")
+    school = SchoolFactory(slug=slug, plan="pro", is_demo=(host == "demo.mypontora.com"))
     submission = SubmissionFactory(school=school, data={email_key: "parent@example.com"})
     client.force_login(SchoolAdminMembershipFactory(school=school).user)
     opts = {"HTTP_HOST": host, "secure": not host.startswith("127.")}
@@ -139,7 +139,7 @@ def test_status_links_and_admin_emails_stay_in_environment(client, settings, slu
 def test_new_application_confirmation_keeps_domain(client, monkeypatch, host):
     from core.models import Submission
     monkeypatch.setattr("core.views_public.send_submission_notification_email", lambda **kwargs: None)
-    school = SchoolFactory(slug="kidworks-childrens-center", plan="pro")
+    school = SchoolFactory(slug="kidworks-childrens-center", plan="pro", is_demo=(host == "demo.mypontora.com"))
     response = client.post(reverse("apply", kwargs={"school_slug": school.slug}), {
         "child_first_name": "Avery", "child_last_name": "Test", "date_of_birth": "2023-01-02",
         "program_interest": "garden_room_full_day", "guardian_name": "Test Parent",
@@ -161,7 +161,7 @@ def test_existing_fee_return_and_draft_completion_keep_domain(client, monkeypatc
     from unittest.mock import Mock
     from core.models import Submission
     settings.DEV_SKIP_PAYMENT = False
-    school = SchoolFactory(slug="maplewood-learning", plan="pro",
+    school = SchoolFactory(slug="maplewood-learning", plan="pro", is_demo=(host == "demo.mypontora.com"),
         app_fee_stripe_public_key="pk_test_fake", app_fee_stripe_secret_key="sk_test_fake")
     draft = DraftSubmission.objects.create(school=school, form_key="multi", last_form_key="contact",
         data={"student_first_name": "Avery", "student_last_name": "Test", "contact_email": "parent@example.com"})
