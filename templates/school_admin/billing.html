@@ -4,6 +4,13 @@
 
 {% block extra_css %}
 <style>
+  .billing-agreement-grid { max-width:560px; }
+  .billing-agreement-grid .billing-plan-name { margin-top:0; }
+  .billing-agreement-grid .billing-price-btn { flex-wrap:wrap; gap:8px; min-height:44px; }
+  .billing-agreement-grid .billing-price-btn .price-amount { margin-left:0; white-space:normal; }
+  .billing-agreement-grid .billing-plan-tagline { line-height:1.5; overflow-wrap:anywhere; }
+  .billing-agreement-grid .billing-price-btn { background:var(--dash-primary, #2563eb); border-color:var(--dash-primary, #2563eb); color:#fff; }
+  .billing-agreement-grid .billing-price-btn .price-amount { color:#fff; }
   .billing-plan-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -173,12 +180,15 @@
 
 {% block content %}
 <main class="dash-main">
+  <a href="{% if billing_only %}{% url 'scheduling:settings' school_slug=school.slug %}{% else %}{% url 'school_settings' school.slug %}?tab=billing{% endif %}" style="display:inline-block;margin-bottom:16px;color:var(--dash-primary);font-size:13px;">&larr; Back to settings</a>
 
   <!-- Page heading -->
   <div class="dash-greeting" style="margin-bottom:20px;">
     <h1 class="dash-greeting-title" style="font-size:18px;">Billing &amp; Plan</h1>
     {% if billing_state == "payment_overdue" %}
     <p class="dash-greeting-sub">Review your subscription and resolve the outstanding payment.</p>
+    {% elif negotiated_pricing %}
+    <p class="dash-greeting-sub">Review your agreed subscription and payment details.</p>
     {% else %}
     <p class="dash-greeting-sub">Manage your subscription and unlock features for your school.</p>
     {% endif %}
@@ -188,7 +198,7 @@
   {% if request.GET.status == "success" and billing_state != "payment_overdue" %}
   <div style="padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:12px;
               background:#dcfce7;color:#166534;border:1px solid #bbf7d0;">
-    Payment successful! Your plan has been upgraded. It may take a moment to reflect.
+    {% if negotiated_pricing %}Checkout returned. Your subscription status updates when Stripe confirms payment.{% else %}Payment successful! Your plan has been upgraded. It may take a moment to reflect.{% endif %}
   </div>
   {% elif request.GET.status == "canceled" %}
   <div style="padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:12px;
@@ -219,6 +229,11 @@
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;
                   letter-spacing:.06em;color:var(--dash-muted);margin-bottom:4px;">Current Plan</div>
       <div style="font-size:20px;font-weight:800;color:var(--dash-text);">{{ plan_display }}</div>
+      {% if billing_state == "trial" and school.trial_ends_at %}
+      <div style="font-size:13px;color:var(--dash-muted);margin-top:6px;">
+        {% if school.trial_days_left > 0 %}Trial ends {{ school.trial_ends_at|date:"M j, Y" }} · {{ school.trial_days_left }} day{{ school.trial_days_left|pluralize }} remaining{% else %}Trial ended {{ school.trial_ends_at|date:"M j, Y" }}{% endif %}
+      </div>
+      {% endif %}
       {% if subscription_status and billing_state != "ended_locked" %}
       <div style="font-size:12px;color:var(--dash-muted);margin-top:2px;">
         Status: {{ subscription_status }}
@@ -273,6 +288,8 @@
     {% endif %}
     <p>Need help? <a href="mailto:ketan@mypontora.com" style="color:var(--dash-primary);">Contact Pontora</a></p>
   </div>
+  {% elif negotiated_pricing %}
+  {% include "school_admin/includes/agreed_billing.html" %}
   {% else %}
   <!-- Plan cards -->
   <div class="billing-plan-grid">

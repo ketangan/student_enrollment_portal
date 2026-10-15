@@ -1,0 +1,32 @@
+<div class="billing-plan-grid billing-agreement-grid">
+<section class="billing-plan-card billing-plan-card--current" aria-labelledby="agreement-heading">
+  {% if has_subscription and not future_agreement %}<div class="billing-current-badge">Your Plan</div>{% endif %}
+  <h2 class="billing-plan-name" id="agreement-heading">{% if future_agreement %}Future subscription agreement{% else %}Your agreed subscription{% endif %}</h2>
+  {% if agreed_offer %}<p class="billing-plan-tagline">{{ agreed_offer.label }}</p>{% endif %}
+  {% if future_agreement %}<p class="billing-plan-tagline">Your existing subscription has not changed. Its current charges are available in Manage Billing.</p>{% endif %}
+  {% if agreed_offer %}
+  <ul class="billing-plan-features">
+    <li><span class="feat-check" aria-hidden="true">&#10003;</span><span>{{ agreed_offer.included_locations }} location{{ agreed_offer.included_locations|pluralize }} included</span></li>
+    <li><span class="feat-check" aria-hidden="true">&#10003;</span><span>Base subscription: {{ agreed_offer.base_price.display }}</span></li>
+      {% if agreed_offer.additional_locations %}
+    <li><span class="feat-check" aria-hidden="true">&#10003;</span><span>{{ agreed_offer.additional_locations }} additional location{{ agreed_offer.additional_locations|pluralize }} at {{ agreed_offer.location_price.display }} each</span></li>
+      {% endif %}
+  </ul>
+  <div class="billing-price-options">
+  {% if stripe_configured and not has_subscription %}
+  <form method="post" action="{{ checkout_url }}">
+    {% csrf_token %}<input type="hidden" name="offer_id" value="{{ agreed_offer.pk }}">
+    <button class="billing-price-btn" type="submit" aria-label="Continue to secure checkout">
+      <span>{% if agreed_offer.base_price.interval == 'year' %}Annual{% else %}Monthly{% endif %}</span>
+      <span class="price-amount">{{ agreed_offer.total_display }}</span>
+    </button>
+  </form>
+  {% else %}
+  <div class="billing-plan-current-note">{% if location_change %}From {{ location_change.effective_at|date:"M j, Y" }}: {{ agreed_offer.total_display }}<br><span style="font-weight:400;">Updated rate starts at your next renewal. No charge today.</span>{% else %}Recurring total: {{ agreed_offer.total_display }}{% endif %}</div>
+  {% endif %}
+  </div>
+  {% else %}
+  <p class="billing-plan-tagline">Your agreed pricing is not ready in this environment. Please contact Pontora. Standard plan prices will not be substituted.</p>
+  {% endif %}
+</section>
+</div>

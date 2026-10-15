@@ -145,6 +145,31 @@ def test_disabled_booking_membership_does_not_grant_billing(school, client):
     assert client.get(reverse("school_billing", args=[school.slug])).status_code == 404
 
 
+@pytest.mark.parametrize("role", ["owner", "scheduler", "viewer"])
+def test_booking_settings_link_to_shared_billing_for_owner_only(client, role):
+    from scheduling.models import SchedulingProfile, SchedulingMembership
+    school = SchoolFactory(plan="trial", is_active=True, is_demo=False,
+                           trial_started_at=timezone.now(), trial_end_date=None)
+    user = UserFactory(is_staff=False)
+    profile = SchedulingProfile.objects.create(school=school, enabled=True)
+    SchedulingMembership.objects.create(profile=profile, user=user, role=role)
+    client.force_login(user)
+    response = client.get(reverse("scheduling:locations", args=[school.slug]))
+    assert response.status_code == 200
+    tabs = response.context["booking_navigation"]["section"]["tabs"]
+    billing_url = reverse("school_billing", args=[school.slug])
+    assert any(tab["url"] == billing_url for tab in tabs) == (role == "owner")
+    billing = client.get(billing_url)
+    assert billing.status_code == (200 if role == "owner" else 404)
+    if role == "owner":
+        assert "school_admin/billing.html" in [template.name for template in billing.templates]
+        assert b"days remaining" in billing.content
+        assert b">Submissions</a>" not in billing.content
+        assert b"Agreed future upgrade" not in billing.content
+        assert b"Back to settings" in billing.content
+        assert reverse("scheduling:settings", args=[school.slug]).encode() in billing.content
+
+
 def test_starter_package_preserves_export_and_opted_in_visits(client, operator):
     from scheduling.models import SchedulingProfile, SchedulingMembership
     from scheduling.navigation import school_entry

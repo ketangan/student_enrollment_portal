@@ -1,5 +1,16 @@
 {% extends "ops/base.html" %}
 {% block page_title %}{{ school.display_name|default:school.slug }}{% endblock %}
+{% block extra_css %}
+{{ block.super }}
+<style>
+  .school-edit-group { border:0; border-top:1px solid var(--dash-border); padding:20px 0 0; margin:24px 0 0; min-width:0; }
+  .school-edit-group legend { font-size:14px; font-weight:700; padding:0 12px 0 0; }
+  .school-edit-description { font-size:12px; color:var(--dash-muted); margin:0 0 16px; line-height:1.5; }
+  .school-edit-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 24px; }
+  .school-edit-fields > div { min-width:0; }
+  @media(max-width:640px) { .school-edit-fields { grid-template-columns:minmax(0,1fr); } }
+</style>
+{% endblock %}
 
 {% block content %}
 <main class="dash-main">
@@ -10,6 +21,7 @@
       {{ school.display_name|default:school.slug }}
       {% if school.is_demo %}<span style="font-size:12px;font-weight:600;background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;margin-left:8px;">Demo</span>{% endif %}
     </h1>
+    <a href="#subscription-pricing" class="dash-action-btn dash-action-btn--secondary">Subscription pricing</a>
     <a href="{{ school_admin_url }}"
        class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;" target="_blank">
       Open School Admin ↗
@@ -226,8 +238,12 @@
 
     <form method="post">
       {% csrf_token %}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;">
-        {% for field in form %}
+      {% for group in form.field_groups %}
+      <fieldset class="school-edit-group">
+        <legend>{{ group.title }}</legend>
+        {% if group.description %}<p class="school-edit-description">{{ group.description }}</p>{% endif %}
+      <div class="school-edit-fields">
+        {% for field in group.fields %}
         <div style="{% if field.name == 'feature_flags' or field.name == 'website_url' or field.name == 'app_fee_stripe_public_key' or field.name == 'app_fee_stripe_secret_key' %}grid-column:1/-1;{% endif %}">
           {% if field.field.widget.input_type == 'checkbox' %}
             <div style="display:flex;align-items:center;gap:10px;padding-top:20px;">
@@ -249,11 +265,15 @@
         </div>
         {% endfor %}
       </div>
+      </fieldset>
+      {% endfor %}
       <div style="display:flex;gap:12px;margin-top:20px;">
         <button type="submit" class="dash-action-btn dash-action-btn--primary">Save Changes</button>
       </div>
     </form>
   </div>
+
+  {% include "ops/school_pricing.html" with form=subscription_pricing.form offer=subscription_pricing.offer verified=subscription_pricing.verified total=subscription_pricing.total billing_mode=subscription_pricing.billing_mode history=subscription_pricing.history pending_checkouts=subscription_pricing.pending_checkouts location_change=subscription_pricing.location_change pending_location_change=subscription_pricing.pending_location_change accepted_offer=subscription_pricing.accepted_offer billing_review=subscription_pricing.billing_review renewal=subscription_pricing.renewal change_error=subscription_pricing.change_error %}
 
   <!-- School Admin Memberships -->
   <div class="dash-card" style="padding:24px;margin-bottom:16px;">

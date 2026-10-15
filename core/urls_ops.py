@@ -1,6 +1,7 @@
 from django.urls import path
 from core import views_ops
 from core.views_trial import trial_activation_view
+from core.views_school_pricing import school_pricing_settings
 
 urlpatterns = [
     path("", views_ops.ops_dashboard_view, name="ops_dashboard"),
@@ -9,6 +10,7 @@ urlpatterns = [
     path("schools/", views_ops.ops_schools_list_view, name="ops_schools_list"),
     path("schools/new/", views_ops.ops_school_create_view, name="ops_school_create"),
     path("schools/<slug:slug>/", views_ops.ops_school_detail_view, name="ops_school_detail"),
+    path("schools/<slug:slug>/pricing/", school_pricing_settings, name="ops_school_pricing"),
     path("schools/<slug:slug>/trial/start/", trial_activation_view, name="ops_trial_start"),
     path("schools/<slug:slug>/members/add/", views_ops.ops_school_member_add_view, name="ops_school_member_add"),
     path("schools/<slug:slug>/members/<int:user_id>/remove/", views_ops.ops_school_member_remove_view, name="ops_school_member_remove"),

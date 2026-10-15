@@ -75,7 +75,8 @@ def billing_view(request):
     if not school:
         raise Http404("No school found for this account")
 
-    if school.subscription_checkout_paused or school.is_payment_overdue:
+    from core.services.school_pricing import uses_school_pricing
+    if school.subscription_checkout_paused or school.is_payment_overdue or uses_school_pricing(school):
         return redirect("school_billing", school_slug=school.slug)
 
     stripe_configured = is_stripe_configured()
@@ -156,6 +157,9 @@ def billing_create_checkout(request):
 
     from core.services.school_permissions import require_school_role
     require_school_role(request, school, "owner")
+    from core.services.school_pricing import uses_school_pricing
+    if uses_school_pricing(school):
+        return redirect("school_billing", school_slug=school.slug)
     if school.subscription_checkout_paused:
         return redirect("school_billing", school_slug=school.slug)
 

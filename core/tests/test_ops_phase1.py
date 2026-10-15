@@ -15,6 +15,19 @@ from core.models import AdminAuditLog, School, SchoolAdminMembership
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
+@pytest.mark.django_db
+def test_school_edit_groups_preserve_all_existing_fields_once():
+    from core.forms_ops import OpsSchoolEditForm
+    form = OpsSchoolEditForm(instance=School())
+    groups = form.field_groups()
+    names = [field.name for group in groups for field in group["fields"]]
+    assert len(names) == len(set(names))
+    assert set(names) == set(form.fields)
+    subscription = next(group for group in groups if group["title"] == "Pontora subscription")
+    assert "stripe_subscription_id" in [field.name for field in subscription["fields"]]
+    assert "app_fee_stripe_secret_key" not in [field.name for field in subscription["fields"]]
+    assert "takes precedence" in form.fields["founder_pricing_enabled"].help_text
+
 @pytest.fixture
 def superuser(db):
     return User.objects.create_superuser(

@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: October 12, 2026.
+Updated: October 14, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -8,6 +8,63 @@ Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 This Markdown file remains the source of truth; the viewer does not edit milestone status.
 
 ## Current Status
+
+- **P03 / school-specific subscription pricing: local implementation ready for review.**
+  Superadmin-only validated Stripe prices, explicit additional-location billing quantities,
+  agreed-rate school checkout, historical offers and retry-safe checkout identities are implemented.
+  Standard pricing remains unchanged for unconfigured schools. Existing payment emails,
+  seven-day grace and recovery are reused; feature access is not inferred from the negotiated amount.
+  Base-price changes and added locations on an existing negotiated subscription can now be
+  explicitly applied by the superadmin for the next renewal, without proration, an immediate invoice
+  or a billing-date change. Saving an offer alone still does not reprice it. Billing-frequency
+  changes and location removals remain outside this action.
+  Full regression: 3,867 passed. Final payment/isolation/browser run: 388 passed; 48 JavaScript
+  tests passed, with 99.38% measured
+  combined coverage in the new service/form/view modules. Desktop/mobile walkthrough and critical
+  self-review completed. Real Stripe sandbox Checkout decline/success, signed webhooks,
+  test-clock monthly renewal failure/recovery, and local notification capture verified October 14.
+  Follow-up regression: 373 passed. User acceptance is ready at http://localhost:8015/login/;
+  separate local database, existing .env test key, no Render or SBMC changes.
+  Additive core migration 0065 applied only to localhost preview; no commit, push or hosted changes.
+  [Setup guide, impact review and manual checks](school-subscription-pricing.md).
+
+  **Location renewals (October 14, local):** implemented and verified with real Stripe sandbox
+  invoice previews and a test-clock renewal. First extra location and later quantity increases
+  produced no immediate invoice; renewal charged the exact new amount. Desktop/mobile browser
+  checks passed. 299 focused regressions passed; pricing service/view combined statement/branch
+  coverage 97.61%. Additive migration 0066 applied only to the isolated local billing sandbox.
+  No Render changes, live subscription changes, commit or push.
+
+  **Base-price renewals (October 14, local):** the same action now replaces the base price,
+  optionally alongside added locations. Signed current/new-rate reviews reject stale offers
+  and changed renewal dates. Real Stripe sandbox verified increases/decreases, no immediate
+  invoice, unchanged subscription/base-item/renewal, and a paid $119 test-clock renewal.
+  Manual browser test: $129 to $159 next renewal, preserving four extra locations. No new
+  migration beyond pending 0065/0066. Customer notification remains the operator's responsibility.
+  Final verification: **323 focused backend/browser tests + 271 payment/trial/booking regressions
+  passed (594 total)**; pricing service/view combined statement/branch coverage **98.16%**.
+  Migration drift and whitespace checks passed. Two existing Jazzmin warnings remain unrelated.
+
+<details>
+<summary>P03: Manual review and Stripe setup</summary>
+
+1. Use the local superadmin account and open Ops > Schools > school > Subscription pricing.
+2. Check the Test/Live indicator. Validate a Price ID, inspect the total, then save the agreement.
+3. Confirm school owners cannot edit prices or quantities, and see only their agreed subscription.
+4. Confirm legacy schools still show their existing billing flow. Saving future pricing must not
+   reprice an existing subscription or change its features, trial or payment credentials.
+5. Read the [beginner Stripe instructions](school-subscription-pricing.md#stripe-setup-for-ketan).
+   Test Price IDs supplied and verified. Needed from Ketan: local acceptance review; later the separate
+   live Price IDs and final billable location counts. No secret keys in chat.
+6. Keep Render's live Stripe mode unchanged. Finish real sandbox checkout, renewals and recovery
+   before approving deployment. No live settings or subscriptions were changed during local testing.
+7. For a paying negotiated school, change the base Price ID and/or increase Additional locations
+   to bill, validate and save. Review current/new rates and the renewal date; notify the customer.
+   Click Apply billing changes at next renewal. Verify the confirmation, unchanged renewal date and
+   the school's Billing page showing the new total from that date. Repeated submissions must not
+   add duplicate items; an uncertain update shows Retry billing update and blocks replacing its offer.
+
+</details>
 
 - **Superadmin directory correction: deployed; live directory verified.**
   The prior release incorrectly hid demo clients from the production Schools directory.

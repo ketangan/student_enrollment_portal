@@ -22,6 +22,7 @@ from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.utils import timezone
 from django.contrib import messages
+from django.conf import settings
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
@@ -1067,7 +1068,25 @@ def school_billing_view(request, school_slug: str):
         return render(request, "school_admin/billing_pending.html",
                       _school_admin_base_context(request, school, "billing"))
     stripe_configured = is_stripe_configured()
-    pricing_flat = get_pricing_options() if stripe_configured and not payment_overdue else []
+    from core.services.school_pricing import current_offer, uses_school_pricing
+    negotiated_pricing = uses_school_pricing(school)
+    agreed_offer = current_offer(school) if negotiated_pricing else None
+    future_agreement = negotiated_pricing and school.has_active_stripe_subscription
+    location_change = None
+    if negotiated_pricing and school.stripe_subscription_id:
+        from core.models import SchoolBillingCheckout
+        billed_checkout = SchoolBillingCheckout.objects.select_related("offer").filter(
+            offer__school=school, offer__mode=settings.STRIPE_MODE,
+            subscription_id=school.stripe_subscription_id,
+        ).first()
+        if billed_checkout:
+            agreed_offer = billed_checkout.offer
+            future_agreement = False
+            from core.services.school_pricing import accepted_location_change
+            location_change = accepted_location_change(billed_checkout)
+            if location_change:
+                agreed_offer = location_change.offer
+    pricing_flat = get_pricing_options() if stripe_configured and not payment_overdue and not negotiated_pricing else []
 
     # Group flat list into {plan: {monthly, annual}} for clean template rendering
     pricing: dict = {}
@@ -1106,6 +1125,7 @@ def school_billing_view(request, school_slug: str):
     founder_pricing_options = []
     if (
         stripe_configured
+        and not negotiated_pricing
         and not payment_overdue
         and is_founder_pricing_enabled(school)
         and school.plan not in ff.MANUALLY_MANAGED_PLANS
@@ -1136,6 +1156,10 @@ def school_billing_view(request, school_slug: str):
         "checkout_url": reverse("school_billing_checkout", kwargs={"school_slug": school_slug}),
         "portal_url": reverse("school_billing_portal", kwargs={"school_slug": school_slug}),
         "trial_length_days": school.trial_duration_days,
+        "negotiated_pricing": negotiated_pricing,
+        "agreed_offer": agreed_offer,
+        "future_agreement": future_agreement,
+        "location_change": location_change if location_change and location_change.effective_at > timezone.now() else None,
     })
     return render(request, "school_admin/billing.html", ctx)
 
@@ -1169,6 +1193,11 @@ def school_billing_checkout_view(request, school_slug: str):
     if not is_stripe_configured():
         messages.error(request, "Billing is not configured.")
         return redirect(billing_url)
+
+    from core.services.school_pricing import uses_school_pricing
+    if uses_school_pricing(school):
+        from core.views_school_pricing import negotiated_checkout_response
+        return negotiated_checkout_response(request, school, billing_url)
 
     # Guard 1: manually-managed plans cannot self-serve via Stripe checkout.
     if school.plan in ff.MANUALLY_MANAGED_PLANS:

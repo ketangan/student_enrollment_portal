@@ -310,6 +310,74 @@ class School(models.Model):
         return self.is_trial_expired or self.is_payment_access_expired
 
 
+class SchoolBillingOffer(models.Model):
+    """Versioned, operator-approved subscription prices, separate from feature access."""
+
+    school = models.ForeignKey(School, on_delete=models.PROTECT, related_name="billing_offers")
+    mode = models.CharField(max_length=4, choices=[("test", "Test"), ("live", "Live")])
+    label = models.CharField(max_length=100)
+    account_id = models.CharField(max_length=255)
+    portal_configuration_id = models.CharField(max_length=255, blank=True)
+    base_price = models.JSONField()
+    location_price = models.JSONField(default=dict, blank=True)
+    upgrade_price = models.JSONField(default=dict, blank=True)
+    included_locations = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    additional_locations = models.PositiveIntegerField(default=0, validators=[MaxValueValidator(999)])
+    is_current = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["school", "mode"], condition=Q(is_current=True), name="one_current_billing_offer",
+        )]
+
+    @property
+    def total_cents(self):
+        return self.base_price["amount"] + self.location_price.get("amount", 0) * self.additional_locations
+
+    @property
+    def total_display(self):
+        return f"${self.total_cents / 100:,.2f} / {self.base_price['interval']}"
+
+    @property
+    def line_items(self):
+        lines = [{"price": self.base_price["id"], "quantity": 1}]
+        if self.additional_locations:
+            lines.append({"price": self.location_price["id"], "quantity": self.additional_locations})
+        return lines
+
+
+class SchoolBillingCheckout(models.Model):
+    """Durable checkout identity; retries reuse exactly the same Stripe request."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    offer = models.ForeignKey(SchoolBillingOffer, on_delete=models.PROTECT, related_name="checkouts")
+    parameters = models.JSONField(default=dict)
+    session_id = models.CharField(max_length=255, blank=True)
+    subscription_id = models.CharField(max_length=255, blank=True)
+    state = models.CharField(max_length=16, default="pending")
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class SchoolBillingLocationChange(models.Model):
+    """Durable subscription update; retain the original table for existing retry identities."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    checkout = models.ForeignKey(SchoolBillingCheckout, on_delete=models.PROTECT, related_name="location_changes")
+    offer = models.ForeignKey(SchoolBillingOffer, on_delete=models.PROTECT)
+    previous_offer = models.ForeignKey(SchoolBillingOffer, on_delete=models.PROTECT, related_name="subsequent_location_changes")
+    parameters = models.JSONField(default=dict)
+    effective_at = models.DateTimeField()
+    state = models.CharField(max_length=16, default="pending", choices=[("pending", "Pending"), ("applied", "Applied")])
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["checkout"], condition=Q(state="pending"), name="one_pending_location_change")]
+
+
 class BillingInvoice(models.Model):
     """Platform invoice state only; parent payments never affect school access."""
 

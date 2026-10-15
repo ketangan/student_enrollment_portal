@@ -123,7 +123,31 @@ class OpsSchoolEditForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         flags = getattr(self.instance, "feature_flags", None) or {}
         self.fields["founder_pricing_enabled"].initial = bool(flags.get(FOUNDER_PRICING_FLAG))
+        self.fields["plan"].help_text = "Controls plan defaults and feature access, not the amount charged in Stripe."
+        self.fields["founder_pricing_enabled"].help_text = (
+            "Legacy $24.99/month offer. A school-specific subscription agreement takes precedence."
+        )
+        self.fields["stripe_customer_id"].help_text = "The school's customer record in Pontora's Stripe account, not its payment-collection account."
+        self.fields["stripe_subscription_id"].help_text = "Existing Pontora subscription reference. Editing this does not create or change a subscription in Stripe."
+        self.fields["stripe_subscription_status"].help_text = "Synced from Stripe. A manual correction here does not change the subscription in Stripe."
+        self.fields["stripe_cancel_at_period_end"].help_text = "Stored Stripe state. Checking this does not request cancellation in Stripe."
+        self.fields["stripe_current_period_end"].help_text = "Stored Stripe billing-period end, not the school's trial end date."
         _apply_dash_attrs(self)
+
+    def field_groups(self):
+        """Group existing controls without changing how the school form saves."""
+        groups = (
+            ("School details", "", ("display_name", "website_url", "is_active", "is_demo")),
+            ("Access and trial", "Feature access is separate from negotiated subscription pricing.",
+             ("plan", "trial_end_date", "feature_flags")),
+            ("Payments from families", "The school's Stripe credentials for collecting application fees. These do not set its Pontora subscription price.",
+             ("app_fee_stripe_public_key", "app_fee_stripe_secret_key")),
+            ("Email delivery", "", ("smtp_host", "smtp_port", "smtp_username", "smtp_password", "smtp_from_email", "smtp_use_tls")),
+            ("Pontora subscription", "Current subscription references and legacy pricing. Configure the agreed checkout price directly below this form.",
+             ("founder_pricing_enabled", "stripe_customer_id", "stripe_subscription_id", "stripe_subscription_status", "stripe_cancel_at_period_end", "stripe_current_period_end")),
+        )
+        return [{"title": title, "description": description, "fields": [self[name] for name in names]}
+                for title, description, names in groups]
 
     def clean_feature_flags(self):
         v = self.cleaned_data.get("feature_flags")
