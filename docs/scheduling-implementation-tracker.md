@@ -9,7 +9,17 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
-- **P03 / school-specific subscription pricing: local implementation ready for review.**
+- **P03 / school-specific subscription pricing: deployed October 14, 2026.**
+  Release `0302149` passed pre-merge CI and is live on the existing Render service. Additive
+  migrations 0065/0066 applied automatically, both verified in startup logs. Fresh Render backup
+  completed before merge; no production data downloaded. Full local suite: **3,945 passed**;
+  JavaScript: **48 passed**. Pre-merge CI: **3,942 passed, 3 local-only browser tests skipped**;
+  all measured modules meet the 90% coverage gate. The main-branch CI rerun also passed.
+  SBMC's active Founder billing, admin and
+  public enrollment pages passed live checks. Plushie demo and shared Billing navigation passed;
+  demo subscription checkout remains paused. No customer prices or credentials changed.
+  Historical local verification details follow; the release status here supersedes earlier
+  undeployed notes. [Release evidence](school-subscription-pricing.md#production-release-verification).
   Superadmin-only validated Stripe prices, explicit additional-location billing quantities,
   agreed-rate school checkout, historical offers and retry-safe checkout identities are implemented.
   Standard pricing remains unchanged for unconfigured schools. Existing payment emails,

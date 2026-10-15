@@ -1,6 +1,18 @@
 # School-Specific Subscription Pricing
 
-Updated October 14, 2026. Local implementation; not deployed. Real Stripe sandbox checkout and renewal success/failure/recovery verified; live deployment remains unapproved.
+Updated October 14, 2026. Released to the shared Render service as `0302149` after explicit approval and successful pre-merge checks. Existing schools have not been assigned negotiated prices automatically. The local sandbox instructions below remain available for acceptance testing.
+
+## Production Release Verification
+
+- [Release PR #2](https://github.com/ketangan/student_enrollment_portal/pull/2) merged to `main`; Render deployment `dep-db871jtg1s2s73f9d370` became live at 11:22 PM Pacific on October 14.
+- Fresh Render-managed database export completed at 11:02 PM Pacific; three-day point-in-time recovery was available. No production database was downloaded locally.
+- Render's existing startup command automatically applied `core.0065` and `core.0066`, both logged `OK`, before starting Gunicorn. No manual migration command is needed. These are additive tables/constraints, not customer-data migrations.
+- Local full suite: **3,945 passed**, including three opt-in browser tests. JavaScript: **48 passed**. [Pre-merge CI](https://github.com/ketangan/student_enrollment_portal/actions/runs/38690203699): **3,942 passed, 3 browser tests skipped**, all coverage gates passed; measured modules combined coverage **99.39%** (not a whole-application coverage claim).
+- [Main-branch CI rerun](https://github.com/ketangan/student_enrollment_portal/actions/runs/38691882404) also passed all test and coverage gates after deployment. The temporary release branch was deleted; the unrelated nested worktree remains untouched.
+- Live manual checks: SBMC dashboard, submissions, public registration, Settings/Billing and return navigation; active Custom/Founder plan preserved, no negotiated agreement saved. Superadmin directory still shows SBMC as production and Plushie as demo. New pricing controls render with Live mode and disabled Save until validation. No prices, credentials, features or subscriptions were changed during hosted verification.
+- Plushie demo dashboard, Settings > Billing, integration comparison and actual customer booking page opened successfully. Demo subscription checkout remains paused; no live charge or hosted test subscription was created.
+- Existing warnings: duplicate Jazzmin template library; GitHub action runtime deprecation; checkout cleanup encounters the pre-existing tracked nested worktree without a submodule URL. CI succeeds. The unrelated worktree was not changed or included in this release.
+- The historical sections below describe local development checks at the time they were performed; this release status supersedes their earlier undeployed notes. Live Price IDs and agreed location counts still require explicit school-by-school setup. Notify the customer before applying a renewal change; this release does not add an automatic price-change email.
 
 ## Ready for Local Acceptance Testing
 
