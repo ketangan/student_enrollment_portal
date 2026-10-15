@@ -48,6 +48,7 @@ def password_change(request, school_slug):
 
 
 def _context(request, profile, role, active_nav):
+    from core.services.billing_access import billing_role
     from .messaging import preview_enabled
     from .experience_demo.config import available, configuration, customer_demo_url
     from .navigation import workspace_navigation
@@ -59,6 +60,7 @@ def _context(request, profile, role, active_nav):
         "business": profile.school,
         "role_label": SchedulingMembership.Role(role).label,
         "can_view_access": has_permission(role, "access.view"),
+        "can_manage_billing": billing_role(request.user, profile.school) == "owner",
         "can_edit_setup": has_permission(role, "setup.edit"),
         "can_edit_sessions": has_permission(role, "sessions.edit"),
         "active_nav": active_nav,

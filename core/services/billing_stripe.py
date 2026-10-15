@@ -277,6 +277,10 @@ def create_checkout_session(
     """Create a Stripe Checkout Session. Returns the session URL or None on error."""
     if school.subscription_checkout_paused:
         return None
+    from core.services.school_pricing import uses_school_pricing
+    if uses_school_pricing(school):
+        # Negotiated schools must use their validated offer, never the legacy price picker.
+        return None
     stripe = _get_stripe()
     if not stripe:
         return None
@@ -322,10 +326,13 @@ def create_portal_session(*, school, return_url: str) -> str | None:
         return None
 
     try:
+        from core.services.school_pricing import portal_configuration, uses_school_pricing
+        extra = {"configuration": portal_configuration(school)} if uses_school_pricing(school) else {}
         session = stripe.billing_portal.Session.create(
             customer=school.stripe_customer_id,
             return_url=return_url,
             api_key=settings.STRIPE_SECRET_KEY.strip(),
+            **extra,
         )
         return session.url
     except Exception:
@@ -409,6 +416,11 @@ def handle_checkout_completed(session_data: dict) -> None:
         )
         return
 
+    from core.services.school_pricing import reconcile_checkout, uses_school_pricing
+    if uses_school_pricing(school):
+        reconcile_checkout(school, session_data)
+        return
+
     if (subscription_id and school.stripe_subscription_id
             and subscription_id != school.stripe_subscription_id
             and (school.has_active_stripe_subscription or school.is_payment_overdue)):
@@ -473,6 +485,7 @@ def handle_checkout_completed(session_data: dict) -> None:
     )
 
 
+@transaction.atomic
 def handle_subscription_updated(subscription_data: dict) -> None:
     """Handle customer.subscription.updated — sync status + plan."""
     from core.models import School
@@ -483,12 +496,14 @@ def handle_subscription_updated(subscription_data: dict) -> None:
         return
     status = subscription_data.get("status", "")
 
-    school = School.objects.filter(stripe_subscription_id=sub_id).first()
+    school = School.objects.select_for_update().filter(stripe_subscription_id=sub_id).first()
     # Fallback: sometimes early events include metadata.school_slug
     if not school:
         meta_slug = (subscription_data.get("metadata") or {}).get("school_slug")
         if meta_slug:
-            school = School.objects.filter(slug=meta_slug, stripe_subscription_id="").first()
+            school = School.objects.select_for_update().filter(slug=meta_slug, stripe_subscription_id="").first()
+            if not school and (subscription_data.get("metadata") or {}).get("billing_checkout"):
+                school = School.objects.select_for_update().filter(slug=meta_slug).first()
 
     if not school:
         logger.warning(
@@ -497,11 +512,24 @@ def handle_subscription_updated(subscription_data: dict) -> None:
         )
         return
 
+    from core.models import SchoolBillingCheckout
+    from core.services.school_pricing import apply_subscription, uses_school_pricing
+    negotiated = bool((subscription_data.get("metadata") or {}).get("billing_checkout")) or SchoolBillingCheckout.objects.filter(
+        offer__school=school, subscription_id=sub_id,
+    ).exists()
+    if negotiated:
+        # Stripe can deliver events out of order. Read current state before changing access.
+        subscription_data = retrieve_billing_subscription(sub_id)
+        status = subscription_data.get("status", "")
+        if not apply_subscription(school, subscription_data):
+            return
+    elif uses_school_pricing(school) and school.stripe_subscription_id != sub_id:
+        return
     school.stripe_subscription_status = status
 
     # Determine plan from the subscription's current price
     items = subscription_data.get("items", {}).get("data", [])
-    if items:
+    if items and not negotiated:
         price_id = items[0].get("price", {}).get("id", "")
         plan = price_to_plan(price_id)
         if plan:
@@ -541,7 +569,10 @@ def handle_subscription_updated(subscription_data: dict) -> None:
 
     school.save(update_fields=[
         "stripe_subscription_status", "plan", "stripe_cancel_at", "stripe_cancel_at_period_end", "stripe_current_period_end", "is_active"
-    ])
+    ] + (["stripe_customer_id", "stripe_subscription_id", "feature_flags"] if negotiated else []))
+    if negotiated:
+        from core.services.billing_invoices import refresh_payment_grace
+        refresh_payment_grace(school)
     logger.info(
         "Stripe webhook customer.subscription.updated: school=%s status=%s plan=%s is_active=%s",
         school.slug,

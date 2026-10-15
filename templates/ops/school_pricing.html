@@ -1,0 +1,91 @@
+<style>
+  .agreement-layout {display:grid;grid-template-columns:minmax(0,1fr);gap:24px;align-items:start;}
+  .agreement-fields {display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .agreement-field {min-width:0;}
+  .agreement-field label {display:block;margin-bottom:5px;font-size:11px;font-weight:700;text-transform:uppercase;color:var(--dash-muted);}
+  .agreement-field:first-child {grid-column:1 / -1;}
+  .agreement-notice {color:var(--dash-muted);font-size:12px;margin:16px 0;line-height:1.5;}
+  .agreement-summary {padding:20px 0;border-top:1px solid var(--dash-border);}
+  .agreement-summary h2 {font-size:14px;margin:0 0 16px;}
+  .agreement-summary dl {margin:0;}
+  .agreement-summary dt {font-size:12px;color:var(--dash-muted);margin-top:16px;}
+  .agreement-summary dd {margin:4px 0;font-weight:600;overflow-wrap:anywhere;}
+  .agreement-actions {display:flex;gap:12px;flex-wrap:wrap;margin-top:24px;}
+  .agreement-actions button {min-height:40px;padding:8px 14px;border:1px solid var(--dash-border);font-family:inherit;font-size:13px;cursor:pointer;}
+  .agreement-actions .dash-action-btn--primary {border-color:var(--dash-primary);}
+  .agreement-field input {min-height:38px;}
+  .agreement-history {width:100%;border-collapse:collapse;font-size:13px;}
+  .agreement-history td,.agreement-history th {padding:12px 8px;text-align:left;border-bottom:1px solid var(--dash-border);}
+  .agreement-field .errorlist,.errorlist {color:#b91c1c;font-size:13px;}
+  @media(max-width:760px) {.agreement-layout,.agreement-fields {grid-template-columns:1fr;}.agreement-layout {gap:24px;}}
+</style>
+<section id="subscription-pricing" class="dash-card" style="padding:24px;margin-bottom:16px;scroll-margin-top:84px;">
+  <h2 style="font-size:14px;font-weight:700;margin:0 0 8px;">Subscription pricing</h2>
+  <p style="font-size:12px;color:var(--dash-muted);margin-top:0;">{{ billing_mode|title }} Stripe account · Superadmin only</p>
+  <div class="agreement-notice">Saving an agreement changes future checkout only. Existing subscriptions, trial dates, and feature access remain unchanged.</div>
+  {% for checkout in pending_checkouts %}
+  <div role="status" style="padding:12px 0;border-bottom:1px solid var(--dash-border);margin-bottom:16px;font-size:13px;line-height:1.6;overflow-wrap:anywhere;">
+    <strong>Checkout awaiting completion or confirmation</strong><br>
+    {{ checkout.offer.total_display }} · Started {{ checkout.created_at|date:"M j, g:i A T" }} · Scheduled expiry {{ checkout.expires_at|date:"M j, g:i A T" }}<br>
+    Reference: {{ checkout.pk }}<br>
+    Closing its tab does not cancel checkout.
+    <form method="post" action="{% url 'ops_school_detail' school.slug %}#subscription-pricing" class="agreement-actions">
+      {% csrf_token %}<input type="hidden" name="checkout_id" value="{{ checkout.pk }}">
+      <button type="submit" name="action" value="check_checkout" class="dash-action-btn dash-action-btn--primary">Check status</button>
+      <button type="submit" name="action" value="expire_checkout" class="dash-action-btn dash-action-btn--secondary" onclick="return confirm('Expire this unpaid checkout? Its payment link will stop working. Completed payments will not be canceled.');">Expire unpaid checkout</button>
+    </form>
+  </div>
+  {% endfor %}
+  {% if billing_review %}
+  <div style="padding:16px 0;border-bottom:1px solid var(--dash-border);margin-bottom:16px;font-size:13px;">
+    <strong>{% if pending_location_change %}Billing update awaiting confirmation{% else %}Review billing change{% endif %}</strong>
+    <p>Current subscription rate: <strong>{{ accepted_offer.total_display }}</strong><br>
+      New subscription rate: <strong>{{ offer.total_display }}</strong><br>
+      Effective at renewal: <strong>{{ renewal|date:"M j, Y" }}</strong></p>
+    <p>No immediate charge or proration. The billing date stays the same. Notify the school of the new amount before applying.</p>
+    <form method="post" class="agreement-actions" action="{% url 'ops_school_detail' school.slug %}#subscription-pricing">
+      {% csrf_token %}<input type="hidden" name="offer_id" value="{{ offer.pk }}">
+      <input type="hidden" name="billing_review" value="{{ billing_review }}">
+      <button type="submit" name="action" value="apply_billing" class="dash-action-btn dash-action-btn--primary">{% if pending_location_change %}Retry billing update{% else %}Apply billing changes at next renewal{% endif %}</button>
+    </form>
+  </div>
+  {% elif change_error %}
+  <p role="status" style="font-size:13px;">{{ change_error }}</p>
+  {% elif location_change %}
+  <p role="status" style="font-size:13px;">Confirmed with Stripe: {{ location_change.offer.total_display }} from {{ location_change.effective_at|date:"M j, Y" }}. No prorated charge.</p>
+  {% endif %}
+  <div class="agreement-layout">
+    <form method="post" action="{% url 'ops_school_detail' school.slug %}#subscription-pricing">
+      {% csrf_token %}{{ form.expected_offer_id }}{{ form.verification }}{{ form.non_field_errors }}
+      <div class="agreement-fields">
+        {% for field in form.visible_fields %}
+        <div class="agreement-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>
+        {% endfor %}
+      </div>
+      <div class="agreement-actions">
+        <button type="submit" name="action" value="validate" class="dash-action-btn {% if verified %}dash-action-btn--secondary{% else %}dash-action-btn--primary{% endif %}">Validate prices</button>
+        <button type="submit" name="action" value="publish" class="dash-action-btn dash-action-btn--primary" {% if not verified %}disabled aria-describedby="pricing-save-help" style="opacity:.5;cursor:not-allowed;"{% endif %}>Save agreement</button>
+      </div>
+      <p id="pricing-save-help" style="font-size:13px;color:var(--dash-muted);">{% if verified %}Prices verified. Review the total, then save this agreement.{% else %}Validate prices to check them with Stripe and enable Save agreement. Edits are not saved until you save the agreement.{% endif %}</p>
+    </form>
+    <aside class="agreement-summary" aria-label="Pricing summary">
+      {% if verified %}
+      <h2>Verified with Stripe</h2>
+      <dl><dt>Base subscription</dt><dd>{{ verified.base_price.display }}</dd>
+        {% if verified.location_price %}<dt>Per additional location</dt><dd>{{ verified.location_price.display }}</dd>{% endif %}
+        <dt>Recurring total</dt><dd style="font-size:24px;">${{ total|floatformat:2 }} / {{ verified.base_price.interval }}</dd>
+      </dl>
+      {% elif offer %}
+      <h2>Saved agreement</h2><dl><dt>Name</dt><dd>{{ offer.label }}</dd><dt>Recurring total</dt><dd style="font-size:24px;">{{ offer.total_display }}</dd><dt>Included locations</dt><dd>{{ offer.included_locations }}</dd><dt>Additional locations billed</dt><dd>{{ offer.additional_locations }}</dd></dl>
+      {% else %}
+      <h2>No agreement in {{ billing_mode }} mode</h2><p>Validate the Stripe prices before saving.</p>
+      {% endif %}
+    </aside>
+  </div>
+  <section style="margin-top:32px;">
+    <h2 style="font-size:16px;">Agreement history</h2>
+    <div style="overflow-x:auto;"><table class="agreement-history"><thead><tr><th>Saved</th><th>Agreement</th><th>Total</th><th>Status</th></tr></thead><tbody>
+      {% for item in history %}<tr><td>{{ item.created_at|date:"M j, Y, g:i A" }}</td><td>{{ item.label }}</td><td>{{ item.total_display }}</td><td>{% if item.is_current %}Current offer{% else %}Previous offer{% endif %}</td></tr>{% empty %}<tr><td colspan="4">No agreements saved.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+</section>

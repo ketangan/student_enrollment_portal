@@ -224,10 +224,15 @@ def ops_school_create_view(request):
 @ops_required
 def ops_school_detail_view(request, slug):
     from core.forms_ops import OpsSchoolEditForm
+    from core.views_school_pricing import school_pricing_context
+    from django.http import HttpResponseBase
 
     school = get_object_or_404(School, slug=slug)
+    subscription_pricing = school_pricing_context(request, school)
+    if isinstance(subscription_pricing, HttpResponseBase):
+        return subscription_pricing
 
-    if request.method == "POST":
+    if request.method == "POST" and request.POST.get("action") not in {"validate", "publish"}:
         form = OpsSchoolEditForm(request.POST, instance=school)
         if form.is_valid():
             changed = {
@@ -286,6 +291,7 @@ def ops_school_detail_view(request, slug):
         "active_nav": "schools",
         "school": school,
         "form": form,
+        "subscription_pricing": subscription_pricing,
         "members": members,
         "recent_audit": recent_audit,
         "submission_count": submission_count,
