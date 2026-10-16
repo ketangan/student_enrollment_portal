@@ -1,6 +1,7 @@
-"""Booking-specific capacity and settlement; all Stripe transport stays in core."""
+"""Booking-specific capacity and settlement; payment transport stays in core."""
 
 from datetime import timedelta
+from decimal import Decimal
 
 from django.core import signing
 from django.core.exceptions import ValidationError
@@ -11,7 +12,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from core.payments import checkout, recovery, refunds, service
-from core.services import billing_stripe as gateway
+from core.payments.providers import gateway
 from core.models import School
 from core.payments.models import PaymentAttempt, PaymentOrder, Refund
 from .models import Reservation, SchedulingProfile
@@ -41,23 +42,37 @@ def validate_booking_checkout(item):
     if (not profile.enabled or item.state not in ("held", "confirmed", "completed")
             or (not profile.native_reservations_enabled and item.state not in ("confirmed", "completed"))):
         raise ValidationError("This reservation is not available for checkout. Please contact the studio.")
-    if item.state != "completed" and item.starts_at < timezone.now() + CHECKOUT_LEAD_TIME:
+    if item.state == "held" and item.starts_at < timezone.now() + CHECKOUT_LEAD_TIME:
         raise ValidationError("Online checkout closes 40 minutes before the reservation starts.")
     checkout.validate_account(item.order)
 
 
 @transaction.atomic
-def prepare_booking_checkout(item, return_url):
+def prepare_booking_checkout(item, return_url, *, payment_option="due"):
     SchedulingProfile.objects.select_for_update().get(pk=item.profile_id)
     item = Reservation.objects.select_related("order__account", "profile").get(pk=item.pk)
     validate_booking_checkout(item)
     if item.state not in ("confirmed", "completed"):
         ensure_capacity(item)
-    attempt = checkout.prepare_attempt(item.order, return_url=return_url)
+    attempt = checkout.prepare_attempt(item.order, return_url=return_url, payment_option=payment_option)
     if item.state == "held":
         item.hold_until = max(item.hold_until, attempt.expires_at)
         item.save(update_fields=["hold_until"])
     return attempt
+
+
+def payment_choices(order):
+    minimum = checkout.amount_due(order)
+    outstanding = service.totals(order)["outstanding_cents"]
+    active = order.attempts.filter(state__in=PaymentAttempt.ACTIVE).first()
+    return {
+        "payment_has_choice": 0 < minimum < outstanding and active is None,
+        "payment_minimum": Decimal(minimum) / 100,
+        "payment_full": Decimal(outstanding) / 100,
+        "payment_later": Decimal(outstanding - minimum) / 100,
+        "payment_active_amount": Decimal(active.amount_cents) / 100 if active else None,
+        "payment_option": "full" if active and active.amount_cents == outstanding else "due",
+    }
 
 
 @transaction.atomic
@@ -115,10 +130,13 @@ def recover_attempt(attempt, *, force=False):
             raise ValidationError("Invalid booking payment binding.")
         if current.state not in PaymentAttempt.ACTIVE:
             return
-        snapshot = gateway.retrieve_order_checkout(current)
+        if current.account.provider == "square":
+            from .square_checkout import recover_square_attempt
+            return recover_square_attempt(current)
+        snapshot = gateway(current.account).retrieve_order_checkout(current)
         checkout._validate_session(current, snapshot)
         if snapshot.get("status") == "open" and (current.close_requested or current.expires_at <= timezone.now()):
-            snapshot = gateway.expire_order_checkout(current, snapshot["id"])
+            snapshot = gateway(current.account).expire_order_checkout(current, snapshot["id"])
         settle_booking_snapshot(current, snapshot)
     return recovery.run(attempt, operation, force=force)
 

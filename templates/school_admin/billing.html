@@ -1,4 +1,5 @@
-{% extends "school_admin/base.html" %}
+{% extends billing_base_template|default:"school_admin/base.html" %}
+{% block page_heading %}{% endblock %}
 
 {% block page_title %}Billing{% endblock %}
 
@@ -179,8 +180,8 @@
 {% endblock %}
 
 {% block content %}
-<main class="dash-main">
-  <a href="{% if billing_only %}{% url 'scheduling:settings' school_slug=school.slug %}{% else %}{% url 'school_settings' school.slug %}?tab=billing{% endif %}" style="display:inline-block;margin-bottom:16px;color:var(--dash-primary);font-size:13px;">&larr; Back to settings</a>
+{% if booking_billing %}<div>{% else %}<main class="dash-main">{% endif %}
+  <a href="{% if booking_billing %}{% url 'scheduling:locations' school_slug=school.slug %}{% else %}{% url 'school_settings' school.slug %}?tab=billing{% endif %}" style="display:inline-block;margin-bottom:16px;color:var(--dash-primary);font-size:13px;">&larr; Back to settings</a>
 
   <!-- Page heading -->
   <div class="dash-greeting" style="margin-bottom:20px;">
@@ -473,5 +474,5 @@
   </p>
   {% endif %}
 
-</main>
+{% if booking_billing %}</div>{% else %}</main>{% endif %}
 {% endblock %}

@@ -19,7 +19,7 @@ def test_database(url):
 def test_environment(current):
     environment = dict(current)
     for key in environment:
-        if key.startswith(("STRIPE_", "PAYMENTS_STRIPE_", "BOOKING_HOSTED_", "BOOKING_DEMO_STRIPE_", "RESEND_", "SENTRY_", "GOOGLE_", "ANTHROPIC_", "OPENAI_", "RENDER_", "REDIS_", "MOCK_TEMPLATE_", "BOOKINGS_INTEGRATION_")):
+        if key.startswith(("STRIPE_", "PAYMENTS_STRIPE_", "PAYMENTS_SQUARE_", "BOOKING_HOSTED_", "BOOKING_DEMO_STRIPE_", "RESEND_", "SENTRY_", "GOOGLE_", "ANTHROPIC_", "OPENAI_", "RENDER_", "REDIS_", "MOCK_TEMPLATE_", "BOOKINGS_INTEGRATION_")):
             environment[key] = ""
     environment.update(DJANGO_ENV="local", DJANGO_DEBUG="False", DJANGO_SECRET_KEY="local-tests-only",
         DATABASE_URL="sqlite:///:memory:", REDIS_URL="", SENTRY_DSN="", RESEND_EMAIL_API_KEY="",

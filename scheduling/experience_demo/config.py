@@ -72,8 +72,9 @@ def context(request, slug):
         raise Http404
     config = configuration(slug)
     config["stripe_checkout"] = PaymentAccount.objects.filter(
-        school=profile.school, environment="test", enabled=True,
+        school=profile.school, environment="test", enabled=True, provider=profile.payment_provider,
     ).exists()
+    config["payment_provider"] = profile.payment_provider
     config["design_previews"] = profile.school.feature_flags.get("booking_demo_inventory", {}).get("design_previews", {})
     bindings = profile.school.feature_flags.get("booking_demo_inventory", {}).get("groups", {})
     if bindings:

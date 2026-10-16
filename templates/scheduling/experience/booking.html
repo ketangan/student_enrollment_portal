@@ -1,21 +1,26 @@
 {% extends 'scheduling/experience/base.html' %}{% block content %}
 {% if item.reservation.state == 'confirmed' %}
-<header class="confirmation-heading"><div class="confirmation-icon"><i data-lucide="check" aria-hidden="true"></i></div><p class="success">Demo booking confirmed</p><h1>Your plushie day is on the calendar!</h1><p class="lead">We look forward to creating with you, {{ item.purchaser_name }}.</p></header>
+<header class="confirmation-heading"><div class="confirmation-icon"><i data-lucide="check" aria-hidden="true"></i></div><p class="success">Booking confirmed</p><h1>Your plushie day is on the calendar!</h1><p class="lead">We look forward to creating with you, {{ item.purchaser_name }}.</p></header>
 {% elif item.reservation.state == 'completed' %}<header class="confirmation-heading"><div class="confirmation-icon"><i data-lucide="check" aria-hidden="true"></i></div><p class="success">Workshop completed</p><h1>Thank you, {{ item.purchaser_name }}.</h1></header>
 {% elif item.reservation.state == 'canceled' %}<h1>Checkout canceled.</h1><p>Your places have been released.</p><a class="button" href="{% url 'scheduling:experience_start' school_slug=business.slug %}">Start a new booking</a>
-{% elif stripe_checkout %}<h1>Complete your test booking</h1><p>Stripe test checkout. No real charge.</p><p class="muted">Your places are held until {{ item.reservation.hold_until|date:'g:i A' }}.</p>
-{% else %}<h1>Checkout</h1><p>Demo checkout. No payment is collected.</p><p class="muted">Your places are held until {{ item.reservation.hold_until|date:'g:i A' }}.</p>
+{% elif stripe_checkout %}<h1>Complete your booking</h1><p class="muted">Your places are held until {{ item.reservation.hold_until|date:'g:i A' }}.</p>
+{% else %}<h1>Checkout</h1><p>No payment is collected.</p><p class="muted">Your places are held until {{ item.reservation.hold_until|date:'g:i A' }}.</p>
 {% endif %}
 {% if payment_message %}<p class="boundary" role="status">{{ payment_message }} <a href="?checkout_return=1">Check payment status</a></p>{% endif %}
 <div class="confirmation-layout"><section><img class="workshop-photo" src="{{ demo.photo }}" alt="Participants creating plushies in the workshop"><div class="details"><h2>{{ item.session_snapshot.workshop }}</h2><p>{{ item.session_snapshot.location }}<br>{{ item.requested_start|date:'D, M j, Y' }} at {{ item.requested_start|date:'g:i A' }}</p><p class="total">{{ people|length }} participant{{ people|pluralize }} <strong>${{ total }}</strong></p><p class="reference">Reference: {{ item.public_id }}</p></div>
 {% if item.reservation.state == 'confirmed' %}<a class="button" href="{% url 'scheduling:experience_calendar' school_slug=business.slug public_id=item.public_id %}"><i data-lucide="calendar-plus" aria-hidden="true"></i> Add to calendar</a>{% endif %}
+{% if item.reservation.state != 'canceled' %}
+<div class="details"><h2>Payment summary</h2><p class="total">Paid <strong>${{ amounts.net|floatformat:2 }}</strong></p>
+{% if item.reservation.state == 'confirmed' or item.reservation.state == 'completed' %}
+{% if amounts.outstanding_cents %}<p class="total">Balance due <strong>${{ amounts.outstanding|floatformat:2 }}</strong></p><p>Due on {{ item.requested_start|date:'M j, Y' }}.</p>
+{% if stripe_checkout %}<form method="post" target="_top">{% csrf_token %}<button class="button" name="action" value="payment_checkout">Pay remaining balance: ${{ amounts.outstanding|floatformat:2 }}</button></form>{% endif %}
+{% else %}<p class="success">Paid in full</p>{% endif %}
+{% elif item.reservation.state == 'held' %}
+{% if stripe_checkout %}<form method="post" target="_top">{% csrf_token %}{% include 'scheduling/payment_choice.html' %}{% if not payment_has_choice and not payment_active_amount %}<p class="total">Pay today <strong>${{ due_now|floatformat:2 }}</strong></p>{% endif %}<button class="button" name="action" value="payment_checkout">Continue to {{ payment_provider_name }} Checkout <i data-lucide="arrow-up-right" aria-hidden="true"></i></button></form>
+{% else %}<p class="total">Pay today <strong>${{ due_now|floatformat:2 }}</strong></p>{% if due_later %}<p>Due on {{ item.requested_start|date:'M j, Y' }}: <strong>${{ due_later|floatformat:2 }}</strong></p>{% endif %}{% endif %}{% endif %}
+</div>{% endif %}
 </section><section><h2>Your plushie crew</h2>
 {% for person in people %}<article class="review-person">{% include 'scheduling/experience/selection_thumbnail.html' %}<div><h3>{{ person.name }}</h3><div class="selections">{% if person.age %}<span>Age: <strong>{{ person.age }}</strong></span>{% endif %}<span>Design: <strong>{{ person.design }}</strong></span><span><span class="swatch" style="--color:{{ person.swatch }}"></span><strong>{{ person.color }}</strong></span></div></div></article>{% endfor %}
-{% if item.reservation.state == 'confirmed' %}
-<details class="email-preview"><summary>Confirmation email preview (not sent)</summary><p>To: {{ item.purchaser_email }}</p><p>Your workshop is booked for {{ item.requested_start|date:'D, M j, Y' }} at {{ item.requested_start|date:'g:i A' }}, {{ item.session_snapshot.location }}.</p>{% include 'scheduling/experience/people.html' %}<p>We look forward to creating with you!</p></details>
-{% endif %}</section></div>
+</section></div>
 {% if item.reservation.state != 'confirmed' and item.reservation.state != 'canceled' and item.reservation.state != 'completed' %}
-{% if stripe_checkout %}
-{% if item.reservation.state == 'held' %}<form method="post" target="_top" class="simulation-actions">{% csrf_token %}<button class="button" name="action" value="stripe_checkout">Continue to Stripe Checkout <i data-lucide="arrow-up-right" aria-hidden="true"></i></button></form>{% endif %}
-<details class="assumptions" open><summary>Test cards</summary><p><strong>Successful payment:</strong> <code>4242 4242 4242 4242</code><br><strong>Declined payment:</strong> <code>4000 0000 0000 0002</code></p><p>Use any future expiry date and any three-digit CVC. Use test details only. A declined card can be replaced with the success card in the same checkout.</p></details>
-{% else %}<form method="post" class="simulation-actions">{% csrf_token %}<button class="button" name="action" value="complete">Simulate successful checkout</button><button class="quiet" name="action" value="decline">Simulate payment failure</button><button class="quiet" name="action" value="abandon">Abandon checkout</button></form>{% endif %}{% endif %}{% endblock %}
+{% if not stripe_checkout %}<form method="post" class="simulation-actions">{% csrf_token %}<button class="button" name="action" value="complete">Simulate successful checkout</button><button class="quiet" name="action" value="decline">Simulate payment failure</button><button class="quiet" name="action" value="abandon">Abandon checkout</button></form>{% endif %}{% endif %}{% endblock %}

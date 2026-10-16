@@ -20,9 +20,13 @@ class SchedulingProfile(models.Model):
     enabled = models.BooleanField(default=False)
     capabilities = models.JSONField(default=list, blank=True, validators=[validate_capabilities])
     native_reservations_enabled = models.BooleanField(default=False)
+    payment_provider = models.CharField(max_length=8, default="stripe", choices=[("stripe", "Stripe"), ("square", "Square")])
     lessons_enabled = models.BooleanField(default=False)
     message_preview_enabled = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(payment_provider__in=["stripe", "square"]), name="scheduling_payment_provider_valid")]
 
     def __str__(self):
         return str(self.school)
@@ -124,6 +128,8 @@ class Offering(models.Model):
     location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="offerings")
     name = models.CharField(max_length=150)
     description = models.TextField(blank=True, max_length=3000)
+    deposit_per_participant = models.DecimalField(max_digits=8, decimal_places=2, default=0,
+        validators=[MinValueValidator(0)])
     is_published = models.BooleanField(default=False)
     accepts_requests = models.BooleanField(default=False)
     accepts_party_requests = models.BooleanField(default=False)
@@ -132,6 +138,9 @@ class Offering(models.Model):
 
     class Meta:
         ordering = ["name", "pk"]
+        constraints = [models.CheckConstraint(
+            condition=models.Q(deposit_per_participant=0) | models.Q(deposit_per_participant__gte=0.50),
+            name="workshop_deposit_valid")]
 
     def __str__(self):
         return self.name
@@ -354,7 +363,7 @@ class PartyRequest(models.Model):
 
     @property
     def proposed_balance(self):
-        return None if self.proposed_total is None or self.proposed_deposit is None else self.proposed_total - self.proposed_deposit
+        return None if self.proposed_total is None or self.proposed_deposit is None else (self.proposed_total - self.proposed_deposit if self.proposed_deposit else 0)
 
     def clean(self):
         if self.room_id:

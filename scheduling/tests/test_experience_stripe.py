@@ -26,7 +26,8 @@ def stripe_demo(demo, settings):
 def booking(browser, demo):
     session, data = form_data(browser, demo, count=1)
     review = browser.post(url("choose", pk=session.pk), data)
-    assert b"Stripe test checkout" in review.content
+    assert b"Continue to checkout <" in review.content
+    assert b"Stripe test checkout" not in review.content
     data.update(action="checkout", review_token=review.context["review_token"])
     result = browser.post(url("choose", pk=session.pk), data)
     assert result.status_code == 302
@@ -79,8 +80,10 @@ def test_review_crossing_payment_cutoff_creates_no_reservation(stripe_demo, brow
 def test_verified_payment_and_duplicate_returns(stripe_demo, browser, monkeypatch):
     route, item = booking(browser, stripe_demo)
     html = browser.get(route).content
-    assert b'target="_top"' in html and b"4242 4242 4242 4242" in html
-    assert b"4000 0000 0000 0002" in html and b"Simulate successful" not in html
+    assert b'target="_top"' in html and b"Continue to Stripe Checkout" in html
+    assert b"4242 4242 4242 4242" not in html
+    assert b"Complete your test booking" not in html
+    assert b"4000 0000 0000 0002" not in html and b"Simulate successful" not in html
     attempt, create = open_stripe(browser, route, monkeypatch)
     assert attempt.amount_cents == item.reservation.order.total_cents == 6500
     assert attempt.order.account.school == stripe_demo.school
@@ -92,7 +95,7 @@ def test_verified_payment_and_duplicate_returns(stripe_demo, browser, monkeypatc
     retrieve = Mock(return_value=session_for(attempt, status="complete"))
     monkeypatch.setattr(gateway, "retrieve_order_checkout", retrieve)
     result = browser.get(route + "?checkout_return=1")
-    assert b"Demo booking confirmed" in result.content
+    assert b"Booking confirmed" in result.content
     assert result.context["item"].reservation.state == "confirmed"
     assert b"Continue to Stripe Checkout" not in result.content
     assert browser.get(route + "?checkout_return=1").status_code == 200
@@ -257,7 +260,7 @@ def test_adapter_refuses_unavailable_demo(stripe_demo, browser, monkeypatch):
 def test_disabled_mode_preserves_existing_simulation(demo, browser):
     session, data = form_data(browser, demo, count=1)
     review = browser.post(url("choose", pk=session.pk), data)
-    assert b"Demo checkout. No payment is collected." in review.content
+    assert b"Continue to checkout <" in review.content
     data.update(action="checkout", review_token=review.context["review_token"])
     response = browser.post(url("choose", pk=session.pk), data)
     assert b"Simulate successful checkout" in browser.get(response.url).content

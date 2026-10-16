@@ -1,4 +1,5 @@
 from datetime import timedelta, timezone as datetime_timezone
+from decimal import Decimal
 
 from django import forms
 from django.utils import timezone
@@ -46,18 +47,21 @@ class PartyInquiryForm(forms.Form):
 
 class PartyReviewForm(forms.ModelForm):
     revision = forms.IntegerField(widget=forms.HiddenInput, min_value=0)
+    payment_at_booking = forms.ChoiceField(label="Payment at booking", required=False,
+        choices=[("full", "Full payment"), ("deposit", "Deposit")])
 
     class Meta:
         model = PartyRequest
-        fields = ["status", "room", "proposed_total", "proposed_deposit", "preparation_notes"]
+        fields = ["status", "room", "proposed_total", "payment_at_booking", "proposed_deposit", "preparation_notes"]
         labels = {"room": "Proposed room", "proposed_total": "Proposed total (USD)",
-                  "proposed_deposit": "Proposed deposit (USD)", "preparation_notes": "Internal preparation notes"}
+                  "proposed_deposit": "Deposit per reservation (USD)", "preparation_notes": "Internal preparation notes"}
         widgets = {"preparation_notes": forms.Textarea(attrs={"rows": 4})}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["room"].queryset = Room.objects.filter(location=self.instance.offering.location)
         self.fields["revision"].initial = self.instance.revision
+        self.initial["payment_at_booking"] = "deposit" if self.instance.proposed_deposit else "full"
         self.material_forms = party_material_forms(self.instance.offering, self.data if self.is_bound else None,
                                                    self.instance.materials)
 
@@ -68,6 +72,13 @@ class PartyReviewForm(forms.ModelForm):
                 raise forms.ValidationError("Check the party materials below.")
             self.instance.materials = material_snapshot(self.material_forms, self.instance.group_size)
         total, deposit = data.get("proposed_total"), data.get("proposed_deposit")
+        if data.get("payment_at_booking") == "full":
+            deposit = data["proposed_deposit"] = Decimal(0) if total is not None else None
+        elif data.get("payment_at_booking") == "deposit":
+            if deposit is None or deposit < Decimal("0.50"):
+                self.add_error("proposed_deposit", "Enter a deposit of at least $0.50 per reservation.")
+            elif total is not None and deposit > total - Decimal("0.50"):
+                self.add_error("proposed_deposit", "Leave at least $0.50 to pay later, or choose full payment.")
         if (total is None) != (deposit is None):
             raise forms.ValidationError("Enter both the proposed total and deposit, or leave both empty.")
         if total is not None and deposit is not None and deposit > total:

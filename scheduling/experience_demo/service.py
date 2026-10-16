@@ -25,7 +25,7 @@ EXAMPLE_DATA_SOURCE = "00000000-0000-4000-8000-000000000001"
 
 
 class ReviewForm(forms.Form):
-    policy_ack = forms.BooleanField(label="I have reviewed the example workshop and cancellation policies.")
+    policy_ack = forms.BooleanField(label="I have reviewed the workshop and cancellation information.")
 
 
 def money(cents):
@@ -97,7 +97,9 @@ def validate(session, data, *, check_stock=True):
 def review_token(session, data, catalog, browser, config):
     return signing.dumps({"session": session.pk, "browser": browser,
         "digest": requests.submission_digest(payload(data, catalog)), "price": config["price_cents"],
-        "policy": config["policy_revision"], "stripe_checkout": bool(config.get("stripe_checkout"))}, salt=REVIEW_SALT)
+        "deposit": str(session.offering.deposit_per_participant),
+        "policy": config["policy_revision"], "stripe_checkout": bool(config.get("stripe_checkout")),
+        "payment_provider": config.get("payment_provider", "stripe")}, salt=REVIEW_SALT)
 
 
 def actor(profile, config):
@@ -114,6 +116,7 @@ def begin(profile, session, data, browser, config):
     profile.refresh_from_db()
     if not available(profile, require_intake=True):
         raise Http404
+    session.offering.refresh_from_db()
     if session.starts_at <= booking_cutoff(online=bool(config.get("stripe_checkout"))):
         raise ValidationError("Online booking has closed for this session. Choose another time.")
     catalog = requests.catalog_for(session.offering)
@@ -123,7 +126,9 @@ def begin(profile, session, data, browser, config):
         if (token["session"] != session.pk or not browser or not constant_time_compare(token["browser"], browser)
                 or token["digest"] != requests.submission_digest(body)
                 or token["price"] != config["price_cents"] or token["policy"] != config["policy_revision"]
-                or token.get("stripe_checkout", False) != bool(config.get("stripe_checkout"))):
+                or token.get("deposit") != str(session.offering.deposit_per_participant)
+                or token.get("stripe_checkout", False) != bool(config.get("stripe_checkout"))
+                or token.get("payment_provider", "stripe") != profile.payment_provider):
             raise ValueError
     except (signing.BadSignature, KeyError, TypeError, ValueError):
         raise ValidationError("Your review expired or changed. Review the booking again before continuing.") from None
@@ -136,9 +141,9 @@ def begin(profile, session, data, browser, config):
         item.session_snapshot["experience_demo"] = {"policy": config["policy_revision"],
             "reviewed_at": timezone.now().isoformat(), "price_cents": config["price_cents"]}
         item.save(update_fields=["session_snapshot"])
-    total = item.participants.count() * config["price_cents"]
+    total, deposit = reservations.workshop_quote(session.offering, config["price_cents"], item.participants.count())
     reservations.create_reservation(actor(profile, config), profile.school.slug, "workshop", item.public_id,
-                                   total_cents=total, deposit_cents=0, online=bool(config.get("stripe_checkout")))
+                                   total_cents=total, deposit_cents=deposit, online=bool(config.get("stripe_checkout")))
     return item
 
 
@@ -167,7 +172,7 @@ def simulate(profile, item, config, action):
             reservations.ensure_capacity(reservation)
         return reservations.settle_offline(user, profile.school.slug, reservation.public_id,
             key=uuid.uuid5(item.public_id, "local-demo-success"), kind="payment",
-            amount_cents=reservation.order.total_cents, reference=f"DEMO-NO-MONEY-{item.public_id}")
+            amount_cents=reservation.order.deposit_cents or reservation.order.total_cents, reference=f"DEMO-NO-MONEY-{item.public_id}")
     if action == "abandon":
         if reservation.state in ("confirmed", "completed"):
             raise ValidationError("A confirmed booking cannot be abandoned from checkout.")
@@ -185,7 +190,7 @@ def has_simulated_payment(profile, reservation):
         and reservation.order.entries.filter(kind="payment", channel="offline",
             key=uuid.uuid5(source.public_id, "local-demo-success"),
             reference=f"DEMO-NO-MONEY-{source.public_id}",
-            amount_cents=reservation.order.total_cents).exists())
+            amount_cents=reservation.order.deposit_cents or reservation.order.total_cents).exists())
 
 
 def refund_simulated_payment(user, profile, reservation, key):

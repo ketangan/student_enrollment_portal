@@ -6,6 +6,11 @@ from .models import PaymentAccount
 
 
 def validate_scope(account):
+    if account.provider == "square":
+        from .square import validate_account
+        return validate_account(account)
+    if account.provider != "stripe":
+        raise ValidationError("Unsupported payment provider.")
     if account.scope == PaymentAccount.Scope.CONNECTED:
         return
     if (account.scope != PaymentAccount.Scope.PLATFORM_DEMO or not account.school.is_demo
@@ -15,6 +20,8 @@ def validate_scope(account):
 
 
 def matches_event_account(account, event):
+    if account.provider != "stripe":
+        return False
     validate_scope(account)
     if account.scope == PaymentAccount.Scope.PLATFORM_DEMO:
         # Platform events have no connected-account envelope. The dedicated signing

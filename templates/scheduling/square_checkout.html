@@ -1,0 +1,30 @@
+{% extends 'scheduling/public_base.html' %}
+{% load static %}
+{% block title %}Secure payment{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'scheduling/square_checkout.css' %}">
+<section class="square-checkout">
+  <a href="{{ attempt.cancel_url }}" class="back-link">&larr; Back to reservation</a>
+  <h1>Complete your payment</h1>
+  <p class="muted">{{ item.snapshot.workshop }}</p>
+  <dl class="square-amounts">
+    <div><dt>Reservation total</dt><dd>${{ attempt.order.total|floatformat:2 }}</dd></div>
+    <div class="square-due"><dt>Due now</dt><dd>${{ attempt.amount|floatformat:2 }}</dd></div>
+  </dl>
+  <p id="square-status" role="status" aria-live="polite">{% if error %}{{ error }}{% elif ready %}Loading secure card form...{% elif attempt.state == 'expired' %}This payment attempt has ended. You can try again.{% else %}Payment verification is pending. Check its status before paying again.{% endif %}</p>
+  {% if ready %}
+  <form id="square-payment-form" method="post">
+    {% csrf_token %}<div id="square-card"></div>
+    <button id="square-pay" class="primary" type="submit" disabled>Pay ${{ attempt.amount|floatformat:2 }}</button>
+  </form>
+  <noscript><p>Enable JavaScript to use the secure payment form.</p></noscript>
+  {{ square_options|json_script:'square-options' }}
+  {% endif %}
+  <form id="square-check-form" method="post" {% if ready %}hidden{% endif %}>{% csrf_token %}<button class="secondary" name="action" value="check">Check payment status</button></form>
+  <form id="square-retry-form" method="post" {% if attempt.state != 'expired' %}hidden{% endif %}>{% csrf_token %}<button class="primary" name="action" value="retry">Try another card</button></form>
+</section>
+{% endblock %}
+{% block scripts %}{% if ready %}
+<script src="https://sandbox.web.squarecdn.com/v1/square.js" defer></script>
+<script src="{% static 'scheduling/square_checkout.js' %}" defer></script>
+{% endif %}{% endblock %}

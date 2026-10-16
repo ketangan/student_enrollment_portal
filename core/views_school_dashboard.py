@@ -1046,6 +1046,39 @@ def school_password_change_view(request, school_slug: str):
 
 # ── School admin: billing ─────────────────────────────────────────────────
 
+def _billing_route(request, name):
+    namespace = getattr(request.resolver_match, "namespace", "")
+    return f"scheduling:{name}" if namespace == "scheduling" else name
+
+
+def _billing_school(request, school_slug):
+    school = _get_accessible_school_for_admin(request, school_slug)
+    if getattr(request.resolver_match, "namespace", "") == "scheduling":
+        from scheduling.access import require_access
+        require_access(request.user, school_slug)
+    return school
+
+
+def _billing_return_url(request, school_slug):
+    from core.services.url_builder import app_reverse, request_reverse
+    route = _billing_route(request, "school_billing")
+    if route.startswith("scheduling:"):
+        return request_reverse(request, route, kwargs={"school_slug": school_slug})
+    return app_reverse(route, kwargs={"school_slug": school_slug})
+
+
+def _billing_context(request, school):
+    context = _school_admin_base_context(request, school, "billing")
+    context["billing_base_template"] = "school_admin/base.html"
+    if getattr(request.resolver_match, "namespace", "") == "scheduling" or context["billing_only"]:
+        from scheduling.access import require_access
+        from scheduling.views import _context
+        profile, role = require_access(request.user, school.slug)
+        context.update(_context(request, profile, role, "billing"))
+        context.update(billing_base_template="scheduling/base.html", booking_billing=True)
+    return context
+
+
 @login_required
 @require_http_methods(["GET"])
 def school_billing_view(request, school_slug: str):
@@ -1058,7 +1091,7 @@ def school_billing_view(request, school_slug: str):
         is_founder_pricing_enabled,
         is_stripe_configured,
     )
-    school = _get_accessible_school_for_admin(request, school_slug)
+    school = _billing_school(request, school_slug)
     from core.services.billing_access import billing_role, require_billing_owner
     payment_overdue = school.is_payment_overdue
     can_manage_billing = billing_role(request.user, school) == "owner"
@@ -1066,7 +1099,7 @@ def school_billing_view(request, school_slug: str):
         require_billing_owner(request, school)
     if school.subscription_checkout_paused and not payment_overdue:
         return render(request, "school_admin/billing_pending.html",
-                      _school_admin_base_context(request, school, "billing"))
+                      _billing_context(request, school))
     stripe_configured = is_stripe_configured()
     from core.services.school_pricing import current_offer, uses_school_pricing
     negotiated_pricing = uses_school_pricing(school)
@@ -1135,8 +1168,8 @@ def school_billing_view(request, school_slug: str):
 
     plan_display = dict(ff.PLAN_CHOICES).get(school.plan, school.plan)
 
-    billing_url = reverse("school_billing", kwargs={"school_slug": school_slug})
-    ctx = _school_admin_base_context(request, school, "billing")
+    billing_url = reverse(_billing_route(request, "school_billing"), kwargs={"school_slug": school_slug})
+    ctx = _billing_context(request, school)
     ctx.update({
         "plan_display": plan_display,
         "pricing": pricing,
@@ -1153,8 +1186,8 @@ def school_billing_view(request, school_slug: str):
         "stripe_configured": stripe_configured,
         "subscription_status": status if billing_state in ("active", "scheduled_cancel", "custom") else "",
         "billing_url": billing_url,
-        "checkout_url": reverse("school_billing_checkout", kwargs={"school_slug": school_slug}),
-        "portal_url": reverse("school_billing_portal", kwargs={"school_slug": school_slug}),
+        "checkout_url": reverse(_billing_route(request, "school_billing_checkout"), kwargs={"school_slug": school_slug}),
+        "portal_url": reverse(_billing_route(request, "school_billing_portal"), kwargs={"school_slug": school_slug}),
         "trial_length_days": school.trial_duration_days,
         "negotiated_pricing": negotiated_pricing,
         "agreed_offer": agreed_offer,
@@ -1177,11 +1210,10 @@ def school_billing_checkout_view(request, school_slug: str):
         is_founder_pricing_enabled,
         is_stripe_configured,
     )
-    school = _get_accessible_school_for_admin(request, school_slug)
+    school = _billing_school(request, school_slug)
     from core.services.billing_access import require_billing_owner
     require_billing_owner(request, school)
-    from core.services.url_builder import app_reverse
-    billing_url = app_reverse("school_billing", kwargs={"school_slug": school_slug})
+    billing_url = _billing_return_url(request, school_slug)
 
     if school.subscription_checkout_paused:
         return redirect(billing_url)
@@ -1249,11 +1281,10 @@ def school_billing_portal_view(request, school_slug: str):
     POST /schools/<slug>/admin/billing/portal/
     """
     from core.services.billing_stripe import create_portal_session
-    school = _get_accessible_school_for_admin(request, school_slug)
+    school = _billing_school(request, school_slug)
     from core.services.billing_access import require_billing_owner
     require_billing_owner(request, school)
-    from core.services.url_builder import app_reverse
-    billing_url = app_reverse("school_billing", kwargs={"school_slug": school_slug})
+    billing_url = _billing_return_url(request, school_slug)
 
     if school.subscription_checkout_paused:
         return redirect(billing_url)

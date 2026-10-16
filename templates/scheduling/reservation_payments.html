@@ -1,5 +1,5 @@
 <div class="reservation-payment-actions">
-{% if item.state != 'canceled' %}<a class="button primary" href="{{ payment_url }}">Open customer payment page</a>{% endif %}
+{% if item.state != 'canceled' %}<a class="button primary" href="{{ payment_url }}">{% if amounts.outstanding_cents and item.state == 'confirmed' or amounts.outstanding_cents and item.state == 'completed' %}Collect balance: ${{ amounts.outstanding|floatformat:2 }}{% else %}Open customer payment page{% endif %}</a>{% endif %}
 {% if item.state == 'canceled' and amounts.net_cents %}<a class="button" href="{% url 'scheduling:refund_create' school_slug=business.slug public_id=item.public_id %}">Review refund</a>{% endif %}
 {% if item.state == 'completed' and overpaid %}<a class="button" href="{% url 'scheduling:refund_create' school_slug=business.slug public_id=item.public_id %}">Refund excess payment</a>{% endif %}
 {% if item.state == 'confirmed' and overpaid %}<a class="button" href="{% url 'scheduling:refund_create' school_slug=business.slug public_id=item.public_id %}">Refund excess payment</a>{% endif %}

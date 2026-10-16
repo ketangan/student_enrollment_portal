@@ -1,8 +1,12 @@
-{% extends "school_admin/base.html" %}
+{% extends billing_base_template|default:"school_admin/base.html" %}
+{% block page_heading %}{% endblock %}
 {% block page_title %}Billing{% endblock %}
 {% block content %}
-<main class="dash-main">
+{% if booking_billing %}<section>{% else %}<main class="dash-main">{% endif %}
+  <a href="{% if booking_billing %}{% url 'scheduling:locations' school_slug=school.slug %}{% else %}{% url 'school_settings' school.slug %}?tab=billing{% endif %}" class="back-link">&larr; Back to settings</a>
   <h1 class="dash-greeting-title">Billing &amp; Plan</h1>
+  <p class="dash-greeting-sub">Your subscription to Pontora</p>
+  <div class="dash-card" style="padding:24px;margin-top:24px;">
   {% if school.is_demo %}
   <p>Demo workspace. Your customer trial has not started.</p>
   {% elif school.trial_pending_activation %}
@@ -10,6 +14,8 @@
   {% else %}
   <p>Your {{ school.trial_duration_days }}-day trial ends {{ school.trial_ends_at|date:"F j, Y" }}. No subscription payment is due during your trial.</p>
   {% endif %}
-  <p>Subscription checkout is unavailable during demo, setup and the agreed free trial. After your trial, you can choose a billing option. You will not be charged automatically.</p>
-</main>
+  {% if booking_billing %}<p>No subscription payment is due yet. After your trial, you can choose a billing option. You will not be charged automatically.</p>
+  {% else %}<p>Subscription checkout is unavailable during demo, setup and the agreed free trial. After your trial, you can choose a billing option. You will not be charged automatically.</p>{% endif %}
+  </div>
+{% if booking_billing %}</section>{% else %}</main>{% endif %}
 {% endblock %}

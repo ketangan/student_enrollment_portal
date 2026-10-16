@@ -1,15 +1,27 @@
 {% extends 'scheduling/public_base.html' %}
+{% load static tz %}
 {% block title %}Reservation payment{% endblock %}
 {% block content %}
-<div class="section-heading"><div><h2>{{ item.snapshot.workshop }}</h2><p>{{ business.display_name }}</p></div><span class="status draft">Test checkout</span></div>
+<link rel="stylesheet" href="{% static 'scheduling/square_checkout.css' %}">
+<link rel="stylesheet" href="{% static 'scheduling/payment-choice.css' %}">
+<section class="payment-summary">
+{% if can_view_reservation %}<a class="back-link" href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.public_id %}">&larr; Back to reservation</a>
+{% else %}<a class="back-link" href="{% url 'scheduling:public_schedule' school_slug=business.slug %}">&larr; Back to workshops</a>{% endif %}
+<div class="section-heading"><h1>{% if item.state == 'canceled' %}Reservation canceled{% elif item.state == 'review' %}Reservation needs review{% elif confirmed and amounts.outstanding_cents == 0 %}Paid in full{% elif confirmed and amounts.net_cents > 0 %}Payment received{% else %}Reservation payment{% endif %}</h1></div>
+<h2>{{ item.snapshot.workshop }}</h2>
+{% timezone item.snapshot.timezone %}<p class="muted">{{ item.starts_at|date:"D, M j, Y" }} &middot; {{ item.starts_at|date:"g:i A" }} &ndash; {{ item.ends_at|date:"g:i A" }}</p>{% endtimezone %}
+{% if item.state == 'confirmed' %}<p>Your reservation is confirmed.{% if amounts.outstanding_cents > 0 and amounts.net_cents > 0 %} You have paid ${{ amounts.net|floatformat:2 }} toward your ${{ item.order.total|floatformat:2 }} total.{% endif %}</p>
+{% elif item.state == 'review' %}<p>Please contact the studio to confirm your reservation.</p>{% endif %}
 {% if error %}<p role="alert" class="notice error">{{ error }}</p>{% endif %}
 <dl class="details"><div><dt>Reservation</dt><dd>{{ item.state_label }}</dd></div>
 <div><dt>Total</dt><dd>${{ item.order.total|floatformat:2 }}</dd></div>
-<div><dt>Payment verified</dt><dd>${{ amounts.net|floatformat:2 }}</dd></div>
+<div><dt>Paid{% if amounts.refunded_cents %} (after refunds){% endif %}</dt><dd class="payment-received">${{ amounts.net|floatformat:2 }}</dd></div>
+{% if amounts.refunded_cents %}<div><dt>Refunded</dt><dd>${{ amounts.refunded|floatformat:2 }}</dd></div>{% endif %}
 <div><dt>Balance remaining</dt><dd>${{ amounts.outstanding|floatformat:2 }}</dd></div></dl>
-{% if ready %}<form method="post">{% csrf_token %}<button class="primary" type="submit">Pay ${{ due|floatformat:2 }} in test checkout</button></form>
-<p class="muted">Payment confirmation appears here after verification. Returning from checkout alone does not confirm payment.</p>
-{% elif amounts.outstanding_cents == 0 %}<p class="notice">Payment has been verified.</p>
-{% else %}<p class="notice">Online checkout is unavailable. Please contact the studio.</p>{% endif %}
+{% if ready %}
+{% if confirmed and amounts.net_cents > 0 %}<p class="muted">{% if balance_due_today %}Your remaining balance is due. Your reservation is confirmed.{% else %}Paying the remaining balance now is optional. Your reservation is already confirmed. The balance is due on {% timezone item.snapshot.timezone %}{{ item.starts_at|date:"M j, Y" }}{% endtimezone %}.{% endif %}</p>{% endif %}
+<form method="post">{% csrf_token %}{% include 'scheduling/payment_choice.html' %}<button class="{% if confirmed and amounts.net_cents > 0 %}secondary{% else %}primary{% endif %}" type="submit">{% if payment_has_choice or payment_active_amount %}Continue to payment{% else %}{% if deposit_due %}Pay deposit{% elif amounts.net_cents > 0 %}Pay remaining balance{% else %}Pay total{% endif %}: ${{ due|floatformat:2 }}{% endif %}</button></form>
+{% elif amounts.outstanding_cents > 0 and item.state != 'canceled' and item.state != 'review' %}<p class="notice">Online payment is unavailable. Please contact the studio about the remaining balance.</p>{% endif %}
 {% include 'scheduling/occurrences.html' %}
+</section>
 {% endblock %}

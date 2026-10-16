@@ -13,7 +13,13 @@ class PaymentAccount(models.Model):
         CONNECTED = "connected", "Connected test merchant"
         PLATFORM_DEMO = "platform_demo", "Pontora shared sandbox (demos only)"
 
+    class Provider(models.TextChoices):
+        STRIPE = "stripe", "Stripe"
+        SQUARE = "square", "Square"
+
     school = models.ForeignKey("core.School", on_delete=models.PROTECT)
+    provider = models.CharField(max_length=8, choices=Provider.choices, default=Provider.STRIPE)
+    location_reference = models.CharField(max_length=100, blank=True)
     reference = models.CharField(max_length=100)
     scope = models.CharField(max_length=16, choices=Scope.choices, default=Scope.CONNECTED)
     environment = models.CharField(max_length=8, default="test")
@@ -24,7 +30,8 @@ class PaymentAccount(models.Model):
             models.CheckConstraint(condition=Q(environment="test"), name="payment_account_test_only"),
             models.CheckConstraint(condition=Q(scope__in=["connected", "platform_demo"]), name="payment_account_scope_valid"),
             models.UniqueConstraint(fields=["reference"], condition=Q(scope="connected"), name="payment_connected_reference_unique"),
-            models.UniqueConstraint(fields=["school", "environment"], name="payment_account_school_unique"),
+            models.UniqueConstraint(fields=["school", "environment", "provider"], name="payment_account_school_provider_unique"),
+            models.CheckConstraint(condition=Q(provider="stripe", location_reference="") | (Q(provider="square", scope="platform_demo") & ~Q(location_reference="")), name="payment_provider_binding_valid"),
         ]
 
 
@@ -71,7 +78,7 @@ class LedgerEntry(models.Model):
     kind = models.CharField(max_length=8, choices=[("payment", "Offline payment"), ("refund", "Offline refund")])
     amount_cents = models.PositiveIntegerField()
     reference = models.CharField(max_length=100)
-    channel = models.CharField(max_length=8, default="offline", choices=[("offline", "Offline"), ("stripe", "Stripe")])
+    channel = models.CharField(max_length=8, default="offline", choices=[("offline", "Offline"), ("stripe", "Stripe"), ("square", "Square")])
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -82,7 +89,7 @@ class LedgerEntry(models.Model):
             models.CheckConstraint(condition=Q(kind__in=["payment", "refund"]), name="payment_entry_kind_valid"),
             models.CheckConstraint(condition=Q(environment__in=["test", "live"]), name="payment_entry_environment_valid"),
             models.CheckConstraint(condition=Q(amount_cents__gt=0, amount_cents__lte=99999999), name="payment_entry_amount_valid"),
-            models.CheckConstraint(condition=Q(channel="offline", actor__isnull=False) | Q(channel="stripe", actor__isnull=True), name="payment_entry_source_valid"),
+            models.CheckConstraint(condition=Q(channel="offline", actor__isnull=False) | Q(channel__in=["stripe", "square"], actor__isnull=True), name="payment_entry_source_valid"),
         ]
 
     @property
@@ -125,6 +132,7 @@ class PaymentAttempt(RecoveryRecord):
     created_at = models.DateTimeField(auto_now_add=True)
     entry = models.OneToOneField(LedgerEntry, null=True, on_delete=models.PROTECT)
     close_requested = models.BooleanField(default=False)
+    submitted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         constraints = [

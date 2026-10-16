@@ -15,7 +15,7 @@
 <section class="party-preparation"><h2>Preparation &amp; pricing proposal</h2><dl class="details">
 <div><dt>Proposed room</dt><dd>{{ item.room.name|default:"Not assigned" }}</dd></div>
 <div><dt>Proposed total</dt><dd>{% if item.proposed_total != None %}${{ item.proposed_total }} USD{% else %}Not set{% endif %}</dd></div>
-<div><dt>Proposed deposit</dt><dd>{% if item.proposed_deposit != None %}${{ item.proposed_deposit }} USD{% else %}Not set{% endif %}</dd></div>
+<div><dt>Payment at booking</dt><dd>{% if item.proposed_deposit %}${{ item.proposed_deposit }} deposit per reservation{% elif item.proposed_total != None %}Full payment{% else %}Not set{% endif %}</dd></div>
 <div><dt>Proposed balance</dt><dd>{% if item.proposed_balance != None %}${{ item.proposed_balance }} USD{% else %}Not set{% endif %}</dd></div>
 <div><dt>Internal notes</dt><dd>{{ item.preparation_notes|default:"None"|linebreaksbr }}</dd></div>
 <div><dt>Materials</dt><dd>{% for row in item.materials %}{{ row.quantity }} &times; {{ row.name }}{% if not forloop.last %}<br>{% endif %}{% empty %}Not selected{% endfor %}</dd></div>
@@ -28,7 +28,7 @@
 {% else %}<p class="muted">No overlapping published sessions or assigned/private-room inquiries found here. This does not verify external calendars or reserve the room.</p>{% endif %}{% endif %}
 </section></section>
 {% if can_edit_sessions and not item.reservation %}<section><h2>Staff review</h2>{% if form.errors %}<p><a href="{% url 'scheduling:party_detail' school_slug=business.slug public_id=item.public_id %}">Open saved review</a></p>{% endif %}<form method="post" class="setup-form">{% csrf_token %}{{ form.non_field_errors }}{{ form.revision }}{{ form.revision.errors }}
-{% for field in form.visible_fields %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+{% for field in form.visible_fields %}<div class="form-field"{% if field.name == 'proposed_deposit' %} data-booking-deposit{% endif %}>{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
 {% include 'scheduling/party_materials.html' %}
 <button class="primary" type="submit">Save review</button>
 </form></section>{% endif %}

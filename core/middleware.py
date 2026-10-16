@@ -112,6 +112,13 @@ class SchoolAdminRedirectMiddleware:
             return None
         if "/admin/" in request.path or getattr(request.user, "is_superuser", False):
             return None
+        match = request.resolver_match
+        if match and match.namespace == "scheduling" and match.url_name in {
+            "school_billing", "school_billing_checkout", "school_billing_portal",
+        }:
+            # Shared billing views enforce school/owner access and must remain
+            # reachable when the subscription is suspended.
+            return None
         from core.models import School
         school = School.objects.filter(slug=slug).first()
         if school and school.is_payment_access_expired:

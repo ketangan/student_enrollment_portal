@@ -78,9 +78,11 @@ def test_customer_deposit_and_balance_signed_events_do_not_change_school(invento
     url = path(booking_member, "customer_payment", token=token)
     assert customer_reservation(school.slug, token).pk == item.pk
     page = client.get(url)
-    assert page.status_code == 200 and b"Pay $25.00" in page.content
+    assert page.status_code == 200 and b"Pay deposit: $25.00" in page.content
     assert b"Sandbox only. No real payment" not in page.content
-    assert b"Returning from checkout alone does not confirm payment" in page.content
+    assert b"Returning from checkout alone does not confirm payment" not in page.content
+    assert b"Back to workshops" in page.content
+    assert b"Back to reservation" not in page.content
     assert page["Referrer-Policy"] == "same-origin"
     assert b"Sign out" not in page.content and b"Team access" not in page.content
     gateway_call = MagicMock(side_effect=session_for)
@@ -99,18 +101,43 @@ def test_customer_deposit_and_balance_signed_events_do_not_change_school(invento
     assert post_event(client, settings, event).status_code == 200
     assert LedgerEntry.objects.count() == ProviderEventReceipt.objects.count() == 1
     item.refresh_from_db()
-    assert item.state == "confirmed" and b"Pay $75.00" in client.get(url).content
+    confirmed_page = client.get(url)
+    assert item.state == "confirmed" and b"Pay remaining balance: $75.00" in confirmed_page.content
+    assert b"Your reservation is confirmed." in confirmed_page.content
+    assert b"Paying the remaining balance now is optional." in confirmed_page.content
     assert client.post(url).status_code == 302
     balance = PaymentAttempt.objects.order_by("pk").last()
     assert balance.amount_cents == 7500
     assert post_event(client, settings, event_for(balance)).status_code == 200
-    assert b"Payment has been verified" in client.get(url).content
+    assert b"Paid in full" in client.get(url).content
     assert service.totals(item.order)["net_cents"] == 10000
     assert checkout.open_checkout(balance) == ""
     school.refresh_from_db()
     assert (school.plan, school.is_active, school.stripe_customer_id, school.stripe_subscription_id) == before
     assert not Submission.objects.exists()
     assert LedgerEntry.objects.filter(channel="stripe", actor=None).count() == 2
+
+
+def test_payment_return_navigation_requires_workspace_access(inventory, merchant, booking_member, client, django_user_model):
+    item = online(booking_member, workshop_request(inventory))
+    url = path(booking_member, "customer_payment", token=payment_token(item))
+    detail = path(booking_member, "reservation_detail", public_id=item.public_id)
+    client.force_login(booking_member.user)
+    assert f'href="{detail}"'.encode() in client.get(url).content
+    other = django_user_model.objects.create_user(username="other-payment-viewer")
+    client.force_login(other)
+    assert b"Back to reservation" not in client.get(url).content
+    assert client.get(detail).status_code == 404
+
+
+@pytest.mark.parametrize("state,heading", [("canceled", "Reservation canceled"), ("review", "Reservation needs review")])
+def test_payment_return_never_claims_canceled_or_review_booking_is_confirmed(inventory, merchant, booking_member, client, state, heading):
+    item = online(booking_member, workshop_request(inventory))
+    Reservation.objects.filter(pk=item.pk).update(state=state)
+    page = client.get(path(booking_member, "customer_payment", token=payment_token(item)))
+    assert heading.encode() in page.content
+    assert b"Your reservation is confirmed" not in page.content
+    assert b"Pay deposit:" not in page.content
 
 
 def test_transport_uses_explicit_account_card_only_and_stable_key(inventory, merchant, booking_member, monkeypatch):
@@ -358,7 +385,7 @@ def test_unavailable_customer_checkout_never_calls_stripe(inventory, merchant, b
     call=MagicMock()
     monkeypatch.setattr(gateway,"create_order_checkout",call)
     url=path(booking_member,"customer_payment",token=payment_token(item))
-    assert b'>Pay $' not in client.get(url).content
+    assert b'Pay deposit:' not in client.get(url).content
     response=client.post(url)
     assert response.status_code==400 and not call.called and not PaymentAttempt.objects.exists()
 
@@ -380,7 +407,7 @@ def test_paused_intake_preserves_confirmed_balance_checkout(inventory, merchant,
     call = MagicMock(side_effect=session_for)
     monkeypatch.setattr(gateway, "create_order_checkout", call)
     url = path(booking_member, "customer_payment", token=payment_token(item))
-    assert f"Pay ${balance_cents / 100:.2f}".encode() in client.get(url).content
+    assert f"Pay remaining balance: ${balance_cents / 100:.2f}".encode() in client.get(url).content
     assert client.post(url).status_code == 302
     assert client.post(url).status_code == 302
     assert call.call_count == 1
@@ -391,10 +418,10 @@ def test_paused_intake_preserves_confirmed_balance_checkout(inventory, merchant,
     assert post_event(client, settings, event).status_code == 200
     assert service.totals(item.order)["outstanding_cents"] == 0
     assert item.order.entries.count() == 2
-    assert b"Payment has been verified" in client.get(url).content
+    assert b"Paid in full" in client.get(url).content
 
 
-@pytest.mark.parametrize("blocked", ["merchant_disabled", "wrong_account", "profile_disabled", "canceled", "review", "cutoff", "no_key"])
+@pytest.mark.parametrize("blocked", ["merchant_disabled", "wrong_account", "profile_disabled", "canceled", "review", "no_key"])
 def test_confirmed_balance_still_enforces_payment_safety(inventory, merchant, booking_member, client, monkeypatch, settings, blocked):
     item = online(booking_member, workshop_request(inventory))
     settle_booking_event(event_for(prepare(item)))
@@ -409,8 +436,6 @@ def test_confirmed_balance_still_enforces_payment_safety(inventory, merchant, bo
         inventory[0].save()
     elif blocked in ("canceled", "review"):
         Reservation.objects.filter(pk=item.pk).update(state=blocked)
-    elif blocked == "cutoff":
-        Reservation.objects.filter(pk=item.pk).update(starts_at=timezone.now() + timedelta(minutes=39))
     else:
         settings.PAYMENTS_STRIPE_TEST_SECRET_KEY = ""
     call = MagicMock()

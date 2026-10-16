@@ -68,7 +68,7 @@ def test_customer_footer_returns_to_options_from_every_booking_step(demo, browse
     handoff = browser.get(checkout.url)
     assert browser.post(checkout.url, {"action": "complete"}).status_code == 302
     confirmation = browser.get(checkout.url)
-    link = f'<a href="{reverse("booking_integration_preview")}" target="_top">Back to demo options</a>'
+    link = f'<a href="{reverse("booking_integration_preview")}" target="_top">Back to booking options</a>'
     html = SimpleTestCase()
     for response in (start, choice, review, handoff, confirmation):
         assert response.status_code == 200
@@ -269,7 +269,7 @@ def held(browser, demo, count=2):
     assert review.status_code == 200
     assert review.context["total"] == 65*count
     assert b"This demo charges nothing" not in review.content
-    assert b"Demo checkout. No payment is collected." in review.content
+    assert b"Continue to checkout <" in review.content
     data.update(action="checkout", review_token=review.context["review_token"])
     result = browser.post(url("choose", pk=session.pk), data)
     assert result.status_code == 302
@@ -330,7 +330,7 @@ def test_customer_mock_presentation_preserves_review_and_confirmation_contract(d
     assert b"Your plushie day is on the calendar!" in response.content
     assert len(confirmation.find("article", **{"class": "review-person"})) == 2
     assert confirmation.find("img", **{"class": "workshop-photo"})[0]["src"]
-    assert b"Confirmation email preview (not sent)" in response.content
+    assert b"Confirmation email preview" not in response.content
     assert b"Next: Notion preparation sync" not in response.content
 
 
@@ -470,7 +470,7 @@ def test_pausing_intake_keeps_existing_checkout_receipt_and_staff_views(demo, br
     with pytest.raises(Http404):
         service.begin(demo, item.session, QueryDict(), item.browser_digest, config.configuration(SLUG))
     assert browser.post(url("booking", public_id=item.public_id), {"action": "complete"}).status_code == 302
-    assert b"Demo booking confirmed" in browser.get(url("booking", public_id=item.public_id)).content
+    assert b"Booking confirmed" in browser.get(url("booking", public_id=item.public_id)).content
     assert browser.get(url("calendar", public_id=item.public_id)).status_code == 200
     browser.force_login(get_user_model().objects.get(username="plushie_admin"))
     assert browser.get(url("preparation")).context["selected"].pk == item.session_id
@@ -563,7 +563,9 @@ def test_complete_customer_staff_and_projection_journey(demo, browser):
     assert b"No real money is collected" not in start.content
     item = confirmed(browser, demo)
     receipt = browser.get(url("booking", public_id=item.public_id))
-    assert b"Demo booking confirmed" in receipt.content and b"not sent" in receipt.content
+    assert b"Booking confirmed" in receipt.content
+    assert b"Demo booking confirmed" not in receipt.content
+    assert b"Confirmation email preview" not in receipt.content
     assert b"Saved locally after simulated checkout" not in receipt.content
     assert receipt["Referrer-Policy"] == "same-origin" and "no-store" in receipt["Cache-Control"]
     calendar = browser.get(url("calendar", public_id=item.public_id))

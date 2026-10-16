@@ -1,0 +1,21 @@
+.square-checkout { max-width: 520px; margin: 24px auto; }
+.payment-summary { max-width: 680px; margin: 24px auto; }
+.payment-summary .section-heading { margin: 24px 0 12px; align-items: center; gap: 12px; flex-wrap: wrap; }
+.payment-summary h1 { margin: 0; font-size: 28px; }
+.payment-summary h2 { margin: 0; font-size: 18px; }
+.payment-summary .details { margin: 24px 0; }
+.payment-summary .details > div { grid-template-columns: minmax(0, 1fr) auto; gap: 16px; }
+.payment-summary .details dd { text-align: right; font-variant-numeric: tabular-nums; }
+.payment-summary .payment-received { color: #187347; font-weight: 600; }
+.payment-summary button { min-height: 44px; }
+@media (max-width: 480px) { .payment-summary button { width: 100%; } }
+.square-checkout h1 { margin: 24px 0 8px; }
+.square-amounts { margin: 24px 0; border-block: 1px solid var(--border, #dfe3e8); padding: 16px 0; }
+.square-amounts > div { display: flex; justify-content: space-between; gap: 16px; padding: 6px 0; }
+.square-amounts dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.square-due { font-size: 20px; font-weight: 700; }
+.square-checkout button { width: 100%; min-height: 44px; margin-top: 16px; }
+.square-checkout form[hidden] { display: none; }
+.square-test-cards { margin-top: 24px; }
+.square-test-cards summary { cursor: pointer; }
+#square-status { min-height: 24px; overflow-wrap: anywhere; }

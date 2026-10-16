@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: October 14, 2026.
+Updated: October 16, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -8,6 +8,48 @@ Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 This Markdown file remains the source of truth; the viewer does not edit milestone status.
 
 ## Current Status
+
+### Plushie Launch Work Summary (October 16)
+
+Status here distinguishes implementation, customer decisions, and deployment. Local
+completion is not production acceptance. Earlier milestone notes remain historical.
+
+| Work item | Current status | Remaining work |
+| --- | --- | --- |
+| Configurable deposits, full-payment choice and later balance collection | **Done locally to the agreed scope; awaiting Jasmine's final inputs.** Ketan accepted customer success/decline behavior. Workshop deposits are per participant; party deposits are per reservation. Customers can pay the deposit or full amount; staff can initiate online balance collection from the reservation. | Confirm actual deposit amounts/policies and final customer journey with Jasmine; configure and verify those rules before launch. Deployment remains pending. |
+| Customer payment copy and workshop settings presentation | **Done locally.** Removed the redundant Deposit option row and repetitive demo/test checkout wording; preserved deposit/full-payment behavior and sandbox safeguards. | Jasmine's requested customer-journey changes, if any. |
+| Configurable Stripe/Square booking provider | **Implemented and tested locally in sandbox.** Superadmin-controlled; existing orders and refunds retain their original provider. | Hosted sandbox webhook delivery/retry verification; production merchant connection and launch acceptance. |
+| Live Square merchant connection | **Not complete; launch blocker for real Square payments.** | OAuth/token lifecycle, Jasmine's account authorization, confirmed account/location mapping, and live payment/refund/reconciliation checks. Do not treat sandbox credentials as production setup. |
+| Negotiated Pontora subscription pricing | **Deployed October 14 (P03).** Supports agreed base/location prices and next-renewal price changes without proration. | Configure the client's agreed live prices and location quantities; notify them of later billing changes. Pontora subscriptions remain on Stripe. |
+| Final workshop/customer journey and studio policies | **Awaiting Jasmine.** | Apply her confirmed workflow, booking/deposit/cancellation rules and production content, then obtain acceptance. Existing local behavior is not approval of those rules. |
+| Superadmin-only creation of additional locations | **Deferred; not a go-live blocker.** | Restrict operational location creation separately from the already implemented subscription billing quantities. |
+| Separate production and demo databases | **Deferred; not a go-live blocker.** | Plan and test the split. Until then retain existing demo/production isolation safeguards; shared storage is not physical separation. |
+| One school using both enrollment and scheduling | **Deferred; not a go-live blocker.** | Configure a combined local test school and verify navigation, permissions, billing and workflows together. |
+
+Deposit/payment verification: 2,008 backend and 53 JavaScript tests passed before
+the copy-only cleanup; real Square sandbox deposit, balance decline/retry and
+full-payment journeys were checked. For the copy cleanup, 249 of 250 focused tests
+passed, then the remaining obsolete test-card-copy assertion was corrected and all
+24 Stripe experience tests passed on rerun. Desktop and 390px mobile review layouts
+were checked. No payment behavior was changed by the copy cleanup.
+
+Next independent release work: prepare and verify the hosted Square sandbox
+webhook configuration and delivery/recovery checks, with deployment approval.
+Terminal/device payment reconciliation and automated emailed payment links remain
+deferred; the completed balance feature is online collection from the reservation.
+
+- **Square booking payments: local sandbox implementation, not deployed.**
+  Superadmin provider selection lives on the existing Ops school page. New booking
+  orders select Stripe or Square; existing orders/refunds retain their account.
+  Real Square sandbox card success, decline, retry and refund after switching
+  providers verified. Enrollment fees and Pontora subscriptions stay Stripe;
+  no SBMC or Render configuration changed. Full regression: 4,010 passed;
+  follow-up payment regression: 236 passed; JavaScript: 52 passed. All three new
+  Square payment/settings modules exceed 90% measured statement/branch coverage.
+  Three migrations (`payments.0005`, `scheduling.0024`, `scheduling.0025`) remain local;
+  the last adds the workshop deposit setting with full payment as the default.
+  Hosted webhook delivery and Jasmine-owned live OAuth/location setup are launch
+  gates, not completed features. [Scope, setup and release gates](square-booking-payments.md).
 
 - **P03 / school-specific subscription pricing: deployed October 14, 2026.**
   Release `0302149` passed pre-merge CI and is live on the existing Render service. Additive

@@ -1,0 +1,9 @@
+.booking-payment-choice { border: 0; padding: 0; margin: 20px 0; min-width: 0; }
+.booking-payment-choice legend { font-size: 16px; font-weight: 600; padding: 0; margin-bottom: 12px; }
+.booking-payment-choice label { display: flex; align-items: center; gap: 12px; border: 1px solid var(--border, #dfe3e8); border-radius: 6px; padding: 14px; margin: 8px 0; cursor: pointer; }
+.booking-payment-choice label:has(input:checked) { border-color: currentColor; background: var(--surface, #f8faf9); }
+.booking-payment-choice input[type=radio] { appearance: auto; width: 18px; height: 18px; min-height: 18px; margin: 0; padding: 0; flex: 0 0 18px; accent-color: currentColor; }
+.booking-payment-choice span { min-width: 0; }
+.booking-payment-choice strong, .booking-payment-choice small { display: block; }
+.booking-payment-choice small { margin-top: 4px; font-size: 13px; font-weight: 400; }
+.booking-payment-choice label:focus-within { outline: 2px solid currentColor; outline-offset: 2px; }

@@ -179,13 +179,20 @@ def create_reservation(user, slug, kind, public_id, total_cents=None, deposit_ce
     return item
 
 
+def workshop_quote(offering, unit_price_cents, quantity):
+    deposit = int(offering.deposit_per_participant * 100)
+    if deposit and (deposit < 50 or deposit > unit_price_cents - 50):
+        raise ValidationError("This workshop's deposit needs updating. Please contact the studio.")
+    return unit_price_cents * quantity, deposit * quantity
+
+
 def booking_account(profile, online):
     if not online:
         return None
-    from core.services.billing_stripe import merchant_test_checkout_ready
-    account = PaymentAccount.objects.filter(school=profile.school, enabled=True, environment="test").first()
-    if not account or not merchant_test_checkout_ready():
-        raise ValidationError("Stripe sandbox is not connected. Use offline test records for now.")
+    from core.payments.providers import ready
+    account = PaymentAccount.objects.filter(school=profile.school, provider=profile.payment_provider, enabled=True, environment="test").first()
+    if not account or not ready(account):
+        raise ValidationError("Payment sandbox is not connected. Use offline test records for now.")
     return account
 
 

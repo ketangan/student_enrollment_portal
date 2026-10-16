@@ -39,7 +39,7 @@ def workspace_navigation(context):
         settings.append(link("integrations", "Integrations", "integrations"))
     if context.get("can_manage_billing"):
         settings.append({"key": "billing", "label": "Billing",
-                         "url": reverse("school_billing", kwargs={"school_slug": slug})})
+                         "url": reverse("scheduling:school_billing", kwargs={"school_slug": slug})})
 
     # Legacy request detail links still work, but requests are not a menu item.
     if active in {"requests", "preparation"}:

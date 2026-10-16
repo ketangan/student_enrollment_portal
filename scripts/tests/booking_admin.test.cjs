@@ -20,7 +20,7 @@ function element() {
   };
 }
 
-function page({saved = null, blocked = false, chooser = false, noAccount = false, dashboard = false, icons = false} = {}) {
+function page({saved = null, blocked = false, chooser = false, noAccount = false, dashboard = false, icons = false, payment = null} = {}) {
   const document = element();
   document.body = element();
   const summary = element();
@@ -35,6 +35,7 @@ function page({saved = null, blocked = false, chooser = false, noAccount = false
   if (chooser) { delete nodes['booking-nav']; delete nodes['booking-nav-toggle']; }
   if (noAccount) { delete nodes['booking-account']; delete nodes['booking-theme']; }
   document.getElementById = id => nodes[id] || null;
+  document.querySelectorAll = () => payment ? [payment] : [];
   const media = element();
   const storage = {
     saved,
@@ -91,4 +92,25 @@ test('Dashboard location change submits the GET form once without changing the a
 
 test('available local icons render without requiring a remote library', () => {
   assert.equal(page({icons: true}).document.iconsRendered, true);
+});
+
+test('deposit field is required only when collecting a deposit and preserves its value', () => {
+  const payment = element(), row = element(), input = element();
+  input.value = '25.00';
+  row.querySelector = () => input;
+  payment.form = {querySelector: () => row};
+  payment.value = 'full';
+  page({payment});
+  assert.equal(row.hidden, true);
+  assert.equal(input.disabled, true);
+  assert.equal(input.required, false);
+  payment.value = 'deposit';
+  payment.listeners.change();
+  assert.equal(row.hidden, false);
+  assert.equal(input.disabled, false);
+  assert.equal(input.required, true);
+  assert.equal(input.value, '25.00');
+  payment.value = 'full';
+  payment.listeners.change();
+  assert.equal(input.disabled, true);
 });
