@@ -48,7 +48,14 @@ def build_form(profile, kind, data=None, pk=None, offering_pk=None):
         with timezone.override(ZoneInfo(offering.location.timezone_name)):
             form = WorkshopSessionForm(data, instance=instance, offering=offering)
     else:
-        form = FORMS[kind](data, instance=instance, profile=profile)
+        options = {}
+        if kind == "workshops":
+            from .experience_demo.config import configuration
+            try:
+                options["unit_price_cents"] = configuration(profile.school.slug)["price_cents"]
+            except Http404:
+                pass
+        form = FORMS[kind](data, instance=instance, profile=profile, **options)
     return protect_edit(form, profile)
 
 

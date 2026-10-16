@@ -6,7 +6,7 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from core.models import School
-from core.services import billing_stripe as gateway
+from .providers import gateway
 from .checkout import validate_account
 from .models import LedgerEntry, PaymentAttempt, PaymentOrder, Refund
 from . import recovery
@@ -49,7 +49,8 @@ def apply_snapshot(refund, snapshot):
             or metadata.get("payment_refund") != str(refund.public_id)
             or metadata.get("payment_order") != str(order.public_id)
             or snapshot.get("status") not in {"pending", "requires_action", "succeeded", "failed", "canceled"}
-            or not isinstance(snapshot.get("id"), str) or not snapshot["id"].startswith("re_") or len(snapshot["id"]) > 100
+            or not isinstance(snapshot.get("id"), str) or not snapshot["id"] or len(snapshot["id"]) > 100
+            or (order.account.provider == "stripe" and not snapshot["id"].startswith("re_"))
             or (refund.provider_refund and refund.provider_refund != snapshot["id"])):
         raise ValidationError("Refund does not match its approved payment, amount or identity.")
     if Refund.objects.filter(provider_refund=snapshot["id"]).exclude(pk=refund.pk).exists():
@@ -61,7 +62,7 @@ def apply_snapshot(refund, snapshot):
     refund.provider_refund, refund.state = snapshot["id"], snapshot["status"]
     if refund.state == "succeeded" and not refund.entry_id:
         refund.entry = LedgerEntry.objects.create(order=order, school_id=order.school_id, environment="test",
-            key=refund.public_id, kind="refund", channel="stripe", amount_cents=refund.amount_cents, reference=snapshot["id"])
+            key=refund.public_id, kind="refund", channel=order.account.provider, amount_cents=refund.amount_cents, reference=snapshot["id"])
     refund.save(update_fields=["provider_refund", "state", "entry"])
     return refund
 
@@ -74,10 +75,10 @@ def process(refund, *, force=False):
         if current.state not in Refund.ACTIVE:
             return
         if not current.submitted_at:
-            # Commit uncertainty BEFORE calling Stripe. A crash never authorizes a second create.
+            # Commit uncertainty BEFORE contacting the provider. Never create twice after a crash.
             Refund.objects.filter(pk=current.pk).update(submitted_at=timezone.now(), state="unknown")
-            snapshot = gateway.create_order_refund(current)
+            snapshot = gateway(current.attempt.account).create_order_refund(current)
         else:
-            snapshot = gateway.retrieve_order_refund(current)
+            snapshot = gateway(current.attempt.account).retrieve_order_refund(current)
         apply_snapshot(current, snapshot)
     return recovery.run(refund, operation, force=force)

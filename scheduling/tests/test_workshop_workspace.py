@@ -46,6 +46,12 @@ def test_materials_catalog_required_and_removed_controls_not_postable(stock):
     target = url(s, "workshop_edit", pk=s.offering.pk)
     page = s.client.get(target)
     form = page.context["form"]
+    assert b'<h1>Edit workshop</h1>' in page.content
+    assert b'<h1>Setup</h1>' not in page.content
+    assert b'<legend>Workshop details</legend>' in page.content
+    assert b'<legend>Booking payments</legend>' in page.content
+    assert b'workshop-settings-form' in page.content
+    assert b'data-booking-deposit' in page.content
     assert form.fields["inventory_catalog"].required
     assert form.fields["inventory_catalog"].label == "Catalog"
     assert not {"accepts_requests", "accepts_party_requests"} & form.fields.keys()

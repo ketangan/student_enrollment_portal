@@ -1,4 +1,5 @@
 from datetime import timedelta, timezone as datetime_timezone
+from decimal import Decimal
 from zoneinfo import available_timezones
 
 from django import forms
@@ -36,14 +37,21 @@ class RoomForm(forms.ModelForm):
 
 
 class OfferingForm(forms.ModelForm):
+    payment_at_booking = forms.ChoiceField(label="Payment at booking", required=False,
+        choices=[("full", "Full payment"), ("deposit", "Deposit")])
+
     class Meta:
         model = Offering
-        fields = ["name", "location", "description", "inventory_catalog"]
-        labels = {"name": "Workshop name", "inventory_catalog": "Catalog"}
+        fields = ["name", "location", "description", "inventory_catalog", "payment_at_booking", "deposit_per_participant"]
+        labels = {"name": "Workshop name", "inventory_catalog": "Catalog",
+                  "deposit_per_participant": "Deposit per participant (USD)"}
         widgets = {"description": forms.Textarea(attrs={"rows": 4})}
 
-    def __init__(self, *args, profile, **kwargs):
+    def __init__(self, *args, profile, unit_price_cents=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.unit_price_cents = unit_price_cents
+        self.initial["payment_at_booking"] = "deposit" if self.instance.deposit_per_participant else "full"
+        self.fields["deposit_per_participant"].required = False
         self.fields["location"].queryset = Location.objects.filter(profile=profile)
         self.fields["location"].disabled = bool(self.instance.pk)
         if not has_capability(profile, "parties"):
@@ -59,6 +67,21 @@ class OfferingForm(forms.ModelForm):
             del self.fields["inventory_catalog"]
         else:
             self.fields["inventory_catalog"].required = True
+
+    def clean(self):
+        data = super().clean()
+        if "payment_at_booking" not in self.data and "deposit_per_participant" not in self.data:
+            data["deposit_per_participant"] = self.instance.deposit_per_participant
+            return data
+        if data.get("payment_at_booking") == "full":
+            data["deposit_per_participant"] = Decimal(0)
+        else:
+            deposit = data.get("deposit_per_participant")
+            if deposit is None or deposit < Decimal("0.50"):
+                self.add_error("deposit_per_participant", "Enter a deposit of at least $0.50 per participant.")
+            elif self.unit_price_cents is not None and int(deposit * 100) > self.unit_price_cents - 50:
+                self.add_error("deposit_per_participant", "The deposit must leave at least $0.50 per participant to pay later. Choose full payment instead.")
+        return data
 
 
 class SessionForm(forms.ModelForm):

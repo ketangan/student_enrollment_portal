@@ -97,7 +97,9 @@ def reservation_create(request, school_slug, kind, public_id):
     else:
         from .models import WorkshopRequest
         source = get_object_or_404(WorkshopRequest, public_id=public_id, session__offering__location__profile=profile)
+        initial["deposit"] = source.session.offering.deposit_per_participant * source.participants.count()
     form = QuoteForm(request.POST if request.method == "POST" else None, initial=initial)
+    form.fields["online"].label = f"Use {profile.get_payment_provider_display()} sandbox checkout"
     if kind == "party":
         form.fields["total"].disabled = form.fields["deposit"].disabled = True
         form.fields["source_revision"].required = True

@@ -158,7 +158,7 @@ def test_failed_test_payment_is_not_enrollment_or_subscription_failure(shared_de
 def test_invalid_shared_account_scope_rejected(settings, scope, reference, is_demo):
     settings.PAYMENTS_STRIPE_TEST_ACCOUNT_ID = "acct_expected"
     with pytest.raises(ValidationError):
-        accounts.validate_scope(SimpleNamespace(scope=scope, reference=reference, school=SimpleNamespace(is_demo=is_demo)))
+        accounts.validate_scope(SimpleNamespace(provider="stripe", scope=scope, reference=reference, school=SimpleNamespace(is_demo=is_demo)))
 
 
 def test_gateway_rejects_wrong_sandbox_account_and_unknown_scope(settings):

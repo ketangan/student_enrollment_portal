@@ -7,6 +7,55 @@ from core.models import School
 
 
 @pytest.mark.django_db(transaction=True)
+def test_square_and_deposit_upgrade_preserves_existing_stripe_payments():
+    import uuid
+    from django.utils import timezone
+
+    executor = MigrationExecutor(connection)
+    latest = executor.loader.graph.leaf_nodes()
+    old = [("payments", "0004_paymentaccount_scope_alter_paymentaccount_reference_and_more"),
+           ("scheduling", "0023_catalogvariant_image_url_and_more")]
+    try:
+        executor.migrate(old)
+        apps = executor.loader.project_state(old).apps
+        school = apps.get_model("core", "School").objects.create(slug="payment-upgrade", plan="custom")
+        profile = apps.get_model("scheduling", "SchedulingProfile").objects.create(school=school, enabled=True)
+        location = apps.get_model("scheduling", "Location").objects.create(profile=profile, name="Studio")
+        offering = apps.get_model("scheduling", "Offering").objects.create(location=location, name="Workshop")
+        account = apps.get_model("payments", "PaymentAccount").objects.create(
+            school=school, reference="acct_migration_test", enabled=True)
+        order = apps.get_model("payments", "PaymentOrder").objects.create(
+            school=school, account=account, purpose="booking", source_key="existing",
+            merchant_reference=account.reference, total_cents=6500, deposit_cents=2500,
+            description="Existing reservation")
+        entry = apps.get_model("payments", "LedgerEntry").objects.create(
+            order=order, school=school, environment="test", key=uuid.uuid4(), kind="payment",
+            channel="stripe", amount_cents=2500, reference="pi_migration_test")
+        attempt = apps.get_model("payments", "PaymentAttempt").objects.create(
+            order=order, account=account, amount_cents=2500, state="paid", entry=entry,
+            provider_session="cs_test_migration", provider_intent=entry.reference,
+            expires_at=timezone.now(), success_url="https://example.invalid/return",
+            cancel_url="https://example.invalid/return")
+        MigrationExecutor(connection).migrate(latest)
+        from core.payments.models import PaymentAccount, PaymentAttempt, PaymentOrder, LedgerEntry
+        from scheduling.models import SchedulingProfile, Offering
+        saved_account = PaymentAccount.objects.get(pk=account.pk)
+        saved_order = PaymentOrder.objects.get(pk=order.pk)
+        saved_attempt = PaymentAttempt.objects.get(pk=attempt.pk)
+        saved_entry = LedgerEntry.objects.get(pk=entry.pk)
+        assert (saved_account.provider, saved_account.reference, saved_account.location_reference,
+                saved_account.enabled) == ("stripe", account.reference, "", True)
+        assert (saved_order.account_id, saved_order.total_cents, saved_order.deposit_cents) == (account.pk, 6500, 2500)
+        assert (saved_attempt.state, saved_attempt.entry_id, saved_attempt.submitted_at) == ("paid", entry.pk, None)
+        assert (saved_entry.channel, saved_entry.amount_cents, saved_entry.reference) == ("stripe", 2500, entry.reference)
+        assert SchedulingProfile.objects.get(pk=profile.pk).payment_provider == "stripe"
+        assert Offering.objects.get(pk=offering.pk).deposit_per_participant == 0
+        assert School.objects.get(pk=school.pk).plan == "custom"
+    finally:
+        MigrationExecutor(connection).migrate(latest)
+
+
+@pytest.mark.django_db(transaction=True)
 def test_message_migration_does_not_queue_historical_confirmations():
     from datetime import date, time
     import uuid

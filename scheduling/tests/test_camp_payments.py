@@ -33,7 +33,7 @@ def test_camp_customer_deposit_balance_refund_share_existing_module(camp, mercha
     school = booking_member.profile.school
     before = (school.plan, school.stripe_customer_id, school.stripe_subscription_id)
     monkeypatch.setattr(gateway, "create_order_checkout", session_for)
-    assert b"Pay $50.02" in client.get(payment_url).content
+    assert b"Pay deposit: $50.02" in client.get(payment_url).content
     assert b"Camp dates" in client.get(payment_url).content
     assert client.post(payment_url).status_code == 302
     attempt = item.order.attempts.get()
@@ -45,7 +45,7 @@ def test_camp_customer_deposit_balance_refund_share_existing_module(camp, mercha
     assert item.state == "confirmed" and LedgerEntry.objects.count() == 1
     booking_member.profile.native_reservations_enabled = False
     booking_member.profile.save(update_fields=["native_reservations_enabled"])
-    assert b"Pay $150.00" in client.get(payment_url).content
+    assert b"Pay remaining balance: $150.00" in client.get(payment_url).content
     assert client.post(payment_url).status_code == 302
     balance = item.order.attempts.order_by("pk").last()
     assert balance.amount_cents == 15000

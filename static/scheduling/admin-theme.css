@@ -192,6 +192,18 @@
 .booking-admin .workshop-materials dl { margin: 0; min-width: 0; }
 .booking-admin .workshop-materials dt { font-size: 11px; text-transform: uppercase; color: var(--dash-muted); margin-bottom: 6px; }
 .booking-admin .workshop-materials dd { font-size: 14px; font-weight: 600; }
+.booking-admin .workshop-payment-summary { justify-content: flex-start; gap: 20px 48px; margin-bottom: 0; border-bottom: 0; }
+.booking-admin .workshop-edit-heading .back-link { margin-bottom: 20px; }
+.booking-admin .workshop-settings-form { max-width: 960px; }
+.booking-admin .workshop-settings-section { min-width: 0; padding: 20px 0 24px; margin: 0 0 24px; border: 0; border-bottom: 1px solid var(--dash-border); }
+.booking-admin .workshop-settings-section legend { padding: 0; font-size: 15px; font-weight: 700; color: var(--dash-text); }
+.booking-admin .workshop-settings-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; }
+.booking-admin .workshop-settings-fields .form-field { min-width: 0; margin: 0; }
+.booking-admin .workshop-settings-fields .workshop-description-field { grid-column: 1 / -1; }
+.booking-admin .workshop-settings-form .form-actions { border: 0; margin: 0; padding: 0; }
+@media (max-width: 600px) {
+  .booking-admin .workshop-settings-fields { grid-template-columns: minmax(0, 1fr); }
+}
 .booking-admin .workshop-options { margin-bottom: 28px; }
 .booking-admin .workshop-options > summary { cursor: pointer; font-weight: 600; }
 .booking-admin :is(.workshop-table, .workshop-session-table) table { table-layout: fixed; min-width: 760px; }

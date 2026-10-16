@@ -1,0 +1,10 @@
+{% if payment_has_choice %}
+<fieldset class="booking-payment-choice">
+  <legend>How would you like to pay?</legend>
+  <label><input type="radio" name="payment_option" value="due" checked><span><strong>Pay deposit: ${{ payment_minimum|floatformat:2 }}</strong><small>${{ payment_later|floatformat:2 }} remaining, due on the event day</small></span></label>
+  <label><input type="radio" name="payment_option" value="full"><span><strong>Pay in full: ${{ payment_full|floatformat:2 }}</strong><small>No remaining balance</small></span></label>
+</fieldset>
+{% else %}
+<input type="hidden" name="payment_option" value="{{ payment_option }}">
+{% if payment_active_amount %}<p class="muted">Checkout in progress: <strong>${{ payment_active_amount|floatformat:2 }}</strong></p>{% endif %}
+{% endif %}

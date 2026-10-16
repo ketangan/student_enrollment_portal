@@ -157,7 +157,7 @@ def test_booking_settings_link_to_shared_billing_for_owner_only(client, role):
     response = client.get(reverse("scheduling:locations", args=[school.slug]))
     assert response.status_code == 200
     tabs = response.context["booking_navigation"]["section"]["tabs"]
-    billing_url = reverse("school_billing", args=[school.slug])
+    billing_url = reverse("scheduling:school_billing", args=[school.slug])
     assert any(tab["url"] == billing_url for tab in tabs) == (role == "owner")
     billing = client.get(billing_url)
     assert billing.status_code == (200 if role == "owner" else 404)
@@ -167,7 +167,79 @@ def test_booking_settings_link_to_shared_billing_for_owner_only(client, role):
         assert b">Submissions</a>" not in billing.content
         assert b"Agreed future upgrade" not in billing.content
         assert b"Back to settings" in billing.content
-        assert reverse("scheduling:settings", args=[school.slug]).encode() in billing.content
+        assert reverse("scheduling:locations", args=[school.slug]).encode() in billing.content
+
+
+@pytest.mark.parametrize("superadmin", [False, True])
+@pytest.mark.parametrize("demo", [False, True])
+def test_booking_billing_uses_booking_shell_for_owner_and_superadmin(client, superadmin, demo):
+    from scheduling.models import SchedulingProfile, SchedulingMembership
+    school = SchoolFactory(is_demo=demo, is_active=True, plan="trial", trial_started_at=timezone.now())
+    profile = SchedulingProfile.objects.create(school=school, enabled=True)
+    user = UserFactory(is_superuser=superadmin, is_staff=superadmin)
+    if not superadmin:
+        SchedulingMembership.objects.create(profile=profile, user=user, role="owner")
+    client.force_login(user)
+    response = client.get(reverse("scheduling:school_billing", args=[school.slug]))
+    assert response.status_code == 200
+    assert "scheduling/base.html" in [t.name for t in response.templates]
+    assert b'aria-label="Bookings"' in response.content
+    assert b">Submissions</a>" not in response.content
+    assert b">Leads</a>" not in response.content
+    assert response.context["booking_navigation"]["section"]["key"] == "settings"
+    assert any(t["key"] == "billing" and t["active"] for t in response.context["booking_navigation"]["section"]["tabs"])
+    assert reverse("scheduling:locations", args=[school.slug]).encode() in response.content
+
+
+@pytest.mark.parametrize("route", ["school_billing", "school_billing_checkout", "school_billing_portal"])
+def test_booking_billing_routes_deny_other_tenants_and_enrollment_only_users(client, route):
+    from scheduling.models import SchedulingProfile, SchedulingMembership
+    school, other = SchoolFactory(is_demo=True), SchoolFactory(is_demo=True)
+    profile = SchedulingProfile.objects.create(school=school, enabled=True)
+    SchedulingProfile.objects.create(school=other, enabled=True)
+    user = UserFactory(is_staff=False)
+    SchedulingMembership.objects.create(profile=profile, user=user, role="owner")
+    client.force_login(user)
+    method = client.get if route == "school_billing" else client.post
+    assert method(reverse("scheduling:" + route, args=[other.slug])).status_code == 404
+    assert client.get(reverse("school_dashboard", args=[school.slug])).status_code == 404
+    enrollment = SchoolAdminMembershipFactory(school=school, role="owner")
+    client.force_login(enrollment.user)
+    assert method(reverse("scheduling:" + route, args=[school.slug])).status_code == 404
+
+
+def test_booking_overdue_portal_preserves_booking_return_and_owner_guard(school, client, settings):
+    from scheduling.models import SchedulingProfile, SchedulingMembership
+    settings.APP_BASE_URL = "http://testserver"
+    user = UserFactory(is_staff=False)
+    profile = SchedulingProfile.objects.create(school=school, enabled=True)
+    member = SchedulingMembership.objects.create(profile=profile, user=user, role="owner")
+    expire(school)
+    client.force_login(user)
+    billing = reverse("scheduling:school_billing", args=[school.slug])
+    assert client.get(billing).status_code == 200
+    with patch("core.services.billing_stripe.create_portal_session", return_value="https://billing.stripe.com/example") as portal:
+        response = client.post(reverse("scheduling:school_billing_portal", args=[school.slug]))
+        assert response.status_code == 302
+        assert portal.call_args.kwargs["return_url"] == "http://testserver" + billing
+        member.role = "viewer"
+        member.save(update_fields=["role"])
+        assert client.post(reverse("scheduling:school_billing_portal", args=[school.slug])).status_code == 404
+        assert portal.call_count == 1
+
+
+def test_booking_demo_checkout_stays_on_demo_host(client, settings):
+    from scheduling.models import SchedulingProfile, SchedulingMembership
+    settings.DEMO_BASE_URL = "https://demo.example.test"
+    settings.APP_BASE_URL = "https://app.example.test"
+    settings.ALLOWED_HOSTS = ["demo.example.test"]
+    school = SchoolFactory(is_demo=True)
+    profile = SchedulingProfile.objects.create(school=school, enabled=True)
+    user = UserFactory(is_staff=False)
+    SchedulingMembership.objects.create(profile=profile, user=user, role="owner")
+    client.force_login(user)
+    response = client.post(reverse("scheduling:school_billing_checkout", args=[school.slug]), HTTP_HOST="demo.example.test", secure=True)
+    assert response.url == "https://demo.example.test" + reverse("scheduling:school_billing", args=[school.slug])
 
 
 def test_starter_package_preserves_export_and_opted_in_visits(client, operator):

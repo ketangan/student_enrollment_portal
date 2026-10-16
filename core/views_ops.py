@@ -228,11 +228,15 @@ def ops_school_detail_view(request, slug):
     from django.http import HttpResponseBase
 
     school = get_object_or_404(School, slug=slug)
+    from core.payments.settings import settings_context
+    booking_payments = settings_context(request, school)
+    if isinstance(booking_payments, HttpResponseBase):
+        return booking_payments
     subscription_pricing = school_pricing_context(request, school)
     if isinstance(subscription_pricing, HttpResponseBase):
         return subscription_pricing
 
-    if request.method == "POST" and request.POST.get("action") not in {"validate", "publish"}:
+    if request.method == "POST" and request.POST.get("action") not in {"validate", "publish", "save_booking_provider"}:
         form = OpsSchoolEditForm(request.POST, instance=school)
         if form.is_valid():
             changed = {
@@ -292,6 +296,7 @@ def ops_school_detail_view(request, slug):
         "school": school,
         "form": form,
         "subscription_pricing": subscription_pricing,
+        "booking_payments": booking_payments,
         "members": members,
         "recent_audit": recent_audit,
         "submission_count": submission_count,

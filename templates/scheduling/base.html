@@ -8,9 +8,10 @@
   <link rel="icon" href="{% static 'favicon.png' %}">
   <link rel="stylesheet" href="{% static 'scheduling/workspace.css' %}?v=20261004-integrations">
   <link rel="stylesheet" href="{% static 'admin/dashboard.css' %}">
-<link rel="stylesheet" href="{% static 'scheduling/admin-theme.css' %}?v=20261006-session-duration">
+<link rel="stylesheet" href="{% static 'scheduling/admin-theme.css' %}?v=20261016-workshop-settings">
 <link rel="stylesheet" href="{% static 'scheduling/materials.css' %}?v=20261006-color-settings">
 {% include 'scheduling/date_picker_assets.html' %}
+{% block extra_css %}{% endblock %}
 </head>
 <body class="dash-body booking-admin">
   <a class="skip-link" href="#content">Skip to content</a>
@@ -46,7 +47,7 @@
   {% if business.is_payment_overdue %}
   <div class="dash-trial-banner" role="status" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:12px 20px;">
     <span>Subscription payment failed. Resolve it by {{ business.payment_grace_ends_at|date:"M j, Y, g:i A" }} to keep access.</span>
-    <a href="{% url 'school_billing' business.slug %}">Review billing</a>
+    <a href="{% url 'scheduling:school_billing' business.slug %}">Review billing</a>
   </div>
   {% endif %}
   {% if branded_admin_demo %}

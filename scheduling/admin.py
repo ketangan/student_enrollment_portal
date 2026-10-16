@@ -28,7 +28,7 @@ class SchedulingProfileAdmin(OperatorOnlyAdmin):
     search_fields = ("school__slug", "school__display_name")
     list_select_related = ("school",)
     raw_id_fields = ("school",)
-    readonly_fields = ("capabilities",)
+    readonly_fields = ("capabilities", "payment_provider")
 
 
 @admin.register(SchedulingMembership)

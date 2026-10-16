@@ -275,6 +275,23 @@
 
   {% include "ops/school_pricing.html" with form=subscription_pricing.form offer=subscription_pricing.offer verified=subscription_pricing.verified total=subscription_pricing.total billing_mode=subscription_pricing.billing_mode history=subscription_pricing.history pending_checkouts=subscription_pricing.pending_checkouts location_change=subscription_pricing.location_change pending_location_change=subscription_pricing.pending_location_change accepted_offer=subscription_pricing.accepted_offer billing_review=subscription_pricing.billing_review renewal=subscription_pricing.renewal change_error=subscription_pricing.change_error %}
 
+  <!-- Booking payment provider -->
+  {% if booking_payments %}
+  <section id="booking-payments" class="dash-card" style="padding:24px;margin-bottom:16px;scroll-margin-top:88px;">
+    <h2 style="font-size:14px;font-weight:700;margin:0 0 12px;">Booking Payments <span style="font-weight:400;color:var(--dash-muted);">&middot; Sandbox</span></h2>
+    <p class="school-edit-description">New bookings use {{ booking_payments.provider }}. Existing reservations and refunds keep their original provider. Pontora subscription billing and enrollment payments are unchanged.</p>
+    <form method="post">
+      {% csrf_token %}{{ booking_payments.form.expected_provider }}
+      {{ booking_payments.form.non_field_errors }}
+      <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+        <div><label for="{{ booking_payments.form.provider.id_for_label }}" style="display:block;margin-bottom:6px;">{{ booking_payments.form.provider.label }}</label>
+          {{ booking_payments.form.provider }}{{ booking_payments.form.provider.errors }}</div>
+        <button name="action" value="save_booking_provider" class="dash-action-btn dash-action-btn--primary" type="submit">Verify &amp; save</button>
+      </div>
+    </form>
+  </section>
+  {% endif %}
+
   <!-- School Admin Memberships -->
   <div class="dash-card" style="padding:24px;margin-bottom:16px;">
     <h2 style="font-size:14px;font-weight:700;margin:0 0 16px;">School Admins</h2>
@@ -415,6 +432,7 @@
   <div class="dash-card" style="padding:24px;margin-bottom:24px;">
     <h2 style="font-size:14px;font-weight:700;margin:0 0 14px;">Recent Changes</h2>
     {% if recent_audit %}
+    <div style="overflow-x:auto;" role="region" aria-label="Recent school changes" tabindex="0">
     <table class="dash-table">
       <thead><tr><th>When</th><th>By</th><th>Action</th><th>Detail</th></tr></thead>
       <tbody>
@@ -435,6 +453,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
     {% else %}
     <p style="font-size:13px;color:var(--dash-muted);margin:0;">No changes recorded yet.</p>
     {% endif %}

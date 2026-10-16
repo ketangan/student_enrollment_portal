@@ -25,9 +25,16 @@ class PaymentAccountForm(forms.ModelForm):
             self.fields["school"].queryset = School.objects.filter(is_demo=True)
         if not self.instance.pk:
             self.initial.setdefault("scope", PaymentAccount.Scope.PLATFORM_DEMO)
+        if self.instance.provider == "square":
+            self.fields["enabled"].label = "Enable Square test checkout"
 
     def clean(self):
         values = super().clean()
+        if self.instance.pk and self.instance.provider == "square":
+            if values.get("enabled"):
+                from .square import validate_account
+                validate_account(self.instance)
+            return values
         school = values.get("school") or (self.instance.school if self.instance.pk else None)
         scope = values.get("scope", self.instance.scope)
         reference = values.get("reference", self.instance.reference)
@@ -43,7 +50,7 @@ class PaymentAccountForm(forms.ModelForm):
             self.add_error("reference", "Enter the connected test account ID.")
         if school and not school.is_demo:
             raise forms.ValidationError("Test checkout can only be configured for a demo business here.")
-        if school and PaymentAccount.objects.filter(school=school, environment="test").exclude(pk=self.instance.pk).exists():
+        if school and PaymentAccount.objects.filter(school=school, environment="test", provider="stripe").exclude(pk=self.instance.pk).exists():
             self.add_error("school" if "school" in self.fields else None,
                 "This business already has test checkout settings. Edit its existing payment account.")
         if values.get("enabled") and (
@@ -57,12 +64,12 @@ class PaymentAccountForm(forms.ModelForm):
 @admin.register(PaymentAccount)
 class PaymentAccountAdmin(PortalScopedAdminMixin, admin.ModelAdmin):
     form = PaymentAccountForm
-    list_display = ("school", "scope", "reference", "enabled")
+    list_display = ("school", "provider", "scope", "reference", "enabled")
     list_select_related = ("school",)
     list_filter = ("enabled",)
     search_fields = ("school__slug", "school__display_name", "reference")
-    readonly_fields = ("environment",)
-    fields = ("school", "scope", "reference", "environment", "enabled")
+    readonly_fields = ("environment", "provider", "location_reference")
+    fields = ("school", "provider", "scope", "reference", "location_reference", "environment", "enabled")
 
     def get_readonly_fields(self, request, obj=None):
         # Rebinding an account would invalidate existing orders and verified events.

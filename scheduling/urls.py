@@ -1,10 +1,12 @@
 from django.urls import path
+from core import views_school_dashboard as shared_billing
 
 from . import views
 from . import views_requests
 from . import views_parties
 from . import views_reservations
 from . import views_checkout
+from . import square_checkout
 from . import views_recovery
 from . import views_camps
 from . import views_lessons
@@ -23,6 +25,9 @@ from . import views_inventory as inventory
 app_name = "scheduling"
 
 urlpatterns = [
+    path("<slug:school_slug>/billing/", shared_billing.school_billing_view, name="school_billing"),
+    path("<slug:school_slug>/billing/checkout/", shared_billing.school_billing_checkout_view, name="school_billing_checkout"),
+    path("<slug:school_slug>/billing/portal/", shared_billing.school_billing_portal_view, name="school_billing_portal"),
     path("<slug:school_slug>/password/", views.password_change, name="password_change"),
     path("<slug:school_slug>/reservations/<uuid:public_id>/preparation/", views_reservations.preparation_update, name="preparation_update"),
     path("<slug:school_slug>/settings/", inventory.settings_home, name="settings"),
@@ -120,6 +125,8 @@ urlpatterns = [
     path("<slug:school_slug>/camps/<int:pk>/register/", views_camps.camp_register, name="camp_register"),
     path("<slug:school_slug>/camp-received/<uuid:public_id>/", views_camps.camp_received, name="camp_received"),
     path("stripe/test/webhook/", views_checkout.stripe_test_webhook, name="stripe_test_webhook"),
+    path("square/test/webhook/", square_checkout.square_test_webhook, name="square_test_webhook"),
+    path("<slug:school_slug>/square/pay/<str:token>/", square_checkout.square_checkout, name="square_checkout"),
     path("<slug:school_slug>/pay/<str:token>/", views_checkout.customer_payment, name="customer_payment"),
     path("", views.index, name="index"),
     path("<slug:school_slug>/", views.workspace, name="workspace"),

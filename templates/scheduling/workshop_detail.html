@@ -15,6 +15,10 @@
 </div>
 {% endblock %}
 {% block content %}
+<section class="workshop-materials workshop-payment-summary" aria-label="Workshop payments">
+  <dl><dt>Payment at booking</dt><dd>{% if offering.deposit_per_participant %}${{ offering.deposit_per_participant|floatformat:2 }} deposit per participant{% else %}Full payment{% endif %}</dd></dl>
+  {% if offering.deposit_per_participant %}<dl><dt>Remaining balance</dt><dd>Due on the workshop day</dd></dl>{% endif %}
+</section>
 {% if offering.inventory_catalog_id %}
 <section class="workshop-materials" aria-label="Workshop inventory">
   <dl><dt>Materials Catalog</dt><dd>{{ offering.inventory_catalog.name }}</dd></dl>

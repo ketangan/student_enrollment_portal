@@ -274,7 +274,7 @@ def test_every_settings_tab_has_a_working_destination(stock):
     document.feed(s.client.get(url(s, "locations")).content.decode())
     assert document.links == [
         url(s, "locations"), url(s, "access"), url(s, "integrations"),
-        reverse("school_billing", args=[s.school.slug]),
+        reverse("scheduling:school_billing", args=[s.school.slug]),
     ]
     for link in document.links:
         assert s.client.get(link).status_code == 200

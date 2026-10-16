@@ -28,6 +28,7 @@ def page(request, template, profile, config, values=None, status=200):
         **staff,
         "profile": profile, "business": profile.school, "demo": config,
         "stripe_checkout": config.get("stripe_checkout", False),
+        "payment_provider_name": profile.get_payment_provider_display(),
         "unit_price": service.money(config["price_cents"]), **(values or {}),
     }, status=status)
     response["Referrer-Policy"] = "same-origin"
@@ -99,12 +100,19 @@ def choose(request, school_slug, pk):
         action = request.POST.get("action")
         catalog, purchaser, participants, policy, valid = service.validate(session, data, check_stock=action != "checkout")
         if valid and action == "review":
+            try:
+                total, deposit = service.reservations.workshop_quote(session.offering, config["price_cents"], len(participants))
+            except ValidationError as exc:
+                purchaser.add_error(None, exc)
+                valid = False
+        if valid and action == "review":
             rows = [{"name": form.cleaned_data["name"], "selections": form.snapshot()} for form in participants]
             service.selection_previews(rows, session.offering, config)
             values = {"session": session, "rows": rows, "purchaser": purchaser.cleaned_data,
                 "fields": [(key, value) for key, values in data.lists() for value in values],
                 "review_token": service.review_token(session, data, catalog, browser, config),
-                "total": service.money(len(rows)*config["price_cents"]), "step": 3}
+                "total": service.money(total), "due_now": service.money(deposit or total),
+                "due_later": service.money(total - deposit if deposit else 0), "step": 3}
             with timezone.override(ZoneInfo(session.offering.location.timezone_name)):
                 return page(request, "review", profile, config, values)
         if valid and action == "checkout":
@@ -137,8 +145,8 @@ def booking(request, school_slug, public_id):
     if stripe_checkout:
         if request.method == "POST":
             try:
-                if request.POST.get("action") != "stripe_checkout":
-                    raise ValidationError("Use Stripe Checkout to pay for this booking.")
+                if request.POST.get("action") not in {"stripe_checkout", "payment_checkout"}:
+                    raise ValidationError("Use checkout to pay for this booking.")
                 return redirect(payments.start_checkout(request, profile, item))
             except ValidationError as exc:
                 error, status = " ".join(exc.messages), 400
@@ -157,9 +165,17 @@ def booking(request, school_slug, public_id):
             except ValidationError as exc:
                 error, status = " ".join(exc.messages), 400
     with timezone.override(ZoneInfo(item.session.offering.location.timezone_name)):
+        from core.payments.checkout import amount_due
+        from core.payments.service import totals
+        from scheduling.checkout import payment_choices
+        amounts = totals(item.reservation.order)
         return page(request, "booking", profile, config, {"item": item, "people": service.people(item, config),
             "total": service.money(item.reservation.order.total_cents), "error": error, "step": 4,
-            "stripe_checkout": stripe_checkout, "payment_message": payment_message}, status)
+            "amounts": amounts, "due_now": service.money(amount_due(item.reservation.order)),
+            "due_later": service.money(max(0, amounts["outstanding_cents"] - amount_due(item.reservation.order))),
+            "stripe_checkout": stripe_checkout, "payment_message": payment_message,
+            **payment_choices(item.reservation.order),
+            "payment_provider_name": item.reservation.order.account.get_provider_display() if stripe_checkout else ""}, status)
 
 
 @never_cache
