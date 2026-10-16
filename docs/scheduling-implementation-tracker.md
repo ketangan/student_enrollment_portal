@@ -16,9 +16,9 @@ completion is not production acceptance. Earlier milestone notes remain historic
 
 | Work item | Current status | Remaining work |
 | --- | --- | --- |
-| Configurable deposits, full-payment choice and later balance collection | **Done locally to the agreed scope; awaiting Jasmine's final inputs.** Ketan accepted customer success/decline behavior. Workshop deposits are per participant; party deposits are per reservation. Customers can pay the deposit or full amount; staff can initiate online balance collection from the reservation. | Confirm actual deposit amounts/policies and final customer journey with Jasmine; configure and verify those rules before launch. Deployment remains pending. |
-| Customer payment copy and workshop settings presentation | **Done locally.** Removed the redundant Deposit option row and repetitive demo/test checkout wording; preserved deposit/full-payment behavior and sandbox safeguards. | Jasmine's requested customer-journey changes, if any. |
-| Configurable Stripe/Square booking provider | **Implemented and tested locally in sandbox.** Superadmin-controlled; existing orders and refunds retain their original provider. | Hosted sandbox webhook delivery/retry verification; production merchant connection and launch acceptance. |
+| Configurable deposits, full-payment choice and later balance collection | **Deployed October 16; awaiting Jasmine's final inputs.** Ketan accepted customer success/decline behavior. Workshop deposits are per participant; party deposits are per reservation. Customers can pay the deposit or full amount; staff can initiate online balance collection from the reservation. | Confirm actual deposit amounts/policies and final customer journey with Jasmine; configure and verify those rules before launch. Existing hosted workshops retain full payment until configured. |
+| Customer payment copy and workshop settings presentation | **Deployed October 16.** Removed the redundant Deposit option row and repetitive demo/test checkout wording; preserved deposit/full-payment behavior and sandbox safeguards. | Jasmine's requested customer-journey changes, if any. |
+| Configurable Stripe/Square booking provider | **Code deployed October 16; real Square sandbox flows tested locally.** Superadmin-controlled; existing orders and refunds retain their original provider. No hosted provider was switched. | Hosted sandbox credentials/webhook activation and delivery/retry verification; production merchant connection and launch acceptance. |
 | Live Square merchant connection | **Not complete; launch blocker for real Square payments.** | OAuth/token lifecycle, Jasmine's account authorization, confirmed account/location mapping, and live payment/refund/reconciliation checks. Do not treat sandbox credentials as production setup. |
 | Negotiated Pontora subscription pricing | **Deployed October 14 (P03).** Supports agreed base/location prices and next-renewal price changes without proration. | Configure the client's agreed live prices and location quantities; notify them of later billing changes. Pontora subscriptions remain on Stripe. |
 | Final workshop/customer journey and studio policies | **Awaiting Jasmine.** | Apply her confirmed workflow, booking/deposit/cancellation rules and production content, then obtain acceptance. Existing local behavior is not approval of those rules. |
@@ -33,12 +33,19 @@ passed, then the remaining obsolete test-card-copy assertion was corrected and a
 24 Stripe experience tests passed on rerun. Desktop and 390px mobile review layouts
 were checked. No payment behavior was changed by the copy cleanup.
 
+Release verification: **4,067 backend tests and 53 JavaScript tests passed in
+pre-merge CI**, with three optional browser tests skipped. All three migrations
+completed automatically on Render. SBMC billing and public enrollment matched
+their pre-deployment content; hosted Plushie billing navigation, deposit controls,
+booking page and modal passed smoke checks. No customer settings or credentials
+were changed. [Release evidence](square-booking-payments.md#october-16-production-release-verification).
+
 Next independent release work: prepare and verify the hosted Square sandbox
-webhook configuration and delivery/recovery checks, with deployment approval.
+webhook configuration and delivery/recovery checks, with configuration approval.
 Terminal/device payment reconciliation and automated emailed payment links remain
 deferred; the completed balance feature is online collection from the reservation.
 
-- **Square booking payments: local sandbox implementation, not deployed.**
+- **Historical pre-release Square verification (superseded by October 16 deployment above).**
   Superadmin provider selection lives on the existing Ops school page. New booking
   orders select Stripe or Square; existing orders/refunds retain their account.
   Real Square sandbox card success, decline, retry and refund after switching

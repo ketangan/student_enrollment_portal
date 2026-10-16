@@ -2,8 +2,10 @@
 
 ## Status
 
-October 15, 2026: local sandbox implementation. Not deployed. Live Square merchant
-connection and production acceptance remain required before Plushie's go-live.
+October 16, 2026: code deployed to the shared Render service. Hosted Square sandbox
+credentials/webhook activation remain pending; no hosted school was switched to
+Square. Live Square merchant connection and production acceptance remain required
+before Plushie's go-live. Historical local test notes below retain their dates.
 
 This adds Square to booking payments, not enrollment application fees or Pontora's
 subscription billing. Those Stripe integrations remain unchanged. There are no
@@ -52,8 +54,8 @@ Square. Start a new booking when testing a newly selected provider.
 
 ### Deposits and Balance Collection (October 16)
 
-**Status: done locally to the agreed scope, pending Jasmine's final inputs and
-deployment.** Ketan accepted the customer success/decline behavior. Remaining
+**Status: deployed to the agreed scope, pending Jasmine's final inputs.**
+Ketan accepted the customer success/decline behavior. Remaining
 customer decisions are the actual deposit/policy settings and final customer
 journey. Hosted/live Square release gates below remain open; this does not mark
 Square device reconciliation or automated emailed payment links complete.
@@ -189,7 +191,7 @@ Web Payments SDK, not simulated by Pontora.
 
 ## Release and Live Launch Gates
 
-1. Apply `payments.0005`, `scheduling.0024` and `scheduling.0025` during an approved deployment.
+1. **Complete October 16:** applied `payments.0005`, `scheduling.0024` and `scheduling.0025` during the approved deployment.
    They add provider/location bindings and submission state, preserve existing
    Stripe records, and change account uniqueness to school/environment/provider.
 2. Configure the hosted sandbox webhook, prove delivery and retry with real Square
@@ -235,6 +237,40 @@ that money did or did not move.
 - The full release run caught an obsolete `Back to demo options` assertion after
   the approved wording change. It now asserts `Back to booking options` while
   retaining the original destination and single-header checks.
+- Final local regression: 4,066 passed, three optional browser tests skipped;
+  the additional upgrade-preservation test passed separately. All 53 JavaScript
+  tests passed. Combined measured statement/branch coverage is 99.12%; every
+  measured module exceeds 90%. Migration drift and whitespace checks passed.
+  Two pre-existing framework warnings remain. Sandbox card journeys and manual
+  browser checks are recorded above; automated tests do not contact live providers.
+
+### October 16 Production Release Verification
+
+- [PR #3](https://github.com/ketangan/student_enrollment_portal/pull/3) merged as
+  `0280eb8f34827ec7b885d93fc03fe704f04beb60` after the full pre-merge
+  [CI run](https://github.com/ketangan/student_enrollment_portal/actions/runs/38968602165)
+  passed: **4,067 backend tests passed, three optional browser tests skipped,
+  53 JavaScript tests passed**. Coverage gates passed. The added migration test
+  proves historical Stripe accounts, paid ledger entries, checkout amounts and
+  school plans survive the upgrade; existing workshop deposits default to zero.
+- Render deployment `dep-db99jg3rjlhs73bgjlr0` became live at **2:42 PM Pacific**.
+  Startup logs confirmed all three migrations completed successfully. No manual
+  migration command is needed. Render settings, credentials and Stripe mode were
+  not changed.
+- Post-deployment browser snapshots of SBMC's active subscription page and public
+  enrollment form matched their pre-deployment snapshots exactly. No real
+  enrollment or payment was submitted during hosted smoke checks.
+- Hosted Plushie Settings > Billing retains Bookings navigation. Workshop edit
+  exposes Full payment / Deposit and the deposit amount control. The control was
+  inspected without saving, preserving the hosted workshop's full-payment setup.
+  Customer demo opens the two-option hub; both direct booking and the responsive
+  modal load the real booking experience.
+- Hosted Square checkout has **not** been activated or end-to-end tested. The
+  real Square sandbox deposit, full-payment, decline/retry, balance and refund
+  checks above were local. Hosted webhook configuration and live merchant OAuth
+  remain explicit launch gates, not implied by this deployment.
+- Existing CI checkout-cleanup warning about the unrelated nested Claude worktree
+  is non-blocking. That worktree and its changes were left untouched.
 
 ## Square References
 
