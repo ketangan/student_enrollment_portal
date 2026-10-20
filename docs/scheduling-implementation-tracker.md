@@ -25,7 +25,16 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 - Local party configuration is not copied into hosted data by deployment.
   Private host guest-list follow-up and final launch policy/configuration remain
   pending; this release is not a declaration that Plushie is ready for live payments.
-- GitHub checks, merge and hosted deployment verification are still pending.
+- Released through PR #4 after GitHub CI passed (run 39370081682). Merge commit
+  `6bb0c0e` deployed successfully on Render October 19 at 9:54 PM Pacific;
+  deploy `dep-dbbf78ks728c73bcdutg`. All six migrations reported OK and Gunicorn
+  became live. The existing duplicate Jazzmin tag-library warning remains.
+- Hosted smoke checks: party inquiry and Setup pages load; Add next stops at
+  the participant count, deletion renumbers guests and enables adding again.
+  SBMC billing content exactly matches the pre-release baseline. Hosted party
+  packages are unconfigured; local fixtures were not copied or published.
+- Release branch removed after merge. The unrelated nested worktree was left
+  untouched. Next proposed work is the private host guest-list follow-up (L04).
 
 ### Plushie Launch Work Summary (October 17)
 
