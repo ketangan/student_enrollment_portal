@@ -12,13 +12,18 @@ from .accounts import validate_scope
 
 
 def totals(order):
-    amounts = {row["kind"]: row["amount"] for row in order.entries.values("kind").annotate(amount=Sum("amount_cents"))}
-    paid, refunded = amounts.get("payment", 0), amounts.get("refund", 0)
+    rows = list(order.entries.values("kind").annotate(amount=Sum("amount_cents"), extras=Sum("extra_charge_cents")))
+    amounts = {row["kind"]: row["amount"] for row in rows}
+    extras = sum(row["extras"] * (-1 if row["kind"] == "void" else 1) for row in rows)
+    total = order.total_cents + extras
+    paid, refunded = amounts.get("payment", 0) - amounts.get("void", 0), amounts.get("refund", 0)
     net = paid - refunded
     return {"paid_cents": paid, "refunded_cents": refunded, "net_cents": net,
-            "outstanding_cents": max(0, order.total_cents - net),
+            "total_cents": total, "total": Decimal(total) / 100,
+            "extras_cents": extras, "extras": Decimal(extras) / 100,
+            "outstanding_cents": max(0, total - net),
             "paid": Decimal(paid) / 100, "refunded": Decimal(refunded) / 100,
-            "net": Decimal(net) / 100, "outstanding": Decimal(max(0, order.total_cents - net)) / 100}
+            "net": Decimal(net) / 100, "outstanding": Decimal(max(0, total - net)) / 100}
 
 
 @transaction.atomic

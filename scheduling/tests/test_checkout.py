@@ -458,9 +458,10 @@ def test_owner_ui_online_quote_and_immutable_payment_method(inventory, merchant,
     with pytest.raises(ValidationError):
         reserve(booking_member,source)
     response=client.get(result.url)
-    assert b"Open customer payment page" in response.content
+    assert b"Take online payment" in response.content
     assert b"Record offline entry" not in response.content
-    assert client.post(result.url,{"key":uuid.uuid4(),"amount":"100","kind":"payment","reference":"no","confirm":"on"}).status_code==405
+    # The explicit Terminal action is supported; the retired offline payload is not.
+    assert client.post(result.url,{"key":uuid.uuid4(),"amount":"100","kind":"payment","reference":"no","confirm":"on"}).status_code==400
     assert not LedgerEntry.objects.exists()
     assert prepare(item).amount_cents==10000
 

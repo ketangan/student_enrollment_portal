@@ -7,6 +7,10 @@ photo: /static/demo/plushumi/assets/workshop.jpg
 design_image: /static/demo/plushumi/assets/designs.jpg
 price_cents: 6500
 policy_revision: concept-1
+party_package_defaults:
+  # Seed drafts only. Prices, durations and observers need client confirmation.
+  - {name: '6-person party', participant_limit: 6, deposit: '150.00'}
+  - {name: '12-person party', participant_limit: 12, deposit: '300.00'}
 design_group: Design
 color_group: Color
 age_group: Age

@@ -170,7 +170,7 @@ def booking(request, school_slug, public_id):
         from scheduling.checkout import payment_choices
         amounts = totals(item.reservation.order)
         return page(request, "booking", profile, config, {"item": item, "people": service.people(item, config),
-            "total": service.money(item.reservation.order.total_cents), "error": error, "step": 4,
+            "total": service.money(amounts["total_cents"]), "error": error, "step": 4,
             "amounts": amounts, "due_now": service.money(amount_due(item.reservation.order)),
             "due_later": service.money(max(0, amounts["outstanding_cents"] - amount_due(item.reservation.order))),
             "stripe_checkout": stripe_checkout, "payment_message": payment_message,

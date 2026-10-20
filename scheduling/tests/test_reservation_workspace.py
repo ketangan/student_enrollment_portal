@@ -46,7 +46,7 @@ def test_list_and_record_tabs_have_distinct_scope(inventory, booking_member, cli
     assert b"Record offline" not in response.content and b"Payment history" not in response.content
     assert b"Audit log" in response.content and b"Reservation created" in response.content
     assert b'name="confirm"' not in response.content
-    assert client.post(target, {"kind": "payment", "amount": "1"}).status_code == 405
+    assert client.post(target, {"kind": "payment", "amount": "1"}).status_code == 400
     assert not item.order.entries.exists()
     assert response.context["location_action"] == path(booking_member, "reservations")
     body = response.content.decode().split('class="reservation-money"')[1].split('</dl>')[0]

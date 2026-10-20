@@ -1,5 +1,11 @@
-{% if form.material_forms %}<fieldset class="party-materials"><legend>Participant designs &amp; colors</legend>{{ form.material_forms.management_form }}{{ form.material_forms.non_form_errors }}
-<div id="material-rows">{% for row in form.material_forms %}<div class="material-row">{{ row.non_field_errors }}{% for field in row %}<div class="form-field {% if field.field.widget.input_type == 'checkbox' %}check-field{% endif %}">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}</div>{% endfor %}</div>
+{% if form.material_forms %}{% if form.guest_mode %}
+<fieldset class="party-materials" data-guest-editor><legend>Guest designs &amp; colors</legend>{{ form.material_forms.management_form }}{{ form.material_forms.non_form_errors }}
+<div id="material-rows">{% for row in form.material_forms %}{% include 'scheduling/party_guest_row.html' %}{% endfor %}</div>
+<button type="button" id="add-guest">Add next</button><p class="muted" id="guest-count" aria-live="polite"></p>
+<template id="material-template">{% include 'scheduling/party_guest_row.html' with row=form.material_forms.empty_form %}</template>
+</fieldset>
+{% else %}<fieldset class="party-materials"><legend>Participant designs &amp; colors</legend>{{ form.material_forms.management_form }}{{ form.material_forms.non_form_errors }}
+<div id="material-rows">{% for row in form.material_forms %}<div class="material-row">{{ row.non_field_errors }}{% for field in row %}<div class="form-field {% if field.field.widget.input_type == 'checkbox' %}check-field{% endif %}">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}{% if visual_materials %}{% include 'scheduling/catalog_picker.html' %}{% endif %}</div>{% endfor %}</div>
 <button type="button" id="add-material">Add another selection</button>
-<template id="material-template"><div class="material-row">{% for field in form.material_forms.empty_form %}<div class="form-field {% if field.field.widget.input_type == 'checkbox' %}check-field{% endif %}">{{ field.label_tag }}{{ field }}</div>{% endfor %}</div></template>
-</fieldset>{% load static %}<script defer src="{% static 'scheduling/inventory.js' %}"></script>{% endif %}
+<template id="material-template"><div class="material-row">{% for field in form.material_forms.empty_form %}<div class="form-field {% if field.field.widget.input_type == 'checkbox' %}check-field{% endif %}">{{ field.label_tag }}{{ field }}</div>{% endfor %}{% if visual_materials %}{% include 'scheduling/catalog_picker.html' %}{% endif %}</div></template>
+</fieldset>{% load static %}{% if not visual_materials %}<script defer src="{% static 'scheduling/inventory.js' %}?v=20261019-party-rows"></script>{% endif %}{% endif %}{% endif %}

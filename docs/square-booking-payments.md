@@ -7,6 +7,15 @@ credentials/webhook activation remain pending; no hosted school was switched to
 Square. Live Square merchant connection and production acceptance remain required
 before Plushie's go-live. Historical local test notes below retain their dates.
 
+**October 17 customer decision:** Jasmine confirms one Square seller account for
+all locations and existing Square Terminal devices. For launch, staff will take
+remaining balances on those devices and manually record them against the Pontora
+reservation. This manual-recording workflow is now **implemented locally, not
+deployed**; it is separate from the online Collect balance action below. Automatic
+device integration remains deferred.
+Party deposits are typically $150 for six guests and $300 for twelve. These are
+party-package rules, not new workshop defaults. See the [updated launch checklist](scheduling-implementation-tracker.md#jasmine-response-and-launch-checklist-october-17).
+
 This adds Square to booking payments, not enrollment application fees or Pontora's
 subscription billing. Those Stripe integrations remain unchanged. There are no
 client-name checks in the provider selection or payment code.
@@ -49,6 +58,119 @@ to test customer payments.
 
 Changing the school provider does not convert existing Stripe reservations to
 Square. Start a new booking when testing a newly selected provider.
+
+## Manual Terminal Payment Recording (October 17)
+
+Local only. Reuses localhost:8002 and `pontora_bookings_m1a_preview`. The test
+reservation **Square payment retest** retains its real sandbox $25 online deposit
+and has $40 outstanding on a $65 total. The local QA Terminal entries were
+voided with reasons, leaving the original balance and transparent audit history.
+
+1. Log in as the existing local `plushie_admin` account. Open
+   http://localhost:8002/bookings/plushumi-demo/reservations/96ecfb0d-e68f-4535-86a0-8a33bc4cf73d/
+   or find **Square payment retest** under Reservations.
+2. Under Payment summary, click **Record payment already received**. In the dialog,
+   enter 10.00 and today's payment date. Receipt number is optional; Notes has been
+   removed. Check the collected-payment confirmation and click **Save payment record**.
+   This is local test data: do not take a real card payment to test this form.
+3. Expect Received $35, Balance $30, Refunded $0, a Staff-recorded row, and an audit
+   entry with the user/date and receipt number if supplied. The reservation remains confirmed.
+4. Enter $45 against the $30 balance: the form previews $15 in extra purchases
+   automatically, without an extra checkbox. Cancel this preview to continue the
+   balance-only walkthrough. A future payment date or duplicate receipt number
+   must still fail without changing the balance.
+5. Enter the remaining $30. Expect Received $65 and zero
+   Balance. Recording remains available for later extra purchases; the customer
+   payment page shows Paid in full without offering another online payment.
+6. Click **Correct entry** beside the $30 receipt, enter a reason in the dialog and confirm it is
+   an incorrect record, not a refund. Void it. Expect Received $35, Balance $30 and
+   Refunded $0. Both the original receipt and correction stay visible. Void the $10
+   test receipt too to restore the starting $40 balance for another walkthrough.
+
+Permissions: existing scheduling **Owner** and superadmin can record/correct.
+Scheduler and Viewer remain read-only for money. Membership is currently scoped to
+the school, not individually assigned studios; no new location permission system
+was added. This supports an online Stripe OR Square deposit followed by a manually
+recorded Square Terminal balance. It never switches the order's online provider.
+
+Online checkout already open or uncertain? Use the contextual check/close controls
+above the form first. The redundant Payment & refund status section is removed;
+recovery controls appear only for unresolved operations. An active provider refund blocks recording
+and corrections. Do not take a second payment while an online charge is unresolved.
+
+Operational limits: receipts are **staff-recorded, not API-verified**. The form
+neither charges a Terminal nor sends a refund or automatic customer receipt. Real
+Terminal refunds stay in Square and their Pontora recording workflow is still open;
+do not use Correct entry to represent a real refund. Obtain one redacted receipt
+example from Jasmine before staff acceptance to confirm the optional number they can use.
+Without a receipt number, a separately entered duplicate of the same real-world
+payment cannot be identified automatically. Submission retry and stale-total
+safeguards still apply. The receipt settles the outstanding balance first; only
+the excess is recorded as extra purchases. This does not track individual items,
+deduct inventory, calculate tax, or support buying extras while deliberately leaving
+an existing balance unpaid.
+
+Migration: `payments.0006` adds receipt details and append-only correction links;
+applied locally only. Provider charging/webhook code, enrollment and subscription
+billing are unchanged. The shared totals function subtracts corrections separately
+from actual refunds. The guarded local reset now preserves Terminal receipts.
+
+October 19 simplification: `payments.0007` makes the receipt number optional without
+rewriting existing records. Applied only to the existing local preview database.
+Notes is removed from new payments; historical notes and correction reasons remain.
+Focused payment/workspace/recovery/checkout regression: **201 passed**. Additional
+Terminal/reservation/migration run: **144 passed** (overlaps the focused run).
+Desktop and 390px mobile form checks passed; Terminal history scrolls without
+crushing its columns. Browser
+verification recorded and corrected a $10 payment without a receipt, restoring the
+original Received $25 / Balance $40 / Refunded $0. Earlier test totals below refer
+to the October 17 implementation, not this follow-up.
+
+October 19 action clarification: **Record payment already received** opens the
+Square Terminal recording dialog; **Take online payment** opens the existing
+customer checkout for a new payment. No expandable rows remain in this payment area,
+including receipt number and correction controls. Calendars inside a dialog stay
+within it; other calendars retain their existing positioning. No payment service,
+permission, total calculation or migration change in this UI follow-up.
+Verification: **245 payment/reservation tests and 56 JavaScript tests passed**.
+Manual desktop/mobile checks covered date selection, Cancel/Escape/focus return,
+overpayment validation, online checkout navigation and a $1 local record followed
+by correction. Original $25 received / $40 balance / $0 refunded restored.
+
+October 19 extra purchases: `payments.0008` adds an extra-charge amount to the
+Terminal ledger entry, defaulting to zero for existing records. The original booking
+price remains unchanged; totals include active extra charges. Saving an amount above
+the balance records the excess as extra purchases. The preview updates as the amount
+changes; no extra-purchase checkbox is required. Fully paid confirmed/completed
+reservations accept additional receipts.
+Correcting an entry reverses its payment and extra charge together, without a refund.
+Legitimate extras do not trigger excess-payment refund prompts; genuinely unexpected
+overpayments still do. Applied only to the existing local database, not Render.
+Manual desktop/mobile verification covered $55 received against a $40 balance,
+a further $5 after full payment, customer totals, confirmation validation and both
+corrections. The original $65 total / $25 received / $40 balance was restored.
+Verification for this update: full regression **4,149 passed, 3 skipped, 2 warnings**;
+after adding the party extra-purchase case, the final Terminal suite passed **83 tests**.
+All **57 JavaScript tests** passed their coverage gates. Migration drift and
+whitespace checks passed. No Stripe provider, enrollment or subscription code was
+changed by the extra-purchase update. Existing Stripe/Square booking flows are
+covered by the regression run; no live payment was taken.
+
+Manual browser verification: real existing sandbox deposit plus simulated $10/$30
+Terminal receipts; duplicate-reference rejection, full settlement, both corrections,
+audit trail, and 1280px desktop/390px mobile form layout without page overflow.
+No Square Terminal hardware or live transaction was used. The balance and correction
+history also survived restarting the same localhost:8002 server.
+
+Verification: full regression **4,129 passed, 3 optional browser tests skipped, 2
+existing warnings**. After the final voided-retry guard and additional concurrency/
+environment tests, the focused final run passed **266 tests**. All **53 JavaScript
+tests** passed. The new Terminal module has **100% statement/branch coverage**;
+every measured module passes the 90% coverage gate. Migration drift and whitespace
+checks are clean. Tests cover workshop/party balances, Stripe/Square deposits,
+receipt/submission duplicates, competing writes and online checkout, invalid/stale
+data, permissions/CSRF/demo-host isolation, pending payments/refunds, corrections,
+customer balances and preservation of existing Stripe records through migration.
 
 ## Checkout and Recovery
 
@@ -202,9 +324,12 @@ Web Payments SDK, not simulated by Pontora.
 4. Verify agreed deposit rules, live checkout, declines, refunds, reconciliation
    and notifications. Square enrollment application-fee support is not included
    in this booking-only slice.
-5. Terminal balance collection and automated emailed payable-link workflows remain deferred.
-   Staff-initiated online balance collection uses the existing reservation payment page.
-   Do not claim a Square device transaction automatically reconciles in Pontora.
+5. **Updated October 17:** manual recording of independently collected Terminal
+   balances is a launch requirement. Automatic device collection/matching and
+   automated emailed balance links remain deferred. Staff-initiated online balance
+   collection uses the existing reservation payment page, but does not satisfy the
+   new manual-recording requirement. Never claim a Square device transaction
+   automatically reconciles in Pontora.
 
 No new background worker, subscription engine or separate refund workflow was
 introduced. API failures deliberately require verification rather than guessing

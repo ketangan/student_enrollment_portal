@@ -441,17 +441,20 @@ def test_party_form_and_review_materials(stock):
     response = s.client.get(target)
     data = {"request_token": response.context["request_token"], "organizer_name": "Party", "organizer_email": "p@example.invalid",
         "starts_at": (timezone.now()+timedelta(days=40)).strftime("%Y-%m-%dT10:00"), "duration_minutes": 60,
-        "group_size": 2, "space": "shared", "materials-TOTAL_FORMS": 1, "materials-INITIAL_FORMS": 0,
-        "materials-0-design": s.cat.pk, "materials-0-color": s.blue.pk, "materials-0-quantity": 2}
-    assert s.client.post(target, {**data, "materials-0-quantity": 1}).status_code == 400
+        "group_size": 2, "space": "shared", "materials-TOTAL_FORMS": 2, "materials-INITIAL_FORMS": 0,
+        "materials-0-design": s.cat.pk, "materials-0-color": s.blue.pk, "materials-0-guest_name": "Alex",
+        "materials-1-design": s.cat.pk, "materials-1-color": s.blue.pk}
+    assert s.client.post(target, {**data, "group_size": 1}).status_code == 400
     assert s.client.post(target, {**data, "materials-0-design": 999999}).status_code == 400
     result = s.client.post(target, data)
     assert result.status_code == 302
     party = PartyRequest.objects.get()
-    assert party.materials[0]["quantity"] == 2
+    assert [row["quantity"] for row in party.materials] == [1, 1]
+    assert party.materials[0]["guest_name"] == "Alex"
     review = url(s, "party_detail", public_id=party.public_id)
     assert b"Participant designs &amp; colors" in s.client.get(review).content
-    review_data = {"revision": 0, "status": "reviewed", "room": s.room.pk, "proposed_total": 100, "proposed_deposit": 0,
+    assert s.client.get(review).context["form"].material_forms.forms[0]["guest_name"].value() == "Alex"
+    review_data = {"revision": 0, "status": "reviewed", "duration_minutes": 60, "room": s.room.pk, "proposed_total": 100, "proposed_deposit": 0,
         "materials-TOTAL_FORMS": 1, "materials-INITIAL_FORMS": 1, "materials-0-design": s.cat.pk, "materials-0-color": s.blue.pk, "materials-0-quantity": 2}
     assert s.client.post(review, {**review_data, "materials-0-quantity": 0}).status_code == 400
     assert s.client.post(review, review_data).status_code == 302

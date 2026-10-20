@@ -16,9 +16,10 @@ function node() {
     querySelectorAll() { return this.periods || []; },
     querySelector(selector) { return this.navigation[selector]; }, click() { this.clicked = true; }};
 }
-function setup({type = 'datetime-local', disabled = false, readOnly = false, library = true, selected = true, id = 'starts'} = {}) {
+function setup({type = 'datetime-local', disabled = false, readOnly = false, library = true, selected = true, id = 'starts', inDialog = false} = {}) {
   const input = {...node(), type, id, disabled, readOnly, min:'2030-01-01T00:00', max:'2031-01-01T00:00'};
   input.attrs['aria-describedby'] = 'hint';
+  input.closest = selector => inDialog && selector === 'dialog' ? {} : null;
   const picker = {calendarContainer:node(), altInput:node(), timeContainer:node(), hourElement:{value:'10'},
     minuteElement:{value:'25'}, amPM:{textContent:'AM'}, isOpen:true,
     selectedDates: selected ? [new Date(2030, 5, 2, 10, 25)] : [],
@@ -27,7 +28,7 @@ function setup({type = 'datetime-local', disabled = false, readOnly = false, lib
     clear() { this.cleared = true; this.selectedDates = []; }, close() { this.isOpen = false; this.options.onClose([], '', this); }};
   picker.calendarContainer.navigation = {'.flatpickr-prev-month':node(), '.flatpickr-next-month':node()};
   const window = {innerHeight:720,innerWidth:1000,scrollX:0,scrollY:0,addEventListener(event, fn){ picker.resize = fn; }};
-  if (library) window.flatpickr = (element, options) => { picker.options = options; options.onReady([], '', picker); };
+  if (library) window.flatpickr = (element, options) => { picker.options = picker.config = options; options.onReady([], '', picker); };
   vm.runInNewContext(source, {window,document:{querySelectorAll: () => [input], createElement:node},
     requestAnimationFrame:fn => fn(), Date}, {filename});
   if (picker.options) picker.calendarContainer.periods = picker.timeContainer.children[0]?.children || [];
@@ -45,6 +46,14 @@ test('datetime picker preserves ISO transport and accessible labels', () => {
   assert.equal(p.altInput.attrs['aria-describedby'],'hint');
   assert.equal(p.calendarContainer.attrs.role,'dialog');
   assert.equal(p.hourElement.tabIndex,0);
+});
+
+test('dialog calendar stays inside the modal instead of positioning behind it', () => {
+  const {picker:p} = setup({type:'date',inDialog:true});
+  assert.equal(p.options.static,true);
+  p.options.onOpen([], '', p);
+  assert.equal(p.calendarContainer.style.top,undefined);
+  assert.equal(p.altInput.attrs['aria-expanded'],'true');
 });
 test('AM and PM preserve date and minutes, including midnight and noon', () => {
   const {picker:p} = setup(); const [am,pm] = p.calendarContainer.periods;
@@ -83,7 +92,7 @@ test('month arrows are labeled and keyboard operable without form submission', (
 test('date-only inputs have no time fields and weekends stay selectable', () => {
   const {picker:p} = setup({type:'date',id:''});
   assert.equal(p.options.enableTime,false); assert.equal(p.options.dateFormat,'Y-m-d');
-  assert.equal(p.timeContainer.children.length,0); assert.equal(p.altInput.placeholder,'MM/DD/YYYY');
+  assert.equal(p.timeContainer.children.length,0); assert.equal(p.altInput.placeholder,'');
   let count=0;
   for (const day of [new Date(2030,5,1),new Date(2030,5,3)]) p.options.onDayCreate([], '', p, {dateObj:day,classList:{add(){count++;}}});
   assert.equal(count,1);

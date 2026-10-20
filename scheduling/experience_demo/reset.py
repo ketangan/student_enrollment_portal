@@ -17,12 +17,13 @@ def reset_demo(profile):
     orders = PaymentOrder.objects.filter(school=school)
     if (PaymentAccount.objects.filter(school=school).exists()
             or PaymentAttempt.objects.filter(order__in=orders).exists()
+            or LedgerEntry.objects.filter(order__in=orders, channel="terminal").exists()
             or orders.exclude(environment="test").exists()
             or school.stripe_customer_id or school.smtp_host or school.app_fee_stripe_secret_key
             or profile.connections.exists()
             or m.VisitProgram.objects.filter(offering__location__profile=profile).exists()
             or m.LessonService.objects.filter(profile=profile).exists()):
-        raise CommandError("Refusing to reset connected payments, integrations, visits or lesson data.")
+        raise CommandError("Refusing to reset connected payments, Terminal receipts, integrations, visits or lesson data.")
     bookings = m.Reservation.objects.filter(profile=profile)
     m.StockAllocation.objects.filter(reservation__in=bookings).delete()
     m.ReservationOccurrence.objects.filter(reservation__in=bookings).delete()

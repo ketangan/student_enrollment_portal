@@ -190,18 +190,31 @@ def workshop_detail(request, school_slug, pk):
 @require_http_methods(["GET", "POST"])
 def setup_edit(request, school_slug, kind, pk=None, offering_pk=None):
     profile, role = require_access(request.user, school_slug, edit_permission(kind))
+    return_to_parties = kind == "workshops" and bool(pk) and request.GET.get("return_to") == "parties"
+    parties_url = reverse("scheduling:party_setup", kwargs={"school_slug": school_slug})
+    if kind == "party_packages" and request.method == "GET":
+        form = build_form(profile, kind, pk=pk)
+        query = f"?location={form.instance.offering.location_id}&edit={pk}#package-{pk}" if pk else "?new=1#package-new"
+        return redirect(reverse("scheduling:party_setup", kwargs={"school_slug": school_slug}) + query)
     if request.method == "POST":
         form = save_setup(request.user, school_slug, kind, request.POST, pk, offering_pk)
         if form.is_valid():
             messages.success(request, "Changes saved." if pk else "Created successfully.")
+            if return_to_parties:
+                return redirect(f"{parties_url}?location={form.instance.location_id}")
+            if kind == "party_packages":
+                return redirect("scheduling:party_setup", school_slug=school_slug)
             if kind in {"workshops", "sessions"}:
                 offering_id = form.instance.pk if kind == "workshops" else form.instance.offering_id
                 return redirect("scheduling:workshop_detail", school_slug=school_slug, pk=offering_id)
             return redirect("scheduling:locations", school_slug=school_slug)
     else:
         form = build_form(profile, kind, pk=pk, offering_pk=offering_pk)
-    context = _context(request, profile, role, "locations" if kind in {"locations", "rooms"} else "workshops")
-    context.update(form=form, kind=kind, editing=bool(pk), entity_label={"locations": "location", "rooms": "room", "workshops": "workshop", "sessions": "session"}[kind])
+    active = "parties" if kind == "party_packages" else "locations" if kind in {"locations", "rooms"} else "workshops"
+    context = _context(request, profile, role, active)
+    if return_to_parties:
+        context["parties_return_url"] = f"{parties_url}?location={form.instance.location_id}"
+    context.update(form=form, kind=kind, editing=bool(pk), party_setup=kind == "party_packages", entity_label={"locations": "location", "rooms": "room", "workshops": "workshop", "sessions": "session", "party_packages": "party package"}[kind])
     context["hide_setup_tabs"] = kind in {"workshops", "sessions"}
     zone = form.instance.offering.location.timezone_name if kind == "sessions" else timezone.get_default_timezone_name()
     context["session_location"] = form.instance.offering.location if kind == "sessions" else None
@@ -250,4 +263,8 @@ def public_schedule(request, school_slug):
             except ValidationError:
                 continue
             offering.available_camps.append(camp)
-    return render(request, "scheduling/public_schedule.html", {"business": profile.school, "offerings": offerings})
+    can_return_to_admin = accessible_profiles(request.user).filter(pk=profile.pk).exists()
+    return render(request, "scheduling/public_schedule.html", {
+        "business": profile.school, "offerings": offerings,
+        "can_return_to_admin": can_return_to_admin,
+    })

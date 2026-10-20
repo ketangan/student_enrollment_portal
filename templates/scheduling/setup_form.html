@@ -3,26 +3,29 @@
 {% block page_heading %}
 {% if kind == 'workshops' %}
 <div class="booking-page-heading workshop-edit-heading">
-  <a class="back-link" href="{% if editing %}{% url 'scheduling:workshop_detail' school_slug=business.slug pk=form.instance.pk %}{% else %}{% url 'scheduling:workshops' school_slug=business.slug %}{% endif %}"><i data-lucide="arrow-left" aria-hidden="true"></i> {% if editing %}{{ form.instance.name }}{% else %}Workshops{% endif %}</a>
+  <a class="back-link" href="{% if parties_return_url %}{{ parties_return_url }}{% elif editing %}{% url 'scheduling:workshop_detail' school_slug=business.slug pk=form.instance.pk %}{% else %}{% url 'scheduling:workshops' school_slug=business.slug %}{% endif %}"><i data-lucide="arrow-left" aria-hidden="true"></i> {% if parties_return_url %}Back to parties{% elif editing %}{{ form.instance.name }}{% else %}Workshops{% endif %}</a>
   <h1>{% if editing %}Edit{% else %}Add{% endif %} workshop</h1>
   <p>{{ business }}{% if editing %} &middot; {{ form.instance.location.name }}{% endif %}</p>
 </div>
 {% else %}{{ block.super }}{% endif %}
 {% endblock %}
 {% block content %}
+{% if party_setup %}<a class="back-link" href="{% url 'scheduling:party_setup' school_slug=business.slug %}">Back to parties</a>{% endif %}
 {% if kind != 'workshops' %}<h2>{% if editing %}Edit{% else %}Add{% endif %} {{ entity_label }}</h2>{% endif %}
 {% if session_location %}<p class="muted">{{ form.instance.offering.name }} &middot; {{ session_location.name }} &middot; {{ session_location.timezone_name }}</p>{% endif %}
-<form method="post" class="setup-form{% if kind == 'workshops' %} workshop-settings-form{% endif %}" novalidate>
+<form method="post" class="setup-form{% if kind == 'workshops' or party_setup %} workshop-settings-form{% endif %}" novalidate>
   {% csrf_token %}
   {% if form.errors and not form.edit_revision.errors %}<div class="notice error" role="alert">Please correct the fields below.{{ form.non_field_errors }}</div>{% endif %}
   {% include 'scheduling/form_hidden_fields.html' %}
+  {% if party_setup %}<div class="workshop-settings-fields">{% endif %}
   {% if kind == 'workshops' %}<fieldset class="workshop-settings-section"><legend>Workshop details</legend><div class="workshop-settings-fields">{% endif %}
   {% for field in form.visible_fields %}
     {% if kind == 'workshops' and field.name == 'payment_at_booking' %}</div></fieldset><fieldset class="workshop-settings-section"><legend>Booking payments</legend><div class="workshop-settings-fields">{% endif %}
-    <div class="form-field{% if field.field.widget.input_type == 'checkbox' %} check-field{% endif %}{% if field.name == 'description' %} workshop-description-field{% endif %}"{% if field.name == 'deposit_per_participant' %} data-booking-deposit{% endif %}><label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span aria-hidden="true"> *</span>{% endif %}</label>{{ field }}{{ field.errors }}</div>
+    <div class="form-field{% if field.field.widget.input_type == 'checkbox' %} check-field{% endif %}{% if field.name == 'description' %} workshop-description-field{% endif %}"{% if field.name == 'deposit_per_participant' %} data-booking-deposit{% endif %}><label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span aria-hidden="true"> *</span>{% endif %}</label>{{ field }}{{ field.errors }}{% if party_setup and field.help_text %}<p class="muted">{{ field.help_text }}</p>{% endif %}</div>
   {% endfor %}
   {% if kind == 'workshops' %}</div></fieldset>{% endif %}
+  {% if party_setup %}</div>{% endif %}
   <div class="actions form-actions"><button class="primary" type="submit">Save {{ entity_label }}</button>
-  {% if kind == 'sessions' %}<a href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=form.instance.offering_id %}">Cancel</a>{% elif kind == 'workshops' and editing %}<a href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=form.instance.pk %}">Cancel</a>{% elif kind == 'workshops' %}<a href="{% url 'scheduling:workshops' school_slug=business.slug %}">Cancel</a>{% else %}<a href="{% url 'scheduling:locations' school_slug=business.slug %}">Cancel</a>{% endif %}</div>
+  {% if parties_return_url %}<a href="{{ parties_return_url }}">Cancel</a>{% elif party_setup %}<a href="{% url 'scheduling:party_setup' school_slug=business.slug %}">Cancel</a>{% elif kind == 'sessions' %}<a href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=form.instance.offering_id %}">Cancel</a>{% elif kind == 'workshops' and editing %}<a href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=form.instance.pk %}">Cancel</a>{% elif kind == 'workshops' %}<a href="{% url 'scheduling:workshops' school_slug=business.slug %}">Cancel</a>{% else %}<a href="{% url 'scheduling:locations' school_slug=business.slug %}">Cancel</a>{% endif %}</div>
 </form>
 {% endblock %}

@@ -162,7 +162,7 @@ def test_admin_balance_action_requires_access(inventory, merchant, booking_membe
     route = reverse("scheduling:reservation_detail", args=[inventory[0].school.slug, item.public_id])
     assert client.get(route).status_code == 302
     client.force_login(booking_member.user)
-    assert b"Collect balance: $75.00" in client.get(route).content
+    assert b"Take online payment" in client.get(route).content
 
 
 @pytest.mark.parametrize("provider_fixture", ["merchant", "square_account"])

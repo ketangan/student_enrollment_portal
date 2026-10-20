@@ -28,7 +28,7 @@ def workspace_navigation(context):
     if context["message_preview_available"] and (features["lessons"] or features["visits"]):
         reservations.append(link("messages", "Messages", "messages"))
 
-    setup = [link(key, label, key) for key, label in
+    setup = [link(key, label, "party_setup" if key == "parties" else key) for key, label in
              (("workshops", "Workshop"), ("parties", "Parties"), ("camps", "Camps")) if features[key]]
     setup.append(link("catalog", "Catalog", "catalogs"))
     setup.append(link("settings", "Materials Inventory", "settings"))

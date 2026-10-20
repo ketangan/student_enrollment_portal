@@ -7,6 +7,7 @@
     return node;
   };
   const place = picker => {
+    if (picker.config?.static) return;
     requestAnimationFrame(() => {
       if (!picker.isOpen) return;
       const popup = picker.calendarContainer, rect = popup.getBoundingClientRect();
@@ -29,6 +30,7 @@
       dateFormat: withTime ? 'Y-m-d\\TH:i' : 'Y-m-d',
       enableTime: withTime, time_24hr: false, minuteIncrement: 1,
       disableMobile: true, monthSelectorType: 'static',
+      static: Boolean(input.closest('dialog')),
       minDate: input.min || undefined, maxDate: input.max || undefined,
       onDayCreate: (_, __, picker, day) => {
         if ([0, 6].includes(day.dateObj.getDay())) day.classList.add('weekend');
@@ -43,7 +45,7 @@
         for (const attr of ['aria-label', 'aria-describedby', 'aria-invalid']) {
           if (input.hasAttribute(attr)) picker.altInput.setAttribute(attr, input.getAttribute(attr));
         }
-        picker.altInput.placeholder = withTime ? 'MM/DD/YYYY hh:mm AM' : 'MM/DD/YYYY';
+        picker.altInput.placeholder = '';
         picker.altInput.setAttribute('aria-haspopup', 'dialog');
         for (const direction of ['prev', 'next']) {
           const nav = popup.querySelector(`.flatpickr-${direction}-month`);

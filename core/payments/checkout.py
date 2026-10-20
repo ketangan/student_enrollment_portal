@@ -27,9 +27,10 @@ def validate_account(order, *, new_payment=True):
 
 
 def amount_due(order):
-    net = totals(order)["net_cents"]
+    amounts = totals(order)
+    net = amounts["net_cents"]
     required = order.deposit_cents or order.total_cents
-    return max(0, required - net) if net < required else max(0, order.total_cents - net)
+    return max(0, required - net) if net < required else amounts["outstanding_cents"]
 
 
 @transaction.atomic

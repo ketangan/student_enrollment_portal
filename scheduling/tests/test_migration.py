@@ -22,6 +22,12 @@ def test_square_and_deposit_upgrade_preserves_existing_stripe_payments():
         profile = apps.get_model("scheduling", "SchedulingProfile").objects.create(school=school, enabled=True)
         location = apps.get_model("scheduling", "Location").objects.create(profile=profile, name="Studio")
         offering = apps.get_model("scheduling", "Offering").objects.create(location=location, name="Workshop")
+        from datetime import timedelta
+        party = apps.get_model("scheduling", "PartyRequest").objects.create(
+            offering=offering, organizer_name="Existing party", organizer_email="existing@example.invalid",
+            starts_at=timezone.now(), ends_at=timezone.now() + timedelta(hours=2), group_size=6,
+            space="shared", proposed_total=450, proposed_deposit=150, submission_key=uuid.uuid4(),
+            offering_snapshot={"workshop": "Workshop", "location": "Studio", "timezone": "America/Los_Angeles"})
         account = apps.get_model("payments", "PaymentAccount").objects.create(
             school=school, reference="acct_migration_test", enabled=True)
         order = apps.get_model("payments", "PaymentOrder").objects.create(
@@ -48,8 +54,16 @@ def test_square_and_deposit_upgrade_preserves_existing_stripe_payments():
         assert (saved_order.account_id, saved_order.total_cents, saved_order.deposit_cents) == (account.pk, 6500, 2500)
         assert (saved_attempt.state, saved_attempt.entry_id, saved_attempt.submitted_at) == ("paid", entry.pk, None)
         assert (saved_entry.channel, saved_entry.amount_cents, saved_entry.reference) == ("stripe", 2500, entry.reference)
+        assert (saved_entry.external_reference, saved_entry.paid_on, saved_entry.note, saved_entry.reverses_id) == ("", None, "", None)
+        assert saved_entry.extra_charge_cents == 0
         assert SchedulingProfile.objects.get(pk=profile.pk).payment_provider == "stripe"
         assert Offering.objects.get(pk=offering.pk).deposit_per_participant == 0
+        from scheduling.models import Location, PartyRequest
+        saved_location = Location.objects.get(pk=location.pk)
+        assert saved_location.name == "Studio"
+        saved_party = PartyRequest.objects.get(pk=party.pk)
+        assert saved_party.package_id is None and saved_party.package_snapshot == {}
+        assert saved_party.proposed_total == 450 and saved_party.proposed_deposit == 150
         assert School.objects.get(pk=school.pk).plan == "custom"
     finally:
         MigrationExecutor(connection).migrate(latest)

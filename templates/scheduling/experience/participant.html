@@ -1,5 +1,4 @@
 <fieldset class="participant"><legend>Participant <span class="person-number">{{ forloop.counter|default:'1' }}</span></legend>
 <div class="person-fields">{% for field in form %}<label data-field="{{ field.label }}">{{ field.label }}{{ field }}{{ field.errors }}</label>{% endfor %}</div>
-<div class="visual-picker" hidden><h3>Choose a design</h3><div class="designs" role="group" aria-label="Plushie designs"></div>
-<div class="color-preview"><section><h3>Choose a color</h3><div class="colors" role="group" aria-label="Plushie colors"></div></section><figure class="selection-preview"><div class="plushie-image"><div class="tint"></div></div><figcaption><strong class="selection-label"></strong><span class="preview-note">Illustrative color preview</span></figcaption></figure></div></div>
+{% include 'scheduling/catalog_picker.html' %}
 <button class="remove-person quiet" type="button" title="Remove this participant"><i data-lucide="trash-2" aria-hidden="true"></i> Remove participant</button></fieldset>

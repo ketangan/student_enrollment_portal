@@ -156,13 +156,15 @@ def create_reservation(user, slug, kind, public_id, total_cents=None, deposit_ce
             return existing
         if source_revision is not None and source.revision != source_revision:
             raise ValidationError("The party proposal changed. Open a new reservation form before approving it.")
-        if source.status != "reviewed" or not source.room_id or source.proposed_total is None:
-            raise ValidationError("Review this party with a proposed room, total and deposit first.")
+        if source.status != "reviewed" or not source.room_id or source.proposed_total is None or not source.ends_at:
+            raise ValidationError("Review this party with a proposed room, duration, total and deposit first.")
         total_cents, deposit_cents = int(source.proposed_total * 100), int(source.proposed_deposit * 100)
         item = Reservation(profile=profile, party_request=source, room=source.room, starts_at=source.starts_at,
             ends_at=source.ends_at, quantity=source.group_size, exclusive=source.space == "exclusive",
             snapshot={"name": source.organizer_name, "workshop": source.offering_snapshot["workshop"],
-                      "timezone": source.offering_snapshot["timezone"]})
+                      "timezone": source.offering_snapshot["timezone"],
+                      "party_package": source.package_snapshot,
+                      "occasion": source.occasion, "age_range": source.age_range})
     else:
         raise ValidationError("Choose a workshop request or party inquiry.")
     ensure_capacity(item)

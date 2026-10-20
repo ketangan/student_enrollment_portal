@@ -57,7 +57,7 @@
         <td class="number">{{ item.quantity }}</td>
         <td>{% include 'scheduling/reservation_status.html' %}</td>
         <td><a class="prep-link" href="{% url 'scheduling:reservation_preparation' school_slug=business.slug public_id=item.public_id %}"><span class="sr-only">Workshop prep for {{ item.snapshot.name }}: </span>{% include 'scheduling/preparation_badge.html' %}</a></td>
-        <td class="number">${{ item.order.total|floatformat:2 }}</td>
+        <td class="number">${{ item.total_amount|floatformat:2 }}</td>
         <td><a class="dash-action-btn dash-action-btn--secondary" href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.public_id %}" aria-label="Open {{ item.snapshot.name }}">Open</a></td>
       </tr>
     {% empty %}
