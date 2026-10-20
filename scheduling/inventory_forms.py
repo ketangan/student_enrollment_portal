@@ -146,11 +146,17 @@ class DesignForm(ChoiceOptionForm):
 
 
 class PartyMaterialRow(forms.Form):
+    guest_name = forms.CharField(max_length=100, required=False, label="Name (optional)")
     item = forms.ModelChoiceField(queryset=CatalogVariant.objects.none(), label="Design / color")
     quantity = forms.IntegerField(min_value=1, max_value=10000, label="Participants")
 
-    def __init__(self, *args, offering, **kwargs):
+    def __init__(self, *args, offering, guest_mode=False, **kwargs):
         super().__init__(*args, **kwargs)
+        self.guest_mode = guest_mode
+        if guest_mode:
+            self.fields["quantity"].initial = 1
+            self.fields["quantity"].disabled = True
+            self.fields["quantity"].widget = forms.HiddenInput()
         self.offering = offering
         self.fields["item"].queryset = CatalogVariant.objects.filter(catalog_id=offering.inventory_catalog_id, is_active=True)
         groups = list(offering.inventory_catalog.choice_groups.filter(tracks_stock=True, is_active=True)) if offering.inventory_catalog_id else []
@@ -174,20 +180,52 @@ class PartyMaterialRow(forms.Form):
         return data
 
 
-def party_material_forms(offering, data=None, initial=None):
+def party_material_forms(offering, data=None, initial=None, *, guest_mode=False):
     if not offering.inventory_catalog_id:
         return None
     factory = forms.formset_factory(PartyMaterialRow, extra=1, max_num=50, validate_max=True, absolute_max=51, can_delete=True)
-    return factory(data, initial=[{"item": row["item_id"], "quantity": row["quantity"]} for row in initial or []],
-                   prefix="materials", form_kwargs={"offering": offering})
+    return factory(data, initial=[{"item": row["item_id"], "quantity": row["quantity"],
+                                  "guest_name": row.get("guest_name", "")} for row in initial or []],
+                   prefix="materials", form_kwargs={"offering": offering, "guest_mode": guest_mode})
+
+
+def party_catalog_data(offering):
+    """Reuse catalog photos/swatches and configured legacy artwork, without reserving stock."""
+    if not offering.inventory_catalog_id:
+        return None
+    groups = list(offering.inventory_catalog.choice_groups.filter(tracks_stock=True, is_active=True).prefetch_related("options"))
+    if len(groups) != 2:
+        return None
+    from django.http import Http404
+    from .experience_demo.config import configuration
+    try:
+        artwork = configuration(offering.location.profile.school.slug)
+    except Http404:
+        artwork = {}
+    options = {group.name: [{"id": str(option.pk), "name": option.label, "swatch": option.swatch,
+                            "image_url": option.image_url} for option in group.options.all() if option.is_active]
+               for group in groups}
+    designs = []
+    for option in options[groups[0].name]:
+        legacy = artwork.get("design_previews", {}).get(option["id"],
+            next((row for row in artwork.get("designs", []) if row["name"] == option["name"]), {}))
+        designs.append({**legacy, **option})
+    variants = [{"options": row.option_ids, "image_url": row.image_url}
+                for row in CatalogVariant.objects.filter(catalog_id=offering.inventory_catalog_id, is_active=True)]
+    return {"options": options, "designs": designs, "image": artwork.get("design_image", ""),
+            "design_group": groups[0].name, "color_group": groups[1].name, "variants": variants}
 
 
 def material_snapshot(formset, group_size):
     if formset is None:
         return []
     rows = [{"item_id": row.cleaned_data["item"].pk, "name": row.cleaned_data["item"].name,
-             "quantity": row.cleaned_data["quantity"]}
+             "quantity": row.cleaned_data["quantity"],
+             **({"guest_name": row.cleaned_data["guest_name"]} if row.cleaned_data.get("guest_name") else {})}
             for row in formset if row.cleaned_data and not row.cleaned_data.get("DELETE")]
-    if rows and sum(row["quantity"] for row in rows) != group_size:
+    guest_mode = formset.form_kwargs.get("guest_mode", False)
+    if guest_mode and rows and len(rows) != group_size:
+        raise forms.ValidationError("Add one selection for each guest, or leave selections for later.")
+    if not guest_mode and rows and sum(row["quantity"] for row in rows) != group_size:
         raise forms.ValidationError("Materials must total the number of participants, or leave all rows empty to choose later.")
     return rows

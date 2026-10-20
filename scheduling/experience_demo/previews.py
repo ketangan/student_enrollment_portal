@@ -12,12 +12,12 @@ from .config import context
 def preview(request, variant="index"):
     if variant not in {"index", "inline", "modal"}:
         raise Http404
-    context(request, "plushumi-demo")
+    profile, config = context(request, "plushumi-demo")
     if variant == "inline":
         # Keep previously shared links working without nesting a complete booking page.
         response = redirect("scheduling:experience_start", school_slug="plushumi-demo")
     else:
-        response = render(request, f"scheduling/experience/integrations/{variant}.html")
+        response = render(request, f"scheduling/experience/integrations/{variant}.html", {"business": profile.school})
     response["X-Robots-Tag"] = "noindex, nofollow"
     response["Content-Security-Policy"] = "frame-ancestors 'none'; frame-src 'self'; object-src 'none'; base-uri 'none'"
     return response

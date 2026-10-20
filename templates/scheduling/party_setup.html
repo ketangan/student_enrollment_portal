@@ -1,0 +1,48 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Parties{% endblock %}
+{% block extra_css %}<style>
+.booking-admin .party-package-table table { min-width: 900px; }
+.booking-admin .party-package-table thead th { white-space:nowrap; }
+.booking-admin .party-package-table svg { width: 16px; height: 16px; }
+.party-share { display:flex; gap:16px; align-items:end; flex-wrap:wrap; margin:24px 0; }
+.party-share > div { flex:1; min-width:220px; }
+.party-share a { overflow-wrap:anywhere; }
+.party-share p { margin:0 0 6px; }
+.booking-admin .party-package-table input:not([type=checkbox]), .booking-admin .party-package-table select { width:100%; min-width:70px; padding:8px; min-height:38px; border:1px solid var(--dash-border); border-radius:4px; background:var(--dash-card); }
+.party-package-table .package-name { min-width:180px; }
+.booking-admin .party-package-table select { min-width:140px; }
+.booking-admin .party-package-table .editing-package > td { vertical-align:top; }
+.booking-admin .party-package-table .editing-package input[type=checkbox] { margin-top:10px; }
+.party-package-table .row-actions { display:flex; gap:8px; align-items:center; }
+.party-package-table .row-actions button, .party-package-table .row-actions a { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; padding:0; }
+.booking-admin .party-package-editor { padding:20px 0; max-width:960px; text-align:left; }
+.booking-admin .party-package-editor label { text-align:left; }
+.party-package-table tr[id], #package-new { scroll-margin-top:90px; }
+.party-package-editor .actions { margin-top:24px; }
+.party-package-editor .checkbox-field { display:flex; align-items:center; gap:12px; }
+.party-package-editor .checkbox-field input { width:20px; height:20px; flex:none; }
+.party-package-editor .checkbox-field label { margin:0; }
+@media(max-width:640px) { .party-package-editor { width:calc(100vw - 100px); } }
+</style>{% endblock %}
+{% block content %}
+<div class="section-heading"><h2>Party packages</h2><div class="actions"><a class="button" href="{% url 'scheduling:parties' school_slug=business.slug %}">Party inquiries</a>{% if can_edit_setup %}<a class="button primary" href="?new=1#package-new">Add package</a>{% endif %}</div></div>
+<div class="party-share"><div><p>Customer inquiry link</p><a href="{{ share_url }}" target="_blank" rel="noopener">{{ share_url }}</a></div><a class="button" href="{% url 'scheduling:party_start' school_slug=business.slug %}?preview=1" target="_blank" rel="noopener">Preview form</a></div>
+{% if editing_pk %}<form method="post" id="package-edit" novalidate>{% csrf_token %}<input type="hidden" name="package_id" value="{{ editing_pk }}">{% for field in package_form.hidden_fields %}{{ field }}{% endfor %}</form>{% endif %}
+{% if package_form and not editing_pk %}<section class="party-package-editor" id="package-new"><h3>Add package</h3>{% include 'scheduling/party_package_editor.html' %}</section>{% endif %}
+{% for location in locations %}
+<section class="workshop-settings-section">
+<div class="section-heading"><h3>{{ location.name }}</h3></div>
+{% for offering in location.offerings.all %}
+<div class="section-heading"><h4>{{ offering.name }}</h4></div>
+{% if not offering.is_published or not offering.accepts_party_requests %}<p class="muted">Packages are hidden from customers: {% if not offering.is_published %}this workshop is unpublished{% else %}party requests are disabled for this workshop{% endif %}.{% if can_edit_setup %} <a href="{% url 'scheduling:workshop_edit' school_slug=business.slug pk=offering.pk %}?return_to=parties">Edit workshop settings</a>{% endif %}</p>{% endif %}
+<div class="table-wrap party-package-table" tabindex="0" role="region" aria-label="{{ offering.name }} packages"><table><thead><tr><th>Package</th><th>Participants</th><th>Duration (min)</th><th>Price (USD)</th><th>Deposit (USD)</th><th>Space</th><th>Published</th>{% if can_edit_setup %}<th>Actions</th>{% endif %}</tr></thead><tbody>
+{% for package in offering.party_packages.all %}
+{% if editing_pk == package.pk %}
+<tr id="package-{{ package.pk }}" class="editing-package"><td class="package-name">{{ package_form.name }}{{ package_form.name.errors }}</td><td>{{ package_form.participant_limit }}{{ package_form.participant_limit.errors }}</td><td>{{ package_form.duration_minutes }}{{ package_form.duration_minutes.errors }}</td><td>{{ package_form.total }}{{ package_form.total.errors }}</td><td>{{ package_form.deposit }}{{ package_form.deposit.errors }}</td><td>{{ package_form.space }}{{ package_form.space.errors }}</td><td>{{ package_form.is_published }}{{ package_form.is_published.errors }}</td><td><div class="row-actions"><button class="primary" type="submit" form="package-edit" aria-label="Save package" title="Save package"><i data-lucide="check" aria-hidden="true"></i></button><a href="?location={{ location.pk }}#package-{{ package.pk }}" aria-label="Cancel editing" title="Cancel editing"><i data-lucide="x" aria-hidden="true"></i></a></div></td></tr>
+{% if package_form.non_field_errors or package_form.edit_revision.errors %}<tr><td colspan="8">{{ package_form.non_field_errors }}{{ package_form.edit_revision.errors }}</td></tr>{% endif %}
+{% else %}<tr id="package-{{ package.pk }}"><th>{{ package.name }}</th><td>{{ package.participant_limit }}</td><td>{{ package.duration_minutes|default_if_none:'Not set' }}{% if package.duration_minutes %} min{% endif %}</td><td>{% if package.total != None %}${{ package.total }}{% else %}Not set{% endif %}</td><td>${{ package.deposit }}</td><td>{{ package.get_space_display }}</td><td>{% if package.is_published %}Published{% else %}Draft{% endif %}</td>{% if can_edit_setup %}<td><a href="?location={{ location.pk }}&amp;edit={{ package.pk }}#package-{{ package.pk }}" aria-label="Edit {{ package.name }}" title="Edit {{ package.name }}"><i data-lucide="pencil" aria-hidden="true"></i></a></td>{% endif %}</tr>{% endif %}
+{% empty %}<tr><td colspan="8">No packages configured.</td></tr>{% endfor %}
+</tbody></table></div>
+{% empty %}<p class="muted">Add a workshop at this location before adding packages.</p>{% endfor %}
+</section>{% empty %}<p>No locations found.</p>{% endfor %}
+{% endblock %}

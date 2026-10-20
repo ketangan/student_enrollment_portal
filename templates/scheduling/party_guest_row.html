@@ -1,0 +1,8 @@
+<div class="material-row guest-row"{% if row.DELETE.value %} hidden{% endif %}>
+<div class="guest-heading"><strong data-guest-number>Guest {{ forloop.counter|default:'1' }}</strong><button type="button" data-remove-guest aria-label="Remove guest" title="Remove guest"><i data-lucide="trash-2" aria-hidden="true"></i></button></div>
+{{ row.non_field_errors }}
+<div hidden>{{ row.DELETE }}{{ row.quantity }}</div>
+<div class="form-field">{{ row.guest_name.label_tag }}{{ row.guest_name }}{{ row.guest_name.errors }}</div>
+{% for field in row %}{% if field.name != 'guest_name' and field.name != 'quantity' and field.name != 'DELETE' %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}
+{% if visual_materials %}{% include 'scheduling/catalog_picker.html' %}{% endif %}
+</div>

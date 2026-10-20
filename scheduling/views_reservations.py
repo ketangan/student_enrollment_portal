@@ -119,21 +119,48 @@ def reservation_create(request, school_slug, kind, public_id):
 
 @never_cache
 @login_required
-@require_GET
+@require_http_methods(["GET", "POST"])
 def reservation_detail(request, school_slug, public_id):
+    from . import terminal_payments
     profile, role = require_access(request.user, school_slug, capability="reservations")
     item = get_object_or_404(Reservation.objects.select_related("order", "room"), profile=profile, public_id=public_id, visit_booking__isnull=True)
+    error = ""
+    action = request.POST.get("action") if request.method == "POST" else None
+    if request.method == "POST":
+        require_access(request.user, school_slug, "setup.edit", capability="reservations")
+        try:
+            if action == "record_terminal":
+                terminal_payments.record(request.user, school_slug, public_id, request.POST)
+            elif action == "void_terminal":
+                try:
+                    entry_id = int(request.POST.get("entry_id", ""))
+                except (ValueError, TypeError):
+                    return HttpResponseBadRequest("Choose a recorded payment.")
+                terminal_payments.void(request.user, school_slug, public_id, entry_id, request.POST)
+            else:
+                return HttpResponseBadRequest("Choose a payment action.")
+        except ValidationError as exc:
+            error = " ".join(exc.messages)
+        else:
+            messages.success(request, "Terminal payment recorded. No card was charged." if action == "record_terminal"
+                else "Incorrect entry voided. No money was refunded.")
+            return redirect("scheduling:reservation_detail", school_slug=school_slug, public_id=public_id)
     context = detail_context(request, _context(request, profile, role, "reservations"), item)
     context.update(amounts=totals(item.order), audit=audit_page(item, request.GET.get("audit_page")))
     if item.order.account_id:
         from .checkout import payment_token
         from django.urls import reverse
         context["payment_url"] = reverse("scheduling:customer_payment", kwargs={"school_slug": school_slug, "token": payment_token(item)})
-        context["attempts"] = item.order.attempts.order_by("-created_at")
+        context["attempts"] = item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).order_by("-created_at")
         context["checkout_pending"] = item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).exists()
-        context["overpaid"] = context["amounts"]["net_cents"] > item.order.total_cents
-        context["refunds"] = Refund.objects.filter(attempt__order=item.order).order_by("-created_at")
-    return render(request, "scheduling/reservation_detail.html", context)
+        context["overpaid"] = context["amounts"]["net_cents"] > context["amounts"]["total_cents"]
+        context["refunds"] = Refund.objects.filter(attempt__order=item.order, state__in=Refund.ACTIVE).order_by("-created_at")
+    context.update(terminal_error=error,
+        terminal_form=terminal_payments.TerminalPaymentForm(request.POST if action == "record_terminal" else None,
+            initial={"amount": context["amounts"]["outstanding"], "expected_balance": context["amounts"]["outstanding_cents"],
+                     "expected_total": context["amounts"]["total_cents"], "paid_on": terminal_payments.studio_today(item)}),
+        terminal_entries=item.order.entries.filter(channel="terminal", kind="payment").select_related("actor", "reversal"))
+    return render(request, "scheduling/reservation_detail.html", context, status=400 if error else 200)
 
 
 @never_cache

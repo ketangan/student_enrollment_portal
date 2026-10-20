@@ -1,14 +1,47 @@
 {% extends 'scheduling/public_base.html' %}
+{% load static %}
 {% block title %}Party inquiry{% endblock %}
+{% block public_home %}{% url 'scheduling:party_start' school_slug=business.slug %}{% endblock %}
 {% block content %}
-<a class="back-link" href="{% url 'scheduling:public_schedule' school_slug=business.slug %}">All workshops</a>
-<div class="request-heading"><h1>Plan a party</h1><p>{{ offering.name }} &middot; {{ offering.location.name }}</p><p class="muted">{{ offering.location.timezone_name }}</p></div>
-<p class="notice">This is an inquiry, not a booking. Your date and room are not reserved. No payment is collected.</p>
+<link rel="stylesheet" href="{% static 'scheduling/catalog-picker.css' %}">
+<style>
+.party-inquiry {max-width:780px}
+.party-inquiry .setup-form {max-width:none}
+.party-inquiry .selection-toggle label {display:flex;align-items:center;gap:10px;justify-content:flex-start;font-weight:500}
+.party-inquiry .selection-toggle input[type=checkbox], .party-inquiry .check-field input[type=checkbox] {width:18px;height:18px;min-height:18px;margin:0;flex:0 0 18px;padding:0}
+.party-inquiry .check-field {display:flex;align-items:center;gap:10px}
+.party-inquiry .material-row {display:block;margin:20px 0;padding-bottom:24px;border-bottom:1px solid #dce2de}
+.party-inquiry .material-row > .form-field:not([hidden]) {max-width:320px}
+.party-inquiry .material-row .visual-picker {max-width:none}
+.party-inquiry .guest-heading {display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.party-inquiry .guest-heading button {display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;min-height:36px;padding:8px}
+.party-inquiry .guest-heading svg {width:18px;height:18px}
+.party-inquiry .visual-picker h3 {font-size:16px}
+.party-inquiry .visual-picker button {min-height:36px;font-weight:400}
+.party-inquiry .visual-picker .color-option {padding:6px 2px}
+.party-inquiry [hidden] {display:none !important}
+</style>
+<div class="party-inquiry">
+{% if admin_preview %}<a class="back-link" href="{% url 'scheduling:party_setup' school_slug=business.slug %}">Back to party setup</a>{% endif %}
+<div class="request-heading"><h1>Plan a party</h1><p>{{ business }}</p></div>
+{% if form %}<p class="muted">* Required</p>{% endif %}
+{% if offerings %}<form method="get" action="{% url 'scheduling:party_start' school_slug=business.slug %}" class="setup-form">
+{% if admin_preview %}<input type="hidden" name="preview" value="1">{% endif %}
+<div class="form-field"><label for="party-location">Location *</label><select id="party-location" name="offering" required>{% for item in offerings %}<option value="{{ item.pk }}"{% if item.pk == offering.pk %} selected{% endif %}>{{ item.location.name }} &middot; {{ item.name }}</option>{% endfor %}</select></div><noscript><button type="submit">Update location</button></noscript>
+</form>{% else %}<p>Party inquiries are not currently available.</p>{% endif %}
+<p id="party-loading" role="status" hidden></p>
 {% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
-<form method="post" class="setup-form">{% csrf_token %}<input type="hidden" name="request_token" value="{{ request_token }}">
+{% if form %}
+<form method="post" class="setup-form" id="party-request-form" action="{% url 'scheduling:party_start' school_slug=business.slug %}?offering={{ offering.pk }}{% if admin_preview %}&amp;preview=1{% endif %}">{% csrf_token %}<input type="hidden" name="request_token" value="{{ request_token }}">
 {{ form.non_field_errors }}
-{% for field in form %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+{% for field in form %}<div data-party-field="{{ field.name }}" class="form-field{% if field.field.widget.input_type == 'checkbox' %} selection-toggle{% endif %}"{% if form.package_mode and field.name == 'space' %} data-custom-party-field{% endif %}>{% if field.field.widget.input_type == 'checkbox' %}<label>{{ field }}{{ field.label }}</label>{% else %}<label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required or field.name == 'space' %} *{% endif %}</label>{{ field }}{% endif %}{{ field.errors }}{% if field.name == 'package' %}<p class="muted" id="party-package-summary" aria-live="polite"></p>{% endif %}</div>{% endfor %}
+<div id="party-materials"{% if form.package_mode %} data-party-selections{% endif %}>
 {% include 'scheduling/party_materials.html' %}
-<button class="primary" type="submit">Send party inquiry</button>
+</div>
+<p class="muted">Subject to availability and staff confirmation.</p>
+<button class="primary" type="submit">Send party request</button>
 </form>
+{% endif %}
+</div>
 {% endblock %}
+{% block scripts %}{% if form.package_mode %}{{ form.package_details|json_script:'party-package-details' }}{% endif %}{{ party_catalog|json_script:'party-catalog' }}<script src="{% static 'demo/plushumi/assets/lucide.js' %}" defer></script><script src="{% static 'scheduling/catalog-picker.js' %}" defer></script><script src="{% static 'scheduling/inventory.js' %}?v=20261019-party-rows" defer></script><script src="{% static 'scheduling/party-inquiry.js' %}?v=20261019-guests" defer></script>{% endblock %}

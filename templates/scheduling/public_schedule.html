@@ -1,7 +1,7 @@
 {% load static tz %}
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ business }} | Schedule</title><link rel="stylesheet" href="{% static 'scheduling/workspace.css' %}"><link rel="icon" href="{% static 'favicon.png' %}"></head><body>
 <header class="topbar"><div class="brand"><img src="{% static 'pontora-wordmark-nav.png' %}" alt="Pontora" width="120" height="36"><span>Schedule</span></div></header>
-<main><div class="page-heading"><h1>{{ business }}</h1></div>
+<main>{% if can_return_to_admin %}<p><a href="{% url 'scheduling:workspace' school_slug=business.slug %}">Back to admin</a></p>{% endif %}<div class="page-heading"><h1>{{ business }}</h1></div>
 {% for offering in offerings %}<section class="location-section"><div class="section-heading"><div><h2>{{ offering.name }}</h2><p class="muted">{{ offering.location.name }} &middot; {{ offering.location.timezone_name }}</p>{% if offering.location.address %}<p>{{ offering.location.address }}</p>{% endif %}</div><span class="status draft">{% if offering.available_camps %}Camp registration{% elif offering.requests_available %}Unpaid requests{% elif offering.accepts_party_requests %}Party inquiries{% else %}Registration not open{% endif %}</span></div>
 {% if offering.description %}<p class="description">{{ offering.description|linebreaksbr }}</p>{% endif %}
 {% for camp in offering.available_camps %}<p><a class="button primary" href="{% url 'scheduling:camp_register' school_slug=business.slug pk=camp.pk %}">{{ camp.name }} &middot; ${{ camp.price|floatformat:2 }} / participant</a></p>{% endfor %}

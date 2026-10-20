@@ -1,7 +1,7 @@
 (() => {
-  const button = document.getElementById('add-material');
-  if (!button) return;
-  button.addEventListener('click', () => {
+  document.addEventListener('click', event => {
+    const button = event.target.closest('#add-material');
+    if (!button) return;
     const count = document.getElementById('id_materials-TOTAL_FORMS');
     const index = Number(count.value);
     if (index >= 50) return;
@@ -12,6 +12,7 @@
       }
     });
     document.getElementById('material-rows').append(fragment);
+    document.dispatchEvent(new Event('party-material-added'));
     count.value = index + 1;
     button.disabled = index + 1 >= 50;
   });

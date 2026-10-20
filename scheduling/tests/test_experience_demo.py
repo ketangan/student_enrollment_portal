@@ -78,6 +78,7 @@ def test_customer_footer_returns_to_options_from_every_booking_step(demo, browse
     options = browser.get(reverse("booking_integration_preview"))
     assert options.status_code == 200
     assert b"Open booking page" in options.content and b"View popup preview" in options.content
+    assert reverse("scheduling:party_start", kwargs={"school_slug": "plushumi-demo"}).encode() in options.content
 
 
 def test_pasadena_sample_workshop_is_additive_and_repeatable(demo):

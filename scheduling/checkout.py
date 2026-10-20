@@ -94,8 +94,8 @@ def _settle(item, attempt, previous):
     if previous == attempt.state:
         return
     if attempt.state == "paid" and item.state != "canceled":
-        net = service.totals(item.order)["net_cents"]
-        if item.state not in ("confirmed", "completed") and (net > item.order.total_cents or item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).exists()):
+        amounts = service.totals(item.order)
+        if item.state not in ("confirmed", "completed") and (amounts["net_cents"] > amounts["total_cents"] or item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).exists()):
             item.state = "review"
         elif item.state not in ("confirmed", "completed"):
             try:
@@ -165,7 +165,8 @@ def approve_refund(user, slug, public_id, attempt_id, **kwargs):
     if item.state != "canceled" and not existing:
         pending = Refund.objects.filter(attempt__order=item.order, state__in=Refund.ACTIVE).aggregate(
             value=Sum("amount_cents"))["value"] or 0
-        excess = service.totals(item.order)["net_cents"] - item.order.total_cents - pending
+        amounts = service.totals(item.order)
+        excess = amounts["net_cents"] - amounts["total_cents"] - pending
         if item.state == "completed" and (type(kwargs["amount_cents"]) is not int or not 0 < kwargs["amount_cents"] <= excess):
             raise ValidationError("Only excess payment can be refunded here after completion. A service refund requires a separate billing adjustment.")
         if item.state not in ("confirmed", "completed") or type(kwargs["amount_cents"]) is not int or not 0 < kwargs["amount_cents"] <= excess:
@@ -179,8 +180,9 @@ def approve_refund(user, slug, public_id, attempt_id, **kwargs):
 def resolve_review(user, slug, public_id):
     profile = locked_profile(user, slug)
     item = get_object_or_404(Reservation.objects.select_related("order"), profile=profile, public_id=public_id)
+    amounts = service.totals(item.order)
     if (item.state != "review" or item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).exists()
-            or not (item.order.deposit_cents or item.order.total_cents) <= service.totals(item.order)["net_cents"] <= item.order.total_cents):
+            or not (item.order.deposit_cents or item.order.total_cents) <= amounts["net_cents"] <= amounts["total_cents"]):
         raise ValidationError("Confirmation requires verified payment, no excess money and no outstanding checkout.")
     ensure_capacity(item)
     item.state = "confirmed"

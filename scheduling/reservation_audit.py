@@ -28,7 +28,7 @@ def audit_page(item, raw_page):
             "actor": actor.get_username() if actor else "System"})
 
     logs = AdminAuditLog.objects.filter(model_label="scheduling.reservation", object_id=str(item.pk)).exclude(
-        Q(changes__has_key="action") & Q(changes__action="offline_settlement")).select_related("actor").order_by("-created_at", "-pk")
+        Q(changes__has_key="action") & Q(changes__action__in=["offline_settlement", "terminal_payment_recorded", "terminal_payment_voided"])).select_related("actor").order_by("-created_at", "-pk")
     if not logs.filter(changes__action="created").exists():
         add(item.created_at, "created", "Reservation created")
     # Fetch enough of each source to merge one page, not the entire payment history.
@@ -49,6 +49,13 @@ def audit_page(item, raw_page):
                     for key, value in log.changes.items() if isinstance(value, dict))
         add(log.created_at, f"audit-{log.pk}", title, detail, log.actor)
     for entry in item.order.entries.select_related("actor").order_by("-created_at", "-pk")[:end + 1]:
+        if entry.channel == "terminal":
+            title = "Terminal entry voided (no refund)" if entry.kind == "void" else "Terminal payment recorded by staff"
+            add(entry.created_at, f"entry-{entry.pk}", title,
+                f'${entry.amount:.2f}' + (f' / Receipt: {entry.external_reference}' if entry.external_reference else "")
+                + (f' / Extra purchases: ${entry.extra_charge_cents / 100:.2f}' if entry.extra_charge_cents else "")
+                + f' / Payment date: {entry.paid_on}' + (f' / {entry.note}' if entry.note else ""), entry.actor)
+            continue
         title = "Payment received" if entry.kind == "payment" else "Refund recorded"
         add(entry.created_at, f"entry-{entry.pk}", title,
             f'${entry.amount:.2f} / {entry.get_channel_display()} / {entry.reference}', entry.actor)

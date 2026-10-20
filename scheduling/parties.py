@@ -34,8 +34,10 @@ def offering_for_inquiry(slug, pk):
 def inquiry_digest(offering):
     from .requests import catalog_for
     catalog = [(g.pk, g.name, [(o.pk, o.label) for o in g.active_options]) for g in catalog_for(offering)] if offering.inventory_catalog_id else []
+    packages = list(offering.party_packages.values("id", "is_published", "name", "participant_limit", "duration_minutes", "total", "deposit", "space"))
     return hashlib.sha256(json.dumps([offering.pk, offering.name, offering.location.name,
-        offering.location.timezone_name, offering.is_published, offering.accepts_party_requests, catalog]).encode()).hexdigest()
+        offering.location.timezone_name, offering.is_published, offering.accepts_party_requests, catalog,
+        packages], default=str).encode()).hexdigest()
 
 
 def inquiry_token(offering, browser):
@@ -94,7 +96,7 @@ def review_inquiry(user, slug, public_id, data):
     SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
     profile, _ = require_access(user, slug, "sessions.edit")
     item = get_object_or_404(scoped_parties(profile), public_id=public_id)
-    original = {field: getattr(item, field) for field in ("status", "room_id", "proposed_total", "proposed_deposit", "preparation_notes", "materials")}
+    original = {field: getattr(item, field) for field in ("status", "room_id", "proposed_total", "proposed_deposit", "preparation_notes", "materials", "ends_at")}
     form = PartyReviewForm(data, instance=item)
     if form.is_valid():
         if hasattr(item, "reservation"):
@@ -115,7 +117,7 @@ def review_inquiry(user, slug, public_id, data):
 
 def room_overlaps(item):
     """Warnings are informational; inquiries never claim a room or confirmed seats."""
-    if not item.room_id:
+    if not item.room_id or not item.ends_at:
         return [], []
     sessions = list(Session.objects.filter(room=item.room, is_published=True,
         starts_at__lt=item.ends_at, ends_at__gt=item.starts_at).select_related("offering"))

@@ -61,7 +61,8 @@ class PaymentOrder(models.Model):
 
     @property
     def total(self):
-        return Decimal(self.total_cents) / 100
+        from .service import totals
+        return totals(self)["total"]
 
     @property
     def deposit(self):
@@ -75,10 +76,15 @@ class LedgerEntry(models.Model):
     school = models.ForeignKey("core.School", on_delete=models.PROTECT)
     environment = models.CharField(max_length=8)
     key = models.UUIDField(unique=True)
-    kind = models.CharField(max_length=8, choices=[("payment", "Offline payment"), ("refund", "Offline refund")])
+    kind = models.CharField(max_length=8, choices=[("payment", "Payment"), ("refund", "Refund"), ("void", "Entry correction")])
     amount_cents = models.PositiveIntegerField()
     reference = models.CharField(max_length=100)
-    channel = models.CharField(max_length=8, default="offline", choices=[("offline", "Offline"), ("stripe", "Stripe"), ("square", "Square")])
+    channel = models.CharField(max_length=8, default="offline", choices=[("offline", "Offline"), ("stripe", "Stripe"), ("square", "Square"), ("terminal", "Square Terminal (staff-recorded)")])
+    external_reference = models.CharField(max_length=100, blank=True)
+    extra_charge_cents = models.PositiveIntegerField(default=0)
+    paid_on = models.DateField(null=True, blank=True)
+    note = models.CharField(max_length=240, blank=True)
+    reverses = models.OneToOneField("self", null=True, blank=True, on_delete=models.PROTECT, related_name="reversal")
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -86,15 +92,22 @@ class LedgerEntry(models.Model):
         ordering = ["created_at", "pk"]
         constraints = [
             models.UniqueConstraint(fields=["school", "environment", "reference"], name="payment_receipt_unique"),
-            models.CheckConstraint(condition=Q(kind__in=["payment", "refund"]), name="payment_entry_kind_valid"),
+            models.CheckConstraint(condition=Q(kind__in=["payment", "refund", "void"]), name="payment_entry_kind_valid"),
             models.CheckConstraint(condition=Q(environment__in=["test", "live"]), name="payment_entry_environment_valid"),
             models.CheckConstraint(condition=Q(amount_cents__gt=0, amount_cents__lte=99999999), name="payment_entry_amount_valid"),
-            models.CheckConstraint(condition=Q(channel="offline", actor__isnull=False) | Q(channel__in=["stripe", "square"], actor__isnull=True), name="payment_entry_source_valid"),
+            models.CheckConstraint(condition=Q(channel__in=["offline", "terminal"], actor__isnull=False) | Q(channel__in=["stripe", "square"], actor__isnull=True), name="payment_entry_source_valid"),
+            models.CheckConstraint(condition=(Q(kind="void", channel="terminal", reverses__isnull=False) | (~Q(kind="void") & Q(reverses__isnull=True))), name="payment_correction_source_valid"),
+            models.CheckConstraint(condition=(~Q(channel="terminal") | Q(kind__in=["payment", "void"], paid_on__isnull=False)), name="payment_terminal_details_valid"),
+            models.CheckConstraint(condition=Q(extra_charge_cents=0) | Q(channel="terminal", kind__in=["payment", "void"], extra_charge_cents__lte=models.F("amount_cents")), name="payment_extra_charge_valid"),
         ]
 
     @property
     def amount(self):
         return Decimal(self.amount_cents) / 100
+
+    @property
+    def extra_charge(self):
+        return Decimal(self.extra_charge_cents) / 100
 
 
 class RecoveryRecord(models.Model):

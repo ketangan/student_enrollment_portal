@@ -17,7 +17,7 @@ from django.utils import timezone
 
 from core.models import AdminAuditLog, School, Submission
 from scheduling.forms import LocationForm
-from scheduling.models import Location, Offering, PartyRequest, Room, SchedulingProfile, Session, WorkshopRequest
+from scheduling.models import Location, Offering, PartyPackage, PartyRequest, Room, SchedulingProfile, Session, WorkshopRequest
 from scheduling.parties import TOKEN_SALT, inquiry_token, review_inquiry, room_overlaps, submit_inquiry
 from scheduling.setup import save_setup, set_publication
 
@@ -60,7 +60,7 @@ def create_inquiry(client, offering):
 
 def review_data(item, **changes):
     return {"revision": str(item.revision), "status": "reviewed", "room": str(item.offering.location.rooms.first().pk),
-            "proposed_total": "400.00", "proposed_deposit": "100.00", "preparation_notes": "Prepare eight stations.", **changes}
+            "duration_minutes": "120", "proposed_total": "400.00", "proposed_deposit": "100.00", "preparation_notes": "Prepare eight stations.", **changes}
 
 
 def test_full_party_flow_persists_review_and_preparation_without_booking_or_payment(client, party_offering, booking_member):
@@ -70,10 +70,15 @@ def test_full_party_flow_persists_review_and_preparation_without_booking_or_paym
     item = PartyRequest.objects.get()
     assert item.status == "pending" and item.room is None and item.group_size == 8
     assert item.space == "exclusive" and item.proposed_balance is None
-    assert item.ends_at - item.starts_at == timedelta(hours=2)
+    assert item.ends_at is None
     assert str(item) == str(item.public_id)
     receipt = client.get(response.url)
-    assert b"Party inquiry received" in receipt.content and b"No date, room or seats" in receipt.content
+    assert b"Party inquiry received" in receipt.content and b"Your party is not booked yet" in receipt.content
+    assert b"no payment has been collected" in receipt.content
+    assert b"Reference:" not in receipt.content
+    assert str(item.public_id).encode() not in receipt.content
+    assert route("public_schedule", party_offering).encode() not in receipt.content
+    assert b"You can close this page." in receipt.content
     assert b"morgan@example.com" not in receipt.content and b"Birthday group" not in receipt.content
     assert "no-store" in receipt["Cache-Control"]
     assert Client().get(response.url).status_code == 404
@@ -87,6 +92,7 @@ def test_full_party_flow_persists_review_and_preparation_without_booking_or_paym
     assert staff.post(detail_url, review_data(item)).status_code == 302
     item.refresh_from_db()
     assert item.status == "reviewed" and item.proposed_balance == Decimal("300.00") and item.revision == 1
+    assert item.ends_at - item.starts_at == timedelta(hours=2)
     detail = staff.get(detail_url)
     assert b"$300.00 USD" in detail.content and b"Prepare eight stations." in detail.content
     assert b"Reviewed (not booked)" in detail.content and b"No room is held" in detail.content
@@ -118,7 +124,6 @@ def test_duplicate_submission_and_stale_replay_do_not_duplicate(client, party_of
 @pytest.mark.parametrize("field,value", [
     ("organizer_name", ""), ("organizer_name", "x" * 101), ("organizer_email", "not-an-email"),
     ("starts_at", "invalid"), ("starts_at", "2000-01-01T10:00"), ("starts_at", "2040-01-01T10:00"),
-    ("duration_minutes", "14"), ("duration_minutes", "721"), ("duration_minutes", "1.5"),
     ("group_size", "0"), ("group_size", "10001"), ("group_size", "eight"),
     ("space", "confirmed"), ("customer_notes", "a" * 2001),
 ])
@@ -132,7 +137,10 @@ def test_invalid_customer_data_is_rejected(client, party_offering, field, value)
 
 def test_location_timezone_and_dst_ambiguity(client, party_offering, monkeypatch):
     monkeypatch.setattr(timezone, "now", lambda: datetime(2026, 10, 1, tzinfo=datetime_timezone.utc))
+    package = PartyPackage.objects.create(offering=party_offering, name="Party", participant_limit=8,
+        duration_minutes=120, total=400, deposit=100, is_published=True)
     data = begin(client, party_offering)
+    data.update({"package": str(package.pk), "occasion": "Birthday", "age_range": "Adults"})
     data["starts_at"] = "2026-11-01T01:30"
     assert send(client, party_offering, data).status_code == 400
     data["starts_at"] = "2027-03-14T02:30"
@@ -181,6 +189,7 @@ def test_bad_wrong_browser_expired_and_wrong_offering_tokens(client, party_offer
 
 
 @pytest.mark.parametrize("changes", [
+    {"duration_minutes": ""}, {"duration_minutes": "14"}, {"duration_minutes": "721"}, {"duration_minutes": "1.5"},
     {"proposed_total": "-1"}, {"proposed_deposit": "401"}, {"proposed_deposit": "-1"},
     {"proposed_total": "NaN"}, {"proposed_total": "1000000"}, {"proposed_deposit": "1.001"},
     {"proposed_total": ""}, {"proposed_deposit": ""}, {"status": "confirmed"},
@@ -243,6 +252,7 @@ def test_overlaps_are_half_open_scoped_and_never_create_reservations(client, par
     item = create_inquiry(client, party_offering)
     room = party_offering.location.rooms.get()
     item.room = room
+    item.ends_at = item.starts_at + timedelta(hours=2)
     item.save()
     published = Session.objects.create(offering=party_offering, room=room, starts_at=item.starts_at,
         ends_at=item.ends_at, capacity=12, is_published=True)
@@ -251,6 +261,8 @@ def test_overlaps_are_half_open_scoped_and_never_create_reservations(client, par
     Session.objects.create(offering=party_offering, room=room, starts_at=item.starts_at,
         ends_at=item.ends_at, capacity=12, is_published=False)
     another = create_inquiry(client, party_offering)
+    another.ends_at = another.starts_at + timedelta(hours=2)
+    another.save()
     sessions, parties = room_overlaps(item)
     assert [s.pk for s in sessions] == [published.pk] and [p.pk for p in parties] == [another.pk]
     client.force_login(booking_member.user)

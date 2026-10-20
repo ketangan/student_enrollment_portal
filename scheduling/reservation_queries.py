@@ -1,6 +1,7 @@
 """Shared staff views of payment exceptions; no money is moved here."""
 
-from django.db.models import Case, CharField, Exists, F, IntegerField, OuterRef, Q, Subquery, Sum, Value, When
+from decimal import Decimal
+from django.db.models import Case, CharField, DecimalField, Exists, ExpressionWrapper, F, IntegerField, OuterRef, Q, Subquery, Sum, Value, When
 from django.db.models.functions import Coalesce
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -11,7 +12,7 @@ from .models import Reservation, StockAllocation
 
 
 ATTENTION = (Q(state="review") | Q(state="canceled", net_received__gt=0)
-    | Q(net_received__gt=F("order__total_cents")) | Q(payment_pending=True) | Q(refund_pending=True))
+    | Q(net_received__gt=F("effective_total")) | Q(payment_pending=True) | Q(refund_pending=True))
 
 
 def reservation_location(location):
@@ -29,14 +30,17 @@ def staff_reservations(profile):
     require_capability(profile, "reservations")
     net = LedgerEntry.objects.filter(order_id=OuterRef("order_id")).order_by().values("order_id").annotate(
         value=Sum(Case(When(kind="payment", then=F("amount_cents")), default=-F("amount_cents"), output_field=IntegerField()))).values("value")
+    extras = LedgerEntry.objects.filter(order_id=OuterRef("order_id")).order_by().values("order_id").annotate(
+        value=Sum(Case(When(kind="void", then=-F("extra_charge_cents")), default=F("extra_charge_cents"), output_field=IntegerField()))).values("value")
     return Reservation.objects.filter(profile=profile, visit_booking__isnull=True).select_related("order").annotate(
         location_name=Coalesce("workshop_request__session__offering__location__name", "party_request__offering__location__name",
             "camp_registration__camp__offering__location__name", Value(""), output_field=CharField()),
         net_received=Coalesce(Subquery(net), 0),
+        effective_total=F("order__total_cents") + Coalesce(Subquery(extras), 0),
         payment_pending=Exists(PaymentAttempt.objects.filter(order_id=OuterRef("order_id"), state__in=PaymentAttempt.ACTIVE)),
         refund_pending=Exists(Refund.objects.filter(attempt__order_id=OuterRef("order_id"), state__in=Refund.ACTIVE)),
         materials_used=Exists(StockAllocation.objects.filter(reservation_id=OuterRef("pk"), consumed_at__isnull=False)),
-    )
+    ).annotate(total_amount=ExpressionWrapper(F("effective_total") / Value(Decimal("100.0")), output_field=DecimalField()))
 
 
 def filter_reservations(items, form, profile):

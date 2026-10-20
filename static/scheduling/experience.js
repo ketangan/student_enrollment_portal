@@ -129,16 +129,7 @@
       refresh();
       icons();
     };
-    const photo = (node, design) => {
-      let art = $('.photo-art', node);
-      if (!art) {art = document.createElement('span'); art.className = 'photo-art'; node.append(art);}
-      art.style.backgroundImage = design?.image_url ? `url("${design.image_url}")` : design?.x ? `url("${config.image}")` : 'none';
-      art.style.backgroundSize = design?.image_url ? 'contain' : '';
-      art.style.backgroundPosition = design?.image_url ? 'center' : `${design?.x || '50%'} ${design?.y || '50%'}`;
-      // Each collage row has different headroom; keep the complete toy without neighboring shelf labels.
-      art.style.aspectRatio = design?.image_url ? '4 / 5' : design?.y === '50%' ? '1 / 1.08' : design?.y === '100%' ? '1 / 1.15' : '4 / 5';
-      node.classList.toggle('no-photo', !design?.image_url && !design?.x);
-    };
+    const photo = (node, design) => window.PontoraCatalogPicker.photo(node, design, config.image);
     const summarize = () => {
       let complete = 0;
       $('#group-summary-list').replaceChildren(...persons().map((person, index) => {
@@ -171,39 +162,9 @@
       $('.remove-person', person).addEventListener('click', () => {updates.delete(person); person.remove(); rebuild();});
       if (!visual) return;
       const designSelect = select(person, config.design_group), colorSelect = select(person, config.color_group);
-      const update = () => {
-        const design = config.designs.find(d => d.name === optionName(designSelect));
-        const color = config.options[config.color_group].find(c => c.name === optionName(colorSelect));
-        const exactPhoto = recipe(person)?.image_url;
-        photo($('.plushie-image', person), exactPhoto ? {...design, image_url: exactPhoto} : design);
-        $('.tint', person).hidden = Boolean(exactPhoto);
-        $('.tint', person).style.setProperty('--color', color?.swatch || '#fff');
-        $('.selection-label', person).textContent = design && color ? `${color.name} ${design.name}` : 'Choose a design and color';
-        $$('.design-option', person).forEach(el => el.setAttribute('aria-pressed', String(el.dataset.value === designSelect.value)));
-        $$('.color-option', person).forEach(el => el.setAttribute('aria-pressed', String(el.dataset.value === colorSelect.value)));
-        if (config.tracks_stock) {
-          $$('.color-option', person).forEach(el => {
-            const remaining = available(person, el.dataset.value);
-            el.disabled = !remaining;
-            el.title = `${config.options[config.color_group].find(o => o.id === el.dataset.value)?.name}: ${remaining ? 'Available' : 'Materials unavailable'}`;
-          });
-          [...colorSelect.options].forEach(option => { option.disabled = Boolean(option.value) && !available(person, option.value); });
-          colorSelect.setCustomValidity(colorSelect.value && !available(person, colorSelect.value) ? 'Not enough materials for these selections. Choose another design or color.' : '');
-        }
-      };
-      $('.designs', person).replaceChildren(...config.options[config.design_group].map(option => {
-        const node = button('', () => {designSelect.value = option.id; refresh();}, 'design-option');
-        const picture = document.createElement('span'); picture.className = 'design-photo';
-        photo(picture, config.designs.find(d => d.name === option.name));
-        const label = document.createElement('span'); label.textContent = option.name;
-        node.append(picture, label); node.dataset.value = option.id; return node;
-      }));
-      $('.colors', person).replaceChildren(...config.options[config.color_group].map(option => {
-        const node = button(option.name, () => {colorSelect.value = option.id; refresh();}, 'color-option');
-        node.style.setProperty('--color', option.swatch); node.title = option.name;
-        node.setAttribute('aria-label', option.name); node.dataset.value = option.id; return node;
-      }));
-      designSelect.addEventListener('change', refresh); colorSelect.addEventListener('change', refresh);
+      const update = window.PontoraCatalogPicker.mount(person, designSelect, colorSelect, config, {
+        recipe: () => recipe(person), available: color => !config.tracks_stock || available(person, color), change: refresh,
+      });
       updates.set(person, update);
       update();
     };

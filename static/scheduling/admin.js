@@ -1,5 +1,30 @@
 (() => {
   window.lucide?.createIcons();
+  document.querySelectorAll('[data-terminal-payment]').forEach(form => {
+    const amount = form.elements.amount;
+    const balance = Number(form.elements.expected_balance.value);
+    const total = Number(form.elements.expected_total.value);
+    const row = form.querySelector('[data-terminal-extras]');
+    const summary = form.querySelector('[data-extras-summary]');
+    const update = () => {
+      const cents = Math.round(Number(amount.value) * 100);
+      const extra = Number.isFinite(cents) ? Math.max(0, cents - balance) : 0;
+      row.hidden = extra === 0;
+      summary.textContent = extra ? `$${(extra / 100).toFixed(2)} in extra purchases. New total: $${((total + extra) / 100).toFixed(2)}.` : '';
+    };
+    amount.addEventListener('input', update);
+    update();
+  });
+  document.querySelectorAll('[data-payment-dialog]').forEach(button => {
+    const dialog = document.getElementById(button.dataset.paymentDialog);
+    if (!dialog) return;
+    button.addEventListener('click', () => dialog.showModal());
+    dialog.querySelectorAll('[data-close-payment-dialog]').forEach(close => {
+      close.addEventListener('click', () => dialog.close());
+    });
+    dialog.addEventListener('close', () => button.focus());
+    if (dialog.hasAttribute('data-payment-error')) dialog.showModal();
+  });
   document.querySelectorAll('[name="payment_at_booking"]').forEach(select => {
     const row = select.form?.querySelector('[data-booking-deposit]');
     if (!row) return;

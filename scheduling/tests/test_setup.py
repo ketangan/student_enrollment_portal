@@ -103,6 +103,23 @@ def test_complete_setup_through_views_persists_and_audits(client, booking_member
     assert reopened.context["form"].instance.room_id == room.pk
 
 
+@pytest.mark.parametrize("origin", ["parties", "", "https://example.com"])
+def test_workshop_edit_preserves_only_known_return_context(client, booking_member, catalog, origin):
+    location, _, offering = catalog
+    profile = booking_member.profile
+    client.force_login(booking_member.user)
+    path = url("workshop_edit", profile, pk=offering.pk) + "?return_to=" + origin
+    target = (url("party_setup", profile) + f"?location={location.pk}" if origin == "parties"
+              else url("workshop_detail", profile, pk=offering.pk))
+    page = client.get(path)
+    assert f'href="{target}"'.encode() in page.content
+    invalid = client.post(path, {"name": "", "location": location.pk})
+    assert invalid.status_code == 200 and f'href="{target}"'.encode() in invalid.content
+    response = client.post(path, {"name": offering.name, "location": location.pk,
+        "edit_revision": page.context["form"]["edit_revision"].value()})
+    assert response.status_code == 302 and response.url == target
+
+
 @pytest.mark.parametrize("kind,data,error", [
     ("locations", {"name": "", "timezone_name": "Europe/London"}, "name"),
     ("locations", {"name": "West", "timezone_name": "Made/Up"}, "timezone_name"),
@@ -435,6 +452,23 @@ def test_unknown_kind_is_not_a_generic_model_backdoor(booking_member):
         records(booking_member.profile, "users")
     with pytest.raises(Http404):
         set_publication(booking_member.user, booking_member.profile.school.slug, "locations", 1, True)
+
+
+def test_public_schedule_admin_return_is_tenant_scoped(client, booking_member, other_catalog):
+    profile = booking_member.profile
+    path = url("public_schedule", profile)
+    assert b"Back to admin" not in client.get(path).content
+    client.force_login(booking_member.user)
+    response = client.get(path)
+    assert b"Back to admin" in response.content
+    assert f'href="{url("workspace", profile)}"'.encode() in response.content
+    assert b"Back to admin" not in client.get(url("public_schedule", other_catalog[0])).content
+    booking_member.is_active = False
+    booking_member.save()
+    assert b"Back to admin" not in client.get(path).content
+    booking_member.user.is_superuser = True
+    booking_member.user.save()
+    assert b"Back to admin" in client.get(path).content
 
 
 def test_audit_and_setup_write_are_atomic(booking_member, catalog, monkeypatch):

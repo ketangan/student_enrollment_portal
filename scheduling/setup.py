@@ -16,13 +16,18 @@ from .access import require_access
 from .capabilities import require_capability
 from .editing import protect_edit
 from .forms import LocationForm, OfferingForm, RoomForm, WorkshopSessionForm
-from .models import Location, Offering, Room, SchedulingProfile, Session
+from .models import Location, Offering, PartyPackage, Room, SchedulingProfile, Session
+from .party_forms import PartyPackageForm
 
 
 FORMS = {"locations": LocationForm, "rooms": RoomForm, "workshops": OfferingForm, "sessions": WorkshopSessionForm}
+FORMS.update(party_packages=PartyPackageForm)
 
 
 def records(profile, kind):
+    if kind == "party_packages":
+        require_capability(profile, "parties")
+        return PartyPackage.objects.filter(offering__location__profile=profile).select_related("offering__location")
     if kind in {"workshops", "sessions"}:
         require_capability(profile, "workshops")
     if kind == "locations":

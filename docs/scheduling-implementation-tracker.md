@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: October 16, 2026.
+Updated: October 19, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -9,22 +9,329 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
-### Plushie Launch Work Summary (October 16)
+### October 19 Release Preflight
+
+- Scope: manual Square Terminal payment recording/corrections and extra purchases;
+  per-location party packages, inquiry guest previews and navigation/UI fixes.
+- Full local regression: 4,183 passed, 3 skipped. Measured Python combined
+  statement/branch coverage: 98.93%; every measured module exceeds 90%.
+  JavaScript: 64 tests passed with the existing coverage gate. Migration drift
+  and whitespace checks passed. Desktop/mobile inquiry checks are recorded below.
+- Six pending schema migrations were reviewed. Render's existing startup runs
+  migrations before Gunicorn. A fresh Render-only database export completed on
+  October 19 at 9:27 PM Pacific; no production database was downloaded.
+- SBMC's hosted billing baseline remains its active Custom/Founder plan. This
+  release does not change its provider, subscription, credentials or pricing.
+- Local party configuration is not copied into hosted data by deployment.
+  Private host guest-list follow-up and final launch policy/configuration remain
+  pending; this release is not a declaration that Plushie is ready for live payments.
+- GitHub checks, merge and hosted deployment verification are still pending.
+
+### Plushie Launch Work Summary (October 17)
 
 Status here distinguishes implementation, customer decisions, and deployment. Local
 completion is not production acceptance. Earlier milestone notes remain historical.
 
 | Work item | Current status | Remaining work |
 | --- | --- | --- |
-| Configurable deposits, full-payment choice and later balance collection | **Deployed October 16; awaiting Jasmine's final inputs.** Ketan accepted customer success/decline behavior. Workshop deposits are per participant; party deposits are per reservation. Customers can pay the deposit or full amount; staff can initiate online balance collection from the reservation. | Confirm actual deposit amounts/policies and final customer journey with Jasmine; configure and verify those rules before launch. Existing hosted workshops retain full payment until configured. |
+| Configurable deposits, full-payment choice and later online balance collection | **Deployed October 16; not equivalent to Terminal payment recording.** Customers can pay a deposit or full amount; staff can initiate online balance collection. Jasmine confirms party deposits are typically $150 for 6 guests and $300 for 12. | Configure approved party packages; clarify custom sizes and workshop payment rules. For launch, Jasmine chooses existing Square Terminals plus manual recording in Pontora, tracked separately below. Existing hosted workshops retain full payment until configured. |
 | Customer payment copy and workshop settings presentation | **Deployed October 16.** Removed the redundant Deposit option row and repetitive demo/test checkout wording; preserved deposit/full-payment behavior and sandbox safeguards. | Jasmine's requested customer-journey changes, if any. |
 | Configurable Stripe/Square booking provider | **Code deployed October 16; real Square sandbox flows tested locally.** Superadmin-controlled; existing orders and refunds retain their original provider. No hosted provider was switched. | Hosted sandbox credentials/webhook activation and delivery/retry verification; production merchant connection and launch acceptance. |
-| Live Square merchant connection | **Not complete; launch blocker for real Square payments.** | OAuth/token lifecycle, Jasmine's account authorization, confirmed account/location mapping, and live payment/refund/reconciliation checks. Do not treat sandbox credentials as production setup. |
+| Live Square merchant connection | **Not complete; launch blocker for real Square payments.** One Square seller account across all locations is now confirmed. | OAuth/token lifecycle, Jasmine's account authorization, exact Square location mapping, reviewed live-order support, and live payment/refund/reconciliation checks. Do not treat sandbox credentials as production setup. |
 | Negotiated Pontora subscription pricing | **Deployed October 14 (P03).** Supports agreed base/location prices and next-renewal price changes without proration. | Configure the client's agreed live prices and location quantities; notify them of later billing changes. Pontora subscriptions remain on Stripe. |
-| Final workshop/customer journey and studio policies | **Awaiting Jasmine.** | Apply her confirmed workflow, booking/deposit/cancellation rules and production content, then obtain acceptance. Existing local behavior is not approval of those rules. |
+| Final workshop/customer journey and studio policies | **Partially confirmed October 17.** Party details at booking, deferred guest selections, observer rules and shared/private-space distinction are specified below. | Obtain actual policy text, package details and design guide; settle remaining decisions and get acceptance. |
 | Superadmin-only creation of additional locations | **Deferred; not a go-live blocker.** | Restrict operational location creation separately from the already implemented subscription billing quantities. |
 | Separate production and demo databases | **Deferred; not a go-live blocker.** | Plan and test the split. Until then retain existing demo/production isolation safeguards; shared storage is not physical separation. |
 | One school using both enrollment and scheduling | **Deferred; not a go-live blocker.** | Configure a combined local test school and verify navigation, permissions, billing and workflows together. |
+
+### Jasmine Response and Launch Checklist (October 17)
+
+Source: Jasmine's email pasted by Ketan on October 17, plus the attached calendar
+and Square Terminal images. This update supersedes conflicting open assumptions
+in the October 13 launch-plan document and older notes below; it does not change
+the signed contract or authorize new implementation. The contract is **reported
+signed by Jasmine**; its executed contents have not been verified in this update.
+
+Confirmed decisions to retain for future work:
+
+- All locations use **one Square account**. Separate location IDs/mappings still
+  need verification; the account confirmation does not establish those IDs.
+- In-person devices are **Square Terminals**. Launch balance workflow: staff take
+  payment on the existing device, then manually record it against the Pontora
+  reservation. Device integration and automatic matching are deferred.
+- Party deposits are fixed by package: typically **$150 for six participants,
+  $300 for twelve**, described as $150 per six people. This is not a percentage,
+  not a regular-workshop rule, and not permission to invent rounding for custom
+  sizes. Store explicit package deposits until the exceptions are confirmed.
+- Collect estimated participants/package, occasion and general age range upfront.
+  Final guest names, plushie designs and colors can follow approximately one week
+  before the event. Attach a shareable design guide; the actual guide is pending.
+- Regular workshops do not allow non-participating observers. Parties must state
+  the observers included in their package. A reserved party area is not exclusive
+  use of the whole studio unless full-studio booking was selected.
+- Each location currently reports material counts manually to central management.
+  Retain the customer-design catalog versus raw-material inventory distinction.
+  This is not a requirement to synchronize Square's inventory or accessory sales.
+- The calendar screenshot is a reference for a weekly view, location/service
+  filters and booked/capacity counts. Overlapping sessions are visible: do not
+  infer an overlap is an error, or hardcode a six-person capacity. Event/custom
+  locations in the filter are not automatically permanent or billable locations.
+- Pontora subscriptions remain Stripe and follow the agreed 30-day trial and
+  school-specific pricing. The Square decision concerns customer booking money.
+
+| ID | Launch work | Status and completion boundary |
+| --- | --- | --- |
+| L01 | Connect live Square for online booking payments | Sandbox foundation deployed, hosted activation and live merchant support not complete. Verify one seller, mapped studio locations, OAuth lifecycle, signed events, deposits/full payment, declines, refunds and recovery. Preserve SBMC and Pontora subscription Stripe behavior. |
+| L02 | Record a payment taken on a Square Terminal | **Implemented locally October 17; simplified and extended October 19; not deployed.** Record payment already received opens a dialog for amount, payment date and optional receipt number; staff identity and studio are automatic. Notes and payment-area expanders are removed. Take online payment separately opens checkout for a new charge. Supports partial/final balance and explicitly confirmed extra purchases, including after full payment; corrections reverse both the receipt and its extra charge. Submission-retry/stale-total protection and append-only history remain. Duplicate receipt detection applies when a number is supplied. Reuses existing owner/superadmin permissions; no new location permission or inventory-deduction system. See the local walkthrough in `docs/square-booking-payments.md`. Staff acceptance is still required. |
+| L03 | Party packages and initial form | **Package/inquiry foundation implemented locally October 19; not deployed.** Setup > Parties edits package values in their table cells, with save/cancel actions. The customer link follows the request host and Preview opens a new tab. The complete inquiry opens immediately; changing location refreshes packages/catalog without discarding contact details. The existing workshop image/color picker is shared with party selections. Customer-requested duration and the non-participating guest field are removed. Package duration comes from the configured offer; custom duration is set during staff review before reservation approval. Inquiries snapshot the offer and collect occasion/participants' ages. Existing staff review is reused; no automatic booking/payment. Approval/payment handoff and deferred-selection reservations remain launch dependencies; observer policy wording is still required separately under L05. |
+| L04 | Deferred party guest selections and preparation | **Not complete.** Provide a private host follow-up flow linked to the same reservation, with guest names, separate design/color choices, design guide and staff completion visibility. Define the final deadline, late bookings, changes and reminders. Missing selections must remain visible to preparation and must not imply materials are ready or fully allocated. |
+| L05 | Policies and customer journey | Carry approved booking/cancellation, observer and shared/private-space terms into the relevant selection, review and confirmation steps without repetitive copy. Get the current text, package rules and guide; review the final desktop/mobile flow with Jasmine. |
+| L06 | Staff bookings and custom parties | Remains from the October 13 call. Validate phone/manual booking and custom groups such as 24 guests. Obtain a sample invoice and confirm minimum launch support. Online payable custom invoices/emailed links are not implied by accepting manual Terminal collection; agree any deferral explicitly. |
+| L07 | Calendar and analytics | Use the screenshot to finalize weekly calendar scope, location/service filters, participant/capacity counts and opening a reservation. Confirm legitimate overlapping sessions/resources and the small set of launch reports. Screenshot alone does not define analytics. |
+| L08 | Materials inventory and Workshop Prep | Existing foundation; validate location stock entry, central visibility, shortages and consumption against real recipes/counts. Determine how delayed party selections affect material reservations and preparation. No automatic Square inventory integration. |
+| L09 | Customer confirmations and host follow-up | Verify actual delivery of agreed booking/payment confirmations and the host selection link. Do not treat local message previews as sent emails. Agree whether one-week reminders are manual or automatic; avoid adding a general messaging engine. |
+| L10 | Launch configuration, acceptance and cutover | Confirm Wix entry point, authoritative booking/calendar system, Notion's remaining role, launch locations and existing-booking handling. Load approved real data, verify staff roles and training, protect demo/live boundaries, run SBMC/payment regressions and desktop/mobile acceptance, then agree go-live and rollback. Verify signed contract and configure agreed subscription prices/trial without inventing terms. |
+
+Items already delivered: configurable deposit/full-payment choice and online
+balance collection, booking payment presentation cleanup, and negotiated Pontora
+subscription pricing. These are foundations, not a claim that L01-L10 are complete.
+
+October 19 individual-guest inquiry update (local only): the initial customer form
+now uses numbered guest rows, optional names, the shared design/color picker,
+Add next, and trash removal with renumbering. The entered participant count limits
+rows in the browser and is validated on submission; quantity is fixed at one per
+guest server-side. Existing formset safety maximum remains 50 rows. Names are
+retained in the material snapshot and staff review. This does not complete L04's
+private follow-up link, deadline, reminders, or deferred-selection preparation.
+
+October 19 party UX verification: 4,177 Python tests passed, 3 skipped (full suite,
+existing test database, `-p testing.network` enabled); 34 focused JavaScript tests
+passed. Migration drift and whitespace checks passed. Browser checks on the existing
+8002 server covered cell editing/save/cancel, rejected invalid prices, new-tab preview,
+full inquiry rendering, location switching without losing contact details, shared image
+selection, added rows, visible missing-selection errors, successful local inquiry
+submission, regular workshop picker regression, and 390px/desktop layouts. Host-aware
+share links are tested for localhost, demo and app. Local migration 0028 removes the
+unused guest allowance field and permits an unset custom inquiry duration; staff must
+set duration before approval. Nothing was pushed or deployed.
+
+Post-launch/deferred: automatic Square Terminal initiation/matching, automated
+emailed balance-payment links, superadmin-only location creation (P02), physical
+demo/production database separation (P04), and combined enrollment/scheduling
+pilot (P05). Custom-party invoice scope remains open, not silently deferred.
+
+Targeted clarification list for the working session:
+
+1. Package sheet: total prices, participants, observers, duration and shared-area
+   versus full-studio options. How should custom sizes and added/removed guests
+   change price/deposit? Do regular workshops remain full payment, or offer a deposit?
+2. Current booking/cancellation/refund/rescheduling/no-show terms, including when
+   the balance is due and how refunds of Terminal payments are recorded.
+3. Actual design guide and desired host workflow: exactly seven days or flexible,
+   who submits the guest list, changes after cutoff, late bookings, and reminders.
+4. Party confirmation and custom orders: staff approval before collecting a
+   deposit or immediate booking? Sample custom invoice; which invoice/private-link
+   functionality is needed on day one?
+5. During account setup, map each launch studio to its Square location and walk
+   through a sample Terminal receipt/reference. Authorize the connection securely;
+   do not request passwords or tokens by email. Confirm tax treatment and that
+   unrelated accessory sales stay outside the reservation balance.
+6. In the working session, confirm calendar overlap/resources, essential reports,
+   inventory update examples, Wix entry point/Notion role and existing-booking
+   cutover. Reuse existing supplied data rather than asking for it twice.
+
+### Pontora Decisions After Jasmine Response (October 17)
+
+#### October 19 Package Implementation and Remaining Decisions
+
+- Local entry: `http://localhost:8002/bookings/plushumi-demo/parties/setup/`.
+  Reuses existing Setup forms, permission checks, profile locking, stale-edit
+  tokens, audit and party review. No production deployment or payment-provider
+  changes in this package work. Migration `scheduling.0026` is additive;
+  `0027` removes the three unnecessary location switches introduced in `0026`.
+- October 19 UI correction: inline package editing, a shared customer inquiry
+  link with location selection, an authorized preview return link, optional
+  deposit defaulting to zero, and optional guest selections now/later replace
+  the separate party settings page. Calendar time/footer overlap and placeholder
+  corrected. A published package on an unpublished/party-disabled workshop is
+  explicitly shown as hidden; it does not bypass the workshop's visibility rules.
+- UI correction verification: 214 focused Python tests and 19 JavaScript checks
+  passed; the earlier 189-test run included inventory and migration checks.
+  Desktop and 390px phone checks covered inline edit/save, date-picker spacing,
+  now/later selections, inquiry submission, preview return and demo entry.
+  Removed only the synthetic inquiry made during this check. The existing local
+  preview harness no longer shadows the maintained integration-options route.
+  No full-suite rerun or deployment is claimed for this UI correction.
+- Package settings live in the database through the offering's location.
+  Changing defaults does not rewrite submitted inquiry or reservation snapshots.
+  Server-side selection supplies prices/duration/space, never browser-supplied
+  monetary values. Incomplete packages cannot be published.
+- The local Plushie database has two unpublished drafts at each existing
+  party-enabled studio: six guests/$150 deposit and twelve guests/$300 deposit.
+  Seed amounts are in `configs/booking_demos/plushumi-demo.yaml`; live runtime
+  reads database records, not the demo loader. Names are editable placeholders.
+  Totals, durations and observer allowances are intentionally unset, not invented.
+- Local future workshop deposits are zero; accepted reservation amounts remain
+  unchanged. School admins retain workshop deposit controls.
+- Custom requests receive an explicit staff quote. No rounding up to six-person
+  blocks, automatic extra-person charge or automatic payment/room hold is assumed.
+- Deferred initial selections are supported, but L04 is NOT implemented by this:
+  there is no host guest-list link, seven-day enforcement or reminder yet. Existing
+  stock checks still require complete selections before creating an inventory-backed
+  reservation. Do not remove these checks to make an incomplete flow appear ready.
+- Observer allowances are descriptive package terms, not new occupancy accounting.
+  Resolve total physical occupancy and full-studio exclusivity before paid party
+  launch. The current private-room option is not a full-studio buyout.
+
+Questions still requiring Jasmine's information or decisions:
+
+- Provide the current package sheet per location: final names, total prices,
+  duration, participant limits, observer allowances and shared/private/full-studio
+  terms. These values are editable; they do not require customer-specific code.
+- Must staff approve every party before payment? After approval, how long should
+  a customer have to pay, and should the date/space be held during that period?
+- For custom sizes (for example 7, 13 or 24), is pricing by package, extra person
+  or individual quote? Are extra observers allowed, charged, and counted in each
+  room's maximum occupancy? Provide one representative custom invoice.
+- Send approved cancellation, refund, rescheduling, no-show and balance-due terms.
+  Are displayed prices tax-inclusive or should tax be added, and which extras are
+  taxable? No tax behavior should be inferred from a sample deposit.
+- Send the design guide. Who submits the final guest list, what happens with
+  bookings inside seven days, and can hosts amend selections after the due date?
+  Seven days remains the agreed configurable school default, not an automatic lock.
+  Confirm whether a free-text "Participants' ages" field suits staff or whether
+  Jasmine prefers specific age categories; do not invent categories.
+- Confirm which customer emails and reminders must be automatic at launch and
+  provide any preferred wording. Local previews do not establish actual delivery.
+- During secure Square setup, authorize the seller account and map the launch
+  studios to its Square locations. No account password/token should be emailed.
+- In the working session, confirm launch studios/date, existing-booking cutover,
+  Wix entry point and Notion's remaining role, simultaneous room/session rules,
+  essential calendar/reports, and a real inventory update/recipe example.
+
+Local test walkthrough:
+
+1. Open Setup > Parties and select a location. Edit either draft; attempting to
+   publish with missing price/duration/observers must show field errors.
+2. Fill confirmed values, then publish. Open inquiry form at the same location;
+   select the package and verify its total, deposit and allowance.
+3. Submit a future date, estimated participants, occasion and age range. An
+   oversized group must be rejected; Custom group permits a staff-quoted request.
+4. Open Party inquiries and verify the submitted package and proposal. Editing
+   package defaults afterward must leave this inquiry unchanged.
+5. Keep client packages unpublished until confirmed. The temporary QA package and
+   inquiry used during browser verification were removed; no booking/payment was
+   created. Do not test a real charge as part of this inquiry-only slice.
+
+Verification October 19: full regression 4,166 passed / 3 skipped / 2 existing
+warnings; after final self-review adjustments, 195 focused party/setup/reservation/
+migration tests passed. All 59 JavaScript tests passed. Checked desktop and 390px
+mobile editing, incomplete-publication errors, package selection, inquiry submission
+and saved staff details. Query-count regression verifies additional locations/packages
+do not introduce per-row queries. Migration drift and diff whitespace checks passed.
+
+#### Earlier Decisions (Still Applicable Unless Superseded Above)
+
+These decisions supersede the workshop-deposit and deadline questions above.
+They are implementation requirements, not a claim that configuration was applied.
+
+- Keep workshop deposit controls available to authorized school admins. Set
+  Plushie's current workshop deposits to zero (full payment), without rewriting
+  existing reservations or changing other schools. Jasmine may enable/tune them
+  later. Do not interpret zero as a free booking.
+- Add editable party-package defaults of $150 for six guests and $300 for twelve;
+  preserve the existing per-reservation quote/deposit controls. Later package edits
+  affect new quotes, not accepted reservation amounts. Keep the customer option
+  to pay in full. Custom group sizes need an explicit quote, not guessed rounding.
+- Set the guest-list lead time to seven days as a school-specific YAML policy,
+  with no new admin-settings field. Plushie currently has only
+  `configs/booking_demos/plushumi-demo.yaml`; its loader is demo-specific. Integrate
+  the policy with the school configuration used by the real guest-list workflow,
+  rather than making production reservations depend on a demo-only adapter.
+  Do not add an unused YAML key and claim the deadline is enforced. Preserve each
+  reservation's agreed deadline when later defaults change; use its studio timezone.
+  Treat seven days as the due date, not an automatic cancellation or editing lock.
+  Late bookings and post-deadline amendments remain workflow decisions.
+- Next implementation is manual recording of Terminal payments (L02). No Square
+  device credentials or hardware are needed to build/test that recording action.
+  Reuse reservation financial totals and audit. Default to existing authorized
+  payment-management roles and location scope, not every staff member.
+- Proposed minimum form: amount (defaults to outstanding balance), payment date,
+  required Square payment/receipt reference and optional note. Derive the studio
+  from the reservation; save who recorded it and when. Label as staff-recorded,
+  never provider-verified. Correction reverses the recorded entry with a reason;
+  it does not issue a Square refund. Actual Terminal refunds stay in Square and
+  need explicit recording. No second charge, subscription change or automatic
+  receipt claim is implied by saving this form.
+- Tests: verified online deposit plus partial/final manually recorded balances;
+  duplicate click/reference, stale totals, overpayment, invalid amounts, active
+  checkout and provider-webhook races; correction/refund accounting; canceled and
+  completed reservations; owner/location permissions and cross-school denial;
+  Stripe/Square separation and SBMC regressions. Use fictional local records and
+  sandbox online deposits, never live charges. Manually inspect desktop/mobile.
+- Before operational acceptance, obtain one redacted Terminal receipt example to
+  confirm which reference staff can reliably retrieve. A staff walkthrough using
+  an existing transaction can validate the real workflow without a new charge.
+
+Code review supporting L02: `scheduling.reservations.settle_offline` still exists,
+but `core.payments.service.record_offline` accepts only test orders with an
+`offline:<school>` merchant binding. The reservation UI intentionally removed
+offline settlement earlier. It cannot record a Terminal balance against an online
+Square deposit as-is. Reuse the financial ledger and audit, add a narrowly scoped
+external-payment action, and explicitly test duplicates, online-checkout races,
+cross-school/location access, corrections and refund routing. The requirements
+update itself made no code changes; the local L02 implementation is recorded below.
+
+### Terminal Payment Recording: Local Implementation (October 17)
+
+October 19 update supersedes the required-reference/optional-note UI below:
+receipt number is optional, Notes is removed, and the redundant
+Payment & refund status section is removed. Recovery actions remain only for
+unresolved payment/refund operations. Migration `payments.0007` is local only;
+201 focused tests plus 144 overlapping Terminal/reservation/migration tests passed.
+Desktop and 390px mobile checks passed. Existing notes and correction reasons are preserved.
+The subsequent October 19 UI pass replaces all payment-area expanders with dialogs:
+**Record payment already received** for Terminal money, **Take online payment** for
+a new online charge. Receipt number is visible inside the dialog. Correction uses
+a dialog too. 245 payment/reservation and 56 JavaScript tests passed; manual save,
+correction, validation, date picker, keyboard and desktop/mobile checks passed.
+
+October 19 extra-purchase update supersedes the balance-only restriction below:
+receipts may exceed the outstanding balance, with the excess previewed as extra
+purchases, including on fully paid confirmed/completed bookings. The extra-purchase
+checkbox was removed at the user's request; Save payment record commits the amount.
+The original booking quote stays immutable; active extra charges are included in
+all displayed totals. Correct entry reverses both the receipt and its extra charge.
+Migration `payments.0008` is local only. No inventory deductions or tax calculation
+were introduced. Desktop/mobile checks verified $15 extras plus a further $5 after
+full payment, customer totals and corrections, then restored the test booking.
+
+- Added **Record Terminal payment** under the existing reservation Payment summary.
+  Available to existing scheduling owners and superadmins for confirmed/completed
+  workshop or party reservations with a balance. Scheduler/viewer roles cannot write.
+  The school and studio are derived from the reservation; no new client-specific
+  branch, provider setting, port or database was added.
+- Uses the existing append-only payment ledger. Partial/full receipts update
+  Received, Balance, customer payment status and the reservation grid. Each receipt
+  retains date, reference, note, actor and recording time. Correct entry appends a
+  reversal with a required reason; it does not increase Refunded or call Square.
+- Active/uncertain online checkouts and pending refunds block recording/correction.
+  Duplicate submissions, reused receipt references, stale balances, invalid amounts,
+  future dates and overpayments are rejected. Incorrect receipts can be voided and
+  re-entered while preserving the original audit trail. The old local demo reset
+  refuses to delete Terminal receipts.
+- One additive ledger migration, `payments.0006`, is applied to the existing local
+  preview database only. No Render or production changes; no commit or deployment.
+  Existing online payment evidence and school subscription settings are preserved.
+- No Terminal API/device connection, provider verification, automatic receipt email,
+  or recording of actual Terminal refunds is claimed. A correction is NOT a refund.
+  Staff still take payments/refunds in Square. Actual refund recording requires a
+  separate agreed workflow before handling that case operationally.
+- Other October 17 requirements remain separate: zero Plushie workshop defaults,
+  editable party-package defaults, and YAML-backed guest-list deadlines have not
+  been implemented/configured by this Terminal-recording change.
+- Local manual walkthrough and exact test evidence: see
+  [Terminal payment recording](square-booking-payments.md#manual-terminal-payment-recording-october-17).
 
 Deposit/payment verification: 2,008 backend and 53 JavaScript tests passed before
 the copy-only cleanup; real Square sandbox deposit, balance decline/retry and
@@ -40,10 +347,11 @@ their pre-deployment content; hosted Plushie billing navigation, deposit control
 booking page and modal passed smoke checks. No customer settings or credentials
 were changed. [Release evidence](square-booking-payments.md#october-16-production-release-verification).
 
-Next independent release work: prepare and verify the hosted Square sandbox
-webhook configuration and delivery/recovery checks, with configuration approval.
-Terminal/device payment reconciliation and automated emailed payment links remain
-deferred; the completed balance feature is online collection from the reservation.
+Next implementation recommendation: finish L02 local acceptance, then L03/L04
+using the confirmed party-package and deferred guest-list requirements.
+Hosted Square webhook activation still needs configuration approval. Automatic
+Terminal matching and emailed balance links remain deferred; manual recording is
+now a launch requirement and the completed online balance feature does not replace it.
 
 - **Historical pre-release Square verification (superseded by October 16 deployment above).**
   Superadmin provider selection lives on the existing Ops school page. New booking

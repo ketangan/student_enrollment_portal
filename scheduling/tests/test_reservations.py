@@ -350,7 +350,9 @@ def test_owner_browser_flow_forms_and_cancel(inventory, booking_member, client):
     assert b"Held - awaiting payment" in page.content
     assert b"Test financial records" not in page.content
     assert b"Record offline settlement" not in page.content
-    assert client.post(detail, {"kind": "payment", "amount": "25"}).status_code == 405
+    # The old offline-settlement payload is still rejected; Terminal recording
+    # requires its explicit action, confirmation, receipt and stale-balance check.
+    assert client.post(detail, {"kind": "payment", "amount": "25"}).status_code == 400
     settle(booking_member, item)
     page = client.get(detail)
     assert b"Confirmed" in page.content and b"$75.00" in page.content
@@ -361,7 +363,7 @@ def test_owner_browser_flow_forms_and_cancel(inventory, booking_member, client):
     assert client.post(cancel,{"key": uuid.uuid4(), "resolution": "without_refund", "reason": "Family canceled"}).status_code == 302
     assert b"still received" in client.get(detail).content
     assert b"No pending participants" in client.get(path(booking_member,"preparation",pk=inventory[3].pk)).content
-    assert client.post(detail, {"kind": "refund", "amount": "25"}).status_code == 405
+    assert client.post(detail, {"kind": "refund", "amount": "25"}).status_code == 400
     assert b"still received" in client.get(detail).content
     assert b"View reservation" in client.get(path(booking_member,"request_detail",public_id=source.public_id)).content
 
@@ -486,7 +488,7 @@ def test_read_only_money_permissions(inventory, booking_member, client, role):
     assert client.get(detail).status_code == 200
     assert b'role="switch"' not in client.get(path(booking_member,"reservations")).content
     assert b"Record offline entry" not in client.get(detail).content
-    assert client.post(detail,{}).status_code == 405
+    assert client.post(detail,{}).status_code == 404
     assert client.get(path(booking_member,"reservation_from_workshop",public_id=source.public_id)).status_code == 404
     assert client.post(path(booking_member,"reservation_settings"),{"action":"enable"}).status_code == 404
     assert client.post(path(booking_member,"reservation_cancel",public_id=item.public_id),{"confirm":"yes"}).status_code == 404

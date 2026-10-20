@@ -1,6 +1,7 @@
 {% extends 'scheduling/base.html' %}{% load tz %}
 {% block title %}Party inquiries{% endblock %}
 {% block content %}
+<a class="back-link" href="{% url 'scheduling:party_setup' school_slug=business.slug %}">Party packages</a>
 {% include 'scheduling/location_filter.html' %}
 <h2>Party inquiries</h2><p class="muted">Original inquiries and their current reservation status.</p>
 <nav class="actions list-filter" aria-label="Party filter"><a href="?location={{ selected_location.pk }}" {% if not review_only %}aria-current="page"{% endif %}>All inquiries</a><a href="?review=1&amp;location={{ selected_location.pk }}" {% if review_only %}aria-current="page"{% endif %}>Awaiting review</a></nav>

@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const filename = path.resolve(__dirname, '../../static/scheduling/experience.js');
-const source = fs.readFileSync(filename, 'utf8');
+const source = fs.readFileSync(path.resolve(__dirname, '../../static/scheduling/catalog-picker.js'), 'utf8') + '\n' + fs.readFileSync(filename, 'utf8');
 
 function element(select = false) {
   return {

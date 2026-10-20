@@ -8,6 +8,7 @@ from django.utils.dateparse import parse_datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from urllib.parse import urlsplit
 from pathlib import PurePosixPath
+from decimal import Decimal
 import uuid
 
 from .capabilities import validate_capabilities
@@ -307,6 +308,49 @@ class RequestParticipant(models.Model):
         constraints = [models.UniqueConstraint(fields=["request", "position"], name="scheduling_request_participant_position")]
 
 
+class PartyPackage(models.Model):
+    """Location-owned offers; submitted inquiries retain their own snapshots."""
+
+    offering = models.ForeignKey(Offering, on_delete=models.PROTECT, related_name="party_packages")
+    name = models.CharField(max_length=150)
+    participant_limit = models.PositiveIntegerField(validators=CAPACITY_VALIDATORS)
+    duration_minutes = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(15), MaxValueValidator(720)])
+    total = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)])
+    deposit = models.DecimalField(max_digits=8, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    space = models.CharField(max_length=16, choices=[("shared", "Shared space"), ("exclusive", "Private room")], default="shared")
+    is_published = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["name", "pk"]
+        constraints = [
+            models.UniqueConstraint(Lower("name"), "offering", name="party_package_name_unique"),
+            models.CheckConstraint(condition=models.Q(participant_limit__gte=1, participant_limit__lte=10000), name="party_package_size_valid"),
+            models.CheckConstraint(condition=models.Q(deposit__gte=0) & (models.Q(total__isnull=True) | models.Q(total__gte=models.F("deposit"))), name="party_package_price_valid"),
+            models.CheckConstraint(condition=models.Q(is_published=False) | models.Q(total__isnull=False, duration_minutes__isnull=False), name="party_package_publish_complete"),
+        ]
+
+    def __str__(self):
+        return self.name
+
+    def clean(self):
+        errors = {}
+        if self.pk and PartyPackage.objects.filter(pk=self.pk).exclude(offering_id=self.offering_id).exists():
+            errors["offering"] = "A saved package cannot move to another workshop or location."
+        if self.is_published:
+            for field in ("total", "duration_minutes"):
+                if getattr(self, field) is None:
+                    errors[field] = "Required before publishing this package."
+        if self.total is not None and self.deposit is not None:
+            if 0 < self.total < Decimal("0.50"):
+                errors["total"] = "Enter at least $0.50, or 0 for a free package."
+            if self.deposit > self.total:
+                errors["deposit"] = "The deposit cannot exceed the total."
+            elif self.deposit and (self.deposit < Decimal("0.50") or self.total - self.deposit < Decimal("0.50")):
+                errors["deposit"] = "Leave at least $0.50 for both the deposit and balance, or enter 0 for full payment."
+        if errors:
+            raise ValidationError(errors)
+
+
 class PartyRequest(models.Model):
     """An inquiry and internal preparation proposal, never an inventory claim or order."""
 
@@ -322,10 +366,14 @@ class PartyRequest(models.Model):
 
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     offering = models.ForeignKey(Offering, on_delete=models.PROTECT, related_name="party_requests")
+    package = models.ForeignKey(PartyPackage, null=True, blank=True, on_delete=models.PROTECT, related_name="inquiries")
+    package_snapshot = models.JSONField(default=dict, blank=True, editable=False)
+    occasion = models.CharField(max_length=150, blank=True)
+    age_range = models.CharField(max_length=100, blank=True)
     organizer_name = models.CharField(max_length=100)
     organizer_email = models.EmailField()
     starts_at = models.DateTimeField()
-    ends_at = models.DateTimeField()
+    ends_at = models.DateTimeField(null=True, blank=True)
     group_size = models.PositiveIntegerField(validators=CAPACITY_VALIDATORS)
     space = models.CharField(max_length=16, choices=Space.choices)
     customer_notes = models.TextField(blank=True, max_length=2000)
@@ -366,6 +414,8 @@ class PartyRequest(models.Model):
         return None if self.proposed_total is None or self.proposed_deposit is None else (self.proposed_total - self.proposed_deposit if self.proposed_deposit else 0)
 
     def clean(self):
+        if self.package_id and self.package.offering_id != self.offering_id:
+            raise ValidationError({"package": "Choose a package for this workshop."})
         if self.room_id:
             if self.room.location_id != self.offering.location_id:
                 raise ValidationError({"room": "Choose a room at this workshop's location."})
