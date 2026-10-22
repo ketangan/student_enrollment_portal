@@ -20,7 +20,7 @@ function element() {
   };
 }
 
-function page({saved = null, blocked = false, chooser = false, noAccount = false, dashboard = false, icons = false, payment = null, dialog = null, trigger = null, terminal = null} = {}) {
+function page({saved = null, blocked = false, chooser = false, noAccount = false, dashboard = false, icons = false, payment = null, dialog = null, trigger = null, terminal = null, setupDialog = null, copy = null, clipboard = null} = {}) {
   const document = element();
   document.body = element();
   const summary = element();
@@ -37,6 +37,8 @@ function page({saved = null, blocked = false, chooser = false, noAccount = false
   document.getElementById = id => nodes[id] || null;
   if (dialog) nodes['payment-dialog'] = dialog;
   document.querySelectorAll = selector => {
+    if (selector === '[data-copy-link]') return copy ? [copy] : [];
+    if (selector === '[data-setup-dialog]') return setupDialog ? [setupDialog] : [];
     if (selector === '[data-terminal-payment]') return terminal ? [terminal] : [];
     if (selector === '[data-payment-dialog]') return trigger ? [trigger] : [];
     return payment ? [payment] : [];
@@ -48,9 +50,37 @@ function page({saved = null, blocked = false, chooser = false, noAccount = false
     setItem(key, value) { assert.equal(key, 'dash_theme'); if (blocked) throw Error('denied'); this.saved = value; },
   };
   const lucide = icons ? {createIcons() { document.iconsRendered = true; }} : undefined;
-  vm.runInNewContext(source, {document, window: {matchMedia: () => media, lucide}, localStorage: storage}, {filename});
-  return {document, nodes, media, storage, summary};
+  const location = {href: 'http://localhost:8002/parties/?location=15&section=rules&edit=9', replace(url) { this.destination = String(url); }};
+  vm.runInNewContext(source, {document, URL, navigator: {clipboard}, window: {matchMedia: () => media, lucide, location}, localStorage: storage}, {filename});
+  return {document, nodes, media, storage, summary, location};
 }
+
+test('host link copy confirms success and gives a fallback when clipboard is unavailable', async () => {
+  const copy = element(), status = {};
+  copy.dataset = {copyLink: 'https://example.invalid/guests/signed/'};
+  copy.parentElement = {querySelector: () => status};
+  let written;
+  page({copy, clipboard: {writeText: async value => { written = value; }}});
+  await copy.listeners.click();
+  assert.equal(written, copy.dataset.copyLink);
+  assert.equal(status.textContent, 'Link copied');
+  page({copy});
+  await copy.listeners.click();
+  assert.match(status.textContent, /copy its address/);
+});
+
+test('booking rules opens as a modal and closing returns to the selected party', () => {
+  const dialog = element();
+  const close = element();
+  dialog.querySelectorAll = () => [close];
+  dialog.showModal = () => { dialog.open = true; };
+  dialog.close = () => { dialog.open = false; dialog.listeners.close(); };
+  const {location} = page({setupDialog: dialog});
+  assert.equal(dialog.open, true);
+  close.listeners.click();
+  assert.equal(dialog.open, false);
+  assert.equal(location.destination, 'http://localhost:8002/parties/?location=15#package-9');
+});
 
 test('mobile navigation toggles, closes outside and on resize, and restores focus on Escape', () => {
   const {nodes, document, media} = page();

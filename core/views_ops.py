@@ -228,6 +228,10 @@ def ops_school_detail_view(request, slug):
     from django.http import HttpResponseBase
 
     school = get_object_or_404(School, slug=slug)
+    from scheduling.calendar_settings import settings_context as calendar_settings_context
+    booking_calendar = calendar_settings_context(request, school)
+    if isinstance(booking_calendar, HttpResponseBase):
+        return booking_calendar
     from core.payments.settings import settings_context
     booking_payments = settings_context(request, school)
     if isinstance(booking_payments, HttpResponseBase):
@@ -236,7 +240,7 @@ def ops_school_detail_view(request, slug):
     if isinstance(subscription_pricing, HttpResponseBase):
         return subscription_pricing
 
-    if request.method == "POST" and request.POST.get("action") not in {"validate", "publish", "save_booking_provider"}:
+    if request.method == "POST" and request.POST.get("action") not in {"validate", "publish", "save_booking_provider", "save_booking_calendar"}:
         form = OpsSchoolEditForm(request.POST, instance=school)
         if form.is_valid():
             changed = {
@@ -297,6 +301,7 @@ def ops_school_detail_view(request, slug):
         "form": form,
         "subscription_pricing": subscription_pricing,
         "booking_payments": booking_payments,
+        "booking_calendar": booking_calendar,
         "members": members,
         "recent_audit": recent_audit,
         "submission_count": submission_count,

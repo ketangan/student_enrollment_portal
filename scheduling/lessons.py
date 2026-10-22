@@ -122,7 +122,7 @@ def validate_lesson_room(room_id, start, end):
 class SlotCalendar:
     """Bounded conflict snapshot shared by staff checks and a day's public slots."""
     def __init__(self, data, start, end, exclude_ids=()):
-        from .reservations import active_claims
+        from .reservations import active_claims, studio_claims
         teacher, student, room = (data[k] for k in ["teacher", "student", "room"])
         self.windows = list(teacher.availability.filter(location=data["location"]))
         self.closures = list(LessonClosure.objects.filter(location=data["location"]).filter(Q(teacher=teacher) | Q(teacher=None)))
@@ -136,6 +136,7 @@ class SlotCalendar:
         self.lessons = list(scheduled_lessons().filter(relevant, series__profile=teacher.profile,
             starts_at__lt=end+gap, ends_at__gt=start-gap).exclude(pk__in=exclude_ids).select_related("series"))
         self.sessions, self.claims = [], []
+        studio_windows = list(studio_claims(data["location"].pk, start, end).values_list("starts_at", "ends_at"))
         self.visits = list(VisitSlot.objects.filter(host_id=teacher.booking_host_id, session__is_published=True,
             session__starts_at__lt=end+gap, session__ends_at__gt=start-gap).select_related("session", "program__offering")) if teacher.booking_host_id else []
         if room:
@@ -144,6 +145,7 @@ class SlotCalendar:
             claims = active_claims()
             self.claims = list(claims.filter(**filters).values_list("starts_at", "ends_at"))
             self.claims += list(ReservationOccurrence.objects.filter(reservation__in=claims, **filters).values_list("starts_at", "ends_at"))
+        self.claims += studio_windows
 
     def conflict(self, data, start, end):
         teacher, student, room, location = (data[k] for k in ["teacher", "student", "room", "location"])

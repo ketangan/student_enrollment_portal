@@ -78,6 +78,75 @@ def reserve(member, source, total=10000, deposit=2500):
         "party" if isinstance(source, PartyRequest) else "workshop", source.public_id, total, deposit)
 
 
+def test_full_studio_blocks_other_rooms_and_session_publication(inventory, booking_member):
+    from scheduling.reservations import validate_session_edit
+    _, offering, room, session = inventory
+    source = party_request(inventory, space="studio")
+    item = reserve(booking_member, source)
+    assert item.snapshot["space"] == "studio" and item.exclusive
+    second = Room.objects.create(location=room.location, name="Table 2", capacity=6)
+    inquiry = party_request(inventory, start=source.starts_at, space="shared")
+    inquiry.room = second
+    inquiry.save()
+    with pytest.raises(ValidationError, match="full-studio"):
+        reserve(booking_member, inquiry)
+    future = Session(offering=offering, room=second, starts_at=source.starts_at, ends_at=source.ends_at, capacity=4, is_published=True)
+    with pytest.raises(ValidationError, match="full-studio"):
+        validate_session_edit(future)
+    future.starts_at, future.ends_at = source.ends_at, source.ends_at + timedelta(hours=1)
+    validate_session_edit(future)
+    item.hold_until = timezone.now() - timedelta(minutes=1)
+    item.save()
+    assert reserve(booking_member, inquiry)
+
+
+def test_full_studio_rejects_published_session_in_another_room(inventory, booking_member):
+    _, offering, room, session = inventory
+    second = Room.objects.create(location=room.location, name="Table 2", capacity=6)
+    source = party_request(inventory, start=session.starts_at, space="studio")
+    source.room = second
+    source.save()
+    with pytest.raises(ValidationError, match="full studio"):
+        reserve(booking_member, source)
+
+
+def test_private_table_does_not_block_other_tables(inventory, booking_member):
+    _, _, room, _ = inventory
+    source = party_request(inventory)
+    reserve(booking_member, source)
+    second = Room.objects.create(location=room.location, name="Table 2", capacity=6)
+    other = party_request(inventory, start=source.starts_at)
+    other.room = second
+    other.save()
+    assert reserve(booking_member, other)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_full_studio_and_other_room_compete_for_one_hold(inventory, booking_member):
+    _, _, room, _ = inventory
+    studio = party_request(inventory, space="studio")
+    table = party_request(inventory, start=studio.starts_at)
+    table.room = Room.objects.create(location=room.location, name="Table 2", capacity=6)
+    table.save()
+    barrier = Barrier(2)
+
+    def attempt(source):
+        close_old_connections()
+        try:
+            barrier.wait(timeout=10)
+            try:
+                return reserve(booking_member, source).pk
+            except ValidationError:
+                return None
+        finally:
+            close_old_connections()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(attempt, [studio, table]))
+    assert sum(result is not None for result in results) == 1
+    assert Reservation.objects.count() == PaymentOrder.objects.count() == 1
+
+
 def settle(member, item, amount=2500, **kwargs):
     values = dict(key=uuid.uuid4(), kind="payment", amount_cents=amount, reference=str(uuid.uuid4()))
     values.update(kwargs)

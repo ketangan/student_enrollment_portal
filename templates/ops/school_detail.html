@@ -275,6 +275,18 @@
 
   {% include "ops/school_pricing.html" with form=subscription_pricing.form offer=subscription_pricing.offer verified=subscription_pricing.verified total=subscription_pricing.total billing_mode=subscription_pricing.billing_mode history=subscription_pricing.history pending_checkouts=subscription_pricing.pending_checkouts location_change=subscription_pricing.location_change pending_location_change=subscription_pricing.pending_location_change accepted_offer=subscription_pricing.accepted_offer billing_review=subscription_pricing.billing_review renewal=subscription_pricing.renewal change_error=subscription_pricing.change_error %}
 
+  {% if booking_calendar %}
+  <section class="dash-card" id="booking-calendar" style="padding:24px;margin-bottom:16px;scroll-margin-top:88px;">
+    <h2 style="font-size:14px;font-weight:700;margin:0 0 16px;">Booking Dashboard</h2>
+    <form method="post">
+      {% csrf_token %}{{ booking_calendar.form.edit_revision }}
+      {{ booking_calendar.form.non_field_errors }}{{ booking_calendar.form.edit_revision.errors }}
+      <p><label>{{ booking_calendar.form.calendar_enabled }} {{ booking_calendar.form.calendar_enabled.label }}</label>{{ booking_calendar.form.calendar_enabled.errors }}</p>
+      <p><label for="{{ booking_calendar.form.default_dashboard_view.id_for_label }}" style="display:block;margin-bottom:6px;">Default dashboard view</label> {{ booking_calendar.form.default_dashboard_view }}{{ booking_calendar.form.default_dashboard_view.errors }}</p>
+      <button type="submit" name="action" value="save_booking_calendar" class="dash-action-btn dash-action-btn--primary">Save dashboard settings</button>
+    </form>
+  </section>
+  {% endif %}
   <!-- Booking payment provider -->
   {% if booking_payments %}
   <section id="booking-payments" class="dash-card" style="padding:24px;margin-bottom:16px;scroll-margin-top:88px;">

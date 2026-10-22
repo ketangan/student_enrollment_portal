@@ -221,6 +221,10 @@ LOGGING = {
         "level": _LOG_LEVEL,
     },
     "loggers": {
+        # Storage SDK debug output includes signed request headers.
+        "botocore": {"level": "WARNING"},
+        "boto3": {"level": "WARNING"},
+        "s3transfer": {"level": "WARNING"},
         # Django internals — direct to console at WARNING to suppress noisy SQL
         # and request logs; propagate=False prevents double output to root.
         "django": {
@@ -250,6 +254,15 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+BOOKINGS_GUIDE_R2 = {
+    "access_key": os.getenv("BOOKINGS_GUIDE_R2_ACCESS_KEY_ID", ""),
+    "secret_key": os.getenv("BOOKINGS_GUIDE_R2_SECRET_ACCESS_KEY", ""),
+    "endpoint_url": os.getenv("BOOKINGS_GUIDE_R2_ENDPOINT_URL", ""),
+    "bucket_name": os.getenv("BOOKINGS_GUIDE_R2_BUCKET_NAME", ""),
+}
+# Enable only after verifying durable guide storage and retained-version downloads.
+BOOKINGS_GUIDE_STORAGE_READY = os.getenv("BOOKINGS_GUIDE_STORAGE_READY", "false").lower() == "true"
+BOOKINGS_PARTY_EMAIL_ENABLED = os.getenv("BOOKINGS_PARTY_EMAIL_ENABLED", "false").lower() == "true"
 
 # Cache
 # ----------------------------------

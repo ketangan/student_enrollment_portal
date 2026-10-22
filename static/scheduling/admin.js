@@ -1,5 +1,36 @@
 (() => {
   window.lucide?.createIcons();
+  document.querySelectorAll('[data-copy-link]').forEach(button => {
+    button.addEventListener('click', async () => {
+      const status = button.parentElement.querySelector('[data-copy-status]');
+      try {
+        await navigator.clipboard.writeText(button.dataset.copyLink);
+        status.textContent = 'Link copied';
+      } catch (_) {
+        status.textContent = 'Open the guest list and copy its address.';
+      }
+    });
+  });
+  document.querySelectorAll('[data-setup-dialog]').forEach(dialog => {
+    dialog.addEventListener('input', event => {
+      if (event.target.form?.id !== 'package-edit') return;
+      dialog.querySelectorAll('[data-party-time-submit]').forEach(button => { button.disabled = true; });
+      const notice = dialog.querySelector('[data-save-rules-first]');
+      if (notice) notice.hidden = false;
+    });
+    dialog.querySelectorAll('[data-close-setup-dialog]').forEach(button => {
+      button.addEventListener('click', () => dialog.close());
+    });
+    dialog.addEventListener('close', () => {
+      const url = new URL(window.location.href);
+      const packageId = url.searchParams.get('edit');
+      url.searchParams.delete('edit');
+      url.searchParams.delete('section');
+      url.hash = `package-${packageId}`;
+      window.location.replace(url);
+    });
+    dialog.showModal();
+  });
   document.querySelectorAll('[data-terminal-payment]').forEach(form => {
     const amount = form.elements.amount;
     const balance = Number(form.elements.expected_balance.value);

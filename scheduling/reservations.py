@@ -22,6 +22,16 @@ def active_claims(now=None):
         | Q(order_id__in=pending_orders))
 
 
+def studio_claims(location_id, start, end, exclude=None):
+    return active_claims().exclude(pk=exclude).filter(room__location_id=location_id,
+        snapshot__space="studio", starts_at__lt=end, ends_at__gt=start)
+
+
+def ensure_studio_available(location_id, start, end, exclude=None):
+    if studio_claims(location_id, start, end, exclude).exists():
+        raise ValidationError("This studio has an exclusive full-studio reservation at that time.")
+
+
 def peak_quantity(intervals):
     events = []
     for start, end, quantity in intervals:
@@ -42,6 +52,8 @@ def validate_room_capacity(room):
 
 
 def validate_session_edit(session):
+    if session.is_published and session.offering_id and session.starts_at and session.ends_at:
+        ensure_studio_available(session.offering.location_id, session.starts_at, session.ends_at)
     claims = active_claims().filter(Q(session=session.pk) | Q(occurrences__session=session.pk)).distinct()
     if session.pk and (claims.exists() or session.camp_occurrences.exists()):
         old = Session.objects.get(pk=session.pk)
@@ -67,6 +79,7 @@ def session_places_taken(session, exclude=None):
 
 
 def ensure_session_capacity(item, session, starts_at, ends_at, room_id):
+    ensure_studio_available(session.offering.location_id, starts_at, ends_at, item.pk)
     if not session.is_published or not session.offering.is_published:
         raise ValidationError("This session is no longer published.")
     if (session.starts_at, session.ends_at, session.room_id) != (starts_at, ends_at, room_id):
@@ -95,6 +108,15 @@ def ensure_capacity(item):
         ensure_session_capacity(item, session, item.starts_at, item.ends_at, item.room_id)
         return
     room = item.room
+    ensure_studio_available(room.location_id, item.starts_at, item.ends_at, item.pk)
+    if item.snapshot.get("space") == "studio":
+        from .lessons import scheduled_lessons
+        window = dict(starts_at__lt=item.ends_at, ends_at__gt=item.starts_at)
+        if (claims.filter(room__location_id=room.location_id, **window).exists()
+                or Session.objects.filter(offering__location_id=room.location_id, is_published=True, **window).exists()
+                or ReservationOccurrence.objects.filter(reservation__in=claims, session__offering__location_id=room.location_id, **window).exists()
+                or scheduled_lessons().filter(series__location_id=room.location_id, **window).exists()):
+            raise ValidationError("The full studio is not available at that time.")
     from .lessons import validate_lesson_room
     validate_lesson_room(item.room_id, item.starts_at, item.ends_at)
     overlaps = claims.filter(room=room, starts_at__lt=item.ends_at, ends_at__gt=item.starts_at)
@@ -159,16 +181,29 @@ def create_reservation(user, slug, kind, public_id, total_cents=None, deposit_ce
         if source.status != "reviewed" or not source.room_id or source.proposed_total is None or not source.ends_at:
             raise ValidationError("Review this party with a proposed room, duration, total and deposit first.")
         total_cents, deposit_cents = int(source.proposed_total * 100), int(source.proposed_deposit * 100)
-        item = Reservation(profile=profile, party_request=source, room=source.room, starts_at=source.starts_at,
-            ends_at=source.ends_at, quantity=source.group_size, exclusive=source.space == "exclusive",
-            snapshot={"name": source.organizer_name, "workshop": source.offering_snapshot["workshop"],
-                      "timezone": source.offering_snapshot["timezone"],
-                      "party_package": source.package_snapshot,
-                      "occasion": source.occasion, "age_range": source.age_range})
+        item = party_reservation_item(profile, source)
     else:
         raise ValidationError("Choose a workshop request or party inquiry.")
+    return save_reservation(item, source, kind, total_cents, deposit_cents, account, user)
+
+
+def party_reservation_item(profile, source):
+    from .guest_lists import deadline_days
+    return Reservation(profile=profile, party_request=source, room=source.room, starts_at=source.starts_at,
+        ends_at=source.ends_at, quantity=source.group_size, exclusive=source.space in ("exclusive", "studio"),
+        snapshot={"name": source.organizer_name, "workshop": source.offering_snapshot["workshop"],
+                  "timezone": source.offering_snapshot["timezone"],
+                  "party_package": source.package_snapshot, "space": source.space,
+                  "guest_list_deadline_days": deadline_days(profile.school),
+                  "occasion": source.occasion, "age_range": source.age_range,
+                  "organizer_phone": source.organizer_phone,
+                  "birthday_name": source.birthday_name, "birthday_age": source.birthday_age})
+
+
+def save_reservation(item, source, kind, total_cents, deposit_cents, account, user):
+    """Called by validated intake paths while holding the tenant profile lock."""
     ensure_capacity(item)
-    item.order = payments.create_order(school=profile.school, purpose="booking", source_key=f"{kind}:{source.public_id}",
+    item.order = payments.create_order(school=item.profile.school, purpose="booking", source_key=f"{kind}:{source.public_id}",
         total_cents=total_cents, deposit_cents=deposit_cents, description=item.snapshot["workshop"], account=account)
     item.hold_until = min(timezone.now() + timedelta(minutes=30), item.starts_at)
     if total_cents == 0:

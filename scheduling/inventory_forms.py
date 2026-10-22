@@ -147,6 +147,7 @@ class DesignForm(ChoiceOptionForm):
 
 class PartyMaterialRow(forms.Form):
     guest_name = forms.CharField(max_length=100, required=False, label="Name (optional)")
+    guest_age = forms.IntegerField(min_value=0, max_value=130, required=False, label="Age")
     item = forms.ModelChoiceField(queryset=CatalogVariant.objects.none(), label="Design / color")
     quantity = forms.IntegerField(min_value=1, max_value=10000, label="Participants")
 
@@ -154,9 +155,12 @@ class PartyMaterialRow(forms.Form):
         super().__init__(*args, **kwargs)
         self.guest_mode = guest_mode
         if guest_mode:
+            self.fields["guest_name"].label = "Name"
             self.fields["quantity"].initial = 1
             self.fields["quantity"].disabled = True
             self.fields["quantity"].widget = forms.HiddenInput()
+        else:
+            self.fields.pop("guest_age")
         self.offering = offering
         self.fields["item"].queryset = CatalogVariant.objects.filter(catalog_id=offering.inventory_catalog_id, is_active=True)
         groups = list(offering.inventory_catalog.choice_groups.filter(tracks_stock=True, is_active=True)) if offering.inventory_catalog_id else []
@@ -185,7 +189,8 @@ def party_material_forms(offering, data=None, initial=None, *, guest_mode=False)
         return None
     factory = forms.formset_factory(PartyMaterialRow, extra=1, max_num=50, validate_max=True, absolute_max=51, can_delete=True)
     return factory(data, initial=[{"item": row["item_id"], "quantity": row["quantity"],
-                                  "guest_name": row.get("guest_name", "")} for row in initial or []],
+                                  "guest_name": row.get("guest_name", ""),
+                                  "guest_age": row.get("guest_age")} for row in initial or []],
                    prefix="materials", form_kwargs={"offering": offering, "guest_mode": guest_mode})
 
 
@@ -221,7 +226,8 @@ def material_snapshot(formset, group_size):
         return []
     rows = [{"item_id": row.cleaned_data["item"].pk, "name": row.cleaned_data["item"].name,
              "quantity": row.cleaned_data["quantity"],
-             **({"guest_name": row.cleaned_data["guest_name"]} if row.cleaned_data.get("guest_name") else {})}
+             **({"guest_name": row.cleaned_data["guest_name"]} if row.cleaned_data.get("guest_name") else {}),
+             **({"guest_age": row.cleaned_data["guest_age"]} if row.cleaned_data.get("guest_age") is not None else {})}
             for row in formset if row.cleaned_data and not row.cleaned_data.get("DELETE")]
     guest_mode = formset.form_kwargs.get("guest_mode", False)
     if guest_mode and rows and len(rows) != group_size:

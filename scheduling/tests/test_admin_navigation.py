@@ -49,7 +49,7 @@ def test_plushumi_navigation_has_exact_groups_and_no_request_menu():
     assert [(item["label"], [tab["label"] for tab in item["tabs"]]) for item in result["sections"]] == [
         ("Dashboard", []), ("Reservations", ["Reservations"]),
         ("Setup", ["Workshop", "Parties", "Camps", "Catalog", "Materials Inventory"]),
-        ("Settings", ["Location & rooms", "Team Access", "Integrations"])]
+        ("Settings", ["Location & rooms", "Guest communication", "Team Access", "Integrations"])]
     assert result["section"]["label"] == "Setup"
     assert [tab["label"] for tab in result["section"]["tabs"] if tab["active"]] == ["Materials Inventory"]
     assert result["sections"][3]["url"] == "/bookings/navigation-test/locations/"
@@ -60,6 +60,7 @@ def test_plushumi_navigation_has_exact_groups_and_no_request_menu():
     ("overview", "Dashboard"), ("reservations", "Reservations"), ("preparation", "Reservations"),
     ("requests", "Reservations"), ("workshops", "Setup"), ("parties", "Setup"), ("camps", "Setup"),
     ("settings", "Setup"), ("locations", "Settings"), ("access", "Settings"), ("integrations", "Settings"),
+    ("guest_communication", "Settings"),
     ("visits", "Reservations"), ("lessons", "Reservations"), ("messages", "Reservations"), ("unknown", "Dashboard"),
 ])
 def test_every_page_selects_its_parent_section(active, section):

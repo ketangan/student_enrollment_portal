@@ -1,12 +1,15 @@
+{% load tz %}
 <div class="reservation-payment-actions">
 {% if item.state == 'confirmed' or item.state == 'completed' %}<button type="button" class="button primary" data-payment-dialog="terminal-payment-dialog" aria-haspopup="dialog"><i data-lucide="receipt" aria-hidden="true"></i> Record payment already received</button>{% endif %}
 {% if payment_url %}
+{% if share_payment_url %}<button type="button" data-copy-link="{{ share_payment_url }}" title="Copy private payment link"><i data-lucide="copy" aria-hidden="true"></i> Copy payment link</button><span data-copy-status role="status"></span>{% endif %}
 {% if item.state != 'canceled' %}<a class="button" href="{{ payment_url }}"><i data-lucide="credit-card" aria-hidden="true"></i> {% if amounts.outstanding_cents %}Take online payment{% else %}View payment details{% endif %}</a>{% endif %}
 {% if item.state == 'canceled' and amounts.net_cents %}<a class="button" href="{% url 'scheduling:refund_create' school_slug=business.slug public_id=item.public_id %}">Review refund</a>{% endif %}
 {% if item.state == 'completed' and overpaid %}<a class="button" href="{% url 'scheduling:refund_create' school_slug=business.slug public_id=item.public_id %}">Refund excess payment</a>{% endif %}
 {% if item.state == 'confirmed' and overpaid %}<a class="button" href="{% url 'scheduling:refund_create' school_slug=business.slug public_id=item.public_id %}">Refund excess payment</a>{% endif %}
 {% endif %}
 </div>
+{% if share_payment_url %}<p class="muted">Payment links expire after 24 hours. Reopen this reservation to copy a new link.{% if item.state == 'held' %} The time is held until {% timezone item.snapshot.timezone %}{{ item.hold_until|date:"M j, Y, g:i A T" }}{% endtimezone %}; after that, availability is checked again before payment.{% endif %}</p>{% endif %}
 {% for attempt in attempts %}<div class="payment-operation"><p class="notice">Online payment of ${{ attempt.amount|floatformat:2 }} needs verification.</p>
 {% if attempt.attention %}<p class="notice error" role="alert">{{ attempt.attention }}</p>{% endif %}
 {% if attempt.close_requested %}<p>Checkout closure requested. Waiting for verification.</p>{% endif %}

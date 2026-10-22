@@ -1,4 +1,4 @@
-"""Party inquiry and internal review; no reservations or payment side effects."""
+"""Party intake and internal review using the shared reservation/payment services."""
 
 import hashlib
 import json
@@ -34,10 +34,11 @@ def offering_for_inquiry(slug, pk):
 def inquiry_digest(offering):
     from .requests import catalog_for
     catalog = [(g.pk, g.name, [(o.pk, o.label) for o in g.active_options]) for g in catalog_for(offering)] if offering.inventory_catalog_id else []
-    packages = list(offering.party_packages.values("id", "is_published", "name", "participant_limit", "duration_minutes", "total", "deposit", "space"))
+    packages = list(offering.party_packages.values("id", "is_published", "name", "participant_limit", "duration_minutes", "total", "deposit", "space",
+        "room_id", "included_observers", "additional_participant_limit", "additional_participant_price", "tax_rate", "booking_mode"))
     return hashlib.sha256(json.dumps([offering.pk, offering.name, offering.location.name,
         offering.location.timezone_name, offering.is_published, offering.accepts_party_requests, catalog,
-        packages], default=str).encode()).hexdigest()
+        packages, list(offering.party_packages.values("slots__id", "slots__starts_at", "slots__is_published"))], default=str).encode()).hexdigest()
 
 
 def inquiry_token(offering, browser):
@@ -81,7 +82,18 @@ def submit_inquiry(slug, pk, data, browser):
             submission_key=key, submission_digest=digest, browser_digest=browser,
             offering_snapshot={"workshop": offering.name, "location": offering.location.name,
                                "timezone": offering.location.timezone_name})
-    audit_party(None, offering.location.profile, item, {"status": {"from": None, "to": "pending"}})
+    if item.package_id and item.package.booking_mode == "direct":
+        from .reservations import booking_account, party_reservation_item, save_reservation
+        profile = offering.location.profile
+        require_capability(profile, "reservations")
+        if not profile.native_reservations_enabled:
+            raise ValidationError("Online party bookings are not available. Please contact the studio.")
+        account = booking_account(profile, True)
+        save_reservation(party_reservation_item(profile, item), item, "party",
+            int(item.proposed_total * 100), int(item.proposed_deposit * 100), account, None)
+        item.status = PartyRequest.Status.REVIEWED
+        item.save(update_fields=["status"])
+    audit_party(None, offering.location.profile, item, {"status": {"from": None, "to": item.status}})
     return item, form
 
 

@@ -12,6 +12,8 @@ LABELS = {
     "refund_approved": "Refund approved", "cancellation_decision": "Cancellation instructions saved",
     "refund_status": "Refund status updated",
     "completed": "Reservation completed",
+    "guest_list_submitted": "Guest list submitted",
+    "guest_list_draft_saved": "Guest-list progress saved",
 }
 
 

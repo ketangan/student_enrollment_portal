@@ -99,7 +99,7 @@ def reservation_create(request, school_slug, kind, public_id):
         source = get_object_or_404(WorkshopRequest, public_id=public_id, session__offering__location__profile=profile)
         initial["deposit"] = source.session.offering.deposit_per_participant * source.participants.count()
     form = QuoteForm(request.POST if request.method == "POST" else None, initial=initial)
-    form.fields["online"].label = f"Use {profile.get_payment_provider_display()} sandbox checkout"
+    form.fields["online"].label = f"Accept online payment with {profile.get_payment_provider_display()}"
     if kind == "party":
         form.fields["total"].disabled = form.fields["deposit"].disabled = True
         form.fields["source_revision"].required = True
@@ -151,6 +151,8 @@ def reservation_detail(request, school_slug, public_id):
         from .checkout import payment_token
         from django.urls import reverse
         context["payment_url"] = reverse("scheduling:customer_payment", kwargs={"school_slug": school_slug, "token": payment_token(item)})
+        if item.party_request_id and item.state in ("held", "confirmed") and context["amounts"]["outstanding_cents"]:
+            context["share_payment_url"] = request.build_absolute_uri(context["payment_url"])
         context["attempts"] = item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).order_by("-created_at")
         context["checkout_pending"] = item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).exists()
         context["overpaid"] = context["amounts"]["net_cents"] > context["amounts"]["total_cents"]

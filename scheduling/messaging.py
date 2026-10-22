@@ -62,10 +62,19 @@ def locked_access(user, slug):
 
 @transaction.atomic
 def change_message(user, slug, public_id, action):
-    profile, _ = locked_access(user, slug)
+    profile, _ = require_access(user, slug, "setup.edit")
+    SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
+    profile, _ = require_access(user, slug, "setup.edit")
     message = get_object_or_404(BookingMessage, profile=profile, public_id=public_id)
+    if not message.reservation_id:
+        profile, _ = locked_access(user, slug)
     if action == "queue" and message.can_queue:
-        if not profile.message_preview_enabled:
+        if message.reservation_id:
+            from .party_notifications import deliverable, live_enabled
+            if not deliverable(message) or not (live_enabled(profile) and message.reservation.order.environment == "live"
+                    or preview_enabled() and profile.message_preview_enabled):
+                raise ValidationError("This notification is no longer eligible for delivery.")
+        elif not profile.message_preview_enabled:
             raise ValidationError("Enable local message processing first.")
         message.state, message.result_code = "queued", "manual_queue"
         message.next_attempt_at = timezone.now()
@@ -95,15 +104,23 @@ def unresolved_messages(profile, group_key):
 
 
 @transaction.atomic
-def claim(profile_id):
-    require_preview()
+def claim(profile_id, *, party_delivery=False):
+    if not party_delivery:
+        require_preview()
     profile = SchedulingProfile.objects.select_for_update().get(pk=profile_id)
     recover_stalled(profile)
-    if not profile.enabled or not profile.message_preview_enabled:
+    if not profile.enabled or (not party_delivery and not profile.message_preview_enabled):
         return None
+    if party_delivery:
+        from .party_notifications import live_enabled
+        if not live_enabled(profile):
+            return None
     blocked = unresolved_messages(profile, OuterRef("group_key"))
-    message = BookingMessage.objects.filter(profile=profile, state__in=["queued", "retry"],
-        next_attempt_at__lte=timezone.now(), attempts__lt=5).annotate(blocked=Exists(blocked)).filter(blocked=False).order_by("pk").first()
+    candidates = BookingMessage.objects.filter(profile=profile, state__in=["queued", "retry"],
+        next_attempt_at__lte=timezone.now(), attempts__lt=5)
+    if party_delivery:
+        candidates = candidates.filter(reservation__isnull=False, reservation__order__environment="live")
+    message = candidates.annotate(blocked=Exists(blocked)).filter(blocked=False).order_by("pk").first()
     if not message:
         return None
     message.state, message.lease_token = "sending", uuid.uuid4()
@@ -136,6 +153,9 @@ def local_transport(message, outcome):
 
 
 def recipient_allowed(message):
+    if message.reservation_id:
+        from .party_notifications import deliverable
+        return deliverable(message)
     from .visit_access import can_deliver
     if not can_deliver(message):
         return False
@@ -163,7 +183,7 @@ def finish(message, result):
         current.next_attempt_at = timezone.now() + timedelta(minutes=2 ** current.attempts)
     else:
         current.state = result
-        current.result_code = {"simulated": "local_backend_accepted", "suppressed": "recipient_access_ended"}.get(result, "acceptance_unknown")
+        current.result_code = {"simulated": "local_backend_accepted", "sent": "provider_accepted", "suppressed": "recipient_access_ended"}.get(result, "acceptance_unknown")
     current.lease_token = current.lease_expires_at = None
     current.save()
     BookingMessageAttempt.objects.filter(token=message.lease_token).update(finished_at=timezone.now(),

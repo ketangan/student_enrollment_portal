@@ -7,6 +7,7 @@
   <p class="dash-greeting-sub">Here's what needs your attention today.</p>
 </div>
 <div class="booking-dashboard-tools"><div class="actions">
+{% if calendar_available %}<a class="button" href="?view=calendar{% if selected_location %}&amp;location={{ selected_location.pk }}{% endif %}"><i data-lucide="calendar-days" aria-hidden="true"></i> Calendar</a>{% endif %}
 {% if experience_demo_available %}<a class="button" href="{{ customer_demo_url }}">Customer demo</a>{% endif %}
 {% if features.lessons and profile.lessons_enabled %}<a class="button" href="{% url 'scheduling:lessons' school_slug=business.slug %}">Open lesson calendar</a>{% endif %}
 {% if request.user.is_superuser %}<a href="{% url 'scheduling:features' school_slug=business.slug %}">Manage available features</a>{% endif %}

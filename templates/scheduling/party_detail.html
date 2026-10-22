@@ -10,6 +10,9 @@
 <div><dt>Location</dt><dd>{{ item.offering_snapshot.location }}</dd></div>
 {% if item.package_snapshot %}<div><dt>Package</dt><dd>{{ item.package_snapshot.name }}</dd></div>{% endif %}
 {% if item.occasion %}<div><dt>Occasion</dt><dd>{{ item.occasion }}</dd></div>{% endif %}
+{% if item.organizer_phone %}<div><dt>Phone</dt><dd>{{ item.organizer_phone }}</dd></div>{% endif %}
+{% if item.birthday_name %}<div><dt>Birthday person</dt><dd>{{ item.birthday_name }}</dd></div>{% endif %}
+{% if item.birthday_age != None %}<div><dt>Turning</dt><dd>{{ item.birthday_age }}</dd></div>{% endif %}
 {% if item.age_range %}<div><dt>Age range</dt><dd>{{ item.age_range }}</dd></div>{% endif %}
 {% timezone item.offering_snapshot.timezone %}<div><dt>Preferred time</dt><dd>{{ item.starts_at|date:"D, M j, Y, g:i A" }}{% if item.ends_at %} &ndash; {{ item.ends_at|date:"M j, Y, g:i A" }}{% else %} &middot; Duration awaiting staff review{% endif %}</dd></div>{% endtimezone %}
 <div><dt>Participants</dt><dd>{{ item.group_size }}</dd></div><div><dt>Space preference</dt><dd>{{ item.get_space_display }}</dd></div>

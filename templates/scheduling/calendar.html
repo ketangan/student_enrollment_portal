@@ -1,0 +1,42 @@
+{% extends 'scheduling/base.html' %}{% load static %}
+{% block title %}Calendar{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vendor/event-calendar/event-calendar.min.css' %}">
+<link rel="stylesheet" href="{% static 'scheduling/calendar.css' %}">
+{% endblock %}
+{% block page_heading %}{% endblock %}
+{% block content %}
+<div class="booking-dashboard-heading">
+  <div><h1>Calendar</h1><p class="muted">{{ selected_location.name|default:'All locations' }}</p></div>
+  <nav class="calendar-segment" aria-label="Dashboard view"><a href="?view=overview{% if selected_location %}&amp;location={{ selected_location.pk }}{% endif %}">Overview</a><a href="?view=calendar" aria-current="page">Calendar</a></nav>
+</div>
+<div class="calendar-summary" aria-label="Visible date range summary" aria-live="polite">
+  <span><i data-lucide="circle-alert" aria-hidden="true"></i> <strong id="calendar-unpaid">0</strong> unpaid reservations</span>
+  <span><i data-lucide="wallet" aria-hidden="true"></i> <strong id="calendar-balances">0</strong> balances outstanding</span>
+  <span><strong id="calendar-empty">0</strong> empty sessions</span>
+</div>
+<section class="booking-calendar" aria-label="Booking calendar">
+  <div class="calendar-toolbar">
+    <button type="button" data-calendar-action="today">Today</button>
+    <button type="button" data-calendar-action="prev" aria-label="Previous date range" title="Previous date range"><i data-lucide="chevron-left" aria-hidden="true"></i></button>
+    <button type="button" data-calendar-action="next" aria-label="Next date range" title="Next date range"><i data-lucide="chevron-right" aria-hidden="true"></i></button>
+    <h2 id="calendar-range" aria-live="polite"></h2>
+    <button type="button" id="calendar-filter-button" popovertarget="calendar-filters"><i data-lucide="list-filter" aria-hidden="true"></i> Workshops</button>
+    <div id="calendar-filters" popover><h3>Workshops</h3><div id="calendar-offerings"></div><div class="actions"><button type="button" data-calendar-filter="all">All</button><button type="button" data-calendar-filter="none">None</button><button type="button" popovertarget="calendar-filters" popovertargetaction="hide">Done</button></div></div>
+    <label class="calendar-check"><input type="checkbox" id="calendar-hide-empty"> Hide empty sessions</label>
+    <div class="calendar-segment" role="group" aria-label="Calendar range"><button type="button" data-calendar-range="day">Day</button><button type="button" data-calendar-range="week">Week</button><button type="button" data-calendar-range="month">Month</button></div>
+    {% if can_edit_sessions %}<a class="button" href="{% url 'scheduling:workshops' school_slug=business.slug %}{% if selected_location %}?location={{ selected_location.pk }}{% endif %}"><i data-lucide="plus" aria-hidden="true"></i> Add session</a>{% endif %}
+  </div>
+  <div class="calendar-context"><span>Times are local to each location.</span><span id="calendar-count" aria-live="polite"></span></div>
+  <div id="calendar-error" role="alert" hidden><span></span> <button type="button" id="calendar-retry">Retry</button></div>
+  <div class="calendar-viewport"><div id="booking-calendar"></div></div>
+  <div class="calendar-legend"><span class="empty">No bookings</span><span class="partial">Under half full</span><span class="full">Half full or more</span><span class="party">Party</span><span class="camp">Camp</span></div>
+</section>
+<dialog id="calendar-detail" aria-labelledby="calendar-detail-title">
+  <header><h2 id="calendar-detail-title">Session</h2><button type="button" id="calendar-detail-close" aria-label="Close session" title="Close"><i data-lucide="x" aria-hidden="true"></i></button></header>
+  <div id="calendar-detail-body" aria-live="polite"></div>
+</dialog>
+{{ calendar_config|json_script:'calendar-config' }}
+<noscript><p>JavaScript is required for the calendar. <a href="?view=overview">Open overview</a></p></noscript>
+{% endblock %}
+{% block scripts %}<script defer src="{% static 'vendor/event-calendar/event-calendar.min.js' %}"></script><script defer src="{% static 'scheduling/calendar.js' %}"></script>{% endblock %}

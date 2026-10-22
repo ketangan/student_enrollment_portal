@@ -9,11 +9,13 @@ MESSAGE_STATES = [
     ("retry", "Retry scheduled"), ("failed", "Retries exhausted"),
     ("uncertain", "Needs review"), ("simulated", "Simulated, not sent"),
     ("suppressed", "Suppressed"), ("superseded", "Replaced by newer update"),
+    ("sent", "Accepted by email provider"),
 ]
 RESULT_LABELS = {
     "newer_update": "A newer update is available",
     "not_accepted": "Not accepted; safe to retry",
     "local_backend_accepted": "Accepted by the local simulator",
+    "provider_accepted": "Accepted by the email provider",
     "acceptance_unknown": "Acceptance could not be confirmed",
     "worker_interrupted": "Processing was interrupted; outcome unknown",
     "recipient_access_ended": "Recipient access ended; not delivered",
@@ -21,6 +23,9 @@ RESULT_LABELS = {
 
 
 class BookingMessage(models.Model):
+    reservation = models.ForeignKey("scheduling.Reservation", null=True, blank=True, on_delete=models.PROTECT)
+    notice_kind = models.CharField(max_length=16, blank=True)
+    notice_signature = models.CharField(max_length=64, blank=True)
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     profile = models.ForeignKey("scheduling.SchedulingProfile", on_delete=models.PROTECT)
     event_key = models.CharField(max_length=180)

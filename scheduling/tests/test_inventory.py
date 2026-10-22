@@ -273,7 +273,7 @@ def test_every_settings_tab_has_a_working_destination(stock):
     document = SettingsLinks()
     document.feed(s.client.get(url(s, "locations")).content.decode())
     assert document.links == [
-        url(s, "locations"), url(s, "access"), url(s, "integrations"),
+        url(s, "locations"), url(s, "guest_communication"), url(s, "access"), url(s, "integrations"),
         reverse("scheduling:school_billing", args=[s.school.slug]),
     ]
     for link in document.links:
@@ -344,8 +344,12 @@ def test_party_and_camp_share_workshop_stock(stock):
     assert inventory.available(s.level) == 2
     with pytest.raises(ValidationError, match="only 2"): reserve(s, 3)
     party2 = PartyRequest.objects.get(pk=party.pk); party2.pk = None; party2.public_id = uuid.uuid4(); party2.submission_key = uuid.uuid4(); party2.materials = []; party2.save()
-    with pytest.raises(ValidationError, match="every party participant"):
-        reservations.create_reservation(s.user, s.school.slug, "party", party2.public_id)
+    pending = reservations.create_reservation(s.user, s.school.slug, "party", party2.public_id)
+    assert pending.snapshot["guest_selections_pending"]
+    assert not pending.stock_allocations.exists()
+    inventory.ensure_stock(pending)
+    with pytest.raises(ValidationError, match="guest designs"):
+        inventory.validate_allocations(pending)
     second = Session.objects.create(offering=s.offering, room=s.room, starts_at=s.session.starts_at+timedelta(days=1),
         ends_at=s.session.ends_at+timedelta(days=1), capacity=100, is_published=True)
     camp = Camp.objects.create(offering=s.offering, name="Camp", price=10, deposit=0, is_open=True)

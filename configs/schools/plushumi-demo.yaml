@@ -1,0 +1,5 @@
+school:
+  slug: plushumi-demo
+  display_name: The Plushie Workshop
+scheduling:
+  guest_list_deadline_days: 7
