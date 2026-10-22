@@ -74,6 +74,31 @@ def test_tampering_and_wrong_school(client, stock, booking):
     assert client.get(url(booking)).status_code == 404
 
 
+def test_reservation_guest_list_summary_and_edit_permissions(client, stock, booking):
+    from scheduling.models import SchedulingMembership
+    client.force_login(stock.user)
+    path = reverse("scheduling:reservation_detail", kwargs={"school_slug": stock.school.slug,
+                                                            "public_id": booking.public_id})
+    booking.snapshot["guest_list_draft"] = [{"guest_name": "Pending guest"}]
+    booking.save()
+    response = client.get(path)
+    assert response.status_code == 200
+    assert response.context["guest_list_draft_count"] == 1
+    assert response.context["guest_list_due"] == guest_lists.due_at(booking)
+    assert response.context["staff_guest_list_url"]
+    assert "/guests/" in response.context["guest_list_url"]
+    assert not response.context["guest_list_complete"]
+    SchedulingMembership.objects.filter(user=stock.user).update(role="viewer")
+    response = client.get(path)
+    assert response.status_code == 200
+    assert "staff_guest_list_url" not in response.context
+    assert "guest_list_url" not in response.context
+    SchedulingMembership.objects.filter(user=stock.user).update(role="owner")
+    booking.state = "canceled"
+    booking.save()
+    assert "guest_list_url" not in client.get(path).context
+
+
 def test_counts_invalid_selection_and_stock_rollback(client, stock, booking):
     path = url(booking)
     for count in [0, 1, 3]:

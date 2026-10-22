@@ -143,3 +143,18 @@ def test_owner_notification_toggle_and_missing_download(client, stock):
     guide = upload(stock)
     guide.file.storage.delete(guide.file.name)
     assert client.get(download).status_code == 404
+
+
+def test_shared_guide_and_enrollment_navigation_tags(stock):
+    from types import SimpleNamespace
+    from scheduling.navigation import enrollment_url
+    from scheduling.templatetags.booking_navigation import booking_design_guide, booking_enrollment_url
+    assert booking_design_guide(None) == ""
+    assert booking_design_guide(stock.school) == ""
+    upload(stock)
+    assert booking_design_guide(stock.school) == reverse("scheduling:design_guide", kwargs={"school_slug": stock.school.slug})
+    context = {"request": SimpleNamespace(user=stock.user)}
+    assert booking_enrollment_url(context, stock.profile) == enrollment_url(stock.user, stock.profile)
+    stock.profile.enabled = False
+    stock.profile.save()
+    assert booking_design_guide(stock.school) == ""
