@@ -9,6 +9,41 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
+### October 22 Release
+
+PR #5 merged to main as `8193b9740665f99fe0fe0fb7b630258d2803ad39`.
+Render web deployment completed and scheduling migrations 0029-0034 applied.
+Final GitHub CI: 4,336 passed, 3 skipped; 98.64% overall coverage and every
+measured module above the existing 90% gate. JavaScript: 80 passed with the
+existing coverage gates. Additional error-path tests were added before merging.
+
+Jasmine's supplied Design guide.pdf is installed for the hosted Plushie demo
+through the existing validated upload service. Its public current-guide download
+matches the supplied PDF's SHA-256 exactly. Anonymous historical-version access
+returns 404; the app-domain demo route redirects to the demo domain. The private
+R2 bucket retains uploaded versions; only the temporary staging object was removed.
+No production database was copied locally. SBMC's hosted billing DOM matched its
+pre-deployment baseline exactly. Calendar month/week switching and location filters
+were checked on the hosted demo; calendar enablement/default changed only there.
+
+Final configuration deployments are live: web `dep-dbd89s4ipgvc73ee1fj0` and
+cron `dep-dbd89sbncjis73bfjj00`. Guide storage readiness and the global party-email
+switch are enabled. The shared job is active every five minutes with commit-based
+auto-deployment. A delivery-disabled run passed first; the activated run at
+21:51 UTC completed successfully with zero messages processed. No additional test
+emails were sent. Per-school notifications remain opt-in and demo/test delivery
+remains blocked. Hosted guide replacement controls were visually verified after
+the final restart. The existing duplicate `jazzmin` template-tag warning remains;
+it did not prevent checks or successful execution.
+
+This releases slices 1-4 and the current calendar implementation, not a declaration
+that Plushie's complete launch/cutover scope is finished. Location-restricted
+staff access, remaining policy/waiver work and integrated customer acceptance
+remain separate launch work.
+
+The following implementation notes retain pre-release test history; the release
+status here supersedes their earlier local-only and pending-activation statements.
+
 ### October 20 Requirements Baseline and Delivery Order
 
 Source: Jasmine's calendar/party follow-up email supplied by Ketan on October 20,
