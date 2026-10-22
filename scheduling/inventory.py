@@ -103,6 +103,12 @@ def allocate(reservation):
         offering = source.offering
         counts = Counter()
         if offering.inventory_catalog_id:
+            if not source.materials:
+                reservation.snapshot = {**reservation.snapshot, "guest_selections_pending": True,
+                    "material_catalog_id": offering.inventory_catalog_id,
+                    "material_location_id": offering.location_id, "materials": []}
+                reservation.save(update_fields=["snapshot"])
+                return
             for row in source.materials:
                 counts[row["item_id"]] += row["quantity"]
             if sum(counts.values()) != source.group_size:
@@ -122,7 +128,14 @@ def allocate(reservation):
     reservation.save(update_fields=["snapshot"])
 
 
-def validate_allocations(reservation, allocations=None):
+def validate_allocations(reservation, allocations=None, *, allow_pending=False):
+    if reservation.snapshot.get("guest_selections_pending"):
+        if (not reservation.party_request_id
+                or reservation.party_request.materials or reservation.stock_allocations.exists()):
+            raise ValidationError("Pending guest selections do not match this booking. Contact support.")
+        if not allow_pending:
+            raise ValidationError("Add the guest designs and colors before preparing or completing this party.")
+        return
     if not reservation.snapshot.get("material_catalog_id"):
         source = reservation.workshop_request or reservation.camp_registration or reservation.party_request
         offering = (source.session.offering if reservation.workshop_request_id else source.camp.offering
@@ -143,7 +156,7 @@ def validate_allocations(reservation, allocations=None):
 def ensure_stock(reservation):
     if not reservation.pk:
         return
-    validate_allocations(reservation)
+    validate_allocations(reservation, allow_pending=True)
     for allocation in reservation.stock_allocations.filter(consumed_at__isnull=True).select_related("level__material", "level__location"):
         if allocation.quantity > available(allocation.level, reservation.pk):
             raise ValidationError(f"{allocation.level.material.name} no longer has enough stock at {allocation.level.location.name}.")
@@ -190,6 +203,7 @@ def consume(user, slug, public_id):
     reservation = get_object_or_404(Reservation, profile=profile, public_id=public_id)
     if reservation.state != "confirmed":
         raise ValidationError("Only confirmed bookings can use materials.")
+    validate_allocations(reservation)
     ensure_stock(reservation)
     for allocation in reservation.stock_allocations.filter(consumed_at__isnull=True).select_related("level"):
         level = allocation.level

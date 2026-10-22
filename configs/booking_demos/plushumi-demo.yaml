@@ -8,9 +8,13 @@ design_image: /static/demo/plushumi/assets/designs.jpg
 price_cents: 6500
 policy_revision: concept-1
 party_package_defaults:
-  # Seed drafts only. Prices, durations and observers need client confirmation.
-  - {name: '6-person party', participant_limit: 6, deposit: '150.00'}
-  - {name: '12-person party', participant_limit: 12, deposit: '300.00'}
+  # Approved October 20; draft configuration only. Tax and space mapping are pending.
+  - {name: 'Party Package A', participant_limit: 6, included_observers: 2, duration_minutes: 180, total: '495.00', deposit: '150.00', booking_mode: direct}
+  - {name: 'Party Package B', participant_limit: 12, included_observers: 4, duration_minutes: 180, total: '895.00', deposit: '150.00', booking_mode: direct}
+party_package_location_overrides:
+  'New York, NY':
+    - {name: 'Party Package A (Reserved Table)', participant_limit: 8, included_observers: 2, duration_minutes: 180, total: '595.00', deposit: '150.00', space: exclusive, booking_mode: direct}
+    - {name: 'Party Package B (Private Full Studio)', participant_limit: 16, included_observers: 4, duration_minutes: 180, total: '1190.00', deposit: '300.00', space: studio, booking_mode: review}
 design_group: Design
 color_group: Color
 age_group: Age

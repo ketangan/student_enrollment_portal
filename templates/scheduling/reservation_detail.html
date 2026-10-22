@@ -8,6 +8,12 @@
 <section class="reservation-section" aria-labelledby="reservation-details"><h2 id="reservation-details">Reservation details</h2>
 {% include 'scheduling/reservation_summary.html' %}</section>
 {% include 'scheduling/reservation_participants.html' %}
+{% if item.party_request_id %}{% include 'scheduling/design_guide_link.html' %}{% endif %}
+{% if guest_list_due or guest_list_url %}<section class="reservation-section"><h2>Guest list</h2>
+<p>{% if guest_list_complete %}Submitted{% else %}Awaiting guest selections{% endif %}{% if guest_list_due %} &middot; Due {% timezone item.snapshot.timezone %}{{ guest_list_due|date:"M j, Y" }}{% endtimezone %}{% endif %}{% if guest_list_draft_count %} &middot; {{ guest_list_draft_count }} guests saved in progress{% endif %}</p>
+{% if guest_list_url %}<div class="form-actions"><a href="{{ staff_guest_list_url }}">Edit guest list</a> <button type="button" data-copy-link="{{ guest_list_url }}" title="Copy private host link"><i data-lucide="copy" aria-hidden="true"></i> Copy host link</button><span data-copy-status role="status"></span></div>{% endif %}
+</section>{% endif %}
+{% if item.snapshot.guest_selections_pending %}<p class="notice">Guest designs and colors are pending. Materials have not been reserved.</p>{% endif %}
 <section class="reservation-section" aria-labelledby="money-title"><h2 id="money-title">Payment summary</h2>
 <dl class="reservation-money">
   <div><dt>Total</dt><dd>${{ amounts.total|floatformat:2 }}</dd>{% if amounts.extras_cents %}<span class="muted">Includes ${{ amounts.extras|floatformat:2 }} extra purchases</span>{% endif %}</div>

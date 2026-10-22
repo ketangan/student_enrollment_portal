@@ -2,6 +2,8 @@ from django.urls import path
 from core import views_school_dashboard as shared_billing
 
 from . import views
+from . import views_calendar
+from . import views_guides
 from . import views_requests
 from . import views_parties
 from . import views_reservations
@@ -25,6 +27,11 @@ from . import views_inventory as inventory
 app_name = "scheduling"
 
 urlpatterns = [
+    path("<slug:school_slug>/guest-communication/", views_guides.settings, name="guest_communication"),
+    path("<slug:school_slug>/design-guide/", views_guides.download, name="design_guide"),
+    path("<slug:school_slug>/design-guide/versions/<int:pk>/", views_guides.download, name="design_guide_version"),
+    path("<slug:school_slug>/calendar/events/", views_calendar.events, name="calendar_events"),
+    path("<slug:school_slug>/calendar/<str:kind>/<str:pk>/", views_calendar.detail, name="calendar_detail"),
     path("<slug:school_slug>/billing/", shared_billing.school_billing_view, name="school_billing"),
     path("<slug:school_slug>/billing/checkout/", shared_billing.school_billing_checkout_view, name="school_billing_checkout"),
     path("<slug:school_slug>/billing/portal/", shared_billing.school_billing_portal_view, name="school_billing_portal"),
@@ -158,6 +165,8 @@ urlpatterns = [
     path("<slug:school_slug>/schedule/", views.public_schedule, name="public_schedule"),
     path("<slug:school_slug>/workshops/<int:pk>/party/", views_parties.party_inquiry, name="party_inquiry"),
     path("<slug:school_slug>/party/", views_parties.party_inquiry, name="party_start"),
+    path("<slug:school_slug>/guests/<str:token>/", views_parties.guest_list, name="guest_list"),
+    path("<slug:school_slug>/reservations/<uuid:public_id>/guests/", views_parties.staff_guest_list, name="staff_guest_list"),
     path("<slug:school_slug>/party-received/<uuid:public_id>/", views_parties.party_received, name="party_received"),
     path("<slug:school_slug>/parties/", views_parties.party_list, name="parties"),
     path("<slug:school_slug>/parties/setup/", views_parties.party_setup, name="party_setup"),

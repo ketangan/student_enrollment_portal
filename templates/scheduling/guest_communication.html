@@ -1,0 +1,28 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Guest communication{% endblock %}
+{% block content %}
+<div class="section-heading"><h2>Design guide</h2></div>
+{% if current_guide %}<p><a href="{% url 'scheduling:design_guide' school_slug=business.slug %}" target="_blank" rel="noopener">View current guide</a> &middot; Updated {{ current_guide.created_at|date:"M j, Y" }}</p>{% endif %}
+{% if uploads_enabled %}
+<form method="post" enctype="multipart/form-data" class="setup-form" style="max-width:640px;margin:24px 0">{% csrf_token %}
+{{ form.non_field_errors }}{{ form.current_version }}{{ form.current_version.errors }}
+<div class="form-field">{{ form.file.label_tag }}{{ form.file }}{{ form.file.errors }}<p class="muted">{{ form.file.help_text }}</p></div>
+<button type="submit" class="primary">{% if current_guide %}Replace guide{% else %}Upload guide{% endif %}</button>
+</form>
+{% else %}<p>Upload storage needs to be enabled by Pontora.</p>{% endif %}
+{% if guide_versions %}<h2>Upload history</h2>
+<div class="table-wrap" role="region" aria-label="Guide upload history" tabindex="0"><table><thead><tr><th>File</th><th>Uploaded</th><th>By</th></tr></thead><tbody>
+{% for guide in guide_versions %}<tr><td><a href="{% url 'scheduling:design_guide_version' school_slug=business.slug pk=guide.pk %}">{{ guide.original_name }}</a></td><td>{{ guide.created_at|date:"M j, Y, g:i A" }}</td><td>{{ guide.uploaded_by|default:'-' }}</td></tr>{% endfor %}
+</tbody></table></div>{% endif %}
+<section class="location-section"><h2>Party notifications</h2>
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="notifications">
+{{ notification_form.non_field_errors }}
+<label style="display:flex;align-items:center;gap:10px;margin:16px 0">{{ notification_form.party_notifications_enabled }} {{ notification_form.party_notifications_enabled.label }}</label>
+<p class="muted">Applies to confirmed upcoming parties. Reminders stop once guest selections are submitted.</p>
+{% if not live_delivery %}<p class="muted">External delivery is disabled for this environment or has not been activated by Pontora.</p>{% endif %}
+<button type="submit" class="primary">Save notifications</button></form></section>
+{% if recent_messages %}<section class="location-section"><h2>Recent notifications</h2>
+<div class="table-wrap"><table><thead><tr><th>Message</th><th>Recipient</th><th>Status</th></tr></thead><tbody>
+{% for message in recent_messages %}<tr><td><a href="{% url 'scheduling:message_detail' school_slug=business.slug public_id=message.public_id %}">{{ message.subject }}</a></td><td>{{ message.recipient }}</td><td>{{ message.get_state_display }}</td></tr>{% endfor %}
+</tbody></table></div></section>{% endif %}
+{% endblock %}

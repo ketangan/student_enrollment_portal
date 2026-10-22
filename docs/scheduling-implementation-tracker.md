@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: October 19, 2026.
+Updated: October 22, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -8,6 +8,341 @@ Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 This Markdown file remains the source of truth; the viewer does not edit milestone status.
 
 ## Current Status
+
+### October 20 Requirements Baseline and Delivery Order
+
+Source: Jasmine's calendar/party follow-up email supplied by Ketan on October 20,
+and Ketan's subsequent configuration and rollout instructions. This section
+supersedes conflicting October 17-19 requirements below. Historical implementation
+and verification notes are retained; a requirement here does not mean it is built,
+deployed or accepted. Update this tracker rather than creating a parallel plan.
+
+Key corrections:
+
+- Pontora replaces Wix's booking calendar at launch. Notion sync/export is an
+  optional proposal, not committed launch scope; recommend location-restricted
+  Pontora access first and confirm that choice with Jasmine.
+- Standard parties book directly when capacity is available and pay a deposit.
+  New York full-studio and custom arrangements require inquiry/review first.
+  Existing inquiry-only implementation is not the finished standard-party flow.
+- Standard party deposits are $150; private full-studio deposits are $300.
+  This replaces the earlier "$150 per six participants" assumption, including
+  the old $300 standard 12-person deposit. Do not alter existing reservations.
+- Individual participant names/ages/designs/colors belong after confirmation,
+  not as an initial booking requirement. Most hosts supply them later, including
+  by email; staff need to enter emailed details on the same reservation.
+- Observer allowance must be stored/displayed as package information. Removing
+  the old guest-count input did not remove the policy requirement.
+
+#### Confirmed Package Values
+
+All packages reserve 180 minutes. Prices exclude tax; tax treatment is unresolved.
+These are configuration requirements, not authorization to publish live offers.
+
+| Locations | Party | Included participants | Observers | Price USD | Deposit USD | Approval |
+| --- | --- | --- | --- | --- | --- | --- |
+| Pasadena, Houston, Dallas, Charlotte | Party Package A | 6 | 2 | 495 | 150 | Direct booking |
+| Pasadena, Houston, Dallas, Charlotte | Party Package B | 12 | 4 | 895 | 150 | Direct booking |
+| New York | Party Package A (Reserved Table) | 8 | 2 | 595 | 150 | Direct booking |
+| New York | Party Package B (Private Full Studio) | 16 | 4 | 1190 | 300 | Staff approval |
+
+Additional participants cost $65 plus tax; up to two may be allowed depending on
+package/studio capacity. Do not infer eligible packages, observer rounding or
+capacity exceptions. Larger/custom groups remain inquiries.
+
+#### Ordered Implementation Slices
+
+| Order | Scope and existing foundation | Acceptance boundary |
+| --- | --- | --- |
+| 0 | Inspect existing membership roles, room/session capacity, package snapshots, approval/payment handoff, notes and email delivery. Record gaps before code changes. | One existing owner for each rule; no duplicate scheduling/payment engine or customer-specific branches. |
+| 1 | Extend Setup > Parties with per-location package name, duration, price, deposit, participant/observer allowances, extra-person limit/rate, approval mode and references to existing bookable spaces. | Authorized edits preserve historical reservation terms. Full-studio exclusivity and table/shared-capacity conflicts are enforced, including concurrent requests. Unknown tax/availability rules are not published as defaults. |
+| 2 | Separate initial booking from later preparation. Reuse customer selection, reservation and payment services for direct packages; retain review for approval-required/custom parties. | Initial form collects name/email/phone, occasion, conditional birthday name/age, general age range, expected count/range, location/date/time and package. Age-range requiredness is not newly imposed without agreement. One reserved participant makes one plushie. Approved inquiries have a secure payment handoff and defined hold expiry; payment failure/retry cannot double-book or confirm unpaid reservations. |
+| 3 | Private host follow-up on the existing reservation, reusing numbered participant controls and visual selections; staff edit the same data. | Names/ages/designs/colors can be supplied later. Deadline is school YAML (7 days), not a new settings screen. Short-notice bookings request selections immediately; late changes depend on availability. Missing selections remain visible to preparation and inventory. |
+| 4 | School-managed design-guide upload/replacement, confirmation delivery and seven-day reminders using existing email infrastructure. | Recommend one current guide per school with retained file versions and a stable download link during booking, in confirmation and on the reservation. Whether to attach a PDF remains open; sent attachments cannot change. Validate file access/type/size, actual delivery, duplicate-reminder prevention, cancellation/rescheduling and short-notice cases. No general document or messaging platform. |
+| 5 | Calendar reservation details/internal notes, policy acknowledgment and waiver process. | Reuse reservation details/notes; confirm which notes behavior exists before adding it. |
+| 6 | Location-scoped staff access using existing Owner, Scheduler and Viewer roles, followed by integrated acceptance/cutover. Moved last at Ketan's request October 20, not removed from launch scope. | Management sees all permitted locations; employees see only assigned locations. Server checks cover lists, calendar feeds/details, reservations, prep, payments and applicable exports/direct URLs. Then test customer desktop/mobile, money/capacity races, reminders, environment isolation and SBMC regressions. Deployment requires separate approval. |
+
+Calendar status: Day/Week/Month, filters and reservation links implemented locally
+October 20, with superadmin school-level enable/default controls. Not deployed.
+Full regression recorded 4,197 passed/3 skipped; final focused calendar suite 16
+passed and JavaScript suite 76 passed. This does not establish location-restricted
+staff access, new internal-note functionality or complete Wix replacement.
+
+October 22 guest-communication slice (local implementation, not deployed):
+
+- Settings > Guest communication lets existing Owners upload/replace a school-wide
+  PDF. Immutable upload records retain earlier versions; customers use a stable
+  current-guide link on inquiry, guest-list and reservation pages. Historical
+  files require Owner access. Files use Django storage, not database blobs or a
+  customer-specific path. Upload validation checks size, PDF structure, encryption
+  and active/interactive content. Stale replacements are rejected; identical uploads
+  are idempotent. Jasmine's supplied one-page guide was loaded unchanged locally.
+- Confirmations and one guest-deadline reminder reuse BookingMessage and its fenced
+  delivery attempts. The existing school mail factory supplies transport. Capture
+  is idempotent, canceled/rescheduled/stale messages are checked before sending,
+  completed guest selections suppress reminders, and short-notice confirmations
+  ask for selections immediately without a second immediate email. Unknown provider
+  acceptance is held for review, not automatically retried.
+- School notification settings default off. External delivery additionally requires
+  DEBUG=False, BOOKINGS_PARTY_EMAIL_ENABLED=True, a non-demo school and a live
+  payment-order environment. Existing lesson/tour preview messages cannot enter
+  the live party worker. Payment providers and enrollment email behavior are unchanged.
+- Operational commands: `manage.py process_party_notifications --school SLUG --limit 20`
+  for scoped checks; `manage.py process_party_notifications --all-schools --limit 20`
+  for the shared live worker. The shared command excludes demo schools and test
+  orders, honors global/per-school switches and capabilities, and continues other
+  schools after an individual school failure (then exits nonzero).
+  Ketan approved the paid Render job on October 22. Created
+  `pontora-party-notifications` (`crn-dbd7ahu7bikc73fc2h80`) in the existing Production
+  environment/Oregon region, Starter compute, every five minutes. It is SUSPENDED,
+  auto-deploy OFF and BOOKINGS_PARTY_EMAIL_ENABLED=false until the application
+  release/migrations are verified. Build: `pip install -r requirements.txt`.
+  Start: `python manage.py process_party_notifications --all-schools --limit 20`.
+  Verified required database/signing/email/URL values match the web service, without
+  copying payment, R2, operator or AI credentials. Rotating shared secrets or URL
+  settings requires updating this job as well as the web service.
+  Activation: deploy the tested release to web first; build the same commit on the
+  cron service; verify migrations and a delivery-disabled run; then enable live
+  delivery on the job and resume its schedule. Keep demo/test delivery blocked and
+  per-school opt-in required. No new customer emails have been sent by this job.
+  Capture covers confirmed future parties, including existing
+  bookings when the school first enables notifications. Draft messages are not
+  silently backfilled into live delivery; Owners can explicitly queue eligible drafts.
+- Hosted storage remains a release gate: Render API inspection found no persistent
+  disks. Current uploads remain disabled outside DEBUG unless
+  BOOKINGS_GUIDE_STORAGE_READY=True. Do not enable this until durable storage and
+  retained-version downloads are verified. Ketan selected Cloudflare R2. Inspection
+  of the Pontora Cloudflare account initially found R2 not activated. Ketan activated
+  the subscription ($0 base fee, usage charges above the free allowance). Created
+  `pontora-booking-guides` with Standard storage and verified Public Access Disabled.
+  Ketan approved a bucket-limited Object Read & Write credential, now created and
+  saved in Render using Save only (no deployment). The four BOOKINGS_GUIDE_R2_*
+  settings apply only to DesignGuide.file through the standard django-storages
+  adapter; enrollment and static storage remain unchanged. Migration 0034 records
+  the storage callable, with no file copying. Synthetic R2 upload/read/replacement
+  retention/fresh-client reads passed; only those synthetic objects were removed.
+  Partial credentials and invalid endpoints fail closed; SDK signed-request debug
+  logs are suppressed. Hosted upload readiness and email delivery remain off until
+  deployment verification. No credentials were saved in repository files.
+- Exactly two explicitly approved synthetic test emails were accepted by Resend
+  for ketan@mypontora.com (confirmation and reminder). No other recipient was sent
+  email, no live reservation was created, and credentials were neither printed nor
+  saved. Inbox receipt remains for Ketan to confirm. The isolated preview server's
+  outbound network protections were left unchanged.
+- Browser checks exercised the settings save and notification preview, plus desktop
+  and mobile layout. Browser file selection was blocked by the extension's disabled
+  file-URL access; the supplied PDF was loaded through the same validated service,
+  with upload HTTP/permission/replacement behavior covered by automated tests.
+  Full regression before R2 integration: 4,314 passed, 3 skipped (511.14 seconds);
+  three deprecation warnings. After R2 integration: 33 focused storage, guide and
+  notification tests passed; no migration drift. Browser guide download succeeded;
+  mobile document width matched viewport width (433px). Recurring hosted job is
+  provisioned but activation and final release verification remain pending; do not
+  mark slice 4 shipped.
+- Final release verification on October 22: 4,326 tests passed, 3 skipped and three
+  deprecation warnings (516.30 seconds); 80 browser-control tests passed with the
+  existing coverage thresholds. Follow-up error-path tests raised focused coverage
+  to 100% for the shared command and guide views, and 98.47% for party notifications;
+  all 159 focused tests passed. Generated private guest-list navigation and guide
+  download were verified against the running preview. Release PR #5 awaits CI and
+  hosted verification; deployment/activation are not implied by these local results.
+
+October 20 package-configuration implementation (local only):
+
+- Extended the existing PartyPackage model, setup service and inline table;
+  pricing stays inline and each party opens its booking rules in a compact modal
+  over the same table (October 20 UX follow-up).
+  Added observer allowance, extra-person limit/rate, assigned room/table, full-studio
+  space and intended booking method. No location-specific code branches.
+- Optional package sales-tax percentage supports an exclusive flat-rate quote,
+  rounded once to cents on base plus extra participants. Blank means unconfigured,
+  not an approved zero rate. This is not Square automatic-tax integration or a
+  resolution of Jasmine's tax/deposit questions. Real rates remain unset locally.
+- Inquiry quotes now use configured extras and preserve the complete price/tax,
+  deposit, space and allowance snapshot. Later settings edits do not rewrite it.
+  Direct booking is configuration only in this slice: current submissions still
+  require staff review, and live party checkout remains the next slice.
+- Full-studio claims reuse the existing profile transaction lock and active-hold
+  rules; they conflict with other rooms, published sessions, camp occurrences
+  and scheduled lessons at the location. Private-room/table bookings retain
+  room-level exclusivity. Existing Room capacity means participants, not fire-code
+  occupancy including observers; physical occupancy rules still need confirmation.
+- Confirmed customer values are retained in the school YAML, with a New York
+  override. They are not automatically applied to live records. Only the existing
+  Pasadena A/B draft fixtures were updated during manual testing; they remain
+  unpublished, tax unset, extra-person limit zero, with the confirmed $65 rate
+  stored for future activation. Other saved packages were not overwritten.
+- Still pending: party slot/buffer policy, approved space mapping, extra-person
+  eligibility and observer changes, tax/deposit treatment, and direct customer
+  booking/payment handoff. No deployment or live provider changes in this slice.
+- Verification: full local regression passed before final form/validation cleanup;
+  final focused setup/party/reservation/lesson regression passed 351 tests, including
+  concurrent studio/table claims and both lesson-conflict directions. All 76 JS
+  tests passed with the existing coverage gate. No migration drift; diff check clean.
+  Manually exercised the existing Plushie login on port 8002: pricing/rules save,
+  preserved values, invalid tax errors, cancel, and mobile table containment.
+  Browser testing caught and fixed missing hidden-field form ownership; a rendered
+  HTML regression now asserts every package field belongs to the submitted form.
+
+October 20 direct-booking slice (local only): Ketan selected explicitly published
+party times, not recurring opening hours. Booking rules now lets authorized staff
+publish or withdraw start times in the location's timezone. Direct parties require
+an assigned room, duration, price and explicit tax configuration. Customers choose
+a published time; custom/review requests retain preferred date/time. Reservation
+capacity, order creation, deposit/full-payment checkout and verified settlement
+reuse the existing services. Duplicate submissions and competing room claims are
+checked transactionally; expired holds cannot displace a newer reservation.
+
+Guest designs may be deferred for direct bookings: staff see a pending-materials
+notice, no stock is falsely allocated, and preparation/completion remain blocked.
+The private host/staff guest-list editing workflow is still required to resolve
+that pending state. Initial phone/birthday fields, the full initial-form/preparation
+split and approved-inquiry payment handoff also remain unfinished. Published times
+are not a live availability calendar: conflicting choices are rejected on submission
+and capacity is checked again at payment. This slice is not launch-ready on its own.
+
+Manual verification on the existing port 8002 and preview DB covered publishing,
+withdrawing, unsaved-rule protection, customer location/package switching and the
+mobile no-times state. A real Square Sandbox payment confirmed a $495 test party
+with a $150 deposit and $345 balance; no live charge or production changes were made.
+The temporary test package/time is unpublished after verification. Final serial
+regression: 4,239 Python tests passed, 3 skipped, two existing datetime deprecation
+warnings; all 78 JavaScript tests passed. Migration drift and diff checks passed.
+The earlier overlapping test runs were invalidated and are not counted as evidence.
+
+#### Policies and Continuing Launch Dependencies
+
+October 21 booking/guest-list completion (local only): slices 1-3 now have their
+planned local implementation, subject to acceptance and the launch gates below.
+This does not mark the remaining three slices complete or authorize deployment.
+
+- Package-based initial intake and staff review defer participant preparation to
+  the confirmed reservation. Historical selections are preserved; legacy intake
+  without party packages retains its established behavior. Removed the obsolete
+  upfront-selection toggle rather than keeping a second package intake path.
+- Approved inquiries reuse the existing review, quote, reservation and checkout
+  services. Staff can copy the private payment link from the reservation. Links
+  expire after 24 hours; reopening the reservation generates a fresh link. The
+  existing 30-minute hold is displayed, and expired holds must pass capacity checks
+  again before checkout. No email is sent by this action.
+- Confirmed customer payment pages link to guest follow-up. Hosts and authorized
+  Owner/Scheduler staff edit the same guest data and revision through one save
+  service. Viewers cannot edit. Staff changes identify the actor in the audit log.
+  Individual ages are optional; names/ages survive drafts and submission. Staff
+  can enter emailed details without impersonating the host. Existing stock,
+  prepared/closed-state, stale-edit and concurrent-submission protections remain.
+- Short-notice follow-up displays selections as due now; the YAML deadline remains
+  advisory, with no automatic rejection merely because the requested deadline passed.
+- Manual checks used the existing port 8002 and preview database: custom inquiry
+  through staff review and reservation creation, copied payment link and customer
+  payment page, staff draft/submission with age, audit attribution, host follow-up,
+  and desktop/mobile layout. The temporary unpaid handoff reservation was canceled
+  afterward. The existing Local party verification reservation remains available.
+- No live payment, email, new database, port, push or deployment. Current booking
+  account selection still requires the existing connected test account; live
+  merchant activation and verified production delivery remain launch work.
+- Verification: full regression 4,286 passed, 3 skipped (two existing datetime
+  deprecation warnings); final affected-area regression 273 passed after the
+  staff-review/deadline refinements. All 80 JavaScript tests passed; the removed
+  test covered the intentionally removed upfront-selection toggle. Migration
+  drift and diff checks passed. Payment coverage includes approved-quote handoff,
+  signed-link expiry/tenant isolation, expired-hold conflicts and duplicate retries.
+
+Next: slice 4 (design-guide management and notifications), then slice 5 (calendar
+details/notes/policies), then slice 6 (location access and integrated cutover).
+Real package/tax/space configuration still needs approval before publication.
+
+October 21 guest-list follow-up (local only): confirmed party reservations with a
+catalog have a signed, school/reservation-scoped host link, available from the
+existing reservation screen. Hosts reuse the visual participant editor to save
+progress and submit all selections. Drafts do not allocate inventory; submitted
+changes reuse the tenant lock and stock allocator, with stale revision protection,
+stock validation and audit events. Unchanged selections retain frozen recipes.
+Both reviewed and direct parties can reserve before guest selections are supplied;
+preparation remains blocked until the selections/material allocations are complete.
+The requested deadline is configured in the normal school YAML under
+`scheduling.guest_list_deadline_days` and frozen on new reservation snapshots.
+Plushie's value is seven days. It is advisory, not an automatic late-submission ban;
+editing closes at the event start or once prepared, and unconfirmed/canceled/completed
+reservations cannot be edited. Staff see submitted selections and draft counts.
+Manual browser checks covered saving/reopening progress, six-guest submission,
+participant limit, staff visibility, copying the link and narrow-screen layout.
+Verification: full regression 4,272 passed, 3 skipped (two existing datetime
+deprecation warnings). After the final review refinements, 59 focused guest-list,
+inventory and reservation-workspace tests passed, including simultaneous submission,
+expired links, CSRF, stock rollback, frozen recipes and closed reservation states.
+All 81 JavaScript tests passed. Migration drift and diff checks passed; this
+increment requires no new migration. Browser testing caught and corrected an
+over-restrictive referrer policy that blocked same-origin form posts.
+The existing sandbox booking named Local party verification retains these test
+selections for user review. No live charge, email, push or deployment occurred.
+Automatic email delivery/reminders and PDF management remain separate work. Initial
+intake still supports entering selections upfront; it has not been removed in this
+increment. The earlier statement below that secure follow-up was incomplete is now
+superseded by this entry.
+
+October 21 party timing UX (local only): the shared inquiry URL starts without a
+selected location. Space preference precedes preferred time for custom requests;
+package space is shown in the summary. Direct packages use the existing calendar
+library with published dates and location-timezone time buttons, stacked on mobile.
+Changing date, package or location clears incompatible time selection. Public labels
+use required asterisks without redundant optional wording. Verification: 131 focused
+Python tests and 80 JavaScript tests passed, plus desktop/mobile browser checks of
+blank location, direct time selection, custom requests and location switching.
+Temporary test package/time unpublished afterward. Existing port 8002 and preview
+database reused; no push, deployment or payment logic changes.
+
+October 21 initial-contact increment (local only): extended the existing party
+form/model with optional phone and conditional birthday name/age. Free-text
+occasions remain supported; birthday details are discarded for other occasions.
+Staff review displays the fields and reservation creation preserves them in the
+existing snapshot. Existing records remain valid with blank values. Age range
+remains optional. One additive migration (0032) is applied to the existing preview
+DB. The initial/preparation split and secure host guest-list follow-up are NOT
+complete; existing optional design entry stays available until that flow replaces it.
+Verification: 193 party/package/reservation tests and all 79 JavaScript tests passed;
+manual desktop/narrow-screen conditional fields, location preservation, customer
+submission and staff visibility passed on port 8002. No push/deployment or live
+payment changes. Browser review also observed an existing navigation issue: changing
+location from Party inquiries opens Party packages; track for the next navigation fix.
+
+- Participants must be at least 7. Each reserves one spot and makes one plushie;
+  no sharing spots or multiple plushies per participant during one workshop.
+- Party observers are limited to the selected package allowance. Regular
+  workshops continue to prohibit non-participating observers.
+- Party deposits are non-refundable and applicable only to other parties;
+  precise credit/rescheduling interpretation remains to be confirmed.
+- Rescheduling requires at least seven days and is subject to availability.
+  Under-18 participants require a parent/legal-guardian waiver. Organizer policy
+  acknowledgment alone is not an individual guardian waiver.
+- No outside meals/snacks/beverages; party exceptions are cake/cupcakes and water.
+- Policy URL supplied by Jasmine: https://www.theplushieworkshop.com/booking-and-cancellation-policy
+  Contents have not been reviewed in this requirements update; reconcile them
+  with her email before publishing final wording.
+- Accessories and remaining balances stay in-person Square Terminal payments,
+  manually recorded using existing functionality. Workshop deposit configuration
+  remains available and currently zero; preserve full-payment choice pending
+  clarification rather than silently removing it.
+- L01 live Square authorization/location mapping/webhooks remains a launch blocker.
+  L08 real materials/preparation validation and L10 existing-booking migration,
+  cutover, acceptance, rollback and agreed Stripe subscription/trial setup remain.
+  Demo/prod DB separation, superadmin-only location creation and combined-product
+  testing retain their previously agreed deferred status.
+
+#### Questions for the Next Customer Update (Do Not Send Yet)
+
+Ketan wants to demonstrate significant progress before asking another batch.
+Proceed with configurable foundations; leave unresolved live behavior gated.
+
+1. Availability: party slots/buffers, table/studio capacity and permitted overlap;
+   which packages allow extra participants and whether observer allowances change.
+2. Money: tax calculation/deposit tax treatment, confirmation of the revised
+   standard $150 deposit, optional full payment and deposit-credit/rescheduling rules.
+3. Operations: staff/location assignments, notification recipients, preferred
+   waiver collection, guest-list late edits and approval payment-link hold expiry.
+4. Assets/cutover: final guide and attachment versus current-guide link preference;
+   acceptance of restricted Pontora staff access versus essential Notion needs,
+   existing bookings/launch timing and Square merchant/location authorization.
 
 ### October 19 Release Preflight
 

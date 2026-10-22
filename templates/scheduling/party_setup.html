@@ -1,4 +1,5 @@
 {% extends 'scheduling/base.html' %}
+{% load tz %}
 {% block title %}Parties{% endblock %}
 {% block extra_css %}<style>
 .booking-admin .party-package-table table { min-width: 900px; }
@@ -10,6 +11,7 @@
 .party-share p { margin:0 0 6px; }
 .booking-admin .party-package-table input:not([type=checkbox]), .booking-admin .party-package-table select { width:100%; min-width:70px; padding:8px; min-height:38px; border:1px solid var(--dash-border); border-radius:4px; background:var(--dash-card); }
 .party-package-table .package-name { min-width:180px; }
+.party-package-table tbody > tr > th:first-child { min-width:150px; }
 .booking-admin .party-package-table select { min-width:140px; }
 .booking-admin .party-package-table .editing-package > td { vertical-align:top; }
 .booking-admin .party-package-table .editing-package input[type=checkbox] { margin-top:10px; }
@@ -22,12 +24,23 @@
 .party-package-editor .checkbox-field { display:flex; align-items:center; gap:12px; }
 .party-package-editor .checkbox-field input { width:20px; height:20px; flex:none; }
 .party-package-editor .checkbox-field label { margin:0; }
+.booking-admin .party-package-table .booking-rules-link { width:auto; white-space:nowrap; padding:0 8px; }
+.party-rules-dialog { box-sizing:border-box; width:min(680px, calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; padding:24px; border:1px solid var(--dash-border); border-radius:8px; background:var(--dash-card); color:var(--dash-text); }
+.party-rules-dialog::backdrop { background:rgba(0,0,0,.4); }
+.party-rules-dialog .section-heading { align-items:start; }
+.party-rules-dialog h3 { margin:0; }
+.party-rules-dialog .section-heading p { margin:8px 0 20px; }
+.party-rules-dialog svg { width:18px; height:18px; }
+.party-rules-dialog .actions { margin-top:24px; }
+.party-rules-dialog .setup-form input { width:100%; }
+@media(max-width:640px) { .party-rules-dialog .workshop-settings-fields { grid-template-columns:1fr; } }
 @media(max-width:640px) { .party-package-editor { width:calc(100vw - 100px); } }
 </style>{% endblock %}
 {% block content %}
 <div class="section-heading"><h2>Party packages</h2><div class="actions"><a class="button" href="{% url 'scheduling:parties' school_slug=business.slug %}">Party inquiries</a>{% if can_edit_setup %}<a class="button primary" href="?new=1#package-new">Add package</a>{% endif %}</div></div>
 <div class="party-share"><div><p>Customer inquiry link</p><a href="{{ share_url }}" target="_blank" rel="noopener">{{ share_url }}</a></div><a class="button" href="{% url 'scheduling:party_start' school_slug=business.slug %}?preview=1" target="_blank" rel="noopener">Preview form</a></div>
-{% if editing_pk %}<form method="post" id="package-edit" novalidate>{% csrf_token %}<input type="hidden" name="package_id" value="{{ editing_pk }}">{% for field in package_form.hidden_fields %}{{ field }}{% endfor %}</form>{% endif %}
+{% if editing_pk %}<form method="post" id="package-edit" novalidate>{% csrf_token %}<input type="hidden" name="package_id" value="{{ editing_pk }}">{% for field in package_form.hidden_fields %}{{ field }}{% endfor %}{% for field in preserved_package_fields %}{{ field.as_hidden }}{% endfor %}</form>{% endif %}
+{% for field in preserved_package_fields %}{% if field.errors %}<p>{{ field.label }}: {{ field.errors }}</p>{% endif %}{% endfor %}
 {% if package_form and not editing_pk %}<section class="party-package-editor" id="package-new"><h3>Add package</h3>{% include 'scheduling/party_package_editor.html' %}</section>{% endif %}
 {% for location in locations %}
 <section class="workshop-settings-section">
@@ -35,14 +48,40 @@
 {% for offering in location.offerings.all %}
 <div class="section-heading"><h4>{{ offering.name }}</h4></div>
 {% if not offering.is_published or not offering.accepts_party_requests %}<p class="muted">Packages are hidden from customers: {% if not offering.is_published %}this workshop is unpublished{% else %}party requests are disabled for this workshop{% endif %}.{% if can_edit_setup %} <a href="{% url 'scheduling:workshop_edit' school_slug=business.slug pk=offering.pk %}?return_to=parties">Edit workshop settings</a>{% endif %}</p>{% endif %}
-<div class="table-wrap party-package-table" tabindex="0" role="region" aria-label="{{ offering.name }} packages"><table><thead><tr><th>Package</th><th>Participants</th><th>Duration (min)</th><th>Price (USD)</th><th>Deposit (USD)</th><th>Space</th><th>Published</th>{% if can_edit_setup %}<th>Actions</th>{% endif %}</tr></thead><tbody>
+<div class="table-wrap party-package-table" tabindex="0" role="region" aria-label="{{ offering.name }} packages"><table><thead><tr><th>Party</th><th>Participants</th><th>Duration (min)</th><th>Price (USD)</th><th>Deposit (USD)</th><th>Published</th>{% if can_edit_setup %}<th>Actions</th>{% endif %}</tr></thead><tbody>
 {% for package in offering.party_packages.all %}
-{% if editing_pk == package.pk %}
-<tr id="package-{{ package.pk }}" class="editing-package"><td class="package-name">{{ package_form.name }}{{ package_form.name.errors }}</td><td>{{ package_form.participant_limit }}{{ package_form.participant_limit.errors }}</td><td>{{ package_form.duration_minutes }}{{ package_form.duration_minutes.errors }}</td><td>{{ package_form.total }}{{ package_form.total.errors }}</td><td>{{ package_form.deposit }}{{ package_form.deposit.errors }}</td><td>{{ package_form.space }}{{ package_form.space.errors }}</td><td>{{ package_form.is_published }}{{ package_form.is_published.errors }}</td><td><div class="row-actions"><button class="primary" type="submit" form="package-edit" aria-label="Save package" title="Save package"><i data-lucide="check" aria-hidden="true"></i></button><a href="?location={{ location.pk }}#package-{{ package.pk }}" aria-label="Cancel editing" title="Cancel editing"><i data-lucide="x" aria-hidden="true"></i></a></div></td></tr>
-{% if package_form.non_field_errors or package_form.edit_revision.errors %}<tr><td colspan="8">{{ package_form.non_field_errors }}{{ package_form.edit_revision.errors }}</td></tr>{% endif %}
-{% else %}<tr id="package-{{ package.pk }}"><th>{{ package.name }}</th><td>{{ package.participant_limit }}</td><td>{{ package.duration_minutes|default_if_none:'Not set' }}{% if package.duration_minutes %} min{% endif %}</td><td>{% if package.total != None %}${{ package.total }}{% else %}Not set{% endif %}</td><td>${{ package.deposit }}</td><td>{{ package.get_space_display }}</td><td>{% if package.is_published %}Published{% else %}Draft{% endif %}</td>{% if can_edit_setup %}<td><a href="?location={{ location.pk }}&amp;edit={{ package.pk }}#package-{{ package.pk }}" aria-label="Edit {{ package.name }}" title="Edit {{ package.name }}"><i data-lucide="pencil" aria-hidden="true"></i></a></td>{% endif %}</tr>{% endif %}
-{% empty %}<tr><td colspan="8">No packages configured.</td></tr>{% endfor %}
+{% if editing_pk == package.pk and not rules_view %}
+<tr id="package-{{ package.pk }}" class="editing-package"><td class="package-name">{{ package_form.name }}{{ package_form.name.errors }}</td><td>{{ package_form.participant_limit }}{{ package_form.participant_limit.errors }}</td><td>{{ package_form.duration_minutes }}{{ package_form.duration_minutes.errors }}</td><td>{{ package_form.total }}{{ package_form.total.errors }}</td><td>{{ package_form.deposit }}{{ package_form.deposit.errors }}</td><td>{{ package_form.is_published }}{{ package_form.is_published.errors }}</td><td><div class="row-actions"><button class="primary" type="submit" form="package-edit" aria-label="Save package" title="Save package"><i data-lucide="check" aria-hidden="true"></i></button><a href="?location={{ location.pk }}#package-{{ package.pk }}" aria-label="Cancel editing" title="Cancel editing"><i data-lucide="x" aria-hidden="true"></i></a></div></td></tr>
+{% if package_form.non_field_errors or package_form.edit_revision.errors %}<tr><td colspan="7">{{ package_form.non_field_errors }}{{ package_form.edit_revision.errors }}</td></tr>{% endif %}
+{% else %}<tr id="package-{{ package.pk }}"><th>{{ package.name }}</th><td>{{ package.participant_limit }}</td><td>{{ package.duration_minutes|default_if_none:'Not set' }}{% if package.duration_minutes %} min{% endif %}</td><td>{% if package.total != None %}${{ package.total }}{% else %}Not set{% endif %}</td><td>${{ package.deposit }}</td><td>{% if package.is_published %}Published{% else %}Draft{% endif %}</td>{% if can_edit_setup %}<td><div class="row-actions"><a href="?location={{ location.pk }}&amp;edit={{ package.pk }}#package-{{ package.pk }}" aria-label="Edit {{ package.name }}" title="Edit {{ package.name }}"><i data-lucide="pencil" aria-hidden="true"></i></a><a class="booking-rules-link" href="?location={{ location.pk }}&amp;section=rules&amp;edit={{ package.pk }}" aria-label="Booking rules for {{ package.name }}">Booking rules</a></div></td>{% endif %}</tr>{% endif %}
+{% empty %}<tr><td colspan="7">No packages configured.</td></tr>{% endfor %}
 </tbody></table></div>
 {% empty %}<p class="muted">Add a workshop at this location before adding packages.</p>{% endfor %}
 </section>{% empty %}<p>No locations found.</p>{% endfor %}
+{% if rules_view and editing_pk %}
+<dialog class="party-rules-dialog" data-setup-dialog aria-labelledby="party-rules-title">
+  <div class="section-heading"><div><h3 id="party-rules-title">Booking rules</h3><p>{{ package_form.instance.name }} · {{ package_form.instance.offering.location.name }}</p></div><button type="button" data-close-setup-dialog aria-label="Close booking rules" title="Close"><i data-lucide="x" aria-hidden="true"></i></button></div>
+  {{ package_form.non_field_errors }}{{ package_form.edit_revision.errors }}
+  <div class="workshop-settings-fields">
+    {% for field in booking_rule_fields %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+  </div>
+  <div class="actions"><button class="primary" type="submit" form="package-edit">Save changes</button><button type="button" data-close-setup-dialog>Cancel</button></div>
+  {% if package_form.instance.booking_mode == 'direct' %}
+  <hr><h4>Available party times</h4>
+  <p class="notice" data-save-rules-first hidden>Save booking rules before changing party times.</p>
+  <p class="muted">{{ package_form.instance.offering.location.timezone_name }}</p>
+  {% timezone package_form.instance.offering.location.timezone_name %}
+  {% for slot in party_slots %}<form method="post" class="section-heading">
+    {% csrf_token %}<input type="hidden" name="package_id" value="{{ editing_pk }}"><input type="hidden" name="slot_id" value="{{ slot.pk }}"><input type="hidden" name="slot_action" value="{% if slot.is_published %}close{% else %}publish{% endif %}">
+    <span>{{ slot.starts_at|date:'D, M j, Y · g:i A' }}{% if not slot.is_published %} (Unpublished){% endif %}</span><button type="submit" data-party-time-submit aria-label="{% if slot.is_published %}Unpublish{% else %}Publish{% endif %} {{ slot.starts_at|date:'M j g:i A' }}" title="{% if slot.is_published %}Unpublish{% else %}Publish{% endif %} time"><i data-lucide="{% if slot.is_published %}eye-off{% else %}eye{% endif %}" aria-hidden="true"></i></button>
+  </form>{% empty %}<p class="muted">No times published.</p>{% endfor %}
+  {% endtimezone %}
+  <form method="post" class="setup-form" novalidate>
+    {% csrf_token %}<input type="hidden" name="package_id" value="{{ editing_pk }}"><input type="hidden" name="slot_action" value="add">
+    {{ slot_form.non_field_errors }}<div class="form-field">{{ slot_form.starts_at.label_tag }}{{ slot_form.starts_at }}{{ slot_form.starts_at.errors }}</div>
+    <button type="submit" data-party-time-submit>Publish time</button>
+  </form>
+  {% endif %}
+</dialog>
+{% endif %}
 {% endblock %}

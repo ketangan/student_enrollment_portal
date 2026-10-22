@@ -1,0 +1,28 @@
+{% extends 'scheduling/party_inquiry.html' %}{% load static tz %}
+{% block title %}Guest list{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'scheduling/catalog-picker.css' %}">
+<style>
+.guest-list {max-width:780px}.guest-list [hidden] {display:none!important}
+.guest-list .party-materials {border:0;padding:0;margin:24px 0}.guest-list .party-materials legend {font-size:18px;font-weight:600}
+.guest-list .guest-row {display:block;padding:24px 0;border-bottom:1px solid #dce2de}
+.guest-list .guest-heading {display:flex;align-items:center;justify-content:space-between;gap:16px}
+.guest-list .guest-heading button {width:36px;height:36px;min-height:36px;padding:8px;display:inline-flex;align-items:center;justify-content:center}
+.guest-list .guest-heading svg {width:18px;height:18px}
+.guest-list .form-field {max-width:320px}.guest-list .visual-picker h3 {font-size:16px}
+.guest-list .form-actions {display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
+</style>
+<div class="guest-list">
+{% if staff_entry %}<a href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.public_id %}">Back to reservation</a>{% endif %}
+<h1>Guest list</h1>
+{% include 'scheduling/design_guide_link.html' %}
+<p>{{ item.snapshot.workshop }} &middot; {% timezone item.snapshot.timezone %}{{ item.starts_at|date:"M j, Y, g:i A" }}{% endtimezone %} &middot; {{ item.quantity }} guests</p>
+{% if due_at %}<p>{% if due_now %}Guest selections are due now.{% else %}Guest selections due {% timezone item.snapshot.timezone %}{{ due_at|date:"M j, Y" }}{% endtimezone %}.{% endif %}</p>{% endif %}
+{% if submitted %}<p role="status">Guest list submitted. The studio has your selections.</p>{% elif saved %}<p role="status">Progress saved. Return to this link to finish your guest list.</p>{% endif %}
+{% if editable %}<form method="post" novalidate>{% csrf_token %}{{ form.revision }}{{ form.non_field_errors }}
+<input id="id_group_size" type="hidden" value="{{ item.quantity }}">
+{% include 'scheduling/party_materials.html' %}
+<div class="form-actions"><button type="submit" name="action" value="draft">Save progress</button><button type="submit" class="primary" name="action" value="submit">Submit guest list</button></div>
+</form>{% else %}<p>This guest list is closed. Please contact the studio for changes.</p>{% endif %}
+</div>
+{% endblock %}

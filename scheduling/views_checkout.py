@@ -49,6 +49,12 @@ def customer_payment(request, school_slug, token):
                "balance_due_today": timezone.localdate(timezone=ZoneInfo(item.snapshot["timezone"])) >= timezone.localdate(item.starts_at, ZoneInfo(item.snapshot["timezone"])),
                "deposit_due": bool(item.order.deposit_cents and amounts["net_cents"] < item.order.deposit_cents),
                "confirmed": item.state in ("confirmed", "completed")}
+    if item.party_request_id and item.party_request.offering.inventory_catalog_id:
+        from .guest_lists import editable, token_for
+        if editable(item):
+            context["guest_list_url"] = reverse("scheduling:guest_list", kwargs={
+                "school_slug": school_slug, "token": token_for(item)})
+    context["hold_expired"] = item.state == "held" and item.hold_until <= timezone.now()
     response = render(request, "scheduling/customer_payment.html", context, status=400 if error else 200)
     response["Referrer-Policy"] = "same-origin"
     return response

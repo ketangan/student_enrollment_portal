@@ -93,6 +93,25 @@ def _context(request, profile, role, active_nav):
 def workspace(request, school_slug):
     profile, role = require_access(request.user, school_slug)
     context = _context(request, profile, role, "overview")
+    from .calendar import calendar_available, offerings
+    context["calendar_available"] = calendar_available(profile)
+    selected_view = request.GET.get("view", profile.default_dashboard_view if context["calendar_available"] else "overview")
+    if selected_view not in {"overview", "calendar"} or (selected_view == "calendar" and not context["calendar_available"]):
+        raise Http404
+    if selected_view == "calendar":
+        location = context["selected_location"]
+        locations = profile.locations.filter(pk=location.pk) if location else profile.locations.all()
+        items = offerings(profile)
+        if location:
+            items = items.filter(location=location)
+        context["calendar_config"] = {
+            "eventsUrl": reverse("scheduling:calendar_events", kwargs={"school_slug": school_slug}),
+            "location": str(location.pk) if location else "",
+            "resources": [{"id": str(item.pk), "title": item.name, "zone": item.timezone_name} for item in locations],
+            "offerings": [{"id": str(item.pk), "title": f"{item.name} ({item.location.name})"} for item in items],
+            "today": timezone.localdate(timezone=ZoneInfo(location.timezone_name) if location else timezone.get_default_timezone()).isoformat(),
+        }
+        return render(request, "scheduling/calendar.html", context, status=200 if context["location_filter"].is_valid() else 400)
     from .workspace import overview
     form = context["location_filter"]
     if form.is_valid():

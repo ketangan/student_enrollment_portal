@@ -22,6 +22,11 @@ def participant_context(item):
         participants = [{"name": p.name, "selections": p.selections} for p in item.workshop_request.participants.all()]
     elif item.camp_registration_id:
         participants = item.camp_registration.participants
+    elif item.party_request_id:
+        participants = [{"name": row.get("guest_name") or f"Guest {index + 1}",
+                         "selections": [{"group": "Selection", "option": row["name"]}]
+                         + ([{"group": "Age", "option": str(row["guest_age"])}] if row.get("guest_age") is not None else [])}
+                        for index, row in enumerate(item.party_request.materials)]
     else:
         participants = []
     return {"participants": participants, "participant_table": participant_table(participants)}
@@ -34,6 +39,15 @@ def detail_context(request, context, item, tab="details"):
         contact_email=getattr(source, "purchaser_email", getattr(source, "organizer_email", "")))
     offering = source.session.offering if item.workshop_request_id else source.camp.offering if item.camp_registration_id else source.offering
     context.update(participant_context(item))
+    if item.party_request_id and offering.inventory_catalog_id:
+        from .guest_lists import due_at, editable, token_for
+        context.update(guest_list_due=due_at(item), guest_list_complete=bool(item.party_request.materials),
+            guest_list_draft_count=len(item.snapshot.get("guest_list_draft", [])))
+        if editable(item) and context.get("can_edit_sessions"):
+            context["staff_guest_list_url"] = reverse("scheduling:staff_guest_list", kwargs={
+                "school_slug": slug, "public_id": item.public_id})
+            context["guest_list_url"] = request.build_absolute_uri(reverse("scheduling:guest_list", kwargs={
+                "school_slug": slug, "token": token_for(item)}))
     context.update(reservation_location=offering.location,
         completion_label="Camp completed" if item.camp_registration_id else "Party completed" if item.party_request_id else "Workshop completed")
     context["booking_navigation"]["section"]["tabs"] = [

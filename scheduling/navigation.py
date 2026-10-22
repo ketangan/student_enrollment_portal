@@ -33,6 +33,8 @@ def workspace_navigation(context):
     setup.append(link("catalog", "Catalog", "catalogs"))
     setup.append(link("settings", "Materials Inventory", "settings"))
     settings = [link("locations", "Location & rooms", "locations")]
+    if features["parties"] and context["can_edit_setup"]:
+        settings.append(link("guest_communication", "Guest communication", "guest_communication"))
     if context["can_view_access"]:
         settings.append(link("access", "Team Access", "access"))
     if features["integrations"] and context["can_edit_setup"]:

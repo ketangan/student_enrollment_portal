@@ -12,6 +12,8 @@
 {% timezone item.snapshot.timezone %}<p class="muted">{{ item.starts_at|date:"D, M j, Y" }} &middot; {{ item.starts_at|date:"g:i A" }} &ndash; {{ item.ends_at|date:"g:i A" }}</p>{% endtimezone %}
 {% if item.state == 'confirmed' %}<p>Your reservation is confirmed.{% if amounts.outstanding_cents > 0 and amounts.net_cents > 0 %} You have paid ${{ amounts.net|floatformat:2 }} toward your ${{ item.order.total|floatformat:2 }} total.{% endif %}</p>
 {% elif item.state == 'review' %}<p>Please contact the studio to confirm your reservation.</p>{% endif %}
+{% if item.state == 'held' %}<p class="muted">{% if hold_expired %}The hold has expired. We will check availability again before starting payment.{% else %}Your time is held until {% timezone item.snapshot.timezone %}{{ item.hold_until|date:"M j, g:i A T" }}{% endtimezone %}. Your reservation is confirmed once payment is received.{% endif %}</p>{% endif %}
+{% if guest_list_url %}<p><a href="{{ guest_list_url }}">Add or update guest details</a></p>{% endif %}
 {% if error %}<p role="alert" class="notice error">{{ error }}</p>{% endif %}
 <dl class="details"><div><dt>Reservation</dt><dd>{{ item.state_label }}</dd></div>
 <div><dt>Total</dt><dd>${{ item.order.total|floatformat:2 }}</dd></div>

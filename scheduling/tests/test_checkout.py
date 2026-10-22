@@ -130,6 +130,48 @@ def test_payment_return_navigation_requires_workspace_access(inventory, merchant
     assert client.get(detail).status_code == 404
 
 
+def test_approved_party_payment_link_handoff_and_expired_hold(inventory, merchant, booking_member, client, monkeypatch):
+    source = party_request(inventory)
+    client.force_login(booking_member.user)
+    create_url = path(booking_member, "reservation_from_party", public_id=source.public_id)
+    response = client.post(create_url, {"source_revision": source.revision, "online": "on", "confirm": "on"})
+    assert response.status_code == 302
+    item = Reservation.objects.get(party_request=source)
+    response = client.get(response.url)
+    share_url = response.context["share_payment_url"]
+    assert share_url.startswith("http://testserver/bookings/")
+    assert b"Copy payment link" in response.content
+    assert b"24 hours" in response.content
+    client.logout()
+    assert b"Your time is held until" in client.get(share_url).content
+    assert b"Add or update guest details" not in client.get(share_url).content
+    item.hold_until = timezone.now() - timedelta(minutes=1)
+    item.save()
+    assert b"The hold has expired" in client.get(share_url).content
+    other = reserve(booking_member, party_request(inventory, start=item.starts_at))
+    gateway_call = MagicMock(side_effect=session_for)
+    monkeypatch.setattr(gateway, "create_order_checkout", gateway_call)
+    assert client.post(share_url).status_code == 400
+    assert not item.order.attempts.exists()
+    assert not gateway_call.called
+    cancel_reservation(booking_member.user, item.profile.school.slug, other.public_id)
+    assert client.post(share_url).status_code == 302
+    assert client.post(share_url).status_code == 302
+    assert item.order.attempts.count() == gateway_call.call_count == 1
+    item.refresh_from_db()
+    assert item.state == "held"
+    assert item.hold_until > timezone.now()
+
+
+def test_shared_payment_link_expires_and_wrong_school_cannot_resolve(inventory, merchant, booking_member, client, monkeypatch):
+    item = online(booking_member, party_request(inventory))
+    token = payment_token(item)
+    assert client.get(reverse("scheduling:customer_payment", kwargs={"school_slug": "other", "token": token})).status_code == 404
+    later = time.time() + 86401
+    monkeypatch.setattr("django.core.signing.time.time", lambda: later)
+    assert client.get(path(booking_member, "customer_payment", token=token)).status_code == 404
+
+
 @pytest.mark.parametrize("state,heading", [("canceled", "Reservation canceled"), ("review", "Reservation needs review")])
 def test_payment_return_never_claims_canceled_or_review_booking_is_confirmed(inventory, merchant, booking_member, client, state, heading):
     item = online(booking_member, workshop_request(inventory))

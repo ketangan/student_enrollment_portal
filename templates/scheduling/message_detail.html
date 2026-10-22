@@ -1,17 +1,17 @@
 {% extends 'scheduling/base.html' %}
 {% block title %}Confirmation message{% endblock %}
 {% block content %}
-<a href="{% url 'scheduling:messages' school_slug=business.slug %}">Messages</a>
+{% if item.reservation_id %}<a href="{% url 'scheduling:guest_communication' school_slug=business.slug %}">Back to guest communication</a>{% else %}<a href="{% url 'scheduling:messages' school_slug=business.slug %}">Messages</a>{% endif %}
 <h2>{{ item.subject }}</h2><p>To: {{ item.recipient }}</p>
 <p><strong>{{ item.get_state_display }}</strong> &middot; {{ item.attempts }} attempt{{ item.attempts|pluralize }}</p>
 {% if blocker %}<p class="notice">Waiting for an <a href="{% url 'scheduling:message_detail' school_slug=business.slug public_id=blocker.public_id %}">earlier message</a> ({{ blocker.get_state_display }}). This update will not be processed until that message is resolved.</p>{% endif %}
 {% if item.state == 'retry' %}<p>Next local attempt: {{ item.next_attempt_at|date:'M j, Y, g:i A' }}. Process the queue after that time.</p>{% endif %}
-{% if item.state == 'uncertain' %}<p class="notice error">The outcome is unknown. Automatic retries and later messages for this booking are blocked to avoid duplicates. Review the attempt, then suppress this message to release newer updates. No external email was sent in this local preview.</p>{% endif %}
+{% if item.state == 'uncertain' %}<p class="notice error">The outcome is unknown. Automatic retries and later messages for this booking are blocked to avoid duplicates. Check the email provider before suppressing this message to release newer updates.{% if not item.reservation_id %} No external email was sent in this local preview.{% endif %}</p>{% endif %}
 {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
 <section class="location-section"><h3>Message preview</h3><pre class="message-body">{{ message_body|urlize }}</pre></section>
-{% if can_edit_setup %}{% if item.can_queue or item.can_suppress %}<form method="post" class="setup-form">{% csrf_token %}
+{% if can_edit_setup %}{% if queue_available or item.can_suppress %}<form method="post" class="setup-form">{% csrf_token %}
 <div class="form-field check-field"><label for="message-confirm">I have reviewed this message and its status</label><input id="message-confirm" type="checkbox" name="confirm" value="yes" required></div>
-<div class="actions">{% if item.can_queue %}<button type="submit" name="action" value="queue">Queue local attempt</button>{% endif %}{% if item.can_suppress %}<button type="submit" name="action" value="suppress">Suppress message</button>{% endif %}</div>
+<div class="actions">{% if queue_available %}<button type="submit" name="action" value="queue">{% if item.reservation_id %}Queue notification{% else %}Queue local attempt{% endif %}</button>{% endif %}{% if item.can_suppress %}<button type="submit" name="action" value="suppress">Suppress message</button>{% endif %}</div>
 </form>{% endif %}{% endif %}
 <section class="location-section"><h3>Attempt history</h3>
 <div class="table-scroll message-table" tabindex="0" role="region" aria-label="Attempt history"><table><thead><tr><th>Attempt</th><th>Started</th><th>Finished</th><th>Outcome</th><th>Reason</th></tr></thead>

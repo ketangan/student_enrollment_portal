@@ -60,9 +60,12 @@ def inbox(request, school_slug):
 @login_required
 @require_http_methods(["GET", "POST"])
 def detail(request, school_slug, public_id):
-    messaging.require_preview()
     profile, role = require_access(request.user, school_slug, "setup.edit" if request.method == "POST" else "workspace.view")
     message = get_object_or_404(BookingMessage, profile=profile, public_id=public_id)
+    if message.reservation_id:
+        require_access(request.user, school_slug, "setup.edit", capability="parties")
+    else:
+        messaging.require_preview()
     error = ""
     if request.method == "POST":
         try:
@@ -73,7 +76,11 @@ def detail(request, school_slug, public_id):
             error = "; ".join(exc.messages)
         else:
             return redirect("scheduling:message_detail", school_slug=school_slug, public_id=public_id)
-    context = _context(request, profile, role, "messages")
+    context = _context(request, profile, role, "guest_communication" if message.reservation_id else "messages")
+    from .party_notifications import live_enabled
+    context["queue_available"] = message.can_queue and (not message.reservation_id
+        or messaging.preview_enabled() and profile.message_preview_enabled
+        or live_enabled(profile) and message.reservation.order.environment == "live")
     blocker = messaging.unresolved_messages(profile, message.group_key).first() if message.state in {"queued", "retry"} else None
     from .models import VisitAccessGrant
     from .visits import enrollment_access

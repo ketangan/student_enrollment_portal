@@ -20,28 +20,40 @@
 .party-inquiry .visual-picker button {min-height:36px;font-weight:400}
 .party-inquiry .visual-picker .color-option {padding:6px 2px}
 .party-inquiry [hidden] {display:none !important}
+.party-inquiry .party-fields {border:0;padding:0;margin:0;min-width:0}
+.party-time-picker {display:grid;grid-template-columns:320px minmax(0,1fr);gap:24px;align-items:start;margin-top:12px}
+.party-inquiry .party-date-input {display:none!important}
+.party-time-picker .booking-calendar {box-shadow:none;margin:0}
+.party-time-buttons {display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.party-time-buttons button {min-height:42px;padding:8px 12px;font-size:14px}
+.party-time-buttons button[aria-pressed=true] {background:#2563eb;color:white;border-color:#2563eb}
+@media(max-width:600px) {.party-time-picker {grid-template-columns:minmax(0,1fr);gap:16px}.party-time-picker .booking-calendar {max-width:100%}}
 </style>
 <div class="party-inquiry">
 {% if admin_preview %}<a class="back-link" href="{% url 'scheduling:party_setup' school_slug=business.slug %}">Back to party setup</a>{% endif %}
 <div class="request-heading"><h1>Plan a party</h1><p>{{ business }}</p></div>
+{% include 'scheduling/design_guide_link.html' %}
 {% if form %}<p class="muted">* Required</p>{% endif %}
 {% if offerings %}<form method="get" action="{% url 'scheduling:party_start' school_slug=business.slug %}" class="setup-form">
 {% if admin_preview %}<input type="hidden" name="preview" value="1">{% endif %}
-<div class="form-field"><label for="party-location">Location *</label><select id="party-location" name="offering" required>{% for item in offerings %}<option value="{{ item.pk }}"{% if item.pk == offering.pk %} selected{% endif %}>{{ item.location.name }} &middot; {{ item.name }}</option>{% endfor %}</select></div><noscript><button type="submit">Update location</button></noscript>
+<div class="form-field"><label for="party-location">Location *</label><select id="party-location" name="offering" required><option value=""{% if choose_location %} selected{% endif %}>Choose a location</option>{% for item in offerings %}<option value="{{ item.pk }}"{% if item.pk == offering.pk %} selected{% endif %}>{{ item.location.name }} &middot; {{ item.name }}</option>{% endfor %}</select></div><noscript><button type="submit">Update location</button></noscript>
 </form>{% else %}<p>Party inquiries are not currently available.</p>{% endif %}
 <p id="party-loading" role="status" hidden></p>
 {% if error %}<div class="notice error" role="alert">{{ error }}</div>{% endif %}
 {% if form %}
 <form method="post" class="setup-form" id="party-request-form" action="{% url 'scheduling:party_start' school_slug=business.slug %}?offering={{ offering.pk }}{% if admin_preview %}&amp;preview=1{% endif %}">{% csrf_token %}<input type="hidden" name="request_token" value="{{ request_token }}">
+<fieldset class="party-fields"{% if choose_location %} disabled{% endif %}>
 {{ form.non_field_errors }}
-{% for field in form %}<div data-party-field="{{ field.name }}" class="form-field{% if field.field.widget.input_type == 'checkbox' %} selection-toggle{% endif %}"{% if form.package_mode and field.name == 'space' %} data-custom-party-field{% endif %}>{% if field.field.widget.input_type == 'checkbox' %}<label>{{ field }}{{ field.label }}</label>{% else %}<label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required or field.name == 'space' %} *{% endif %}</label>{{ field }}{% endif %}{{ field.errors }}{% if field.name == 'package' %}<p class="muted" id="party-package-summary" aria-live="polite"></p>{% endif %}</div>{% endfor %}
-<div id="party-materials"{% if form.package_mode %} data-party-selections{% endif %}>
+<datalist id="party-occasions"><option value="Birthday"><option value="Corporate event"><option value="Celebration"></datalist>
+{% for field in form %}<div data-party-field="{{ field.name }}" class="form-field{% if field.field.widget.input_type == 'checkbox' %} selection-toggle{% endif %}"{% if form.package_mode and field.name == 'space' %} data-custom-party-field{% endif %}>{% if field.field.widget.input_type == 'checkbox' %}<label>{{ field }}{{ field.label }}</label>{% else %}<label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required or field.name == 'space' or field.name == 'starts_at' or field.name == 'party_slot' %} *{% endif %}</label>{{ field }}{% endif %}{{ field.errors }}{% if field.name == 'package' %}<p class="muted" id="party-package-summary" aria-live="polite"></p>{% endif %}{% if field.name == 'party_slot' %}<div id="party-time-picker" class="party-time-picker" hidden><div id="party-date-calendar"><input id="party-date" class="party-date-input" aria-label="Party date"></div><div><p id="party-time-date" aria-live="polite">Choose a date</p><div id="party-time-buttons" class="party-time-buttons" role="group" aria-label="Available party times"></div></div></div>{% endif %}</div>{% endfor %}
+<div id="party-materials">
 {% include 'scheduling/party_materials.html' %}
 </div>
-<p class="muted">Subject to availability and staff confirmation.</p>
-<button class="primary" type="submit">Send party request</button>
+<p class="muted" id="party-next-step">Subject to availability and staff confirmation.</p>
+<button class="primary" type="submit" id="party-submit">Send party request</button>
+</fieldset>
 </form>
 {% endif %}
 </div>
 {% endblock %}
-{% block scripts %}{% if form.package_mode %}{{ form.package_details|json_script:'party-package-details' }}{% endif %}{{ party_catalog|json_script:'party-catalog' }}<script src="{% static 'demo/plushumi/assets/lucide.js' %}" defer></script><script src="{% static 'scheduling/catalog-picker.js' %}" defer></script><script src="{% static 'scheduling/inventory.js' %}?v=20261019-party-rows" defer></script><script src="{% static 'scheduling/party-inquiry.js' %}?v=20261019-guests" defer></script>{% endblock %}
+{% block scripts %}{% if form.package_mode %}{{ form.package_details|json_script:'party-package-details' }}{{ form.slot_packages|json_script:'party-slot-packages' }}{{ form.slot_dates|json_script:'party-slot-dates' }}{% endif %}{{ party_catalog|json_script:'party-catalog' }}<script src="{% static 'demo/plushumi/assets/lucide.js' %}" defer></script><script src="{% static 'scheduling/catalog-picker.js' %}" defer></script><script src="{% static 'scheduling/inventory.js' %}?v=20261019-party-rows" defer></script><script src="{% static 'scheduling/party-inquiry.js' %}?v=20261021-party-calendar" defer></script>{% endblock %}

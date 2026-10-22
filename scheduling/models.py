@@ -8,10 +8,12 @@ from django.utils.dateparse import parse_datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from urllib.parse import urlsplit
 from pathlib import PurePosixPath
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
+from datetime import timedelta
 import uuid
 
 from .capabilities import validate_capabilities
+from .guide_storage import guide_storage
 
 
 class SchedulingProfile(models.Model):
@@ -24,6 +26,10 @@ class SchedulingProfile(models.Model):
     payment_provider = models.CharField(max_length=8, default="stripe", choices=[("stripe", "Stripe"), ("square", "Square")])
     lessons_enabled = models.BooleanField(default=False)
     message_preview_enabled = models.BooleanField(default=False)
+    party_notifications_enabled = models.BooleanField(default=False)
+    calendar_enabled = models.BooleanField(default=False)
+    default_dashboard_view = models.CharField(max_length=8, default="overview",
+        choices=[("overview", "Overview"), ("calendar", "Calendar")])
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -31,6 +37,22 @@ class SchedulingProfile(models.Model):
 
     def __str__(self):
         return str(self.school)
+
+
+def design_guide_path(instance, filename):
+    return f"booking-guides/{instance.profile_id}/{uuid.uuid4().hex}.pdf"
+
+
+class DesignGuide(models.Model):
+    profile = models.ForeignKey(SchedulingProfile, on_delete=models.PROTECT, related_name="design_guides")
+    file = models.FileField(upload_to=design_guide_path, storage=guide_storage)
+    original_name = models.CharField(max_length=200)
+    checksum = models.CharField(max_length=64)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-pk"]
 
 
 class SchedulingMembership(models.Model):
@@ -121,6 +143,9 @@ class Room(models.Model):
                 raise ValidationError({"capacity": "Capacity cannot be lower than an existing session's capacity."})
             if self.capacity is not None and self.party_requests.filter(status__in=["pending", "reviewed"], group_size__gt=self.capacity).exists():
                 raise ValidationError({"capacity": "Capacity cannot be lower than an active party request's group size."})
+            if self.capacity is not None and self.party_packages.annotate(
+                    maximum=models.F("participant_limit") + models.F("additional_participant_limit")).filter(maximum__gt=self.capacity).exists():
+                raise ValidationError({"capacity": "Update this space's party packages before reducing its participant capacity."})
             from .reservations import validate_room_capacity
             validate_room_capacity(self)
 
@@ -317,7 +342,14 @@ class PartyPackage(models.Model):
     duration_minutes = models.PositiveIntegerField(null=True, blank=True, validators=[MinValueValidator(15), MaxValueValidator(720)])
     total = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(0)])
     deposit = models.DecimalField(max_digits=8, decimal_places=2, default=0, validators=[MinValueValidator(0)])
-    space = models.CharField(max_length=16, choices=[("shared", "Shared space"), ("exclusive", "Private room")], default="shared")
+    space = models.CharField(max_length=16, choices=[("shared", "Shared space"), ("exclusive", "Private room / table"), ("studio", "Full studio")], default="shared")
+    room = models.ForeignKey(Room, null=True, blank=True, on_delete=models.PROTECT, related_name="party_packages")
+    included_observers = models.PositiveIntegerField(default=0, validators=[MaxValueValidator(10000)])
+    additional_participant_limit = models.PositiveIntegerField(default=0, validators=[MaxValueValidator(10000)])
+    additional_participant_price = models.DecimalField(max_digits=8, decimal_places=2, default=0, validators=[MinValueValidator(0)])
+    tax_rate = models.DecimalField(max_digits=5, decimal_places=3, null=True, blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(Decimal("99.999"))])
+    booking_mode = models.CharField(max_length=8, default="review", choices=[("review", "Staff approval"), ("direct", "Direct booking")])
     is_published = models.BooleanField(default=False)
 
     class Meta:
@@ -327,6 +359,9 @@ class PartyPackage(models.Model):
             models.CheckConstraint(condition=models.Q(participant_limit__gte=1, participant_limit__lte=10000), name="party_package_size_valid"),
             models.CheckConstraint(condition=models.Q(deposit__gte=0) & (models.Q(total__isnull=True) | models.Q(total__gte=models.F("deposit"))), name="party_package_price_valid"),
             models.CheckConstraint(condition=models.Q(is_published=False) | models.Q(total__isnull=False, duration_minutes__isnull=False), name="party_package_publish_complete"),
+            models.CheckConstraint(condition=models.Q(additional_participant_price__gte=0, additional_participant_limit__lte=10000, included_observers__lte=10000), name="party_package_extras_valid"),
+            models.CheckConstraint(condition=models.Q(tax_rate__isnull=True) | models.Q(tax_rate__gte=0, tax_rate__lte=Decimal("99.999")), name="party_package_tax_valid"),
+            models.CheckConstraint(condition=models.Q(space__in=["shared", "exclusive", "studio"], booking_mode__in=["review", "direct"]), name="party_package_modes_valid"),
         ]
 
     def __str__(self):
@@ -334,6 +369,13 @@ class PartyPackage(models.Model):
 
     def clean(self):
         errors = {}
+        if self.room_id and self.offering_id and self.room.location_id != self.offering.location_id:
+            errors["room"] = "Choose a space at this package's location."
+        if self.room_id and self.participant_limit and self.additional_participant_limit is not None:
+            if self.participant_limit + self.additional_participant_limit > self.room.capacity:
+                errors["room"] = "The included and additional participants exceed this space's participant capacity."
+        if self.participant_limit and self.additional_participant_limit is not None and self.participant_limit + self.additional_participant_limit > 10000:
+            errors["additional_participant_limit"] = "The maximum group size is 10,000 participants."
         if self.pk and PartyPackage.objects.filter(pk=self.pk).exclude(offering_id=self.offering_id).exists():
             errors["offering"] = "A saved package cannot move to another workshop or location."
         if self.is_published:
@@ -350,13 +392,55 @@ class PartyPackage(models.Model):
         if errors:
             raise ValidationError(errors)
 
+    def quote(self, quantity):
+        if self.total is None or not 1 <= quantity <= self.participant_limit + self.additional_participant_limit:
+            raise ValidationError("Choose a participant count within this package's limit.")
+        extra = max(0, quantity - self.participant_limit)
+        subtotal = self.total + extra * self.additional_participant_price
+        tax = (subtotal * (self.tax_rate or Decimal(0)) / 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        if subtotal + tax > Decimal("999999.99"):
+            raise ValidationError("This group's price exceeds the supported reservation amount.")
+        return {"name": self.name, "participant_limit": self.participant_limit,
+            "duration_minutes": self.duration_minutes, "base_price": str(self.total),
+            "additional_participants": extra, "additional_participant_limit": self.additional_participant_limit,
+            "additional_participant_price": str(self.additional_participant_price),
+            "subtotal": str(subtotal), "tax_rate": str(self.tax_rate) if self.tax_rate is not None else None,
+            "tax": str(tax), "total": str(subtotal + tax), "deposit": str(self.deposit),
+            "included_observers": self.included_observers, "space": self.space,
+            "room_id": self.room_id, "booking_mode": self.booking_mode}
+
+
+class PartySlot(models.Model):
+    """An offered start time, not a room or inventory claim."""
+
+    package = models.ForeignKey(PartyPackage, on_delete=models.PROTECT, related_name="slots")
+    starts_at = models.DateTimeField()
+    is_published = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["starts_at", "pk"]
+        constraints = [models.UniqueConstraint(fields=["package", "starts_at"], name="party_slot_start_unique")]
+
+    def __str__(self):
+        return str(self.starts_at)
+
+    def clean(self):
+        if self.is_published and self.package_id:
+            if self.starts_at and not timezone.now() + timedelta(minutes=40) < self.starts_at <= timezone.now() + timedelta(days=366):
+                raise ValidationError("Choose a time more than 40 minutes ahead and within the next year.")
+            if self.package.booking_mode != "direct" or not self.package.room_id or self.package.tax_rate is None:
+                raise ValidationError("Set direct booking, a room/table and an explicit tax rate before publishing party times.")
+            if not self.package.duration_minutes or self.package.total is None:
+                raise ValidationError("Set the party price and duration before publishing party times.")
+
 
 class PartyRequest(models.Model):
     """An inquiry and internal preparation proposal, never an inventory claim or order."""
 
     class Space(models.TextChoices):
         SHARED = "shared", "Shared space"
-        EXCLUSIVE = "exclusive", "Private room"
+        EXCLUSIVE = "exclusive", "Private room / table"
+        STUDIO = "studio", "Full studio"
 
     class Status(models.TextChoices):
         PENDING = "pending", "Needs review"
@@ -367,11 +451,15 @@ class PartyRequest(models.Model):
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     offering = models.ForeignKey(Offering, on_delete=models.PROTECT, related_name="party_requests")
     package = models.ForeignKey(PartyPackage, null=True, blank=True, on_delete=models.PROTECT, related_name="inquiries")
+    party_slot = models.ForeignKey(PartySlot, null=True, blank=True, on_delete=models.PROTECT, related_name="requests")
     package_snapshot = models.JSONField(default=dict, blank=True, editable=False)
     occasion = models.CharField(max_length=150, blank=True)
     age_range = models.CharField(max_length=100, blank=True)
     organizer_name = models.CharField(max_length=100)
     organizer_email = models.EmailField()
+    organizer_phone = models.CharField(max_length=40, blank=True)
+    birthday_name = models.CharField(max_length=100, blank=True)
+    birthday_age = models.PositiveSmallIntegerField(null=True, blank=True, validators=[MaxValueValidator(130)])
     starts_at = models.DateTimeField()
     ends_at = models.DateTimeField(null=True, blank=True)
     group_size = models.PositiveIntegerField(validators=CAPACITY_VALIDATORS)
@@ -395,7 +483,7 @@ class PartyRequest(models.Model):
         ordering = ["-created_at", "pk"]
         constraints = [
             models.CheckConstraint(condition=models.Q(status__in=["pending", "reviewed", "declined", "withdrawn"]), name="scheduling_party_status_valid"),
-            models.CheckConstraint(condition=models.Q(space__in=["shared", "exclusive"]), name="scheduling_party_space_valid"),
+            models.CheckConstraint(condition=models.Q(space__in=["shared", "exclusive", "studio"]), name="scheduling_party_space_valid"),
             models.CheckConstraint(condition=models.Q(ends_at__gt=models.F("starts_at")), name="scheduling_party_time_valid"),
             models.CheckConstraint(condition=models.Q(group_size__gte=1, group_size__lte=10000), name="scheduling_party_size_valid"),
             models.CheckConstraint(condition=(
@@ -416,6 +504,8 @@ class PartyRequest(models.Model):
     def clean(self):
         if self.package_id and self.package.offering_id != self.offering_id:
             raise ValidationError({"package": "Choose a package for this workshop."})
+        if self.party_slot_id and self.party_slot.package_id != self.package_id:
+            raise ValidationError({"party_slot": "Choose a time for this party package."})
         if self.room_id:
             if self.room.location_id != self.offering.location_id:
                 raise ValidationError({"room": "Choose a room at this workshop's location."})

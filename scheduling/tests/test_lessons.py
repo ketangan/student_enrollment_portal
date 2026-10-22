@@ -209,6 +209,31 @@ def test_workshop_conflict_both_directions(music):
     session.refresh_from_db();assert not session.is_published
 
 
+def test_full_studio_blocks_lessons_in_other_rooms_and_reverse(music):
+    import uuid
+    from core.payments import service as payments
+    from scheduling.models import PartyRequest, Reservation
+
+    m = music
+    rows, _ = preview(m)
+    start, end = rows[0]["starts_at"], rows[0]["ends_at"]
+    room = Room.objects.create(location=m["location"], name="Party table", capacity=6)
+    offering = Offering.objects.create(location=m["location"], name="Craft")
+    party = PartyRequest.objects.create(offering=offering, organizer_name="Party", organizer_email="p@example.invalid",
+        starts_at=start, ends_at=end, space="studio", group_size=2, submission_key=uuid.uuid4())
+    order = payments.create_order(school=m["profile"].school, purpose="booking", source_key="studio-test",
+        total_cents=0, deposit_cents=0, description="Party")
+    reservation = Reservation.objects.create(profile=m["profile"], party_request=party, room=room,
+        starts_at=start, ends_at=end, quantity=2, order=order, state="confirmed", hold_until=start, snapshot={"space": "studio"})
+    assert preview(m)[0][0]["state"] == "conflict"
+    assert preview(m, {**m["data"], "room": ""})[0][0]["state"] == "conflict"
+    reservation.state = "canceled"
+    reservation.save()
+    book(m)
+    with pytest.raises(ValidationError, match="full studio"):
+        ensure_capacity(reservation)
+
+
 def test_party_and_camp_room_claims_both_directions(music):
     from core.payments import service as payments
     from scheduling.models import Camp, CampRegistration, PartyRequest, Reservation, ReservationOccurrence
