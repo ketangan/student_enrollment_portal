@@ -232,3 +232,76 @@ def test_concurrent_capture_creates_one_confirmation(stock, booking):
         for future in futures:
             future.result(timeout=15)
     assert BookingMessage.objects.filter(reservation=booking).count() == 1
+
+
+def test_scoped_command_and_invalid_arguments(stock, booking):
+    from django.core.management import call_command, CommandError
+    with pytest.raises(CommandError, match="Limit"):
+        call_command("process_party_notifications", school=stock.school.slug, limit=0)
+    with pytest.raises(CommandError, match="Enable party notifications"):
+        call_command("process_party_notifications", school="missing-school")
+    call_command("process_party_notifications", school=stock.school.slug)
+    assert BookingMessage.objects.filter(reservation=booking).count() == 1
+
+
+def test_shared_command_skips_disabled_capability(stock, settings, monkeypatch):
+    from django.core.management import call_command
+    stock.profile.capabilities = ["workshops"]
+    stock.profile.save()
+    settings.DEBUG = False
+    settings.BOOKINGS_PARTY_EMAIL_ENABLED = True
+    monkeypatch.setattr(notices, "process", lambda *args: pytest.fail("Disabled school processed"))
+    call_command("process_party_notifications", all_schools=True)
+    assert not BookingMessage.objects.exists()
+
+
+def test_contents_include_guide_and_location_and_skip_completed_selection_prompt(stock, booking, settings, tmp_path):
+    from scheduling.tests.test_guides import upload
+    settings.MEDIA_ROOT = tmp_path
+    settings.BOOKINGS_GUIDE_STORAGE_READY = True
+    upload(stock)
+    booking.party_request.offering_snapshot = {"location": "Test studio"}
+    subject, body = notices.contents(booking, "confirmation")
+    assert "Test studio" in body and "/design-guide/" in body
+    assert "Please submit your guest selections by" in body
+    booking.party_request.materials = [{"quantity": booking.quantity}]
+    assert "Please submit" not in notices.contents(booking, "confirmation")[1]
+    booking.party_request.offering.inventory_catalog_id = None
+    assert "/guests/" not in notices.contents(booking, "confirmation")[1]
+    stock.profile.party_notifications_enabled = False
+    stock.profile.save()
+    capture(booking)
+    assert not BookingMessage.objects.exists()
+
+
+@pytest.mark.parametrize("reason", ["canceled", "disabled", "local_backend", "not_accepted"])
+def test_live_worker_rechecks_claim_and_transport(stock, booking, settings, monkeypatch, reason):
+    capture(booking)
+    booking.order.environment = "live"
+    booking.order.save()
+    settings.DEBUG = False
+    settings.BOOKINGS_PARTY_EMAIL_ENABLED = True
+    claim = messaging.claim
+    def changed_claim(*args, **kwargs):
+        message = claim(*args, **kwargs)
+        if message and reason == "canceled":
+            booking.state = "canceled"
+            booking.save()
+        elif message and reason == "disabled":
+            settings.BOOKINGS_PARTY_EMAIL_ENABLED = False
+        return message
+    monkeypatch.setattr(messaging, "claim", changed_claim)
+    if reason == "local_backend":
+        from django.core.mail.backends.locmem import EmailBackend
+        monkeypatch.setattr(notices, "get_school_email_connection", lambda *args: EmailBackend())
+    else:
+        class Transport:
+            def send_messages(self, messages):
+                assert reason == "not_accepted"
+                return 0
+        monkeypatch.setattr(notices, "get_school_email_connection", lambda *args: Transport())
+    assert notices.process(stock.profile.pk) == 1
+    expected = "suppressed" if reason in ("canceled", "disabled") else "uncertain" if reason == "local_backend" else "retry"
+    assert BookingMessage.objects.get().state == expected
+    with pytest.raises(ValueError, match="Limit"):
+        notices.process(stock.profile.pk, 0)

@@ -139,6 +139,13 @@ October 22 guest-communication slice (local implementation, not deployed):
   mobile document width matched viewport width (433px). Recurring hosted job is
   provisioned but activation and final release verification remain pending; do not
   mark slice 4 shipped.
+- Final release verification on October 22: 4,326 tests passed, 3 skipped and three
+  deprecation warnings (516.30 seconds); 80 browser-control tests passed with the
+  existing coverage thresholds. Follow-up error-path tests raised focused coverage
+  to 100% for the shared command and guide views, and 98.47% for party notifications;
+  all 159 focused tests passed. Generated private guest-list navigation and guide
+  download were verified against the running preview. Release PR #5 awaits CI and
+  hosted verification; deployment/activation are not implied by these local results.
 
 October 20 package-configuration implementation (local only):
 

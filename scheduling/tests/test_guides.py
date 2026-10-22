@@ -126,3 +126,20 @@ def test_guide_environment_boundary(client, stock, settings):
     assert client.get(path, HTTP_HOST="app.example.com").status_code == 200
     stock.profile.enabled = False; stock.profile.save()
     assert client.get(path, HTTP_HOST="app.example.com").status_code == 404
+
+
+def test_owner_notification_toggle_and_missing_download(client, stock):
+    client.force_login(stock.user)
+    page = reverse("scheduling:guest_communication", kwargs={"school_slug": stock.school.slug})
+    download = reverse("scheduling:design_guide", kwargs={"school_slug": stock.school.slug})
+    assert client.get(download).status_code == 404
+    for enabled in (True, False):
+        data = {"action": "notifications"}
+        if enabled:
+            data["party_notifications_enabled"] = "on"
+        assert client.post(page, data).status_code == 302
+        stock.profile.refresh_from_db()
+        assert stock.profile.party_notifications_enabled is enabled
+    guide = upload(stock)
+    guide.file.storage.delete(guide.file.name)
+    assert client.get(download).status_code == 404
