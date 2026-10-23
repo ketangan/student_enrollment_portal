@@ -106,7 +106,7 @@ def _settle(item, attempt, previous):
             else:
                 item.state = "confirmed"
         item.save(update_fields=["state"])
-        _audit(None, item, "verified_test_payment")
+        _audit(None, item, "verified_test_payment" if item.order.environment == "test" else "verified_payment")
     elif attempt.state == "expired" and item.state == "held":
         # Only verified provider expiry releases an unpaid online hold.
         item.hold_until = timezone.now()

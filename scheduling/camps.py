@@ -55,7 +55,7 @@ def check_registration(camp, sessions, catalog):
             raise ValidationError("Online camp registration closes 40 minutes before the first session.")
     if not all(g.active_options for g in catalog):
         raise ValidationError("Camp choices are unavailable. Please contact the studio.")
-    booking_account(camp.offering.location.profile, camp.online)
+    booking_account(camp.offering.location.profile, camp.online, camp.offering.location)
 
 
 def places_left(sessions):
@@ -147,7 +147,7 @@ def register_camp(slug, pk, data, browser):
     profile = camp.offering.location.profile
     total, deposit = int(camp.price * 100) * quantity, int(camp.deposit * 100) * quantity
     order = payments.create_order(school=profile.school, purpose="booking", source_key=f"camp:{registration.public_id}",
-        total_cents=total, deposit_cents=deposit, description=camp.name, account=booking_account(profile, camp.online))
+        total_cents=total, deposit_cents=deposit, description=camp.name, account=booking_account(profile, camp.online, camp.offering.location))
     item = Reservation(profile=profile, camp_registration=registration, order=order,
         starts_at=sessions[0].starts_at, ends_at=sessions[-1].ends_at, quantity=quantity,
         snapshot={"name": registration.purchaser_name, "workshop": camp.name, "timezone": camp.offering.location.timezone_name,

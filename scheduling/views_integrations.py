@@ -10,6 +10,7 @@ from django.views.decorators.debug import sensitive_post_parameters, sensitive_v
 from django.views.decorators.http import require_GET, require_http_methods
 
 from .integrations import service
+from .integrations import square_connection
 from .integrations.payloads import DESTINATIONS, example_booking
 from .integrations.registry import PROVIDERS, provider
 from .views import _context
@@ -19,9 +20,10 @@ from .views import _context
 @login_required
 @require_GET
 def index(request, school_slug):
-    profile, role = service.access(request.user, school_slug)
+    profile, role = square_connection.access(request, school_slug)
     context = _context(request, profile, role, "integrations")
     context.update(connections=service.connections(profile), providers=PROVIDERS.values())
+    context["square"] = square_connection.context(request, profile)
     return render(request, "scheduling/integrations/index.html", context)
 
 

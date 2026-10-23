@@ -442,3 +442,19 @@
   .booking-admin .intake-form { width: 100%; justify-content: space-between; gap: 12px; }
   .booking-admin .reservation-filter { gap: 16px; }
   .booking-admin .reservation-row > .actions { margin-left: 0; }
+}
+.booking-admin .square-settings { margin-bottom: 32px; padding-bottom: 28px; border-bottom: 1px solid var(--dash-border); }
+.booking-admin .square-settings .section-heading p { margin: 6px 0 0; }
+.booking-admin .square-account-actions, .booking-admin .square-mapping-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.booking-admin .square-account-actions > p, .booking-admin .square-mapping-footer > p { margin: 0; }
+.booking-admin .square-mapping-heading { margin-top: 28px; }
+.booking-admin .square-mapping-form select { width: 100%; max-width: 480px; }
+.booking-admin .square-mapping-form td { width: 50%; vertical-align: middle; }
+.booking-admin .square-mapping-form label { margin: 0; }
+.booking-admin .square-mapping-footer { margin-top: 16px; }
+@media (max-width: 600px) {
+  .booking-admin .square-mapping-form table { min-width: 0; }
+  .booking-admin .square-mapping-form td, .booking-admin .square-mapping-form th { padding: 12px 8px; }
+  .booking-admin .square-mapping-form select { min-width: 0; }
+  .booking-admin .square-account-actions .actions { flex-wrap: wrap; }
+}

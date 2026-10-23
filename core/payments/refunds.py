@@ -1,4 +1,4 @@
-"""Shared, account-bound test refunds. Domain code authorizes eligibility first."""
+"""Shared, account-bound refunds. Domain code authorizes eligibility first."""
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -43,7 +43,10 @@ def apply_snapshot(refund, snapshot):
     attempt, order = refund.attempt, refund.attempt.order
     validate_account(order, new_payment=False)
     metadata = snapshot.get("metadata") or {}
-    if (attempt.account_id != order.account_id or snapshot.get("livemode") is True or snapshot.get("currency") != order.currency
+    # Stripe refund objects may omit livemode; its account transport remains test-only.
+    wrong_environment = (snapshot.get("livemode") is not (order.environment == "live")
+                         if order.account.provider == "square" else snapshot.get("livemode") is True)
+    if (attempt.account_id != order.account_id or wrong_environment or snapshot.get("currency") != order.currency
             or type(snapshot.get("amount")) is not int or snapshot["amount"] != refund.amount_cents
             or snapshot.get("payment_intent") != attempt.provider_intent
             or metadata.get("payment_refund") != str(refund.public_id)
@@ -61,22 +64,27 @@ def apply_snapshot(refund, snapshot):
         return refund
     refund.provider_refund, refund.state = snapshot["id"], snapshot["status"]
     if refund.state == "succeeded" and not refund.entry_id:
-        refund.entry = LedgerEntry.objects.create(order=order, school_id=order.school_id, environment="test",
+        refund.entry = LedgerEntry.objects.create(order=order, school_id=order.school_id, environment=order.environment,
             key=refund.public_id, kind="refund", channel=order.account.provider, amount_cents=refund.amount_cents, reference=snapshot["id"])
     refund.save(update_fields=["provider_refund", "state", "entry"])
     return refund
 
 
-def process(refund, *, force=False):
+def process(refund, *, force=False, retry_submission=False):
     def operation(current):
         validate_account(current.attempt.order, new_payment=False)
         if current.attempt.account_id != current.attempt.order.account_id:
             raise ValidationError("Payment account binding changed.")
         if current.state not in Refund.ACTIVE:
             return
+        if retry_submission and current.attempt.account.provider != "square":
+            raise ValidationError("Submission retries are only supported for Square refunds.")
         if not current.submitted_at:
-            # Commit uncertainty BEFORE contacting the provider. Never create twice after a crash.
+            # Commit uncertainty first; automatic recovery only reads after submission.
             Refund.objects.filter(pk=current.pk).update(submitted_at=timezone.now(), state="unknown")
+            snapshot = gateway(current.attempt.account).create_order_refund(current)
+        elif retry_submission and current.state == "unknown" and not current.provider_refund:
+            # Replay the original approved request and UUID, never approve a second refund.
             snapshot = gateway(current.attempt.account).create_order_refund(current)
         else:
             snapshot = gateway(current.attempt.account).retrieve_order_refund(current)

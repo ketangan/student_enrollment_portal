@@ -290,7 +290,7 @@
   <!-- Booking payment provider -->
   {% if booking_payments %}
   <section id="booking-payments" class="dash-card" style="padding:24px;margin-bottom:16px;scroll-margin-top:88px;">
-    <h2 style="font-size:14px;font-weight:700;margin:0 0 12px;">Booking Payments <span style="font-weight:400;color:var(--dash-muted);">&middot; Sandbox</span></h2>
+    <h2 style="font-size:14px;font-weight:700;margin:0 0 12px;">Booking Payments <span style="font-weight:400;color:var(--dash-muted);">&middot; {{ booking_payments.environment }}</span></h2>
     <p class="school-edit-description">New bookings use {{ booking_payments.provider }}. Existing reservations and refunds keep their original provider. Pontora subscription billing and enrollment payments are unchanged.</p>
     <form method="post">
       {% csrf_token %}{{ booking_payments.form.expected_provider }}

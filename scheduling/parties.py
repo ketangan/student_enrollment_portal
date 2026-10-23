@@ -88,7 +88,7 @@ def submit_inquiry(slug, pk, data, browser):
         require_capability(profile, "reservations")
         if not profile.native_reservations_enabled:
             raise ValidationError("Online party bookings are not available. Please contact the studio.")
-        account = booking_account(profile, True)
+        account = booking_account(profile, True, offering.location)
         save_reservation(party_reservation_item(profile, item), item, "party",
             int(item.proposed_total * 100), int(item.proposed_deposit * 100), account, None)
         item.status = PartyRequest.Status.REVIEWED

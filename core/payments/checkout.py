@@ -1,4 +1,4 @@
-"""Shared test checkout lifecycle. Provider calls are outside database transactions."""
+"""Shared account-bound checkout. Provider calls are outside database transactions."""
 
 from datetime import timedelta
 from urllib.parse import urlsplit
@@ -17,13 +17,15 @@ from . import providers, square
 
 def validate_account(order, *, new_payment=True):
     account = order.account
-    if (not account or account.school_id != order.school_id or order.environment != "test"
-            or account.environment != "test" or order.merchant_reference != account.reference
+    if (not account or account.school_id != order.school_id or order.environment != account.environment
+            or order.environment not in {"test", "live"}
+            or (order.environment == "live" and (account.provider != "square" or account.scope != "connected"))
+            or order.merchant_reference != account.reference
             or (account.provider == "stripe" and not account.reference.startswith("acct_")) or order.currency != "usd"):
-        raise ValidationError("This order has no valid sandbox merchant binding.")
+        raise ValidationError("This order has no valid payment account binding.")
     validate_scope(account)
     if new_payment and (not account.enabled or not providers.ready(account)):
-        raise ValidationError("Sandbox checkout is not enabled for this business.")
+        raise ValidationError("Online payments are not enabled for this business.")
 
 
 def amount_due(order):
@@ -64,7 +66,7 @@ def _validate_session(attempt, session):
                 else isinstance(session.get("id"), str) and session["id"].startswith("cs_test_") and len(session["id"]) <= 100)
     # Deferred methods need another settlement lifecycle. This guard also covers
     # recovery, so an unsupported checkout cannot become usable after a retry.
-    if (session.get("livemode") is not False or session.get("mode") != "payment"
+    if (session.get("livemode") is not (order.environment == "live") or session.get("mode") != "payment"
             or session.get("payment_method_types") != ["card"]
             or session.get("currency") != order.currency
             or type(session.get("amount_total")) is not int or session["amount_total"] != attempt.amount_cents
@@ -204,13 +206,13 @@ def apply_snapshot(attempt, session):
         if not attempt.entry_id:
             # Record verified money even if it arrived late. Domain code decides availability.
             attempt.entry = LedgerEntry.objects.create(order=attempt.order, school_id=attempt.order.school_id,
-                environment="test", key=attempt.public_id, kind="payment", channel=attempt.account.provider,
+                environment=attempt.order.environment, key=attempt.public_id, kind="payment", channel=attempt.account.provider,
                 amount_cents=attempt.amount_cents, reference=intent)
         attempt.provider_intent, attempt.state = intent, "paid"
         from core.services.payment_notifications import queue_payment_notice
         queue_payment_notice(key=f"booking:{attempt.order.merchant_reference}:{intent}:paid",
             school=attempt.order.school, kind="Booking payment received", reference=intent,
-            amount=attempt.amount_cents, currency=attempt.order.currency, livemode=False)
+            amount=attempt.amount_cents, currency=attempt.order.currency, livemode=attempt.order.environment == "live")
     attempt.provider_session = session["id"]
     attempt.save(update_fields=["provider_intent", "provider_session", "state", "entry", "checkout_url"])
     return attempt

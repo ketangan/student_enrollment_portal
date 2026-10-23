@@ -18,6 +18,7 @@ from . import views_family
 from . import views_appointments
 from . import views_messages
 from . import views_integrations
+from . import views_square_connection
 from . import views_visits
 from . import views_admissions
 from . import views_visit_pilot
@@ -27,6 +28,8 @@ from . import views_inventory as inventory
 app_name = "scheduling"
 
 urlpatterns = [
+    path("square/oauth/callback/", views_square_connection.callback, name="square_oauth_callback"),
+    path("<slug:school_slug>/integrations/square/update/", views_square_connection.update, name="square_connection_update"),
     path("<slug:school_slug>/guest-communication/", views_guides.settings, name="guest_communication"),
     path("<slug:school_slug>/design-guide/", views_guides.download, name="design_guide"),
     path("<slug:school_slug>/design-guide/versions/<int:pk>/", views_guides.download, name="design_guide_version"),
@@ -133,6 +136,7 @@ urlpatterns = [
     path("<slug:school_slug>/camp-received/<uuid:public_id>/", views_camps.camp_received, name="camp_received"),
     path("stripe/test/webhook/", views_checkout.stripe_test_webhook, name="stripe_test_webhook"),
     path("square/test/webhook/", square_checkout.square_test_webhook, name="square_test_webhook"),
+    path("square/live/webhook/", square_checkout.square_live_webhook, name="square_live_webhook"),
     path("<slug:school_slug>/square/pay/<str:token>/", square_checkout.square_checkout, name="square_checkout"),
     path("<slug:school_slug>/pay/<str:token>/", views_checkout.customer_payment, name="customer_payment"),
     path("", views.index, name="index"),

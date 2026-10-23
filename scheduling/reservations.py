@@ -150,11 +150,11 @@ def create_reservation(user, slug, kind, public_id, total_cents=None, deposit_ce
     profile = locked_profile(user, slug)
     if not profile.native_reservations_enabled:
         raise ValidationError("Native reservations are not enabled for this workspace.")
-    account = booking_account(profile, online)
     if kind == "workshop":
         require_capability(profile, "workshops")
         source = get_object_or_404(WorkshopRequest.objects.select_related("session__offering__location", "session__room"),
             public_id=public_id, session__offering__location__in=staff_locations(profile))
+        account = booking_account(profile, online, source.session.offering.location)
         existing = Reservation.objects.filter(workshop_request=source).first()
         if existing:
             if (existing.order.total_cents, existing.order.deposit_cents, existing.order.account_id) != (total_cents, deposit_cents, account.pk if account else None):
@@ -171,6 +171,7 @@ def create_reservation(user, slug, kind, public_id, total_cents=None, deposit_ce
         require_capability(profile, "parties")
         source = get_object_or_404(PartyRequest.objects.select_related("offering__location", "room"),
             public_id=public_id, offering__location__in=staff_locations(profile))
+        account = booking_account(profile, online, source.offering.location)
         existing = Reservation.objects.filter(party_request=source).first()
         if existing:
             if existing.order.account_id != (account.pk if account else None):
@@ -223,10 +224,24 @@ def workshop_quote(offering, unit_price_cents, quantity):
     return unit_price_cents * quantity, deposit * quantity
 
 
-def booking_account(profile, online):
+def booking_account(profile, online, location=None):
     if not online:
         return None
     from core.payments.providers import ready
+    environment = "test" if profile.school.is_demo else "live"
+    if profile.payment_provider == "square":
+        from .models import SquareConnection, SquareLocationMapping
+        connection = SquareConnection.objects.filter(profile=profile, environment=environment).exclude(merchant_id="").first()
+        if connection:
+            mapping = SquareLocationMapping.objects.select_related("account__school").filter(
+                connection=connection, location=location, location__profile=profile,
+                account__school=profile.school, account__reference=connection.merchant_id,
+                account__provider="square", account__scope="connected", account__environment=environment).first() if location else None
+            if not mapping or not mapping.account.enabled or not ready(mapping.account):
+                raise ValidationError("Square is not ready for this location. Check Settings > Integrations.")
+            return mapping.account
+        if environment == "live":
+            raise ValidationError("Connect Square and map this location in Settings > Integrations first.")
     account = PaymentAccount.objects.filter(school=profile.school, provider=profile.payment_provider, enabled=True, environment="test").first()
     if not account or not ready(account):
         raise ValidationError("Payment sandbox is not connected. Use offline test records for now.")

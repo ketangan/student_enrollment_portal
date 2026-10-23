@@ -16,5 +16,7 @@ def gateway(account):
 
 def ready(account):
     if account.provider == "square":
-        return square.configured() and (settings.DEBUG or square.webhook_configured())
+        if account.environment == "live":
+            return settings.PAYMENTS_SQUARE_LIVE_ENABLED and square.configured(account) and square.webhook_configured("live")
+        return square.configured(account) and (settings.DEBUG or square.webhook_configured())
     return account.provider == "stripe" and billing_stripe.merchant_test_checkout_ready()

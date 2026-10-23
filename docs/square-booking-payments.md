@@ -2,19 +2,232 @@
 
 ## Live Connection Work (October 22, 2026)
 
-In progress, not enabled. The existing implementation intentionally rejects live
-accounts in database constraints, order validation, checkout and webhook handling.
-Changing the API endpoint alone is not a production implementation.
+Local implementation is in progress and live charging remains disabled. The latest
+increment below adds environment-bound production transport, ledger and webhooks
+behind an explicit activation gate. Historical increments below describe their
+state at the time; they are not evidence of production acceptance.
 
 First local increment: `core/payments/square_oauth.py` implements explicit
 test/live authorization URLs, code exchange, token introspection, merchant-bound
 refresh and revocation. It reuses the existing no-redirect policy, bounds response
 size, hides credentials from object representations/debug pages, and does not retry
-uncertain requests. It is not wired to routes, credential storage or checkout yet;
-no account is connected and live checkout remains disabled. Verification: 45
+uncertain requests. Live checkout remains disabled. Verification of the client: 45
 client tests, 100% statement/branch coverage, and 219 combined Square/checkout
 regressions passed. Provider responses were mocked; this is not a real OAuth
 acceptance test. This work is separate from release PR #6.
+
+Second local increment: the existing booking Settings > Integrations page now
+includes Square connection status and Connect, Check connection, Reconnect and
+Disconnect actions. Only school-wide owners and superadmins can use them. The
+selected payment provider is not changed by connecting an account. Credentials
+use the existing authenticated vault; authorization state is single-use and bound
+to the school, environment, app, user and browser session. Revision checks and
+short operation leases prevent stale updates from overwriting newer actions.
+
+The additive migration 0038 creates seller authorization records without modifying
+payment accounts or existing orders. The callback is
+`/bookings/square/oauth/callback/`. Configure the exact site callback and application
+secret separately with `PAYMENTS_SQUARE_TEST_OAUTH_REDIRECT_URI` and
+`PAYMENTS_SQUARE_TEST_APPLICATION_SECRET` (and corresponding `LIVE` settings).
+`BOOKINGS_INTEGRATION_KEYS` must be configured before connection is offered.
+Never put these secrets in school YAML, source control or browser fields.
+
+`refresh_square_connections --limit 20` renews due authorizations and retries
+pending disconnects, with a nonzero exit status when attention is needed. Successful
+renewals are due again the following day; failed operations retry after an hour.
+The job is implemented but **not scheduled on Render yet**. Schedule frequent,
+bounded runs and monitor failures before enabling live payments. Expired or overdue
+connections are visibly distinguished from current connections.
+
+Real sandbox OAuth acceptance is recorded below. Hosted scheduling and live
+payment transport remain pending. Automated lifecycle tests mock
+provider responses and are separate from the real-provider walkthrough.
+
+Verification (October 23): 4,502 Python tests passed and three skipped across an
+interrupted run (3,791 passed) and an overlapping continuation (721 passed).
+The run was split after the transaction-test group slowed down; this was not one
+uninterrupted full-suite pass. All 83 JavaScript tests passed. New lifecycle module
+coverage is 98.35% combined, with every new module above 90%. The concurrent callback
+test verifies only one code exchange while the first provider response is pending.
+Migration drift and whitespace checks passed. The existing localhost:8002 database
+was reused. The unconfigured owner settings page was visually checked at desktop
+and mobile widths; connected/error controls have automated rendering coverage,
+with the real-provider walkthrough subsequently completed below.
+
+### Real Sandbox OAuth Verification (October 23)
+
+Used the existing Pontora Square application and Default Test Account. Configured
+the Sandbox callback as `http://localhost:8002/bookings/square/oauth/callback/`.
+The Sandbox application secret and vault configuration use the existing ignored
+local `.env`; no production credentials or Render settings were changed. The
+existing preview settings load only these Sandbox values and retain the network
+guard. No new server port, database or seller account was created.
+
+Verified in the browser: denial returns without connecting, successful consent
+connects the expected seller, Check connection renews the real token, and Reconnect
+returns to the same seller. Marked only this local connection due and ran the
+renewal command: one connection checked, zero failures, next check advanced. A stale
+browser submission was rejected after that renewal. Disconnect succeeded against
+Square and cleared the local credential ciphertext and expiry. The original
+Sandbox payment credential passed a read-only location check before and after
+revocation. No payment, refund, provider switch or production action was performed.
+
+The revocation test initially left OAuth disconnected. The subsequent mapping
+verification below reconnected the same Sandbox seller with explicit approval.
+Real production acceptance is still outstanding.
+
+### Location Mapping and Connected Sandbox Payments (October 23)
+
+Settings > Integrations now contains a compact account-status section and a shared
+location-mapping table. Refresh reads eligible active US/USD card-processing
+locations using the seller's existing OAuth permissions. Save revalidates against
+Square outside database locks, then checks permissions, environment and revision
+under the profile lock. Unknown, foreign, omitted and stale location submissions
+cannot partially change mappings. No remote request runs on the settings GET.
+
+Mappings select immutable PaymentAccount bindings for new workshops, parties and
+camps. Remapping does not rebind old orders; balances, refunds and recovery use
+the original account/location. Connected accounts use encrypted seller tokens,
+never a fallback platform token. Disconnected, expired and unmapped locations fail
+closed. The existing superadmin provider selector supports these bindings;
+connecting or mapping does not itself change the provider. Stripe's uniqueness
+and existing shared-sandbox behavior remain intact. Payment constraints still
+reject live accounts; this increment does not enable production charges.
+
+Local migrations payments 0009 and scheduling 0039 were applied to the existing
+preview database. Real Sandbox consent, location refresh and mapping save were
+verified. All five local Plushie locations map to the one available Default Test
+Account location for testing only. Mobile unmap/save/remap was verified; desktop
+and mobile screenshots were inspected. No real or Sandbox payment was submitted
+in this walkthrough. Payment/refund acceptance in this increment uses mocked
+provider responses, including deposits, balances after remapping, decline/retry,
+uncertain-payment recovery, webhook replay and provider-switch refunds.
+
+Verification: 207 focused tests and 657 broader regressions passed before the
+final additional permission/balance cases. The expanded mapping suite then passed
+all 32 tests (overlapping the focused run). Production mapping/transport/webhooks, hosted renewal
+scheduling and Jasmine-owned live acceptance remain launch gates.
+
+### Payment Acceptance and Live Environment Support (October 23)
+
+Local, uncommitted work. The existing shared checkout, ledger, refund, recovery and
+mapping paths now support connected Square live accounts. Live Stripe booking
+accounts are still unsupported by this control; existing Stripe enrollment,
+subscription and Sandbox booking behavior is unchanged. No live account was
+connected, no live charge made, no deployment or Render configuration changed.
+
+Production configuration is explicit and separate:
+
+- Existing `PAYMENTS_SQUARE_LIVE_APPLICATION_ID`, `..._APPLICATION_SECRET` and
+  `..._OAUTH_REDIRECT_URI` configure seller authorization.
+- `PAYMENTS_SQUARE_LIVE_WEBHOOK_SECRET` and `..._WEBHOOK_URL` configure the exact
+  registered HTTPS endpoint `/bookings/square/live/webhook/`. Subscribe to payment
+  and refund created/updated events. Sandbox retains `/bookings/square/test/webhook/`
+  and its own signature key and URL. Event payloads cannot choose the environment.
+- `PAYMENTS_SQUARE_LIVE_ENABLED` defaults to false. It gates new charges even under
+  DEBUG. Live checkout also requires the live webhook configuration, a current
+  encrypted seller connection and an enabled mapped account. No live platform-token
+  fallback exists. This setting was **not enabled** during this work.
+- Owners may prepare location mappings before activation. A superadmin must still
+  choose Square in the school's existing Booking Payments control. Mapping does
+  not switch providers. The section now labels its actual Sandbox/Live environment.
+- Disabling new charges does not block reading existing payments, processing
+  verified webhooks or refunding existing payments. Original order bindings remain
+  authoritative after location/provider changes.
+
+Migration payments 0010 permits only connected Square accounts in live mode;
+live Stripe/shared-demo accounts remain rejected by database constraints. Existing
+records are not rewritten. Applied locally to the existing preview database only.
+Do not reverse this constraint migration after live records exist; use a reviewed
+forward fix and disable new charges instead.
+
+Real provider verification used only the existing Default Test Account, encrypted
+OAuth credentials, localhost:8002, the existing preview DB and synthetic contacts.
+Email stayed in memory. Results:
+
+- A fresh browser-created workshop booking collected $65 through Square's Sandbox
+  card SDK and returned to the confirmed customer page, with one ledger payment.
+- A separate synthetic reservation collected a $25 deposit and $40 balance through
+  the actual Sandbox API. Deliberately discarding the successful balance response
+  left the attempt unknown. A repeat submission was blocked before transport.
+  The first immediate lookup did not yet find the payment; a later read recovered
+  it. Exactly two payment entries totaled $65.
+- Both payments were refunded after cancellation. The $25 refund progressed from
+  pending to succeeded. The $40 request initially remained unknown with no refund
+  found; an operator reissued **the original idempotency key and amount**, then
+  verified completion. This was manual intervention, not automatic recovery.
+  Final ledger: $65 paid, $65 refunded, $0 retained. Unknown refunds without a
+  discoverable provider object still require operator investigation; never create
+  a replacement refund with a new key. Do not infer why the original request
+  failed: its provider error code was not retained.
+- A real SDK decline using Square's documented declined card produced the existing
+  clean retry screen. Try another card reopened the secure form. The unused retry
+  checkout was closed through the admin screen, releasing its hold.
+- Desktop confirmation/admin totals and mobile card/retry screens were inspected.
+  The mobile viewport had no horizontal overflow. Back navigation was checked on
+  the browser-created flow and the standard signed reservation-payment page.
+
+Final automated regression pass: **791 passed in 49.06 seconds**, including 15 live
+environment tests. Production responses are mocked, not actual live transactions.
+Coverage includes live deposit/balance/refund routing, SDK selection, default-off
+activation, mapping before activation, cross-environment signatures/evidence,
+duplicate events, recovery while intake is disabled, original account bindings,
+legacy shared-Sandbox webhook routing, and Stripe/subscription regressions.
+
+Still required before production activation: hosted webhook delivery acceptance,
+scheduled OAuth renewal with failure monitoring, Jasmine's live authorization and
+location verification, explicitly approved small live payment/refund acceptance,
+and the recovery deployment checks below. Nothing here marks L01 launched.
+
+### Refund Recovery Follow-Up (October 23)
+
+- Reservation recovery now offers **Retry refund** only for an unknown Square
+  refund without a saved provider ID. It replays the original approved amount,
+  payment, reason and refund UUID as the idempotency key. It does not approve a
+  replacement refund. Known refunds remain status-check only, and Stripe is
+  unchanged. Existing permission checks, operation leases and the 30-second
+  cooldown apply. Automatic recovery does not resubmit uncertain refunds.
+- Operator flow: open the reservation, use Retry refund once, then Check refund
+  status after Square starts processing. If verification continues to fail,
+  inspect the original payment in Square; do not create a replacement request or
+  change its key. A pending refund is not recorded as refunded until verified.
+- Real Sandbox browser verification recovered an intentionally interrupted $65
+  refund on the existing synthetic booking. Square returned pending, then
+  completed; the ledger contains exactly one $65 refund and $0 retained. Email
+  stayed in memory. The existing server and local preview database were reused.
+- Follow-up regression: **465 tests passed in 32.37 seconds**, including lost
+  responses before/after acceptance, identical retry payloads, repeat clicks,
+  known-refund read-only recovery, access/CSRF checks, OAuth/location mapping,
+  live environment selection and Stripe/subscription regressions. Live responses
+  remain mocked; no real-money transaction was performed.
+- `reconcile_booking_payments --environment test --limit 20` retains the previous
+  default. `--environment live` explicitly selects connected Square booking
+  records; it does not enable checkout and continues recovery when intake is
+  disabled. Keep test and live jobs separate. Neither command was scheduled on
+  Render in this follow-up. Schedule `refresh_square_connections --limit 20` and
+  the appropriate recovery jobs after deployment, with failure monitoring, then
+  verify hosted webhook delivery before enabling live charging.
+- Retry behavior follows Square's [idempotency contract](https://developer.squareup.com/docs/build-basics/common-api-patterns/idempotency)
+  and [Refund Payment API](https://developer.squareup.com/reference/square/refunds-api/refund-payment).
+
+### Test Timing Investigation (October 23)
+
+Profiled migration, pilot and reservation tests: 125 passed in 459.88 seconds under
+cProfile (profiling adds overhead). Of 461.45 seconds profiled, 445.28 seconds were
+inside 58 migration executions; historical model reload/render work dominated,
+including 613,273 model renders. Individual historical migration tests took
+approximately 20-42 seconds under profiling. This reproduces the slowdown outside
+the full suite and identifies repeated schema/model-state rebuilding, rather than
+Square network waits, as the main cost in this measured group.
+
+Comparison without migration tests or profiler: 189 booking/Square tests passed in
+8.85 seconds; the slowest individual call was 0.37 seconds.
+
+Do not disable migration assertions or raise timeouts to hide this. Follow-up:
+reduce redundant migration transitions with shared migration-test setup where
+isolation can be preserved, and report migration timings separately from regular
+behavior tests. Retain full migration coverage in release checks. No performance
+refactor or change to test assertions was made during this verification.
 
 Implementation sequence:
 

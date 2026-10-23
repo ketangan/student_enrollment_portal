@@ -15,9 +15,9 @@ from .views import _context
 from .reservations import _audit
 
 
-def process_refund(user, item, refund):
+def process_refund(user, item, refund, *, retry_submission=False):
     previous = (refund.state, refund.attention)
-    refunds.process(refund, force=True)
+    refunds.process(refund, force=True, retry_submission=retry_submission)
     refund.refresh_from_db()
     if previous != (refund.state, refund.attention):
         _audit(user, item, "refund_status", refund=str(refund.public_id), status=refund.get_state_display())
@@ -94,6 +94,11 @@ def refund_create(request, school_slug, public_id):
 def refund_recover(request, school_slug, public_id, refund_id):
     _, _, item = _item(request, school_slug, public_id)
     refund = get_object_or_404(Refund, public_id=refund_id, attempt__order=item.order)
-    process_refund(request.user, item, refund)
+    action = request.POST.get("action", "check")
+    if action not in {"check", "retry"}:
+        return HttpResponseBadRequest("Choose check or retry.")
+    if action == "retry" and refund.attempt.account.provider != "square":
+        return HttpResponseBadRequest("Submission retries are only supported for Square refunds.")
+    process_refund(request.user, item, refund, retry_submission=action == "retry")
     messages.info(request, "Refund check requested. Review the saved status; recent checks are not repeated immediately.")
     return _back(school_slug, public_id)
