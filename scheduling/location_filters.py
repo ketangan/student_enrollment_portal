@@ -1,8 +1,9 @@
-"""Tenant-scoped staff preference; never a permission or a public booking filter."""
+"""Staff location preference, always bounded by membership permissions."""
 
 from django import forms
 
 from .models import Location
+from .access import staff_locations, scope_locations, location_restricted
 
 
 class LocationFilterForm(forms.Form):
@@ -13,7 +14,10 @@ class LocationFilterForm(forms.Form):
 
     def __init__(self, data, *, profile):
         super().__init__(data)
-        self.fields["location"].queryset = profile.locations.order_by("name", "pk")
+        self.profile = profile
+        if location_restricted(profile):
+            self.fields["location"].empty_label = "All assigned locations"
+        self.fields["location"].queryset = staff_locations(profile).order_by("name", "pk")
 
     @property
     def selected(self):
@@ -22,6 +26,7 @@ class LocationFilterForm(forms.Form):
     def filter(self, items, lookup):
         if not self.is_valid():
             return items.none()
+        items = scope_locations(items, self.profile, lookup)
         return items.filter(**{lookup: self.selected.pk}) if self.selected else items
 
 

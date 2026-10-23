@@ -69,6 +69,10 @@ class SchedulingMembership(models.Model):
         related_name="scheduling_memberships",
     )
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.VIEWER)
+    all_locations = models.BooleanField(default=True)
+    locations = models.ManyToManyField("Location", blank=True, related_name="staff_memberships")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="created_scheduling_memberships")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -582,6 +586,7 @@ class Reservation(models.Model):
     prepared_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
         on_delete=models.SET_NULL, related_name="prepared_reservations")
     preparation_version = models.PositiveIntegerField(default=0)
+    internal_notes = models.TextField(blank=True, max_length=3000)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

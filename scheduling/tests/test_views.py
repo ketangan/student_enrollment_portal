@@ -214,7 +214,7 @@ def test_enrollment_login_does_not_query_bookings_tables(client, booking_user, b
     assert not any("scheduling_" in query["sql"] for query in queries)
 
 
-@pytest.mark.parametrize("page", ["index", "workspace", "access"])
+@pytest.mark.parametrize("page", ["index", "workspace"])
 def test_read_only_pages_reject_posts(client, booking_member, page):
     client.force_login(booking_member.user)
     path = reverse("scheduling:index") if page == "index" else globals()[page](booking_member.profile)

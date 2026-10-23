@@ -17,7 +17,7 @@ def billing_role(user, school):
         return membership.role if membership else None
     SchedulingMembership = apps.get_model("scheduling", "SchedulingMembership")
     booking_role = SchedulingMembership.objects.filter(
-        user=user, profile__school=school, profile__enabled=True, is_active=True,
+        user=user, profile__school=school, profile__enabled=True, is_active=True, all_locations=True,
     ).values_list("role", flat=True).first()
     if booking_role == "owner":
         return "owner"

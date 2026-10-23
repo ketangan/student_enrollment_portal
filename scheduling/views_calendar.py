@@ -4,13 +4,13 @@ from django.http import Http404, JsonResponse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
-from .access import require_access
+from .access import require_location_access
 from .calendar import calendar_available, calendar_detail, calendar_events, calendar_summary
 from .location_filters import staff_location
 
 
 def authorized_profile(request, school_slug):
-    profile, _ = require_access(request.user, school_slug, capability="workshops")
+    profile, _ = require_location_access(request.user, school_slug, capability="workshops")
     if not calendar_available(profile):
         raise Http404
     return profile

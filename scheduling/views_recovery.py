@@ -8,9 +8,8 @@ from django.views.decorators.http import require_POST, require_http_methods
 
 from core.payments import refunds
 from core.payments.models import Refund
-from .access import require_access
+from .access import get_staff_reservation, require_location_access
 from .checkout import approve_refund, recover_attempt, request_close, resolve_review
-from .models import Reservation
 from .reservation_forms import RefundForm
 from .views import _context
 from .reservations import _audit
@@ -25,8 +24,8 @@ def process_refund(user, item, refund):
 
 
 def _item(request, slug, public_id):
-    profile, role = require_access(request.user, slug, "setup.edit", capability="reservations")
-    return profile, role, get_object_or_404(Reservation.objects.select_related("order"), profile=profile, public_id=public_id, visit_booking__isnull=True)
+    profile, role = require_location_access(request.user, slug, "setup.edit", capability="reservations")
+    return profile, role, get_staff_reservation(profile, public_id, exclude_visits=True)
 
 
 def _back(slug, public_id):

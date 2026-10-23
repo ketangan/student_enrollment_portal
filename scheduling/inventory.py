@@ -6,9 +6,9 @@ from django.db import transaction
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from .access import require_access
+from .access import get_staff_reservation, require_location_access, staff_locations
 from .inventory_models import validate_amount
-from .models import ChoiceOption, Reservation, SchedulingProfile, StockAllocation, CatalogVariant, StockLevel, StockAdjustment
+from .models import ChoiceOption, SchedulingProfile, StockAllocation, CatalogVariant, StockLevel, StockAdjustment
 
 
 def claims():
@@ -164,10 +164,10 @@ def ensure_stock(reservation):
 
 @transaction.atomic
 def adjust(user, slug, level_id, *, on_hand, previous, reason, low_stock_threshold=None, previous_threshold=None):
-    profile, _ = require_access(user, slug, "setup.edit")
+    profile, _ = require_location_access(user, slug, "setup.edit")
     SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
-    profile, _ = require_access(user, slug, "setup.edit")
-    level = get_object_or_404(StockLevel, pk=level_id, location__profile=profile, material__profile=profile)
+    profile, _ = require_location_access(user, slug, "setup.edit")
+    level = get_object_or_404(StockLevel, pk=level_id, location__in=staff_locations(profile), material__profile=profile)
     if level.on_hand != previous:
         raise ValidationError("Stock changed while this page was open. Reload before saving.")
     on_hand = validate_amount(on_hand, level.material.unit, allow_zero=True)
@@ -197,10 +197,10 @@ def adjust(user, slug, level_id, *, on_hand, previous, reason, low_stock_thresho
 
 @transaction.atomic
 def consume(user, slug, public_id):
-    profile, _ = require_access(user, slug, "sessions.edit")
+    profile, _ = require_location_access(user, slug, "sessions.edit")
     SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
-    profile, _ = require_access(user, slug, "sessions.edit")
-    reservation = get_object_or_404(Reservation, profile=profile, public_id=public_id)
+    profile, _ = require_location_access(user, slug, "sessions.edit")
+    reservation = get_staff_reservation(profile, public_id)
     if reservation.state != "confirmed":
         raise ValidationError("Only confirmed bookings can use materials.")
     validate_allocations(reservation)
@@ -228,7 +228,7 @@ def stock_status(level, available):
 
 
 def stock_rows(profile, location=None, catalog=None):
-    levels = StockLevel.objects.filter(location__profile=profile, material__profile=profile)
+    levels = StockLevel.objects.filter(location__in=staff_locations(profile), material__profile=profile)
     if location:
         levels = levels.filter(location=location)
     if catalog:

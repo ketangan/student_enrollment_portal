@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from .models import Offering, PartyPackage, PartyRequest, PartySlot, Room
 from .inventory_forms import party_material_forms, material_snapshot
+from .access import staff_locations
 
 
 class PartyInquiryForm(forms.Form):
@@ -154,12 +155,12 @@ class PartyPackageForm(forms.ModelForm):
 
     def __init__(self, *args, profile, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["offering"].queryset = Offering.objects.filter(location__profile=profile, visit_program__isnull=True).select_related("location")
+        self.fields["offering"].queryset = Offering.objects.filter(location__in=staff_locations(profile), visit_program__isnull=True).select_related("location")
         self.fields["offering"].label_from_instance = lambda obj: f"{obj.name} ({obj.location.name})"
         if self.instance.pk:
             self.fields["offering"].disabled = True
         offering_id = self.instance.offering_id if self.instance.pk else self.data.get("offering") if self.is_bound else None
-        self.fields["room"].queryset = Room.objects.filter(location__profile=profile).select_related("location")
+        self.fields["room"].queryset = Room.objects.filter(location__in=staff_locations(profile)).select_related("location")
         self.fields["room"].empty_label = "Assign during review"
         if str(offering_id or "").isdecimal():
             self.fields["room"].queryset = self.fields["room"].queryset.filter(location__offerings__pk=offering_id)

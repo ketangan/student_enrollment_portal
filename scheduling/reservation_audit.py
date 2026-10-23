@@ -6,6 +6,7 @@ from .models import StockAdjustment
 
 
 LABELS = {
+    "internal_notes_updated": "Internal notes updated",
     "created": "Reservation created", "checkout_status": "Checkout status updated",
     "canceled": "Reservation canceled", "verified_test_payment": "Payment verified",
     "close_checkout_requested": "Checkout closure requested", "payment_review_confirmed": "Reservation confirmed after payment review",

@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .capabilities import has_capability
+from .access import scope_locations, staff_locations, location_restricted
 from .models import LessonAvailability, LessonOccurrence, Location, Offering, PartyRequest, Reservation, Session, WorkshopRequest
 from .reservation_queries import ATTENTION, reservation_location, staff_reservations, preparation_queue
 
@@ -27,6 +28,7 @@ def overview(profile, *, location=None):
         steps.append({"label": label, "complete": complete, "url": url(destination)})
 
     def scoped(items, lookup):
+        items = scope_locations(items, profile, lookup)
         return items.filter(**{lookup: location}) if location else items
 
     def list_url(name, **filters):
@@ -40,9 +42,10 @@ def overview(profile, *, location=None):
             "zone": place.timezone_name, "room": room.name if room else "No room assigned",
             "kind": kind, "url": destination, "reservation_count": reservation_count})
 
-    step("Add a location", Location.objects.filter(profile=profile).exists(), "locations")
+    if not location_restricted(profile):
+        step("Add a location", staff_locations(profile).exists(), "locations")
     if has_capability(profile, "workshops"):
-        offerings = Offering.objects.filter(location__profile=profile, visit_program__isnull=True)
+        offerings = Offering.objects.filter(location__in=staff_locations(profile), visit_program__isnull=True)
         step("Add a workshop", offerings.exists(), "workshops")
         step("Publish a future session", Session.objects.filter(offering__in=offerings,
             offering__is_published=True, is_published=True, starts_at__gt=now).exists(), "workshops")
@@ -75,13 +78,14 @@ def overview(profile, *, location=None):
         ])
         from .dashboard_activity import recent_activity
         activity = recent_activity(profile, reservations)
-        step("Enable reservations", profile.native_reservations_enabled, "reservations")
+        if not location_restricted(profile):
+            step("Enable reservations", profile.native_reservations_enabled, "reservations")
         parties = scoped(Reservation.objects.filter(profile=profile, state="confirmed", party_request__isnull=False,
             ends_at__gt=now, starts_at__lt=end), "party_request__offering__location").select_related("party_request__offering__location", "room").order_by("starts_at", "pk")[:21]
         for party in parties:
             event(party.starts_at, party.ends_at, party.snapshot["workshop"], party.party_request.offering.location,
                 party.room, "Confirmed party", url("reservation_detail", public_id=party.public_id))
-    if has_capability(profile, "lessons"):
+    if has_capability(profile, "lessons") and not location_restricted(profile):
         step("Enable lesson scheduling", profile.lessons_enabled, "lesson_settings")
         if profile.lessons_enabled:
             step("Add teacher availability", LessonAvailability.objects.filter(teacher__profile=profile).exists(), "lesson_setup")
@@ -91,7 +95,7 @@ def overview(profile, *, location=None):
                 series = lesson.series
                 event(lesson.starts_at, lesson.ends_at, f"{series.student.name} - {series.service.name}",
                     series.location, series.room, f"Lesson with {series.teacher.name}", url("lesson_series", public_id=series.public_id))
-    if has_capability(profile, "visits"):
+    if has_capability(profile, "visits") and not location_restricted(profile):
         from .visits import slots, bookings
         upcoming = slots(profile).filter(session__ends_at__gt=now, session__is_published=True)
         step("Publish a tour time", upcoming.filter(program__offering__is_published=True).exists(), "visits")

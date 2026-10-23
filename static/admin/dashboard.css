@@ -1082,3 +1082,33 @@ body.dash-midnight .dash-select {
     grid-template-columns: 1fr 1fr;
   }
 }
+/* Shared team panel: keep the enrollment controls independent of host-page styles. */
+.dash-body .school-team { box-sizing: content-box; }
+.dash-body .school-team .dash-table-scroll { overflow-x: auto; }
+.dash-body .school-team .dash-table { table-layout: auto; width: 100%; }
+.booking-team .school-team .dash-table { min-width: 980px; }
+.dash-body .school-team .dash-table :is(th, td) { box-sizing: content-box; overflow-wrap: normal; }
+.dash-body .school-team .dash-table thead { background: transparent; }
+.dash-body .school-team .dash-table th { height: auto; padding: 0 10px 8px; border-bottom: 1px solid var(--dash-border); }
+.dash-body .school-team .dash-table td { color: var(--dash-text); vertical-align: middle; border-color: #f3f4f6; }
+.dash-body .school-team :is(input, select, button) { min-height: 0; line-height: normal; font-family: Arial, sans-serif; }
+.dash-body .school-team :is(input[type=text], input[type=email]) { box-sizing: content-box; }
+.dash-body .school-team .team-create-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: end; }
+.dash-body .school-team .team-create-form input { min-width: 0; }
+@media (max-width: 800px) { .dash-body .school-team .team-create-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 400px) { .dash-body .school-team .team-create-form { grid-template-columns: minmax(0, 1fr); } }
+.dash-body .school-team button { border: 2px outset ButtonBorder; background: ButtonFace; color: ButtonText; border-radius: 7px; white-space: nowrap; }
+.dash-body .school-team .dash-action-btn--primary { background: var(--dash-primary); color: white; }
+.dash-body .school-team .dash-action-btn--danger { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+.dash-body .school-team .team-locations-cell { width: 150px; }
+.dash-body .school-team .team-new-locations { display: flex; flex-direction: column; gap: 4px; }
+.dash-body .school-team .team-location-picker { position: relative; font: 12px Arial, sans-serif; min-width: 140px; }
+.dash-body .school-team .team-location-picker summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; padding: 3px 6px; border: 1px solid var(--dash-border); border-radius: 5px; background: var(--dash-bg); color: var(--dash-text); list-style: none; }
+.dash-body .school-team .team-location-picker summary::-webkit-details-marker { display: none; }
+.dash-body .school-team .team-location-picker summary::after { content: ""; width: 6px; height: 6px; border-right: 1px solid; border-bottom: 1px solid; transform: rotate(45deg); margin: -3px 2px 0; flex-shrink: 0; }
+.dash-body .school-team .team-new-locations summary { padding: 6px 10px; font-size: 13px; }
+.dash-body .school-team .team-location-menu { position: fixed; z-index: 210; width: 230px; max-height: 280px; overflow-y: auto; box-sizing: border-box; padding: 10px; background: var(--dash-card); border: 1px solid var(--dash-border); border-radius: 6px; box-shadow: 0 4px 12px #0002; }
+.dash-body .school-team .team-location-menu label { display: flex; align-items: center; gap: 8px; margin: 0; padding: 7px 4px; font-size: 12px; font-weight: 400; text-transform: none; color: var(--dash-text); }
+.dash-body .school-team .team-location-menu input[type=checkbox] { width: 14px; height: 14px; padding: 0; margin: 0; flex: 0 0 14px; }
+.dash-body .school-team .team-location-options { border-top: 1px solid var(--dash-border); margin-top: 4px; padding-top: 4px; }
+.dash-body .school-team .team-location-menu button { font-size: 12px; padding: 4px 12px; margin-top: 8px; }

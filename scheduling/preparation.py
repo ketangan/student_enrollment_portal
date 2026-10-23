@@ -3,10 +3,9 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.forms.models import model_to_dict
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from .access import require_access
+from .access import get_staff_reservation, require_location_access
 from .editing import protect_edit
 from .models import Reservation, SchedulingProfile
 from .setup import _audit
@@ -32,10 +31,10 @@ def validate_materials(item, allocations):
 
 @transaction.atomic
 def update(user, slug, public_id, data):
-    profile, _ = require_access(user, slug, "sessions.edit", capability="reservations")
+    profile, _ = require_location_access(user, slug, "sessions.edit", capability="reservations")
     SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
-    profile, _ = require_access(user, slug, "sessions.edit", capability="reservations")
-    item = get_object_or_404(Reservation, profile=profile, public_id=public_id, visit_booking__isnull=True)
+    profile, _ = require_location_access(user, slug, "sessions.edit", capability="reservations")
+    item = get_staff_reservation(profile, public_id, exclude_visits=True)
     form = form_for(item, profile, data)
     if not form.is_valid():
         raise ValidationError([message for errors in form.errors.values() for message in errors])

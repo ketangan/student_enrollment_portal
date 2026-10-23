@@ -4,6 +4,10 @@
   <div><dt>Participants</dt><dd>{{ item.quantity }}</dd></div>
   <div><dt>Contact</dt><dd>{% if contact_email %}<a href="mailto:{{ contact_email }}">{{ contact_email }}</a>{% else %}Not provided{% endif %}</dd></div>
   <div><dt>Studio</dt><dd>{{ reservation_location.name }}</dd></div>
+  {% if item.snapshot.party_package.name %}<div><dt>Party</dt><dd>{{ item.snapshot.party_package.name }}</dd></div>{% endif %}
+  {% if item.snapshot.occasion %}<div><dt>Occasion</dt><dd>{{ item.snapshot.occasion }}</dd></div>{% endif %}
+  {% if party_space_label %}<div><dt>Space</dt><dd>{{ party_space_label }}</dd></div>{% endif %}
+  {% if item.snapshot.party_package.included_observers != None %}<div><dt>Observers included</dt><dd>{{ item.snapshot.party_package.included_observers }}</dd></div>{% endif %}
   {% if item.snapshot.organizer_phone %}<div><dt>Phone</dt><dd>{{ item.snapshot.organizer_phone }}</dd></div>{% endif %}
   {% if item.snapshot.birthday_name %}<div><dt>Birthday person</dt><dd>{{ item.snapshot.birthday_name }}</dd></div>{% endif %}
   {% if item.party_request_id and item.snapshot.birthday_age != None %}<div><dt>Turning</dt><dd>{{ item.snapshot.birthday_age }}</dd></div>{% endif %}

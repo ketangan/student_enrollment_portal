@@ -1,0 +1,185 @@
+    <!-- ── Team ─────────────────────────────────────────────────────────── -->
+    <div class="dash-card school-team" style="padding:24px;margin-bottom:20px;">
+      <h2 style="font-size:15px;font-weight:700;margin:0 0 4px;">Team</h2>
+      <p style="font-size:12px;color:var(--dash-muted);margin:0 0 20px;">
+        People who can access this school's admin portal.
+      </p>
+
+      {# Member table #}
+
+      {% if booking_team and not members %}<p class="empty-state">No team members assigned.</p>{% endif %}
+      {% if members %}
+      <div class="dash-table-scroll" style="margin-bottom:20px;">
+        <table class="dash-table" style="font-size:13px;">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              {% if booking_team %}<th>Locations</th>{% endif %}
+              <th>Status</th>
+              <th>Added</th>
+              <th>Added by</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in members %}
+            <tr{% if not m.is_active %} style="opacity:.5;"{% endif %}>
+              <td style="font-weight:500;white-space:nowrap;">{{ m.user.username }}</td>
+              <td>
+                {% if is_owner and m.is_active %}
+                <form method="post" action="{% if booking_team %}{{ team_url }}{% else %}{% url 'school_team_update_name' school.slug m.id %}{% endif %}"
+                      style="display:flex;gap:4px;align-items:center;">
+                  {% csrf_token %}{% if booking_team %}<input type="hidden" name="team_action" value="name"><input type="hidden" name="member" value="{{ m.pk }}">{{ m.access_form.edit_revision }}{% endif %}
+                  <input type="text" name="first_name" value="{{ m.user.first_name }}" placeholder="First"
+                         style="width:80px;padding:3px 6px;font-size:12px;border:1px solid var(--dash-border);
+                                border-radius:5px;background:var(--dash-bg);color:var(--dash-text);">
+                  <input type="text" name="last_name" value="{{ m.user.last_name }}" placeholder="Last"
+                         style="width:80px;padding:3px 6px;font-size:12px;border:1px solid var(--dash-border);
+                                border-radius:5px;background:var(--dash-bg);color:var(--dash-text);">
+                  <button type="submit" class="dash-action-btn"
+                          style="font-size:11px;padding:3px 8px;">Save</button>
+                </form>
+                {% else %}
+                  <span style="color:var(--dash-muted);">{{ m.user.get_full_name|default:"—" }}</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if is_owner and m.is_active and not m.user.is_superuser or is_owner and m.is_active and request.user.is_superuser %}
+                <form method="post" action="{% if booking_team %}{{ team_url }}{% else %}{% url 'school_team_update_email' school.slug m.id %}{% endif %}" style="display:flex;gap:4px;align-items:center;">
+                  {% csrf_token %}{% if booking_team %}<input type="hidden" name="team_action" value="email"><input type="hidden" name="member" value="{{ m.pk }}">{% endif %}
+                  <input type="email" name="email" value="{{ m.user.email }}" required maxlength="254" placeholder="Email not set" aria-label="Email for {{ m.user.username }}"
+                         style="width:170px;padding:3px 6px;font-size:12px;border:1px solid var(--dash-border);border-radius:5px;background:var(--dash-bg);color:var(--dash-text);">
+                  <button type="submit" class="dash-action-btn" style="font-size:11px;padding:3px 8px;">Save</button>
+                </form>
+                {% else %}{{ m.user.email|default:"Email not set" }}{% endif %}
+              </td>
+              <td>
+                {% if is_owner and m.is_active %}
+                <form method="post" action="{% if booking_team %}{{ team_url }}{% else %}{% url 'school_team_role' school.slug m.id %}{% endif %}" style="display:inline;">
+                  {% csrf_token %}{% if booking_team %}<input type="hidden" name="team_action" value="role"><input type="hidden" name="member" value="{{ m.pk }}">{{ m.access_form.edit_revision }}{% endif %}
+                  <select name="role" onchange="this.form.submit()"
+                          style="font-size:12px;padding:3px 6px;border:1px solid var(--dash-border);
+                                 border-radius:5px;background:var(--dash-bg);color:var(--dash-text);">
+                    {% for val, label in m.Role.choices %}
+                    <option value="{{ val }}"{% if m.role == val %} selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </form>
+                {% else %}
+                  <span class="dash-badge {% if m.role == 'owner' %}dash-badge--green{% elif m.role == 'editor' %}dash-badge--blue{% else %}dash-badge--gray{% endif %}">
+                    {{ m.get_role_display }}
+                  </span>
+                {% endif %}
+              </td>
+              {% if booking_team %}<td class="team-locations-cell">
+                {% if m.is_active %}
+                <form method="post" action="{{ team_url }}" class="team-location-form">
+                  {% csrf_token %}<input type="hidden" name="team_action" value="locations"><input type="hidden" name="member" value="{{ m.pk }}">{{ m.access_form.edit_revision }}
+                  {% include "scheduling/team_locations.html" with selected=m.all_locations locations=team_locations assigned=m.locations.all key=m.pk save=True %}
+                </form>
+                {% else %}{% if m.all_locations %}All locations{% else %}{% for location in m.locations.all %}{{ location.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}{% endif %}
+              </td>{% endif %}
+              <td>
+                {% if m.is_active and m.user.is_active or m.is_active and not booking_team %}
+                  <span class="dash-badge dash-badge--green">Active</span>
+                {% else %}
+                  <span class="dash-badge dash-badge--gray">Inactive</span>
+                {% endif %}
+              </td>
+              <td style="color:var(--dash-muted);white-space:nowrap;">
+                {% if m.created_at %}{{ m.created_at|date:"M j, Y" }}{% else %}—{% endif %}
+              </td>
+              <td style="color:var(--dash-muted);">
+                {% if m.created_by %}{{ m.created_by.get_full_name|default:m.created_by.username }}{% else %}—{% endif %}
+              </td>
+              <td style="text-align:right;white-space:nowrap;">
+                {% if is_owner and m.is_active and m.user != request.user %}
+                <form method="post" action="{% if booking_team %}{{ team_url }}{% else %}{% url 'school_team_remove' school.slug m.id %}{% endif %}"
+                      style="display:inline;"
+                      onsubmit="return confirm('Remove {{ m.user.username }} from the team?');">
+                  {% csrf_token %}{% if booking_team %}<input type="hidden" name="team_action" value="remove"><input type="hidden" name="member" value="{{ m.pk }}">{{ m.access_form.edit_revision }}{% endif %}
+                  <button type="submit" class="dash-action-btn dash-action-btn--danger"
+                          style="font-size:11px;padding:3px 8px;">Remove</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+
+      {# Create team member form — owner only #}
+      <div style="padding-top:16px;border-top:1px solid var(--dash-border);">
+        <h3 style="font-size:13px;font-weight:600;margin:0 0 12px;">Add Team Member</h3>
+        <form method="post" action="{% if booking_team %}{{ team_url }}{% else %}{% url 'school_team_add' school.slug %}{% endif %}"
+              class="team-create-form">
+          {% csrf_token %}{% if booking_team %}<input type="hidden" name="team_action" value="add">{% endif %}
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
+              First Name
+            </label>
+            <input type="text" name="first_name" placeholder="First"
+                   style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
+              Last Name
+            </label>
+            <input type="text" name="last_name" placeholder="Last"
+                   style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label for="team-new-email" style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;">Email <span style="color:var(--dash-danger);">*</span></label>
+            <input id="team-new-email" type="email" name="email" required maxlength="254" autocomplete="email"
+                   style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
+              Username <span style="color:var(--dash-danger);">*</span>
+            </label>
+            <input type="text" name="username" required placeholder="jsmith"
+                   autocomplete="off"
+                   style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
+              Temp Password <span style="color:var(--dash-danger);">*</span>
+            </label>
+            <input type="text" name="password" required placeholder="min 8 chars"
+                   autocomplete="new-password"
+                   style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                          border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.04em;">
+              Role <span style="color:var(--dash-danger);">*</span>
+            </label>
+            <select name="role"
+                    style="padding:6px 10px;font-size:13px;border:1px solid var(--dash-border);
+                           border-radius:6px;background:var(--dash-bg);color:var(--dash-text);">
+              {% if booking_team %}<option value="scheduler">Scheduler</option>{% else %}<option value="editor">Editor</option>{% endif %}
+              <option value="viewer">Viewer</option>
+              <option value="owner">Owner</option>
+            </select>
+          </div>
+          {% if booking_team %}<div class="team-new-locations"><label for="team-scope-new" style="font-size:11px;color:var(--dash-muted);text-transform:uppercase;">Locations</label>{% include "scheduling/team_locations.html" with selected=True locations=team_locations key="new" %}</div>{% endif %}
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;opacity:0;">&#8203;</label>
+            <button type="submit" class="dash-action-btn dash-action-btn--primary"
+                    style="font-size:12px;padding:6px 14px;white-space:nowrap;">Create &amp; Add</button>
+          </div>
+        </form>
+        <p style="font-size:11px;color:var(--dash-muted);margin:10px 0 0;">
+          {% if booking_team %}The new account will have booking access only.{% else %}The new account will be created with staff access.{% endif %} Share the username and temp password with them — they can change their password after logging in.
+        </p>
+      </div>
+    </div>

@@ -16,6 +16,7 @@ from core.payments.providers import gateway
 from core.models import School
 from core.payments.models import PaymentAttempt, PaymentOrder, Refund
 from .models import Reservation, SchedulingProfile
+from .access import get_staff_reservation
 from .reservations import _audit, ensure_capacity, locked_profile
 
 CHECKOUT_LEAD_TIME = timedelta(minutes=40)
@@ -144,7 +145,7 @@ def recover_attempt(attempt, *, force=False):
 @transaction.atomic
 def request_close(user, slug, public_id, attempt_id):
     profile = locked_profile(user, slug)
-    item = get_object_or_404(Reservation, profile=profile, public_id=public_id)
+    item = get_staff_reservation(profile, public_id)
     attempt = get_object_or_404(PaymentAttempt, order=item.order, public_id=attempt_id)
     attempt.close_requested = True
     attempt.save(update_fields=["close_requested"])
@@ -155,7 +156,7 @@ def request_close(user, slug, public_id, attempt_id):
 @transaction.atomic
 def approve_refund(user, slug, public_id, attempt_id, **kwargs):
     profile = locked_profile(user, slug)
-    item = get_object_or_404(Reservation, profile=profile, public_id=public_id)
+    item = get_staff_reservation(profile, public_id)
     School.objects.select_for_update().get(pk=profile.school_id)
     PaymentOrder.objects.select_for_update().get(pk=item.order_id)
     if item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).exists():
@@ -179,7 +180,7 @@ def approve_refund(user, slug, public_id, attempt_id, **kwargs):
 @transaction.atomic
 def resolve_review(user, slug, public_id):
     profile = locked_profile(user, slug)
-    item = get_object_or_404(Reservation.objects.select_related("order"), profile=profile, public_id=public_id)
+    item = get_staff_reservation(profile, public_id)
     amounts = service.totals(item.order)
     if (item.state != "review" or item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).exists()
             or not (item.order.deposit_cents or item.order.total_cents) <= amounts["net_cents"] <= amounts["total_cents"]):

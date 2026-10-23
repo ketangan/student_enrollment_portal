@@ -3,3 +3,10 @@ school:
   display_name: The Plushie Workshop
 scheduling:
   guest_list_deadline_days: 7
+  # Placeholders only; not consumed by booking flows. Await approved wording.
+  booking_policies:
+    source_url: https://www.theplushieworkshop.com/booking-and-cancellation-policy
+    workshop_text: null
+    party_text: null
+    acknowledgment_text: null
+    waiver_document: null

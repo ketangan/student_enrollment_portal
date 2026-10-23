@@ -14,7 +14,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods
 from django_ratelimit.decorators import ratelimit
 
-from .access import require_access
+from .access import require_location_access
 from .models import Location, Offering, PartyPackage, PartyRequest, PartySlot, SchedulingProfile
 from .capabilities import require_capability
 from .parties import inquiry_token, offering_for_inquiry, review_inquiry, room_overlaps, scoped_parties, submit_inquiry
@@ -75,7 +75,7 @@ def _admin_preview(request, school_slug):
     if request.GET.get("preview") != "1" or not request.user.is_authenticated:
         return False
     try:
-        require_access(request.user, school_slug)
+        require_location_access(request.user, school_slug)
     except Http404:
         return False
     return True
@@ -93,7 +93,7 @@ def party_setup(request, school_slug):
         except (TypeError, ValueError):
             raise Http404("Package not found")
     wants_form = request.method == "POST" or editing_pk is not None or request.GET.get("new") == "1"
-    profile, role = require_access(request.user, school_slug, "setup.edit" if wants_form else "workspace.view")
+    profile, role = require_location_access(request.user, school_slug, "setup.edit" if wants_form else "workspace.view")
     require_capability(profile, "parties")
     context = _context(request, profile, role, "parties")
     context["rules_view"] = request.GET.get("section") == "rules"
@@ -112,7 +112,7 @@ def party_setup(request, school_slug):
         from .setup import _audit
         with transaction.atomic():
             SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
-            require_access(request.user, school_slug, "setup.edit")
+            profile, role = require_location_access(request.user, school_slug, "setup.edit")
             package_form = build_form(profile, "party_packages", pk=editing_pk)
             package = package_form.instance
             if slot_action in ("close", "publish"):
@@ -246,7 +246,7 @@ def party_received(request, school_slug, public_id):
 @login_required
 @require_GET
 def party_list(request, school_slug):
-    profile, role = require_access(request.user, school_slug)
+    profile, role = require_location_access(request.user, school_slug)
     context = _context(request, profile, role, "parties")
     form = context["location_filter"]
     context.update(location_filter=form, selected_location=form.selected)
@@ -262,7 +262,7 @@ def party_list(request, school_slug):
 @login_required
 @require_http_methods(["GET", "POST"])
 def party_detail(request, school_slug, public_id):
-    profile, role = require_access(request.user, school_slug, "sessions.edit" if request.method == "POST" else "workspace.view")
+    profile, role = require_location_access(request.user, school_slug, "sessions.edit" if request.method == "POST" else "workspace.view")
     if request.method == "POST":
         form = review_inquiry(request.user, school_slug, public_id, request.POST)
         if form.is_valid():

@@ -49,9 +49,9 @@ def guest_reservations():
 
 
 def for_staff(user, slug, public_id):
-    from .access import require_access
-    profile, _ = require_access(user, slug, "sessions.edit", capability="reservations")
-    return get_object_or_404(guest_reservations(), profile=profile, public_id=public_id)
+    from .access import require_location_access, scope_reservations
+    profile, _ = require_location_access(user, slug, "sessions.edit", capability="reservations")
+    return get_object_or_404(scope_reservations(guest_reservations(), profile), profile=profile, public_id=public_id)
 
 
 def editable(item):

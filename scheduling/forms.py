@@ -6,6 +6,7 @@ from django import forms
 
 from .models import InventoryCatalog, LessonAvailability, LessonSeries, Location, Offering, PartyRequest, Room, Session
 from .capabilities import has_capability
+from .access import staff_locations
 
 
 class LocationForm(forms.ModelForm):
@@ -32,7 +33,7 @@ class RoomForm(forms.ModelForm):
 
     def __init__(self, *args, profile, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["location"].queryset = Location.objects.filter(profile=profile)
+        self.fields["location"].queryset = staff_locations(profile)
         self.fields["location"].disabled = bool(self.instance.pk)
 
 
@@ -52,7 +53,7 @@ class OfferingForm(forms.ModelForm):
         self.unit_price_cents = unit_price_cents
         self.initial["payment_at_booking"] = "deposit" if self.instance.deposit_per_participant else "full"
         self.fields["deposit_per_participant"].required = False
-        self.fields["location"].queryset = Location.objects.filter(profile=profile)
+        self.fields["location"].queryset = staff_locations(profile)
         self.fields["location"].disabled = bool(self.instance.pk)
         if not has_capability(profile, "parties"):
             self.instance.accepts_party_requests = False

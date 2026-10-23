@@ -29,6 +29,7 @@ from django_ratelimit.decorators import ratelimit
 from django_ratelimit.exceptions import Ratelimited
 from django.core.validators import validate_email as _validate_email
 from django.core.exceptions import ValidationError as _ValidationError
+from .team_forms import TeamEmailForm
 
 from .models import (
     AdminAuditLog,
@@ -1339,9 +1340,15 @@ def school_team_add_view(request, school_slug: str):
         messages.error(request, f'Username "{username}" is already taken.')
         return redirect(settings_url)
 
+    email_form = TeamEmailForm(request.POST)
+    if not email_form.is_valid():
+        messages.error(request, "Enter a valid email address.")
+        return redirect(settings_url)
+
     with transaction.atomic():
         user = _User.objects.create_user(
             username=username,
+            email=email_form.cleaned_data["email"],
             password=password,
             first_name=first_name,
             last_name=last_name,
@@ -1463,3 +1470,27 @@ def school_team_update_name_view(request, school_slug: str, membership_id: int):
         )
     messages.success(request, f"Name updated for {user.username}.")
     return redirect(settings_url)
+
+
+@login_required
+@require_http_methods(["POST"])
+def school_team_update_email_view(request, school_slug: str, membership_id: int):
+    school = _get_accessible_school_for_admin(request, school_slug)
+    require_school_role(request, school, "owner")
+    membership = get_object_or_404(_Membership, id=membership_id, school=school, is_active=True)
+    with transaction.atomic():
+        user = type(membership.user).objects.select_for_update().get(pk=membership.user_id)
+        if user.is_superuser and not request.user.is_superuser:
+            raise Http404
+        old_email = user.email
+        form = TeamEmailForm(request.POST, instance=user)
+        if form.is_valid():
+            form.save()
+            if old_email != user.email:
+                log_admin_audit(request=request, action="action", obj=school, changes={},
+                    extra={"name": "member_email_updated", "username": user.username,
+                           "old": old_email, "new": user.email})
+            messages.success(request, f"Email updated for {user.username}.")
+        else:
+            messages.error(request, "Enter a valid email address.")
+    return redirect(_settings_url(school_slug, "team"))

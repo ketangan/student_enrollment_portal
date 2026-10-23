@@ -7,7 +7,7 @@
 {% block page_heading %}{% endblock %}
 {% block content %}
 <div class="booking-dashboard-heading">
-  <div><h1>Calendar</h1><p class="muted">{{ selected_location.name|default:'All locations' }}</p></div>
+  <div><h1>Calendar</h1><p class="muted">{% if selected_location %}{{ selected_location.name }}{% elif school_wide_access %}All locations{% else %}All assigned locations{% endif %}</p></div>
   <nav class="calendar-segment" aria-label="Dashboard view"><a href="?view=overview{% if selected_location %}&amp;location={{ selected_location.pk }}{% endif %}">Overview</a><a href="?view=calendar" aria-current="page">Calendar</a></nav>
 </div>
 <div class="calendar-summary" aria-label="Visible date range summary" aria-live="polite">
@@ -39,4 +39,4 @@
 {{ calendar_config|json_script:'calendar-config' }}
 <noscript><p>JavaScript is required for the calendar. <a href="?view=overview">Open overview</a></p></noscript>
 {% endblock %}
-{% block scripts %}<script defer src="{% static 'vendor/event-calendar/event-calendar.min.js' %}"></script><script defer src="{% static 'scheduling/calendar.js' %}"></script>{% endblock %}
+{% block scripts %}<script defer src="{% static 'vendor/event-calendar/event-calendar.min.js' %}"></script><script defer src="{% static 'scheduling/calendar.js' %}?v=20261022-clean-popup"></script>{% endblock %}
