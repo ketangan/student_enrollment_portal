@@ -9,6 +9,23 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
+### October 22 Release Verification
+
+Release candidate `9103c89`: calendar details/internal notes, location-scoped
+booking access, shared enrollment/booking team panel and email recovery fields.
+Full local regression: 4,423 passed, 3 skipped; JavaScript: 83 passed. Measured
+Python statement/branch coverage: 98.63%; every measured module meets 90%.
+Migration drift and diff checks passed. Migrations 0035-0037 are additive;
+existing booking members keep all-location access by default.
+
+Final regression corrected two obsolete UI assertions (stylesheet versioning and
+removed explanatory team copy). Existing role, tenant, location, invalid-input,
+payment and SBMC regression gates remain enabled. Shared team desktop/mobile
+checks are recorded below; SBMC enrollment dashboard/navigation rechecked before
+push. Three optional browser tests remain skipped; this is not a claim that every
+workflow was manually retested. New live Square work is isolated from this release.
+GitHub CI/deployment verification remains pending at the time of this record.
+
 ### Location-Based Staff Access (Local Review)
 
 October 22: extend existing SchedulingMembership users/Owner/Scheduler/Viewer
