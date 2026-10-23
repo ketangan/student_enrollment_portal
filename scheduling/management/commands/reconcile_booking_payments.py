@@ -12,6 +12,7 @@ class Command(BaseCommand):
         parser.add_argument("--limit", type=int, default=20)
         parser.add_argument("--school", help="Limit manual recovery to one business slug.")
         parser.add_argument("--environment", choices=["test", "live"], default="test")
+        parser.add_argument("--provider", choices=["stripe", "square"], help="Limit recovery to one payment provider.")
 
     def handle(self, *args, **options):
         limit = options["limit"]
@@ -24,8 +25,11 @@ class Command(BaseCommand):
             (PaymentAttempt, PaymentAttempt.ACTIVE, "order", recover_attempt),
         ]:
             scope = {f"{prefix}__purpose": "booking", f"{prefix}__environment": options["environment"]}
+            if options["provider"]:
+                scope[f"{prefix}__account__provider"] = options["provider"]
             if options["environment"] == "live":
-                scope.update({f"{prefix}__account__provider": "square", f"{prefix}__account__scope": "connected"})
+                scope.setdefault(f"{prefix}__account__provider", "square")
+                scope[f"{prefix}__account__scope"] = "connected"
             if options["school"]:
                 scope[f"{prefix}__school__slug"] = options["school"]
             for record in recovery.due_records(model, active=active).filter(**scope)[:max(1, limit // 2)]:

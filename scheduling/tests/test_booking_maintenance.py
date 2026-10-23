@@ -19,8 +19,10 @@ def test_maintenance_reuses_jobs_and_explicit_live_scope(monkeypatch, live):
     assert all(call.kwargs["limit"] == 12 for call in run.call_args_list)
     assert run.call_args_list[0].kwargs["all_schools"] is True
     assert run.call_args_list[2].kwargs["environment"] == "test"
+    assert run.call_args_list[2].kwargs["provider"] == "square"
     if live:
         assert run.call_args_list[3].kwargs["environment"] == "live"
+        assert run.call_args_list[3].kwargs["provider"] == "square"
     assert "completed" in output.getvalue()
 
 

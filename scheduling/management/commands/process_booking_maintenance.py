@@ -16,10 +16,10 @@ class Command(BaseCommand):
         jobs = [
             ("process_party_notifications", {"all_schools": True}),
             ("refresh_square_connections", {}),
-            ("reconcile_booking_payments", {"environment": "test"}),
+            ("reconcile_booking_payments", {"environment": "test", "provider": "square"}),
         ]
         if options["include_live_recovery"]:
-            jobs.append(("reconcile_booking_payments", {"environment": "live"}))
+            jobs.append(("reconcile_booking_payments", {"environment": "live", "provider": "square"}))
         failures = 0
         for name, scope in jobs:
             try:

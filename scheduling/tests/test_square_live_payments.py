@@ -155,7 +155,9 @@ def test_recovery_command_requires_explicit_live_environment(live_attempt, monke
     assert "Checked 0" in output.getvalue() and not transport.called
     call_command("reconcile_booking_payments", environment="live", school="another-school", stdout=StringIO())
     assert not transport.called
-    call_command("reconcile_booking_payments", environment="live", stdout=StringIO())
+    call_command("reconcile_booking_payments", environment="live", provider="stripe", stdout=StringIO())
+    assert not transport.called
+    call_command("reconcile_booking_payments", environment="live", provider="square", stdout=StringIO())
     live_attempt.refresh_from_db()
     assert live_attempt.state == "paid" and live_attempt.entry.environment == "live"
     assert transport.call_args.args[0] == "GET"

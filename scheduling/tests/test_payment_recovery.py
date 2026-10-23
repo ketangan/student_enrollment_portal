@@ -342,6 +342,13 @@ def test_bounded_reconciliation_command(inventory, merchant, booking_member, mon
     attempt.save()
     monkeypatch.setattr(gateway, "create_order_refund", lambda r: refund_for(r))
     out = StringIO()
+    before_attempt = PaymentAttempt.objects.filter(pk=attempt.pk).values().get()
+    before_refund = Refund.objects.filter(pk=refund.pk).values().get()
+    call_command("reconcile_booking_payments", provider="square", stdout=out)
+    assert "Checked 0; verified 0" in out.getvalue()
+    assert PaymentAttempt.objects.filter(pk=attempt.pk).values().get() == before_attempt
+    assert Refund.objects.filter(pk=refund.pk).values().get() == before_refund
+    out = StringIO()
     call_command("reconcile_booking_payments", limit=1, stdout=out)
     assert "Checked 1; verified 1" in out.getvalue()
     for bad in [0, 101]:
