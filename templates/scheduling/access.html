@@ -1,17 +1,14 @@
 {% extends 'scheduling/base.html' %}
+{% load static %}
 {% block title %}Team access{% endblock %}
+{% block workspace_notice %}{% endblock %}
 {% block content %}
-<section aria-labelledby="access-heading">
-  <h2 id="access-heading">Team access</h2>
-  {% if memberships %}
-  <div class="table-wrap"><table>
-    <thead><tr><th scope="col">Account</th><th scope="col">Role</th><th scope="col">Access</th></tr></thead>
-    <tbody>{% for member in memberships %}<tr>
-      <th scope="row">{{ member.user.get_username }}</th>
-      <td>{{ member.get_role_display }}</td>
-      <td>{% if member.is_active and member.user.is_active %}<span class="status">Active</span>{% else %}<span class="status inactive">Inactive</span>{% endif %}</td>
-    </tr>{% endfor %}</tbody>
-  </table></div>
-  {% else %}<p class="empty-state">No team members assigned.</p>{% endif %}
+<section class="booking-team" aria-label="Team">
+{% if member_form.errors %}<div role="alert" class="errorlist">
+{% for field in member_form %}{% for error in field.errors %}<p>{{ field.label }}: {{ error }}</p>{% endfor %}{% endfor %}
+{{ member_form.non_field_errors }}
+</div>{% endif %}
+{% include "school_admin/team_panel.html" with members=memberships is_owner=True booking_team=True %}
 </section>
 {% endblock %}
+{% block scripts %}<script src="{% static 'scheduling/team-access.js' %}?v=20261022-dropdown" defer></script>{% endblock %}

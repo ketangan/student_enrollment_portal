@@ -12,6 +12,7 @@ from django.urls import reverse
 from .capabilities import has_capability
 from .models import Offering, Reservation, ReservationOccurrence, Session
 from .reservations import active_claims
+from .access import staff_locations
 
 MAX_EVENTS = 1500
 
@@ -21,7 +22,7 @@ def calendar_available(profile):
 
 
 def offerings(profile):
-    return Offering.objects.filter(location__profile=profile, visit_program__isnull=True).select_related("location")
+    return Offering.objects.filter(location__in=staff_locations(profile), visit_program__isnull=True).select_related("location")
 
 
 def date_window(params):
@@ -103,6 +104,23 @@ def calendar_events(profile, params, location=None):
         and (params.get("hide_empty") != "1" or event["extendedProps"]["seats"] > 0)]
 
 
+def detail_time(start, end):
+    def date(value):
+        return f"{value:%a, %b} {value.day}, {value.year}"
+
+    def clock(value, period=True):
+        result = str(value.hour % 12 or 12)
+        if value.minute:
+            result += f":{value.minute:02d}"
+        return result + (value.strftime(" %p") if period else "")
+
+    if start.date() != end.date():
+        return f"{date(start)} \u00b7 {clock(start)} {start:%Z} \u2013 {date(end)} \u00b7 {clock(end)} {end:%Z}"
+    if start.utcoffset() != end.utcoffset():
+        return f"{date(start)} \u00b7 {clock(start)} {start:%Z}\u2013{clock(end)} {end:%Z}"
+    return f"{date(start)} \u00b7 {clock(start, start.hour // 12 != end.hour // 12)}\u2013{clock(end)} {end:%Z}"
+
+
 def calendar_detail(profile, kind, pk):
     from .reservation_queries import staff_reservations
     if not str(pk).isdecimal() or len(str(pk)) > 18:
@@ -120,7 +138,7 @@ def calendar_detail(profile, kind, pk):
         room = session.room.name if session.room else ""
     elif kind == "party" and has_capability(profile, "parties") and has_capability(profile, "reservations"):
         try:
-            item = active_claims().select_related("party_request__offering__location", "room").get(pk=pk, profile=profile, party_request__isnull=False)
+            item = active_claims().select_related("party_request__offering__location", "room").get(pk=pk, profile=profile, party_request__offering__in=offerings(profile))
         except (ValueError, ValidationError, Reservation.DoesNotExist):
             raise Http404
         title, start, end, location = item.snapshot.get("workshop", "Party"), item.starts_at, item.ends_at, item.party_request.offering.location
@@ -137,7 +155,7 @@ def calendar_detail(profile, kind, pk):
                 "currency": item.order.currency, "url": reverse("scheduling:reservation_detail", kwargs={"school_slug": profile.school.slug, "public_id": item.public_id})})
     local_start, local_end = local_times(start, end, location)
     return {"title": title, "location": location.name, "room": room,
-        "time": f"{local_start:%a, %b %d, %Y %I:%M %p %Z} - {local_end:%b %d %I:%M %p %Z}",
+        "time": detail_time(local_start, local_end),
         "url": url, "reservations": rows[:500], "truncated": len(rows) > 500}
 
 

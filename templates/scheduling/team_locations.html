@@ -1,0 +1,13 @@
+<details class="team-location-picker">
+  <summary id="team-scope-{{ key }}" aria-label="Locations"><span data-location-label>{% if selected %}All locations{% elif assigned|length == 1 %}{{ assigned.0.name }}{% else %}{{ assigned|length }} locations{% endif %}</span></summary>
+  <div class="team-location-menu">
+    <input type="hidden" name="location_access" value="selected">
+    <label><input type="checkbox" name="location_access" value="all"{% if selected %} checked{% endif %}>All locations</label>
+    <div class="team-location-options">
+      {% for location in locations %}
+      <label><input type="checkbox" name="locations" value="{{ location.pk }}" data-name="{{ location.name }}"{% if not selected and location in assigned %} checked{% endif %}>{{ location.name }}</label>
+      {% empty %}<span>No locations available.</span>{% endfor %}
+    </div>
+    {% if save %}<button type="submit" class="dash-action-btn dash-action-btn--primary">Apply</button>{% endif %}
+  </div>
+</details>

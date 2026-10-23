@@ -7,7 +7,7 @@
     <h2>New reservations <span class="status {% if not profile.native_reservations_enabled %}inactive{% endif %}">{% if profile.native_reservations_enabled %}Open{% else %}Paused{% endif %}</span></h2>
     <p class="muted">Existing reservations remain available.</p>
   </div>
-  {% if can_edit_setup %}
+  {% if can_edit_setup and school_wide_access %}
   <form method="post" action="{% url 'scheduling:reservation_settings' school_slug=business.slug %}" class="intake-form">
     {% csrf_token %}
     <input type="hidden" name="action" value="disable">

@@ -2,7 +2,7 @@
 from django.http import Http404
 from django.urls import reverse
 
-from .access import has_permission, require_access
+from .access import has_permission, require_location_access, location_restricted
 from .capabilities import has_capability
 from .messaging import preview_enabled
 from .visits import enrollment_access
@@ -30,10 +30,11 @@ def workspace_navigation(context):
 
     setup = [link(key, label, "party_setup" if key == "parties" else key) for key, label in
              (("workshops", "Workshop"), ("parties", "Parties"), ("camps", "Camps")) if features[key]]
-    setup.append(link("catalog", "Catalog", "catalogs"))
+    if context.get("school_wide_access", True):
+        setup.append(link("catalog", "Catalog", "catalogs"))
     setup.append(link("settings", "Materials Inventory", "settings"))
     settings = [link("locations", "Location & rooms", "locations")]
-    if features["parties"] and context["can_edit_setup"]:
+    if features["parties"] and context["can_edit_setup"] and context.get("school_wide_access", True):
         settings.append(link("guest_communication", "Guest communication", "guest_communication"))
     if context["can_view_access"]:
         settings.append(link("access", "Team Access", "access"))
@@ -60,7 +61,7 @@ def workspace_navigation(context):
 
 def school_entry(user, school):
     try:
-        profile, role = require_access(user, school.slug)
+        profile, role = require_location_access(user, school.slug)
     except Http404:
         return None
     links = []
@@ -69,7 +70,7 @@ def school_entry(user, school):
         links.append({"label": label, "url": reverse("scheduling:" + name, kwargs={"school_slug": school.slug})})
 
     add("Open scheduling", "workspace")
-    if has_permission(role, "setup.edit"):
+    if has_permission(role, "setup.edit") and not location_restricted(profile):
         add("Locations and rooms", "locations")
         if has_capability(profile, "visits"):
             add("Tours and playdates", "visits")

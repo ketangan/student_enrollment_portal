@@ -9,7 +9,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods
 from django_ratelimit.decorators import ratelimit
 
-from .access import require_access
+from .access import require_location_access
 from .camps import (camp_dates, camp_form, check_registration, places_left, public_camp,
                     register_camp, registration_token, save_camp, scoped_camps)
 from .checkout import payment_token
@@ -24,7 +24,7 @@ from .views import _context
 @login_required
 @require_GET
 def camp_list(request, school_slug):
-    profile, role = require_access(request.user, school_slug)
+    profile, role = require_location_access(request.user, school_slug)
     context = _context(request, profile, role, "camps")
     form = context["location_filter"]
     context.update(camps=Paginator(form.filter(scoped_camps(profile), "offering__location").prefetch_related("sessions"), 50).get_page(request.GET.get("page")),
@@ -36,7 +36,7 @@ def camp_list(request, school_slug):
 @login_required
 @require_http_methods(["GET", "POST"])
 def camp_edit(request, school_slug, offering_pk, pk=None):
-    profile, role = require_access(request.user, school_slug, "setup.edit")
+    profile, role = require_location_access(request.user, school_slug, "setup.edit")
     if request.method == "POST":
         form = save_camp(request.user, school_slug, offering_pk, request.POST, pk)
         if form.is_valid():
@@ -53,7 +53,7 @@ def camp_edit(request, school_slug, offering_pk, pk=None):
 @login_required
 @require_GET
 def camp_detail(request, school_slug, pk):
-    profile, role = require_access(request.user, school_slug)
+    profile, role = require_location_access(request.user, school_slug)
     camp = get_object_or_404(scoped_camps(profile), pk=pk)
     sessions = camp_dates(camp)
     items = camp.registrations.select_related("reservation__order")

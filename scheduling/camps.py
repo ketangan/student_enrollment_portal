@@ -28,8 +28,9 @@ TOKEN_SALT = "scheduling.camp-registration.v1"
 
 
 def scoped_camps(profile):
+    from .access import staff_locations
     require_capability(profile, "camps")
-    return Camp.objects.filter(offering__location__profile=profile).select_related("offering__location__profile__school")
+    return Camp.objects.filter(offering__location__in=staff_locations(profile)).select_related("offering__location__profile__school")
 
 
 def public_camp(slug, pk):

@@ -4,21 +4,19 @@ import uuid
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Sum
-from django.shortcuts import get_object_or_404
 
 from core.models import AdminAuditLog
 from core.payments.models import Refund
 from core.payments.service import totals
 from .checkout import approve_refund
-from .models import Reservation
+from .access import get_staff_reservation
 from .reservations import _audit, cancel_reservation, locked_profile
 
 
 @transaction.atomic
 def cancel(user, slug, public_id, *, key, resolution, reason):
     profile = locked_profile(user, slug)
-    item = get_object_or_404(Reservation.objects.select_related("order"), profile=profile,
-        public_id=public_id, visit_booking__isnull=True)
+    item = get_staff_reservation(profile, public_id, exclude_visits=True)
     if resolution not in {"without_refund", "with_refund"} or not reason.strip() or len(reason.strip()) > 240:
         raise ValidationError("Choose how to handle payment and enter a cancellation reason.")
     previous = AdminAuditLog.objects.filter(model_label="scheduling.reservation", object_id=str(item.pk),

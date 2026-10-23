@@ -94,6 +94,7 @@ urlpatterns = [
     path("schools/<slug:school_slug>/admin/team/<int:membership_id>/role/", views.school_team_role_view, name="school_team_role"),
     path("schools/<slug:school_slug>/admin/team/<int:membership_id>/remove/", views.school_team_remove_view, name="school_team_remove"),
     path("schools/<slug:school_slug>/admin/team/<int:membership_id>/name/", views.school_team_update_name_view, name="school_team_update_name"),
+    path("schools/<slug:school_slug>/admin/team/<int:membership_id>/email/", views.school_team_update_email_view, name="school_team_update_email"),
     # Backward-compat: old no-slash URL 301s to the canonical slash version.
     path("schools/<slug:school_slug>/admin/reports", RedirectView.as_view(pattern_name="school_reports", permanent=True)),
     path("schools/<slug:school_slug>/reports", RedirectView.as_view(pattern_name="school_reports", permanent=False)),

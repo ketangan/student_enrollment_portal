@@ -12,7 +12,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from zoneinfo import ZoneInfo
 
-from .access import accessible_profiles, has_permission, require_access
+from .access import accessible_profiles, has_permission, require_access, require_location_access, staff_locations, location_restricted
 from .capabilities import CAPABILITIES, has_capability, require_capability
 from .models import Offering, SchedulingMembership, SchedulingProfile, Session
 from .setup import build_form, edit_permission, records, save_setup, set_publication
@@ -35,7 +35,7 @@ def index(request):
 def password_change(request, school_slug):
     from django.contrib.auth import update_session_auth_hash
     from django.contrib.auth.forms import PasswordChangeForm
-    profile, role = require_access(request.user, school_slug)
+    profile, role = require_location_access(request.user, school_slug)
     form = PasswordChangeForm(request.user, data=request.POST if request.method == "POST" else None)
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -65,6 +65,11 @@ def _context(request, profile, role, active_nav):
         "can_edit_sessions": has_permission(role, "sessions.edit"),
         "active_nav": active_nav,
     }
+    context["school_wide_access"] = not location_restricted(profile)
+    context["can_view_access"] &= context["school_wide_access"]
+    if location_restricted(profile):
+        for key in ("lessons", "visits", "integrations"):
+            context["features"][key] = False
     try:
         demo_config = configuration(profile.school.slug) if context["experience_demo_available"] else {}
     except Http404:
@@ -91,7 +96,7 @@ def _context(request, profile, role, active_nav):
 @login_required
 @require_GET
 def workspace(request, school_slug):
-    profile, role = require_access(request.user, school_slug)
+    profile, role = require_location_access(request.user, school_slug)
     context = _context(request, profile, role, "overview")
     from .calendar import calendar_available, offerings
     context["calendar_available"] = calendar_available(profile)
@@ -100,7 +105,7 @@ def workspace(request, school_slug):
         raise Http404
     if selected_view == "calendar":
         location = context["selected_location"]
-        locations = profile.locations.filter(pk=location.pk) if location else profile.locations.all()
+        locations = staff_locations(profile).filter(pk=location.pk) if location else staff_locations(profile)
         items = offerings(profile)
         if location:
             items = items.filter(location=location)
@@ -136,19 +141,51 @@ def feature_settings(request, school_slug):
 
 @never_cache
 @login_required
-@require_GET
+@require_http_methods(["GET", "POST"])
 def access_list(request, school_slug):
+    from .team_access import add_member, membership_form, update_member
     profile, role = require_access(request.user, school_slug, "access.view")
     context = _context(request, profile, role, "access")
-    context["memberships"] = profile.memberships.select_related("user").order_by("user__username")
-    return render(request, "scheduling/access.html", context)
+    edit = request.POST.get("member") if request.method == "POST" else request.GET.get("edit")
+    action = request.POST.get("team_action")
+    if request.method == "POST" and action == "add":
+        form = add_member(request.user, school_slug, request.POST)
+        if form.is_valid():
+            messages.success(request, "Team member added.")
+            return redirect("scheduling:access", school_slug=school_slug)
+        context["member_form"] = form
+    elif edit:
+        if not edit.isdecimal():
+            raise Http404
+        member = get_object_or_404(profile.memberships.select_related("user", "profile"), pk=edit)
+        if request.method == "POST":
+            if action not in ("name", "email", "role", "locations", "remove"):
+                return HttpResponseBadRequest("Invalid team action.")
+            form = update_member(request.user, school_slug, member.pk, action, request.POST)
+        else:
+            form = membership_form(member)
+        if request.method == "POST" and form.is_valid():
+            messages.success(request, "Team access updated.")
+            if not request.user.is_superuser and not profile.memberships.filter(
+                    user=request.user, role="owner", all_locations=True, is_active=True).exists():
+                return redirect("scheduling:workspace", school_slug=school_slug)
+            return redirect("scheduling:access", school_slug=school_slug)
+        context.update(edit_member=member, member_form=form)
+    elif request.method == "POST":
+        return HttpResponseBadRequest("Choose a team member.")
+    context["memberships"] = list(profile.memberships.select_related("user", "created_by", "profile").prefetch_related("locations").order_by("user__username"))
+    for member in context["memberships"]:
+        member.access_form = membership_form(member)
+    context["team_locations"] = list(profile.locations.order_by("name", "pk"))
+    context["team_url"] = request.path
+    return render(request, "scheduling/access.html", context, status=400 if request.method == "POST" else 200)
 
 
 @never_cache
 @login_required
 @require_GET
 def locations(request, school_slug):
-    profile, role = require_access(request.user, school_slug)
+    profile, role = require_location_access(request.user, school_slug)
     context = _context(request, profile, role, "locations")
     context["locations"] = context["location_filter"].filter(records(profile, "locations"), "pk").prefetch_related("rooms")
     return render(request, "scheduling/locations.html", context)
@@ -158,7 +195,7 @@ def locations(request, school_slug):
 @login_required
 @require_GET
 def workshops(request, school_slug):
-    profile, role = require_access(request.user, school_slug)
+    profile, role = require_location_access(request.user, school_slug)
     context = _context(request, profile, role, "workshops")
     form = context["location_filter"]
     context["offerings"] = form.filter(records(profile, "workshops"), "location").annotate(
@@ -171,13 +208,13 @@ def workshops(request, school_slug):
 @login_required
 @require_http_methods(["GET", "POST"])
 def workshop_detail(request, school_slug, pk):
-    profile, role = require_access(request.user, school_slug)
+    profile, role = require_location_access(request.user, school_slug)
     context = _context(request, profile, role, "workshops")
     offering = get_object_or_404(records(profile, "workshops").select_related("inventory_catalog"), pk=pk)
     form, selected = None, None
     editor = request.POST.get("session_id") if request.method == "POST" else request.GET.get("edit_session")
     if editor is not None:
-        require_access(request.user, school_slug, "sessions.edit")
+        require_location_access(request.user, school_slug, "sessions.edit")
         if editor != "new":
             try:
                 session_pk = forms.IntegerField(min_value=1, max_value=2**63 - 1).clean(editor)
@@ -208,7 +245,7 @@ def workshop_detail(request, school_slug, pk):
 @login_required
 @require_http_methods(["GET", "POST"])
 def setup_edit(request, school_slug, kind, pk=None, offering_pk=None):
-    profile, role = require_access(request.user, school_slug, edit_permission(kind))
+    profile, role = require_location_access(request.user, school_slug, edit_permission(kind))
     return_to_parties = kind == "workshops" and bool(pk) and request.GET.get("return_to") == "parties"
     parties_url = reverse("scheduling:party_setup", kwargs={"school_slug": school_slug})
     if kind == "party_packages" and request.method == "GET":
@@ -245,7 +282,7 @@ def setup_edit(request, school_slug, kind, pk=None, offering_pk=None):
 @login_required
 @require_POST
 def publication(request, school_slug, kind, pk):
-    profile, _ = require_access(request.user, school_slug, edit_permission(kind))
+    profile, _ = require_location_access(request.user, school_slug, edit_permission(kind))
     instance = get_object_or_404(records(profile, kind), pk=pk)
     action = request.POST.get("action")
     if action not in {"publish", "unpublish"}:

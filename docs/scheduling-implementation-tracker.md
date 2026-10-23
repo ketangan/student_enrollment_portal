@@ -9,6 +9,119 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
+### Location-Based Staff Access (Local Review)
+
+October 22: extend existing SchedulingMembership users/Owner/Scheduler/Viewer
+roles with All locations or Selected locations. Configure existing members in
+Bookings > Settings > Team Access using the shared enrollment team panel. Role permissions
+are unchanged; location scope further limits them. Existing memberships retain
+all-location access through additive migration 0036.
+
+- Calendar, dashboard totals/activity, workshops, parties, camps, reservations,
+  preparation, guest lists, payment actions and material counts enforce assigned
+  locations on the server, including direct URLs and forged submissions.
+- Only school-wide Owners and superadmins manage membership access. The last active
+  school-wide Owner cannot be removed, demoted or location-restricted. Saves use the existing stale-edit checks,
+  profile transaction lock and audit log; changes apply on the next request.
+- Location Owners manage local setup and bookings, not school-wide billing,
+  integrations, shared catalog definitions or communication settings. Scheduler
+  and Viewer retain their existing role permissions. Enrollment access is separate.
+- Scope for this release is workshops/parties/camps. Lesson/tour administration and
+  the school-wide message log remain unavailable to restricted memberships rather
+  than exposing unscoped records. Existing all-location access is unchanged.
+- Original location-scope verification covered restricted calendar/settings,
+  immediate Owner-to-Viewer downgrade and direct Team Access denial.
+  The team-flow correction uses the shared SBMC panel, not a dialog: desktop and
+  mobile layout, inline name/role saves and selected-location saves were checked
+  in the browser. The browser stalled on the Remove confirmation, so removal is
+  covered by the automated workflow check, not claimed as manually verified.
+  Temporary local test users were removed; existing accounts/passwords untouched.
+- No production deployment, real payment, email or external service changes.
+- Before the team-flow correction: full regression 4,381 passed / 3 skipped; focused access,
+  checkout, calendar and view regression 163 passed; JavaScript 82 passed. Final
+  permission-only rerun: 47 passed, with 100% line/branch coverage of access and
+  membership-save helpers, including no-op audit suppression. Migration
+  drift and diff-whitespace checks passed. Existing duplicate Jazzmin template-tag
+  warning remains unrelated to this change.
+
+Manual check: open `/bookings/plushumi-demo/access/` as superadmin or school-wide
+Owner, edit an existing colleague, choose their role and selected locations, then
+save. In a separate browser session, sign in as that colleague and check calendar,
+reservations and setup. Other locations must not appear; direct links must fail.
+Use All locations for school-wide staff. The shared SBMC team panel now supports
+Create & Add, inline names and roles, and Remove for booking memberships too.
+Location access is the booking-only extension; no enrollment membership or Django
+staff privileges are granted. Migration 0037 records who added new booking members.
+No invitation or separate modal workflow is introduced.
+
+Team-flow correction verification: 2,125 scheduling, team, login, environment and
+enrollment regression tests passed; 82 JavaScript tests passed. Tests cover account
+creation/login, inline names/roles/location scope, removal and immediate access
+revocation, invalid/duplicate users, last-owner protection, stale edits, unchanged
+enrollment controls and constant query counts as the team grows. Empty-team and
+disabled-login display regressions found during testing were corrected. Migration
+drift, compile and whitespace checks passed. Local only; not pushed or deployed.
+
+Visual follow-up: compared against the rendered production SBMC Team screen
+(read-only). Shared component styles now prevent booking-wide overrides from
+changing its compact controls, row alignment and primary button. Location choices
+use a compact dropdown rather than expanding each row. Verified desktop/mobile
+layout, dropdown selection/dismissal and an unchanged-access save locally.
+Focused Python regression: 102 passed; JavaScript: 83 passed. No production writes.
+
+Team email follow-up: the shared panel requires a valid email for new enrollment
+and booking accounts, with a separate inline email save for existing members.
+Existing blank-email accounts retain login, name/role edits and permissions.
+Shared addresses are allowed; their users sign in by username and the existing
+password-reset flow sends a separate reset link for each matching account.
+Email changes are owner/superadmin-only and audited; school owners cannot edit a
+superadmin's recovery address. No migration, account backfill or live email sent.
+Verification: 160 focused Python regressions and 83 JavaScript tests passed,
+including reset completion/token invalidation, shared addresses, invalid input,
+CSRF, cross-school denial, superadmin protection and legacy account behavior.
+Both local team screens inspected; mobile booking form and invalid-email browser
+validation checked. Local only, not pushed or deployed.
+
+### Booking Policies and Waivers (Deferred; Placeholders Only)
+
+October 22: Ketan directed that no policy summaries, acknowledgment wording or
+waivers be authored by us. The existing policy page was located and reviewed:
+https://www.theplushieworkshop.com/booking-and-cancellation-policy.
+School YAML now holds its source URL and empty text/document placeholders only.
+No new policy UI, required checkbox, enforcement or acceptance records are added.
+Existing booking behavior is unchanged; this feature is not complete.
+
+Before activation, obtain the exact approved workshop/party text, acknowledgment
+wording and waiver document/collection process. Reconcile the website's general
+food restriction with Jasmine's emailed party exceptions. Organizer acknowledgment
+must not be treated as a signed parent/legal-guardian waiver for each minor.
+The existing workshop demo acknowledgment remains legacy placeholder behavior,
+not evidence that the final customer policy/waiver requirement is implemented.
+
+### Calendar Reservation Details and Notes (Local Review)
+
+October 22 follow-up on `codex/reservation-notes-calendar`, not deployed:
+
+- Calendar events already opened the existing reservation detail screen. Those
+  links now retain the calendar date/range/location URL, with a same-school-only
+  Back to calendar link that survives notes saves and the Workshop Prep tab.
+- The existing detail summary now displays saved party name, occasion, space and
+  observer allowance. Payment totals and guest selections reuse existing displays.
+- Owners and Schedulers can edit internal notes; Viewers can read but not edit.
+  Parties retain PartyRequest.preparation_notes as the single source, shared with
+  Workshop Prep. Workshops/camps use Reservation.internal_notes (migration 0035).
+  Existing tenant locks and signed edit revisions protect simultaneous/stale edits.
+  Updates record actor/time in the existing reservation audit without copying notes
+  into customer snapshots, payment pages or a separate notes timeline.
+- Verification: 215 focused Python regressions passed; 100% line/branch coverage
+  for the new notes service; 12 calendar JavaScript tests passed. Checks cover
+  cross-tenant access, Viewer/inactive membership, CSRF, invalid/oversized text,
+  concurrent edits, no-op saves, clearing, customer privacy and frozen party terms.
+  Manual local checks as plushie_admin: calendar -> party -> save -> Workshop Prep
+  -> same calendar week; desktop/mobile screenshots inspected, mobile document
+  width equals viewport (433px). Existing localhost:8002 and preview DB reused.
+  Full release-wide suite/deployment is not claimed for this local follow-up.
+
 ### October 22 Release
 
 PR #5 merged to main as `8193b9740665f99fe0fe0fb7b630258d2803ad39`.

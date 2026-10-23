@@ -120,7 +120,10 @@ test('session details render verified totals and existing reservation links',asy
   const row=table.children[1].children[0];
   assert.equal(row.children[0].textContent,'<img>');
   assert.equal(row.children[4].textContent,'$40.00');
-  assert.equal(row.children[5].children[0].href,'/reservation/');
+  const reservationLink = new URL(row.children[5].children[0].href, 'http://localhost');
+  assert.equal(reservationLink.pathname, '/reservation/');
+  assert.match(reservationLink.searchParams.get('calendar'), /^\/bookings\/test\/\?view=calendar/);
+  assert.equal(p.nodes['calendar-detail-body'].children.some(child => child.tag === 'a'), false);
   p.nodes['calendar-detail-close'].listeners.click();assert.equal(p.nodes['calendar-detail'].open,false);
 });
 
@@ -131,6 +134,7 @@ test('empty, failed and closed detail dialogs do not show stale results',async()
   const retry=p.nodes['calendar-detail-body'].children[1].listeners.click();
   p.requests[1].resolve({ok:true,json:async()=>({title:'Empty',time:'Now',location:'Studio',reservations:[],url:'/workshop/'})});await retry;
   assert.equal(p.nodes['calendar-detail-body'].children[2].textContent,'No active reservations.');
+  assert.equal(p.nodes['calendar-detail-body'].children.length,3);
   const third=p.options.eventClick({event});p.nodes['calendar-detail'].close();
   p.requests[2].resolve({ok:true,json:async()=>({title:'Stale'})});await third;
   assert.notEqual(p.nodes['calendar-detail-title'].textContent,'Stale');

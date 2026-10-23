@@ -1,7 +1,7 @@
 {% extends 'scheduling/base.html' %}
 {% block title %}Locations &amp; rooms{% endblock %}
 {% block content %}
-<div class="section-heading"><h2>Locations &amp; rooms</h2>{% if can_edit_setup %}<div class="actions"><a class="button primary" href="{% url 'scheduling:location_new' school_slug=business.slug %}">Add location</a>{% if locations %}<a class="button" href="{% url 'scheduling:room_new' school_slug=business.slug %}">Add room</a>{% endif %}</div>{% endif %}</div>
+<div class="section-heading"><h2>Locations &amp; rooms</h2>{% if can_edit_setup %}<div class="actions">{% if school_wide_access %}<a class="button primary" href="{% url 'scheduling:location_new' school_slug=business.slug %}">Add location</a>{% endif %}{% if locations %}<a class="button" href="{% url 'scheduling:room_new' school_slug=business.slug %}">Add room</a>{% endif %}</div>{% endif %}</div>
 {% for location in locations %}
 <section class="location-section">
   <div class="section-heading"><div><h3>{{ location.name }}</h3><p class="muted">{{ location.address }}{% if location.address %} &middot; {% endif %}{{ location.timezone_name }}</p></div>{% if can_edit_setup %}<a href="{% url 'scheduling:location_edit' school_slug=business.slug pk=location.pk %}">Edit location</a>{% endif %}</div>

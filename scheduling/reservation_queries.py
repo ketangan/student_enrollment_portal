@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 from core.payments.models import LedgerEntry, PaymentAttempt, Refund
 from .capabilities import require_capability
 from .models import Reservation, StockAllocation
+from .access import scope_reservations, staff_locations
 
 
 ATTENTION = (Q(state="review") | Q(state="canceled", net_received__gt=0)
@@ -32,7 +33,7 @@ def staff_reservations(profile):
         value=Sum(Case(When(kind="payment", then=F("amount_cents")), default=-F("amount_cents"), output_field=IntegerField()))).values("value")
     extras = LedgerEntry.objects.filter(order_id=OuterRef("order_id")).order_by().values("order_id").annotate(
         value=Sum(Case(When(kind="void", then=-F("extra_charge_cents")), default=F("extra_charge_cents"), output_field=IntegerField()))).values("value")
-    return Reservation.objects.filter(profile=profile, visit_booking__isnull=True).select_related("order").annotate(
+    return scope_reservations(Reservation.objects.filter(profile=profile, visit_booking__isnull=True), profile).select_related("order").annotate(
         location_name=Coalesce("workshop_request__session__offering__location__name", "party_request__offering__location__name",
             "camp_registration__camp__offering__location__name", Value(""), output_field=CharField()),
         net_received=Coalesce(Subquery(net), 0),
@@ -55,7 +56,7 @@ def filter_reservations(items, form, profile):
     if data["state"]:
         items = items.filter(state=data["state"])
     if data["location"] or data["date_from"] or data["date_to"]:
-        locations = [data["location"]] if data["location"] else profile.locations.all()
+        locations = [data["location"]] if data["location"] else staff_locations(profile)
         predicate = Q(pk__in=[])
         for location in locations:
             local = reservation_location(location)

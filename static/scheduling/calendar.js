@@ -26,6 +26,11 @@
   };
   const viewName = () => range === "month" ? "dayGridMonth" : range === "week" ? "timeGridWeek" : config.location ? "timeGridDay" : "resourceTimelineDay";
   const money = (amount, currency) => new Intl.NumberFormat(undefined, {style:"currency", currency}).format(amount / 100);
+  function detailLink(path) {
+    const current = new URL(location.href), url = new URL(path, location.origin);
+    url.searchParams.set("calendar", current.pathname + current.search);
+    return url.pathname + url.search;
+  }
   function updateSummary(summary={unpaid:0,balance:0,empty:0}) {
     document.getElementById("calendar-unpaid").textContent=summary.unpaid;
     document.getElementById("calendar-balances").textContent=summary.balance;
@@ -80,12 +85,11 @@
         for (const row of data.reservations) {
           const tr = node("tr");
           for (const value of [row.name,row.quantity,row.state,money(row.received,row.currency),money(Math.max(0,row.total-row.received),row.currency)]) tr.append(node("td",value));
-          const cell = node("td"), link = node("a","View reservation"); link.href = row.url; cell.append(link); tr.append(cell); body.append(tr);
+          const cell = node("td"), link = node("a","View reservation"); link.href = detailLink(row.url); cell.append(link); tr.append(cell); body.append(tr);
         }
         wrap.append(table); detailBody.append(wrap);
       } else detailBody.append(node("p","No active reservations."));
-      if (data.truncated) detailBody.append(node("p","Showing the first 500 reservations. Open the session for more."));
-      const link = node("a","Open details", "button"); link.href = data.url; detailBody.append(link);
+      if (data.truncated) detailBody.append(node("p","Showing the first 500 reservations."));
     } catch (_) {
       if (current === detailNumber && dialog.open) {
         const retry = node("button", "Retry"); retry.type="button"; retry.addEventListener("click", () => openDetail(event));

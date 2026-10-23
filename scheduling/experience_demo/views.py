@@ -10,7 +10,7 @@ from django.views.decorators.http import require_GET, require_http_methods
 from django_ratelimit.decorators import ratelimit
 
 from scheduling import requests
-from scheduling.access import has_permission, require_access
+from scheduling.access import has_permission, require_access, require_location_access, location_restricted
 from scheduling.capabilities import has_capability
 from scheduling.models import Session, WorkshopRequest
 from scheduling.request_forms import request_forms
@@ -22,7 +22,7 @@ def page(request, template, profile, config, values=None, status=200):
     staff = {}
     if template in {"preparation", "integration"}:
         from scheduling.views import _context
-        _, role = require_access(request.user, profile.school.slug)
+        profile, role = require_location_access(request.user, profile.school.slug)
         staff = _context(request, profile, role, "integrations" if template == "integration" else "preparation")
     response = render(request, f"scheduling/experience/{template}.html", {
         **staff,
@@ -195,7 +195,7 @@ def calendar(request, school_slug, public_id):
 @require_GET
 def preparation(request, school_slug):
     profile, config = context(request, school_slug)
-    _, role = require_access(request.user, school_slug)
+    profile, role = require_location_access(request.user, school_slug)
     raw = request.GET.get("session")
     if raw and not raw.isdecimal():
         raise Http404
@@ -205,7 +205,7 @@ def preparation(request, school_slug):
         return page(request, "preparation", profile, config, status=400)
     values = service.roster(profile, config, raw, location=scope["selected_location"])
     values["audience"] = "Studio team"
-    values["can_map"] = has_permission(role, "setup.edit") and has_capability(profile, "integrations")
+    values["can_map"] = has_permission(role, "setup.edit") and not location_restricted(profile) and has_capability(profile, "integrations")
     for session in values["sessions"]:
         local = timezone.localtime(session.starts_at, ZoneInfo(session.offering.location.timezone_name))
         session.demo_label = f"{session.offering.name} / {session.offering.location.name} / {local:%b %d, %Y %I:%M %p}"

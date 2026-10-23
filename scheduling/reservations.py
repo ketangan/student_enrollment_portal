@@ -11,7 +11,7 @@ from django.utils import timezone
 from core.models import AdminAuditLog
 from core.payments import service as payments
 from core.payments.models import PaymentAccount, PaymentAttempt
-from .access import require_access
+from .access import get_staff_reservation, require_location_access, staff_locations
 from .capabilities import require_capability
 from .models import PartyRequest, Reservation, ReservationOccurrence, SchedulingProfile, Session, WorkshopRequest
 
@@ -140,9 +140,9 @@ def _audit(user, item, action, **details):
 
 
 def locked_profile(user, slug):
-    profile, _ = require_access(user, slug, "setup.edit", capability="reservations")
+    profile, _ = require_location_access(user, slug, "setup.edit", capability="reservations")
     SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
-    return require_access(user, slug, "setup.edit", capability="reservations")[0]
+    return require_location_access(user, slug, "setup.edit", capability="reservations")[0]
 
 
 @transaction.atomic
@@ -154,7 +154,7 @@ def create_reservation(user, slug, kind, public_id, total_cents=None, deposit_ce
     if kind == "workshop":
         require_capability(profile, "workshops")
         source = get_object_or_404(WorkshopRequest.objects.select_related("session__offering__location", "session__room"),
-            public_id=public_id, session__offering__location__profile=profile)
+            public_id=public_id, session__offering__location__in=staff_locations(profile))
         existing = Reservation.objects.filter(workshop_request=source).first()
         if existing:
             if (existing.order.total_cents, existing.order.deposit_cents, existing.order.account_id) != (total_cents, deposit_cents, account.pk if account else None):
@@ -170,7 +170,7 @@ def create_reservation(user, slug, kind, public_id, total_cents=None, deposit_ce
     elif kind == "party":
         require_capability(profile, "parties")
         source = get_object_or_404(PartyRequest.objects.select_related("offering__location", "room"),
-            public_id=public_id, offering__location__profile=profile)
+            public_id=public_id, offering__location__in=staff_locations(profile))
         existing = Reservation.objects.filter(party_request=source).first()
         if existing:
             if existing.order.account_id != (account.pk if account else None):
@@ -236,7 +236,7 @@ def booking_account(profile, online):
 @transaction.atomic
 def settle_offline(user, slug, public_id, *, key, kind, amount_cents, reference):
     profile = locked_profile(user, slug)
-    item = get_object_or_404(Reservation.objects.select_related("order", "room"), profile=profile, public_id=public_id, visit_booking__isnull=True)
+    item = get_staff_reservation(profile, public_id, exclude_visits=True)
     # Exact retries remain valid after cancellation. A different payload is rejected in the ledger.
     existing = item.order.entries.filter(key=key).exists()
     if not existing and ((kind == "refund" and item.state != "canceled") or (kind == "payment" and item.state == "canceled")):
@@ -264,7 +264,7 @@ def settle_offline(user, slug, public_id, *, key, kind, amount_cents, reference)
 @transaction.atomic
 def cancel_reservation(user, slug, public_id):
     profile = locked_profile(user, slug)
-    item = get_object_or_404(Reservation, profile=profile, public_id=public_id, visit_booking__isnull=True)
+    item = get_staff_reservation(profile, public_id, exclude_visits=True)
     if item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).exists():
         raise ValidationError("A checkout may still accept payment. Verify its expiry before canceling this reservation.")
     if item.state == "completed":

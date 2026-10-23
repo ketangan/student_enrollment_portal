@@ -12,7 +12,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from core.models import AdminAuditLog
-from .access import require_access
+from .access import require_location_access, staff_locations, location_restricted
 from .capabilities import require_capability
 from .editing import protect_edit
 from .forms import LocationForm, OfferingForm, RoomForm, WorkshopSessionForm
@@ -27,17 +27,17 @@ FORMS.update(party_packages=PartyPackageForm)
 def records(profile, kind):
     if kind == "party_packages":
         require_capability(profile, "parties")
-        return PartyPackage.objects.filter(offering__location__profile=profile).select_related("offering__location")
+        return PartyPackage.objects.filter(offering__location__in=staff_locations(profile)).select_related("offering__location")
     if kind in {"workshops", "sessions"}:
         require_capability(profile, "workshops")
     if kind == "locations":
-        return Location.objects.filter(profile=profile)
+        return staff_locations(profile)
     if kind == "rooms":
-        return Room.objects.filter(location__profile=profile).select_related("location")
+        return Room.objects.filter(location__in=staff_locations(profile)).select_related("location")
     if kind == "workshops":
-        return Offering.objects.filter(location__profile=profile, visit_program__isnull=True).select_related("location")
+        return Offering.objects.filter(location__in=staff_locations(profile), visit_program__isnull=True).select_related("location")
     if kind == "sessions":
-        return Session.objects.filter(offering__location__profile=profile, offering__visit_program__isnull=True).select_related("offering__location", "room")
+        return Session.objects.filter(offering__location__in=staff_locations(profile), offering__visit_program__isnull=True).select_related("offering__location", "room")
     raise Http404("Page not found")
 
 
@@ -46,6 +46,8 @@ def edit_permission(kind):
 
 
 def build_form(profile, kind, data=None, pk=None, offering_pk=None):
+    if kind == "locations" and not pk and location_restricted(profile):
+        raise Http404("Only school-wide administrators can add locations.")
     objects = records(profile, kind)
     instance = get_object_or_404(objects, pk=pk) if pk else None
     if kind == "sessions":
@@ -77,10 +79,10 @@ def _audit(user, profile, instance, before, action):
 
 @transaction.atomic
 def save_setup(user, school_slug, kind, data, pk=None, offering_pk=None):
-    profile, _ = require_access(user, school_slug, edit_permission(kind))
+    profile, _ = require_location_access(user, school_slug, edit_permission(kind))
     SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
     # Re-check access after waiting for another setup writer.
-    profile, _ = require_access(user, school_slug, edit_permission(kind))
+    profile, _ = require_location_access(user, school_slug, edit_permission(kind))
     form = build_form(profile, kind, data, pk, offering_pk)
     before = model_to_dict(form.instance) if pk else {}
     zone = form.instance.offering.location.timezone_name if kind == "sessions" else "UTC"
@@ -106,9 +108,9 @@ def save_setup(user, school_slug, kind, data, pk=None, offering_pk=None):
 def set_publication(user, school_slug, kind, pk, publish):
     if kind not in {"workshops", "sessions"}:
         raise Http404("Page not found")
-    profile, _ = require_access(user, school_slug, edit_permission(kind))
+    profile, _ = require_location_access(user, school_slug, edit_permission(kind))
     SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
-    profile, _ = require_access(user, school_slug, edit_permission(kind))
+    profile, _ = require_location_access(user, school_slug, edit_permission(kind))
     instance = get_object_or_404(records(profile, kind), pk=pk)
     if instance.is_published == publish:
         return instance

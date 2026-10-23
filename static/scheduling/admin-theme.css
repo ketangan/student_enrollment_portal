@@ -320,6 +320,9 @@
 .booking-admin .reservation-heading-actions svg, .booking-admin .reservation-section .actions button svg { width: 16px; height: 16px; flex-shrink: 0; }
 .booking-admin .reservation-section { padding: 24px 0; border-bottom: 1px solid var(--dash-border); }
 .booking-admin .reservation-section:last-child { border-bottom: 0; }
+.booking-admin .reservation-notes-form { max-width: 760px; }
+.booking-admin .reservation-notes-form .form-field { margin-bottom: 12px; }
+.booking-admin #internal-notes { scroll-margin-top: 85px; }
 .booking-admin .reservation-section h2 { margin: 0 0 20px; font-size: 18px; }
 .booking-admin .reservation-section .section-heading h2 { margin: 0; }
 .booking-admin .reservation-facts { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 24px; margin: 0; }
@@ -439,6 +442,3 @@
   .booking-admin .intake-form { width: 100%; justify-content: space-between; gap: 12px; }
   .booking-admin .reservation-filter { gap: 16px; }
   .booking-admin .reservation-row > .actions { margin-left: 0; }
-  .material-row { grid-template-columns: minmax(0,1fr) 80px; }
-  .booking-admin .record { grid-template-columns: 110px minmax(0,1fr); }
-}

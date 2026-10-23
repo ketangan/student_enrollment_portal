@@ -255,7 +255,8 @@ def projection(item, config):
 
 
 def roster(profile, config, session_pk=None, *, location=None):
-    all_sessions = Session.objects.filter(offering__location__profile=profile, offering__visit_program__isnull=True).select_related("offering__location").order_by("offering__location__name", "starts_at", "pk")
+    from scheduling.access import staff_locations
+    all_sessions = Session.objects.filter(offering__location__in=staff_locations(profile), offering__visit_program__isnull=True).select_related("offering__location").order_by("offering__location__name", "starts_at", "pk")
     if location is not None:
         all_sessions = all_sessions.filter(offering__location=location)
     upcoming = all_sessions.filter(starts_at__gt=timezone.now())
