@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: October 22, 2026.
+Updated: October 23, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -8,6 +8,21 @@ Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 This Markdown file remains the source of truth; the viewer does not edit milestone status.
 
 ## Current Status
+
+### October 23 Release
+
+PR #7 merged to main (`d2674df`), and the web service and existing five-minute
+maintenance job are deployed. This supersedes local-only labels below for the
+calendar notes, location-based team access, shared team email fields and Square
+connection/payment work included in that release. Policy/waiver placeholders
+remain deferred, not complete.
+
+Final CI: 4,569 Python tests passed, three skipped; 98.56% combined coverage;
+83 JavaScript tests passed. Real hosted Sandbox payment/refund webhooks and
+duplicate/signature isolation checks passed. Live charging remains off; no
+school's selected provider changed. Hosted Square authorization and actual
+hosted token renewal are still pending. Test slowness was profiled, not optimized.
+See `square-booking-payments.md` for deployment and diagnostic evidence.
 
 ### Location-Based Staff Access (Local Review)
 

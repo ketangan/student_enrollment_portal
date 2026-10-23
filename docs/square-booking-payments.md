@@ -1,5 +1,35 @@
 # Square Booking Payments
 
+## Hosted Release (October 23, 2026)
+
+PR #7 is merged to main as `d2674df729f846099d950f06ac924330515a403c`.
+GitHub CI passed: 4,569 Python tests, three skipped, 98.56% combined coverage;
+83 JavaScript tests passed. Earlier local-only notes below are historical.
+
+- Hosted Sandbox payment and full refund settled through real Square webhooks.
+  Duplicate delivery did not duplicate the ledger; invalid signatures and
+  test signatures sent to the live endpoint were rejected. The synthetic
+  reservation was canceled and fully refunded; no real funds were involved.
+- Existing five-minute Render job now runs
+  `process_booking_maintenance --limit 20`: party email, Square renewal and
+  Square-only Sandbox payment recovery. A hosted run completed successfully.
+  Actual hosted token renewal remains unverified until an account is connected.
+- Sandbox callback now targets
+  `https://demo.mypontora.com/bookings/square/oauth/callback/`.
+  Hosted Connect is visible and redirects to Square. Square's authorization
+  page rendered blank at the last check; hosted authorization remains pending.
+- Web startup changed from `bash -lc` to `bash -c`, preserving migration,
+  ensure-superuser and Gunicorn commands. The login shell caused credential-vault
+  validation to fail; the hosted Connect screen passed after this correction.
+- Live charging remains disabled. School payment-provider selection was not
+  changed; SBMC subscription settings matched their pre-release checksum.
+- Sentry's October 23 18:31:59 UTC `Location.timezone` AttributeError came from
+  the temporary verification script, not a customer request. It occurred before
+  payment submission, inside a rolled-back transaction. The script was corrected
+  to `timezone_name`, then the hosted acceptance check passed.
+- Test-performance work is diagnosis only, not an implemented speedup. See the
+  timing investigation below; migration coverage must not be bypassed.
+
 ## Live Connection Work (October 22, 2026)
 
 Local implementation is in progress and live charging remains disabled. The latest
