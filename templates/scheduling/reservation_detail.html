@@ -25,6 +25,15 @@
 {% if can_edit_setup %}{% include 'scheduling/reservation_payments.html' %}{% endif %}
 {% include 'scheduling/reservation_terminal_payments.html' %}
 </section>
+<section class="reservation-section" aria-labelledby="internal-notes"><h2 id="internal-notes">Internal notes</h2>
+{% if can_edit_sessions %}
+<form method="post" class="reservation-notes-form">{% csrf_token %}<input type="hidden" name="action" value="save_notes">
+{{ notes_form.non_field_errors }}{% for hidden in notes_form.hidden_fields %}{{ hidden }}{{ hidden.errors }}{% endfor %}
+{% for field in notes_form.visible_fields %}<div class="form-field"><label class="sr-only" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}
+<button type="submit" class="primary">Save notes</button>
+</form>
+{% else %}{% for field in notes_form.visible_fields %}<p>{{ field.value|default:"No internal notes."|linebreaksbr }}</p>{% endfor %}{% endif %}
+</section>
 <section class="reservation-section" aria-labelledby="audit-title"><h2 id="audit-title">Audit log</h2>
 <div class="table-wrap reservation-audit" role="region" aria-label="Reservation audit log" tabindex="0"><table class="dash-table"><thead><tr><th>When</th><th>Activity</th><th>By</th></tr></thead><tbody>
 {% for event in audit.rows %}<tr><td>{% timezone item.snapshot.timezone %}{{ event.at|date:"M j, Y" }}<br>{{ event.at|date:"g:i A" }}{% endtimezone %}</td><td><strong>{{ event.title }}</strong>{% if event.detail %}<p>{{ event.detail }}</p>{% endif %}</td><td>{{ event.actor }}</td></tr>{% empty %}<tr><td colspan="3">No activity recorded.</td></tr>{% endfor %}

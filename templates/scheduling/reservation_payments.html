@@ -20,4 +20,4 @@
 {% for refund in refunds %}<div class="payment-operation"><h3>{{ refund.get_state_display }} &middot; ${{ refund.amount|floatformat:2 }}</h3><p>{{ refund.reason }}</p>
 {% if refund.attention %}<p class="notice error" role="alert">{{ refund.attention }}</p>{% endif %}
 {% if refund.state == 'requires_action' %}<p class="notice error">Check this refund in the payment provider's dashboard. It has not been recorded as completed.</p>{% endif %}
-<form method="post" action="{% url 'scheduling:refund_recover' school_slug=business.slug public_id=item.public_id refund_id=refund.public_id %}">{% csrf_token %}<button>Check refund status</button></form></div>{% endfor %}
+<form method="post" action="{% url 'scheduling:refund_recover' school_slug=business.slug public_id=item.public_id refund_id=refund.public_id %}">{% csrf_token %}{% if refund.state == 'unknown' and not refund.provider_refund and item.order.account.provider == 'square' %}<button name="action" value="retry">Retry refund</button><p class="muted">Retries this approved refund, not a new refund.</p>{% else %}<button name="action" value="check">Check refund status</button>{% endif %}</form></div>{% endfor %}

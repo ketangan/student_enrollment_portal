@@ -8,7 +8,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from django_ratelimit.decorators import ratelimit
 
-from .access import require_access
+from .access import require_location_access
 from .models import Reservation, WorkshopRequest
 from .request_forms import request_forms
 from .requests import (accepts_requests, browser_key, catalog_for, choice_form, preparation_totals,
@@ -60,7 +60,7 @@ def request_received(request, school_slug, public_id):
 @login_required
 @require_http_methods(["GET", "POST"])
 def choice_edit(request, school_slug, offering_pk, group_pk=None, option_pk=None, option=False):
-    profile, role = require_access(request.user, school_slug, "setup.edit")
+    profile, role = require_location_access(request.user, school_slug, "setup.edit")
     arguments = {"group_pk": group_pk, "option_pk": option_pk, "option": option}
     if request.method == "POST":
         offering, form = save_choice(request.user, school_slug, offering_pk, request.POST, **arguments)
@@ -78,7 +78,7 @@ def choice_edit(request, school_slug, offering_pk, group_pk=None, option_pk=None
 @login_required
 @require_GET
 def request_list(request, school_slug):
-    profile, role = require_access(request.user, school_slug)
+    profile, role = require_location_access(request.user, school_slug)
     context = _context(request, profile, role, "requests")
     form = context["location_filter"]
     context.update(location_filter=form, selected_location=form.selected)
@@ -94,7 +94,7 @@ def request_list(request, school_slug):
 @login_required
 @require_GET
 def request_detail(request, school_slug, public_id):
-    profile, role = require_access(request.user, school_slug)
+    profile, role = require_location_access(request.user, school_slug)
     context = _context(request, profile, role, "requests")
     context["item"] = get_object_or_404(scoped_requests(profile), public_id=public_id)
     return render(request, "scheduling/request_detail.html", context)
@@ -104,7 +104,7 @@ def request_detail(request, school_slug, public_id):
 @login_required
 @require_POST
 def request_withdraw(request, school_slug, public_id):
-    require_access(request.user, school_slug, "sessions.edit")
+    require_location_access(request.user, school_slug, "sessions.edit")
     if request.POST.get("confirm") != "yes":
         return HttpResponseBadRequest("Confirm withdrawal first.")
     try:
@@ -120,7 +120,7 @@ def request_withdraw(request, school_slug, public_id):
 @login_required
 @require_GET
 def preparation(request, school_slug, pk):
-    profile, role = require_access(request.user, school_slug)
+    profile, role = require_location_access(request.user, school_slug)
     session = get_object_or_404(records(profile, "sessions"), pk=pk)
     items = list(scoped_requests(profile).filter(session=session, status=WorkshopRequest.Status.PENDING).exclude(reservation__state__in=["canceled", "completed"]).order_by("created_at", "pk"))
     context = _context(request, profile, role, "requests")

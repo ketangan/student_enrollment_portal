@@ -10,7 +10,7 @@ class PaymentAccount(models.Model):
     """Operator-provisioned merchant binding; never accepts a customer's API key."""
 
     class Scope(models.TextChoices):
-        CONNECTED = "connected", "Connected test merchant"
+        CONNECTED = "connected", "Connected merchant"
         PLATFORM_DEMO = "platform_demo", "Pontora shared sandbox (demos only)"
 
     class Provider(models.TextChoices):
@@ -27,11 +27,12 @@ class PaymentAccount(models.Model):
 
     class Meta:
         constraints = [
-            models.CheckConstraint(condition=Q(environment="test"), name="payment_account_test_only"),
+            models.CheckConstraint(condition=Q(environment="test") | Q(environment="live", provider="square", scope="connected"), name="payment_account_environment_valid"),
             models.CheckConstraint(condition=Q(scope__in=["connected", "platform_demo"]), name="payment_account_scope_valid"),
-            models.UniqueConstraint(fields=["reference"], condition=Q(scope="connected"), name="payment_connected_reference_unique"),
-            models.UniqueConstraint(fields=["school", "environment", "provider"], name="payment_account_school_provider_unique"),
-            models.CheckConstraint(condition=Q(provider="stripe", location_reference="") | (Q(provider="square", scope="platform_demo") & ~Q(location_reference="")), name="payment_provider_binding_valid"),
+            models.UniqueConstraint(fields=["reference"], condition=Q(scope="connected", provider="stripe"), name="payment_connected_reference_unique"),
+            models.UniqueConstraint(fields=["school", "environment", "provider"], condition=Q(provider="stripe") | Q(scope="platform_demo"), name="payment_account_school_provider_unique"),
+            models.UniqueConstraint(fields=["school", "environment", "reference", "location_reference"], condition=Q(provider="square", scope="connected"), name="payment_square_location_unique"),
+            models.CheckConstraint(condition=Q(provider="stripe", location_reference="") | (Q(provider="square") & ~Q(location_reference="")), name="payment_provider_binding_valid"),
         ]
 
 
@@ -203,5 +204,5 @@ class ProviderEventReceipt(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["account", "environment", "event_id"], name="payment_provider_event_unique"),
-            models.CheckConstraint(condition=Q(environment="test"), name="payment_event_test_only"),
+            models.CheckConstraint(condition=Q(environment__in=["test", "live"]), name="payment_event_environment_valid"),
         ]

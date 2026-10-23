@@ -14,7 +14,7 @@ from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 
 from core.models import AdminAuditLog
-from .access import require_access
+from .access import require_location_access, staff_locations
 from .capabilities import require_capability
 from .models import Offering, PartyRequest, SchedulingProfile, Session
 from .party_forms import PartyInquiryForm, PartyReviewForm
@@ -88,7 +88,7 @@ def submit_inquiry(slug, pk, data, browser):
         require_capability(profile, "reservations")
         if not profile.native_reservations_enabled:
             raise ValidationError("Online party bookings are not available. Please contact the studio.")
-        account = booking_account(profile, True)
+        account = booking_account(profile, True, offering.location)
         save_reservation(party_reservation_item(profile, item), item, "party",
             int(item.proposed_total * 100), int(item.proposed_deposit * 100), account, None)
         item.status = PartyRequest.Status.REVIEWED
@@ -99,14 +99,14 @@ def submit_inquiry(slug, pk, data, browser):
 
 def scoped_parties(profile):
     require_capability(profile, "parties")
-    return PartyRequest.objects.filter(offering__location__profile=profile).select_related("offering__location", "room", "reservation")
+    return PartyRequest.objects.filter(offering__location__in=staff_locations(profile)).select_related("offering__location", "room", "reservation")
 
 
 @transaction.atomic
 def review_inquiry(user, slug, public_id, data):
-    profile, _ = require_access(user, slug, "sessions.edit")
+    profile, _ = require_location_access(user, slug, "sessions.edit")
     SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
-    profile, _ = require_access(user, slug, "sessions.edit")
+    profile, _ = require_location_access(user, slug, "sessions.edit")
     item = get_object_or_404(scoped_parties(profile), public_id=public_id)
     original = {field: getattr(item, field) for field in ("status", "room_id", "proposed_total", "proposed_deposit", "preparation_notes", "materials", "ends_at")}
     form = PartyReviewForm(data, instance=item)

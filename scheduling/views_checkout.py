@@ -2,7 +2,7 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from django.core.exceptions import ValidationError
-from django.http import HttpResponse, HttpResponseBadRequest
+from django.http import Http404, HttpResponse, HttpResponseBadRequest
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -12,7 +12,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from core.payments import checkout, service
 from core.services import billing_stripe
-from .access import accessible_profiles
+from .access import require_location_access, get_staff_reservation
 from .capabilities import has_capability
 from .checkout import customer_reservation, payment_choices, prepare_booking_checkout, settle_booking_event, validate_booking_checkout
 
@@ -40,9 +40,15 @@ def customer_payment(request, school_slug, token):
     else:
         ready = due >= 50
     amounts = service.totals(item.order)
-    can_view_reservation = (not item.visit_booking_id
-        and has_capability(item.profile, "reservations")
-        and accessible_profiles(request.user).filter(pk=item.profile_id).exists())
+    can_view_reservation = False
+    if request.user.is_authenticated and not item.visit_booking_id and has_capability(item.profile, "reservations"):
+        try:
+            staff_profile, _ = require_location_access(request.user, school_slug)
+            get_staff_reservation(staff_profile, item.public_id)
+        except Http404:
+            pass
+        else:
+            can_view_reservation = True
     context = {"item": item, "business": item.profile.school, "due": Decimal(due) / 100,
                "amounts": amounts, "ready": ready, "error": error, **payment_choices(item.order),
                "can_view_reservation": can_view_reservation,

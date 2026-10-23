@@ -25,6 +25,6 @@
 </section>
 {% endblock %}
 {% block scripts %}{% if ready %}
-<script src="https://sandbox.web.squarecdn.com/v1/square.js" defer></script>
+{% if attempt.account.environment == 'live' %}<script src="https://web.squarecdn.com/v1/square.js" defer></script>{% else %}<script src="https://sandbox.web.squarecdn.com/v1/square.js" defer></script>{% endif %}
 <script src="{% static 'scheduling/square_checkout.js' %}" defer></script>
 {% endif %}{% endblock %}

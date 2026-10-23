@@ -410,7 +410,7 @@ def test_optional_billing_membership_lookup_is_scoped_to_school(school, booking_
         assert billing_role(user, school) == booking_role
         get_model.assert_called_once_with("scheduling", "SchedulingMembership")
         model.objects.filter.assert_called_once_with(
-            user=user, profile__school=school, profile__enabled=True, is_active=True,
+            user=user, profile__school=school, profile__enabled=True, is_active=True, all_locations=True,
         )
 
 

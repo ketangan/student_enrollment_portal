@@ -4,6 +4,7 @@ from decimal import Decimal
 from django import forms
 from django.core.validators import MaxValueValidator
 from .models import Location, Reservation
+from .access import staff_locations
 
 
 class ReservationFilterForm(forms.Form):
@@ -17,7 +18,7 @@ class ReservationFilterForm(forms.Form):
 
     def __init__(self, *args, profile, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["location"].queryset = profile.locations.all()
+        self.fields["location"].queryset = staff_locations(profile)
 
     def clean(self):
         data = super().clean()

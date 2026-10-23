@@ -35,7 +35,10 @@ def test_location_is_shared_between_admin_pages(client, inventory, second_studio
         assert list(response.context["offerings"]) == [second_studio[1]]
     if route == "locations":
         assert list(response.context["locations"]) == [selected]
-    if route in {"access", "integrations"}:
+    if route == "access":
+        assert booking_member in response.context["memberships"]
+        assert b'aria-label="Team"' in response.content
+    if route == "integrations":
         assert b"Workspace-wide settings" in response.content
     client.get(url(profile, route), {"location": ""})
     assert client.get(url(profile)).context["selected_location"] is None

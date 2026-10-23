@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 from html.parser import HTMLParser
+from urllib.parse import urlsplit
 
 import pytest
 from django.urls import reverse
@@ -14,10 +15,13 @@ class NavigationParser(HTMLParser):
         self.groups = {}
         self.current = None
         self.link = None
+        self.stylesheets = []
         self.feed(content.decode())
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
+        if tag == "link" and attrs.get("rel") == "stylesheet":
+            self.stylesheets.append(urlsplit(attrs["href"]).path)
         if tag == "nav":
             self.current = attrs.get("aria-label")
             self.groups[self.current] = []
@@ -96,7 +100,8 @@ def test_rendered_navigation_and_existing_links(client, booking_member, route, s
     client.force_login(booking_member.user)
     response = client.get(reverse("scheduling:" + route, kwargs={"school_slug": booking_member.profile.school.slug}))
     assert response.status_code == 200
-    groups = NavigationParser(response.content).groups
+    parsed = NavigationParser(response.content)
+    groups = parsed.groups
     nav = groups["Bookings"]
     assert [link["text"] for link in nav] == ["Dashboard", "Reservations", "Setup", "Settings"]
     assert [link["text"] for link in nav if link.get("aria-current") == "page"] == [section]
@@ -107,7 +112,7 @@ def test_rendered_navigation_and_existing_links(client, booking_member, route, s
     else:
         assert f"<h1>{section}</h1>".encode() in response.content
     assert b'id="dashboard-location-filter"' in response.content
-    assert b'href="/static/admin/dashboard.css"' in response.content
+    assert "/static/admin/dashboard.css" in parsed.stylesheets
     assert b'aria-controls="booking-nav" aria-expanded="false"' in response.content
     if tab:
         subnav = groups[section + " sections"]

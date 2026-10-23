@@ -7,8 +7,8 @@
   <title>{% block title %}{{ booking_navigation.section.label|default:'Bookings' }}{% endblock %} | Pontora</title>
   <link rel="icon" href="{% static 'favicon.png' %}">
   <link rel="stylesheet" href="{% static 'scheduling/workspace.css' %}?v=20261004-integrations">
-  <link rel="stylesheet" href="{% static 'admin/dashboard.css' %}">
-<link rel="stylesheet" href="{% static 'scheduling/admin-theme.css' %}?v=20261019-terminal-extras-2">
+  <link rel="stylesheet" href="{% static 'admin/dashboard.css' %}?v=20261022-shared-team">
+  <link rel="stylesheet" href="{% static 'scheduling/admin-theme.css' %}?v=20261023-square-mapping">
 <link rel="stylesheet" href="{% static 'scheduling/materials.css' %}?v=20261006-color-settings">
 {% include 'scheduling/date_picker_assets.html' %}
 {% block extra_css %}{% endblock %}
@@ -65,7 +65,7 @@
     {% for message in messages %}<div class="notice {{ message.tags }}" role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">{{ message }}</div>{% endfor %}
     {% if dashboard_location_form.errors %}<div class="notice error" role="alert">Choose a valid location or select All locations. {{ dashboard_location_form.location.errors }}</div>
     {% else %}
-    {% if workspace_wide %}<p class="muted">Workspace-wide settings</p>{% endif %}
+    {% block workspace_notice %}{% if workspace_wide %}<p class="muted">Workspace-wide settings</p>{% endif %}{% endblock %}
     {% block content %}{% endblock %}
     {% endif %}
   </main>

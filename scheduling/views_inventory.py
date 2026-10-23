@@ -16,7 +16,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods
 
 from . import inventory
-from .access import require_access
+from .access import require_access, require_location_access, staff_locations, location_restricted
 from .editing import protect_edit
 from .inventory_forms import CatalogForm, CatalogGroupForm, CatalogColorForm, ChoiceOptionForm, CatalogVariantForm, StockCountForm, MaterialForm, DesignForm, recipe_forms
 from .models import ChoiceGroup, ChoiceOption, InventoryCatalog, Location, SchedulingProfile, CatalogVariant, StockLevel, Material
@@ -28,7 +28,7 @@ from .views import _context
 @login_required
 @require_GET
 def settings_home(request, school_slug):
-    profile, role = require_access(request.user, school_slug)
+    profile, role = require_location_access(request.user, school_slug)
     context = _context(request, profile, role, "settings")
     location = context["selected_location"]
     workshop = None
@@ -49,8 +49,8 @@ def settings_home(request, school_slug):
     page = Paginator(rows, 25).get_page(request.GET.get("page"))
     filters = request.GET.copy()
     filters.pop("page", None)
-    context.update(catalogs=profile.inventory_catalogs.annotate(item_count=Count("items")).prefetch_related("offerings__location"),
-        locations=profile.locations.all(), selected_location=location,
+    context.update(catalogs=profile.inventory_catalogs.none() if location_restricted(profile) else profile.inventory_catalogs.annotate(item_count=Count("items")).prefetch_related("offerings__location"),
+        locations=staff_locations(profile), selected_location=location,
         stock=page, page_obj=page, query=query, filters=filters.urlencode(), selected_workshop=workshop)
     # Choosing another studio leaves the individual-workshop view.
     context["location_query_fields"] = [(key, value) for key, value in context["location_query_fields"] if key != "workshop"]
@@ -166,8 +166,8 @@ def edit(request, school_slug, kind, catalog_pk=None, pk=None, group_pk=None):
 @login_required
 @require_http_methods(["GET", "POST"])
 def stock_count(request, school_slug, pk):
-    profile, role = require_access(request.user, school_slug, "setup.edit")
-    level = get_object_or_404(StockLevel.objects.select_related("material", "location"), pk=pk, location__profile=profile, material__profile=profile)
+    profile, role = require_location_access(request.user, school_slug, "setup.edit")
+    level = get_object_or_404(StockLevel.objects.select_related("material", "location"), pk=pk, location__in=staff_locations(profile), material__profile=profile)
     form = StockCountForm(request.POST if request.method == "POST" else None,
                           initial={"mode": "receive", "previous": level.on_hand,
                                    "low_stock_threshold": level.low_stock_threshold, "previous_threshold": level.low_stock_threshold})
@@ -186,7 +186,7 @@ def stock_count(request, school_slug, pk):
     context.update(form=form, title=f"{level.material.name} / {level.location.name}", level=level,
         reserved=inventory.reserved(level), history=level.adjustments.select_related("actor")[:25],
         usage=inventory.claims().filter(level=level).select_related("reservation")[:50],
-        recipes=level.material.recipes.select_related("variant__catalog").prefetch_related("variant__catalog__offerings__location"))
+        recipes=level.material.recipes.none() if location_restricted(profile) else level.material.recipes.select_related("variant__catalog").prefetch_related("variant__catalog__offerings__location"))
     return render(request, "scheduling/settings/form.html", context, status=400 if request.method == "POST" else 200)
 
 

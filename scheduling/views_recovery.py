@@ -8,25 +8,24 @@ from django.views.decorators.http import require_POST, require_http_methods
 
 from core.payments import refunds
 from core.payments.models import Refund
-from .access import require_access
+from .access import get_staff_reservation, require_location_access
 from .checkout import approve_refund, recover_attempt, request_close, resolve_review
-from .models import Reservation
 from .reservation_forms import RefundForm
 from .views import _context
 from .reservations import _audit
 
 
-def process_refund(user, item, refund):
+def process_refund(user, item, refund, *, retry_submission=False):
     previous = (refund.state, refund.attention)
-    refunds.process(refund, force=True)
+    refunds.process(refund, force=True, retry_submission=retry_submission)
     refund.refresh_from_db()
     if previous != (refund.state, refund.attention):
         _audit(user, item, "refund_status", refund=str(refund.public_id), status=refund.get_state_display())
 
 
 def _item(request, slug, public_id):
-    profile, role = require_access(request.user, slug, "setup.edit", capability="reservations")
-    return profile, role, get_object_or_404(Reservation.objects.select_related("order"), profile=profile, public_id=public_id, visit_booking__isnull=True)
+    profile, role = require_location_access(request.user, slug, "setup.edit", capability="reservations")
+    return profile, role, get_staff_reservation(profile, public_id, exclude_visits=True)
 
 
 def _back(slug, public_id):
@@ -95,6 +94,11 @@ def refund_create(request, school_slug, public_id):
 def refund_recover(request, school_slug, public_id, refund_id):
     _, _, item = _item(request, school_slug, public_id)
     refund = get_object_or_404(Refund, public_id=refund_id, attempt__order=item.order)
-    process_refund(request.user, item, refund)
+    action = request.POST.get("action", "check")
+    if action not in {"check", "retry"}:
+        return HttpResponseBadRequest("Choose check or retry.")
+    if action == "retry" and refund.attempt.account.provider != "square":
+        return HttpResponseBadRequest("Submission retries are only supported for Square refunds.")
+    process_refund(request.user, item, refund, retry_submission=action == "retry")
     messages.info(request, "Refund check requested. Review the saved status; recent checks are not repeated immediately.")
     return _back(school_slug, public_id)

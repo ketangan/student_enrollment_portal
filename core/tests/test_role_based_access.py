@@ -313,13 +313,14 @@ def test_team_add_creates_user_and_membership(client):
     resp = client.post(
         reverse("school_team_add", kwargs={"school_slug": school.slug}),
         {"username": "jsmith", "first_name": "Jane", "last_name": "Smith",
-         "password": "temppass123", "role": "editor"},
+         "password": "temppass123", "role": "editor", "email": "school@example.com"},
     )
     assert resp.status_code == 302
     user = User.objects.get(username="jsmith")
     assert user.is_staff is True
     assert user.first_name == "Jane"
     assert user.last_name == "Smith"
+    assert user.email == "school@example.com"
     assert SchoolAdminMembership.objects.filter(
         school=school, user=user, role="editor", is_active=True
     ).exists()

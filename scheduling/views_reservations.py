@@ -12,13 +12,13 @@ from django.utils import timezone
 
 from core.payments.service import totals
 from core.payments.models import PaymentAttempt, Refund
-from .access import require_access
-from .models import PartyRequest, Reservation
+from .access import get_staff_reservation, require_location_access, staff_locations
+from .models import PartyRequest
 from .reservation_forms import CancellationForm, QuoteForm, ReservationFilterForm
 from .reservation_queries import ATTENTION, staff_reservations, filter_reservations, reservation_location, preparation_queue
 from .reservations import create_reservation, locked_profile
 from .views import _context
-from . import preparation
+from . import preparation, reservation_notes
 from .reservation_workspace import detail_context, prep_context
 from .reservation_audit import audit_page
 
@@ -27,7 +27,7 @@ from .reservation_audit import audit_page
 @login_required
 @require_GET
 def reservation_list(request, school_slug):
-    profile, role = require_access(request.user, school_slug, capability="reservations")
+    profile, role = require_location_access(request.user, school_slug, capability="reservations")
     context = _context(request, profile, role, "reservations")
     form = ReservationFilterForm(context["location_query"], profile=profile)
     scoped = staff_reservations(profile)
@@ -73,7 +73,10 @@ def reservation_list(request, school_slug):
 @require_POST
 @transaction.atomic
 def reservation_settings(request, school_slug):
+    from .access import require_access
+    require_access(request.user, school_slug, "setup.edit")
     profile = locked_profile(request.user, school_slug)
+    require_access(request.user, school_slug, "setup.edit")
     action = request.POST.get("action")
     if action not in {"enable", "disable"}:
         return HttpResponseBadRequest("Choose enable or disable.")
@@ -89,14 +92,14 @@ def reservation_settings(request, school_slug):
 @login_required
 @require_http_methods(["GET", "POST"])
 def reservation_create(request, school_slug, kind, public_id):
-    profile, role = require_access(request.user, school_slug, "setup.edit", capability="reservations")
+    profile, role = require_location_access(request.user, school_slug, "setup.edit", capability="reservations")
     initial = {}
     if kind == "party":
-        source = get_object_or_404(PartyRequest, public_id=public_id, offering__location__profile=profile)
+        source = get_object_or_404(PartyRequest, public_id=public_id, offering__location__in=staff_locations(profile))
         initial = {"total": source.proposed_total, "deposit": source.proposed_deposit, "source_revision": source.revision}
     else:
         from .models import WorkshopRequest
-        source = get_object_or_404(WorkshopRequest, public_id=public_id, session__offering__location__profile=profile)
+        source = get_object_or_404(WorkshopRequest, public_id=public_id, session__offering__location__in=staff_locations(profile))
         initial["deposit"] = source.session.offering.deposit_per_participant * source.participants.count()
     form = QuoteForm(request.POST if request.method == "POST" else None, initial=initial)
     form.fields["online"].label = f"Accept online payment with {profile.get_payment_provider_display()}"
@@ -122,12 +125,18 @@ def reservation_create(request, school_slug, kind, public_id):
 @require_http_methods(["GET", "POST"])
 def reservation_detail(request, school_slug, public_id):
     from . import terminal_payments
-    profile, role = require_access(request.user, school_slug, capability="reservations")
-    item = get_object_or_404(Reservation.objects.select_related("order", "room"), profile=profile, public_id=public_id, visit_booking__isnull=True)
+    profile, role = require_location_access(request.user, school_slug, capability="reservations")
+    item = get_staff_reservation(profile, public_id, exclude_visits=True)
     error = ""
     action = request.POST.get("action") if request.method == "POST" else None
-    if request.method == "POST":
-        require_access(request.user, school_slug, "setup.edit", capability="reservations")
+    notes_form = None
+    if action == "save_notes":
+        notes_form = reservation_notes.update(request.user, school_slug, public_id, request.POST)
+        if notes_form.is_valid():
+            messages.success(request, "Internal notes saved.")
+            return redirect(request.get_full_path() + "#internal-notes")
+    elif request.method == "POST":
+        require_location_access(request.user, school_slug, "setup.edit", capability="reservations")
         try:
             if action == "record_terminal":
                 terminal_payments.record(request.user, school_slug, public_id, request.POST)
@@ -146,6 +155,7 @@ def reservation_detail(request, school_slug, public_id):
                 else "Incorrect entry voided. No money was refunded.")
             return redirect("scheduling:reservation_detail", school_slug=school_slug, public_id=public_id)
     context = detail_context(request, _context(request, profile, role, "reservations"), item)
+    context["notes_form"] = notes_form if notes_form is not None else reservation_notes.form_for(item, profile)
     context.update(amounts=totals(item.order), audit=audit_page(item, request.GET.get("audit_page")))
     if item.order.account_id:
         from .checkout import payment_token
@@ -162,16 +172,16 @@ def reservation_detail(request, school_slug, public_id):
             initial={"amount": context["amounts"]["outstanding"], "expected_balance": context["amounts"]["outstanding_cents"],
                      "expected_total": context["amounts"]["total_cents"], "paid_on": terminal_payments.studio_today(item)}),
         terminal_entries=item.order.entries.filter(channel="terminal", kind="payment").select_related("actor", "reversal"))
-    return render(request, "scheduling/reservation_detail.html", context, status=400 if error else 200)
+    return render(request, "scheduling/reservation_detail.html", context,
+        status=400 if error or (notes_form is not None and notes_form.errors) else 200)
 
 
 @never_cache
 @login_required
 @require_GET
 def reservation_preparation(request, school_slug, public_id):
-    profile, role = require_access(request.user, school_slug, capability="reservations")
-    item = get_object_or_404(Reservation.objects.select_related("order", "room", "prepared_by"),
-        profile=profile, public_id=public_id, visit_booking__isnull=True)
+    profile, role = require_location_access(request.user, school_slug, capability="reservations")
+    item = get_staff_reservation(profile, public_id, exclude_visits=True)
     context = detail_context(request, _context(request, profile, role, "reservations"), item, "preparation")
     context.update(prep_context(item, profile))
     return render(request, "scheduling/reservation_preparation.html", context)
@@ -182,8 +192,8 @@ def reservation_preparation(request, school_slug, public_id):
 @require_http_methods(["GET", "POST"])
 def reservation_complete(request, school_slug, public_id):
     from .completion import complete
-    profile, role = require_access(request.user, school_slug, "sessions.edit", capability="reservations")
-    item = get_object_or_404(Reservation, profile=profile, public_id=public_id, visit_booking__isnull=True)
+    profile, role = require_location_access(request.user, school_slug, "sessions.edit", capability="reservations")
+    item = get_staff_reservation(profile, public_id, exclude_visits=True)
     error = ""
     if request.method == "POST":
         try:
@@ -204,8 +214,8 @@ def reservation_complete(request, school_slug, public_id):
 @login_required
 @require_POST
 def preparation_update(request, school_slug, public_id):
-    profile, _ = require_access(request.user, school_slug, "sessions.edit", capability="reservations")
-    item = get_object_or_404(Reservation, profile=profile, public_id=public_id, visit_booking__isnull=True)
+    profile, _ = require_location_access(request.user, school_slug, "sessions.edit", capability="reservations")
+    item = get_staff_reservation(profile, public_id, exclude_visits=True)
     try:
         preparation.update(request.user, school_slug, public_id, request.POST)
     except ValidationError as exc:
@@ -226,9 +236,8 @@ def preparation_update(request, school_slug, public_id):
 def reservation_cancel(request, school_slug, public_id):
     from .cancellation import cancel
     from .views_recovery import process_refund
-    profile, role = require_access(request.user, school_slug, "setup.edit", capability="reservations")
-    item = get_object_or_404(Reservation.objects.select_related("order"), profile=profile,
-        public_id=public_id, visit_booking__isnull=True)
+    profile, role = require_location_access(request.user, school_slug, "setup.edit", capability="reservations")
+    item = get_staff_reservation(profile, public_id, exclude_visits=True)
     form = CancellationForm(request.POST if request.method == "POST" else None)
     if request.method == "POST" and form.is_valid():
         try:

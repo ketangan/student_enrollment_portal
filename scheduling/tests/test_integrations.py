@@ -73,7 +73,9 @@ def test_native_and_wix_destinations_are_independent(actor, client):
     assert "enabled" not in {f.name for f in native._meta.fields}
     client.force_login(actor.user)
     response = client.get(url(actor, "integrations"))
-    assert response.status_code == 200 and response.content.count(b"Not connected") == 4
+    assert response.status_code == 200
+    other_integrations = response.content.split(b'<div class="connection-list">', 1)[1]
+    assert other_integrations.count(b'<span class="status draft">Not connected</span>') == 4
     assert client.get(url(actor, "integration_preview", pk=source.pk)).status_code == 404
 
 

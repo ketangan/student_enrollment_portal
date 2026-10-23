@@ -18,6 +18,19 @@ from scheduling.tests.test_inventory import stock, reserve, confirm, url
 pytestmark = pytest.mark.django_db
 
 
+@pytest.mark.parametrize("start,end,expected", [
+    ((18, 12, 0), (18, 15, 0), "Wed, Nov 18, 2026 \u00b7 12\u20133 PM PST"),
+    ((18, 11, 30), (18, 13, 15), "Wed, Nov 18, 2026 \u00b7 11:30 AM\u20131:15 PM PST"),
+    ((18, 23, 0), (19, 1, 0), "Wed, Nov 18, 2026 \u00b7 11 PM PST \u2013 Thu, Nov 19, 2026 \u00b7 1 AM PST"),
+])
+def test_compact_detail_time(start, end, expected):
+    from zoneinfo import ZoneInfo
+    from scheduling.calendar import detail_time
+    zone = ZoneInfo("America/Los_Angeles")
+    assert detail_time(datetime(2026, 11, *start, tzinfo=zone),
+                       datetime(2026, 11, *end, tzinfo=zone)) == expected
+
+
 def params(s, **changes):
     data = QueryDict(mutable=True)
     data.update({"start": (s.session.starts_at.date()-timedelta(days=1)).isoformat(),

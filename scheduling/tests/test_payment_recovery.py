@@ -294,25 +294,28 @@ def test_staff_recovery_and_refund_ui_no_provider_calls_on_get(inventory, mercha
     assert listing.context["attention_count"] == 1  # still $10 held after cancellation
 
 
-def test_recovery_views_permissions_csrf_and_cross_order(inventory, merchant, booking_member, client):
+@pytest.mark.parametrize("action", ["check", "retry"])
+def test_recovery_views_permissions_csrf_and_cross_order(inventory, merchant, booking_member, client, action):
     item, attempt, refund = approved(inventory, booking_member)
     urls = [path(booking_member, "payment_recover", public_id=item.public_id, attempt_id=attempt.public_id),
         path(booking_member, "payment_review", public_id=item.public_id),
         path(booking_member, "refund_create", public_id=item.public_id),
         path(booking_member, "refund_recover", public_id=item.public_id, refund_id=refund.public_id)]
     for url in urls:
-        assert client.post(url).status_code == 302
+        assert client.post(url, {"action": action}).status_code == 302
     client.force_login(booking_member.user)
     csrf = Client(enforce_csrf_checks=True)
     csrf.force_login(booking_member.user)
     for url in urls:
-        assert csrf.post(url).status_code == 403
+        assert csrf.post(url, {"action": action}).status_code == 403
     assert client.post(urls[0].replace(str(attempt.public_id), str(uuid.uuid4())), {"action": "check"}).status_code == 404
-    assert client.post(urls[3].replace(str(refund.public_id), str(uuid.uuid4()))).status_code == 404
+    assert client.post(urls[3].replace(str(refund.public_id), str(uuid.uuid4())), {"action": action}).status_code == 404
+    if action == "retry":
+        assert client.post(urls[3], {"action": action}).status_code == 400  # Stripe is unchanged.
     booking_member.role = "viewer"
     booking_member.save()
     for url in urls:
-        assert client.post(url).status_code == 404
+        assert client.post(url, {"action": action}).status_code == 404
 
 
 def test_close_and_review_actions(inventory, merchant, booking_member, client, monkeypatch):
@@ -338,6 +341,13 @@ def test_bounded_reconciliation_command(inventory, merchant, booking_member, mon
     attempt.state = "unknown"
     attempt.save()
     monkeypatch.setattr(gateway, "create_order_refund", lambda r: refund_for(r))
+    out = StringIO()
+    before_attempt = PaymentAttempt.objects.filter(pk=attempt.pk).values().get()
+    before_refund = Refund.objects.filter(pk=refund.pk).values().get()
+    call_command("reconcile_booking_payments", provider="square", stdout=out)
+    assert "Checked 0; verified 0" in out.getvalue()
+    assert PaymentAttempt.objects.filter(pk=attempt.pk).values().get() == before_attempt
+    assert Refund.objects.filter(pk=refund.pk).values().get() == before_refund
     out = StringIO()
     call_command("reconcile_booking_payments", limit=1, stdout=out)
     assert "Checked 1; verified 1" in out.getvalue()

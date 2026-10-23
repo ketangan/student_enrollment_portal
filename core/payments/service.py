@@ -31,14 +31,16 @@ def create_order(*, school, purpose, source_key, total_cents, deposit_cents, des
     if type(total_cents) is not int or type(deposit_cents) is not int:
         raise ValidationError("Money must be expressed as whole cents.")
     School.objects.select_for_update().get(pk=school.pk)
-    if account and (account.school_id != school.pk or account.environment != "test" or not account.enabled):
-        raise ValidationError("A test payment account is not enabled for this business.")
+    if account and (account.school_id != school.pk or not account.enabled
+            or account.environment not in {"test", "live"}
+            or (account.environment == "live" and (account.provider != "square" or account.scope != "connected"))):
+        raise ValidationError("A payment account is not enabled for this business.")
     if account:
         validate_scope(account)
     values = dict(total_cents=total_cents, deposit_cents=deposit_cents, description=description,
                   merchant_reference=account.reference if account else f"offline:{school.pk}",
                   account=account, currency="usd")
-    identity = dict(school=school, purpose=purpose, source_key=source_key, environment="test")
+    identity = dict(school=school, purpose=purpose, source_key=source_key, environment=account.environment if account else "test")
     existing = PaymentOrder.objects.filter(**identity).first()
     if existing:
         if any(getattr(existing, field) != value for field, value in values.items()):

@@ -1,6 +1,9 @@
 """Read models for one reservation; no customer-specific preparation assumptions."""
 from django.urls import reverse
+from urllib.parse import urlencode, urlsplit
 from . import preparation
+from .calendar import calendar_available
+from .models import PartyRequest
 
 
 def participant_table(participants):
@@ -39,6 +42,8 @@ def detail_context(request, context, item, tab="details"):
         contact_email=getattr(source, "purchaser_email", getattr(source, "organizer_email", "")))
     offering = source.session.offering if item.workshop_request_id else source.camp.offering if item.camp_registration_id else source.offering
     context.update(participant_context(item))
+    if item.party_request_id:
+        context["party_space_label"] = dict(PartyRequest.Space.choices).get(item.snapshot.get("space"), "")
     if item.party_request_id and offering.inventory_catalog_id:
         from .guest_lists import due_at, editable, token_for
         context.update(guest_list_due=due_at(item), guest_list_complete=bool(item.party_request.materials),
@@ -57,6 +62,16 @@ def detail_context(request, context, item, tab="details"):
     # Header location changes leave this record and return to the scoped list.
     context["location_action"] = reverse("scheduling:reservations", kwargs={"school_slug": slug})
     context["location_query_fields"] = []
+    calendar = request.GET.get("calendar", "")
+    if calendar and len(calendar) <= 2048 and calendar_available(context["profile"]):
+        try:
+            target = urlsplit(calendar)
+        except ValueError:
+            return context
+        if not target.scheme and not target.netloc and target.path == reverse("scheduling:workspace", kwargs={"school_slug": slug}):
+            context["calendar_return"] = calendar
+            for tab in context["booking_navigation"]["section"]["tabs"]:
+                tab["url"] += "?" + urlencode({"calendar": calendar})
     return context
 
 
@@ -68,7 +83,7 @@ def prep_context(item, profile):
         allocation.material_name = snapshot.get("name", allocation.level.material.name)
         allocation.material_unit = snapshot.get("unit", allocation.level.material.unit)
     party_materials = []
-    customer_notes = preparation_notes = ""
+    customer_notes, preparation_notes = "", item.internal_notes
     if item.party_request_id:
         source = item.party_request
         party_materials = source.materials

@@ -12,7 +12,7 @@ from django.utils import timezone
 from core.models import School
 from core.payments.models import LedgerEntry, PaymentAttempt, PaymentOrder, Refund
 from core.payments.service import totals
-from .models import Reservation
+from .access import get_staff_reservation
 from .reservations import locked_profile, _audit
 
 
@@ -39,8 +39,7 @@ def studio_today(item):
 
 def locked_reservation(user, slug, public_id):
     profile = locked_profile(user, slug)
-    item = get_object_or_404(Reservation.objects.select_related("order"),
-        profile=profile, public_id=public_id, visit_booking__isnull=True)
+    item = get_staff_reservation(profile, public_id, exclude_visits=True)
     School.objects.select_for_update().get(pk=profile.school_id)
     PaymentOrder.objects.select_for_update().get(pk=item.order_id)
     return item

@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.utils.crypto import constant_time_compare, get_random_string
 
 from core.models import AdminAuditLog
-from .access import require_access
+from .access import require_location_access, staff_locations
 from .capabilities import has_capability, require_capability
 from .models import ChoiceGroup, ChoiceOption, RequestParticipant, SchedulingProfile, Session, WorkshopRequest
 from .request_forms import ChoiceGroupForm, ChoiceOptionForm, request_forms
@@ -144,9 +144,9 @@ def choice_form(profile, offering_pk, group_pk=None, option_pk=None, data=None, 
 @transaction.atomic
 def save_choice(user, slug, offering_pk, data, **kwargs):
     from django.forms.models import model_to_dict
-    profile, _ = require_access(user, slug, "setup.edit")
+    profile, _ = require_location_access(user, slug, "setup.edit")
     SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
-    profile, _ = require_access(user, slug, "setup.edit")
+    profile, _ = require_location_access(user, slug, "setup.edit")
     offering, form = choice_form(profile, offering_pk, data=data, **kwargs)
     before = model_to_dict(form.instance) if form.instance.pk else {}
     if form.is_valid():
@@ -162,14 +162,14 @@ def save_choice(user, slug, offering_pk, data, **kwargs):
 
 def scoped_requests(profile):
     require_capability(profile, "workshops")
-    return WorkshopRequest.objects.filter(session__offering__location__profile=profile).select_related("session__offering__location", "session__room", "reservation").prefetch_related("participants")
+    return WorkshopRequest.objects.filter(session__offering__location__in=staff_locations(profile)).select_related("session__offering__location", "session__room", "reservation").prefetch_related("participants")
 
 
 @transaction.atomic
 def withdraw_request(user, slug, public_id):
-    profile, _ = require_access(user, slug, "sessions.edit")
+    profile, _ = require_location_access(user, slug, "sessions.edit")
     SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
-    profile, _ = require_access(user, slug, "sessions.edit")
+    profile, _ = require_location_access(user, slug, "sessions.edit")
     item = get_object_or_404(scoped_requests(profile), public_id=public_id)
     from .models import Reservation
     if Reservation.objects.filter(workshop_request=item).exclude(state="canceled").exists():

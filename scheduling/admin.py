@@ -33,6 +33,7 @@ class SchedulingProfileAdmin(OperatorOnlyAdmin):
 
 @admin.register(SchedulingMembership)
 class SchedulingMembershipAdmin(OperatorOnlyAdmin):
+    readonly_fields = ("all_locations", "locations")
     portal_school_lookup = "profile__school__"
     list_display = ("user", "profile", "role", "is_active")
     list_filter = ("role", "is_active")

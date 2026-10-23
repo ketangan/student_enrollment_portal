@@ -15,7 +15,7 @@ from django.utils import timezone
 
 from core.models import PaymentNotification, School
 from core.payments import checkout, refunds, square
-from core.payments.models import LedgerEntry, PaymentAccount, PaymentAttempt, ProviderEventReceipt
+from core.payments.models import LedgerEntry, PaymentAccount, PaymentAttempt, ProviderEventReceipt, Refund
 from core.payments.settings import save_provider
 from core.services import billing_stripe
 from scheduling.checkout import approve_refund, recover_attempt
@@ -114,6 +114,46 @@ def test_decline_can_retry_without_a_ledger_entry(attempt, monkeypatch, client):
     assert replacement.amount_cents == 2500 and replacement.account_id == attempt.account_id
     pay(replacement, monkeypatch)
     assert LedgerEntry.objects.count() == 1
+
+
+@pytest.mark.parametrize("status", ["FAILED", "CANCELED"])
+def test_unsuccessful_payment_response_expires_without_money(attempt, monkeypatch, status):
+    transport = Mock(return_value={"payment": payment_for(attempt, status)})
+    monkeypatch.setattr(square, "request", transport)
+    with pytest.raises(square.Declined):
+        submit(attempt, "cnon:card-test")
+    attempt.refresh_from_db()
+    assert attempt.state == "expired"
+    assert not LedgerEntry.objects.exists()
+    assert PaymentNotification.objects.filter(key__endswith=":failed").count() == 1
+    recover_square_attempt(attempt)
+    assert transport.call_count == 1
+
+
+@pytest.mark.parametrize("source", [None, 123, "card-number", "cnon:" + "x" * 1000])
+def test_invalid_card_source_never_submits(attempt, monkeypatch, source):
+    transport = Mock()
+    monkeypatch.setattr(square, "request", transport)
+    with pytest.raises(ValidationError, match="secure card form"):
+        submit(attempt, source)
+    attempt.refresh_from_db()
+    assert attempt.submitted_at is None
+    assert not LedgerEntry.objects.exists()
+    transport.assert_not_called()
+
+
+def test_shared_sandbox_webhook_keeps_other_school_binding(attempt, monkeypatch, client, settings):
+    # Several legacy demo businesses intentionally share the same Sandbox merchant.
+    other = School.objects.create(slug="another-shared-sandbox", is_demo=True)
+    older = PaymentAccount.objects.create(school=other, provider="square", scope="platform_demo",
+        reference=attempt.account.reference, location_reference=attempt.account.location_reference, enabled=True)
+    pay(attempt, monkeypatch)
+    # Force the lookup account to be the other school's valid shared merchant record.
+    monkeypatch.setattr(PaymentAccount.objects, "select_related", Mock(return_value=PaymentAccount.objects.filter(pk=older.pk)))
+    assert post_event(client, settings, attempt).status_code == 200
+    receipt = ProviderEventReceipt.objects.get()
+    assert receipt.account_id == attempt.account_id
+    assert not LedgerEntry.objects.filter(school=other).exists()
 
 
 def test_timeout_blocks_resubmission_and_recovers_without_new_charge(attempt, monkeypatch):
@@ -282,6 +322,68 @@ def test_refund_webhook_verifies_account_and_settles_once(attempt, booking_membe
     assert LedgerEntry.objects.filter(kind="refund").count() == 1
 
 
+@pytest.mark.parametrize("accepted_before_timeout", [False, True])
+def test_unknown_refund_retry_replays_original_request_once(
+        attempt, booking_member, monkeypatch, client, accepted_before_timeout):
+    pay(attempt, monkeypatch)
+    item = attempt.order.reservation
+    cancel_reservation(booking_member.user, item.profile.school.slug, item.public_id)
+    refund = approve_refund(booking_member.user, item.profile.school.slug, item.public_id,
+        attempt.public_id, key=uuid.uuid4(), amount_cents=2500, reason="Canceled")
+    requests, provider_refunds = [], {}
+
+    def transport(method, path, body=None):
+        assert method == "POST" and path == "/refunds"
+        requests.append(body.copy())
+        if len(requests) == 1 and not accepted_before_timeout:
+            raise ValidationError("Connection lost")
+        result = provider_refunds.setdefault(body["idempotency_key"], {
+            "id": "square_retried_refund", "payment_id": attempt.provider_intent,
+            "location_id": "LTEST", "reason": body["reason"],
+            "amount_money": body["amount_money"], "status": "COMPLETED"})
+        if len(requests) == 1:
+            raise ValidationError("Response lost")
+        return {"refund": result}
+
+    monkeypatch.setattr(square, "request", transport)
+    assert not refunds.process(refund, force=True)
+    refund.refresh_from_db()
+    assert refund.state == "unknown" and not refund.entry_id
+    assert not refunds.process(refund, force=True, retry_submission=True)  # recent check
+    Refund.objects.filter(pk=refund.pk).update(checked_at=timezone.now() - timedelta(minutes=1))
+    client.force_login(booking_member.user)
+    endpoint = reverse("scheduling:refund_recover", kwargs={"school_slug": item.profile.school.slug,
+        "public_id": item.public_id, "refund_id": refund.public_id})
+    assert client.post(endpoint, {"action": "retry", "amount": "999"}).status_code == 302
+    refund.refresh_from_db()
+    assert refund.state == "succeeded"
+    assert requests[0] == requests[1]
+    assert requests[1]["idempotency_key"] == str(refund.public_id)
+    assert requests[1]["amount_money"]["amount"] == 2500
+    assert len(provider_refunds) == 1
+    Refund.objects.filter(pk=refund.pk).update(checked_at=timezone.now() - timedelta(minutes=1))
+    assert client.post(endpoint, {"action": "retry"}).status_code == 302
+    assert len(requests) == 2
+    assert LedgerEntry.objects.filter(kind="refund").count() == 1
+
+
+def test_known_square_refund_retry_only_checks_status(attempt, booking_member, monkeypatch):
+    pay(attempt, monkeypatch)
+    item = attempt.order.reservation
+    cancel_reservation(booking_member.user, item.profile.school.slug, item.public_id)
+    refund = approve_refund(booking_member.user, item.profile.school.slug, item.public_id,
+        attempt.public_id, key=uuid.uuid4(), amount_cents=2500, reason="Canceled")
+    result = {"id": "known_refund", "payment_id": attempt.provider_intent,
+        "location_id": "LTEST", "reason": square.refund_reason(refund),
+        "amount_money": {"amount": 2500, "currency": "USD"}, "status": "PENDING"}
+    transport = Mock(return_value={"refund": result})
+    monkeypatch.setattr(square, "request", transport)
+    assert refunds.process(refund, force=True)
+    Refund.objects.filter(pk=refund.pk).update(checked_at=timezone.now() - timedelta(minutes=1))
+    assert refunds.process(refund, force=True, retry_submission=True)
+    assert transport.call_args.args == ("GET", "/refunds/known_refund")
+
+
 @pytest.mark.parametrize("status", ["FAILED", "CANCELED", "PENDING"])
 def test_non_completed_recovery_never_records_money(attempt, monkeypatch, status):
     PaymentAttempt.objects.filter(pk=attempt.pk).update(state="unknown", submitted_at=timezone.now())
@@ -360,7 +462,7 @@ def test_settings_fail_closed(inventory, square_account, monkeypatch, client, se
     client.force_login(actor)
     response = client.post(reverse("ops_school_detail", args=[school.slug]), {
         "action": "save_booking_provider", "provider": "square", "expected_provider": "square"})
-    assert response.status_code == (403 if problem in {"live", "disabled"} else 302 if problem == "invalid_provider" else 200)
+    assert response.status_code == (403 if problem == "disabled" else 302 if problem == "invalid_provider" else 200)
 
 
 def test_settings_creates_only_verified_account(inventory, monkeypatch, settings):

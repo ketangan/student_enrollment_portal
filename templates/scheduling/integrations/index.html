@@ -1,8 +1,41 @@
 {% extends 'scheduling/base.html' %}
 {% block title %}Integrations{% endblock %}
 {% block content %}
-<div class="section-heading"><h2>Integrations</h2><div class="actions">{% for provider in providers %}<a class="button" href="{% url 'scheduling:integration_new' school_slug=business.slug provider_key=provider.key %}">Add {{ provider.label }}</a>{% endfor %}</div></div>
-<p class="notice">Setup only. Connections are not active; no data is being sent. Existing booking and payment settings are unchanged.</p>
+<section class="square-settings" aria-labelledby="square-heading">
+<div class="section-heading"><div><h2 id="square-heading">Square</h2><p class="muted">{{ square.environment }} account</p></div><span class="status {% if square.connection.status == 'connected' %}confirmed{% else %}draft{% endif %}">{{ square.connection.display_status|default:"Not connected" }}</span></div>
+<div class="square-account-actions">
+  <p class="muted">{% if not square.ready %}Connection setup pending{% elif square.connection.checked_at %}Last checked {{ square.connection.checked_at|date:"M j, g:i A" }}{% else %}Connect your account to match your locations.{% endif %}</p>
+  {% if square.ready %}
+  <form method="post" action="{% url 'scheduling:square_connection_update' school_slug=business.slug %}" class="actions">
+    {% csrf_token %}<input type="hidden" name="revision" value="{{ square.connection.revision }}">
+    {% if square.connection.status == 'connected' or square.connection.status == 'attention' %}
+      <button type="submit" name="action" value="check" class="secondary">Check connection</button>
+      <button type="submit" name="action" value="connect" class="secondary">Reconnect</button>
+      <button type="submit" name="action" value="disconnect" class="secondary">Disconnect</button>
+    {% elif square.connection.status == 'disconnecting' %}
+      <button type="submit" name="action" value="disconnect">Retry disconnect</button>
+    {% else %}
+      <button type="submit" name="action" value="connect" class="primary">Connect Square</button>
+    {% endif %}
+  </form>
+  {% endif %}
+</div>
+{% if square.connection.status == 'connected' %}
+<div class="section-heading square-mapping-heading"><div><h3>Location mapping</h3><p class="muted">Online payment provider: {{ profile.get_payment_provider_display }}.</p></div>
+<form method="post" action="{% url 'scheduling:square_connection_update' school_slug=business.slug %}">{% csrf_token %}<input type="hidden" name="revision" value="{{ square.connection.revision }}"><button type="submit" name="action" value="locations" class="secondary">Refresh Square locations</button></form></div>
+{% if square.connection.locations_checked_at %}
+<form method="post" action="{% url 'scheduling:square_connection_update' school_slug=business.slug %}" class="square-mapping-form">
+{% csrf_token %}<input type="hidden" name="revision" value="{{ square.connection.revision }}">
+<div class="table-wrap"><table><thead><tr><th>Pontora location</th><th>Square location</th></tr></thead><tbody>
+{% for field in square.mapping_form %}<tr><td><label for="{{ field.id_for_label }}">{{ field.label }}</label></td><td>{{ field }}</td></tr>{% empty %}<tr><td colspan="2">No Pontora locations added.</td></tr>{% endfor %}
+</tbody></table></div>
+<div class="square-mapping-footer"><p class="muted">Changes apply to new bookings. Existing payments keep their original location.</p><button type="submit" name="action" value="map" class="primary">Save mappings</button></div>
+</form>
+{% else %}<p class="muted">Refresh Square locations to choose a match for each Pontora location.</p>{% endif %}
+{% endif %}
+</section>
+<div class="section-heading"><h2>Other integrations</h2><div class="actions">{% for provider in providers %}<a class="button" href="{% url 'scheduling:integration_new' school_slug=business.slug provider_key=provider.key %}">Add {{ provider.label }}</a>{% endfor %}</div></div>
+<p class="muted">These integrations are setup only and are not sending data.</p>
 <div class="connection-list">
 {% for connection in connections %}
 <article class="connection-row"><div><h3><a href="{% url 'scheduling:integration_edit' school_slug=business.slug pk=connection.pk %}">{{ connection.label }}</a></h3><p>{{ connection.provider_spec.label }} · {{ connection.get_environment_display }}{% if connection.provider_spec.role == 'destination' %} · From {{ connection.source|default:'Pontora Bookings' }}{% endif %}</p></div><span class="status draft">Not connected</span><a href="{% url 'scheduling:integration_edit' school_slug=business.slug pk=connection.pk %}">Settings</a></article>

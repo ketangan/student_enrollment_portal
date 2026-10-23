@@ -1,5 +1,4 @@
 """Square card checkout using the existing booking locks, ledger and recovery."""
-from django.conf import settings
 from django.core import signing
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -14,7 +13,7 @@ from django_ratelimit.decorators import ratelimit
 
 from core.models import School
 from core.payments import checkout, square, refunds
-from core.payments.models import PaymentAttempt, PaymentOrder, ProviderEventReceipt, Refund
+from core.payments.models import PaymentAccount, PaymentAttempt, PaymentOrder, ProviderEventReceipt, Refund
 from core.services.payment_notifications import queue_payment_notice
 from .checkout import prepare_booking_checkout, recover_attempt, settle_booking_snapshot, validate_booking_checkout
 from .models import Reservation, SchedulingProfile
@@ -31,7 +30,7 @@ def locked_attempt(attempt):
 def notify_failure(attempt):
     queue_payment_notice(key=f"square:{attempt.public_id}:failed", school=attempt.order.school,
         kind="Booking payment failed", reference=attempt.provider_intent or str(attempt.public_id),
-        amount=attempt.amount_cents, currency=attempt.order.currency, livemode=False,
+        amount=attempt.amount_cents, currency=attempt.order.currency, livemode=attempt.order.environment == "live",
         detail="Square card payment failed. The customer can try another card. School access is unchanged.")
 
 
@@ -128,7 +127,7 @@ def square_checkout(request, school_slug, token):
         error = error or exc.messages[0]
     response = render(request, "scheduling/square_checkout.html", {
         "business": attempt.order.school, "item": item, "attempt": attempt, "ready": ready, "error": error,
-        "square_options": {"applicationId": settings.PAYMENTS_SQUARE_TEST_APPLICATION_ID,
+        "square_options": {"applicationId": square.environment_setting(attempt.account.environment, "APPLICATION_ID"),
                            "locationId": attempt.account.location_reference, "amount": str(attempt.amount)},
     })
     response["Referrer-Policy"] = "same-origin"
@@ -138,34 +137,44 @@ def square_checkout(request, school_slug, token):
 @transaction.atomic
 def settle_event(attempt, event, payment):
     attempt = locked_attempt(attempt)
-    if ProviderEventReceipt.objects.filter(account=attempt.account, environment="test", event_id=event["event_id"]).exists():
+    if ProviderEventReceipt.objects.filter(account=attempt.account, environment=attempt.order.environment, event_id=event["event_id"]).exists():
         return
     if not attempt.submitted_at:
         raise ValidationError("Square payment was not initiated by this checkout.")
     settle_booking_snapshot(attempt, square.snapshot(attempt, payment))
     if payment["status"] in {"FAILED", "CANCELED"}:
         notify_failure(attempt)
-    ProviderEventReceipt.objects.create(account=attempt.account, event_id=event["event_id"], event_type=event["type"], attempt=attempt)
+    ProviderEventReceipt.objects.create(account=attempt.account, environment=attempt.order.environment, event_id=event["event_id"], event_type=event["type"], attempt=attempt)
 
 
 @transaction.atomic
 def settle_refund_event(refund, event, result):
     attempt = locked_attempt(refund.attempt)
-    if ProviderEventReceipt.objects.filter(account=attempt.account, environment="test", event_id=event["event_id"]).exists():
+    if ProviderEventReceipt.objects.filter(account=attempt.account, environment=attempt.order.environment, event_id=event["event_id"]).exists():
         return
     if not refund.submitted_at or event.get("merchant_id") != attempt.account.reference:
         raise ValidationError("Square refund was not submitted for this account.")
     refunds.apply_snapshot(refund, square.refund_snapshot(refund, result))
-    ProviderEventReceipt.objects.create(account=attempt.account, event_id=event["event_id"], event_type=event["type"], attempt=attempt)
+    ProviderEventReceipt.objects.create(account=attempt.account, environment=attempt.order.environment, event_id=event["event_id"], event_type=event["type"], attempt=attempt)
 
 
 @csrf_exempt
 @require_POST
 def square_test_webhook(request):
+    return square_webhook(request, "test")
+
+
+@csrf_exempt
+@require_POST
+def square_live_webhook(request):
+    return square_webhook(request, "live")
+
+
+def square_webhook(request, environment):
     if len(request.body) > 262144:
         return HttpResponseBadRequest("Payload too large.")
     try:
-        event = square.construct_event(request.body, request.headers.get("X-Square-Hmacsha256-Signature", ""))
+        event = square.construct_event(request.body, request.headers.get("X-Square-Hmacsha256-Signature", ""), environment)
         if event.get("type") not in {"payment.created", "payment.updated", "refund.created", "refund.updated"}:
             return HttpResponse(status=200)
         data = event.get("data", {})
@@ -175,12 +184,21 @@ def square_test_webhook(request):
     except ValidationError:
         return HttpResponseBadRequest("Event signature or payload could not be verified.")
     try:
+        merchant = event.get("merchant_id")
+        if not square.identifier(merchant):
+            raise ValidationError("Invalid Square merchant identity.")
+        account = PaymentAccount.objects.select_related("school").filter(
+            provider="square", environment=environment, reference=merchant).order_by("scope", "pk").first()
+        if account is None:
+            raise ValidationError("Square merchant is not configured.")
         if event["type"].startswith("refund."):
-            result = square.request("GET", "/refunds/" + payment_id).get("refund", {})
+            result = square.account_request(account, "GET", "/refunds/" + payment_id).get("refund", {})
             if not isinstance(result, dict) or result.get("id") != payment_id:
                 raise ValidationError("Square refund identity mismatch.")
             candidates = Refund.objects.select_related("attempt__account", "attempt__order").filter(
-                attempt__account__provider="square", attempt__provider_intent=result.get("payment_id"))
+                attempt__account__provider="square", attempt__account__environment=environment,
+                attempt__account__reference=merchant,
+                attempt__provider_intent=result.get("payment_id"))
             matching = [refund for refund in candidates if square.refund_reason(refund) == result.get("reason")]
             if len(matching) == 1:
                 settle_refund_event(matching[0], event, result)
@@ -188,13 +206,13 @@ def square_test_webhook(request):
                 raise ValidationError("Ambiguous refund identity.")
             return HttpResponse(status=200)
         # Read the current payment; never trust an old or out-of-order webhook snapshot.
-        payment = square.request("GET", "/payments/" + payment_id).get("payment", {})
+        payment = square.account_request(account, "GET", "/payments/" + payment_id).get("payment", {})
         if not isinstance(payment, dict):
             raise ValidationError("Square returned an invalid payment.")
         reference = payment.get("reference_id")
         try:
             attempt = PaymentAttempt.objects.select_related("order__account", "account__school").filter(
-                public_id=reference, account__provider="square").first() if reference else None
+                public_id=reference, account__provider="square", account__environment=environment).first() if reference else None
         except (ValueError, ValidationError):
             attempt = None
         if attempt is None:
