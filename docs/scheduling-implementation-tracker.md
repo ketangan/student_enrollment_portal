@@ -20,8 +20,10 @@ remain deferred, not complete.
 Final CI: 4,569 Python tests passed, three skipped; 98.56% combined coverage;
 83 JavaScript tests passed. Real hosted Sandbox payment/refund webhooks and
 duplicate/signature isolation checks passed. Live charging remains off; no
-school's selected provider changed. Hosted Square authorization and actual
-hosted token renewal are still pending. Test slowness was profiled, not optimized.
+school's selected provider changed. Hosted Sandbox authorization, Pasadena
+location mapping and actual renewal by the existing scheduled worker are verified.
+Other demo locations remain unmapped; Jasmine's live connection and live payment
+acceptance remain pending. Test slowness was profiled, not optimized.
 See `square-booking-payments.md` for deployment and diagnostic evidence.
 
 ### Location-Based Staff Access (Local Review)

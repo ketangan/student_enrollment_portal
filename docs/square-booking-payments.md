@@ -13,11 +13,16 @@ GitHub CI passed: 4,569 Python tests, three skipped, 98.56% combined coverage;
 - Existing five-minute Render job now runs
   `process_booking_maintenance --limit 20`: party email, Square renewal and
   Square-only Sandbox payment recovery. A hosted run completed successfully.
-  Actual hosted token renewal remains unverified until an account is connected.
+  Actual hosted token renewal was subsequently verified on the connected Default
+  Test Account: only that demo connection was made due, the scheduled worker
+  reported one checked / zero needing attention, and its revision, checked time,
+  expiry and next-check time confirmed successful renewal.
 - Sandbox callback now targets
   `https://demo.mypontora.com/bookings/square/oauth/callback/`.
-  Hosted Connect is visible and redirects to Square. Square's authorization
-  page rendered blank at the last check; hosted authorization remains pending.
+  Hosted authorization completed after opening the Sandbox seller dashboard and
+  the user approving access. Pasadena is mapped to Default Test Account; other
+  demo locations remain unmapped. Refresh and save were verified through the UI.
+  The earlier blank Square authorization page cleared with a seller test session.
 - Web startup changed from `bash -lc` to `bash -c`, preserving migration,
   ensure-superuser and Gunicorn commands. The login shell caused credential-vault
   validation to fail; the hosted Connect screen passed after this correction.
