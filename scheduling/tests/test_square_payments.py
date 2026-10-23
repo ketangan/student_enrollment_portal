@@ -116,6 +116,32 @@ def test_decline_can_retry_without_a_ledger_entry(attempt, monkeypatch, client):
     assert LedgerEntry.objects.count() == 1
 
 
+@pytest.mark.parametrize("status", ["FAILED", "CANCELED"])
+def test_unsuccessful_payment_response_expires_without_money(attempt, monkeypatch, status):
+    transport = Mock(return_value={"payment": payment_for(attempt, status)})
+    monkeypatch.setattr(square, "request", transport)
+    with pytest.raises(square.Declined):
+        submit(attempt, "cnon:card-test")
+    attempt.refresh_from_db()
+    assert attempt.state == "expired"
+    assert not LedgerEntry.objects.exists()
+    assert PaymentNotification.objects.filter(key__endswith=":failed").count() == 1
+    recover_square_attempt(attempt)
+    assert transport.call_count == 1
+
+
+@pytest.mark.parametrize("source", [None, 123, "card-number", "cnon:" + "x" * 1000])
+def test_invalid_card_source_never_submits(attempt, monkeypatch, source):
+    transport = Mock()
+    monkeypatch.setattr(square, "request", transport)
+    with pytest.raises(ValidationError, match="secure card form"):
+        submit(attempt, source)
+    attempt.refresh_from_db()
+    assert attempt.submitted_at is None
+    assert not LedgerEntry.objects.exists()
+    transport.assert_not_called()
+
+
 def test_shared_sandbox_webhook_keeps_other_school_binding(attempt, monkeypatch, client, settings):
     # Several legacy demo businesses intentionally share the same Sandbox merchant.
     other = School.objects.create(slug="another-shared-sandbox", is_demo=True)
