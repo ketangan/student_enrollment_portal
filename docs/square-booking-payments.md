@@ -1,5 +1,61 @@
 # Square Booking Payments
 
+## Live Connection Work (October 22, 2026)
+
+In progress, not enabled. The existing implementation intentionally rejects live
+accounts in database constraints, order validation, checkout and webhook handling.
+Changing the API endpoint alone is not a production implementation.
+
+First local increment: `core/payments/square_oauth.py` implements explicit
+test/live authorization URLs, code exchange, token introspection, merchant-bound
+refresh and revocation. It reuses the existing no-redirect policy, bounds response
+size, hides credentials from object representations/debug pages, and does not retry
+uncertain requests. It is not wired to routes, credential storage or checkout yet;
+no account is connected and live checkout remains disabled. Verification: 45
+client tests, 100% statement/branch coverage, and 219 combined Square/checkout
+regressions passed. Provider responses were mocked; this is not a real OAuth
+acceptance test. This work is separate from release PR #6.
+
+Implementation sequence:
+
+1. Add Square's server-side OAuth connection lifecycle: separate test/live app
+   configuration, single-use school/user/environment-bound authorization state,
+   encrypted seller credentials, refresh, revocation and visible connection status.
+   Reuse the existing authenticated credential vault rather than introduce custom
+   encryption. Do not expose tokens to browsers, audit logs or exception pages.
+2. Map each Pontora studio to an active card-capable Square location belonging to
+   the connected seller. Keep merchant, location and environment immutable on each
+   payment order so later setup changes cannot redirect balances or refunds.
+3. Extend the existing booking payment transport, ledger, signed webhook and
+   recovery paths for live Square. Keep the Stripe enrollment/subscription paths
+   unchanged; preserve the superadmin-only provider switch. Demo orders must never
+   use live credentials, even when the service contains both configurations.
+4. Verify sandbox authorization/denial/replay, refresh/revocation, cross-school and
+   cross-environment rejection, multi-location routing, deposit/full/balance flows,
+   duplicate events, uncertain payments, refunds and provider-switch recovery.
+   Only then configure production and perform explicitly approved live acceptance.
+
+No extra Terminal API integration is required for launch. Terminal collection and
+staff recording remain separate from online payment verification. Actual Terminal
+refunds must not be confused with correcting an incorrectly recorded receipt.
+
+Workshop visit checklist:
+
+- Confirm the Square account owner who can authorize Pontora and the exact Square
+  location corresponding to every launch studio. No passwords or tokens by email.
+- Observe staff collecting a remaining balance and an extra purchase, finding its
+  receipt in Square, and recording it against the correct Pontora reservation.
+- Check how staff apply tax, tips (if any) and refunds, and distinguish the existing
+  online deposit from money taken on the Terminal to avoid collecting it twice.
+- Obtain redacted example receipts if useful; omit card details and customer data.
+- Reserve an explicitly approved live payment/refund walkthrough for after the
+  connection is ready. Do not take a real payment merely to test the local form.
+
+References: [Square OAuth](https://developer.squareup.com/docs/oauth-api/overview),
+[permissions](https://developer.squareup.com/docs/oauth-api/square-permissions),
+[authorization state and redirects](https://developer.squareup.com/docs/oauth-api/create-urls-for-square-authorization),
+[token lifecycle](https://developer.squareup.com/docs/oauth-api/refresh-revoke-limit-scope).
+
 ## Status
 
 October 16, 2026: code deployed to the shared Render service. Hosted Square sandbox
