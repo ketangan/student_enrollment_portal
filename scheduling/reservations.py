@@ -146,7 +146,7 @@ def locked_profile(user, slug):
 
 
 @transaction.atomic
-def create_reservation(user, slug, kind, public_id, total_cents=None, deposit_cents=None, source_revision=None, online=False):
+def create_reservation(user, slug, kind, public_id, total_cents=None, deposit_cents=None, source_revision=None, online=False, staff_managed=False):
     profile = locked_profile(user, slug)
     if not profile.native_reservations_enabled:
         raise ValidationError("Native reservations are not enabled for this workspace.")
@@ -185,6 +185,9 @@ def create_reservation(user, slug, kind, public_id, total_cents=None, deposit_ce
         item = party_reservation_item(profile, source)
     else:
         raise ValidationError("Choose a workshop request or party inquiry.")
+    if staff_managed and kind == "party":
+        item.snapshot["staff_managed"] = True
+        item.state = "confirmed"
     return save_reservation(item, source, kind, total_cents, deposit_cents, account, user)
 
 

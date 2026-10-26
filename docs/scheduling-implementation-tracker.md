@@ -9,6 +9,98 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
+### October 26 Release Approval and Wednesday Questions
+
+- Ketan approved pushing the staff-party/payment-request changes after email copy
+  cleanup. The release-test subject prefix and synthetic-booking paragraph existed
+  only in the temporary verification script, not application templates. Removed
+  that wrapper; future verification uses the captured customer subject/body unchanged.
+  Existing delivered messages cannot be edited. No additional email was sent.
+- Reporting (RA04) is awaiting Jasmine's requirements, not an authorized speculative
+  build. Event reminders (RA06) are also awaiting confirmation: the day-before
+  example came from Pontora, not a confirmed customer-selected schedule. Existing
+  confirmations and guest-selection deadline reminders remain implemented.
+- Use [Wednesday's consolidated questions](#jasmine-wednesday-october-28-consolidated-questions)
+  as the current customer discussion list; older dated questions below are history.
+
+### October 26 Staff Phone Party Requests (Local)
+
+- New party request is available from Reservations and Party inquiries. Staff enter
+  the customer's contact details, selected workshop/location, preferred local time,
+  group size and space preference, then continue into the existing inquiry review.
+  No default location, new price engine, database table or school-specific branch.
+- Inquiries and their reviews now live under Reservations; package configuration
+  remains under Setup. Existing URLs and stored inquiries are unchanged.
+- Schedulers may enter/review requests; the existing owner-only reservation approval
+  remains unchanged. Submission tokens are staff/profile-bound and expire after two
+  hours. Retries and concurrent duplicate saves create one inquiry/audit record.
+  Revoked roles, foreign/unassigned locations and changed retries fail closed.
+- The existing quote, room/capacity checks and payment-link flow are reused. Saving
+  a request alone does not reserve space or collect payment. Tests cover a 24-person
+  quote with $1,560 total / $600 deposit and both Stripe and mapped Square accounts.
+  Materials remain pending until guest choices are supplied.
+- Desktop/mobile review on localhost:8002 verified a six-person synthetic request,
+  its $390 total / $150 deposit, review and reservation creation, and the customer
+  deposit/full-payment choices. No payment or real email was sent. Test reservation:
+  `95369601-2301-479f-94ff-db28499ca146`, December 8 at noon, Pasadena.
+- Verification: 393 affected regression tests, then 109 staff/Square tests passed;
+  both new Python modules have 100% statement/branch coverage. Migration drift and
+  whitespace checks passed. Mobile form/validation has no page overflow.
+- Final full regression: 4,716 passed, 3 skipped in 509.66 seconds; measured coverage
+  98.47%, with every measured module above 90%. No new migration is required.
+- Staff-created party reservations now reserve space until staff manually cancels,
+  including when unpaid. Ordinary customer checkout holds are unchanged. Existing
+  temporary holds are not silently converted to permanent reservations.
+- Request payment / Resend payment request reuse the existing email outbox and
+  deposit/full-payment page. Duplicate clicks, stale tabs and pending delivery are
+  guarded; canceled, paid or changed reservations suppress obsolete queued emails.
+  Guest-design confirmation and its guide remain in the existing post-payment flow.
+- Local previews do not send real emails. The booking regression suite passed after
+  these changes; focused checks cover delivery retries, concurrency, cancellation,
+  payment-link longevity and location-scoped email access.
+- Open question for Jasmine: should staff-arranged unpaid reservations stay reserved
+  until staff cancels, or expire after an agreed payment deadline? The interim policy
+  approved by Ketan is manual follow-up and cancellation, with no automatic expiry.
+- This is a local slice of L06, not a formal Square invoice implementation. Whether
+  Jasmine requires an actual Square invoice remains open. Not pushed or deployed.
+- Reservation UI cleanup: removed the staff guide link, duplicate empty participant
+  section, green pending-materials banner and repeated hold-policy copy. Guest-list
+  actions are aligned, with a clearly named customer selection link; copy feedback
+  clears after three seconds. Email status uses plain language and previews never
+  imply a sent email. Verified desktop/mobile and clipboard reset on localhost:8002;
+  110 affected Python tests and all 89 JavaScript tests passed.
+- October 26 real email check: two explicitly approved synthetic messages reached
+  `ketan@mypontora.com` in Gmail: payment request and post-deposit confirmation.
+  Request offered $150 deposit / $390 full payment; after a clearly labeled local
+  Terminal test receipt, the same link showed $150 received and $240 remaining.
+  Confirmation included the working six-person guest-selection link and the current
+  `Design guide.pdf` attachment (256,442 bytes). All links were checked against the
+  running localhost:8002 signing/environment configuration before sending; exact
+  received links were also opened in the browser. No provider payment was made.
+  These were one-off delivery checks using captured outbox content and the shared
+  mail/attachment helpers, not a production scheduled-worker run. Production/demo
+  email gates remain unchanged. Resend IDs: `01a179aa-6d35-71f4-9136-ed6d86e6d26f`
+  and `01a179ab-5241-7512-970e-61851b080052`.
+- Final local release checks: 4,745 passed, 3 skipped, 3 warnings in 489.60 seconds.
+  Five additional token-expiry/scope and delivery-disable tests were then added;
+  the final 58-test feature run passed in 3.08 seconds. New-module statement/branch
+  coverage is 98.57% overall (payment requests 97.25%, both staff-entry modules
+  100%). All 89 JavaScript tests passed their coverage gates. Migration drift and
+  whitespace checks passed. No production scheduled-worker test or deployment was
+  performed in this verification step; merge/deployment approval is pending.
+
+### October 26 Workshop Release Verification
+
+- User approved pushing the workshop deferred-choice/editing and staff notes feature.
+  PR #11 merged as `09232c9`; local main is synchronized. Subsequent phone-party work
+  is on a separate local branch and is not part of that release.
+- Fresh full release regression: 4,687 passed, 3 skipped in 490.36 seconds.
+  Release coverage is 98.46%; every measured module meets the 90% floor.
+  GitHub checks passed in 20m15s. Render web deployment completed in 1m39s;
+  migrations 0041-0043 applied successfully. The scheduled job deployed the same
+  commit and its 10:30 AM PDT run succeeded. App/demo health checks and hosted
+  Reservation/Workshop Prep notes and collapsed audit smoke checks passed.
+
 ### October 26 Staff Reservation Cleanup (Local)
 
 - The participant pencil now edits stock selections directly in their grid cells,
@@ -1699,6 +1791,39 @@ Do not put parties/camps behind speculative advanced features. Neither the music
 nor an enrollment dependency is required to sell a standalone workshop pilot.
 
 ## Open Questions
+
+### Jasmine Wednesday October 28 Consolidated Questions
+
+This is the current consolidated list for the studio meeting. Earlier dated lists
+are historical and must not reintroduce answered questions (the guide was supplied,
+PDF attachments implemented, and all studios use one Square account with Terminals).
+
+1. **Reports:** Which Wix reports/exports does the team actually use, and which are
+   essential at launch? Ask her to show examples, columns, filters and who uses them.
+   Do not build reports until this is agreed.
+2. **Customer communications and payment follow-up:** Does she want event reminders
+   in addition to confirmations and guest-selection reminders? For which bookings,
+   and when? Are emailed checkout links enough for custom bookings, or are formal
+   Square invoices required? Should unpaid staff bookings remain reserved until
+   manual cancellation (current behavior), or have a payment deadline?
+3. **Policies and customer changes:** Obtain approved cancellation/refund,
+   rescheduling, balance-due, observer and shared/private-space wording. Confirm
+   guest-selection cutoffs/late edits and whether customers need to change event
+   dates or group sizes themselves, rather than contacting staff. Confirm waiver
+   needs without inventing terms or a signing workflow.
+4. **Location setup and inventory:** Validate actual prices/tax/deposits, durations,
+   capacity/overlap and extra-participant rules using her location settings. Check
+   real material recipes/counts and replenishment workflow. Does the incoming date
+   mean usable at the studio, and is a preparation buffer needed? Confirm any
+   camp-specific consumption/booking rules rather than assuming workshop rules.
+5. **Staff workflow and launch:** Have location staff try Pontora before deciding
+   whether Notion is essential. Confirm staff access/notification recipients,
+   launch locations/date, website entry points and how future Wix bookings/payment
+   balances will be carried over; obtain an export sample before promising an importer.
+   Complete authorized live Square location mapping and Terminal/payment/refund checks.
+
+Separate exploratory follow-up: booking through external AI chat was discussed,
+but is not a launch commitment. Do not let it block the core workflow.
 
 October 24 incoming inventory (ask Jasmine next week): does the expected date mean
 materials are usable at the receiving studio, rather than arriving at a central

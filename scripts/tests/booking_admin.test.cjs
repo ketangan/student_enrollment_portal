@@ -52,8 +52,12 @@ function page({saved = null, blocked = false, chooser = false, noAccount = false
   };
   const lucide = icons ? {createIcons() { document.iconsRendered = true; }} : undefined;
   const location = {href: 'http://localhost:8002/parties/?location=15&section=rules&edit=9', replace(url) { this.destination = String(url); }};
-  vm.runInNewContext(source, {document, URL, navigator: {clipboard}, window: {matchMedia: () => media, lucide, location, print}, localStorage: storage}, {filename});
-  return {document, nodes, media, storage, summary, location};
+  const timers = new Map();
+  let timerId = 0;
+  const setTimeout = (fn, delay) => { assert.equal(delay, 3000); timers.set(++timerId, fn); return timerId; };
+  const clearTimeout = id => timers.delete(id);
+  vm.runInNewContext(source, {document, URL, navigator: {clipboard}, window: {matchMedia: () => media, lucide, location, print, setTimeout, clearTimeout}, localStorage: storage}, {filename});
+  return {document, nodes, media, storage, summary, location, timers};
 }
 
 test('preparation print button uses the browser print dialog', () => {
@@ -68,13 +72,17 @@ test('host link copy confirms success and gives a fallback when clipboard is una
   copy.dataset = {copyLink: 'https://example.invalid/guests/signed/'};
   copy.parentElement = {querySelector: () => status};
   let written;
-  page({copy, clipboard: {writeText: async value => { written = value; }}});
+  const {timers} = page({copy, clipboard: {writeText: async value => { written = value; }}});
   await copy.listeners.click();
   assert.equal(written, copy.dataset.copyLink);
   assert.equal(status.textContent, 'Link copied');
+  await copy.listeners.click();
+  assert.equal(timers.size, 1);
+  [...timers.values()][0]();
+  assert.equal(status.textContent, '');
   page({copy});
   await copy.listeners.click();
-  assert.match(status.textContent, /copy its address/);
+  assert.equal(status.textContent, 'Could not copy. Please try again.');
 });
 
 test('booking rules opens as a modal and closing returns to the selected party', () => {

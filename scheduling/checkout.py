@@ -28,13 +28,19 @@ def payment_token(item):
 
 def customer_reservation(slug, token):
     try:
-        data = signing.loads(token, salt="booking-payment", max_age=86400)
+        data = signing.loads(token, salt="booking-payment", max_age=366 * 86400)
         if data["school"] != slug:
             raise signing.BadSignature()
     except (signing.BadSignature, KeyError, TypeError) as exc:
         raise Http404("Payment link expired or invalid.") from exc
-    return get_object_or_404(Reservation.objects.select_related("order__account", "profile__school"),
+    item = get_object_or_404(Reservation.objects.select_related("order__account", "profile__school"),
         public_id=data["reservation"], profile__school__slug=slug, order__account__isnull=False)
+    if not item.snapshot.get("staff_managed"):
+        try:
+            signing.loads(token, salt="booking-payment", max_age=86400)
+        except signing.BadSignature as exc:
+            raise Http404("Payment link expired or invalid.") from exc
+    return item
 
 
 def validate_booking_checkout(item):

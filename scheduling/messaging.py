@@ -62,10 +62,14 @@ def locked_access(user, slug):
 
 @transaction.atomic
 def change_message(user, slug, public_id, action):
-    profile, _ = require_access(user, slug, "setup.edit")
+    from .access import get_staff_reservation, require_location_access
+    profile, _ = require_location_access(user, slug, "setup.edit")
     SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
-    profile, _ = require_access(user, slug, "setup.edit")
+    profile, _ = require_location_access(user, slug, "setup.edit")
     message = get_object_or_404(BookingMessage, profile=profile, public_id=public_id)
+    if message.reservation_id:
+        scoped, _ = require_location_access(user, slug, "setup.edit", capability="reservations")
+        get_staff_reservation(scoped, message.reservation.public_id)
     if not message.reservation_id:
         profile, _ = locked_access(user, slug)
     if action == "queue" and message.can_queue:

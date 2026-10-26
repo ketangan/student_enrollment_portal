@@ -1,0 +1,20 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}New party request{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:parties' school_slug=business.slug %}"><i data-lucide="arrow-left" aria-hidden="true"></i> Party inquiries</a>
+<h2>New party request</h2>
+<form method="post" class="setup-form workshop-settings-form staff-party-form" novalidate>
+  {% csrf_token %}
+  {% if form.errors %}<div class="notice error" role="alert">Please correct the fields below.{{ form.non_field_errors }}</div>{% endif %}
+  {% include 'scheduling/form_hidden_fields.html' %}
+  <div class="workshop-settings-fields">
+    {% for field in form.visible_fields %}
+    <div class="form-field{% if field.name == 'customer_notes' %} workshop-description-field{% endif %}">
+      <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span aria-hidden="true"> *</span>{% endif %}</label>
+      {{ field }}{{ field.errors }}
+    </div>
+    {% endfor %}
+  </div>
+  <div class="actions form-actions"><button type="submit" class="primary">Continue to review</button><a href="{% url 'scheduling:parties' school_slug=business.slug %}">Cancel</a></div>
+</form>
+{% endblock %}

@@ -200,8 +200,24 @@ def test_invalid_review_does_not_change_saved_request(client, party_offering, bo
     client.force_login(booking_member.user)
     response = client.post(route("party_detail", party_offering, public_id=item.public_id), review_data(item, **changes))
     assert response.status_code == 400
+    assert b"scheduling_party_proposal_valid" not in response.content
+    assert b"Enter both the proposed total" not in response.content
     item.refresh_from_db()
     assert item.status == "pending" and item.proposed_total is None and item.revision == 0
+
+
+@pytest.mark.parametrize("changes, field, message", [
+    ({"proposed_total": "", "payment_at_booking": "deposit"}, "proposed_total", "Enter the total price for this party."),
+    ({"proposed_deposit": ""}, "proposed_deposit", "Enter the deposit amount, or choose full payment."),
+    ({"proposed_deposit": "", "payment_at_booking": "deposit"}, "proposed_deposit", "Enter a deposit of at least $0.50 per reservation."),
+])
+def test_missing_quote_values_have_field_errors(client, party_offering, booking_member, changes, field, message):
+    item = create_inquiry(client, party_offering)
+    form = review_inquiry(booking_member.user, party_offering.location.profile.school.slug,
+        item.public_id, review_data(item, **changes))
+    assert not form.is_valid()
+    assert message in form.errors[field]
+    assert not form.non_field_errors()
 
 
 def test_stale_staff_save_cannot_overwrite_and_identical_save_is_noop(client, party_offering, booking_member):

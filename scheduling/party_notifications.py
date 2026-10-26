@@ -54,12 +54,15 @@ def needs_guests(item):
 
 def deliverable(message):
     item = Reservation.objects.select_related("profile__school", "party_request").get(pk=message.reservation_id)
+    from . import payment_requests
+    if message.notice_kind == "payment_request":
+        return payment_requests.deliverable(message, item)
     if item.workshop_request_id:
         from .workshop_notifications import deliverable as workshop_deliverable
         return workshop_deliverable(message, item)
     return (item.profile_id == message.profile_id and item.profile.enabled
         and item.profile.party_notifications_enabled and has_capability(item.profile, "parties")
-        and item.state == "confirmed" and item.starts_at > timezone.now()
+        and item.state == "confirmed" and item.starts_at > timezone.now() and payment_requests.deposit_received(item)
         and item.party_request.organizer_email == message.recipient
         and message.notice_signature == signature(item)
         and (message.notice_kind == "confirmation" or (message.notice_kind == "reminder" and needs_guests(item))))
@@ -108,6 +111,9 @@ def capture_for_reservation(pk):
     if not profile.enabled or not profile.party_notifications_enabled or not has_capability(profile, "parties"):
         return
     if not item.party_request_id or item.state != "confirmed" or item.starts_at <= timezone.now():
+        return
+    from .payment_requests import deposit_received
+    if not deposit_received(item):
         return
     stamp = signature(item)
     def capture(kind):

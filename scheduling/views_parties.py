@@ -247,7 +247,7 @@ def party_received(request, school_slug, public_id):
 @require_GET
 def party_list(request, school_slug):
     profile, role = require_location_access(request.user, school_slug)
-    context = _context(request, profile, role, "parties")
+    context = _context(request, profile, role, "party_inquiries")
     form = context["location_filter"]
     context.update(location_filter=form, selected_location=form.selected)
     items = form.filter(scoped_parties(profile), "offering__location")
@@ -271,7 +271,7 @@ def party_detail(request, school_slug, public_id):
     else:
         form = None
     item = get_object_or_404(scoped_parties(profile), public_id=public_id)
-    context = _context(request, profile, role, "parties")
+    context = _context(request, profile, role, "party_inquiries")
     sessions, parties = room_overlaps(item)
     context.update(item=item, form=form or PartyReviewForm(instance=item), overlapping_sessions=sessions, overlapping_parties=parties)
     return render(request, "scheduling/party_detail.html", context, status=400 if request.method == "POST" else 200)

@@ -1,7 +1,7 @@
 {% extends 'scheduling/base.html' %}
-{% block title %}Confirmation message{% endblock %}
+{% block title %}{% if item.notice_kind == 'payment_request' %}Payment request{% else %}Confirmation message{% endif %}{% endblock %}
 {% block content %}
-{% if item.reservation_id %}<a href="{% url 'scheduling:guest_communication' school_slug=business.slug %}">Back to guest communication</a>{% else %}<a href="{% url 'scheduling:messages' school_slug=business.slug %}">Messages</a>{% endif %}
+{% if item.notice_kind == 'payment_request' %}<a href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.reservation.public_id %}">Back to reservation</a>{% elif item.reservation_id %}<a href="{% url 'scheduling:guest_communication' school_slug=business.slug %}">Back to guest communication</a>{% else %}<a href="{% url 'scheduling:messages' school_slug=business.slug %}">Messages</a>{% endif %}
 <h2>{{ item.subject }}</h2><p>To: {{ item.recipient }}</p>
 <p><strong>{{ item.get_state_display }}</strong> &middot; {{ item.attempts }} attempt{{ item.attempts|pluralize }}</p>
 {% if blocker %}<p class="notice">Waiting for an <a href="{% url 'scheduling:message_detail' school_slug=business.slug public_id=blocker.public_id %}">earlier message</a> ({{ blocker.get_state_display }}). This update will not be processed until that message is resolved.</p>{% endif %}

@@ -2,13 +2,16 @@
   window.lucide?.createIcons();
   document.getElementById('print-report')?.addEventListener('click', () => window.print());
   document.querySelectorAll('[data-copy-link]').forEach(button => {
+    let resetTimer;
     button.addEventListener('click', async () => {
       const status = button.parentElement.querySelector('[data-copy-status]');
+      window.clearTimeout(resetTimer);
       try {
         await navigator.clipboard.writeText(button.dataset.copyLink);
         status.textContent = 'Link copied';
+        resetTimer = window.setTimeout(() => { status.textContent = ''; }, 3000);
       } catch (_) {
-        status.textContent = 'Open the guest list and copy its address.';
+        status.textContent = 'Could not copy. Please try again.';
       }
     });
   });

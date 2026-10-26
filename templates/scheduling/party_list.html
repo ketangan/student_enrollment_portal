@@ -3,7 +3,7 @@
 {% block content %}
 <a class="back-link" href="{% url 'scheduling:party_setup' school_slug=business.slug %}">Party packages</a>
 {% include 'scheduling/location_filter.html' %}
-<h2>Party inquiries</h2><p class="muted">Original inquiries and their current reservation status.</p>
+<div class="section-heading"><h2>Party inquiries</h2>{% if can_edit_sessions %}<a class="button primary" href="{% url 'scheduling:staff_party_create' school_slug=business.slug %}"><i data-lucide="plus" aria-hidden="true"></i> New party request</a>{% endif %}</div><p class="muted">Original inquiries and their current reservation status.</p>
 <nav class="actions list-filter" aria-label="Party filter"><a href="?location={{ selected_location.pk }}" {% if not review_only %}aria-current="page"{% endif %}>All inquiries</a><a href="?review=1&amp;location={{ selected_location.pk }}" {% if review_only %}aria-current="page"{% endif %}>Awaiting review</a></nav>
 <div class="table-wrap request-table" tabindex="0" role="region" aria-label="Party inquiries"><table><thead><tr><th scope="col">Organizer</th><th scope="col">Workshop / preferred time</th><th scope="col">Group / space</th><th scope="col">Status</th></tr></thead><tbody>
 {% for item in items %}<tr><th scope="row"><a href="{% url 'scheduling:party_detail' school_slug=business.slug public_id=item.public_id %}">{{ item.organizer_name }}</a><p class="muted">{{ item.organizer_email }}</p></th>

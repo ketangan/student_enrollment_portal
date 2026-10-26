@@ -1,6 +1,7 @@
 {% extends 'scheduling/base.html' %}{% load tz booking_navigation %}
 {% block title %}Reservations{% endblock %}
 {% block content %}
+{% if features.parties and can_edit_sessions %}<div class="actions"><a class="button" href="{% url 'scheduling:staff_party_create' school_slug=business.slug %}"><i data-lucide="plus" aria-hidden="true"></i> New party request</a></div>{% endif %}
 <details class="reservation-availability"><summary>New reservations: {% if profile.native_reservations_enabled %}Open{% else %}Paused{% endif %}</summary>
 <section class="reservation-intake" aria-label="Booking availability">
   <div>

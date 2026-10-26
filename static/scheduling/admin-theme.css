@@ -214,6 +214,9 @@
 .booking-admin .workshop-settings-fields .form-field { min-width: 0; margin: 0; }
 .booking-admin .workshop-settings-fields .workshop-description-field { grid-column: 1 / -1; }
 .booking-admin .workshop-settings-form .form-actions { border: 0; margin: 0; padding: 0; }
+.booking-admin .staff-party-form .workshop-settings-fields { align-items: start; }
+.booking-admin .staff-party-form .flatpickr-wrapper { display: block; width: 100%; }
+.booking-admin .staff-party-form .form-actions { margin-top: 24px; }
 @media (max-width: 600px) {
   .booking-admin .workshop-settings-fields { grid-template-columns: minmax(0, 1fr); }
 }
@@ -355,6 +358,12 @@
 .booking-admin .money-due dt, .booking-admin .money-due dd { color: #a65b08; }
 .booking-admin .reservation-money svg, .booking-admin .prep-badge svg, .booking-admin .booking-danger svg { width: 16px; height: 16px; flex-shrink: 0; }
 .booking-admin .reservation-payment-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.booking-admin .reservation-guest-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
+.booking-admin .reservation-guest-actions :is(button, .button) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.booking-admin .reservation-guest-actions svg { width: 18px; height: 18px; flex-shrink: 0; }
+.booking-admin .guest-selection-status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 12px 0 0; }
+.booking-admin [data-copy-status]:empty { display: none; }
+.booking-admin .payment-email-status { margin: 12px 0 0; font-size: 14px; }
 .booking-admin .reservation-payment-actions :is(button, a) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .booking-admin .reservation-payment-actions svg, .booking-admin .payment-dialog-close svg { width: 18px; height: 18px; flex-shrink: 0; }
 .booking-admin .reservation-payment-dialog { box-sizing: border-box; width: min(560px, calc(100% - 32px)); max-height: calc(100dvh - 32px); margin: auto; padding: 24px; border: 1px solid var(--dash-border); border-radius: 8px; background: var(--dash-card); color: var(--dash-text); overflow: auto; box-shadow: 0 16px 48px #0003; }
