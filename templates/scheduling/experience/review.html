@@ -1,7 +1,7 @@
 {% extends 'scheduling/experience/base.html' %}{% block content %}
 <h1>One last look before the fun.</h1><p class="lead">Check your workshop and everyone's selections.</p>
 <div class="split"><section><h2>Your plushie crew</h2>
-{% for person in rows %}<article class="review-person">{% include 'scheduling/experience/selection_thumbnail.html' %}<div><h3>{{ person.name }}</h3><div class="selections">{% for selection in person.selections %}<span>{{ selection.group }}: <strong>{{ selection.option }}</strong></span>{% endfor %}</div></div></article>{% endfor %}
+{% for person in rows %}<article class="review-person">{% include 'scheduling/experience/selection_thumbnail.html' %}<div><h3>{{ person.name }}</h3>{% if person.selections_deferred %}<p>Choosing at the studio</p>{% endif %}<div class="selections">{% for selection in person.selections %}<span>{{ selection.group }}: <strong>{{ selection.option }}</strong></span>{% endfor %}</div></div></article>{% endfor %}
 <section class="contact"><h2>Booking contact</h2><p>{{ purchaser.purchaser_name }}<br>{{ purchaser.purchaser_email }}</p></section>
 </section><aside class="summary"><h2>Your workshop</h2><h3>{{ session.offering.name }}</h3><p>{{ session.offering.location.name }}<br>{{ session.starts_at|date:'D, M j, Y' }} at {{ session.starts_at|date:'g:i A' }}</p>
 <p>{{ rows|length }} participant{{ rows|pluralize }} &times; ${{ unit_price }}</p><p class="total">Total <strong>${{ total }}</strong></p>

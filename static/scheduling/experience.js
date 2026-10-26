@@ -83,8 +83,9 @@
   if ($('#catalog-data')) {
     const config = data('catalog-data'), list = $('#participant-list');
     const visual = Boolean(config.options[config.design_group] && config.options[config.color_group]);
-    let active = 0, groupMode = !visual;
+    let active = 0;
     const persons = () => $$('.participant', list);
+    const deferred = person => Boolean($('[name$="-selections_deferred"]', person)?.checked);
     const field = (person, name) => $$('.person-fields label', person).find(el => el.dataset.field === name);
     const select = (person, name) => field(person, name)?.querySelector('select');
     const optionName = el => el.selectedOptions[0]?.textContent || '';
@@ -93,7 +94,7 @@
       persons().forEach(person => updates.get(person)?.());
       summarize();
     };
-    const recipe = (person, color) => config.inventory.variants.find(row =>
+    const recipe = (person, color) => !deferred(person) && config.inventory.variants.find(row =>
       row.options.includes(Number(select(person, config.design_group)?.value)) &&
       row.options.includes(Number(color ?? select(person, config.color_group)?.value)));
     const enough = selections => materialAvailability.enough(selections, config.inventory.materials);
@@ -103,28 +104,39 @@
     };
     const rebuild = () => {
       const all = persons(); active = Math.min(active, all.length - 1);
+      const later = $('#choose-later')?.checked;
+      if ($('#choose-later')) all.forEach(person => {const input = $('[name$="-selections_deferred"]', person); if (input) input.checked = later;});
+      $('#person-tabs').hidden = Boolean(later);
+      if ($('#later-count')) {$('#later-count-field').hidden = !later; $('#later-count').value = all.length;}
+      $('#add-person').hidden = Boolean(later);
       $('#id_participants-TOTAL_FORMS').value = all.length;
       all.forEach((person, index) => {
-        person.hidden = !groupMode && active !== index;
+        person.hidden = Boolean(later) || active !== index;
         $('.person-number', person).textContent = index + 1;
         $$('[name],[id],[for]', person).forEach(el => ['name', 'id', 'for'].forEach(attr => {
           if (el.hasAttribute(attr)) el.setAttribute(attr, el.getAttribute(attr).replace(/participants-(?:\d+|__prefix__)-/g, `participants-${index}-`));
         }));
         if (visual) {
-          field(person, config.design_group).hidden = !groupMode;
-          field(person, config.color_group).hidden = !groupMode;
+          field(person, config.design_group).hidden = true;
+          field(person, config.color_group).hidden = true;
         }
-        $('.visual-picker', person).hidden = groupMode || !visual;
+        $$('input,select', person).filter(input => input.type !== 'checkbox').forEach(input => {input.required = !deferred(person);});
+        (config.deferred_groups || []).forEach(name => {
+          const label = field(person, name);
+          if (!label) return;
+          if (!visual) label.hidden = deferred(person);
+          $$('input,select', label).forEach(input => {input.disabled = deferred(person); input.required = !deferred(person);});
+        });
+        $('.visual-picker', person).hidden = !visual || deferred(person);
         $('.remove-person', person).hidden = all.length === 1;
       });
       $('#person-tabs').replaceChildren(...all.map((person, index) => {
         const name = $('input[type=text]', person).value.trim();
-        const node = button(name || `Participant ${index+1}`, () => {active = index; groupMode = !visual; rebuild();});
-        node.setAttribute('aria-pressed', String(!groupMode && active === index)); return node;
+        const node = button(name || `Participant ${index+1}`, () => {active = index; rebuild();});
+        node.setAttribute('aria-pressed', String(active === index)); return node;
       }));
-      $('#guided').setAttribute('aria-pressed', String(!groupMode)); $('#group').setAttribute('aria-pressed', String(groupMode));
-      list.classList.toggle('group-mode', groupMode);
       $('#add-person').disabled = all.length >= config.limit;
+      $('.group-color').hidden = !visual || all.every(deferred);
       $('#selection-total').textContent = `${all.length} participant${all.length === 1 ? '' : 's'} / ${dollars(all.length*config.price)}`;
       refresh();
       icons();
@@ -134,8 +146,8 @@
       let complete = 0;
       $('#group-summary-list').replaceChildren(...persons().map((person, index) => {
         const name = $('input[type=text]', person).value.trim();
-        const design = config.designs.find(d => d.name === optionName(select(person, config.design_group) || {selectedOptions: []}));
-        const color = config.options[config.color_group]?.find(c => c.id === select(person, config.color_group)?.value);
+        const design = deferred(person) ? null : config.designs.find(d => d.name === optionName(select(person, config.design_group) || {selectedOptions: []}));
+        const color = deferred(person) ? null : config.options[config.color_group]?.find(c => c.id === select(person, config.color_group)?.value);
         const row = document.createElement('div'); row.className = 'group-person';
         const exactPhoto = recipe(person)?.image_url;
         const picture = document.createElement('div'); picture.className = 'plushie-image group-photo'; photo(picture, exactPhoto ? {...design, image_url: exactPhoto} : design);
@@ -147,15 +159,19 @@
         const description = document.createElement('span'); description.className = 'muted tiny';
         const ageSelect = select(person, config.age_group);
         const age = ageSelect?.value ? optionName(ageSelect) : '';
-        description.textContent = [age && /^\d+$/.test(age) ? `Age ${age}` : age, design?.name, color?.name].filter(Boolean).join(' / ') || 'Selections pending';
-        if (name && $$('input,select', person).filter(el => el.required).every(el => el.value)
-            && (!config.tracks_stock || !visual || available(person))) complete++;
+        description.textContent = deferred(person) ? 'Choosing at the studio' : [age && /^\d+$/.test(age) ? `Age ${age}` : age, design?.name, color?.name].filter(Boolean).join(' / ') || 'Selections pending';
+        if ((name || deferred(person)) && $$('input,select', person).filter(el => el.required).every(el => el.value)
+            && (deferred(person) || !config.tracks_stock || !visual || available(person))) complete++;
         details.append(title, description); row.append(picture, details); return row;
       }));
       const status = $('#group-completeness'); status.textContent = `${complete} of ${persons().length} participants ready`;
+      const later = Boolean($('#choose-later')?.checked);
+      $('#group-summary-list').hidden = later;
+      if (later) status.textContent = `${persons().length} participants / Choosing designs later`;
       status.classList.toggle('all-ready', complete === persons().length);
     };
     const setup = person => {
+      $('[name$="-selections_deferred"]', person)?.addEventListener('change', rebuild);
       $('input[type=text]', person).addEventListener('change', rebuild);
       $('input[type=text]', person).addEventListener('input', summarize);
       select(person, config.age_group)?.addEventListener('change', summarize);
@@ -174,29 +190,35 @@
       setup(persons().at(-1)); active = persons().length - 1; rebuild();
     };
     persons().forEach(setup);
+    $$('[name="choose_when"]').forEach(input => input.addEventListener('change', rebuild));
     const desired = Math.min(config.limit, Math.max(1, Number(config.initial_count) || 1));
     while (persons().length < desired) add();
     $('#add-person').addEventListener('click', add);
-    $('#guided').addEventListener('click', () => {groupMode = false; rebuild();});
-    $('#guided').disabled = !visual;
-    $('#group').addEventListener('click', () => {groupMode = true; rebuild();});
-    $('.group-color').hidden = !visual;
+    $('#later-count')?.addEventListener('change', () => {
+      const target = Math.min(config.limit, Math.max(1, Number($('#later-count').value) || 1));
+      while (persons().length < target) add();
+      while (persons().length > target) {const person = persons().at(-1); updates.delete(person); person.remove();}
+      rebuild();
+    });
     (config.options[config.color_group] || []).forEach(o => $('#group-color').add(new Option(o.name, o.id)));
     $('#apply-color').addEventListener('click', () => {
       const value = $('#group-color').value; if (!value) return;
       if (config.tracks_stock) {
-        if (!enough(persons().map(person => recipe(person, value)))) {
+        if (!enough(persons().filter(person => !deferred(person)).map(person => recipe(person, value)))) {
           $('#group-color-status').textContent = 'Choose a design for everyone and a color with enough materials for the whole group. No selections changed.';
           return;
         }
       }
-      persons().forEach(person => {select(person, config.color_group).value = value;});
+      persons().filter(person => !deferred(person)).forEach(person => {select(person, config.color_group).value = value;});
       $('#group-color-status').textContent = 'Color applied to everyone.';
       refresh();
     });
-    $('#choices-form').addEventListener('invalid', () => {groupMode = true; rebuild();}, true);
-    if ($$('.errorlist', list).length) groupMode = true;
-    active = 0; rebuild();
+    $('#choices-form').addEventListener('invalid', event => {
+      const index = persons().findIndex(person => person.contains(event.target));
+      if (index >= 0) {active = index; rebuild();}
+    }, true);
+    const errorIndex = persons().findIndex(person => $$('.errorlist', person).length);
+    active = Math.max(0, errorIndex); rebuild();
   }
   $('#print-prep')?.addEventListener('click', () => window.print());
   if ($('#notion-payload')) $('#payload-preview').textContent = JSON.stringify(data('notion-payload'), null, 2);

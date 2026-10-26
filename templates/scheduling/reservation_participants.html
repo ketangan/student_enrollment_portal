@@ -1,9 +1,23 @@
 {% load booking_navigation %}<section class="reservation-section" aria-labelledby="participants-title">
   <div class="section-heading"><h2 id="participants-title">Participants &amp; selections</h2><span class="muted">{{ item.quantity }} participant{{ item.quantity|pluralize }}</span></div>
+  {% include 'scheduling/workshop_selections.html' %}
   {% if participant_table.rows %}
   <div class="table-wrap participant-table" role="region" aria-label="Participant selections" tabindex="0">
-    <table class="dash-table"><thead><tr><th scope="col">Participant</th>{% for column in participant_table.columns %}<th scope="col">{{ column }}</th>{% endfor %}</tr></thead><tbody>
-    {% for person in participant_table.rows %}<tr><th scope="row"><div class="dash-student-cell"><span class="dash-initials" aria-hidden="true">{{ person.name|booking_initials }}</span><strong>{{ person.name }}</strong></div></th>{% for value in person.values %}<td>{% if value %}{{ value }}{% else %}<span class="muted">Not selected</span>{% endif %}</td>{% endfor %}</tr>{% endfor %}
+    <table class="dash-table"><thead><tr><th scope="col">Participant</th>{% for column in participant_table.columns %}<th scope="col">{{ column }}</th>{% endfor %}{% if selection_forms %}<th scope="col"><span class="sr-only">Actions</span></th>{% endif %}</tr></thead><tbody>
+    {% for person in participant_table.rows %}
+    <tr{% if person.pending_id %} id="participant-{{ person.pending_id }}"{% endif %}>
+      <th scope="row"><div class="dash-student-cell"><span class="dash-initials" aria-hidden="true">{{ person.name|booking_initials }}</span><strong>{{ person.name }}</strong></div></th>
+      {% if person.cells %}{% for cell in person.cells %}<td>{% if cell.field %}<label class="sr-only" for="{{ cell.field.id_for_label }}">{{ cell.field.label }} for {{ person.name }}</label>{{ cell.field }}{{ cell.field.errors }}{% else %}{{ cell.value|default:"Not selected" }}{% endif %}</td>{% endfor %}
+      {% else %}{% for value in person.values %}<td>{% if value %}{{ value }}{% else %}<span class="muted">Not selected</span>{% endif %}</td>{% endfor %}{% endif %}
+      {% if selection_forms %}<td><div class="participant-actions">
+        {% if person.editing %}
+        <button type="submit" form="{{ person.form_id }}" class="icon-button" aria-label="Save selections for {{ person.name }}" title="Save selections"><i data-lucide="check" aria-hidden="true"></i></button>
+        <a class="icon-button" href="{{ selection_return_url }}" aria-label="Cancel editing {{ person.name }}" title="Cancel"><i data-lucide="x" aria-hidden="true"></i></a>
+        {% elif person.edit_url %}<a class="icon-button" href="{{ person.edit_url }}" aria-label="Edit selections for {{ person.name }}" title="Edit selections for {{ person.name }}"><i data-lucide="pencil" aria-hidden="true"></i></a>{% endif %}
+      </div></td>{% endif %}
+    </tr>
+    {% if person.error %}<tr><td colspan="{{ participant_table.columns|length|add:2 }}"><p class="notice error" role="alert">{{ person.error }}</p></td></tr>{% endif %}
+    {% endfor %}
     </tbody></table>
   </div>
   {% else %}<p class="muted">Individual participant names and selections were not collected for this reservation.</p>{% endif %}

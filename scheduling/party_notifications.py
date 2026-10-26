@@ -36,9 +36,10 @@ def attach_guide(email, message):
 
 
 def live_enabled(profile):
+    from .workshop_notifications import enabled
     return (not settings.DEBUG and settings.BOOKINGS_PARTY_EMAIL_ENABLED
-            and profile.enabled and profile.party_notifications_enabled
-            and not profile.school.is_demo and has_capability(profile, "parties"))
+            and not profile.school.is_demo and (enabled(profile) or
+            profile.enabled and profile.party_notifications_enabled and has_capability(profile, "parties")))
 
 
 def signature(item):
@@ -53,6 +54,9 @@ def needs_guests(item):
 
 def deliverable(message):
     item = Reservation.objects.select_related("profile__school", "party_request").get(pk=message.reservation_id)
+    if item.workshop_request_id:
+        from .workshop_notifications import deliverable as workshop_deliverable
+        return workshop_deliverable(message, item)
     return (item.profile_id == message.profile_id and item.profile.enabled
         and item.profile.party_notifications_enabled and has_capability(item.profile, "parties")
         and item.state == "confirmed" and item.starts_at > timezone.now()
@@ -96,9 +100,13 @@ def contents(item, kind):
 def capture_for_reservation(pk):
     original = Reservation.objects.only("profile_id").get(pk=pk)
     profile = SchedulingProfile.objects.select_for_update().select_related("school").get(pk=original.profile_id)
+    item = Reservation.objects.select_related("profile__school", "party_request__offering", "order",
+        "workshop_request__session__offering__location").get(pk=pk)
+    if item.workshop_request_id:
+        from .workshop_notifications import capture
+        return capture(item)
     if not profile.enabled or not profile.party_notifications_enabled or not has_capability(profile, "parties"):
         return
-    item = Reservation.objects.select_related("profile__school", "party_request__offering", "order").get(pk=pk)
     if not item.party_request_id or item.state != "confirmed" or item.starts_at <= timezone.now():
         return
     stamp = signature(item)

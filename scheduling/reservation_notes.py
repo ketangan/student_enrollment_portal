@@ -1,35 +1,31 @@
-"""One staff notes editor, retaining party preparation notes as their source."""
+"""Append staff notes without replacing earlier comments or customer data."""
+import uuid
+
 from django import forms
+from django.core.paginator import Paginator
 from django.db import transaction
-from .access import get_staff_reservation
-from django.shortcuts import get_object_or_404
 
-from .access import require_location_access
-from .editing import protect_edit
+from .access import get_staff_reservation, require_location_access
 from .lessons import audit
-from .models import PartyRequest, Reservation, SchedulingProfile
+from .models import ReservationNote, SchedulingProfile
 
 
-class ReservationNotesForm(forms.ModelForm):
-    class Meta:
-        model = Reservation
-        fields = ["internal_notes"]
-        labels = {"internal_notes": "Internal notes"}
-        widgets = {"internal_notes": forms.Textarea(attrs={"rows": 3})}
-
-
-class PartyNotesForm(forms.ModelForm):
-    class Meta:
-        model = PartyRequest
-        fields = ["preparation_notes"]
-        labels = {"preparation_notes": "Internal notes"}
-        widgets = {"preparation_notes": forms.Textarea(attrs={"rows": 3})}
+class ReservationNotesForm(forms.Form):
+    body = forms.CharField(label="Add a note", max_length=3000,
+        widget=forms.Textarea(attrs={"rows": 2}))
+    submission_id = forms.UUIDField(initial=uuid.uuid4, widget=forms.HiddenInput)
 
 
 def form_for(item, profile, data=None):
-    form = (PartyNotesForm(data, instance=item.party_request) if item.party_request_id
-            else ReservationNotesForm(data, instance=item))
-    return protect_edit(form, profile)
+    return ReservationNotesForm(data)
+
+
+def context_for(item, raw_page=None):
+    legacy = [item.internal_notes] if item.internal_notes else []
+    if item.party_request_id and item.party_request.preparation_notes:
+        legacy.append(item.party_request.preparation_notes)
+    return {"legacy_notes": legacy,
+        "staff_notes": Paginator(item.notes.select_related("actor"), 20).get_page(raw_page)}
 
 
 @transaction.atomic
@@ -39,12 +35,12 @@ def update(user, slug, public_id, data):
     profile, _ = require_location_access(user, slug, "sessions.edit", capability="reservations")
     item = get_staff_reservation(profile, public_id, exclude_visits=True)
     form = form_for(item, profile, data)
-    if form.is_valid() and form.has_changed():
-        source = form.save(commit=False)
-        fields = list(form._meta.fields)
-        if item.party_request_id:
-            source.revision += 1
-            fields.extend(["revision", "updated_at"])
-        source.save(update_fields=fields)
-        audit(user, profile, item, "change", {"action": "internal_notes_updated"})
+    if form.is_valid():
+        note, created = ReservationNote.objects.get_or_create(reservation=item,
+            submission_id=form.cleaned_data["submission_id"],
+            defaults={"actor": user, "body": form.cleaned_data["body"]})
+        if created:
+            audit(user, profile, item, "change", {"action": "internal_note_added"})
+        elif note.body != form.cleaned_data["body"] or note.actor_id != user.pk:
+            form.add_error(None, "This note was already submitted. Reload to add another note.")
     return form

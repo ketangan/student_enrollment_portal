@@ -202,7 +202,8 @@ def test_optional_receipt_and_removed_note(paid_booking, booking_member, client)
     assert b'Record payment already received' in page.content
     assert b'Take online payment' in page.content
     assert b'Collect balance:' not in page.content
-    assert b'<details' not in page.content
+    payment_section = page.content.split(b'aria-labelledby="money-title"', 1)[1].split(b'aria-labelledby="internal-notes"', 1)[0]
+    assert b'<details' not in payment_section
     assert b'aria-labelledby="terminal-payment-title"' in page.content
     assert b'name="note"' not in page.content
     assert b'Payment &amp; refund status' not in page.content

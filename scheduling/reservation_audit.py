@@ -6,7 +6,11 @@ from .models import StockAdjustment
 
 
 LABELS = {
+    "workshop_selections_completed": "Participant selections saved",
+    "workshop_selections_changed": "Participant selections changed",
+    "workshop_participant_named": "Participant name updated",
     "internal_notes_updated": "Internal notes updated",
+    "internal_note_added": "Internal note added",
     "created": "Reservation created", "checkout_status": "Checkout status updated",
     "canceled": "Reservation canceled", "verified_test_payment": "Payment verified",
     "close_checkout_requested": "Checkout closure requested", "payment_review_confirmed": "Reservation confirmed after payment review",
@@ -45,6 +49,8 @@ def audit_page(item, raw_page):
             if action == "cancellation_decision":
                 handling = "With refund" if log.extra["resolution"] == "with_refund" else "Without refund"
                 detail = f'{handling}: {log.extra["reason"]}'
+            elif action in {"workshop_selections_completed", "workshop_selections_changed", "workshop_participant_named"}:
+                detail = log.extra.get("participant_name", "")
             elif action in {"refund_status", "checkout_status"}:
                 detail = log.extra.get("status", "")
             elif not action:

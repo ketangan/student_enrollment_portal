@@ -1,0 +1,16 @@
+{% load tz %}
+<section class="reservation-section" aria-labelledby="internal-notes"><h2 id="internal-notes">Internal notes</h2>
+{% if can_edit_sessions %}
+<form method="post" class="reservation-notes-form">{% csrf_token %}<input type="hidden" name="action" value="save_notes">
+{{ notes_form.non_field_errors }}{% for hidden in notes_form.hidden_fields %}{{ hidden }}{{ hidden.errors }}{% endfor %}
+<div class="form-field"><label for="{{ notes_form.body.id_for_label }}">{{ notes_form.body.label }}</label>{{ notes_form.body }}{{ notes_form.body.errors }}</div>
+<button type="submit" class="primary">Add note</button>
+</form>
+{% endif %}
+<div class="reservation-note-list">
+{% for note in staff_notes %}<article class="reservation-note"><p class="muted"><strong>{{ note.actor.get_username|default:"Former staff member" }}</strong> &middot; {% timezone item.snapshot.timezone %}{{ note.created_at|date:"M j, Y, g:i A" }}{% endtimezone %}</p><p>{{ note.body|linebreaksbr }}</p></article>{% endfor %}
+{% for note in legacy_notes %}<article class="reservation-note"><p class="muted">Earlier note</p><p>{{ note|linebreaksbr }}</p></article>{% endfor %}
+{% if not staff_notes and not legacy_notes %}<p class="muted">No internal notes yet.</p>{% endif %}
+</div>
+{% if staff_notes.has_other_pages %}<nav class="pagination" aria-label="Note pages">{% if staff_notes.has_previous %}<a href="{% querystring notes_page=staff_notes.previous_page_number %}#internal-notes">Newer notes</a>{% endif %}<span>Page {{ staff_notes.number }}</span>{% if staff_notes.has_next %}<a href="{% querystring notes_page=staff_notes.next_page_number %}#internal-notes">Older notes</a>{% endif %}</nav>{% endif %}
+</section>

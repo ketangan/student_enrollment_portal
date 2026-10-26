@@ -1,0 +1,7 @@
+{% if selection_error and not inline_selection %}<p class="notice error" role="alert">{{ selection_error }}</p>{% endif %}
+{% if inline_selection %}
+<form method="post" id="{{ inline_selection.form_id }}">{% csrf_token %}
+  <input type="hidden" name="action" value="save_selections"><input type="hidden" name="participant_id" value="{{ inline_selection.person.pk }}">
+  {{ inline_selection.form.name }}{{ inline_selection.form.selection_revision }}
+</form>
+{% endif %}

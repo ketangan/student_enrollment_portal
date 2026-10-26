@@ -386,6 +386,19 @@
 .booking-admin .participant-table table { min-width: 480px; }
 .booking-admin .participant-table tbody th, .booking-admin .materials-table tbody th { text-transform: none; letter-spacing: 0; font-size: 14px; background: transparent; color: var(--dash-text); font-weight: 400; }
 .booking-admin .participant-table .dash-student-cell { min-width: 170px; }
+.booking-admin .participant-table .icon-button { padding: 0; border: 0; background: transparent; color: var(--dash-primary); }
+.booking-admin .participant-table .icon-button:hover, .booking-admin .participant-table .icon-button:focus-visible { background: #e7edff; }
+.booking-admin .participant-table .icon-button svg { width: 18px; height: 18px; flex-shrink: 0; }
+.booking-admin .participant-actions { display: flex; gap: 4px; align-items: center; }
+.booking-admin .participant-table td { vertical-align: middle; }
+.booking-admin .participant-table th, .booking-admin .participant-table td { min-width: 130px; }
+.booking-admin .participant-table th:last-child, .booking-admin .participant-table td:last-child { min-width: 100px; }
+.booking-admin .participant-table tr { scroll-margin-top: 170px; }
+.booking-admin #participants-title, .booking-admin #internal-notes { scroll-margin-top: 90px; }
+.booking-admin .participant-table select { min-width: 130px; width: 100%; }
+.booking-admin .reservation-note { padding: 16px 0; border-bottom: 1px solid var(--dash-border); overflow-wrap: anywhere; }
+.booking-admin .reservation-note p { margin: 0 0 8px; white-space: normal; }
+.booking-admin .reservation-note-list { margin-top: 16px; }
 .booking-admin .materials-table table { min-width: 420px; }
 .booking-admin .materials-table .numeric { text-align: right; width: 100px; font-variant-numeric: tabular-nums; }
 .booking-admin .materials-table th:last-child { width: 190px; }

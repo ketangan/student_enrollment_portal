@@ -81,43 +81,71 @@ class StockForecast:
 
 
 def selection_items(offering, participants):
+    return Counter(value for value in selection_variants(offering, participants) if value is not None)
+
+
+def selection_variants(offering, participants):
     if not offering.inventory_catalog_id:
-        return Counter()
+        return [None for _ in participants]
     catalog = offering.inventory_catalog
     groups = set(catalog.choice_groups.filter(tracks_stock=True, is_active=True).values_list("pk", flat=True))
     if not groups:
         raise ValidationError("This catalog has no design choices. Contact the studio.")
     variants = {v.choice_key: v for v in catalog.items.filter(is_active=True)}
-    result = Counter()
+    result = []
     for person in participants:
+        if person.get("selections_deferred"):
+            if any(s["group_id"] in groups for s in person["selections"]):
+                raise ValidationError("Deferred participants cannot also reserve a design.")
+            result.append(None)
+            continue
         selected = [s["option_id"] for s in person["selections"] if s["group_id"] in groups]
         variant = variants.get(":".join(map(str, sorted(selected))))
         if not variant or len(selected) != len(groups):
             raise ValidationError("This design/color combination is unavailable. Choose another combination.")
-        result[variant.pk] += 1
+        result.append(variant.pk)
     return result
 
 
 def material_requirements(offering, counts):
-    variants = {v.pk: v for v in CatalogVariant.objects.filter(pk__in=counts,
+    recipes = material_recipes(offering, counts)
+    result = Counter()
+    for variant_id, quantity in counts.items():
+        if type(quantity) is not int or quantity < 1:
+            raise ValidationError("A selected design is no longer available. Choose another design.")
+        for material_id, amount in recipes[variant_id].items():
+            result[material_id] += amount * quantity
+    return result
+
+
+def material_recipes(offering, variant_ids):
+    variants = {v.pk: v for v in CatalogVariant.objects.filter(pk__in=variant_ids,
         catalog_id=offering.inventory_catalog_id, catalog__profile_id=offering.location.profile_id)
         .prefetch_related("requirements__material")}
     inactive = set(ChoiceOption.objects.filter(group__catalog_id=offering.inventory_catalog_id,
         is_active=False).values_list("pk", flat=True))
-    result = Counter()
-    for variant_id, quantity in counts.items():
+    result = {}
+    for variant_id in variant_ids:
         variant = variants.get(variant_id)
-        if (not variant or not variant.is_active or inactive.intersection(variant.option_ids)
-                or type(quantity) is not int or quantity < 1):
+        if not variant or not variant.is_active or inactive.intersection(variant.option_ids):
             raise ValidationError("A selected design is no longer available. Choose another design.")
         recipe = list(variant.requirements.all())
         if not recipe:
             raise ValidationError(f"{variant.name} has no material recipe yet. Contact the studio.")
+        result[variant_id] = Counter()
         for row in recipe:
             if not row.material.is_active or row.material.profile_id != offering.location.profile_id:
                 raise ValidationError(f"Materials for {variant.name} are unavailable. Choose another design.")
-            result[row.material_id] += row.quantity * quantity
+            result[variant_id][row.material_id] += row.quantity
     return result
+
+
+def participant_recipes(offering, people):
+    variants = selection_variants(offering, [{"selections": p.selections,
+        "selections_deferred": p.selections_deferred} for p in people])
+    recipes = material_recipes(offering, set(variants) - {None})
+    return {str(person.pk): {str(key): str(value) for key, value in recipes[variant].items()}
+        for person, variant in zip(people, variants) if variant is not None}
 
 
 def check_materials(offering, quantities, exclude=None, *, starts_at=None):
@@ -149,7 +177,10 @@ def allocate(reservation):
     if reservation.workshop_request_id:
         source = reservation.workshop_request
         offering = source.session.offering
-        counts = selection_items(offering, [{"selections": p.selections} for p in source.participants.all()])
+        people = list(source.participants.all())
+        counts = selection_items(offering, [{"selections": p.selections, "selections_deferred": p.selections_deferred} for p in people])
+        if offering.inventory_catalog_id and any(p.selections_deferred for p in people):
+            reservation.snapshot = {**reservation.snapshot, "workshop_selections_pending": True}
     elif reservation.camp_registration_id:
         source = reservation.camp_registration
         offering = source.camp.offering
@@ -174,6 +205,9 @@ def allocate(reservation):
         return
     if not offering.inventory_catalog_id:
         return
+    if reservation.workshop_request_id:
+        reservation.snapshot = {**reservation.snapshot,
+            "workshop_participant_materials": participant_recipes(offering, people)}
     snapshot = []
     for level, quantity in check_items(offering, counts, reservation.pk, starts_at=reservation.starts_at):
         StockAllocation.objects.create(reservation=reservation, level=level, quantity=quantity)
@@ -186,6 +220,12 @@ def allocate(reservation):
 
 
 def validate_allocations(reservation, allocations=None, *, allow_pending=False):
+    workshop_pending = bool(reservation.snapshot.get("workshop_selections_pending"))
+    if workshop_pending:
+        if not reservation.workshop_request_id or not reservation.workshop_request.participants.filter(selections_deferred=True).exists():
+            raise ValidationError("Pending selections do not match this booking. Contact support.")
+        if not allow_pending:
+            raise ValidationError("Choose designs for the remaining participants before preparing or completing this workshop.")
     if reservation.snapshot.get("guest_selections_pending"):
         if (not reservation.party_request_id
                 or reservation.party_request.materials or reservation.stock_allocations.exists()):
@@ -203,7 +243,7 @@ def validate_allocations(reservation, allocations=None, *, allow_pending=False):
     allocations = list(allocations if allocations is not None else reservation.stock_allocations.select_related("level__material", "level__location"))
     expected = {r["material_id"]: Decimal(r["quantity"]) for r in reservation.snapshot.get("materials", [])}
     actual = {a.level.material_id: a.quantity for a in allocations}
-    if (not expected or expected != actual or len(allocations) != len(expected)
+    if ((not expected and not workshop_pending) or expected != actual or len(allocations) != len(expected)
             or any(a.level.material.profile_id != reservation.profile_id
                    or a.level.location.profile_id != reservation.profile_id
                    or a.level.location_id != reservation.snapshot.get("material_location_id") for a in allocations)):

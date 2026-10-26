@@ -43,9 +43,10 @@ class OfferingForm(forms.ModelForm):
 
     class Meta:
         model = Offering
-        fields = ["name", "location", "description", "inventory_catalog", "payment_at_booking", "deposit_per_participant"]
+        fields = ["name", "location", "description", "inventory_catalog", "allow_deferred_selections", "payment_at_booking", "deposit_per_participant"]
         labels = {"name": "Workshop name", "inventory_catalog": "Catalog",
-                  "deposit_per_participant": "Deposit per participant (USD)"}
+                  "deposit_per_participant": "Deposit per participant (USD)",
+                  "allow_deferred_selections": "Allow participants to choose designs at the studio"}
         widgets = {"description": forms.Textarea(attrs={"rows": 4})}
 
     def __init__(self, *args, profile, unit_price_cents=None, **kwargs):

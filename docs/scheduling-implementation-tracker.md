@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: October 25, 2026.
+Updated: October 26, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -8,6 +8,178 @@ Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 This Markdown file remains the source of truth; the viewer does not edit milestone status.
 
 ## Current Status
+
+### October 26 Staff Reservation Cleanup (Local)
+
+- The participant pencil now edits stock selections directly in their grid cells,
+  with save/cancel icons. Reservation and Workshop Prep share the same editor,
+  service, permissions, stock checks and stale-edit protection; saving stays on
+  the current tab. No customer-specific fields or alternate stock logic added.
+- Booking audit history is closed by default, remaining open when paging through
+  it. Payment controls remain uncollapsed.
+- Internal notes are separate, dated staff entries shared by both tabs. Existing
+  reservation and party preparation notes remain visible as earlier notes and
+  are not rewritten. New entries cannot be overwritten or deleted in this UI;
+  retrying a submission does not duplicate it, and concurrent distinct notes are
+  both retained. Notes remain staff-only and are paginated with authors prefetched.
+- Migration `0043_reservation_notes` adds only the notes table. Applied to the
+  existing local preview database; no production deployment or push performed.
+- Desktop/mobile checks covered inline save/cancel, both notes entry points,
+  preserved earlier text, and audit expand/collapse on the existing test booking.
+- Verification: all 2,247 booking tests and 89 browser-script tests passed. A
+  final 283-test pass after the notes-pagination adjustment also passed, with
+  100% coverage for the append-only notes service and over 90% for both changed
+  reservation view/read-model modules. Migration drift and application checks
+  passed apart from the existing duplicate `jazzmin` template-tag warning.
+
+### October 26 Workshop Choice Editing (Local)
+
+- Extends the existing deferred-selection service: staff can edit selections
+  in the reservation; customers can complete or replace choices
+  through their private confirmation link. The catalog picker and email outbox/job
+  are reused. No school-specific application logic or new worker was added.
+- Customers may edit until event start or preparation; staff may assist at the
+  studio while confirmed/unprepared and before materials have been consumed.
+  Date, participant count and payment amounts are not editable through this flow.
+- Reservations now retain each participant's material recipe in the existing
+  snapshot. Replacements release only that participant's old allocation and claim
+  the replacement in one locked transaction. Shortages roll back everything;
+  other participants' saved recipes and the payment ledger remain unchanged.
+  Unchanged selections do not recalculate recipes. Stale forms cannot overwrite
+  another customer's/staff member's edit. Selection and name changes are audited.
+- Older reservations without the individual breakdown can recover an exact recipe
+  only when one participant accounts for the saved total. Ambiguous older group
+  allocations are blocked for support review; matching today's aggregate recipe
+  totals is not sufficient evidence to guess each participant's old quantities.
+- Local manual checks used Group Follow-up Test on the existing localhost:8002
+  database: staff changed Participant 1 from Blue to Purple, then the private
+  customer page changed it to Pink. Participant 2 remained undecided; totals stayed
+  $130 / $50 received / $80 outstanding. Desktop/mobile layouts were inspected.
+  No real emails, charges or production changes were made; this remains unpushed.
+- Verification: full regression 4,676 passed / 3 skipped in 469.47s; final focused
+  run after the stricter legacy guard and UI refinements: 286 passed. All 89
+  JavaScript tests and coverage gates passed. Combined coverage is 98.46%; the
+  selection service and customer follow-up service both measure 100%. Every
+  measured module clears the 90% floor. Migration drift and whitespace checks pass.
+  Coverage includes stock rollback, shared materials, frozen recipes, stale forms,
+  concurrent edits, customer/staff permissions, consumed/prepared cutoffs, legacy
+  records and a constant six-query recipe lookup for 20 participants.
+
+This supersedes the completion-only limitation described in the October 25 notes.
+The participant-choice portion of RA03 is implemented; broader changes to dates,
+group size or payment obligations still require a separately agreed scope. Event
+reminders, hosted email acceptance and the other launch work below remain pending.
+
+### October 25 Consolidated Remaining Work
+
+This section supersedes older local-only/pending statements below. Historical
+entries remain evidence, not the current launch checklist.
+
+- Released: booking calendar, party configuration/direct booking/inquiries,
+  deposit/full payment/balances, manual Terminal receipts and extras, party guest
+  lists, versioned design guides/PDF emails, scheduled maintenance, location roles,
+  inventory/incoming deliveries and Studio Prep. Hosted Square Sandbox payment,
+  refund, webhook and renewal checks are complete. Live charging remains disabled.
+- PR #10 test-runtime changes merged as `1218464`; local main and origin/main
+  matched before this feature branch. GitHub job 121403570647 passed in 15m23s
+  (previous Studio Prep job 19m10s); Python took 14m08s. This is an observed
+  improvement, not a guaranteed duration on every hosted runner. No tests removed.
+- Workshop choose-at-studio (RA02) is implemented on
+  `codex/workshop-deferred-selections`, verified and ready for local user review.
+  It is not deployed or included in the released items above.
+
+Provisional remaining engineering effort, assuming a small agreed launch scope:
+
+| Work | What remains | Estimate |
+| --- | --- | --- |
+| Customer changes after booking (RA03) | Extend existing participant/stock services with a private edit flow, cutoff and staff-review visibility. Agree what customers may change; date/party size/payment changes are not silently included. | 12-20 hours |
+| Staff phone bookings/custom parties (L06) | Complete the staff entry and payable-link workflow using existing inquiries, quotes and payment orders. Validate a larger custom group; confirm whether a formal Square invoice is required. | 6-12 hours |
+| Booking/financial reports (RA04/L07) | Agree a small report/export set from Jasmine's Wix examples; implement location/date-scoped reporting over existing reservations and payment ledger. No website analytics or profit analysis without cost data. | 12-20 hours |
+| Workshop confirmations/event reminders (RA06/L09) | Workshop confirmations and private deferred-choice links are implemented locally using the existing outbox/job. Event reminders and hosted delivery acceptance remain; timing needs confirmation. Party guest-deadline reminders do not replace event reminders. | 6-10 hours |
+| Approved policies and copy (L05) | Replace placeholders and verify placement once Jasmine supplies approved terms. Do not invent legal text or a waiver-signing workflow. | 2-4 hours |
+| Integrated acceptance and activation (L08/L10) | Real studio recipes/counts and configuration, timezone checks, staff roles, Jasmine-owned live Square authorization/mapping, approved live payment/refund and Terminal checks, deployment/cutover/rollback review. | 10-16 hours |
+
+Baseline: **38-66 hours of coding/tests, plus 10-16 hours of integrated acceptance**.
+Allow roughly **7-11 focused engineering days** including that acceptance, not a
+calendar-date promise. Waiting for Jasmine, on-site scheduling and newly discovered
+requirements are additional. This is a planning range, not a fixed quote.
+
+Unscoped items excluded from that baseline: any custom Wix import (need an export,
+agreed historical/future booking scope and payment reconciliation rules), Notion
+integration (decision depends on staff comfort with Pontora), and exploratory AI
+booking. A custom import could add another 1-3 days after inspecting a real sample;
+Notion cannot be responsibly estimated without an agreed workflow. Existing
+bookings must still have an explicit cutover plan even if no importer is built.
+Automatic Terminal reconciliation and Square inventory sync are not launch scope.
+General platform backlog (database separation, combined enrollment/bookings tenant,
+superadmin-only location creation) is not a Jasmine-specific launch commitment.
+
+### October 25 Workshop Deferred Selections (Local)
+
+- Setup > Workshops > Edit now has a default-off, workshop-scoped option to allow
+  design selection at the studio. There are no school-name/slug branches. Existing
+  bookings and other workshops keep their existing behavior.
+- Customers choose designs now or later once for the whole booking, then book/pay
+  normally. Choosing later shows participant count without individual forms;
+  unnamed entries use Participant 1, Participant 2, etc. The purchaser's name and
+  email remain required. Follow-up completion may be partial.
+  Review, confirmation and Studio Prep identify the undecided participants.
+- Staff use Choose design on the existing reservation participant row. The small
+  dialog uses the current catalog and existing permissions/tenant lock. Invalid,
+  unavailable, stale, cross-location and unauthorized submissions cannot change
+  the booking. Choosing a design neither charges nor changes the agreed price.
+- Known choices reserve real materials; deferred choices reserve none. Staff
+  completion adds only the new participant's allocation, retaining already-frozen
+  recipes. Preparation/consumption/completion remain blocked while choices are
+  pending. At event time, unreceived deliveries cannot substitute for physical stock.
+- Local preview remains localhost:8002 and its existing database. The option is
+  enabled only for the existing Pasadena test workshop. One synthetic reservation,
+  Deferred Selection Test (`abc2a9ec-b117-45c7-80e8-17cfd01cad72`), verified a rejected
+  Grey choice and a successful Unicorn/Blue selection. No real payment or email.
+- Verification: full regression 4,647 passed / 3 skipped in 474.36s. After final
+  refinements, focused runs passed 93 customer/selection tests, 67 reservation/
+  preparation/guest-list tests, and all 16 selection tests including the added
+  consistency guard. All 86 JavaScript tests and their coverage gates passed.
+  Combined measured coverage is 98.48%; the new selection service is 100%, and
+  every CI-scoped measured module passes the 90% floor. Migration drift and
+  whitespace checks passed. The pre-existing duplicate jazzmin-tag warning remains.
+- Browser verification covered desktop and narrow mobile layouts, customer review,
+  invalid stock with retained input, successful staff completion, and unchanged
+  money totals. Final assets were refreshed on the existing port 8002 preview.
+  No production changes, emails, or real charges were made for this feature.
+
+Local walkthrough: Setup > Workshops > edit the desired workshop and enable
+Allow participants to choose designs at the studio. In its customer booking form,
+select Choose later and enter six participants. Review/pay through the usual test
+flow. The confirmation page's Choose your designs link opens one participant at
+a time with the existing visual picker. Save one and leave the rest for later or
+the studio. Staff can also use Choose design in Reservations. Prices stay unchanged,
+stock is allocated once, and preparation requires all selections.
+
+October 25 group-wide follow-up: secure school/reservation-scoped links allow only
+completion of undecided selections, not changes to saved choices, prices, dates,
+or participant count. Customer access closes at event start or preparation.
+Workshop confirmations have a default-off school setting in Booking notifications;
+they reuse the existing outbox, worker, PDF attachment and live-send safeguards.
+Local/test bookings remain drafts, not live emails. Event reminders and general
+customer editing remain separate pending work. Browser checks covered six-person
+defer, partial follow-up saves, catalog previews, CSRF and desktop/mobile layouts.
+One additional synthetic local reservation is Group Follow-up Test; no real
+payment or email was made.
+
+Final group-wide verification: full regression 4,659 passed / 3 skipped (477.60s),
+then 207 affected Python tests passed after the last refinements. All 89 JavaScript
+tests and their coverage gates passed. CI-scoped combined coverage is 98.46%; every
+measured module meets the 90% floor. Migration drift and whitespace checks passed.
+The existing duplicate jazzmin template-tag warning remains. Email delivery was
+tested with mocked transport, not by sending real email in this change.
+
+October 25 UX follow-up: removed the One at a time/Whole group layout switch and
+its unused styles. Participant entry is always one at a time, with tabs and Add
+participant; validation opens the affected participant. Optional deferred personal
+details are Ketan's clarification, not a mandatory-name/age requirement attributed
+to Jasmine. Verified 139 affected Python tests plus both deferred checkout cases,
+including blank details through paid confirmation, and browser desktop/mobile.
 
 ### October 25 Studio Prep Release
 
