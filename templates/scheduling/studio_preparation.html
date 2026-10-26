@@ -18,7 +18,7 @@
     <div class="section-heading">
       <div><h3 id="booking-{{ entry.item.pk }}-{{ forloop.counter }}">{{ entry.item.snapshot.workshop }}</h3>
       <p>{{ entry.starts_at|date:'D, M j' }} &middot; {{ entry.starts_at|date:'g:i A' }} &ndash; {{ entry.ends_at|date:'g:i A' }} &middot; {{ entry.item.quantity }} participant{{ entry.item.quantity|pluralize }}</p></div>
-      <a class="prep-contact" href="{% url 'scheduling:reservation_preparation' school_slug=business.slug public_id=entry.item.public_id %}">{{ entry.item.snapshot.name }} &rarr;</a>
+      <a class="prep-contact" href="{% url 'scheduling:reservation_preparation' school_slug=business.slug public_id=entry.item.public_id %}?prep={{ preparation_return_path|urlencode }}">{{ entry.item.snapshot.name }} &rarr;</a>
     </div>
     <p>{% if entry.materials_used %}Materials used{% elif entry.item.prepared_at %}Prepared{% else %}Preparation pending{% endif %}</p>
     {% if entry.participant_table.rows %}

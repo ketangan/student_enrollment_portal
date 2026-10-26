@@ -34,6 +34,9 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
   preview was checked: three bookings and all material totals fit on one clean
   page, with demo/trial banners and navigation excluded. No print job was sent.
   This work is separate from release PR #8 and is not deployed.
+- Reservation links preserve the selected preparation dates/location on return;
+  external and cross-school return paths are rejected. The final 75-test
+  preparation/calendar/reservation navigation batch passed.
 
 ### October 25 Stock Activity Consolidation (Local)
 

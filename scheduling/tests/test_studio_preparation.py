@@ -162,3 +162,19 @@ def test_camp_materials_are_counted_once_across_the_week(stock):
     studio = response.context["studios"][0]
     assert len(studio["entries"]) == 2
     assert studio["totals"][0]["quantity"] == item.stock_allocations.get().quantity == 1
+
+
+def test_reservation_returns_to_same_preparation_dates(stock):
+    from urllib.parse import urlencode
+    s = stock
+    item = reserve(s); confirm(s, item)
+    back = url(s, "studio_preparation") + "?" + urlencode(query(item, location=s.location.pk))
+    endpoint = url(s, "reservation_preparation", public_id=item.public_id)
+    response = s.client.get(endpoint, {"prep": back})
+    assert response.context["preparation_return"] == back
+    assert b"Back to Studio Prep" in response.content
+    assert all("prep=" in tab["url"] for tab in response.context["booking_navigation"]["section"]["tabs"])
+    for unsafe in ("https://outside.invalid/", "//outside.invalid/", "/bookings/another-school/preparation/", "x" * 2049):
+        response = s.client.get(endpoint, {"prep": unsafe})
+        assert "preparation_return" not in response.context
+        assert b"Back to Studio Prep" not in response.content

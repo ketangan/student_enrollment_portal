@@ -28,5 +28,5 @@ def studio_preparation(request, school_slug):
         locations = [location] if location else list(staff_locations(profile))
         studios = summary(profile, locations, form.cleaned_data["date"],
             1 if form.cleaned_data["period"] == "day" else 7)
-    context.update(preparation_range=form, studios=studios)
+    context.update(preparation_range=form, studios=studios, preparation_return_path=request.get_full_path())
     return render(request, "scheduling/studio_preparation.html", context)
