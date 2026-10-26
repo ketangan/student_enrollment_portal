@@ -1,4 +1,5 @@
 """Party confirmations and one deadline reminder, using the Bookings outbox."""
+import hashlib
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
@@ -10,9 +11,28 @@ from core.services.notifications import get_school_email_connection
 from core.services.url_builder import app_reverse, demo_reverse
 from . import guest_lists, messaging
 from .capabilities import has_capability
+from .guides import MAX_GUIDE_BYTES
 from .lessons import digest
 from .message_models import BookingMessage
-from .models import Reservation, SchedulingProfile
+from .models import DesignGuide, Reservation, SchedulingProfile
+
+
+def attach_guide(email, message):
+    """Use the school's current immutable upload at send time, including retries."""
+    if not message.reservation_id or message.notice_kind not in {"confirmation", "reminder"}:
+        return
+    try:
+        guide = DesignGuide.objects.filter(profile_id=message.profile_id).first()
+        if guide is None:
+            return
+        with guide.file.open("rb") as source:
+            data = source.read(MAX_GUIDE_BYTES + 1)
+        if not 0 < len(data) <= MAX_GUIDE_BYTES or hashlib.sha256(data).hexdigest() != guide.checksum:
+            raise ValueError("Invalid stored guide")
+        email.attach(guide.original_name, data, "application/pdf")
+    except Exception as exc:
+        # No transport call has happened: storage failures are safe to retry.
+        raise messaging.NotAccepted from exc
 
 
 def live_enabled(profile):
@@ -123,11 +143,15 @@ def process(profile_id, limit=20):
             if connection.__class__.__module__ in {"django.core.mail.backends.console", "django.core.mail.backends.locmem",
                                                    "django.core.mail.backends.dummy", "django.core.mail.backends.filebased"}:
                 raise RuntimeError("External mail backend required")
-            accepted = EmailMessage(subject=message.subject, body=message.body,
+            email = EmailMessage(subject=message.subject, body=message.body,
                 from_email=profile.school.smtp_from_email or settings.DEFAULT_FROM_EMAIL,
                 to=[message.recipient], headers={"Message-ID": f"<booking-{message.public_id}@mypontora.com>"},
-                connection=connection).send(fail_silently=False)
+                connection=connection)
+            attach_guide(email, message)
+            accepted = email.send(fail_silently=False)
             result = "sent" if accepted == 1 else "retry"
+        except messaging.NotAccepted:
+            result = "retry"
         except Exception:
             result = "uncertain"
         count += messaging.finish(message, result)

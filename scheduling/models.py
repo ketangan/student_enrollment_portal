@@ -106,6 +106,7 @@ class Location(models.Model):
     name = models.CharField(max_length=100)
     address = models.CharField(max_length=300, blank=True)
     timezone_name = models.CharField(max_length=64, default="America/Los_Angeles", validators=[validate_timezone])
+    inventory_buffer_days = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(365)])
 
     class Meta:
         ordering = ["name", "pk"]
@@ -650,4 +651,4 @@ from .square_models import SquareConnection, SquareAuthorization, SquareLocation
 from .visit_models import VisitProgram, VisitSlot, VisitBooking
 from .visit_pilot_models import VisitPilotSettings, VisitAccessGrant, VisitScheduleBatch
 from .admission_models import AdmissionPolicy, AdmissionCase
-from .inventory_models import InventoryCatalog, CatalogVariant, Material, MaterialRequirement, StockLevel, StockAllocation, StockAdjustment
+from .inventory_models import InventoryCatalog, CatalogVariant, Material, MaterialRequirement, StockLevel, StockAllocation, StockAdjustment, IncomingDelivery

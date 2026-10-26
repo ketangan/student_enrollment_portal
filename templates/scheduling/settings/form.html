@@ -2,14 +2,50 @@
 {% block title %}{{ title }} | Inventory{% endblock %}
 {% block content %}
 <a class="back-link" href="{% if catalog_return_url %}{{ catalog_return_url }}{% elif catalog %}{% url 'scheduling:inventory_catalog' school_slug=business.slug catalog_pk=catalog.pk %}{% else %}{% url 'scheduling:settings' school_slug=business.slug %}{% endif %}"><i data-lucide="arrow-left" aria-hidden="true"></i> {% if catalog_return_url %}Catalog settings{% elif catalog %}{{ catalog.name }}{% else %}Materials Inventory{% endif %}</a><h2>{{ title }}</h2>
-{% if level %}<div class="material-metrics"><div class="metric-on-hand"><span><i data-lucide="package" aria-hidden="true"></i> On hand</span><strong>{{ level.on_hand|material_amount }} {{ level.material.unit }}</strong></div><div class="metric-reserved"><span><i data-lucide="lock-keyhole" aria-hidden="true"></i> Reserved</span><strong>{{ reserved|material_amount }} {{ level.material.unit }}</strong></div></div><h3>Receive or adjust stock ({{ level.material.unit }})</h3>{% endif %}
-<form method="post" class="setup-form{% if form.design_fields %} design-form{% endif %}">{% csrf_token %}{{ form.non_field_errors }}{% include 'scheduling/form_hidden_fields.html' %}
+{% if level %}<div class="material-metrics"><div class="metric-on-hand"><span><i data-lucide="package" aria-hidden="true"></i> On hand</span><strong>{{ level.on_hand|material_amount }} {{ level.material.unit }}</strong></div><div class="metric-reserved"><span><i data-lucide="lock-keyhole" aria-hidden="true"></i> Reserved</span><strong>{{ reserved|material_amount }} {{ level.material.unit }}</strong></div></div>{% endif %}
+{% if level %}
+<section class="location-section" id="incoming-deliveries">
+<div class="section-heading"><h3>Add stock</h3><a href="?delivery_action=count">Correct stock count</a></div>
+<form method="post" class="setup-form stock-entry-form">{% csrf_token %}<input type="hidden" name="action" value="add">
+{{ stock_entry_form.non_field_errors }}{% for field in stock_entry_form.hidden_fields %}{{ field }}{{ field.errors }}{% endfor %}
+<div class="workshop-settings-fields">{% for field in stock_entry_form.visible_fields %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}</div>
+<button class="primary" type="submit">Save</button></form>
+<h3>Deliveries</h3>
+<div class="table-wrap" role="region" aria-label="Expected deliveries" tabindex="0"><table class="dash-table stock-deliveries">
+<thead><tr><th>Available at studio</th><th>Expected ({{ level.material.unit }})</th><th>Received ({{ level.material.unit }})</th><th>Status</th><th>Actions</th></tr></thead>
+<tbody>{% for delivery in deliveries %}<tr><td>{{ delivery.arrives_on|date:'M j, Y' }}</td><td>{{ delivery.quantity|material_amount }}</td><td>{{ delivery.received|material_amount }}</td>
+<td>{% if delivery.canceled %}Canceled{% elif not delivery.remaining %}Received{% elif delivery.overdue %}Overdue{% elif delivery.received %}Part received{% else %}Expected{% endif %}</td>
+<td><div class="actions">{% if not delivery.canceled and delivery.remaining %}
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="receive"><input type="hidden" name="delivery_id" value="{{ delivery.pk }}"><input type="hidden" name="amount" value="{{ delivery.remaining|stringformat:'s' }}">{% for field in delivery.receipt_form.hidden_fields %}{{ field }}{% endfor %}<button type="submit">Mark received</button></form>
+<a href="?delivery_action=receive&amp;delivery_id={{ delivery.pk }}">Partial receipt</a>
+<a class="icon-button" href="?delivery_action=edit&amp;delivery_id={{ delivery.pk }}" aria-label="Edit delivery {{ delivery.pk }}" title="Edit delivery"><i data-lucide="pencil" aria-hidden="true"></i></a>
+<a class="icon-button" href="?delivery_action=cancel&amp;delivery_id={{ delivery.pk }}" aria-label="Cancel remaining delivery {{ delivery.pk }}" title="Cancel remaining delivery"><i data-lucide="x" aria-hidden="true"></i></a>
+{% endif %}</div></td></tr>{% empty %}<tr><td colspan="5">No expected deliveries.</td></tr>{% endfor %}</tbody></table></div>
+{% if deliveries.has_other_pages %}<nav class="pagination" aria-label="Delivery pages">{% if deliveries.has_previous %}<a href="?deliveries_page={{ deliveries.previous_page_number }}#incoming-deliveries">Previous</a>{% endif %}<span>{{ deliveries.number }} / {{ deliveries.paginator.num_pages }}</span>{% if deliveries.has_next %}<a href="?deliveries_page={{ deliveries.next_page_number }}#incoming-deliveries">Next</a>{% endif %}</nav>{% endif %}
+</section>
+{% endif %}
+{% if not level or correction_open %}
+{% if level %}<dialog class="party-rules-dialog" data-setup-dialog data-return-url="{{ request.path }}" aria-labelledby="correction-title"><div class="section-heading"><h3 id="correction-title">Correct stock count</h3><button type="button" class="icon-button" data-close-setup-dialog aria-label="Close"><i data-lucide="x" aria-hidden="true"></i></button></div>{% endif %}
+<form method="post" class="setup-form{% if form.design_fields %} design-form{% endif %}">{% csrf_token %}{% if level %}<input type="hidden" name="action" value="count">{% endif %}{{ form.non_field_errors }}{% include 'scheduling/form_hidden_fields.html' %}
 {% if form.design_fields %}
 {% include 'scheduling/settings/design_fields.html' %}
 {% else %}{% for field in form.visible_fields %}<div class="form-field {% if field.field.widget.input_type == 'checkbox' %}check-field{% endif %}">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<p class="muted">{{ field.help_text }}</p>{% endif %}</div>{% endfor %}{% endif %}
-<div class="actions"><button class="primary">Save changes</button><a href="{% if catalog_return_url %}{{ catalog_return_url }}{% elif catalog %}{% url 'scheduling:inventory_catalog' school_slug=business.slug catalog_pk=catalog.pk %}{% else %}{% url 'scheduling:settings' school_slug=business.slug %}{% endif %}">Cancel</a></div></form>
+<div class="actions"><button class="primary">Save changes</button><a href="{% if level %}{{ request.path }}{% elif catalog_return_url %}{{ catalog_return_url }}{% elif catalog %}{% url 'scheduling:inventory_catalog' school_slug=business.slug catalog_pk=catalog.pk %}{% else %}{% url 'scheduling:settings' school_slug=business.slug %}{% endif %}">Cancel</a></div></form>
+{% if level %}</dialog>{% endif %}{% endif %}
 {% if level %}<h2 class="inventory-heading">Stock activity</h2><div class="table-wrap"><table class="dash-table"><thead><tr><th>When</th><th>Change</th><th>Reason</th><th>By</th></tr></thead><tbody>{% for entry in history %}<tr><td>{{ entry.created_at|date:'M j, Y g:i A' }}</td><td>{% if entry.delta > 0 %}+{% endif %}{{ entry.delta|material_amount }} {{ level.material.unit }}</td><td>{{ entry.reason }}</td><td>{{ entry.actor.username|default:'System' }}</td></tr>{% empty %}<tr><td colspan="4">No adjustments yet.</td></tr>{% endfor %}</tbody></table></div>
 <h2 class="inventory-heading">Reserved for workshops</h2><div class="table-wrap"><table class="dash-table"><thead><tr><th>Reservation</th><th>Workshop</th><th>Materials held</th></tr></thead><tbody>{% for row in usage %}<tr><td><a href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=row.reservation.public_id %}">{{ row.reservation.snapshot.name }}</a></td><td>{{ row.reservation.snapshot.workshop|default:row.reservation.snapshot.name }}</td><td>{{ row.quantity|material_amount }} {{ level.material.unit }}</td></tr>{% empty %}<tr><td colspan="3">No outstanding reservations.</td></tr>{% endfor %}</tbody></table></div>
 <details class="catalog-options"><summary>Used in {{ recipes|length }} recipe{{ recipes|length|pluralize }}</summary>{% for row in recipes %}<p><a href="{% url 'scheduling:catalog_recipe' school_slug=business.slug catalog_pk=row.variant.catalog_id pk=row.variant.pk %}">{{ row.variant.name }}</a> &middot; {{ row.quantity|material_amount }} {{ level.material.unit }} per participant</p>{% endfor %}</details>{% endif %}
+{% if delivery_form and delivery_action != "add" %}
+<dialog class="party-rules-dialog" data-setup-dialog data-return-url="{{ request.path }}#incoming-deliveries" aria-labelledby="delivery-title">
+  <div class="section-heading"><h3 id="delivery-title">{{ delivery_title }}</h3><button type="button" class="icon-button" data-close-setup-dialog aria-label="Close delivery" title="Close"><i data-lucide="x" aria-hidden="true"></i></button></div>
+  <p>{{ level.material.name }} &middot; {{ level.location.name }}{% if delivery_form.instance.pk %} &middot; {{ delivery_form.instance.remaining|material_amount }} {{ level.material.unit }} remaining{% endif %}</p>
+  <form method="post" class="setup-form">
+    {% csrf_token %}<input type="hidden" name="action" value="{{ delivery_action }}"><input type="hidden" name="delivery_id" value="{{ delivery_form.instance.pk|default:'' }}">
+    {{ delivery_form.non_field_errors }}{% for field in delivery_form.hidden_fields %}{{ field }}{{ field.errors }}{% endfor %}
+    <div class="workshop-settings-fields">{% for field in delivery_form.visible_fields %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}</div>
+    <div class="actions"><button class="primary" type="submit">{% if delivery_action == 'receive' %}Record received stock{% elif delivery_action == 'cancel' %}Cancel remaining delivery{% else %}Save delivery{% endif %}</button><button type="button" data-close-setup-dialog>Back</button></div>
+  </form>
+</dialog>
+{% endif %}
 {% endblock %}
 {% block scripts %}{% if form.is_color_option %}<script defer src="{% static 'scheduling/color-picker.js' %}?v=1"></script>{% endif %}{% endblock %}

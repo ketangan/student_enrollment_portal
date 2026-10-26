@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: October 23, 2026.
+Updated: October 25, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -8,6 +8,252 @@ Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 This Markdown file remains the source of truth; the viewer does not edit milestone status.
 
 ## Current Status
+
+### October 25 Stock Activity Consolidation (Local)
+
+- Follow-up UX revision: one inline Quantity / Available date / Save form replaces
+  the new-delivery popup and separate receive-stock form. Today adds physical stock;
+  future dates create expected supply only. Mark received posts the remaining
+  quantity with a stale-write token; partial receipts and corrections remain
+  secondary actions. No automatic receipt at the arrival date.
+- Revised-flow regression: 278 tests passed in 20.72s, including today's receipt,
+  future supply, duplicate entry and duplicate one-click receipt protection.
+
+- Expected deliveries are now managed from each material's Stock & activity page.
+  Add expected delivery asks only for quantity and available-at-studio date;
+  material and location come from the authorized stock record.
+- Receive, edit and cancel stay on that page. Materials Inventory retains the
+  cross-location summary with links to Stock & activity; its separate delivery
+  form and write handlers have been removed. Existing physical stock adjustments
+  and ledger history remain unchanged.
+- Verification: 275 inventory, catalog, navigation, setup and location-access
+  tests passed in 20.69s, including wrong-material and cross-location access checks.
+  Desktop and 390px mobile form/date-picker checks passed; a browser-created
+  delivery saved back to Stock & activity and was canceled after verification.
+  Physical stock remained unchanged. Existing localhost:8002 and database reused.
+  This replaces the delivery-entry instructions in the historical note below.
+
+### October 24 Incoming Inventory Implementation (Local)
+
+Ketan approved extending Materials Inventory with dated incoming deliveries and a
+per-location preparation buffer. This supersedes RA01's missing-implementation
+status below; the recording audit remains historical evidence. Not deployed.
+
+- Existing Setup > Materials Inventory now accepts a material, expected quantity
+  and available-at-studio date. A selected location is inherited; All locations
+  requires choosing a destination. Existing role/location permissions apply.
+- Preparation days are stored on Location, default zero. Availability is computed
+  for the event's studio-local date minus those days, using finite incoming supply
+  and active commitments. Earlier sales cannot consume stock promised to later
+  bookings. Existing workshop, party, guest-list, camp and payment stock checks
+  share this calculation; no school-specific pricing or inventory rules are added.
+- Incoming stock is not on-hand stock. Partial/full receipt updates the existing
+  stock ledger once. Staff can revise delivery dates/quantities or cancel the
+  unreceived remainder. Overdue unreceived supply stops supporting new bookings.
+- Bookings needing stock review are listed in Materials Inventory with links to
+  reservations. Delays do not automatically cancel, refund, or notify customers.
+  Preparing/completing requires physical stock. This is not supplier tracking or
+  an automatic central-warehouse transfer system.
+- Verification: full regression suite **4,601 passed, 3 skipped** in 606.85s;
+  final focused pass after the last adjustments **308 passed** in 29.10s,
+  including all 50 inventory tests. Coverage includes finite supply, competing
+  bookings, concurrent receipts, stale/repeated writes, partial receipts,
+  cancellation/delay, scoped permissions, studio-local DST/date boundaries,
+  party/camp allocation and two-query forecast loading. Migration drift and
+  whitespace checks passed; the existing duplicate jazzmin template-tag warning
+  remains. Browser-checked desktop and 390px mobile dialogs, date picker, save,
+  edit, invalid receipt and cancellation on the existing localhost:8002 server.
+  Fixed clipped mobile calendar and reused shared party-dialog styling. The local
+  test delivery was canceled afterward; physical stock counts were unchanged.
+
+**Open question for Jasmine, next week's visit:** When a delivery date is entered,
+can we treat it as the date materials are usable at the receiving studio (not the
+central warehouse), and how many days before the event must materials be ready?
+For now the field says "Available at studio on" and the per-location buffer is
+zero; same-day stock is eligible, but physical receipt is required for preparation.
+
+Local acceptance walkthrough: open Materials Inventory, choose a studio, add a
+small incoming quantity for an out-of-stock material, and compare a booking before
+and after its available date. Check that only the incoming quantity can be booked.
+Increase preparation days and verify the boundary shifts. Record a partial receipt,
+then cancel or delay the remainder and inspect affected bookings. Confirm another
+studio's stock is unchanged. Use the existing localhost:8002 and preview database.
+
+### October 24 Recording Requirements Audit
+
+This audit supplements the launch checklist below. It does not mark implementation
+complete, change commercial terms, or authorize new development. Later explicit
+customer emails and Ketan's decisions supersede conflicting early proposals.
+
+Source inventory: October 7 Zoom audio (43:05) and October 13 follow-up audio
+(18:31). Each has a companion MP4. The October 7 separate
+`Pontora_Plushie_Zoom_Recording.mov` (39:49) is the same conversation starting
+approximately 3:12 into the full Zoom recording: audio comparisons at five points
+have a consistent 191.9-second offset. The October 7 MP4 audio matches sampled
+audio windows exactly; the October 13 MP4 and M4A have identical decoded-audio
+hashes. These are two meetings, not five different meetings.
+
+Local machine-generated transcripts are retained under
+`/Users/njulka/.codex/visualizations/2026/08/07/019fd9a2-8b5e-7f93-84ef-ac4e38c58723/plushie-go-live/recording-audit/`:
+`oct07-audio.txt` covers the first portion, `oct07-remainder.txt` continues from
+13:00 with overlap, and `oct13-audio.txt` covers the follow-up. Recordings were
+processed locally, not uploaded. Timestamps below refer to the full Zoom audio,
+not the shorter MOV. Transcripts are approximate, without reliable speaker labels;
+they are evidence aids, not approved policy text or a legal transcript.
+
+#### Recovered or Under-Specified Requirements
+
+| ID | Source | Requirement and current boundary |
+| --- | --- | --- |
+| RA01 | Oct 7, 22:37-24:35 | **Date-aware inventory availability: missing.** Jasmine asks why today's shortage should prevent booking two weeks ahead. Pontora proposes an available-from date for an expected shipment, explicitly contrasting October 7 bookings with bookings after an October 9 delivery. Current `scheduling/inventory.py:available` only subtracts active reservations from physical on-hand stock; no incoming shipment quantity/date model exists. This must not be described as implemented by the current Receive delivery action. |
+| RA02 | Oct 7, 10:20-10:31 and 13:47-14:17 | **Choose a design in person: missing from the explicit list.** Jasmine says some workshop customers want to decide at the studio; Pontora proposes paid bookings with undecided selections. Deferred party guest lists do not establish this ordinary-workshop capability. Confirm applicability and staff completion workflow; do not promise a particular design or allocate fictional materials for an undecided guest. |
+| RA03 | Oct 7, 24:10-25:37 | **Post-booking customer changes and staff review: partial, scope unresolved.** Jasmine asks whether customers can edit choices; the discussion includes flagging changed orders for review. Existing party guest-list editing is not a general workshop-edit/change-review workflow: it stops once prepared or the event has started. Agree allowed edits/cutoff and staff visibility. Do not reopen a paid/completed reservation or silently change money/capacity merely to reset preparation. |
+| RA04 | Oct 7, 33:05-34:50; Oct 13, 04:28-05:09 | **Booking/financial reporting replacement: still under-specified.** Jasmine asks whether Pontora replaces the analytics/reporting she uses in Wix, and the follow-up explicitly includes existing analytics dashboards. Calendar and operational attention counts are not proof this is complete. Obtain her actual report examples and agree a small launch set. Website traffic outside Pontora remains outside this scope. Inventory-spend/profit analysis was a proposed possibility, not defined acceptance criteria or proof that cost data exists. |
+| RA05 | Oct 7, 38:00-38:54 and 41:47-42:16 | **Central inventory team with per-studio counts: retain explicitly under L08.** Studios report stock weekly and central staff send replenishment. Shared catalog/per-location stock is a foundation, but the cross-location reporting and replenishment workflow still needs acceptance with real data. Do not infer an automatic supplier integration, central warehouse ledger, or transfer implementation from this conversation. |
+| RA06 | Oct 7, 33:05 and 34:50-35:38 | **Confirmations versus event reminders: separate acceptance items.** General booking email automation was discussed; a day-before event reminder was a Pontora example, not a selected schedule. A seven-day party guest-selection reminder is not an event reminder and does not prove ordinary-workshop notification coverage. Confirm required booking types/timing before adding another job or setting. |
+| RA07 | Oct 7, 30:47-32:55 and 42:16-42:46 | **Booking through AI chat: exploratory follow-up, not a launch commitment.** Jasmine asks about discovery and completing a booking within an external chat. Pontora promises to investigate and respond. Keep the follow-up visible; do not claim platform support, ad availability, or turn this into a website chatbot requirement. No implementation is authorized by this audit. |
+
+#### Incoming Inventory: Confirmed Intent Versus Design Decisions
+
+The date-aware use case is confirmed by the first call. The team also offered
+disabling stock checks or keeping a hard physical-stock check; the conversation
+did not select a universal policy. Ketan's October 24 clarification favors making
+options available for bookings after expected replenishment. Preserve that intent
+without treating an ETA as unlimited stock or as a completed delivery.
+
+Before implementation, settle the minimal workflow: material, destination studio,
+expected quantity and usable-from date; who maintains it; and what happens when a
+delivery is delayed, canceled, partial, or arrives on the event day. Confirm whether
+materials must be ready before preparation or only before the workshop. The call
+does not settle these details, and it does not request supplier tracking integration.
+
+Engineering acceptance requirements derived from the use case (not quotations):
+reuse the existing material recipes, allocations and tenant/location permissions;
+evaluate stock against the event date, including existing commitments, without
+selling the same incoming quantity twice; keep expected and received stock distinct;
+receiving a shipment must not double-count its supply; delayed/canceled supply must
+identify affected bookings for staff rather than silently cancel/refund them. Test
+before/after arrival, same-day boundaries, finite quantities, competing dates and
+concurrent checkouts, receipt/partial receipt, date changes, cancellation/retries,
+late guest selections and cross-location isolation. No blanket stock-check bypass.
+
+#### Existing Features Requiring End-to-End Acceptance, Not Duplication
+
+- **Studio-local time throughout:** Oct 7, 06:41-08:50. Jasmine specifically cites
+  visitors booking New York from Chicago or overseas and seeing the wrong time.
+  Existing location-timezone code is present. Verify customer selection, review,
+  confirmation, calendar links and staff views with a browser in another timezone,
+  including daylight-saving boundaries; do not build a second timezone system.
+- **Instructor preparation list and weekly/location-scoped visibility:** Oct 7,
+  09:29-10:06 and 26:29-28:48. Staff should not open each booking to assemble the
+  list of what everyone will make. Existing rosters/preparation, calendar and roles
+  are foundations. Validate the actual studio-day/week workflow with staff. The
+  later Notion decision remains pending Jasmine's comfort with Pontora, not a
+  committed integration or an automatic post-launch project.
+- **Staff-created bookings/custom payable orders:** Oct 13, 05:09-08:43. A phone
+  booking and a custom 24-person party payable through an invoice were explicit
+  examples. Existing inquiry approval/payment handoff must be checked against that
+  use case; collecting an existing reservation's balance is not equivalent. This
+  remains L06, not silently deferred because Terminal recording is implemented.
+- **Square deposits/balances/accessories:** Oct 13, 02:07-03:25 and 09:15-11:39.
+  Later email explicitly accepts manual Terminal recording for launch. Automatic
+  device reconciliation is therefore not restored as a launch blocker by this audit.
+- **Wix replacement and commercial boundaries:** Oct 7, 28:48-30:47 and
+  40:29-42:16. Booking replacement, direct receipt into the school's payment account
+  and no Pontora transaction commission were discussed. Retain cutover/payment
+  acceptance; do not infer subscription changes from the early sales conversation.
+
+Certificates, supplier ordering, general recurring customer payments, additional
+wallets and website replacement were examples or possibilities offered by Pontora,
+not established customer launch requirements. The AI exploration likewise remains
+separate from the concrete inventory and customer-workflow gaps above.
+
+### October 24 PDF Email Attachments (Local Implementation)
+
+Party confirmations and guest-selection reminders now attach the school's current
+uploaded design-guide PDF through the existing mail paths, including local previews.
+The download link remains. No new setting, migration, storage provider or
+school-specific logic was added. Enrollment and non-party messages are unchanged.
+
+The guide is selected at delivery time, so a replacement uploaded before sending
+(or a safe retry) is used. Previously sent attachments cannot change; the download
+link continues to resolve to the current guide. Reads are bounded by the existing
+5 MB upload limit and checked against the stored checksum. Missing, corrupt or
+oversized stored files prevent sending and use the existing bounded retry flow;
+unknown transport outcomes still do not automatically resend. Schools without an
+uploaded guide continue to receive emails without attachments.
+
+Focused verification: 84 notification, guide and messaging tests passed, covering
+confirmation/reminder attachments, replacement before delivery/retry, storage
+failure, school isolation, non-party exclusion and no automatic retry after a
+transport timeout with an attachment. Combined statement/branch coverage across
+the three changed modules is 96.60% (party notifications 98.73%). The full regression
+run passed 4,579 tests with three skips in 571.06 seconds; the final additional
+timeout test was added afterward and passed in the focused 84-test run (4.10 seconds).
+With renewed explicit approval,
+sent two synthetic samples to `ketan@mypontora.com` using the shared attachment
+helper and existing local upload (256,442 bytes). Resend reported both delivered:
+`01a1718a-e40e-7ed3-b850-331bbac4d20d` (confirmation) and
+`01a1718a-e5e3-71fb-8360-3833c0536fc8` (reminder). These are one-off delivery checks,
+not proof of a production scheduled run. User attachment review remains pending.
+Not deployed or pushed in this task.
+
+Notion remains a decision pending Jasmine's feedback on whether staff are
+comfortable using Pontora directly. It is not a committed launch integration.
+
+Email-link correction: the first one-off samples were signed using `config.settings`,
+but localhost:8002 runs `preview_settings` with the shared test signing key. Delivery
+and attachment checks therefore did not establish usable guest links. Corrected the
+temporary test sender to use the preview signing configuration and require HTTP 200
+with the existing guest names, plus a PDF response from the guide link, before each
+send. Browser verification also opened the six saved guests successfully. Resent
+both samples with `corrected links` in their subjects (provider acceptance IDs
+`01a17195-3c7d-7e87-a699-eb3a7113840f` and
+`01a17195-3e9f-77eb-9470-3284d38cdad3`). No application signing validation, production
+keys or server configuration changed. Earlier sample guest links remain invalid.
+
+### October 24 Local Customer Walkthrough
+
+Used the existing localhost:8002 server and local database, synthetic customer
+details and Square Sandbox only. No application code, production settings or
+external email delivery changed.
+
+- Browser: selected Pasadena, existing verification package 14 and its November 25
+  noon time; submitted a six-person party without optional age/contact fields.
+  Checkout offered both the $150 deposit and $495 full payment. Paid the deposit
+  through the real Square Sandbox checkout; reservation confirmed with $345 due.
+- Browser: saved one guest as a draft, then submitted all six names/design/color
+  selections. Add next disabled at six. Deadline was November 18 (seven days
+  before the party). Staff saw the submitted selections and reserved materials
+  in Workshop Prep (3 m fleece, 900 g stuffing, 12 safety eyes).
+- Browser: recorded a simulated $360 Terminal receipt, including $15 of extras.
+  Total and received both became $510; remaining balance was $0. This verifies
+  staff recording, not an actual Square Terminal device transaction.
+- Restored package 14 and its November 25 time to unpublished. Retained synthetic
+  reservation `675ed0fc-d867-4f17-bf8d-c874bb83e42f`, named
+  `Booking Walkthrough Oct 24`, for local review.
+- Focused regression: 274 tests passed in 21.38 seconds across party packages,
+  checkout, terminal payments, guest lists and party notifications. Notification
+  tests cover local confirmation delivery, deadline reminders, duplicate safety,
+  guide content and demo/test delivery guards. No real confirmation/reminder
+  emails were sent in this run; full-payment and failure branches were covered
+  by automated tests, not repeated browser purchases in this walkthrough.
+
+Follow-up email check, explicitly authorized by the user: sent one synthetic
+confirmation and one synthetic reminder to `ketan@mypontora.com` using the existing
+notification content renderer and mail transport. Resend reported both delivered
+(`01a17184-f5cd-7604-b099-9904d9b3ea50`,
+`01a17184-f6af-7b79-a739-c94dda2ec224`). This was a one-off transport/content check,
+not a scheduled outbox run; demo delivery guards were not changed. User inbox/link
+review remains pending. Inspection found that notification contents provide a
+design-guide link only: there is no PDF attachment in the current delivery path.
+This gap is addressed by the local attachment implementation recorded above;
+it is not yet deployed.
+
+Remaining acceptance: user inbox/attachment review and attachment deployment, Jasmine's
+live account/location setup and physical Terminal exercise, approved policy text,
+and final per-location launch configuration. This is local flow verification,
+not a declaration that all launch gates are complete.
 
 ### October 23 Release
 
@@ -1221,6 +1467,12 @@ Do not put parties/camps behind speculative advanced features. Neither the music
 nor an enrollment dependency is required to sell a standalone workshop pilot.
 
 ## Open Questions
+
+October 24 incoming inventory (ask Jasmine next week): does the expected date mean
+materials are usable at the receiving studio, rather than arriving at a central
+warehouse, and how many preparation days does each location need? The local
+implementation labels the date "Available at studio on" and defaults the editable
+location buffer to zero. Confirm same-day usability before launch.
 
 October 6 inventory concept: Jasmine should confirm whether the studio counts raw yarn/stuffing,
 prepacked kits, or both; the actual quantity consumed per participant/design; when materials

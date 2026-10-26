@@ -145,9 +145,12 @@ def local_transport(message, outcome):
     connection = get_school_email_connection()
     if type(connection) is not EmailBackend:
         raise RuntimeError("Local backend required")
-    sent = EmailMessage(subject=message.subject, body=message.body,
+    email = EmailMessage(subject=message.subject, body=message.body,
         from_email="Pontora Preview <booking-preview@example.invalid>", to=[message.recipient],
-        headers={"Message-ID": f"<booking-{message.public_id}@preview.invalid>"}, connection=connection).send(fail_silently=False)
+        headers={"Message-ID": f"<booking-{message.public_id}@preview.invalid>"}, connection=connection)
+    from .party_notifications import attach_guide
+    attach_guide(email, message)
+    sent = email.send(fail_silently=False)
     if sent != 1:
         raise NotAccepted
 

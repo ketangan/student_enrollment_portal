@@ -22,6 +22,10 @@
       button.addEventListener('click', () => dialog.close());
     });
     dialog.addEventListener('close', () => {
+      if (dialog.dataset.returnUrl) {
+        window.location.replace(dialog.dataset.returnUrl);
+        return;
+      }
       const url = new URL(window.location.href);
       const packageId = url.searchParams.get('edit');
       url.searchParams.delete('edit');

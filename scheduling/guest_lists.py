@@ -136,7 +136,7 @@ def _save(item, data, actor=None):
             raise ValidationError("Materials have already been used. Contact the studio.")
         changed = counts != previous or not item.stock_allocations.exists()
         if changed:
-            check_items(source.offering, counts, item.pk)
+            check_items(source.offering, counts, item.pk, starts_at=item.starts_at)
             item.stock_allocations.all().delete()
         source.materials = rows
         item.snapshot = {**item.snapshot, "guest_selections_pending": False,

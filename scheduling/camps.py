@@ -137,7 +137,7 @@ def register_camp(slug, pk, data, browser):
     if not valid_purchaser or not valid_participants:
         return None, purchaser, participants
     from .inventory import check_selections, allocate
-    check_selections(camp.offering, [{"selections": form.snapshot()} for form in participants])
+    check_selections(camp.offering, [{"selections": form.snapshot()} for form in participants], starts_at=min(s.starts_at for s in sessions))
     quantity = len(participants.forms)
     if places_left(sessions) < quantity:
         raise ValidationError("There are not enough places on every date for your whole group. Nothing was reserved or charged.")

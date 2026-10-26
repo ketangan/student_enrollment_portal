@@ -48,6 +48,8 @@ def update(user, slug, public_id, data):
         return item
     if prepared:
         validate_materials(item, allocations)
+        from .inventory import ensure_stock
+        ensure_stock(item, physical=True)
     before = model_to_dict(item)
     item.prepared_at = timezone.now() if prepared else None
     item.prepared_by = user if prepared else None
