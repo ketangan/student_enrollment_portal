@@ -62,26 +62,35 @@ def detail_context(request, context, item, tab="details"):
     # Header location changes leave this record and return to the scoped list.
     context["location_action"] = reverse("scheduling:reservations", kwargs={"school_slug": slug})
     context["location_query_fields"] = []
-    calendar = request.GET.get("calendar", "")
-    if calendar and len(calendar) <= 2048 and calendar_available(context["profile"]):
+    prep = request.GET.get("prep", "")
+    return_url = prep or request.GET.get("calendar", "")
+    if return_url and len(return_url) <= 2048 and (prep or calendar_available(context["profile"])):
         try:
-            target = urlsplit(calendar)
+            target = urlsplit(return_url)
         except ValueError:
             return context
-        if not target.scheme and not target.netloc and target.path == reverse("scheduling:workspace", kwargs={"school_slug": slug}):
-            context["calendar_return"] = calendar
+        route = "scheduling:studio_preparation" if prep else "scheduling:workspace"
+        if not target.scheme and not target.netloc and target.path == reverse(route, kwargs={"school_slug": slug}):
+            context["preparation_return" if prep else "calendar_return"] = return_url
             for tab in context["booking_navigation"]["section"]["tabs"]:
-                tab["url"] += "?" + urlencode({"calendar": calendar})
+                tab["url"] += "?" + urlencode({"prep" if prep else "calendar": return_url})
     return context
 
 
-def prep_context(item, profile):
-    allocations = list(item.stock_allocations.select_related("level__material", "level__location"))
+def preparation_materials(item):
+    allocations = getattr(item, "prep_allocations", None)
+    if allocations is None:
+        allocations = list(item.stock_allocations.select_related("level__material", "level__location"))
     frozen = {row["material_id"]: row for row in item.snapshot.get("materials", [])}
     for allocation in allocations:
         snapshot = frozen.get(allocation.level.material_id, {})
         allocation.material_name = snapshot.get("name", allocation.level.material.name)
         allocation.material_unit = snapshot.get("unit", allocation.level.material.unit)
+    return allocations
+
+
+def prep_context(item, profile):
+    allocations = preparation_materials(item)
     party_materials = []
     customer_notes, preparation_notes = "", item.internal_notes
     if item.party_request_id:

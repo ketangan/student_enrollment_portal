@@ -20,11 +20,12 @@ function element() {
   };
 }
 
-function page({saved = null, blocked = false, chooser = false, noAccount = false, dashboard = false, icons = false, payment = null, dialog = null, trigger = null, terminal = null, setupDialog = null, copy = null, clipboard = null} = {}) {
+function page({saved = null, blocked = false, chooser = false, noAccount = false, dashboard = false, icons = false, payment = null, dialog = null, trigger = null, terminal = null, setupDialog = null, copy = null, clipboard = null, print = null} = {}) {
   const document = element();
   document.body = element();
   const summary = element();
   const nodes = Object.fromEntries(['booking-nav', 'booking-nav-toggle', 'booking-account', 'booking-theme'].map(id => [id, element()]));
+  if (print) nodes['print-report'] = element();
   if (dashboard) {
     nodes['dashboard-location-filter'] = element();
     nodes['dashboard-location-filter'].submissions = 0;
@@ -51,9 +52,16 @@ function page({saved = null, blocked = false, chooser = false, noAccount = false
   };
   const lucide = icons ? {createIcons() { document.iconsRendered = true; }} : undefined;
   const location = {href: 'http://localhost:8002/parties/?location=15&section=rules&edit=9', replace(url) { this.destination = String(url); }};
-  vm.runInNewContext(source, {document, URL, navigator: {clipboard}, window: {matchMedia: () => media, lucide, location}, localStorage: storage}, {filename});
+  vm.runInNewContext(source, {document, URL, navigator: {clipboard}, window: {matchMedia: () => media, lucide, location, print}, localStorage: storage}, {filename});
   return {document, nodes, media, storage, summary, location};
 }
+
+test('preparation print button uses the browser print dialog', () => {
+  let calls = 0;
+  const {nodes} = page({print: () => calls++});
+  nodes['print-report'].listeners.click();
+  assert.equal(calls, 1);
+});
 
 test('host link copy confirms success and gives a fallback when clipboard is unavailable', async () => {
   const copy = element(), status = {};

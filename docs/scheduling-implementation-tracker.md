@@ -9,6 +9,51 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
+### October 25 Release Verification
+
+- PR #8 merged to main as `40e3124`. Render reports Deploy succeeded / Live;
+  scheduling migration 0040 applied successfully. Both app and demo health checks
+  returned OK after deployment.
+- The scheduled maintenance job deployed the same commit and completed its
+  scheduled October 25, 8:55 PM PDT run successfully.
+- Release CI: 4,611 Python tests passed, 3 skipped; 84 JavaScript tests passed;
+  coverage 98.45%, including all per-module gates. GitHub run 40264102458 succeeded.
+- CI speed remains unresolved: this run took 24 minutes 2 seconds, including
+  22 minutes 44 seconds for Python tests. Repeated migration tests are the
+  identified optimization target; no speed improvement is claimed.
+- The incoming-inventory and Stock Activity notes below are historical local
+  implementation records; those changes and PDF email attachments are now released.
+  Studio Prep remains on a separate local branch and is not deployed.
+
+### October 25 Studio Preparation Summary (Local Review)
+
+- Started the remaining instructor day/week visibility work while the inventory
+  release runs through CI. Reservations now has a Studio Prep tab, using the
+  existing location selector and shared reservation participants/material snapshots.
+- Confirmed workshop, party and camp reservations are included; held, review,
+  canceled and completed reservations are excluded. Camp attendance dates appear
+  separately, but the reservation's material allocation is counted only once.
+  Prepared/consumed materials do not inflate the outstanding preparation total.
+- Location roles and school boundaries are enforced through existing access
+  services. Date boundaries use each studio's timezone, including DST. Queries
+  are batched; adding reservations does not add per-reservation queries.
+- This is read-only. Existing reservation prep actions remain authoritative; no
+  changes to payments, inventory counts, customer notifications or Notion sync.
+  Obsolete Notion setup wording was removed from the legacy session prep screen.
+- Verification: 149 preparation/experience/access regression tests, then 156
+  navigation/calendar/guide/preparation checks passed; final focused preparation
+  batch passed 18 tests. New summary/view code has 100% statement/branch coverage.
+  All 85 JavaScript checks passed. Desktop, day/location navigation and mobile
+  layouts (including a 320 CSS-pixel viewport) checked on the existing port 8002.
+- Local review link: `/bookings/plushumi-demo/preparation/`. Select dates with
+  saved confirmed bookings, for example October 24. The actual Chrome print
+  preview was checked: three bookings and all material totals fit on one clean
+  page, with demo/trial banners and navigation excluded. No print job was sent.
+  This work is separate from release PR #8 and is not deployed.
+- Reservation links preserve the selected preparation dates/location on return;
+  external and cross-school return paths are rejected. The final 75-test
+  preparation/calendar/reservation navigation batch passed.
+
 ### October 25 Stock Activity Consolidation (Local)
 
 - Follow-up UX revision: one inline Quantity / Available date / Save form replaces

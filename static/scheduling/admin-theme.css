@@ -85,6 +85,9 @@
 .stock-usage { margin-block: 32px; }
 .booking-admin .prep-filter { display: flex; gap: 16px; flex-wrap: wrap; align-items: end; margin-bottom: 24px; }
 .booking-admin .prep-filter label { display: grid; gap: 8px; min-width: 0; }
+.booking-admin .studio-prep-filter .form-field { margin: 0; }
+.booking-admin .studio-prep-filter button { height: 38px; display: inline-flex; align-items: center; justify-content: center; }
+.booking-admin .studio-prep-filter button svg { width: 18px; height: 18px; }
 .booking-admin .metrics { display: flex; gap: 32px; margin: 24px 0; flex-wrap: wrap; }
 .booking-admin .metrics strong { font-size: 24px; display: block; }
 .booking-admin .reservation-row { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding: 18px 0; border-bottom: 1px solid var(--dash-border); }
@@ -420,9 +423,14 @@
 }
 @media print {
   .booking-admin:has(.workshop-preparation) { background: white; color: black; font-size: 11px; }
-  .booking-admin:has(.workshop-preparation) main { max-width: none; padding: 0; }
+  .booking-admin:has(.workshop-preparation) main { max-width: none; padding: 16px; }
+  .booking-admin:has(.workshop-preparation) :is(.booking-demo-banner, .dash-trial-banner) { display: none !important; }
+  .booking-admin:has(.studio-prep-filter) .reservation-section { margin: 12px 0; padding: 0; }
+  .booking-admin:has(.studio-prep-filter) .section-heading { margin: 0 0 6px; }
+  .booking-admin:has(.studio-prep-filter) .table-wrap { padding: 0; box-shadow: none; }
   .booking-admin:has(.workshop-preparation) :is(.dash-header, .booking-page-heading, .settings-tabs, .tabs, .skip-link, .workspace-link, .eyebrow, .prep-filter, .boundary, .section-heading a, .materials + h2, .reservation-row) { display: none; }
   .workshop-preparation > p:has(a) { display: none; }
+  .booking-admin .workshop-preparation .section-heading a.prep-contact { display: block; color: black; text-decoration: none; }
   .booking-admin .preparation-table { overflow: visible; border-radius: 0; }
   .booking-admin .preparation-table table { min-width: 0; width: 100%; }
   .booking-admin .preparation-table :is(th, td) { padding: 6px; }

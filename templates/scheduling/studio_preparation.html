@@ -1,0 +1,40 @@
+{% extends 'scheduling/base.html' %}{% load tz material_numbers %}
+{% block title %}Studio Prep{% endblock %}
+{% block content %}
+<section class="workshop-preparation">
+<h2>Studio Prep</h2>
+<form method="get" class="prep-filter studio-prep-filter" aria-label="Preparation dates">
+  {% if selected_location %}<input type="hidden" name="location" value="{{ selected_location.pk }}">{% endif %}
+  {% for field in preparation_range %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+  <button type="submit">Show</button>
+  <button type="button" id="print-report" class="quiet" title="Print preparation" aria-label="Print preparation"><i data-lucide="printer" aria-hidden="true"></i></button>
+</form>
+{% for studio in studios %}
+<section class="reservation-section" aria-labelledby="studio-{{ studio.location.pk }}">
+  <h2 id="studio-{{ studio.location.pk }}">{{ studio.location.name }}</h2>
+  {% timezone studio.location.timezone_name %}
+  {% for entry in studio.entries %}
+  <section class="reservation-section" aria-labelledby="booking-{{ entry.item.pk }}-{{ forloop.counter }}">
+    <div class="section-heading">
+      <div><h3 id="booking-{{ entry.item.pk }}-{{ forloop.counter }}">{{ entry.item.snapshot.workshop }}</h3>
+      <p>{{ entry.starts_at|date:'D, M j' }} &middot; {{ entry.starts_at|date:'g:i A' }} &ndash; {{ entry.ends_at|date:'g:i A' }} &middot; {{ entry.item.quantity }} participant{{ entry.item.quantity|pluralize }}</p></div>
+      <a class="prep-contact" href="{% url 'scheduling:reservation_preparation' school_slug=business.slug public_id=entry.item.public_id %}?prep={{ preparation_return_path|urlencode }}">{{ entry.item.snapshot.name }} &rarr;</a>
+    </div>
+    <p>{% if entry.materials_used %}Materials used{% elif entry.item.prepared_at %}Prepared{% else %}Preparation pending{% endif %}</p>
+    {% if entry.participant_table.rows %}
+    <div class="table-wrap preparation-table" role="region" aria-label="{{ entry.item.snapshot.name }} participants" tabindex="0">
+      <table class="dash-table"><thead><tr><th>Participant</th>{% for column in entry.participant_table.columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for person in entry.participant_table.rows %}<tr><th scope="row">{{ person.name }}</th>{% for value in person.values %}<td>{{ value|default:'Not selected' }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+    </div>
+    {% else %}<p class="muted">Participant details not provided.</p>{% endif %}
+  </section>
+  {% endfor %}
+  {% endtimezone %}
+  <h3>Outstanding materials</h3>
+  <div class="table-wrap preparation-table"><table class="dash-table"><thead><tr><th>Material</th><th>Quantity</th></tr></thead><tbody>
+    {% for material in studio.totals %}<tr><td>{{ material.name }}</td><td>{{ material.quantity|material_amount }} {{ material.unit }}</td></tr>{% empty %}<tr><td colspan="2">No outstanding materials.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% empty %}{% if not preparation_range.errors and location_filter.is_valid %}<p class="muted">No confirmed bookings for these dates.</p>{% endif %}{% endfor %}
+</section>
+{% endblock %}
