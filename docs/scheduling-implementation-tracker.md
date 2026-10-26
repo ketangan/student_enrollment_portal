@@ -30,8 +30,9 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
   All 85 JavaScript checks passed. Desktop, day/location navigation and mobile
   layouts (including a 320 CSS-pixel viewport) checked on the existing port 8002.
 - Local review link: `/bookings/plushumi-demo/preparation/`. Select dates with
-  saved confirmed bookings, for example October 24. Printing is wired and covered
-  by the browser-control test; paper/PDF layout acceptance remains to be checked.
+  saved confirmed bookings, for example October 24. The actual Chrome print
+  preview was checked: three bookings and all material totals fit on one clean
+  page, with demo/trial banners and navigation excluded. No print job was sent.
   This work is separate from release PR #8 and is not deployed.
 
 ### October 25 Stock Activity Consolidation (Local)
