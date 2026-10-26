@@ -18,19 +18,44 @@ from django.views.decorators.http import require_GET, require_http_methods
 from . import inventory
 from .access import require_access, require_location_access, staff_locations, location_restricted
 from .editing import protect_edit
-from .inventory_forms import CatalogForm, CatalogGroupForm, CatalogColorForm, ChoiceOptionForm, CatalogVariantForm, StockCountForm, MaterialForm, DesignForm, recipe_forms
-from .models import ChoiceGroup, ChoiceOption, InventoryCatalog, Location, SchedulingProfile, CatalogVariant, StockLevel, Material
+from .inventory_forms import CatalogForm, CatalogGroupForm, CatalogColorForm, ChoiceOptionForm, CatalogVariantForm, StockCountForm, MaterialForm, DesignForm, recipe_forms, DeliveryForm, DeliveryActionForm, InventoryBufferForm
+from .models import ChoiceGroup, ChoiceOption, InventoryCatalog, Location, SchedulingProfile, CatalogVariant, StockLevel, Material, IncomingDelivery, StockAdjustment
 from .setup import _audit, records
 from .views import _context
 
 
 @never_cache
 @login_required
-@require_GET
+@require_http_methods(["GET", "POST"])
+@transaction.atomic
 def settings_home(request, school_slug):
-    profile, role = require_location_access(request.user, school_slug)
+    permission = "setup.edit" if request.method == "POST" or request.GET.get("delivery_action") else "workspace.view"
+    profile, role = require_location_access(request.user, school_slug, permission)
+    if request.method == "POST":
+        SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
+        profile, role = require_location_access(request.user, school_slug, permission)
     context = _context(request, profile, role, "settings")
     location = context["selected_location"]
+    action = request.POST.get("action") if request.method == "POST" else request.GET.get("delivery_action")
+    buffer_form = None
+    if location:
+        buffer_form = protect_edit(InventoryBufferForm(request.POST if action == "buffer" and request.method == "POST" else None, instance=location), profile)
+    if action:
+        if action not in {"buffer"}:
+            raise Http404
+        if not context["location_filter"].is_valid():
+            raise Http404
+        if action == "buffer":
+            if not location or request.method != "POST":
+                raise Http404
+            before = model_to_dict(location)
+            if buffer_form.is_valid():
+                buffer_form.save()
+                _audit(request.user, profile, location, before, "change")
+        active_form = buffer_form
+        if request.method == "POST" and not active_form.errors:
+            messages.success(request, "Inventory updated.")
+            return redirect(request.path + (f"?location={location.pk}" if location else ""))
     workshop = None
     if "workshop" in request.GET:
         try:
@@ -47,14 +72,27 @@ def settings_home(request, school_slug):
     if query:
         rows = [row for row in rows if query.casefold() in row["level"].material.name.casefold()]
     page = Paginator(rows, 25).get_page(request.GET.get("page"))
+    levels = StockLevel.objects.filter(location__in=staff_locations(profile), material__profile=profile).select_related("location", "material")
+    if location:
+        levels = levels.filter(location=location)
+    if workshop:
+        levels = levels.filter(material__recipes__variant__catalog=workshop.inventory_catalog).distinct()
+    forecast = inventory.StockForecast(list(levels))
+    deliveries = IncomingDelivery.objects.filter(level__in=levels).select_related("level__location", "level__material").order_by("canceled", "-arrives_on", "-pk")
+    delivery_page = Paginator(deliveries, 25).get_page(request.GET.get("deliveries_page"))
+    for delivery in delivery_page:
+        delivery.overdue = delivery.arrives_on < inventory.StockForecast.today(delivery.level)
     filters = request.GET.copy()
     filters.pop("page", None)
     context.update(catalogs=profile.inventory_catalogs.none() if location_restricted(profile) else profile.inventory_catalogs.annotate(item_count=Count("items")).prefetch_related("offerings__location"),
         locations=staff_locations(profile), selected_location=location,
         stock=page, page_obj=page, query=query, filters=filters.urlencode(), selected_workshop=workshop)
+    context.update(deliveries=delivery_page, buffer_form=buffer_form,
+        shortages=Paginator(forecast.shortages(), 25).get_page(request.GET.get("shortages_page")))
     # Choosing another studio leaves the individual-workshop view.
     context["location_query_fields"] = [(key, value) for key, value in context["location_query_fields"] if key != "workshop"]
-    return render(request, "scheduling/settings/inventory.html", context, status=200 if context["location_filter"].is_valid() else 400)
+    invalid = not context["location_filter"].is_valid() or (request.method == "POST" and buffer_form and buffer_form.errors)
+    return render(request, "scheduling/settings/inventory.html", context, status=400 if invalid else 200)
 
 
 @never_cache
@@ -162,16 +200,73 @@ def edit(request, school_slug, kind, catalog_pk=None, pk=None, group_pk=None):
     return render(request, "scheduling/settings/form.html", context, status=400 if request.method == "POST" else 200)
 
 
+def _receive_delivery(delivery, level, amount, actor):
+    delivery.received += amount
+    level.on_hand += amount
+    level.save(update_fields=["on_hand"])
+    StockAdjustment.objects.create(level=level, delta=amount, actor=actor,
+        reason=f"Incoming delivery {delivery.pk} received")
+    delivery.save(update_fields=["received"])
+
+
+def _delivery_form(request, profile, level, action):
+    if action not in {"add", "new", "edit", "receive", "cancel"}:
+        raise Http404
+    delivery = None
+    if action not in {"new", "add"}:
+        raw = request.POST.get("delivery_id") if request.method == "POST" else request.GET.get("delivery_id")
+        try:
+            pk = forms.IntegerField(min_value=1, max_value=2**63-1).clean(raw)
+        except ValidationError as exc:
+            raise Http404 from exc
+        delivery = get_object_or_404(IncomingDelivery.objects.select_related("level__material", "level__location"),
+            pk=pk, level=level)
+    data = request.POST if request.method == "POST" else None
+    if action in {"add", "new", "edit"}:
+        form = DeliveryForm(data, level=level, instance=delivery, receive_today=action == "add")
+    else:
+        form = DeliveryActionForm(data, action=action, instance=delivery)
+    form = protect_edit(form, profile)
+    before = model_to_dict(delivery) if delivery else {}
+    if request.method == "POST" and form.is_valid():
+        if delivery and (delivery.canceled or delivery.remaining <= 0):
+            form.add_error(None, "This delivery is already closed. Reload to see its current status.")
+        else:
+            if action == "receive":
+                _receive_delivery(delivery, level, form.cleaned_data["amount"], request.user)
+            elif action == "cancel":
+                delivery.canceled = True
+                delivery.save(update_fields=["canceled"])
+            else:
+                delivery = form.save()
+                if action == "add" and delivery.arrives_on == inventory.StockForecast.today(level):
+                    _receive_delivery(delivery, level, delivery.quantity, request.user)
+            _audit(request.user, profile, delivery, before, "change" if before else "add")
+    return form
+
+
 @never_cache
 @login_required
 @require_http_methods(["GET", "POST"])
+@transaction.atomic
 def stock_count(request, school_slug, pk):
     profile, role = require_location_access(request.user, school_slug, "setup.edit")
+    if request.method == "POST":
+        SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
+        profile, role = require_location_access(request.user, school_slug, "setup.edit")
     level = get_object_or_404(StockLevel.objects.select_related("material", "location"), pk=pk, location__in=staff_locations(profile), material__profile=profile)
-    form = StockCountForm(request.POST if request.method == "POST" else None,
-                          initial={"mode": "receive", "previous": level.on_hand,
+    action = request.POST.get("action") if request.method == "POST" else request.GET.get("delivery_action")
+    delivery_form = _delivery_form(request, profile, level, action) if action and action != "count" else None
+    if request.method == "POST" and delivery_form is not None and not delivery_form.errors:
+        messages.success(request, "Delivery updated.")
+        return redirect(request.path + "#incoming-deliveries")
+    form = StockCountForm(request.POST if request.method == "POST" and action in {None, "count"} else None,
+                          initial={"mode": "count", "previous": level.on_hand,
                                    "low_stock_threshold": level.low_stock_threshold, "previous_threshold": level.low_stock_threshold})
-    if request.method == "POST" and form.is_valid():
+    if action == "count":
+        form.fields["mode"].disabled = True
+        form.fields["mode"].widget = forms.HiddenInput()
+    if request.method == "POST" and action in {None, "count"} and form.is_valid():
         try:
             values = dict(form.cleaned_data)
             if values.pop("mode") == "receive":
@@ -181,8 +276,21 @@ def stock_count(request, school_slug, pk):
             form.add_error(None, exc)
         else:
             messages.success(request, "Stock count saved.")
-            return redirect(f'{reverse("scheduling:settings", kwargs={"school_slug": school_slug})}?location={level.location_id}')
+            return redirect(request.path)
     context = _context(request, profile, role, "settings")
+    deliveries = Paginator(level.deliveries.order_by("canceled", "-arrives_on", "-pk"), 25).get_page(request.GET.get("deliveries_page"))
+    from .location_filters import LocationFilterForm
+    location_filter = LocationFilterForm({"location": level.location_id}, profile=profile)
+    location_filter.fields["location"].widget.attrs["id"] = "booking-location"
+    context.update(selected_location=level.location, location_filter=location_filter,
+        dashboard_location_form=location_filter)
+    for delivery in deliveries:
+        delivery.overdue = delivery.arrives_on < inventory.StockForecast.today(level)
+        delivery.receipt_form = protect_edit(DeliveryActionForm(action="receive", instance=delivery), profile)
+    context.update(stock_entry_form=delivery_form if action == "add" else
+        protect_edit(DeliveryForm(level=level, receive_today=True), profile), correction_open=action == "count")
+    context.update(deliveries=deliveries, delivery_form=delivery_form, delivery_action=action,
+        delivery_title={"new": "Add expected delivery", "edit": "Edit expected delivery", "receive": "Receive delivery", "cancel": "Cancel remaining delivery"}.get(action))
     context.update(form=form, title=f"{level.material.name} / {level.location.name}", level=level,
         reserved=inventory.reserved(level), history=level.adjustments.select_related("actor")[:25],
         usage=inventory.claims().filter(level=level).select_related("reservation")[:50],

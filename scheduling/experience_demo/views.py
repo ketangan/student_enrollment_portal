@@ -67,7 +67,7 @@ def choice_context(request, session, config, purchaser, participants, policy, ca
             next((row for row in config["designs"] if row["name"] == option["name"]), {}))
         designs.append({**legacy, "name": option["name"], "image_url": option["image_url"]})
     from scheduling.inventory import availability_payload
-    stock = availability_payload(session.offering) if session.offering.inventory_catalog_id else {}
+    stock = availability_payload(session.offering, starts_at=session.starts_at) if session.offering.inventory_catalog_id else {}
     return {"session": session, "purchaser": purchaser, "participants": participants, "policy": policy,
         "empty_participant": empty_participant,
         "request_token": request.POST.get("request_token") or requests.request_token(session, catalog, browser),

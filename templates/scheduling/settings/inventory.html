@@ -8,4 +8,35 @@
 {% for row in stock %}<tr><th scope="row"><strong>{{ row.level.material.name }}</strong><div class="muted">{{ row.level.material.sku }}</div></th>{% if not selected_location %}<td>{{ row.level.location.name }}</td>{% endif %}<td class="number stock-on-hand">{{ row.level.on_hand|material_amount }} {{ row.level.material.unit }}</td><td class="number stock-reserved">{{ row.reserved|material_amount }} {{ row.level.material.unit }}</td><td class="number"><strong>{{ row.available|material_amount }} {{ row.level.material.unit }}</strong></td><td><span class="stock-status stock-{{ row.status }}"><i data-lucide="{% if row.status == 'available' %}check-circle-2{% elif row.status == 'low' %}triangle-alert{% elif row.status == 'reserved' %}lock-keyhole{% else %}circle-minus{% endif %}" aria-hidden="true"></i>{{ row.status_label }}</span>{% if row.status == 'low' %}<small class="stock-threshold">Alert at {{ row.level.low_stock_threshold|material_amount }} {{ row.level.material.unit }}</small>{% endif %}</td><td><div class="actions">{% if can_edit_setup %}<a class="button" href="{% url 'scheduling:inventory_stock' school_slug=business.slug pk=row.level.pk %}">Stock &amp; activity</a>{% if school_wide_access %}<a class="icon-button" href="{% url 'scheduling:material_edit' school_slug=business.slug pk=row.level.material.pk %}" aria-label="Edit {{ row.level.material.name }}" title="Edit {{ row.level.material.name }}"><i data-lucide="pencil" aria-hidden="true"></i></a>{% endif %}{% endif %}</div></td></tr>
 {% empty %}<tr><td colspan="7">No materials match this view.</td></tr>{% endfor %}</tbody></table></div>
 <nav class="pagination stock-pagination" aria-label="Stock pages">{% if page_obj.has_previous %}<a href="?{{ filters }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}<span>{{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }}</span>{% if page_obj.has_next %}<a href="?{{ filters }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% endif %}</nav>
+{% if selected_location and can_edit_setup %}
+<section class="location-section">
+  <h3>Preparation time &middot; {{ selected_location.name }}</h3>
+  <form method="post" class="stock-filter">
+    {% csrf_token %}<input type="hidden" name="action" value="buffer">
+    {{ buffer_form.edit_revision }}{{ buffer_form.non_field_errors }}{{ buffer_form.edit_revision.errors }}
+    <label for="{{ buffer_form.inventory_buffer_days.id_for_label }}">{{ buffer_form.inventory_buffer_days.label }}{{ buffer_form.inventory_buffer_days }}{{ buffer_form.inventory_buffer_days.errors }}</label>
+    <button class="primary" type="submit">Save</button>
+  </form>
+</section>
+{% endif %}
+<section class="location-section" id="incoming-deliveries">
+  <div class="section-heading"><h3>Incoming deliveries</h3></div>
+  <div class="table-wrap" role="region" aria-label="Incoming deliveries" tabindex="0"><table class="dash-table">
+    <thead><tr><th>Material</th>{% if not selected_location %}<th>Location</th>{% endif %}<th>Available at studio</th><th class="number">Expected</th><th class="number">Received</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>{% for delivery in deliveries %}<tr>
+      <td>{{ delivery.level.material.name }} <span class="muted">({{ delivery.level.material.unit }})</span></td>{% if not selected_location %}<td>{{ delivery.level.location.name }}</td>{% endif %}
+      <td>{{ delivery.arrives_on|date:'M j, Y' }}</td><td class="number">{{ delivery.quantity|material_amount }}</td><td class="number">{{ delivery.received|material_amount }}</td>
+      <td>{% if delivery.canceled %}Canceled{% elif not delivery.remaining %}Received{% elif delivery.overdue %}<span class="stock-status stock-empty">Overdue</span>{% elif delivery.received %}Part received{% else %}Expected{% endif %}</td>
+      <td>{% if can_edit_setup %}<a href="{% url 'scheduling:inventory_stock' school_slug=business.slug pk=delivery.level_id %}#incoming-deliveries">Stock &amp; activity</a>{% endif %}</td>
+    </tr>{% empty %}<tr><td colspan="7">No incoming deliveries.</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% if deliveries.has_other_pages %}<nav class="pagination" aria-label="Delivery pages">{% if deliveries.has_previous %}<a href="?{% if selected_location %}location={{ selected_location.pk }}&amp;{% endif %}deliveries_page={{ deliveries.previous_page_number }}#incoming-deliveries">Previous</a>{% endif %}<span>{{ deliveries.number }} / {{ deliveries.paginator.num_pages }}</span>{% if deliveries.has_next %}<a href="?{% if selected_location %}location={{ selected_location.pk }}&amp;{% endif %}deliveries_page={{ deliveries.next_page_number }}#incoming-deliveries">Next</a>{% endif %}</nav>{% endif %}
+</section>
+{% if shortages %}<section class="location-section" id="stock-review" aria-labelledby="stock-review-title">
+  <h3 id="stock-review-title">Bookings needing stock review</h3>
+  <div class="table-wrap"><table class="dash-table"><thead><tr><th>Material</th><th>Location</th><th>Needed by</th><th>Reservation</th></tr></thead><tbody>
+    {% for row in shortages %}<tr><td>{{ row.level.material.name }}</td><td>{{ row.level.location.name }}</td><td>{{ row.needed_on|date:'M j, Y' }}</td><td><a href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=row.reservation.public_id %}">View reservation</a></td></tr>{% endfor %}
+  </tbody></table></div>
+  {% if shortages.has_other_pages %}<nav class="pagination" aria-label="Stock review pages">{% if shortages.has_previous %}<a href="?{% if selected_location %}location={{ selected_location.pk }}&amp;{% endif %}shortages_page={{ shortages.previous_page_number }}#stock-review">Previous</a>{% endif %}<span>{{ shortages.number }} / {{ shortages.paginator.num_pages }}</span>{% if shortages.has_next %}<a href="?{% if selected_location %}location={{ selected_location.pk }}&amp;{% endif %}shortages_page={{ shortages.next_page_number }}#stock-review">Next</a>{% endif %}</nav>{% endif %}
+</section>{% endif %}
 {% endblock %}

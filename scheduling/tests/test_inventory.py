@@ -333,15 +333,20 @@ def test_catalog_and_model_invariants(stock):
     with pytest.raises(ValidationError, match="no design choices"): inventory.selection_items(s.offering, [])
 
 
-def test_party_and_camp_share_workshop_stock(stock):
+@pytest.mark.parametrize("use_incoming", [False, True])
+def test_party_and_camp_share_workshop_stock(stock, use_incoming):
     s = stock
+    if use_incoming:
+        s.level.on_hand = 0
+        s.level.save()
+        incoming(s)
     party = PartyRequest.objects.create(offering=s.offering, organizer_name="Party", organizer_email="p@example.invalid",
         starts_at=s.session.starts_at+timedelta(days=3), ends_at=s.session.ends_at+timedelta(days=3), room=s.room,
         group_size=3, space="shared", status="reviewed", proposed_total=100, proposed_deposit=0,
         materials=[{"item_id": s.item.pk, "name": s.item.name, "quantity": 3}], offering_snapshot={"workshop": "Party", "timezone": "UTC"},
         submission_key=uuid.uuid4(), submission_digest="d", browser_digest="b")
     booked = reservations.create_reservation(s.user, s.school.slug, "party", party.public_id)
-    assert inventory.available(s.level) == 2
+    assert inventory.available(s.level, starts_at=s.session.starts_at) == 2
     with pytest.raises(ValidationError, match="only 2"): reserve(s, 3)
     party2 = PartyRequest.objects.get(pk=party.pk); party2.pk = None; party2.public_id = uuid.uuid4(); party2.submission_key = uuid.uuid4(); party2.materials = []; party2.save()
     pending = reservations.create_reservation(s.user, s.school.slug, "party", party2.public_id)
@@ -360,7 +365,7 @@ def test_party_and_camp_share_workshop_stock(stock):
         "participants-0-name": "Child", f"participants-0-choice_{s.design.pk}": str(s.cat.pk), f"participants-0-choice_{s.color.pk}": str(s.blue.pk)})
     registration, _, _ = camps.register_camp(s.school.slug, camp.pk, data, "b")
     assert registration.reservation.stock_allocations.get().quantity == 1
-    assert inventory.available(s.level) == 1
+    assert inventory.available(s.level, starts_at=s.session.starts_at) == 1
     inventory.ensure_stock(registration.reservation)
 
 
@@ -421,7 +426,7 @@ def test_catalog_crud_stale_edits_stock_count_and_consume_ui(stock):
     count_url = url(s, "inventory_stock", pk=s.level.pk)
     count_result = s.client.post(count_url, {"mode": "receive", "on_hand": 3, "previous": 5, "reason": "Delivery", "next": "https://untrusted.invalid/"})
     assert count_result.status_code == 302
-    assert count_result.url == f'{url(s, "settings")}?location={s.location.pk}'
+    assert count_result.url == count_url
     assert s.client.get(count_result.url).context["selected_location"] == s.location
     count_page = s.client.get(count_url)
     assertContains(count_page, 'Stock activity')
@@ -488,3 +493,342 @@ def test_concurrent_reservations_cannot_sell_last_item_twice(stock):
         result = list(executor.map(book, sources))
     assert sorted(result) == [False, True]
     assert StockAllocation.objects.count() == PaymentOrder.objects.count() == 1
+
+
+def incoming(s, quantity=5, days=2):
+    from scheduling.models import IncomingDelivery
+    return IncomingDelivery.objects.create(level=s.level, quantity=quantity,
+        arrives_on=inventory.StockForecast.today(s.level)+timedelta(days=days))
+
+
+def delivery_post(s, action, delivery=None, **values):
+    query = {"location": s.location.pk, "delivery_action": action}
+    if delivery:
+        query["delivery_id"] = delivery.pk
+    response = s.client.get(url(s, "inventory_stock", pk=s.level.pk), query)
+    assert response.status_code == 200
+    form = response.context["delivery_form"]
+    data = {field.name: field.value() for field in form}
+    data.update(action=action, delivery_id=delivery.pk if delivery else "", **values)
+    return s.client.post(url(s, "inventory_stock", pk=s.level.pk), data), data
+
+
+@pytest.mark.parametrize("days", [0, 2])
+def test_inline_stock_entry_date_and_retry(stock, days):
+    s = stock
+    before = s.level.on_hand
+    response, data = delivery_post(s, "add", quantity=3,
+        arrives_on=inventory.StockForecast.today(s.level)+timedelta(days=days))
+    assert response.status_code == 302
+    s.level.refresh_from_db()
+    assert s.level.on_hand == before + (3 if days == 0 else 0)
+    repeat = s.client.post(url(s, "inventory_stock", pk=s.level.pk), data)
+    assert repeat.status_code == 400
+    s.level.refresh_from_db()
+    assert s.level.on_hand == before + (3 if days == 0 else 0)
+
+
+def test_inline_receipt_button_uses_revision(stock):
+    s = stock
+    delivery = incoming(s)
+    page = s.client.get(url(s, "inventory_stock", pk=s.level.pk))
+    assert b"Mark received" in page.content
+    assert b"Add expected delivery" not in page.content
+    row = next(d for d in page.context["deliveries"] if d.pk == delivery.pk)
+    data = {f.name: f.value() for f in row.receipt_form}
+    data.update(action="receive", delivery_id=delivery.pk, amount=delivery.remaining)
+    before = s.level.on_hand
+    assert s.client.post(url(s, "inventory_stock", pk=s.level.pk), data).status_code == 302
+    assert s.client.post(url(s, "inventory_stock", pk=s.level.pk), data).status_code == 400
+    s.level.refresh_from_db()
+    assert s.level.on_hand == before + delivery.quantity
+
+
+def test_incoming_stock_is_finite_dated_and_not_physical(stock):
+    s = stock
+    s.level.on_hand = 0; s.level.save()
+    incoming(s)
+    before = timezone.now()+timedelta(days=1)
+    assert inventory.available(s.level, starts_at=before) == 0
+    assert inventory.available(s.level, starts_at=s.session.starts_at) == 5
+    assert inventory.available(s.level) == 0
+    assert inventory.availability_payload(s.offering, starts_at=s.session.starts_at)["materials"][str(s.material.pk)] == 5000
+    booking = reserve(s, 5); confirm(s, booking)
+    inventory.ensure_stock(booking)
+    with pytest.raises(ValidationError, match="enough stock"):
+        inventory.consume(s.user, s.school.slug, booking.public_id)
+    from scheduling import preparation
+    booking.refresh_from_db()
+    form = preparation.form_for(booking, s.profile)
+    data = {field.name: field.value() for field in form.hidden_fields()}
+    with pytest.raises(ValidationError, match="enough stock"):
+        preparation.update(s.user, s.school.slug, booking.public_id, {**data, "action": "prepare"})
+    with pytest.raises(ValidationError, match="only 0"):
+        reserve(s)
+    s.level.refresh_from_db()
+    assert s.level.on_hand == 0
+
+
+def test_forecast_preserves_later_commitments_and_buffer(stock):
+    s = stock
+    incoming(s, quantity=5, days=40)
+    later = reserve(s, 5)
+    # Later supply cannot fund a day-30 booking or release its existing commitment.
+    assert inventory.available(s.level, starts_at=timezone.now()+timedelta(days=5)) == 0
+    later.starts_at += timedelta(days=20); later.ends_at += timedelta(days=20); later.save()
+    assert inventory.available(s.level, starts_at=timezone.now()+timedelta(days=5)) == 5
+    s.location.inventory_buffer_days = 15; s.location.save()
+    s.level.location = s.location
+    # The day-50 booking now needs materials by day 35, before the delivery.
+    assert inventory.available(s.level, starts_at=timezone.now()+timedelta(days=5)) == 0
+
+
+def test_receipt_partial_retry_cancel_and_audit(stock):
+    from core.models import AdminAuditLog
+    s = stock
+    s.level.on_hand = 0; s.level.save()
+    delivery = incoming(s)
+    booking = reserve(s, 5); confirm(s, booking)
+    result, data = delivery_post(s, "receive", delivery, amount=2)
+    assert result.status_code == 302
+    retry = s.client.post(url(s, "inventory_stock", pk=s.level.pk), data)
+    assert retry.status_code == 400
+    delivery.refresh_from_db(); s.level.refresh_from_db()
+    assert delivery.received == s.level.on_hand == 2
+    assert inventory.available(s.level, starts_at=s.session.starts_at) == 0
+    inventory.ensure_stock(booking)
+    assert StockAdjustment.objects.get().delta == 2
+    result, _ = delivery_post(s, "cancel", delivery)
+    assert result.status_code == 302
+    delivery.refresh_from_db(); s.level.refresh_from_db()
+    assert delivery.canceled and s.level.on_hand == 2
+    with pytest.raises(ValidationError, match="enough stock"):
+        inventory.ensure_stock(booking)
+    response = s.client.get(url(s, "settings"))
+    assertContains(response, "Bookings needing stock review")
+    assert response.context["shortages"][0]["reservation"].pk == booking.pk
+    booking.refresh_from_db()
+    assert booking.state == "confirmed"
+    assert AdminAuditLog.objects.filter(model_label="scheduling.incomingdelivery").count() == 2
+
+
+def test_received_delivery_is_not_counted_twice_and_completion_retries(stock):
+    s = stock
+    s.level.on_hand = 0; s.level.save()
+    delivery = incoming(s)
+    booking = reserve(s, 5); confirm(s, booking)
+    result, _ = delivery_post(s, "receive", delivery, amount=5)
+    assert result.status_code == 302
+    s.level.refresh_from_db()
+    assert inventory.available(s.level, starts_at=s.session.starts_at) == 0
+    assert inventory.available(s.level, exclude=booking.pk, starts_at=s.session.starts_at) == 5
+    inventory.consume(s.user, s.school.slug, booking.public_id)
+    inventory.consume(s.user, s.school.slug, booking.public_id)
+    s.level.refresh_from_db()
+    assert s.level.on_hand == 0
+    assert StockAdjustment.objects.count() == 2
+
+
+def test_delayed_overdue_and_canceled_supply_does_not_support_new_sales(stock):
+    s = stock
+    s.level.on_hand = 0; s.level.save()
+    delivery = incoming(s)
+    booking = reserve(s, 5); confirm(s, booking)
+    result, _ = delivery_post(s, "edit", delivery, quantity=5,
+        arrives_on=(inventory.StockForecast.today(s.level)+timedelta(days=40)).isoformat())
+    assert result.status_code == 302
+    with pytest.raises(ValidationError): inventory.ensure_stock(booking)
+    delivery.refresh_from_db()
+    delivery.arrives_on = inventory.StockForecast.today(s.level)-timedelta(days=1); delivery.save()
+    assert inventory.available(s.level, starts_at=s.session.starts_at) == 0
+    assertContains(s.client.get(url(s, "settings")), "Overdue")
+    result, _ = delivery_post(s, "receive", delivery, amount=5)
+    assert result.status_code == 302  # Overdue deliveries can still actually arrive.
+    inventory.ensure_stock(booking)
+
+
+@pytest.mark.parametrize("values", [{"quantity": 0}, {"quantity": -1}, {"quantity": "1.5"},
+    {"quantity": "NaN"}, {"quantity": 1000001}, {"arrives_on": "bad"}])
+def test_delivery_create_validation(stock, values):
+    s = stock
+    defaults = dict(material=s.material.pk, quantity=5,
+        arrives_on=(inventory.StockForecast.today(s.level)+timedelta(days=2)).isoformat())
+    response, _ = delivery_post(s, "new", **{**defaults, **values})
+    assert response.status_code == 400
+    assert not s.level.deliveries.exists()
+
+
+def test_delivery_create_inherits_location_and_rejects_duplicate_submission(stock):
+    s = stock
+    other = Location.objects.create(profile=s.profile, name="Other studio")
+    result, data = delivery_post(s, "new", material=999999, location=other.pk,
+        quantity=5, arrives_on=(inventory.StockForecast.today(s.level)+timedelta(days=2)).isoformat())
+    assert result.status_code == 302
+    delivery = s.level.deliveries.get()
+    assert delivery.level.location_id == s.location.pk
+    assert s.client.post(url(s, "inventory_stock", pk=s.level.pk), data).status_code == 400
+    assert s.level.deliveries.count() == 1
+    page = s.client.get(url(s, "settings"), {"delivery_action": "new", "location": ""})
+    assert page.status_code == 404
+    page = s.client.get(url(s, "inventory_stock", pk=s.level.pk), {"delivery_action": "new"})
+    assert set(page.context["delivery_form"].fields) == {"quantity", "arrives_on", "submission_key"}
+
+
+@pytest.mark.parametrize("amount", [0, -1, "1.5", 6, "NaN"])
+def test_delivery_receipt_validation(stock, amount):
+    s = stock
+    delivery = incoming(s)
+    result, _ = delivery_post(s, "receive", delivery, amount=amount)
+    assert result.status_code == 400
+    s.level.refresh_from_db(); delivery.refresh_from_db()
+    assert s.level.on_hand == 5 and delivery.received == 0
+
+
+def test_delivery_permissions_and_location_boundary(stock):
+    s = stock
+    delivery = incoming(s)
+    second = Location.objects.create(profile=s.profile, name="Other")
+    for role in ("viewer", "scheduler"):
+        SchedulingMembership.objects.filter(user=s.user).update(role=role)
+        assert s.client.get(url(s, "inventory_stock", pk=s.level.pk), {"delivery_action": "new"}).status_code == 404
+        assert s.client.post(url(s, "inventory_stock", pk=s.level.pk), {"action": "receive", "delivery_id": delivery.pk}).status_code == 404
+        assert s.client.get(url(s, "settings"), {"delivery_action": "new"}).status_code == 404
+        assert s.client.post(url(s, "settings"), {"action": "receive", "delivery_id": delivery.pk}).status_code == 404
+    SchedulingMembership.objects.filter(user=s.user).update(role="owner")
+    other_level = StockLevel.objects.create(location=second, material=s.material)
+    for action in ("edit", "receive", "cancel"):
+        assert s.client.get(url(s, "inventory_stock", pk=other_level.pk), {"delivery_action": action, "delivery_id": delivery.pk}).status_code == 404
+        assert s.client.post(url(s, "inventory_stock", pk=other_level.pk), {"action": action, "delivery_id": delivery.pk}).status_code == 404
+    assert s.client.get(url(s, "settings"), {"location": second.pk, "delivery_action": "edit", "delivery_id": delivery.pk}).status_code == 404
+    for value in ("invalid", "-1", "999999999999999999999999"):
+        assert s.client.get(url(s, "settings"), {"delivery_action": "edit", "delivery_id": value}).status_code == 404
+
+
+def test_buffer_save_stale_edit_and_forecast_query_count(stock, django_assert_num_queries):
+    s = stock
+    path = url(s, "settings")+f"?location={s.location.pk}"
+    response = s.client.get(path)
+    data = {"action": "buffer", "inventory_buffer_days": 3,
+        "edit_revision": response.context["buffer_form"]["edit_revision"].value()}
+    assert s.client.post(path, data).status_code == 302
+    assert s.client.post(path, {**data, "inventory_buffer_days": 4}).status_code == 400
+    s.location.refresh_from_db()
+    assert s.location.inventory_buffer_days == 3
+    levels = list(StockLevel.objects.select_related("location", "material"))
+    with django_assert_num_queries(2):
+        forecast = inventory.StockForecast(levels)
+        for _ in range(10):
+            forecast.available(levels[0], s.session.starts_at)
+            forecast.shortages()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_concurrent_bookings_share_only_finite_incoming_supply(stock):
+    s = stock
+    s.level.on_hand = 0; s.level.save()
+    incoming(s, quantity=1)
+    sources = [request(s), request(s)]
+    def book(source):
+        close_old_connections()
+        try:
+            reservations.create_reservation(s.user, s.school.slug, "workshop", source.public_id, total_cents=100, deposit_cents=0)
+            return True
+        except ValidationError:
+            return False
+        finally:
+            close_old_connections()
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        assert sorted(executor.map(book, sources)) == [False, True]
+    assert StockAllocation.objects.count() == 1
+
+
+def test_incoming_delivery_isolation(stock):
+    s = stock
+    delivery = incoming(s)
+    other = Location.objects.create(profile=s.profile, name="Restricted studio")
+    membership = SchedulingMembership.objects.get(user=s.user)
+    membership.all_locations = False
+    membership.save()
+    membership.locations.set([other])
+    assert s.client.get(url(s, "inventory_stock", pk=s.level.pk), {"delivery_action": "new"}).status_code == 404
+    assert s.client.post(url(s, "inventory_stock", pk=s.level.pk), {"action": "receive", "delivery_id": delivery.pk}).status_code == 404
+    page = s.client.get(url(s, "settings"), {"location": ""})
+    assert page.status_code == 200
+    assert not list(page.context["deliveries"])
+    for action in ("edit", "receive", "cancel"):
+        assert s.client.get(url(s, "settings"), {"delivery_action": action, "delivery_id": delivery.pk}).status_code == 404
+        assert s.client.post(url(s, "settings"), {"action": action, "delivery_id": delivery.pk}).status_code == 404
+    other_school = School.objects.create(slug="other-inventory-school")
+    other_profile = SchedulingProfile.objects.create(school=other_school, enabled=True)
+    membership.profile = other_profile
+    membership.all_locations = True
+    membership.save()
+    assert s.client.get(url(s, "settings")).status_code == 404
+    assert s.client.get(url(s, "inventory_stock", pk=s.level.pk), {"delivery_action": "new"}).status_code == 404
+    path = reverse("scheduling:settings", kwargs={"school_slug": other_school.slug})
+    assert s.client.get(path, {"delivery_action": "edit", "delivery_id": delivery.pk}).status_code == 404
+
+
+def test_stock_adjustment_respects_dated_commitments(stock):
+    s = stock
+    incoming(s, quantity=10)
+    reserve(s, 8)
+    updated = inventory.adjust(s.user, s.school.slug, s.level.pk, on_hand=4, previous=5, reason="Physical count")
+    assert updated.on_hand == 4
+    from scheduling.models import IncomingDelivery
+    IncomingDelivery.objects.update(canceled=True)
+    with pytest.raises(ValidationError, match="reserved materials"):
+        inventory.adjust(s.user, s.school.slug, s.level.pk, on_hand=3, previous=4, reason="Physical count")
+
+
+def test_incoming_stock_uses_studio_date_and_buffer(stock, monkeypatch):
+    from datetime import datetime, date, timezone as datetime_timezone
+    s = stock
+    monkeypatch.setattr(timezone, "now", lambda: datetime(2026, 10, 24, 23, tzinfo=datetime_timezone.utc))
+    s.location.timezone_name = "America/Los_Angeles"
+    s.location.inventory_buffer_days = 1
+    s.location.save()
+    s.level.on_hand = 0
+    s.level.save()
+    delivery = incoming(s)
+    delivery.arrives_on = date(2026, 11, 1)
+    delivery.save()
+    forecast = inventory.StockForecast([s.level])
+    # UTC November 2 is still November 1 in the studio after the DST transition.
+    assert forecast.available(s.level, datetime(2026, 11, 2, 1, tzinfo=datetime_timezone.utc)) == 0
+    assert forecast.available(s.level, datetime(2026, 11, 2, 18, tzinfo=datetime_timezone.utc)) == 5
+
+
+@pytest.mark.parametrize("days", [-1, 366, "invalid"])
+def test_buffer_rejects_invalid_days(stock, days):
+    s = stock
+    path = url(s, "settings")+f"?location={s.location.pk}"
+    page = s.client.get(path)
+    response = s.client.post(path, {"action": "buffer", "inventory_buffer_days": days,
+        "edit_revision": page.context["buffer_form"]["edit_revision"].value()})
+    assert response.status_code == 400
+    s.location.refresh_from_db()
+    assert s.location.inventory_buffer_days == 0
+
+
+@pytest.mark.django_db(transaction=True)
+def test_concurrent_receipt_does_not_double_count(stock):
+    s = stock
+    delivery = incoming(s)
+    page = s.client.get(url(s, "inventory_stock", pk=s.level.pk), {"location": s.location.pk,
+        "delivery_action": "receive", "delivery_id": delivery.pk})
+    data = {"action": "receive", "delivery_id": delivery.pk, "amount": 2,
+        "edit_revision": page.context["delivery_form"]["edit_revision"].value()}
+    def receive(_):
+        close_old_connections()
+        try:
+            client = Client()
+            client.force_login(s.user)
+            return client.post(url(s, "inventory_stock", pk=s.level.pk), data).status_code
+        finally:
+            close_old_connections()
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        assert sorted(executor.map(receive, range(2))) == [302, 400]
+    delivery.refresh_from_db(); s.level.refresh_from_db()
+    assert delivery.received == 2 and s.level.on_hand == 7
+    assert StockAdjustment.objects.filter(level=s.level).count() == 1

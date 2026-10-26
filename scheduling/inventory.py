@@ -1,14 +1,16 @@
 """Raw materials share reservation locks and the existing payment lifecycle."""
-from collections import Counter
+from collections import Counter, defaultdict
+from datetime import timedelta
+from zoneinfo import ZoneInfo
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import F, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from .access import get_staff_reservation, require_location_access, staff_locations
 from .inventory_models import validate_amount
-from .models import ChoiceOption, SchedulingProfile, StockAllocation, CatalogVariant, StockLevel, StockAdjustment
+from .models import ChoiceOption, SchedulingProfile, StockAllocation, CatalogVariant, StockLevel, StockAdjustment, IncomingDelivery
 
 
 def claims():
@@ -20,8 +22,62 @@ def reserved(level, exclude=None):
     return claims().filter(level=level).exclude(reservation_id=exclude).aggregate(total=Sum("quantity"))["total"] or Decimal(0)
 
 
-def available(level, exclude=None):
+def available(level, exclude=None, *, starts_at=None):
+    if starts_at is not None:
+        return StockForecast([level], exclude=exclude).available(level, starts_at)
     return max(Decimal(0), level.on_hand - reserved(level, exclude))
+
+
+class StockForecast:
+    """One batched supply/demand timeline; future commitments constrain earlier sales too."""
+
+    def __init__(self, levels, exclude=None):
+        self.levels = {level.pk: level for level in levels}
+        self.events = defaultdict(Counter)
+        self.bookings = defaultdict(lambda: defaultdict(list))
+        for delivery in IncomingDelivery.objects.filter(level_id__in=self.levels, canceled=False, received__lt=F("quantity")):
+            level = self.levels[delivery.level_id]
+            if delivery.arrives_on >= self.today(level):
+                self.events[level.pk][delivery.arrives_on] += delivery.remaining
+        allocations = claims().filter(level_id__in=self.levels).exclude(reservation_id=exclude).select_related("reservation").only(
+            "level_id", "quantity", "reservation__id", "reservation__public_id", "reservation__starts_at")
+        for claim in allocations:
+            level = self.levels[claim.level_id]
+            day = self.needed_on(level, claim.reservation.starts_at)
+            self.events[level.pk][day] -= claim.quantity
+            self.bookings[level.pk][day].append(claim.reservation)
+
+    @staticmethod
+    def today(level):
+        return timezone.localdate(timezone.now(), ZoneInfo(level.location.timezone_name))
+
+    def needed_on(self, level, starts_at):
+        if starts_at is None:
+            return self.today(level)
+        day = timezone.localdate(starts_at, ZoneInfo(level.location.timezone_name))
+        return max(self.today(level), day - timedelta(days=level.location.inventory_buffer_days))
+
+    def available(self, level, starts_at):
+        day = self.needed_on(level, starts_at)
+        events = self.events[level.pk].copy()
+        events[day] += 0
+        balance, remaining = level.on_hand, None
+        for date, delta in sorted(events.items()):
+            balance += delta
+            if date >= day:
+                remaining = balance if remaining is None else min(remaining, balance)
+        return max(Decimal(0), remaining)
+
+    def shortages(self):
+        rows = []
+        for level in self.levels.values():
+            balance = level.on_hand
+            for day, delta in sorted(self.events[level.pk].items()):
+                balance += delta
+                if balance < 0:
+                    for booking in self.bookings[level.pk][day]:
+                        rows.append({"level": level, "reservation": booking, "needed_on": day})
+        return rows
 
 
 def selection_items(offering, participants):
@@ -64,14 +120,15 @@ def material_requirements(offering, counts):
     return result
 
 
-def check_materials(offering, quantities, exclude=None):
+def check_materials(offering, quantities, exclude=None, *, starts_at=None):
     levels = {level.material_id: level for level in StockLevel.objects.filter(
         material_id__in=quantities, material__profile_id=offering.location.profile_id,
         location=offering.location).select_related("material", "location")}
+    forecast = StockForecast(levels.values(), exclude=exclude) if starts_at is not None else None
     result = []
     for material_id, quantity in quantities.items():
         level = levels.get(material_id)
-        remaining = available(level, exclude) if level else Decimal(0)
+        remaining = (forecast.available(level, starts_at) if forecast else available(level, exclude)) if level else Decimal(0)
         if quantity > remaining:
             if not level:
                 raise ValidationError("Materials are unavailable at this studio. Choose another design or contact the studio.")
@@ -80,12 +137,12 @@ def check_materials(offering, quantities, exclude=None):
     return result
 
 
-def check_items(offering, counts, exclude=None):
-    return check_materials(offering, material_requirements(offering, counts), exclude)
+def check_items(offering, counts, exclude=None, *, starts_at=None):
+    return check_materials(offering, material_requirements(offering, counts), exclude, starts_at=starts_at)
 
 
-def check_selections(offering, participants):
-    return check_items(offering, selection_items(offering, participants))
+def check_selections(offering, participants, *, starts_at=None):
+    return check_items(offering, selection_items(offering, participants), starts_at=starts_at)
 
 
 def allocate(reservation):
@@ -118,7 +175,7 @@ def allocate(reservation):
     if not offering.inventory_catalog_id:
         return
     snapshot = []
-    for level, quantity in check_items(offering, counts, reservation.pk):
+    for level, quantity in check_items(offering, counts, reservation.pk, starts_at=reservation.starts_at):
         StockAllocation.objects.create(reservation=reservation, level=level, quantity=quantity)
         snapshot.append({"material_id": level.material_id, "name": level.material.name,
                          "unit": level.material.unit, "quantity": str(quantity)})
@@ -153,12 +210,17 @@ def validate_allocations(reservation, allocations=None, *, allow_pending=False):
         raise ValidationError("Reserved materials do not match this booking. Contact support before continuing.")
 
 
-def ensure_stock(reservation):
+def ensure_stock(reservation, *, physical=False):
     if not reservation.pk:
         return
     validate_allocations(reservation, allow_pending=True)
-    for allocation in reservation.stock_allocations.filter(consumed_at__isnull=True).select_related("level__material", "level__location"):
-        if allocation.quantity > available(allocation.level, reservation.pk):
+    allocations = list(reservation.stock_allocations.filter(consumed_at__isnull=True).select_related("level__material", "level__location"))
+    forecast = StockForecast([a.level for a in allocations], exclude=reservation.pk)
+    for allocation in allocations:
+        remaining = forecast.available(allocation.level, timezone.now() if physical else reservation.starts_at)
+        if physical:
+            remaining = min(remaining, allocation.level.on_hand)
+        if allocation.quantity > remaining:
             raise ValidationError(f"{allocation.level.material.name} no longer has enough stock at {allocation.level.location.name}.")
 
 
@@ -174,7 +236,12 @@ def adjust(user, slug, level_id, *, on_hand, previous, reason, low_stock_thresho
     if not reason.strip() or len(reason) > 250:
         raise ValidationError("Enter a reason for the adjustment.")
     if on_hand < reserved(level):
-        raise ValidationError("The count cannot be lower than reserved materials. Resolve affected reservations first.")
+        previous_count = level.on_hand
+        level.on_hand = on_hand
+        shortages = StockForecast([level]).shortages()
+        level.on_hand = previous_count
+        if shortages:
+            raise ValidationError("The count cannot be lower than reserved materials. Resolve affected reservations first.")
     if low_stock_threshold is not None:
         low_stock_threshold = validate_amount(low_stock_threshold, level.material.unit, allow_zero=True)
         if previous_threshold != level.low_stock_threshold:
@@ -204,7 +271,7 @@ def consume(user, slug, public_id):
     if reservation.state != "confirmed":
         raise ValidationError("Only confirmed bookings can use materials.")
     validate_allocations(reservation)
-    ensure_stock(reservation)
+    ensure_stock(reservation, physical=True)
     for allocation in reservation.stock_allocations.filter(consumed_at__isnull=True).select_related("level"):
         level = allocation.level
         level.on_hand -= allocation.quantity
@@ -244,9 +311,10 @@ def stock_rows(profile, location=None, catalog=None):
     return rows
 
 
-def availability_payload(offering):
+def availability_payload(offering, *, starts_at=None):
     rows = stock_rows(offering.location.profile, offering.location, offering.inventory_catalog)
-    materials = {str(row["level"].material_id): int(row["available"] * 1000) for row in rows}
+    forecast = StockForecast([row["level"] for row in rows]) if starts_at is not None else None
+    materials = {str(row["level"].material_id): int((forecast.available(row["level"], starts_at) if forecast else row["available"]) * 1000) for row in rows}
     variants = []
     for variant in offering.inventory_catalog.items.filter(is_active=True).prefetch_related("requirements__material"):
         recipe = list(variant.requirements.all())

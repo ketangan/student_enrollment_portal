@@ -110,7 +110,7 @@ def submit_request(slug, pk, data, browser, *, for_reservation=False):
     if not purchaser_valid or not participants_valid:
         return None, purchaser, participants
     from .inventory import check_selections
-    check_selections(session.offering, [{"selections": form.snapshot()} for form in participants])
+    check_selections(session.offering, [{"selections": form.snapshot()} for form in participants], starts_at=session.starts_at)
     result = WorkshopRequest.objects.create(
         session=session, **purchaser.cleaned_data, submission_key=key, submission_digest=digest, browser_digest=browser,
         session_snapshot={"workshop": session.offering.name, "location": session.offering.location.name,

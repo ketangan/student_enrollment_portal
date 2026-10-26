@@ -1,7 +1,9 @@
 import re
+import uuid
+from decimal import Decimal
 
 from django import forms
-from .models import ChoiceGroup, ChoiceOption, InventoryCatalog, CatalogVariant, Material, MaterialRequirement
+from .models import ChoiceGroup, ChoiceOption, InventoryCatalog, CatalogVariant, Material, MaterialRequirement, Location, IncomingDelivery
 from .inventory_models import validate_amount, validate_catalog_image
 from .request_forms import ChoiceGroupForm, ChoiceOptionForm
 
@@ -65,7 +67,7 @@ class CatalogVariantForm(forms.ModelForm):
 
 
 class StockCountForm(forms.Form):
-    mode = forms.ChoiceField(choices=[("receive", "Receive delivery"), ("count", "Correct stock count")])
+    mode = forms.ChoiceField(choices=[("receive", "Add stock already received"), ("count", "Correct stock count")])
     on_hand = forms.DecimalField(label="Amount", min_value=0, max_value=1000000, max_digits=10, decimal_places=3)
     previous = forms.DecimalField(widget=forms.HiddenInput, max_digits=10, decimal_places=3)
     reason = forms.CharField(label="Reason", max_length=250)
@@ -73,6 +75,83 @@ class StockCountForm(forms.Form):
         min_value=0, max_value=1000000, max_digits=10, decimal_places=3,
         help_text="Available stock at or below this amount is low. Use 0 to turn off the alert.")
     previous_threshold = forms.DecimalField(required=False, widget=forms.HiddenInput, max_digits=10, decimal_places=3)
+
+
+class InventoryBufferForm(forms.ModelForm):
+    class Meta:
+        model = Location
+        fields = ["inventory_buffer_days"]
+        labels = {"inventory_buffer_days": "Materials needed before the event (days)"}
+
+
+class DeliveryForm(forms.ModelForm):
+    submission_key = forms.UUIDField(widget=forms.HiddenInput, initial=uuid.uuid4)
+
+    class Meta:
+        model = IncomingDelivery
+        fields = ["quantity", "arrives_on"]
+        labels = {"quantity": "Expected quantity", "arrives_on": "Available at studio on"}
+        widgets = {"arrives_on": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")}
+
+    def __init__(self, *args, level, receive_today=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.receive_today = receive_today
+        self.instance.level = level
+        self.fields["quantity"].label = f"Expected quantity ({level.material.unit})"
+        if receive_today:
+            from .inventory import StockForecast
+            self.fields["quantity"].label = f"Quantity ({level.material.unit})"
+            self.fields["quantity"].widget.attrs["id"] = "stock-quantity"
+            self.fields["arrives_on"].label = "Available date"
+            self.fields["arrives_on"].widget.attrs["id"] = "stock-available-date"
+            self.fields["submission_key"].widget.attrs["id"] = "stock-submission-key"
+            self.fields["arrives_on"].initial = StockForecast.today(level)
+        if self.instance.pk:
+            self.fields["submission_key"].initial = self.instance.key
+            self.fields["submission_key"].disabled = True
+
+    def clean(self):
+        from .inventory import StockForecast
+        data = super().clean()
+        if (self.receive_today and data.get("arrives_on") == StockForecast.today(self.instance.level)
+                and data.get("quantity") and self.instance.level.on_hand + data["quantity"] > 1000000):
+            self.add_error("quantity", "This would exceed the stock limit.")
+        if data.get("arrives_on") and data["arrives_on"] < StockForecast.today(self.instance.level):
+            self.add_error("arrives_on", "Choose today for stock already received, or a future date for an expected delivery.")
+        if not self.instance.pk and data.get("submission_key"):
+            if IncomingDelivery.objects.filter(key=data["submission_key"]).exists():
+                raise forms.ValidationError("This delivery was already saved. Reload to view it.")
+            self.instance.key = data["submission_key"]
+        return data
+
+
+class DeliveryActionForm(forms.ModelForm):
+    amount = forms.DecimalField(label="Quantity received now", min_value=Decimal(".001"), max_value=1000000, max_digits=10, decimal_places=3)
+
+    class Meta:
+        model = IncomingDelivery
+        fields = []
+
+    def __init__(self, *args, action, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.action = action
+        if action == "cancel":
+            del self.fields["amount"]
+        else:
+            self.fields["amount"].initial = self.instance.remaining
+
+    def clean(self):
+        data = super().clean()
+        if self.instance.canceled or self.instance.remaining <= 0:
+            raise forms.ValidationError("This delivery is already closed. Reload to see its current status.")
+        amount = data.get("amount")
+        if amount:
+            validate_amount(amount, self.instance.level.material.unit)
+            if amount > self.instance.remaining:
+                self.add_error("amount", "This exceeds the remaining delivery quantity.")
+            if self.instance.level.on_hand + amount > 1000000:
+                self.add_error("amount", "This would exceed the stock limit.")
+        return data
 
 
 class MaterialForm(forms.ModelForm):

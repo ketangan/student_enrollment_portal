@@ -1,5 +1,6 @@
 """Customer catalog variants and raw-material recipes, separate from seat capacity."""
 from decimal import Decimal, InvalidOperation
+import uuid
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -146,3 +147,30 @@ class StockAdjustment(models.Model):
 
     class Meta:
         ordering = ["-created_at", "-pk"]
+
+
+class IncomingDelivery(models.Model):
+    key = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    level = models.ForeignKey(StockLevel, on_delete=models.PROTECT, related_name="deliveries")
+    quantity = models.DecimalField(max_digits=10, decimal_places=3)
+    received = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    arrives_on = models.DateField()
+    canceled = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["arrives_on", "pk"]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(quantity__gt=0, quantity__lte=1000000), name="incoming_quantity_valid"),
+            models.CheckConstraint(condition=models.Q(received__gte=0, received__lte=models.F("quantity")), name="incoming_received_valid"),
+        ]
+
+    @property
+    def remaining(self):
+        return self.quantity - self.received
+
+    def clean(self):
+        if self.level_id and self.quantity is not None:
+            validate_amount(self.quantity, self.level.material.unit)
+            validate_amount(self.received, self.level.material.unit, allow_zero=True)
+            if self.received > self.quantity:
+                raise ValidationError("Expected quantity cannot be less than the amount already received.")

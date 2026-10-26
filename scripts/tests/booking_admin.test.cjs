@@ -10,7 +10,7 @@ const source = fs.readFileSync(filename, 'utf8');
 function element() {
   const classes = new Set();
   return {
-    attrs: {}, listeners: {}, value: '', open: false, focused: false,
+    attrs: {}, dataset: {}, listeners: {}, value: '', open: false, focused: false,
     classList: {toggle(name, on) { if (on) classes.add(name); else classes.delete(name); }, contains: name => classes.has(name)},
     addEventListener(name, fn) { this.listeners[name] = fn; },
     setAttribute(name, value) { this.attrs[name] = value; },
@@ -80,6 +80,19 @@ test('booking rules opens as a modal and closing returns to the selected party',
   close.listeners.click();
   assert.equal(dialog.open, false);
   assert.equal(location.destination, 'http://localhost:8002/parties/?location=15#package-9');
+});
+
+test('stock dialogs close back to their material without changing the location', () => {
+  const dialog = element();
+  const close = element();
+  dialog.dataset.returnUrl = '/bookings/studio/settings/stock/5/#incoming-deliveries';
+  dialog.querySelectorAll = () => [close];
+  dialog.showModal = () => { dialog.open = true; };
+  dialog.close = () => { dialog.open = false; dialog.listeners.close(); };
+  const {location} = page({setupDialog: dialog});
+  close.listeners.click();
+  assert.equal(location.destination, dialog.dataset.returnUrl);
+  assert.equal(dialog.open, false);
 });
 
 test('mobile navigation toggles, closes outside and on resize, and restores focus on Escape', () => {

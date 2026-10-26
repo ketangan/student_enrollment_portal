@@ -87,7 +87,7 @@ def validate(session, data, *, check_stock=True):
     if valid and check_stock:
         from scheduling.inventory import check_selections
         try:
-            check_selections(session.offering, [{"selections": f.snapshot()} for f in participants])
+            check_selections(session.offering, [{"selections": f.snapshot()} for f in participants], starts_at=session.starts_at)
         except ValidationError as exc:
             purchaser.add_error(None, exc)
             valid = False
