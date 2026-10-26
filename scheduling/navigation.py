@@ -22,6 +22,8 @@ def workspace_navigation(context):
     if features["reservations"]:
         reservations.append(link("reservations", "Reservations", "reservations"))
         reservations.append(link("studio_preparation", "Studio Prep", "studio_preparation"))
+    if features["parties"]:
+        reservations.append(link("party_inquiries", "Party inquiries", "parties"))
     if features["visits"]:
         reservations.append(link("visits", "Tours", "visits"))
     if features["lessons"] and context["profile"].lessons_enabled:

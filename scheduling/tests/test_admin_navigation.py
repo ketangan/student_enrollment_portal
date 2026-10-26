@@ -51,7 +51,7 @@ def context(active="overview", enabled=(), owner=True, experience=False, lessons
 def test_plushumi_navigation_has_exact_groups_and_no_request_menu():
     result = workspace_navigation(context("settings", ("workshops", "parties", "camps", "reservations", "integrations"), experience=True))
     assert [(item["label"], [tab["label"] for tab in item["tabs"]]) for item in result["sections"]] == [
-        ("Dashboard", []), ("Reservations", ["Reservations", "Studio Prep"]),
+        ("Dashboard", []), ("Reservations", ["Reservations", "Studio Prep", "Party inquiries"]),
         ("Setup", ["Workshop", "Parties", "Camps", "Catalog", "Materials Inventory"]),
         ("Settings", ["Location & rooms", "Guest communication", "Team Access", "Integrations"])]
     assert result["section"]["label"] == "Setup"
@@ -64,7 +64,7 @@ def test_plushumi_navigation_has_exact_groups_and_no_request_menu():
     ("overview", "Dashboard"), ("reservations", "Reservations"), ("preparation", "Reservations"),
     ("requests", "Reservations"), ("workshops", "Setup"), ("parties", "Setup"), ("camps", "Setup"),
     ("settings", "Setup"), ("locations", "Settings"), ("access", "Settings"), ("integrations", "Settings"),
-    ("guest_communication", "Settings"), ("studio_preparation", "Reservations"),
+    ("guest_communication", "Settings"), ("studio_preparation", "Reservations"), ("party_inquiries", "Reservations"),
     ("visits", "Reservations"), ("lessons", "Reservations"), ("messages", "Reservations"), ("unknown", "Dashboard"),
 ])
 def test_every_page_selects_its_parent_section(active, section):
@@ -93,7 +93,8 @@ def test_optional_tools_and_permission_visibility(owner, enabled, lessons, messa
 @pytest.mark.parametrize("route,section,tab", [
     ("workspace", "Dashboard", None), ("reservations", "Reservations", "Reservations"),
     ("studio_preparation", "Reservations", "Studio Prep"),
-    ("workshops", "Setup", "Workshop"), ("parties", "Setup", "Parties"), ("camps", "Setup", "Camps"),
+    ("workshops", "Setup", "Workshop"), ("parties", "Reservations", "Party inquiries"),
+    ("party_setup", "Setup", "Parties"), ("camps", "Setup", "Camps"),
     ("settings", "Setup", "Materials Inventory"), ("catalogs", "Setup", "Catalog"), ("locations", "Settings", "Location & rooms"),
     ("access", "Settings", "Team Access"), ("integrations", "Settings", "Integrations"),
 ])

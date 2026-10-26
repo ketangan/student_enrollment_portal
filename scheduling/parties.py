@@ -46,8 +46,8 @@ def inquiry_token(offering, browser):
                           "configuration": inquiry_digest(offering)}, salt=TOKEN_SALT)
 
 
-def audit_party(user, profile, item, changes):
-    AdminAuditLog.objects.create(actor=user, action="add" if user is None else "change",
+def audit_party(user, profile, item, changes, *, created=False):
+    AdminAuditLog.objects.create(actor=user, action="add" if created or user is None else "change",
         model_label="scheduling.partyrequest", object_id=str(item.pk), object_repr=str(item.public_id),
         changes=changes, extra={"school_slug": profile.school.slug, "scheduling_profile_id": profile.pk})
 

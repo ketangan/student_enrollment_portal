@@ -130,7 +130,7 @@ def test_payment_return_navigation_requires_workspace_access(inventory, merchant
     assert client.get(detail).status_code == 404
 
 
-def test_approved_party_payment_link_handoff_and_expired_hold(inventory, merchant, booking_member, client, monkeypatch):
+def test_staff_party_payment_link_keeps_space_reserved(inventory, merchant, booking_member, client, monkeypatch):
     source = party_request(inventory)
     client.force_login(booking_member.user)
     create_url = path(booking_member, "reservation_from_party", public_id=source.public_id)
@@ -141,26 +141,24 @@ def test_approved_party_payment_link_handoff_and_expired_hold(inventory, merchan
     share_url = response.context["share_payment_url"]
     assert share_url.startswith("http://testserver/bookings/")
     assert b"Copy payment link" in response.content
-    assert b"24 hours" in response.content
+    assert b"24 hours" not in response.content
+    assert item.state == "confirmed" and item.snapshot["staff_managed"]
     client.logout()
-    assert b"Your time is held until" in client.get(share_url).content
+    assert b"Your time is held until" not in client.get(share_url).content
     assert b"Add or update guest details" not in client.get(share_url).content
     item.hold_until = timezone.now() - timedelta(minutes=1)
     item.save()
-    assert b"The hold has expired" in client.get(share_url).content
-    other = reserve(booking_member, party_request(inventory, start=item.starts_at))
+    assert b"The hold has expired" not in client.get(share_url).content
+    with pytest.raises(ValidationError):
+        reserve(booking_member, party_request(inventory, start=item.starts_at))
     gateway_call = MagicMock(side_effect=session_for)
     monkeypatch.setattr(gateway, "create_order_checkout", gateway_call)
-    assert client.post(share_url).status_code == 400
-    assert not item.order.attempts.exists()
-    assert not gateway_call.called
-    cancel_reservation(booking_member.user, item.profile.school.slug, other.public_id)
     assert client.post(share_url).status_code == 302
     assert client.post(share_url).status_code == 302
     assert item.order.attempts.count() == gateway_call.call_count == 1
     item.refresh_from_db()
-    assert item.state == "held"
-    assert item.hold_until > timezone.now()
+    assert item.state == "confirmed"
+    assert item.hold_until < timezone.now()
 
 
 def test_shared_payment_link_expires_and_wrong_school_cannot_resolve(inventory, merchant, booking_member, client, monkeypatch):

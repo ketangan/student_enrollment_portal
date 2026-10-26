@@ -60,11 +60,15 @@ def inbox(request, school_slug):
 @login_required
 @require_http_methods(["GET", "POST"])
 def detail(request, school_slug, public_id):
-    profile, role = require_access(request.user, school_slug, "setup.edit" if request.method == "POST" else "workspace.view")
+    from .access import get_staff_reservation, require_location_access
+    profile, role = require_location_access(request.user, school_slug, "setup.edit" if request.method == "POST" else "workspace.view")
     message = get_object_or_404(BookingMessage, profile=profile, public_id=public_id)
     if message.reservation_id:
-        require_access(request.user, school_slug, "setup.edit", capability="parties")
+        require_location_access(request.user, school_slug, "setup.edit", capability="parties")
+        scoped, _ = require_location_access(request.user, school_slug, "setup.edit", capability="reservations")
+        get_staff_reservation(scoped, message.reservation.public_id)
     else:
+        require_access(request.user, school_slug, "setup.edit" if request.method == "POST" else "workspace.view")
         messaging.require_preview()
     error = ""
     if request.method == "POST":
@@ -77,6 +81,8 @@ def detail(request, school_slug, public_id):
         else:
             return redirect("scheduling:message_detail", school_slug=school_slug, public_id=public_id)
     context = _context(request, profile, role, "guest_communication" if message.reservation_id else "messages")
+    if message.notice_kind == "payment_request":
+        context = _context(request, profile, role, "reservations")
     from .party_notifications import live_enabled
     context["queue_available"] = message.can_queue and (not message.reservation_id
         or messaging.preview_enabled() and profile.message_preview_enabled

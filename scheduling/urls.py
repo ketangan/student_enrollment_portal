@@ -7,6 +7,7 @@ from . import views_guides
 from . import views_workshop_followup
 from . import views_requests
 from . import views_parties
+from . import views_staff_parties
 from . import views_reservations
 from . import views_preparation
 from . import views_checkout
@@ -30,6 +31,7 @@ from . import views_inventory as inventory
 app_name = "scheduling"
 
 urlpatterns = [
+    path("<slug:school_slug>/parties/new/", views_staff_parties.create, name="staff_party_create"),
     path("<slug:school_slug>/workshop-selections/<str:token>/", views_workshop_followup.selections, name="workshop_selections"),
     path("<slug:school_slug>/preparation/", views_preparation.studio_preparation, name="studio_preparation"),
     path("square/oauth/callback/", views_square_connection.callback, name="square_oauth_callback"),

@@ -40,6 +40,8 @@ def customer_payment(request, school_slug, token):
     else:
         ready = due >= 50
     amounts = service.totals(item.order)
+    from .payment_requests import deposit_received
+    payment_requirement_met = deposit_received(item)
     can_view_reservation = False
     if request.user.is_authenticated and not item.visit_booking_id and has_capability(item.profile, "reservations"):
         try:
@@ -54,10 +56,11 @@ def customer_payment(request, school_slug, token):
                "can_view_reservation": can_view_reservation,
                "balance_due_today": timezone.localdate(timezone=ZoneInfo(item.snapshot["timezone"])) >= timezone.localdate(item.starts_at, ZoneInfo(item.snapshot["timezone"])),
                "deposit_due": bool(item.order.deposit_cents and amounts["net_cents"] < item.order.deposit_cents),
-               "confirmed": item.state in ("confirmed", "completed")}
+               "confirmed": item.state in ("confirmed", "completed"),
+               "payment_requirement_met": payment_requirement_met}
     if item.party_request_id and item.party_request.offering.inventory_catalog_id:
         from .guest_lists import editable, token_for
-        if editable(item):
+        if editable(item) and payment_requirement_met:
             context["guest_list_url"] = reverse("scheduling:guest_list", kwargs={
                 "school_slug": school_slug, "token": token_for(item)})
     context["hold_expired"] = item.state == "held" and item.hold_until <= timezone.now()

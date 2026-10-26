@@ -16,7 +16,9 @@ class PartyInquiryForm(forms.Form):
     organizer_phone = forms.CharField(label="Phone", max_length=40, required=False,
         widget=forms.TextInput(attrs={"type": "tel", "autocomplete": "tel"}))
     starts_at = forms.DateTimeField(label="Preferred date and time", widget=forms.DateTimeInput(format="%Y-%m-%dT%H:%M", attrs={"type": "datetime-local"}))
-    group_size = forms.IntegerField(label="Number of participants", min_value=1, max_value=10000)
+    group_size = forms.IntegerField(label="Number of participants", min_value=1, max_value=10000,
+        widget=forms.NumberInput(attrs={"step": "1", "inputmode": "numeric"}),
+        error_messages={"invalid": "Enter a whole number of participants."})
     space = forms.ChoiceField(label="Space preference", choices=PartyRequest.Space.choices)
     customer_notes = forms.CharField(label="Anything we should know?", max_length=2000, required=False, widget=forms.Textarea(attrs={"rows": 3}))
 
@@ -232,7 +234,10 @@ class PartyReviewForm(forms.ModelForm):
             elif total is not None and deposit > total - Decimal("0.50"):
                 self.add_error("proposed_deposit", "Leave at least $0.50 to pay later, or choose full payment.")
         if (total is None) != (deposit is None):
-            raise forms.ValidationError("Enter both the proposed total and deposit, or leave both empty.")
+            if total is None and "proposed_total" not in self.errors:
+                self.add_error("proposed_total", "Enter the total price for this party.")
+            elif deposit is None and "proposed_deposit" not in self.errors:
+                self.add_error("proposed_deposit", "Enter the deposit amount, or choose full payment.")
         if total is not None and deposit is not None and deposit > total:
             self.add_error("proposed_deposit", "The deposit cannot exceed the total.")
         if data.get("status") == PartyRequest.Status.REVIEWED and self.instance.space in (PartyRequest.Space.EXCLUSIVE, PartyRequest.Space.STUDIO) and not data.get("room"):

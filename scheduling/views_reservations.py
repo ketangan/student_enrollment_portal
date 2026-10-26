@@ -106,17 +106,19 @@ def reservation_create(request, school_slug, kind, public_id):
     if kind == "party":
         form.fields["total"].disabled = form.fields["deposit"].disabled = True
         form.fields["source_revision"].required = True
+        form.fields["confirm"].label = "I approve this quote and reserve the space until staff cancels"
     if request.method == "POST" and form.is_valid():
         try:
             item = create_reservation(request.user, school_slug, kind, public_id,
                 int(form.cleaned_data["total"] * 100), int(form.cleaned_data["deposit"] * 100),
-                source_revision=form.cleaned_data["source_revision"], online=form.cleaned_data["online"])
+                source_revision=form.cleaned_data["source_revision"], online=form.cleaned_data["online"],
+                staff_managed=kind == "party")
         except ValidationError as exc:
             form.add_error(None, exc)
         else:
             return redirect("scheduling:reservation_detail", school_slug=school_slug, public_id=item.public_id)
     context = _context(request, profile, role, "reservations")
-    context.update(form=form, source=source)
+    context.update(form=form, source=source, staff_managed=kind == "party")
     return render(request, "scheduling/reservation_create.html", context, status=400 if request.method == "POST" else 200)
 
 
@@ -161,7 +163,14 @@ def _reservation_page(request, school_slug, public_id, tab="details"):
     elif request.method == "POST":
         require_location_access(request.user, school_slug, "setup.edit", capability="reservations")
         try:
-            if action == "record_terminal":
+            if action == "request_payment":
+                from . import payment_requests
+                notice = payment_requests.send(request.user, school_slug, public_id, request.POST.get("request_token", ""))
+                messages.success(request, "Payment request queued for email delivery." if notice.state in {"queued", "retry", "sending"}
+                    else "Payment request saved for local preview; no customer email sent." if notice.state in {"draft", "simulated"}
+                    else "This payment request has already been processed. Check its delivery status below.")
+                return redirect("scheduling:reservation_detail", school_slug=school_slug, public_id=public_id)
+            elif action == "record_terminal":
                 terminal_payments.record(request.user, school_slug, public_id, request.POST)
             elif action == "void_terminal":
                 try:
@@ -196,6 +205,8 @@ def _reservation_page(request, school_slug, public_id, tab="details"):
         return render(request, "scheduling/reservation_preparation.html", context,
             status=400 if error or (notes_form is not None and notes_form.errors) else 200)
     context.update(amounts=totals(item.order), audit=audit_page(item, request.GET.get("audit_page")))
+    from . import payment_requests
+    context.update(payment_requests.context_for(request.user, item, context["amounts"]))
     if item.order.account_id:
         from .checkout import payment_token
         from django.urls import reverse
