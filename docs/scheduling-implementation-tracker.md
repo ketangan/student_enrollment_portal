@@ -9,6 +9,31 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
+### October 25 Studio Preparation Summary (Local Review)
+
+- Started the remaining instructor day/week visibility work while the inventory
+  release runs through CI. Reservations now has a Studio Prep tab, using the
+  existing location selector and shared reservation participants/material snapshots.
+- Confirmed workshop, party and camp reservations are included; held, review,
+  canceled and completed reservations are excluded. Camp attendance dates appear
+  separately, but the reservation's material allocation is counted only once.
+  Prepared/consumed materials do not inflate the outstanding preparation total.
+- Location roles and school boundaries are enforced through existing access
+  services. Date boundaries use each studio's timezone, including DST. Queries
+  are batched; adding reservations does not add per-reservation queries.
+- This is read-only. Existing reservation prep actions remain authoritative; no
+  changes to payments, inventory counts, customer notifications or Notion sync.
+  Obsolete Notion setup wording was removed from the legacy session prep screen.
+- Verification: 149 preparation/experience/access regression tests, then 156
+  navigation/calendar/guide/preparation checks passed; final focused preparation
+  batch passed 18 tests. New summary/view code has 100% statement/branch coverage.
+  All 85 JavaScript checks passed. Desktop, day/location navigation and mobile
+  layouts (including a 320 CSS-pixel viewport) checked on the existing port 8002.
+- Local review link: `/bookings/plushumi-demo/preparation/`. Select dates with
+  saved confirmed bookings, for example October 24. Printing is wired and covered
+  by the browser-control test; paper/PDF layout acceptance remains to be checked.
+  This work is separate from release PR #8 and is not deployed.
+
 ### October 25 Stock Activity Consolidation (Local)
 
 - Follow-up UX revision: one inline Quantity / Available date / Save form replaces

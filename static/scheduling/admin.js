@@ -1,5 +1,6 @@
 (() => {
   window.lucide?.createIcons();
+  document.getElementById('print-report')?.addEventListener('click', () => window.print());
   document.querySelectorAll('[data-copy-link]').forEach(button => {
     button.addEventListener('click', async () => {
       const status = button.parentElement.querySelector('[data-copy-status]');

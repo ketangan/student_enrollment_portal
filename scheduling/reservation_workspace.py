@@ -75,13 +75,20 @@ def detail_context(request, context, item, tab="details"):
     return context
 
 
-def prep_context(item, profile):
-    allocations = list(item.stock_allocations.select_related("level__material", "level__location"))
+def preparation_materials(item):
+    allocations = getattr(item, "prep_allocations", None)
+    if allocations is None:
+        allocations = list(item.stock_allocations.select_related("level__material", "level__location"))
     frozen = {row["material_id"]: row for row in item.snapshot.get("materials", [])}
     for allocation in allocations:
         snapshot = frozen.get(allocation.level.material_id, {})
         allocation.material_name = snapshot.get("name", allocation.level.material.name)
         allocation.material_unit = snapshot.get("unit", allocation.level.material.unit)
+    return allocations
+
+
+def prep_context(item, profile):
+    allocations = preparation_materials(item)
     party_materials = []
     customer_notes, preparation_notes = "", item.internal_notes
     if item.party_request_id:
