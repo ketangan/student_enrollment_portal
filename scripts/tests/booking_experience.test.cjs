@@ -158,9 +158,9 @@ test('sidebar and header follow studio and chosen time, including cleared select
   assert.equal(p['summary-session'].textContent, 'Choose your date and time');
 });
 
-function choicesPage({customPhoto = false, variantPhoto = ''} = {}) {
+function choicesPage({customPhoto = false, variantPhoto = '', bookingMode = false} = {}) {
   const config = {design_group: 'Design', color_group: 'Color', age_group: 'Age', price: 6500, limit: 8,
-    initial_count: 1, image: '/designs.jpg', tracks_stock: true,
+    initial_count: 1, image: '/designs.jpg', tracks_stock: true, deferred_groups: ['Design', 'Color'],
     options: {Design: [{id: '1', name: 'Bear'}, {id: '2', name: 'Bunny'}],
       Color: [{id: '3', name: 'Blue', swatch: '#abc'}, {id: '4', name: 'Grey', swatch: '#ccc'}]},
     designs: [{name: 'Bear', x: '50%', y: '50%', image_url: customPhoto ? '/bear.jpg' : ''},
@@ -173,6 +173,7 @@ function choicesPage({customPhoto = false, variantPhoto = ''} = {}) {
     'apply-color', 'group-color-status', 'choices-form', 'empty-person'].map(id => [id, element()]));
   nodes['catalog-data'].textContent = JSON.stringify(config);
   const groupColor = element();
+  if (bookingMode) for (const id of ['choose-later', 'choose-now', 'later-count', 'later-count-field']) nodes[id] = element();
   function participant() {
     const p = element();
     const name = element(); name.required = true;
@@ -185,21 +186,24 @@ function choicesPage({customPhoto = false, variantPhoto = ''} = {}) {
     const fields = {Design: dropdown(config.options.Design.map(o => ({value:o.id,textContent:o.name}))),
       Color: dropdown(config.options.Color.map(o => ({value:o.id,textContent:o.name}))),
       Age: dropdown([{value:'8',textContent:'8'},{value:'adult',textContent:'Adult'}])};
-    const labels = Object.entries(fields).map(([field, node]) => ({dataset:{field},querySelector: () => node}));
+    const labels = Object.entries(fields).map(([field, node]) => ({dataset:{field},querySelector: () => node, querySelectorAll: () => [node]}));
     const parts = Object.fromEntries(['.remove-person','.person-number','.visual-picker','.plushie-image','.tint',
       '.selection-label','.designs','.colors'].map(selector => [selector, element()]));
+    parts['[name$="-selections_deferred"]'] = element();
     p.querySelector = selector => selector === 'input[type=text]' ? name : parts[selector];
     p.querySelectorAll = selector => ({'.person-fields label': labels,
       '.design-option': parts['.designs'].children, '.color-option': parts['.colors'].children,
       'input,select': [name, ...Object.values(fields)]}[selector] || []);
     p.remove = () => {nodes['participant-list'].children = nodes['participant-list'].children.filter(row => row !== p);};
     p.name = name; p.fields = fields; p.parts = parts;
+    p.contains = target => target === name || Object.values(fields).includes(target);
     return p;
   }
   nodes['participant-list'].children = [participant()];
   nodes['participant-list'].querySelectorAll = selector => selector === '.participant' ? nodes['participant-list'].children : [];
   nodes['empty-person'].content = {cloneNode: () => participant()};
   const document = {getElementById: id => nodes[id],
+    querySelectorAll: selector => selector === '[name="choose_when"]' && bookingMode ? [nodes['choose-now'], nodes['choose-later']] : [],
     querySelector: selector => selector === '.group-color' ? groupColor : nodes[selector.slice(1)],
     createElement: () => element()};
   vm.runInNewContext(source, {document, window: {}, Intl,
@@ -221,6 +225,74 @@ test('live group summary shows names, age and choices without counting incomplet
   assert.equal(p['group-summary-list'].children[0].children[1].children[1].textContent, 'Age 8 / Bear / Blue');
   change(person.fields.Age, 'adult');
   assert.equal(p['group-summary-list'].children[0].children[1].children[1].textContent, 'Adult / Bear / Blue');
+});
+
+test('deferred participants retain their names and age without requiring or claiming a design', () => {
+  const p = choicesPage(), person = p['participant-list'].children[0];
+  const checkbox = person.parts['[name$="-selections_deferred"]'];
+  person.name.value = 'Alex';
+  change(person.fields.Age, 'adult');
+  person.parts['.designs'].children[0].listeners.click();
+  person.parts['.colors'].children[0].listeners.click();
+  checkbox.checked = true; checkbox.listeners.change();
+  assert.equal(person.parts['.visual-picker'].hidden, true);
+  assert.equal(person.fields.Design.disabled, true);
+  assert.equal(person.fields.Color.required, false);
+  assert.equal(person.name.required, false);
+  assert.equal(person.fields.Age.required, false);
+  assert.equal(p['group-completeness'].textContent, '1 of 1 participants ready');
+  assert.equal(p['group-summary-list'].children[0].children[1].children[1].textContent, 'Choosing at the studio');
+  assert.equal(p['group-summary-list'].children[0].children[0].querySelector('.photo-art').style.backgroundImage, 'none');
+  assert.equal(p['group-summary-list'].children[0].children[0].querySelector('.tint'), undefined);
+  p['add-person'].listeners.click();
+  const second = p['participant-list'].children[1];
+  second.parts['.designs'].children[0].listeners.click();
+  assert.equal(second.parts['.colors'].children[0].disabled, false);
+  checkbox.checked = false; checkbox.listeners.change();
+  assert.equal(person.fields.Color.required, true);
+  assert.equal(person.fields.Design.disabled, false);
+  assert.equal(p['group-completeness'].textContent, '1 of 2 participants ready');
+});
+
+test('deferred participants can leave personal details blank and still count toward the booking', () => {
+  const p = choicesPage(), person = p['participant-list'].children[0];
+  const checkbox = person.parts['[name$="-selections_deferred"]'];
+  checkbox.checked = true; checkbox.listeners.change();
+  assert.equal(p['group-completeness'].textContent, '1 of 1 participants ready');
+  assert.equal(p['group-summary-list'].children[0].children[1].children[0].textContent, 'Participant 1');
+  checkbox.checked = false; checkbox.listeners.change();
+  assert.equal(person.name.required, true);
+  assert.equal(person.fields.Age.required, true);
+  assert.equal(p['group-completeness'].textContent, '0 of 1 participants ready');
+});
+
+test('validation opens the participant containing the invalid field', () => {
+  const p = choicesPage(), first = p['participant-list'].children[0];
+  p['add-person'].listeners.click();
+  const second = p['participant-list'].children[1];
+  assert.equal(first.hidden, true);
+  p['choices-form'].listeners.invalid({target:first.name});
+  assert.equal(first.hidden, false);
+  assert.equal(second.hidden, true);
+  p['choices-form'].listeners.invalid({target:{}});
+  assert.equal(first.hidden, false);
+});
+
+test('one booking choice defers six participants and preserves their place count', () => {
+  const p = choicesPage({bookingMode:true});
+  p['choose-later'].checked = true; p['choose-later'].listeners.change();
+  change(p['later-count'], '6');
+  assert.equal(p['participant-list'].children.length, 6);
+  assert.equal(p['group-completeness'].textContent, '6 participants / Choosing designs later');
+  assert.equal(p['group-summary-list'].hidden, true);
+  assert.equal(p['selection-total'].textContent, '6 participants / $390.00');
+  assert.ok(p['participant-list'].children.every(person => person.hidden && person.parts['[name$="-selections_deferred"]'].checked));
+  p['choose-later'].checked = false; p['choose-now'].listeners.change();
+  assert.equal(p['participant-list'].children.filter(person => !person.hidden).length, 1);
+  assert.ok(p['participant-list'].children.every(person => !person.parts['[name$="-selections_deferred"]'].checked));
+  p['choose-later'].checked = true; p['choose-later'].listeners.change();
+  change(p['later-count'], '2');
+  assert.equal(p['participant-list'].children.length, 2);
 });
 
 test('exact design and color photo replaces the tint in preview and group summary', () => {
@@ -268,8 +340,7 @@ test('group summaries, totals and stock guards stay correct when participants ar
   const second = p['participant-list'].children[1];
   second.parts['.designs'].children[1].listeners.click();
   second.parts['.colors'].children[0].listeners.click();
-  p.group.listeners.click();
-  assert.equal(first.hidden, false); assert.equal(second.hidden, false);
+  assert.equal(first.hidden, true); assert.equal(second.hidden, false);
   assert.equal(p['group-summary-list'].children.length, 2);
   second.parts['.remove-person'].listeners.click();
   assert.equal(p['group-summary-list'].children.length, 1);

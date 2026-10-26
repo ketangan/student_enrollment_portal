@@ -19,15 +19,16 @@ from .views import _context
 class NotificationSettingsForm(forms.ModelForm):
     class Meta:
         model = SchedulingProfile
-        fields = ["party_notifications_enabled"]
-        labels = {"party_notifications_enabled": "Send party confirmations and guest-list reminders"}
+        fields = ["party_notifications_enabled", "workshop_notifications_enabled"]
+        labels = {"party_notifications_enabled": "Send party confirmations and guest-list reminders",
+                  "workshop_notifications_enabled": "Send workshop confirmations"}
 
 
 @never_cache
 @login_required
 @require_http_methods(["GET", "POST"])
 def settings(request, school_slug):
-    profile, role = require_access(request.user, school_slug, "setup.edit", capability="parties")
+    profile, role = require_access(request.user, school_slug, "setup.edit", capability="workshops")
     get_object_or_404(scope_schools(SchedulingProfile.objects.all(), request, "school__"), pk=profile.pk)
     current = profile.design_guides.first()
     notification_action = request.method == "POST" and request.POST.get("action") == "notifications"
@@ -37,11 +38,13 @@ def settings(request, school_slug):
     if notification_action and notification_form.is_valid():
         with transaction.atomic():
             SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
-            require_access(request.user, school_slug, "setup.edit", capability="parties")
+            require_access(request.user, school_slug, "setup.edit", capability="workshops")
             from .setup import _audit
-            before = {"party_notifications_enabled": SchedulingProfile.objects.get(pk=profile.pk).party_notifications_enabled}
-            profile.party_notifications_enabled = notification_form.cleaned_data["party_notifications_enabled"]
-            profile.save(update_fields=["party_notifications_enabled"])
+            previous = SchedulingProfile.objects.get(pk=profile.pk)
+            before = {name: getattr(previous, name) for name in notification_form.fields}
+            for name in notification_form.fields:
+                setattr(profile, name, notification_form.cleaned_data[name])
+            profile.save(update_fields=list(notification_form.fields))
             _audit(request.user, profile, profile, before, "change")
         messages.success(request, "Notification settings saved.")
         return redirect(request.path)
@@ -68,9 +71,9 @@ def settings(request, school_slug):
 def download(request, school_slug, pk=None):
     profile = get_object_or_404(scope_schools(SchedulingProfile.objects.select_related("school"), request, "school__"),
                                school__slug=school_slug, enabled=True)
-    require_capability(profile, "parties")
+    require_capability(profile, "workshops")
     if pk is not None:
-        require_access(request.user, school_slug, "setup.edit", capability="parties")
+        require_access(request.user, school_slug, "setup.edit", capability="workshops")
         guide = get_object_or_404(profile.design_guides, pk=pk)
     else:
         guide = profile.design_guides.first()

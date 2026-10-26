@@ -27,6 +27,7 @@ class SchedulingProfile(models.Model):
     lessons_enabled = models.BooleanField(default=False)
     message_preview_enabled = models.BooleanField(default=False)
     party_notifications_enabled = models.BooleanField(default=False)
+    workshop_notifications_enabled = models.BooleanField(default=False)
     calendar_enabled = models.BooleanField(default=False)
     default_dashboard_view = models.CharField(max_length=8, default="overview",
         choices=[("overview", "Overview"), ("calendar", "Calendar")])
@@ -163,6 +164,7 @@ class Offering(models.Model):
         validators=[MinValueValidator(0)])
     is_published = models.BooleanField(default=False)
     accepts_requests = models.BooleanField(default=False)
+    allow_deferred_selections = models.BooleanField(default=False)
     accepts_party_requests = models.BooleanField(default=False)
     inventory_catalog = models.ForeignKey("InventoryCatalog", null=True, blank=True,
         on_delete=models.PROTECT, related_name="offerings")
@@ -332,6 +334,7 @@ class RequestParticipant(models.Model):
     name = models.CharField(max_length=100)
     position = models.PositiveSmallIntegerField()
     selections = models.JSONField(default=list, editable=False)
+    selections_deferred = models.BooleanField(default=False, editable=False)
 
     class Meta:
         ordering = ["position", "pk"]
@@ -613,6 +616,19 @@ class Reservation(models.Model):
                 return "Held - checkout needs verification"
             return "Hold expired - not reserved"
         return self.get_state_display()
+
+
+class ReservationNote(models.Model):
+    """Append-only staff comments, separate from customer-facing booking snapshots."""
+    reservation = models.ForeignKey(Reservation, on_delete=models.PROTECT, related_name="notes")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    body = models.TextField(max_length=3000)
+    submission_id = models.UUIDField(default=uuid.uuid4)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        constraints = [models.UniqueConstraint(fields=["reservation", "submission_id"], name="reservation_note_submission_unique")]
 
 
 class ReservationOccurrence(models.Model):

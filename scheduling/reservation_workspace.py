@@ -6,23 +6,30 @@ from .calendar import calendar_available
 from .models import PartyRequest
 
 
-def participant_table(participants):
-    columns, rows = {}, []
+def participant_table(participants, catalog=()):
+    columns = {("id", str(group.pk)): group.name for group in catalog if group.tracks_stock}
+    rows = []
     for person in participants:
         selections = {}
         for choice in person.get("selections", []):
             key = ("id", str(choice["group_id"])) if choice.get("group_id") else ("name", choice["group"])
             columns.setdefault(key, choice["group"])
             selections.setdefault(key, []).append(choice["option"])
-        rows.append({"name": person["name"], "choices": selections})
-    return {"columns": list(columns.values()), "rows": [
-        {"name": row["name"], "values": [", ".join(row["choices"].get(key, [])) for key in columns]}
+        if person.get("selections_deferred"):
+            columns.setdefault(("status", "selection"), "Selection status")
+            selections[("status", "selection")] = ["Choosing at the studio"]
+        rows.append({"name": person["name"], "choices": selections, "pending_id": person.get("pending_id")})
+    return {"columns": list(columns.values()), "keys": list(columns), "rows": [
+        {"name": row["name"], "values": [", ".join(row["choices"].get(key,
+            ["Selected"] if key == ("status", "selection") else [])) for key in columns],
+         **({"pending_id": row["pending_id"]} if row["pending_id"] else {})}
         for row in rows]}
 
 
 def participant_context(item):
     if item.workshop_request_id:
-        participants = [{"name": p.name, "selections": p.selections} for p in item.workshop_request.participants.all()]
+        participants = [{"name": p.name, "selections": p.selections, "selections_deferred": p.selections_deferred,
+            "pending_id": p.pk} for p in item.workshop_request.participants.all()]
     elif item.camp_registration_id:
         participants = item.camp_registration.participants
     elif item.party_request_id:
@@ -35,6 +42,42 @@ def participant_context(item):
     return {"participants": participants, "participant_table": participant_table(participants)}
 
 
+def inline_selections(request, context):
+    """Associate each stock field with its existing grid column and external HTML form."""
+    entries = context.get("selection_forms", [])
+    if not entries:
+        return
+    catalog = entries[0]["form"].catalog
+    table = participant_table(context["participants"], catalog)
+    context["participant_table"] = table
+    query = request.GET.copy()
+    query.pop("edit_participant", None)
+    base = request.path + ("?" + query.urlencode() if query else "")
+    context["selection_return_url"] = base + "#participants-title"
+    active = str(request.POST.get("participant_id", "")) if context.get("selection_error") else request.GET.get("edit_participant", "")
+    by_id = {entry["person"].pk: entry for entry in entries}
+    for row in table["rows"]:
+        entry = by_id.get(row.get("pending_id"))
+        row["cells"] = [{"value": value} for value in row["values"]]
+        if not entry:
+            continue
+        query["edit_participant"] = entry["person"].pk
+        row["edit_url"] = request.path + "?" + query.urlencode() + f'#participant-{entry["person"].pk}'
+        if str(entry["person"].pk) != active:
+            continue
+        row["editing"] = True
+        row["error"] = entry.get("error", "")
+        row["form_id"] = f'participant-form-{entry["person"].pk}'
+        context["inline_selection"] = entry
+        entry["form_id"] = row["form_id"]
+        for key, cell in zip(table["keys"], row["cells"]):
+            name = f"choice_{key[1]}"
+            if key[0] == "id" and name in entry["form"].fields:
+                field = entry["form"][name]
+                field.field.widget.attrs["form"] = row["form_id"]
+                cell["field"] = field
+
+
 def detail_context(request, context, item, tab="details"):
     slug = context["business"].slug
     source = item.workshop_request or item.party_request or item.camp_registration
@@ -42,6 +85,14 @@ def detail_context(request, context, item, tab="details"):
         contact_email=getattr(source, "purchaser_email", getattr(source, "organizer_email", "")))
     offering = source.session.offering if item.workshop_request_id else source.camp.offering if item.camp_registration_id else source.offering
     context.update(participant_context(item))
+    if item.workshop_request_id:
+        from . import workshop_selections
+        from .requests import catalog_for
+        people = list(item.workshop_request.participants.all())
+        context["deferred_participants"] = [p for p in people if p.selections_deferred]
+        if people and offering.inventory_catalog_id and context.get("can_edit_sessions") and workshop_selections.editable(item) and not item.stock_allocations.filter(consumed_at__isnull=False).exists():
+            catalog = catalog_for(offering)
+            context["selection_forms"] = [{"person": p, "form": workshop_selections.form_for(p, catalog)} for p in people]
     if item.party_request_id:
         context["party_space_label"] = dict(PartyRequest.Space.choices).get(item.snapshot.get("space"), "")
     if item.party_request_id and offering.inventory_catalog_id:
@@ -92,13 +143,13 @@ def preparation_materials(item):
 def prep_context(item, profile):
     allocations = preparation_materials(item)
     party_materials = []
-    customer_notes, preparation_notes = "", item.internal_notes
+    customer_notes = ""
     if item.party_request_id:
         source = item.party_request
         party_materials = source.materials
-        customer_notes, preparation_notes = source.customer_notes, source.preparation_notes
+        customer_notes = source.customer_notes
     return {**participant_context(item), "party_materials": party_materials,
-        "customer_notes": customer_notes, "preparation_notes": preparation_notes,
+        "customer_notes": customer_notes,
         "allocations": allocations, "materials_used": any(row.consumed_at for row in allocations),
         "materials_remaining": any(not row.consumed_at for row in allocations),
         "preparation_form": preparation.form_for(item, profile), "prep_return": "reservation"}

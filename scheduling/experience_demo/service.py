@@ -66,10 +66,11 @@ def session_rows(profile, *, online=False):
 
 def payload(data, catalog):
     # Only form fields enter the signed review. Browser-supplied prices and actions never do.
-    allowed = {"request_token", "purchaser_name", "purchaser_email", "policy_ack",
+    allowed = {"request_token", "purchaser_name", "purchaser_email", "policy_ack", "choose_when",
                "participants-TOTAL_FORMS", "participants-INITIAL_FORMS"}
     for index in range(21):
         allowed.add(f"participants-{index}-name")
+        allowed.add(f"participants-{index}-selections_deferred")
         allowed.update(f"participants-{index}-choice_{group.pk}" for group in catalog)
     result = QueryDict(mutable=True)
     for key in allowed & data.keys():
@@ -87,7 +88,7 @@ def validate(session, data, *, check_stock=True):
     if valid and check_stock:
         from scheduling.inventory import check_selections
         try:
-            check_selections(session.offering, [{"selections": f.snapshot()} for f in participants], starts_at=session.starts_at)
+            check_selections(session.offering, [f.participant_snapshot() for f in participants], starts_at=session.starts_at)
         except ValidationError as exc:
             purchaser.add_error(None, exc)
             valid = False
@@ -242,7 +243,7 @@ def people(item, config):
         selected_color = selected["color_group"]
         result.append({"name": person.name, "age": selected["age_group"].get("option", ""), "design": design,
             "color": color, "swatch": selected_color.get("swatch") or colors.get(color, "#ffffff"), "photo": design_map.get(design), "id": person.pk,
-            "selections": person.selections})
+            "selections": person.selections, "selections_deferred": person.selections_deferred})
     return selection_previews(result, item.session.offering, config)
 
 

@@ -1,4 +1,6 @@
 <fieldset class="participant"><legend>Participant <span class="person-number">{{ forloop.counter|default:'1' }}</span></legend>
-<div class="person-fields">{% for field in form %}<label data-field="{{ field.label }}">{{ field.label }}{{ field }}{{ field.errors }}</label>{% endfor %}</div>
+{{ form.non_field_errors }}
+{% if form.selections_deferred %}<span hidden>{{ form.selections_deferred }}</span>{% endif %}
+<div class="person-fields">{% for field in form %}{% if field.name != 'selections_deferred' %}<label data-field="{{ field.label }}">{{ field.label }}{{ field }}{{ field.errors }}</label>{% endif %}{% endfor %}</div>
 {% include 'scheduling/catalog_picker.html' %}
 <button class="remove-person quiet" type="button" title="Remove this participant"><i data-lucide="trash-2" aria-hidden="true"></i> Remove participant</button></fieldset>

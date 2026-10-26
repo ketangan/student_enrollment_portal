@@ -81,6 +81,44 @@ def test_customer_footer_returns_to_options_from_every_booking_step(demo, browse
     assert reverse("scheduling:party_start", kwargs={"school_slug": "plushumi-demo"}).encode() in options.content
 
 
+@pytest.mark.parametrize('blank_details', [False, True, 'group'])
+def test_deferred_selection_survives_review_checkout_and_confirmation(demo, browser, blank_details):
+    session = service.sessions(demo).filter(offering__inventory_catalog__isnull=False).first()
+    session.offering.allow_deferred_selections = True
+    session.offering.save()
+    session, data = form_data(browser, demo, count=6 if blank_details == 'group' else 1, session=session)
+    data['participants-0-selections_deferred'] = 'on'
+    for group in requests.catalog_for(session.offering):
+        if group.tracks_stock or blank_details:
+            data.pop(f'participants-0-choice_{group.pk}')
+    if blank_details:
+        data['participants-0-name'] = ''
+    if blank_details == 'group':
+        data['choose_when'] = 'later'
+        for index in range(6):
+            data[f'participants-{index}-name'] = ''
+            for group in requests.catalog_for(session.offering):
+                data.pop(f'participants-{index}-choice_{group.pk}', None)
+    review = browser.post(url('choose', pk=session.pk), data)
+    assert review.status_code == 200 and b'Choosing at the studio' in review.content
+    data.update(action='checkout', review_token=review.context['review_token'])
+    checkout = browser.post(url('choose', pk=session.pk), data)
+    assert checkout.status_code == 302
+    assert browser.post(checkout.url, {'action': 'complete'}).status_code == 302
+    confirmation = browser.get(checkout.url)
+    assert b'Choosing at the studio' in confirmation.content
+    item = WorkshopRequest.objects.get(purchaser_name='Jordan Demo')
+    assert all(p.selections_deferred for p in item.participants.all())
+    if blank_details:
+        assert item.participants.first().name == 'Participant 1'
+        assert item.participants.first().selections == []
+    if blank_details == 'group':
+        assert item.participants.count() == 6
+        assert b'Choose your designs' in confirmation.content
+    assert item.reservation.state == 'confirmed'
+    assert not item.reservation.stock_allocations.exists()
+
+
 def test_pasadena_sample_workshop_is_additive_and_repeatable(demo):
     from scheduling.models import ChoiceOption
     color = Offering.objects.filter(location__profile=demo).exclude(inventory_catalog=None).first().inventory_catalog.choice_groups.get(name="Color")

@@ -2,7 +2,9 @@
 <form method="post" id="choices-form">{% csrf_token %}<input type="hidden" name="request_token" value="{{ request_token }}">{{ participants.management_form }}{{ participants.non_form_errors }}
 {% if purchaser.non_field_errors %}<div class="alert" role="alert">{{ purchaser.non_field_errors }}</div>{% endif %}
 <div class="split selection-layout"><section class="selection-main" aria-label="Participant choices">
-<div class="toolbar"><div class="segmented" role="group" aria-label="Entry layout"><button type="button" id="guided" aria-pressed="true">One at a time</button><button type="button" id="group" aria-pressed="false">Whole group</button></div><button type="button" id="add-person" class="quiet"><i data-lucide="user-plus"></i> Add participant</button></div>
+{% if empty_participant.selections_deferred %}<fieldset class="choice-timing"><legend>When would you like to choose?</legend><label class="check"><input type="radio" name="choose_when" value="now"{% if request.POST.choose_when != 'later' %} checked{% endif %}>Choose designs now</label><label class="check"><input type="radio" id="choose-later" name="choose_when" value="later"{% if request.POST.choose_when == 'later' %} checked{% endif %}>Choose later</label></fieldset>{% endif %}
+<div class="toolbar"><button type="button" id="add-person" class="quiet"><i data-lucide="user-plus"></i> Add participant</button></div>
+<label id="later-count-field" hidden>Participants<input id="later-count" type="number" min="1" max="{{ catalog_data.limit }}" value="{{ catalog_data.initial_count }}"></label>
 <div id="person-tabs" class="person-tabs" role="group" aria-label="Participants"></div><div id="participant-list">{% for form in participants %}{% include 'scheduling/experience/participant.html' %}{% endfor %}</div>
 <template id="empty-person">{% include 'scheduling/experience/participant.html' with form=empty_participant %}</template>
 <div class="group-color"><label>Same color for everyone?<select id="group-color"><option value="">Choose a color</option></select></label><button type="button" id="apply-color" class="quiet">Apply to all</button></div>

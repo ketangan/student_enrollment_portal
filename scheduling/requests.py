@@ -62,7 +62,7 @@ def accepts_reservations(session, catalog):
 
 def catalog_digest(session, catalog):
     state = [session.starts_at.isoformat(), session.ends_at.isoformat(), session.room_id, session.capacity,
-             session.offering.name, session.offering.location.name, session.offering.location.timezone_name,
+             session.offering.name, session.offering.location.name, session.offering.location.timezone_name, session.offering.allow_deferred_selections,
              [(g.pk, g.name, g.reference_image, [(o.pk, o.label, o.swatch, o.image_url) for o in g.active_options]) for g in catalog]]
     if session.offering.inventory_catalog_id:
         state.append([(v.pk, v.is_active, v.option_ids,
@@ -110,7 +110,7 @@ def submit_request(slug, pk, data, browser, *, for_reservation=False):
     if not purchaser_valid or not participants_valid:
         return None, purchaser, participants
     from .inventory import check_selections
-    check_selections(session.offering, [{"selections": form.snapshot()} for form in participants], starts_at=session.starts_at)
+    check_selections(session.offering, [form.participant_snapshot() for form in participants], starts_at=session.starts_at)
     result = WorkshopRequest.objects.create(
         session=session, **purchaser.cleaned_data, submission_key=key, submission_digest=digest, browser_digest=browser,
         session_snapshot={"workshop": session.offering.name, "location": session.offering.location.name,
@@ -118,7 +118,7 @@ def submit_request(slug, pk, data, browser, *, for_reservation=False):
                           "starts_at": session.starts_at.isoformat(), "ends_at": session.ends_at.isoformat()},
     )
     RequestParticipant.objects.bulk_create([RequestParticipant(request=result, name=form.cleaned_data["name"],
-        position=index, selections=form.snapshot()) for index, form in enumerate(participants)])
+        position=index, **form.participant_snapshot()) for index, form in enumerate(participants)])
     AdminAuditLog.objects.create(action="add", model_label="scheduling.workshoprequest", object_id=str(result.pk),
         object_repr=str(result.public_id), changes={"status": {"from": None, "to": "pending"}},
         extra={"school_slug": slug, "scheduling_profile_id": session.offering.location.profile_id})

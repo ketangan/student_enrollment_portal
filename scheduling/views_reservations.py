@@ -19,7 +19,7 @@ from .reservation_queries import ATTENTION, staff_reservations, filter_reservati
 from .reservations import create_reservation, locked_profile
 from .views import _context
 from . import preparation, reservation_notes
-from .reservation_workspace import detail_context, prep_context
+from .reservation_workspace import detail_context, prep_context, inline_selections
 from .reservation_audit import audit_page
 
 
@@ -124,17 +124,40 @@ def reservation_create(request, school_slug, kind, public_id):
 @login_required
 @require_http_methods(["GET", "POST"])
 def reservation_detail(request, school_slug, public_id):
+    return _reservation_page(request, school_slug, public_id)
+
+
+def _reservation_page(request, school_slug, public_id, tab="details"):
     from . import terminal_payments
     profile, role = require_location_access(request.user, school_slug, capability="reservations")
     item = get_staff_reservation(profile, public_id, exclude_visits=True)
     error = ""
     action = request.POST.get("action") if request.method == "POST" else None
+    if tab == "preparation" and request.method == "POST" and action not in {"save_notes", "save_selections"}:
+        return HttpResponseBadRequest("Choose a preparation action.")
     notes_form = None
     if action == "save_notes":
         notes_form = reservation_notes.update(request.user, school_slug, public_id, request.POST)
         if notes_form.is_valid():
-            messages.success(request, "Internal notes saved.")
-            return redirect(request.get_full_path() + "#internal-notes")
+            messages.success(request, "Note added.")
+            query = request.GET.copy()
+            query.pop("notes_page", None)
+            return redirect(request.path + ("?" + query.urlencode() if query else "") + "#internal-notes")
+    elif action == "save_selections":
+        from . import workshop_selections
+        try:
+            participant_id = int(request.POST.get("participant_id", ""))
+        except (ValueError, TypeError):
+            return HttpResponseBadRequest("Choose a participant.")
+        try:
+            workshop_selections.update(request.user, school_slug, public_id, participant_id, request.POST)
+        except ValidationError as exc:
+            error = " ".join(exc.messages)
+        else:
+            messages.success(request, "Participant selections saved.")
+            query = request.GET.copy()
+            query.pop("edit_participant", None)
+            return redirect(request.path + ("?" + query.urlencode() if query else "") + "#participants-title")
     elif request.method == "POST":
         require_location_access(request.user, school_slug, "setup.edit", capability="reservations")
         try:
@@ -154,8 +177,24 @@ def reservation_detail(request, school_slug, public_id):
             messages.success(request, "Terminal payment recorded. No card was charged." if action == "record_terminal"
                 else "Incorrect entry voided. No money was refunded.")
             return redirect("scheduling:reservation_detail", school_slug=school_slug, public_id=public_id)
-    context = detail_context(request, _context(request, profile, role, "reservations"), item)
+    context = detail_context(request, _context(request, profile, role, "reservations"), item, tab)
+    context["selection_error"] = error if action == "save_selections" else ""
+    if context["selection_error"]:
+        from .requests import catalog_for
+        for entry in context.get("selection_forms", []):
+            if entry["person"].pk == participant_id:
+                entry["form"] = workshop_selections.form_for(entry["person"],
+                    catalog_for(item.workshop_request.session.offering), request.POST)
+                entry["error"] = error
     context["notes_form"] = notes_form if notes_form is not None else reservation_notes.form_for(item, profile)
+    context.update(reservation_notes.context_for(item, request.GET.get("notes_page")))
+    context["audit_open"] = "audit_page" in request.GET
+    if tab == "preparation":
+        context.update(prep_context(item, profile))
+    inline_selections(request, context)
+    if tab == "preparation":
+        return render(request, "scheduling/reservation_preparation.html", context,
+            status=400 if error or (notes_form is not None and notes_form.errors) else 200)
     context.update(amounts=totals(item.order), audit=audit_page(item, request.GET.get("audit_page")))
     if item.order.account_id:
         from .checkout import payment_token
@@ -167,7 +206,7 @@ def reservation_detail(request, school_slug, public_id):
         context["checkout_pending"] = item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).exists()
         context["overpaid"] = context["amounts"]["net_cents"] > context["amounts"]["total_cents"]
         context["refunds"] = Refund.objects.filter(attempt__order=item.order, state__in=Refund.ACTIVE).order_by("-created_at")
-    context.update(terminal_error=error,
+    context.update(terminal_error=error if action != "save_selections" else "",
         terminal_form=terminal_payments.TerminalPaymentForm(request.POST if action == "record_terminal" else None,
             initial={"amount": context["amounts"]["outstanding"], "expected_balance": context["amounts"]["outstanding_cents"],
                      "expected_total": context["amounts"]["total_cents"], "paid_on": terminal_payments.studio_today(item)}),
@@ -178,13 +217,9 @@ def reservation_detail(request, school_slug, public_id):
 
 @never_cache
 @login_required
-@require_GET
+@require_http_methods(["GET", "POST"])
 def reservation_preparation(request, school_slug, public_id):
-    profile, role = require_location_access(request.user, school_slug, capability="reservations")
-    item = get_staff_reservation(profile, public_id, exclude_visits=True)
-    context = detail_context(request, _context(request, profile, role, "reservations"), item, "preparation")
-    context.update(prep_context(item, profile))
-    return render(request, "scheduling/reservation_preparation.html", context)
+    return _reservation_page(request, school_slug, public_id, "preparation")
 
 
 @never_cache

@@ -72,6 +72,7 @@ def choice_context(request, session, config, purchaser, participants, policy, ca
         "empty_participant": empty_participant,
         "request_token": request.POST.get("request_token") or requests.request_token(session, catalog, browser),
         "catalog_data": {"options": options, "designs": designs, "colors": config["colors"],
+            "deferred_groups": [g.name for g in catalog if g.tracks_stock],
             "inventory": stock, "tracks_stock": bool(session.offering.inventory_catalog_id),
             "image": config["design_image"], "design_group": config["design_group"],
             "color_group": config["color_group"], "age_group": config["age_group"],
@@ -106,7 +107,7 @@ def choose(request, school_slug, pk):
                 purchaser.add_error(None, exc)
                 valid = False
         if valid and action == "review":
-            rows = [{"name": form.cleaned_data["name"], "selections": form.snapshot()} for form in participants]
+            rows = [{"name": form.cleaned_data["name"], **form.participant_snapshot()} for form in participants]
             service.selection_previews(rows, session.offering, config)
             values = {"session": session, "rows": rows, "purchaser": purchaser.cleaned_data,
                 "fields": [(key, value) for key, values in data.lists() for value in values],
@@ -169,7 +170,10 @@ def booking(request, school_slug, public_id):
         from core.payments.service import totals
         from scheduling.checkout import payment_choices
         amounts = totals(item.reservation.order)
+        from scheduling import workshop_followup, guest_lists
+        followup_token = workshop_followup.token_for(item.reservation) if guest_lists.editable(item.reservation) and item.session.offering.inventory_catalog_id else ""
         return page(request, "booking", profile, config, {"item": item, "people": service.people(item, config),
+            "followup_token": followup_token,
             "total": service.money(amounts["total_cents"]), "error": error, "step": 4,
             "amounts": amounts, "due_now": service.money(amount_due(item.reservation.order)),
             "due_later": service.money(max(0, amounts["outstanding_cents"] - amount_due(item.reservation.order))),

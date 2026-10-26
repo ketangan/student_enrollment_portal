@@ -57,9 +57,9 @@ def replace(user, slug, form):
     stored = None
     try:
         with transaction.atomic():
-            profile, _ = require_access(user, slug, "setup.edit", capability="parties")
+            profile, _ = require_access(user, slug, "setup.edit", capability="workshops")
             SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
-            require_access(user, slug, "setup.edit", capability="parties")
+            require_access(user, slug, "setup.edit", capability="workshops")
             current = profile.design_guides.first()
             if form.cleaned_data["current_version"] != (current.pk if current else 0):
                 raise ValidationError("The guide changed in another window. Reload before replacing it.")

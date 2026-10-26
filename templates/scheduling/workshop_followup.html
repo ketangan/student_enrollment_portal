@@ -1,0 +1,23 @@
+{% extends 'scheduling/party_inquiry.html' %}{% load static tz %}
+{% block title %}Choose your designs{% endblock %}
+{% block public_home %}{{ request.path }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{% static 'scheduling/catalog-picker.css' %}">
+<div class="workshop-followup">
+<h1>Choose your designs</h1>
+<p>{{ item.snapshot.workshop }} &middot; {% timezone item.snapshot.timezone %}{{ item.starts_at|date:"M j, Y, g:i A" }}{% endtimezone %}</p>
+{% if saved %}<p role="status">Selection saved. The studio has your choice.</p>{% endif %}
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+{% if not editable %}<p>Online selections are closed. Please speak with the studio.</p>
+{% else %}
+<nav aria-label="Participants">{% for p in people %}<a href="?participant={{ p.pk }}"{% if p.pk == person.pk %} aria-current="page"{% endif %}>{{ p.name }}{% if not p.selections_deferred %} &check;{% endif %}</a>{% endfor %}</nav>
+{% if person %}<h2>{{ person.name }}</h2><form method="post" novalidate>{% csrf_token %}<input type="hidden" name="participant" value="{{ person.pk }}">
+{{ form.non_field_errors }}<div id="material-rows"><div class="material-row">
+{% for field in form %}{% if field.is_hidden %}{{ field }}{% else %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}
+{% include 'scheduling/catalog_picker.html' %}</div></div>
+<button type="submit">Save selection</button></form>
+<p>You can return to this link for the others or choose at the studio.</p>
+{% else %}<p>All participants have chosen their designs. Select a participant above to make a change.</p>{% endif %}
+{% endif %}</div>
+<style>.workshop-followup{max-width:780px}.workshop-followup nav{display:flex;gap:16px;flex-wrap:wrap;margin:24px 0}.workshop-followup [aria-current]{font-weight:700}.workshop-followup .form-field{max-width:340px;margin:16px 0}.workshop-followup [hidden]{display:none!important}.workshop-followup .visual-picker{margin:24px 0}</style>
+{% endblock %}

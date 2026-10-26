@@ -161,7 +161,7 @@ def test_participant_table_uses_saved_groups_order_and_missing_choices():
     result = participant_table(people)
     assert result["columns"] == ["Design", "Color", "Size", "Color"]
     assert [r["values"] for r in result["rows"]] == [["Cat", "Blue", "", ""], ["", "Pink", "Small", ""], ["", "", "Medium, Large", "Green"], ["", "", "", ""]]
-    assert participant_table([]) == {"columns": [], "rows": []}
+    assert participant_table([]) == {"columns": [], "keys": [], "rows": []}
 
 
 def test_details_and_prep_share_participants_and_summary_without_studio_in_materials(stock):
@@ -171,10 +171,12 @@ def test_details_and_prep_share_participants_and_summary_without_studio_in_mater
     person.name = "<script>unsafe</script>"; person.selections = person.selections[:1]; person.save()
     detail = s.client.get(url(s, "reservation_detail", public_id=item.public_id))
     prep = s.client.get(url(s, "reservation_preparation", public_id=item.public_id))
-    values = {key: detail.context[key] for key in ("item", "contact_email", "reservation_location", "participant_table")}
-    for partial in ("reservation_summary", "reservation_participants"):
-        rendered = render_to_string(f"scheduling/{partial}.html", values).encode()
-        assert rendered in detail.content and rendered in prep.content
+    for page in (detail, prep):
+        values = {key: page.context[key] for key in ("item", "contact_email", "reservation_location", "participant_table", "selection_forms")}
+        for partial in ("reservation_summary", "reservation_participants"):
+            rendered = render_to_string(f"scheduling/{partial}.html", values).encode()
+            assert rendered in page.content
+    assert [row["values"] for row in detail.context["participant_table"]["rows"]] == [row["values"] for row in prep.context["participant_table"]["rows"]]
     assert b'<details class="reservation-section reservation-summary"><summary>' in prep.content
     assert detail.context["participant_table"]["columns"] == ["Design", "Color"]
     assert b"Not selected" in prep.content and b"&lt;script&gt;" in prep.content

@@ -81,11 +81,6 @@ summary{cursor:pointer;font-weight:700}
 .toolbar,.bottom-actions,.heading{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
 .toolbar{font-size:12px}
 .toolbar button{font-size:12px;padding:9px 12px}
-.segmented{display:flex}
-.segmented button{border-radius:0}
-.segmented button:first-child{border-radius:4px 0 0 4px}
-.segmented button:last-child{border-radius:0 4px 4px 0}
-.segmented [aria-pressed=true]{background:#ffedef;border-color:#d47d88}
 .person-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 18px}
 .person-tabs button{font-size:13px;min-width:100px;overflow-wrap:anywhere}
 .person-tabs [aria-pressed=true]{background:#ffe0e4;border-color:#ff8a92;font-weight:700}
@@ -93,7 +88,6 @@ summary{cursor:pointer;font-weight:700}
 .participant legend{padding:0;margin-bottom:14px;font-size:13px;font-weight:700}
 .person-fields{display:grid;grid-template-columns:2fr 1fr;gap:16px}
 .person-fields label{font-size:12px}
-.group-mode .person-fields{grid-template-columns:1.4fr 1fr 1fr .8fr}
 .remove-person{margin-top:20px;font-size:12px}
 .group-person{display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;align-items:center;padding:16px 0;border-bottom:1px solid #eee;overflow-wrap:anywhere}
 .group-person strong,.group-person span.muted{display:block}
@@ -144,7 +138,6 @@ td{overflow-wrap:anywhere}
  main{padding:32px 28px 40px}.split{grid-template-columns:minmax(0,1fr) 260px;gap:28px}
  .summary{padding-left:22px}.session-schedule{grid-template-columns:minmax(220px,1.2fr) minmax(135px,1fr);gap:16px}
  .designs{grid-template-columns:repeat(4,minmax(0,1fr))}.color-preview{grid-template-columns:minmax(0,1fr) 200px;gap:16px}
- .group-mode .person-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(max-width:850px){
  .split{grid-template-columns:minmax(0,1fr);gap:30px}.summary{border-left:0;border-top:1px solid #ddd;padding:24px 0 0}
@@ -165,10 +158,12 @@ td{overflow-wrap:anywhere}
  .workshop-summary{display:block}.workshop-summary .workshop-photo{max-width:330px;margin:0 0 20px}
  .designs{grid-template-columns:repeat(3,minmax(0,1fr))}.color-preview{grid-template-columns:minmax(0,1fr) 168px;gap:12px}
  .color-option{font-size:10px}.colors{grid-template-columns:repeat(auto-fit,48px);gap:8px 4px}.color-option::before{width:27px;height:27px}
- .person-fields{grid-template-columns:2fr 1fr;gap:12px}.group-mode .person-fields{grid-template-columns:1fr 1fr}
+ .person-fields{grid-template-columns:2fr 1fr;gap:12px}
  .toolbar{gap:12px}.person-tabs{gap:6px}.person-tabs button{min-width:90px;font-size:12px}
  .bottom-actions .button{padding:12px 16px}.group-color{flex-wrap:wrap}
  .confirmation-layout{grid-template-columns:1fr;gap:20px}.confirmation-heading{text-align:left}.confirmation-icon{margin-left:0}
  .confirmation-heading .success{justify-content:flex-start}footer{flex-direction:column;gap:8px}footer nav{flex-wrap:wrap}
 }
 @media print{.demo-bar,.brandbar,.steps,.assumptions,footer{display:none}main{max-width:none}.table-wrap{overflow:visible}body{font-size:11px}.boundary{background:white}}
+.choice-timing {border:0;padding:0;margin:0 0 24px}.choice-timing legend{font-weight:600;margin-bottom:12px}.choice-timing .check{margin:10px 0}
+.choice-timing input[type=radio]{width:18px;height:18px;min-height:18px;flex:0 0 18px;margin:0 10px 0 0;padding:0}#later-count-field{max-width:160px}

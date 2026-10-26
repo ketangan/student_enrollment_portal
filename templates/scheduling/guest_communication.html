@@ -14,10 +14,11 @@
 <div class="table-wrap" role="region" aria-label="Guide upload history" tabindex="0"><table><thead><tr><th>File</th><th>Uploaded</th><th>By</th></tr></thead><tbody>
 {% for guide in guide_versions %}<tr><td><a href="{% url 'scheduling:design_guide_version' school_slug=business.slug pk=guide.pk %}">{{ guide.original_name }}</a></td><td>{{ guide.created_at|date:"M j, Y, g:i A" }}</td><td>{{ guide.uploaded_by|default:'-' }}</td></tr>{% endfor %}
 </tbody></table></div>{% endif %}
-<section class="location-section"><h2>Party notifications</h2>
+<section class="location-section"><h2>Booking notifications</h2>
 <form method="post">{% csrf_token %}<input type="hidden" name="action" value="notifications">
 {{ notification_form.non_field_errors }}
 <label style="display:flex;align-items:center;gap:10px;margin:16px 0">{{ notification_form.party_notifications_enabled }} {{ notification_form.party_notifications_enabled.label }}</label>
+<label style="display:flex;align-items:center;gap:10px;margin:16px 0">{{ notification_form.workshop_notifications_enabled }} {{ notification_form.workshop_notifications_enabled.label }}</label>
 <p class="muted">Applies to confirmed upcoming parties. Reminders stop once guest selections are submitted.</p>
 {% if not live_delivery %}<p class="muted">External delivery is disabled for this environment or has not been activated by Pontora.</p>{% endif %}
 <button type="submit" class="primary">Save notifications</button></form></section>
