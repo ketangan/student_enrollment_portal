@@ -11,6 +11,8 @@ from pypdf import PdfReader
 from .access import require_access
 from .models import DesignGuide, SchedulingProfile
 
+MAX_GUIDE_BYTES = 5 * 1024 * 1024
+
 
 def uploads_enabled():
     return settings.DEBUG or settings.BOOKINGS_GUIDE_STORAGE_READY
@@ -25,7 +27,7 @@ class GuideForm(forms.Form):
         upload = self.cleaned_data["file"]
         if not uploads_enabled():
             raise ValidationError("Upload storage has not been enabled. Contact Pontora.")
-        if Path(upload.name).suffix.lower() != ".pdf" or not 0 < upload.size <= 5 * 1024 * 1024:
+        if Path(upload.name).suffix.lower() != ".pdf" or not 0 < upload.size <= MAX_GUIDE_BYTES:
             raise ValidationError("Choose a PDF no larger than 5 MB.")
         try:
             reader = PdfReader(upload, strict=True)

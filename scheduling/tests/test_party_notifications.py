@@ -91,6 +91,127 @@ def test_confirmation_idempotent_and_locally_delivered(stock, booking, mailoutbo
     assert messaging.process_batch(stock.profile.pk) == 0
 
 
+@pytest.fixture
+def guide(stock, settings, tmp_path):
+    from scheduling.tests.test_guides import upload
+    settings.MEDIA_ROOT = tmp_path
+    settings.BOOKINGS_GUIDE_STORAGE_READY = True
+    return upload(stock)
+
+
+@pytest.mark.parametrize("live", [False, True])
+def test_current_guide_attached_to_confirmation_and_reminder(
+        stock, booking, guide, settings, monkeypatch, mailoutbox, live):
+    from unittest.mock import patch
+    from scheduling.tests.test_guides import upload
+    capture(booking)
+    newer = upload(stock, guide.pk, "Replacement before delivery")
+    with newer.file.open("rb") as source:
+        expected = source.read()
+    sent = mailoutbox
+    if live:
+        booking.order.environment = "live"
+        booking.order.save()
+        settings.DEBUG = False
+        settings.BOOKINGS_PARTY_EMAIL_ENABLED = True
+        class Transport:
+            def send_messages(self, messages):
+                sent.extend(messages)
+                return 1
+        monkeypatch.setattr(notices, "get_school_email_connection", lambda *args: Transport())
+    process = notices.process if live else messaging.process_batch
+    with patch("django.utils.timezone.now", return_value=notices.guest_lists.due_at(booking) + timedelta(minutes=1)):
+        capture(booking)
+        assert process(stock.profile.pk) == 2
+        assert process(stock.profile.pk) == 0
+    assert len(sent) == 2
+    for email in sent:
+        assert email.attachments == [(newer.original_name, expected, "application/pdf")]
+        assert "/design-guide/" in email.body
+        assert email.message().is_multipart()
+
+
+@pytest.mark.parametrize("live", [False, True])
+@pytest.mark.parametrize("failure", ["missing", "corrupt", "oversized"])
+def test_guide_failure_retries_without_sending_and_uses_replacement(
+        stock, booking, guide, settings, monkeypatch, mailoutbox, live, failure):
+    from django.core.files.base import ContentFile
+    from scheduling.tests.test_guides import upload
+    from scheduling.models import DesignGuide
+    message = capture(booking)
+    if failure == "missing":
+        guide.file.storage.delete(guide.file.name)
+    else:
+        data = b"corrupt" if failure == "corrupt" else b"x" * (notices.MAX_GUIDE_BYTES + 1)
+        guide.file.save("broken.pdf", ContentFile(data))
+    sent = mailoutbox
+    if live:
+        booking.order.environment = "live"
+        booking.order.save()
+        settings.DEBUG = False
+        settings.BOOKINGS_PARTY_EMAIL_ENABLED = True
+        class Transport:
+            def send_messages(self, messages):
+                sent.extend(messages)
+                return 1
+        monkeypatch.setattr(notices, "get_school_email_connection", lambda *args: Transport())
+    process = notices.process if live else messaging.process_batch
+    assert process(stock.profile.pk) == 1
+    assert not sent
+    message.refresh_from_db()
+    assert message.state == "retry"
+    assert process(stock.profile.pk) == 0
+    replacement = upload(stock, guide.pk, "Recovered guide")
+    message.next_attempt_at = timezone.now()
+    message.save()
+    assert process(stock.profile.pk) == 1
+    assert len(sent) == 1
+    with replacement.file.open("rb") as source:
+        assert sent[0].attachments[0].content == source.read()
+    assert DesignGuide.objects.count() == 2
+
+
+def test_other_school_guide_never_attached(stock, booking, guide, mailoutbox):
+    from core.models import School
+    from scheduling.models import SchedulingProfile
+    other = SchedulingProfile.objects.create(school=School.objects.create(slug="guide-other-school"))
+    guide.profile = other
+    guide.save()
+    capture(booking)
+    assert messaging.process_batch(stock.profile.pk) == 1
+    assert mailoutbox[0].attachments == []
+
+
+def test_non_party_message_does_not_read_guide(stock, guide, monkeypatch):
+    from django.core.mail import EmailMessage
+    message = messaging.capture(stock.profile, event_key="non-party", group_key="non-party",
+        recipient="synthetic@example.invalid", subject="Other notification", body="Other")
+    monkeypatch.setattr(notices.DesignGuide.objects, "filter", lambda **kwargs: pytest.fail("Guide queried"))
+    email = EmailMessage()
+    notices.attach_guide(email, message)
+    assert not email.attachments
+
+
+def test_attachment_send_timeout_is_not_automatically_retried(
+        stock, booking, guide, settings, monkeypatch):
+    capture(booking)
+    booking.order.environment = "live"
+    booking.order.save()
+    settings.DEBUG = False
+    settings.BOOKINGS_PARTY_EMAIL_ENABLED = True
+    sent = []
+    class Transport:
+        def send_messages(self, messages):
+            sent.extend(messages)
+            raise TimeoutError
+    monkeypatch.setattr(notices, "get_school_email_connection", lambda *args: Transport())
+    assert notices.process(stock.profile.pk) == 1
+    assert notices.process(stock.profile.pk) == 0
+    assert BookingMessage.objects.get().state == "uncertain"
+    assert len(sent) == 1
+    assert len(sent[0].attachments) == 1
+
+
 def test_reminder_once_at_deadline(stock, booking, mailoutbox):
     first = capture(booking)
     # Keep the schedule/signature unchanged and advance the worker clock.
