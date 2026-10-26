@@ -9,6 +9,21 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
+### October 25 Studio Prep Release
+
+- User accepted the local Studio Prep view and its three additional local sample
+  reservations. PR #9 passed full GitHub CI in 19m10s and merged as `8ccb414`.
+- Render reports deploy succeeded and service live; the hosted demo health check
+  returned OK. Local main was fast-forwarded to the same commit before beginning
+  separate test-runtime work. The Local Review section below is historical.
+- CI profiling found repeated historical model reconstruction in migration tests.
+  The runtime work retains every existing assertion and the full-history tests,
+  but checks each feature's rollback at that migration boundary before upgrading
+  its preserved records to the latest schema. Timings are now printed by pytest.
+  Same-machine comparison: all 14 migration tests passed before and after;
+  runtime fell from 260.21s to 162.61s (37.5%). Full CI improvement remains
+  unverified until the release check finishes. No assertions or tests removed.
+
 ### October 25 Release Verification
 
 - PR #8 merged to main as `40e3124`. Render reports Deploy succeeded / Live;
