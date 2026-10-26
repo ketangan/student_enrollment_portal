@@ -9,6 +9,22 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
+### October 25 Release Verification
+
+- PR #8 merged to main as `40e3124`. Render reports Deploy succeeded / Live;
+  scheduling migration 0040 applied successfully. Both app and demo health checks
+  returned OK after deployment.
+- The scheduled maintenance job deployed the same commit and completed its
+  scheduled October 25, 8:55 PM PDT run successfully.
+- Release CI: 4,611 Python tests passed, 3 skipped; 84 JavaScript tests passed;
+  coverage 98.45%, including all per-module gates. GitHub run 40264102458 succeeded.
+- CI speed remains unresolved: this run took 24 minutes 2 seconds, including
+  22 minutes 44 seconds for Python tests. Repeated migration tests are the
+  identified optimization target; no speed improvement is claimed.
+- The incoming-inventory and Stock Activity notes below are historical local
+  implementation records; those changes and PDF email attachments are now released.
+  Studio Prep remains on a separate local branch and is not deployed.
+
 ### October 25 Studio Preparation Summary (Local Review)
 
 - Started the remaining instructor day/week visibility work while the inventory
