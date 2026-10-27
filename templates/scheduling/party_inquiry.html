@@ -1,5 +1,5 @@
 {% extends 'scheduling/public_base.html' %}
-{% load static %}
+{% load static booking_policies %}
 {% block title %}Party inquiry{% endblock %}
 {% block public_home %}{% url 'scheduling:party_start' school_slug=business.slug %}{% endblock %}
 {% block content %}
@@ -50,6 +50,7 @@
 {% include 'scheduling/party_materials.html' %}
 </div>
 <p class="muted" id="party-next-step">Subject to availability and staff confirmation.</p>
+{% booking_policy business 'party' %}
 <button class="primary" type="submit" id="party-submit">Send party request</button>
 </fieldset>
 </form>

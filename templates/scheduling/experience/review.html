@@ -1,4 +1,5 @@
-{% extends 'scheduling/experience/base.html' %}{% block content %}
+{% extends 'scheduling/experience/base.html' %}{% load booking_policies %}{% block content %}
+{% booking_policy business 'workshop' %}
 <h1>One last look before the fun.</h1><p class="lead">Check your workshop and everyone's selections.</p>
 <div class="split"><section><h2>Your plushie crew</h2>
 {% for person in rows %}<article class="review-person">{% include 'scheduling/experience/selection_thumbnail.html' %}<div><h3>{{ person.name }}</h3>{% if person.selections_deferred %}<p>Choosing at the studio</p>{% endif %}<div class="selections">{% for selection in person.selections %}<span>{{ selection.group }}: <strong>{{ selection.option }}</strong></span>{% endfor %}</div></div></article>{% endfor %}

@@ -14,6 +14,7 @@ from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 
 from scheduling import requests, reservations
+from scheduling.booking_policies import notice
 from scheduling.models import Reservation, SchedulingMembership, SchedulingProfile, Session, WorkshopRequest
 from scheduling.integrations.payloads import BookingSnapshot, Participant, NotionDestination
 from scheduling.request_forms import request_forms
@@ -99,7 +100,8 @@ def review_token(session, data, catalog, browser, config):
     return signing.dumps({"session": session.pk, "browser": browser,
         "digest": requests.submission_digest(payload(data, catalog)), "price": config["price_cents"],
         "deposit": str(session.offering.deposit_per_participant),
-        "policy": config["policy_revision"], "stripe_checkout": bool(config.get("stripe_checkout")),
+        "policy": config["policy_revision"], "published_policy": notice(session.offering.location.profile.school, "workshop"),
+        "stripe_checkout": bool(config.get("stripe_checkout")),
         "payment_provider": config.get("payment_provider", "stripe")}, salt=REVIEW_SALT)
 
 
@@ -127,6 +129,7 @@ def begin(profile, session, data, browser, config):
         if (token["session"] != session.pk or not browser or not constant_time_compare(token["browser"], browser)
                 or token["digest"] != requests.submission_digest(body)
                 or token["price"] != config["price_cents"] or token["policy"] != config["policy_revision"]
+                or token.get("published_policy", {}) != notice(profile.school, "workshop")
                 or token.get("deposit") != str(session.offering.deposit_per_participant)
                 or token.get("stripe_checkout", False) != bool(config.get("stripe_checkout"))
                 or token.get("payment_provider", "stripe") != profile.payment_provider):
@@ -140,6 +143,7 @@ def begin(profile, session, data, browser, config):
         raise ValidationError("Some participant details are incomplete. Return to your selections.")
     if "experience_demo" not in item.session_snapshot:
         item.session_snapshot["experience_demo"] = {"policy": config["policy_revision"],
+            "published_policy": notice(profile.school, "workshop"),
             "reviewed_at": timezone.now().isoformat(), "price_cents": config["price_cents"]}
         item.save(update_fields=["session_snapshot"])
     total, deposit = reservations.workshop_quote(session.offering, config["price_cents"], item.participants.count())

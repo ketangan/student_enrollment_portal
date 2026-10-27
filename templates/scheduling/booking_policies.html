@@ -1,0 +1,4 @@
+{% if policy_notice %}<div class="booking-policy" style="margin:24px 0">
+{% if policy_notice.text %}<p>{{ policy_notice.text }}</p>{% endif %}
+<p><a href="{{ policy_notice.source_url }}" target="_blank" rel="noopener noreferrer">Booking and cancellation policy</a></p>
+</div>{% endif %}

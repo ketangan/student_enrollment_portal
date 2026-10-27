@@ -281,6 +281,7 @@ test('validation opens the participant containing the invalid field', () => {
 test('one booking choice defers six participants and preserves their place count', () => {
   const p = choicesPage({bookingMode:true});
   p['choose-later'].checked = true; p['choose-later'].listeners.change();
+  assert.equal(p['group-completeness'].textContent, '1 participant / Choosing designs later');
   change(p['later-count'], '6');
   assert.equal(p['participant-list'].children.length, 6);
   assert.equal(p['group-completeness'].textContent, '6 participants / Choosing designs later');

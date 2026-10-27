@@ -167,7 +167,7 @@
       const status = $('#group-completeness'); status.textContent = `${complete} of ${persons().length} participants ready`;
       const later = Boolean($('#choose-later')?.checked);
       $('#group-summary-list').hidden = later;
-      if (later) status.textContent = `${persons().length} participants / Choosing designs later`;
+      if (later) status.textContent = `${persons().length} ${persons().length === 1 ? 'participant' : 'participants'} / Choosing designs later`;
       status.classList.toggle('all-ready', complete === persons().length);
     };
     const setup = person => {
