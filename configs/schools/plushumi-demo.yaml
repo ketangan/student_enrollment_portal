@@ -3,10 +3,13 @@ school:
   display_name: The Plushie Workshop
 scheduling:
   guest_list_deadline_days: 7
-  # Placeholders only; not consumed by booking flows. Await approved wording.
+  # Published excerpts checked 2026-10-26. Unresolved terms remain unset.
   booking_policies:
+    revision: website-2026-10-26
     source_url: https://www.theplushieworkshop.com/booking-and-cancellation-policy
-    workshop_text: null
-    party_text: null
+    workshop_text: Only participants with reserved seats are permitted in the workshop space.
+    party_text: All party/event deposits are final and non-refundable.
+    # Privacy page still names Wix Payments; its Terms link leads to that same page.
+    privacy_url: null
     acknowledgment_text: null
     waiver_document: null

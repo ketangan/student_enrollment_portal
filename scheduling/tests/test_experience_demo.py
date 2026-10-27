@@ -58,6 +58,26 @@ def form_data(browser, demo, count=2, session=None):
     return session, data
 
 
+def test_policy_snapshot_and_stale_review(demo, browser, monkeypatch):
+    from scheduling import booking_policies
+    session, data = form_data(browser, demo, count=1)
+    review = browser.post(url("choose", pk=session.pk), data)
+    data.update(action="checkout", review_token=review.context["review_token"])
+    original = booking_policies.notice(demo.school, "workshop")
+    monkeypatch.setattr(service, "notice", lambda *args: {**original, "text": "Changed policy"})
+    response = browser.post(url("choose", pk=session.pk), data)
+    assert response.status_code == 400
+    assert not WorkshopRequest.objects.exists()
+    monkeypatch.setattr(service, "notice", booking_policies.notice)
+    response = browser.post(url("choose", pk=session.pk), data)
+    assert response.status_code == 302
+    item = WorkshopRequest.objects.get()
+    assert item.session_snapshot["experience_demo"]["published_policy"] == original
+    monkeypatch.setattr(service, "notice", lambda *args: {**original, "text": "Later policy"})
+    item.refresh_from_db()
+    assert item.session_snapshot["experience_demo"]["published_policy"] == original
+
+
 def test_customer_footer_returns_to_options_from_every_booking_step(demo, browser):
     start = browser.get(url("start"))
     session, data = form_data(browser, demo, count=1)

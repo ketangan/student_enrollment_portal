@@ -1,5 +1,5 @@
 {% extends 'scheduling/public_base.html' %}
-{% load static tz %}
+{% load static tz booking_policies %}
 {% block title %}Reservation payment{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{% static 'scheduling/square_checkout.css' %}">
@@ -21,6 +21,7 @@
 {% if amounts.refunded_cents %}<div><dt>Refunded</dt><dd>${{ amounts.refunded|floatformat:2 }}</dd></div>{% endif %}
 <div><dt>Balance remaining</dt><dd>${{ amounts.outstanding|floatformat:2 }}</dd></div></dl>
 {% if ready %}
+{% if item.party_request_id %}{% booking_policy business 'party' %}{% elif item.workshop_request_id %}{% booking_policy business 'workshop' %}{% endif %}
 {% if confirmed and amounts.net_cents > 0 and payment_requirement_met %}<p class="muted">{% if balance_due_today %}Your remaining balance is due. Your reservation is confirmed.{% else %}Paying the remaining balance now is optional. Your reservation is already confirmed. The balance is due on {% timezone item.snapshot.timezone %}{{ item.starts_at|date:"M j, Y" }}{% endtimezone %}.{% endif %}</p>{% endif %}
 <form method="post">{% csrf_token %}{% include 'scheduling/payment_choice.html' %}<button class="{% if confirmed and amounts.net_cents > 0 %}secondary{% else %}primary{% endif %}" type="submit">{% if payment_has_choice or payment_active_amount %}Continue to payment{% else %}{% if deposit_due %}Pay deposit{% elif amounts.net_cents > 0 %}Pay remaining balance{% else %}Pay total{% endif %}: ${{ due|floatformat:2 }}{% endif %}</button></form>
 {% elif amounts.outstanding_cents > 0 and item.state != 'canceled' and item.state != 'review' %}<p class="notice">Online payment is unavailable. Please contact the studio about the remaining balance.</p>{% endif %}

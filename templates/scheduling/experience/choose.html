@@ -1,4 +1,4 @@
-{% extends 'scheduling/experience/base.html' %}{% block content %}<h1>A plushie for every personality.</h1><p class="lead">Choose a design and color for each participant.</p>
+{% extends 'scheduling/experience/base.html' %}{% load booking_policies %}{% block content %}<h1>A plushie for every personality.</h1><p class="lead">Choose a design and color for each participant.</p>
 <form method="post" id="choices-form">{% csrf_token %}<input type="hidden" name="request_token" value="{{ request_token }}">{{ participants.management_form }}{{ participants.non_form_errors }}
 {% if purchaser.non_field_errors %}<div class="alert" role="alert">{{ purchaser.non_field_errors }}</div>{% endif %}
 <div class="split selection-layout"><section class="selection-main" aria-label="Participant choices">
@@ -10,7 +10,7 @@
 <div class="group-color"><label>Same color for everyone?<select id="group-color"><option value="">Choose a color</option></select></label><button type="button" id="apply-color" class="quiet">Apply to all</button></div>
 <p id="group-color-status" role="status"></p>
 <section class="contact"><h2>Your booking details</h2><div class="fields">{% for field in purchaser %}<label>{{ field.label }}{{ field }}{{ field.errors }}</label>{% endfor %}</div>
-<details><summary>Workshop &amp; cancellation information</summary><p>Contact the studio for cancellation, refund, and supervision requirements.</p></details><label class="check">{{ policy.policy_ack }}{{ policy.policy_ack.label }}</label>{{ policy.errors }}</section>
+{% booking_policy business 'workshop' %}<label class="check">{{ policy.policy_ack }}{{ policy.policy_ack.label }}</label>{{ policy.errors }}</section>
 <div class="bottom-actions"><a href="{% url 'scheduling:experience_start' school_slug=business.slug %}">Change workshop</a><button name="action" value="review" class="button">Review booking <i data-lucide="arrow-right" aria-hidden="true"></i></button></div></section>
 <aside class="summary group-summary"><h2>Your group</h2><p class="tiny muted">{{ session.offering.name }}<br>{{ session.offering.location.name }} &middot; {{ session.starts_at|date:'M j' }} &middot; {{ session.starts_at|date:'g:i A' }}</p><div id="group-summary-list"></div><p id="group-completeness" class="selection-completeness" role="status"></p><div class="total"><strong id="selection-total"></strong></div><p class="tiny muted">Any applicable tax is calculated at checkout.</p></aside></div></form>
 {{ catalog_data|json_script:'catalog-data' }}{% endblock %}

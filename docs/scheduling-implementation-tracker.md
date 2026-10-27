@@ -9,6 +9,49 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
+### October 26 Booking Journey Release Audit
+
+- Reviewed workshop, direct-party and staff-arranged booking paths against the
+  existing reservation, payment-request, guest-list, inventory and access services.
+  No separate workflow or new reminder scope was introduced.
+- Full local regression: 4,757 passed, three skipped in 7m53s. All 89 JavaScript
+  tests passed (99.30% lines, 97.14% branches, 98.62% functions). Fixed and covered
+  the singular participant label when choosing designs later. Migration drift and
+  whitespace checks passed; the existing duplicate Jazzmin tag warning remains.
+- Hosted demo logins verified for the existing all-location owner and the new
+  Pasadena-only scheduler. The new account has no enrollment membership or
+  privileged Django role; a foreign-location reservation is denied. Credentials
+  are shared in the meeting document at Ketan's explicit request, not stored here.
+- Release checks do not replace Jasmine's policy approval, real location setup,
+  live Square checks or Wix cutover decisions. No real customer payment was made.
+
+### October 26 Published Booking Policies (Local)
+
+- Connected the existing school YAML policy placeholders to one shared customer
+  notice on workshop choice/review/request, party inquiry and reservation payment
+  pages. Short published excerpts link to the full booking/cancellation policy in
+  a new tab. Workshop participation wording is not applied to party observers.
+- Existing workshop acknowledgement now saves the displayed excerpt, source URL
+  and revision with its existing timestamp. A changed published notice invalidates
+  an old checkout review, and later config changes do not rewrite the saved record.
+  Party/payment notices are informational: no new consent checkbox, waiver signing,
+  automatic refund/cancellation, minimum-age enforcement or pricing rule was added.
+- Source: https://www.theplushieworkshop.com/booking-and-cancellation-policy
+  and https://www.theplushieworkshop.com/faq (reviewed October 26).
+  Special Anime Expo terms are not general workshop terms. Full policies remain
+  linked rather than copied wholesale or rewritten. No fabricated legal wording.
+- Implementation is ready for clarification/acceptance, not approved legal content
+  or live-launch signoff. Privacy, separate terms and waiver placeholders remain
+  unresolved as detailed in Wednesday's questions. No production data changed.
+- Event reminders are deferred: not an agreed launch requirement. Reporting awaits
+  actual customer examples. Additional unagreed capabilities need separate scope
+  and pricing approval; defects in agreed workflows remain release responsibilities.
+- Verification: 174 affected tests passed, including cross-school notice isolation,
+  workshop/party separation, unsafe-link rejection, HTML escaping, stale-review
+  rejection and preservation of the saved excerpt/revision. Workshop form checked
+  visually at desktop and phone widths on the existing localhost:8002 service.
+  No full-suite or production deployment is claimed for this local content slice.
+
 ### October 26 Release Approval and Wednesday Questions
 
 - Ketan approved pushing the staff-party/payment-request changes after email copy
@@ -1801,9 +1844,8 @@ PDF attachments implemented, and all studios use one Square account with Termina
 1. **Reports:** Which Wix reports/exports does the team actually use, and which are
    essential at launch? Ask her to show examples, columns, filters and who uses them.
    Do not build reports until this is agreed.
-2. **Customer communications and payment follow-up:** Does she want event reminders
-   in addition to confirmations and guest-selection reminders? For which bookings,
-   and when? Are emailed checkout links enough for custom bookings, or are formal
+2. **Customer communications and payment follow-up:** Are emailed checkout links
+   enough for custom bookings, or are formal
    Square invoices required? Should unpaid staff bookings remain reserved until
    manual cancellation (current behavior), or have a payment deadline?
 3. **Policies and customer changes:** Obtain approved cancellation/refund,
@@ -1811,6 +1853,21 @@ PDF attachments implemented, and all studios use one Square account with Termina
    guest-selection cutoffs/late edits and whether customers need to change event
    dates or group sizes themselves, rather than contacting staff. Confirm waiver
    needs without inventing terms or a signing workflow.
+   Website review October 26 adds these specific clarifications:
+   - Confirm the latest deposit schedule: the website distinguishes standard party
+     and private-studio deposits; October 20 package settings supersede the older
+     per-six-person email. Do not revert those settings based on the older email.
+   - Confirm design-change timing (FAQ: three days) versus general booking changes
+     (policy: seven days), and how that relates to the seven-day guest-list deadline
+     and current online selection editing. No new automatic cutoff is implemented.
+   - Supply the actual waiver and confirm who collects it, including guardians.
+     A policy acknowledgement is not a signed liability waiver.
+   - The Privacy Policy (updated August 22, 2024) still says payment data is stored
+     by Wix Payments. Ask for an approved update covering the launch providers.
+     The site's Terms & Conditions footer links to that same privacy page: is
+     there a separate terms document? Do not relabel privacy as booking terms.
+   - Confirm party observer/food/private-space exceptions and whether the published
+     workshop minimum age applies to parties. Keep special-event exceptions scoped.
 4. **Location setup and inventory:** Validate actual prices/tax/deposits, durations,
    capacity/overlap and extra-participant rules using her location settings. Check
    real material recipes/counts and replenishment workflow. Does the incoming date
