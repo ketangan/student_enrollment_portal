@@ -4,6 +4,7 @@ from core import views_school_dashboard as shared_billing
 from . import views
 from . import views_calendar
 from . import views_guides
+from . import email_settings
 from . import views_workshop_followup
 from . import views_requests
 from . import views_parties
@@ -38,6 +39,9 @@ urlpatterns = [
     path("square/oauth/callback/", views_square_connection.callback, name="square_oauth_callback"),
     path("<slug:school_slug>/integrations/square/update/", views_square_connection.update, name="square_connection_update"),
     path("<slug:school_slug>/guest-communication/", views_guides.settings, name="guest_communication"),
+    path("<slug:school_slug>/settings/email/", email_settings.settings, name="email_settings"),
+    path("<slug:school_slug>/settings/email/templates/new/", email_settings.template_edit, name="email_template_new"),
+    path("<slug:school_slug>/settings/email/templates/<int:pk>/", email_settings.template_edit, name="email_template_edit"),
     path("<slug:school_slug>/design-guide/", views_guides.download, name="design_guide"),
     path("<slug:school_slug>/design-guide/versions/<int:pk>/", views_guides.download, name="design_guide_version"),
     path("<slug:school_slug>/calendar/events/", views_calendar.events, name="calendar_events"),

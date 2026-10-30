@@ -1,0 +1,16 @@
+<dialog id="reservation-email-dialog" class="email-drawer" aria-labelledby="email-drawer-title"{% if email_form.is_bound %} data-email-error{% endif %}>
+  <header class="email-drawer-header"><h2 id="email-drawer-title">Email {{ email_customer_name }}</h2><button type="button" class="email-drawer-close" data-email-close aria-label="Close email" title="Close"><i data-lucide="x" aria-hidden="true"></i></button></header>
+  <form method="post" action="{% url 'scheduling:reservation_detail' school_slug=profile.school.slug public_id=item.public_id %}" class="setup-form email-compose" data-email-form>
+    {% csrf_token %}{{ email_form.email_token }}{{ email_form.link_token }}
+    <div class="email-drawer-body">
+      {% if email_form.errors %}<div class="email-form-errors" role="alert">Check the email details below.{{ email_form.non_field_errors }}{{ email_form.email_token.errors }}{{ email_form.link_token.errors }}</div>{% endif %}
+      <div class="form-field">{{ email_form.template.label_tag }}{{ email_form.template }}{{ email_form.template.errors }}</div>
+      <div class="form-field">{{ email_form.recipient.label_tag }}{{ email_form.recipient }}{{ email_form.recipient.errors }}</div>
+      <div class="form-field">{{ email_form.subject.label_tag }}{{ email_form.subject }}{{ email_form.subject.errors }}</div>
+      {% include 'scheduling/email_editor.html' with body_field=email_form.body %}
+      <div class="email-included-link" data-email-link-note hidden role="status"><i data-lucide="link" aria-hidden="true"></i><span data-email-link-hint></span></div>
+    </div>
+    <footer class="email-drawer-footer email-actions"><button type="button" data-email-close>Cancel</button><button type="submit" name="action" value="send_email" class="primary"><i data-lucide="send" aria-hidden="true"></i>Send email</button></footer>
+  </form>
+</dialog>
+{{ email_options|json_script:'email-options' }}

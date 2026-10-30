@@ -53,7 +53,7 @@ def test_plushumi_navigation_has_exact_groups_and_no_request_menu():
     assert [(item["label"], [tab["label"] for tab in item["tabs"]]) for item in result["sections"]] == [
         ("Dashboard", []), ("Reservations", ["Reservations", "Party inquiries"]),
         ("Setup", ["Workshop", "Parties", "Camps", "Catalog", "Materials Inventory"]),
-        ("Settings", ["Location & rooms", "Guest communication", "Team Access", "Integrations"])]
+        ("Settings", ["Location & rooms", "Guest communication", "Email settings", "Team Access", "Integrations"])]
     assert result["section"]["label"] == "Setup"
     assert [tab["label"] for tab in result["section"]["tabs"] if tab["active"]] == ["Materials Inventory"]
     assert result["sections"][3]["url"] == "/bookings/navigation-test/locations/"
@@ -64,7 +64,7 @@ def test_plushumi_navigation_has_exact_groups_and_no_request_menu():
     ("overview", "Dashboard"), ("reservations", "Reservations"), ("preparation", "Reservations"),
     ("requests", "Reservations"), ("workshops", "Setup"), ("parties", "Setup"), ("camps", "Setup"),
     ("settings", "Setup"), ("locations", "Settings"), ("access", "Settings"), ("integrations", "Settings"),
-    ("guest_communication", "Settings"), ("studio_preparation", "Reservations"), ("party_inquiries", "Reservations"),
+    ("guest_communication", "Settings"), ("email_settings", "Settings"), ("studio_preparation", "Reservations"), ("party_inquiries", "Reservations"),
     ("visits", "Reservations"), ("lessons", "Reservations"), ("messages", "Reservations"), ("unknown", "Dashboard"),
 ])
 def test_every_page_selects_its_parent_section(active, section):
@@ -79,6 +79,7 @@ def test_optional_tools_and_permission_visibility(owner, enabled, lessons, messa
     result = workspace_navigation(context("requests", enabled, owner, lessons=lessons, messages=messages))
     tabs = {tab["label"] for section in result["sections"] for tab in section["tabs"]}
     assert ("Team Access" in tabs) == owner
+    assert ("Email settings" in tabs) == (owner and bool({"workshops", "parties"}.intersection(enabled)))
     assert ("Integrations" in tabs) == (owner and "integrations" in enabled)
     assert ("Lessons" in tabs) == (lessons and "lessons" in enabled)
     assert ("Tours" in tabs) == ("visits" in enabled)

@@ -117,8 +117,56 @@ def test_party_return_respects_reservation_state_and_saved_quote(client, direct_
     assert heading.encode() in review.content
     assert original_name.encode() in review.content and b"New package name" not in review.content
     assert b"$495.00" in review.content
-    if state in {"canceled", "review"}:
+    if state in {"canceled", "review", "confirmed"}:
         assert b"Continue to payment" not in review.content
+
+
+@pytest.mark.parametrize("payment_option", ["due", "full"])
+@pytest.mark.parametrize("checkout_available", [True, False])
+def test_party_confirmation_does_not_restart_checkout(client, direct_party, policy, settings,
+                                                      payment_option, checkout_available):
+    from scheduling.checkout import prepare_booking_checkout, settle_booking_event
+    from scheduling.models import Reservation
+    from scheduling.tests.test_checkout import event_for
+
+    data = package_data(client, direct_party.package)
+    data.update(party_slot=direct_party.pk)
+    response = send(client, direct_party.package.offering, data)
+    item = Reservation.objects.get()
+    assert b"Continue to payment" in client.get(response.url).content
+    attempt = prepare_booking_checkout(item, "http://testserver" + response.url, payment_option=payment_option)
+    attempt.provider_session_id = "cs_test_" + attempt.public_id.hex
+    attempt.save()
+    settle_booking_event(event_for(attempt))
+    item.refresh_from_db()
+    assert item.state == "confirmed"
+    if not checkout_available:
+        settings.PAYMENTS_STRIPE_TEST_SECRET_KEY = ""
+    for _ in range(2):
+        confirmation = client.get(response.url)
+        assert confirmation.status_code == 200
+        assert b"Your party is confirmed." in confirmation.content
+        assert b"Continue to payment" not in confirmation.content
+        assert b"data-booking-review-actions" not in confirmation.content
+        assert b"Online payment is unavailable" not in confirmation.content
+        assert b"Balance remaining" in confirmation.content
+        assert confirmation.context["amounts"]["net_cents"] == attempt.amount_cents
+        assert confirmation.context["amounts"]["outstanding_cents"] == item.order.total_cents - attempt.amount_cents
+
+
+def test_staff_confirmation_without_deposit_still_offers_payment(client, direct_party, policy):
+    from scheduling.models import Reservation
+    data = package_data(client, direct_party.package)
+    data.update(party_slot=direct_party.pk)
+    response = send(client, direct_party.package.offering, data)
+    item = Reservation.objects.get()
+    item.state = "confirmed"
+    item.snapshot["staff_managed"] = True
+    item.save(update_fields=["state", "snapshot"])
+    review = client.get(response.url)
+    assert review.status_code == 200
+    assert not review.context["payment_requirement_met"]
+    assert b"Continue to payment" in review.content
 
 
 @pytest.fixture

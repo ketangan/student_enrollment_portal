@@ -273,7 +273,7 @@ def test_every_settings_tab_has_a_working_destination(stock):
     document = SettingsLinks()
     document.feed(s.client.get(url(s, "locations")).content.decode())
     assert document.links == [
-        url(s, "locations"), url(s, "guest_communication"), url(s, "access"), url(s, "integrations"),
+        url(s, "locations"), url(s, "guest_communication"), url(s, "email_settings"), url(s, "access"), url(s, "integrations"),
         reverse("scheduling:school_billing", args=[s.school.slug]),
     ]
     for link in document.links:

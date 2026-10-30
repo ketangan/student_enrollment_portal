@@ -33,24 +33,29 @@ def capture(item):
     key = f"workshop:{item.public_id}:confirmation:{stamp}"
     if BookingMessage.objects.filter(profile=item.profile, event_key=key).exists():
         return
-    source, school = item.workshop_request, item.profile.school
-    when = timezone.localtime(item.starts_at, ZoneInfo(source.session.offering.location.timezone_name))
-    subject = f"{school.display_name or school.slug}: Your workshop is confirmed"[:200]
-    body = [f"Hi {source.purchaser_name},", "", "Your workshop is confirmed.",
-        source.session.offering.name, source.session.offering.location.name,
-        f"{when:%B %d, %Y at %I:%M %p %Z}", f"{item.quantity} participants", ""]
-    if source.session.offering.inventory_catalog_id:
-        reverse = demo_reverse if school.is_demo else app_reverse
-        body.extend(["Choose your designs:", reverse("scheduling:workshop_selections", kwargs={
-            "school_slug": school.slug, "token": workshop_followup.token_for(item)}),
-            "You can choose before your visit or at the studio, subject to availability.", ""])
-    body.append("Thank you!")
+    subject, body = contents(item)
     message = messaging.capture(item.profile, event_key=key,
-        group_key=f"workshop:{item.public_id}:confirmation", recipient=source.purchaser_email,
-        subject=subject, body="\n".join(body))
+        group_key=f"workshop:{item.public_id}:confirmation", recipient=item.workshop_request.purchaser_email,
+        subject=subject, body=body)
     message.reservation, message.notice_kind, message.notice_signature = item, "confirmation", stamp
     from .party_notifications import live_enabled
     if live_enabled(item.profile) and item.order.environment == "live":
         message.state = "queued"
     message.save()
     return message
+
+
+def contents(item, *, include_guest_link=True):
+    source, school = item.workshop_request, item.profile.school
+    when = timezone.localtime(item.starts_at, ZoneInfo(source.session.offering.location.timezone_name))
+    subject = f"{school.display_name or school.slug}: Your workshop is confirmed"[:200]
+    body = [f"Hi {source.purchaser_name},", "", "Your workshop is confirmed.",
+        source.session.offering.name, source.session.offering.location.name,
+        f"{when:%B %d, %Y at %I:%M %p %Z}", f"{item.quantity} participant{'s' if item.quantity != 1 else ''}", ""]
+    if include_guest_link and source.session.offering.inventory_catalog_id:
+        reverse = demo_reverse if school.is_demo else app_reverse
+        body.extend(["Choose your designs:", reverse("scheduling:workshop_selections", kwargs={
+            "school_slug": school.slug, "token": workshop_followup.token_for(item)}),
+            "You can choose before your visit or at the studio, subject to availability.", ""])
+    body.append("Thank you!")
+    return subject, "\n".join(body)

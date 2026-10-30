@@ -92,7 +92,7 @@ def school_email_template_create_view(request, school_slug: str):
 def school_email_template_edit_view(request, school_slug: str, template_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
     require_school_role(request, school, "editor")
-    tmpl   = get_object_or_404(SchoolEmailTemplate, id=template_id, school=school)
+    tmpl   = get_object_or_404(SchoolEmailTemplate, id=template_id, school=school, purpose="enrollment")
     back_url = _SETTINGS_URL(school_slug)
 
     errors = {}
@@ -145,7 +145,7 @@ def school_email_template_delete_view(request, school_slug: str, template_id: in
     """Deactivate (soft-delete) a template so it no longer appears in compose dropdowns."""
     school = _get_accessible_school_for_admin(request, school_slug)
     require_school_role(request, school, "editor")
-    tmpl   = get_object_or_404(SchoolEmailTemplate, id=template_id, school=school)
+    tmpl   = get_object_or_404(SchoolEmailTemplate, id=template_id, school=school, purpose="enrollment")
     name   = tmpl.name
     tmpl.is_active = False
     tmpl.save(update_fields=["is_active"])
@@ -162,7 +162,7 @@ def school_email_template_delete_view(request, school_slug: str, template_id: in
 def school_email_template_reactivate_view(request, school_slug: str, template_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
     require_school_role(request, school, "editor")
-    tmpl   = get_object_or_404(SchoolEmailTemplate, id=template_id, school=school)
+    tmpl   = get_object_or_404(SchoolEmailTemplate, id=template_id, school=school, purpose="enrollment")
     name   = tmpl.name
     tmpl.is_active = True
     tmpl.save(update_fields=["is_active"])
@@ -189,7 +189,7 @@ def _templates_using_token(school, key: str) -> list:
     """Return all templates (active or inactive) whose body or subject contain {{key}}."""
     pattern = _re.compile(r'\{\{' + _re.escape(key) + r'\}\}')
     return [
-        t for t in SchoolEmailTemplate.objects.filter(school=school)
+        t for t in SchoolEmailTemplate.objects.filter(school=school, purpose="enrollment")
         if pattern.search(t.body) or pattern.search(t.subject)
     ]
 

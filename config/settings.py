@@ -263,6 +263,8 @@ BOOKINGS_GUIDE_R2 = {
 # Enable only after verifying durable guide storage and retained-version downloads.
 BOOKINGS_GUIDE_STORAGE_READY = os.getenv("BOOKINGS_GUIDE_STORAGE_READY", "false").lower() == "true"
 BOOKINGS_PARTY_EMAIL_ENABLED = os.getenv("BOOKINGS_PARTY_EMAIL_ENABLED", "false").lower() == "true"
+# Hosted demo mail is manual-only and restricted to explicit school/recipient pairs.
+BOOKINGS_DEMO_EMAIL_RECIPIENTS = json.loads(os.getenv("BOOKINGS_DEMO_EMAIL_RECIPIENTS", "{}"))
 
 # Cache
 # ----------------------------------

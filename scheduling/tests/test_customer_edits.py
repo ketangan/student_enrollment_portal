@@ -111,7 +111,12 @@ def test_unpaid_party_with_catalog_has_edit_link(client, direct_party, policy):
     offering.inventory_catalog = InventoryCatalog.objects.create(profile=item.profile, name="Party designs")
     offering.save(update_fields=["inventory_catalog"])
     response = client.get(route(item, "customer_payment"))
-    assert response.context["customer_edit_url"] == route(item)
+    from django.urls import resolve
+    from scheduling.checkout import customer_reservation
+    target = resolve(response.context["customer_edit_url"])
+    assert target.view_name == "scheduling:customer_edit_booking"
+    assert customer_reservation(target.kwargs["school_slug"], target.kwargs["token"]).pk == item.pk
+    assert client.get(response.context["customer_edit_url"]).status_code == 200
     assert b"Edit details" in response.content
 
 

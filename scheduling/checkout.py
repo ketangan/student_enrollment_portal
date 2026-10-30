@@ -26,6 +26,15 @@ def payment_token(item):
     return signing.dumps({"reservation": str(item.public_id), "school": item.profile.school.slug}, salt="booking-payment")
 
 
+def payment_request_url(item):
+    """Distinguish an emailed payment request from the post-checkout confirmation."""
+    from core.services.url_builder import app_reverse, demo_reverse
+    school = item.profile.school
+    reverse = demo_reverse if school.is_demo else app_reverse
+    return reverse("scheduling:customer_payment", kwargs={
+        "school_slug": school.slug, "token": payment_token(item)}) + "?action=payment"
+
+
 def customer_reservation(slug, token):
     try:
         data = signing.loads(token, salt="booking-payment", max_age=366 * 86400)
@@ -55,13 +64,13 @@ def validate_booking_checkout(item):
 
 
 @transaction.atomic
-def prepare_booking_checkout(item, return_url, *, payment_option="due"):
+def prepare_booking_checkout(item, return_url, *, payment_option="due", cancel_url=None):
     SchedulingProfile.objects.select_for_update().get(pk=item.profile_id)
     item = Reservation.objects.select_related("order__account", "profile").get(pk=item.pk)
     validate_booking_checkout(item)
     if item.state not in ("confirmed", "completed"):
         ensure_capacity(item)
-    attempt = checkout.prepare_attempt(item.order, return_url=return_url, payment_option=payment_option)
+    attempt = checkout.prepare_attempt(item.order, return_url=return_url, payment_option=payment_option, cancel_url=cancel_url)
     if item.state == "held":
         item.hold_until = max(item.hold_until, attempt.expires_at)
         item.save(update_fields=["hold_until"])

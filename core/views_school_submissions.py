@@ -802,7 +802,7 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
     # Email templates for the compose form
     import json as _json
     from core.models import SchoolCustomToken, SchoolEmailTemplate
-    _templates = SchoolEmailTemplate.objects.filter(school=school, is_active=True).order_by("name")
+    _templates = SchoolEmailTemplate.objects.filter(school=school, purpose="enrollment", is_active=True).order_by("name")
     email_templates_json = _json.dumps([
         {"id": t.pk, "name": t.name, "subject": t.subject, "body": t.body}
         for t in _templates

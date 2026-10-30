@@ -117,13 +117,18 @@ def claim(profile_id, *, party_delivery=False):
         return None
     if party_delivery:
         from .party_notifications import live_enabled
-        if not live_enabled(profile):
+        from .reservation_email import demo_recipients, MANUAL_KINDS
+        live = live_enabled(profile)
+        demo = bool(demo_recipients(profile))
+        if not live and not demo:
             return None
     blocked = unresolved_messages(profile, OuterRef("group_key"))
     candidates = BookingMessage.objects.filter(profile=profile, state__in=["queued", "retry"],
         next_attempt_at__lte=timezone.now(), attempts__lt=5)
     if party_delivery:
-        candidates = candidates.filter(reservation__isnull=False, reservation__order__environment="live")
+        candidates = candidates.filter(reservation__isnull=False, reservation__order__environment="live" if live else "test")
+        if not live:
+            candidates = candidates.filter(notice_kind__in=MANUAL_KINDS, created_by__isnull=False)
     message = candidates.annotate(blocked=Exists(blocked)).filter(blocked=False).order_by("pk").first()
     if not message:
         return None
@@ -154,6 +159,10 @@ def local_transport(message, outcome):
         headers={"Message-ID": f"<booking-{message.public_id}@preview.invalid>"}, connection=connection)
     from .party_notifications import attach_guide
     attach_guide(email, message)
+    if message.is_html:
+        from core.services.email_content import transport_html
+        email.body = transport_html(message.body)
+        email.content_subtype = "html"
     sent = email.send(fail_silently=False)
     if sent != 1:
         raise NotAccepted

@@ -3,6 +3,8 @@ from django.db.models import Q
 from core.models import AdminAuditLog
 from core.payments.models import Refund
 from .models import StockAdjustment
+from .message_models import BookingMessage, BookingMessageAttempt
+from core.services.email_content import clean_html
 
 
 LABELS = {
@@ -20,6 +22,14 @@ LABELS = {
     "completed": "Reservation completed",
     "guest_list_submitted": "Guest list submitted",
     "guest_list_draft_saved": "Guest-list progress saved",
+}
+
+EMAIL_LABELS = {
+    "draft": "Email not sent", "queued": "Email queued", "sending": "Email sending",
+    "retry": "Email retry scheduled", "failed": "Email failed",
+    "uncertain": "Email delivery needs review", "simulated": "Email simulated, not sent",
+    "suppressed": "Email not sent", "superseded": "Email replaced by a newer update",
+    "sent": "Email accepted by provider",
 }
 
 
@@ -79,6 +89,20 @@ def audit_page(item, raw_page):
     for adjustment in adjustments[:end + 1]:
         add(adjustment.created_at, f"stock-{adjustment.pk}", "Materials used",
             f'{-adjustment.delta.normalize():f} {adjustment.level.material.unit} {adjustment.level.material.name}', adjustment.actor)
+    def email_event(message, stamp, key, title, actor=None):
+        add(stamp, key, title, f"To: {message.recipient} / Subject: {message.subject}", actor)
+        rows[-1].update(email_body=clean_html(message.body, links=False) if message.is_html else message.body,
+            email_html=message.is_html)
+
+    emails = BookingMessage.objects.filter(profile_id=item.profile_id, reservation=item).select_related("created_by")
+    for message in emails.order_by("-created_at", "-pk")[:end + 1]:
+        email_event(message, message.created_at, f"email-{message.pk}",
+            EMAIL_LABELS[message.state], message.created_by)
+    attempts = BookingMessageAttempt.objects.filter(message__reservation=item, message__profile_id=item.profile_id,
+        finished_at__isnull=False).select_related("message").order_by("-finished_at", "-pk")
+    for attempt in attempts[:end + 1]:
+        email_event(attempt.message, attempt.finished_at, f"email-attempt-{attempt.pk}",
+            f"Email attempt {attempt.number} - {attempt.outcome_label}")
     rows.sort(key=lambda row: (row["at"], row["key"]), reverse=True)
     return {"rows": rows[end - 25:end], "number": page, "previous": page - 1,
         "next": page + 1, "has_next": len(rows) > end, "has_previous": page > 1}

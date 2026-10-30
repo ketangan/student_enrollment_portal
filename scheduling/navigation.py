@@ -40,6 +40,7 @@ def workspace_navigation(context):
     settings = [link("locations", "Location & rooms", "locations")]
     if (features["parties"] or features["workshops"]) and context["can_edit_setup"] and context.get("school_wide_access", True):
         settings.append(link("guest_communication", "Guest communication", "guest_communication"))
+        settings.append(link("email_settings", "Email settings", "email_settings"))
     if context["can_view_access"]:
         settings.append(link("access", "Team Access", "access"))
     if features["integrations"] and context["can_edit_setup"]:

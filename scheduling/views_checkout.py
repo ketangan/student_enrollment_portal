@@ -20,10 +20,12 @@ from .checkout import customer_reservation, payment_choices, prepare_booking_che
 def customer_payment(request, school_slug, token):
     item = customer_reservation(school_slug, token)
     error = ""
+    payment_requested = request.GET.get("action") == "payment"
     if request.method == "POST":
         return_url = request.build_absolute_uri(reverse("scheduling:customer_payment", kwargs={"school_slug": school_slug, "token": token}))
         try:
-            attempt = prepare_booking_checkout(item, return_url, payment_option=request.POST.get("payment_option", "due"))
+            attempt = prepare_booking_checkout(item, return_url, payment_option=request.POST.get("payment_option", "due"),
+                cancel_url=return_url + "?action=payment" if payment_requested else None)
             url = checkout.open_checkout(attempt)
         except ValidationError as exc:
             error = exc.messages[0]
@@ -48,6 +50,9 @@ def customer_payment(request, school_slug, token):
                "deposit_due": bool(item.order.deposit_cents and amounts["net_cents"] < item.order.deposit_cents),
                "confirmed": item.state in ("confirmed", "completed"),
                "payment_requirement_met": payment_requirement_met}
+    context["payment_requested"] = payment_requested
+    if context["payment_requested"]:
+        context["payment_form_url"] += "?action=payment"
     if item.party_request_id and item.party_request.offering.inventory_catalog_id:
         from .guest_lists import editable as guest_list_editable, token_for
         if guest_list_editable(item) and payment_requirement_met:

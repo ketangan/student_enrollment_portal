@@ -55,6 +55,9 @@ def needs_guests(item):
 def deliverable(message):
     item = Reservation.objects.select_related("profile__school", "party_request").get(pk=message.reservation_id)
     from . import payment_requests
+    if message.notice_kind in {"manual", "manual_payment", "manual_guests"}:
+        from .reservation_email import deliverable as manual_deliverable
+        return manual_deliverable(message, item)
     if message.notice_kind == "payment_request":
         return payment_requests.deliverable(message, item)
     if item.workshop_request_id:
@@ -68,7 +71,7 @@ def deliverable(message):
         and (message.notice_kind == "confirmation" or (message.notice_kind == "reminder" and needs_guests(item))))
 
 
-def contents(item, kind):
+def contents(item, kind, *, include_guest_link=True):
     school = item.profile.school
     reverse = demo_reverse if school.is_demo else app_reverse
     kwargs = {"school_slug": school.slug}
@@ -83,7 +86,7 @@ def contents(item, kind):
         lines.insert(4, location)
     if party_name:
         lines.insert(4, party_name)
-    if item.party_request.offering.inventory_catalog_id:
+    if include_guest_link and item.party_request.offering.inventory_catalog_id:
         due = guest_lists.due_at(item)
         if needs_guests(item):
             if due and due > timezone.now():
@@ -150,7 +153,10 @@ def process(profile_id, limit=20):
                 count += messaging.finish(message, "suppressed")
                 continue
             profile = SchedulingProfile.objects.select_related("school").get(pk=profile_id)
-            if not live_enabled(profile):
+            from .reservation_email import external_delivery_allowed, MANUAL_KINDS
+            allowed = (external_delivery_allowed(message.reservation, message.recipient)
+                if message.notice_kind in MANUAL_KINDS else live_enabled(profile))
+            if not allowed:
                 count += messaging.finish(message, "suppressed")
                 continue
             connection = get_school_email_connection(profile.school)
@@ -162,6 +168,10 @@ def process(profile_id, limit=20):
                 to=[message.recipient], headers={"Message-ID": f"<booking-{message.public_id}@mypontora.com>"},
                 connection=connection)
             attach_guide(email, message)
+            if message.is_html:
+                from core.services.email_content import transport_html
+                email.body = transport_html(message.body)
+                email.content_subtype = "html"
             accepted = email.send(fail_silently=False)
             result = "sent" if accepted == 1 else "retry"
         except messaging.NotAccepted:

@@ -10,10 +10,9 @@ from django.utils import timezone
 
 from core.payments.checkout import amount_due, validate_account
 from core.payments.service import totals
-from core.services.url_builder import app_reverse, demo_reverse
 from . import messaging
 from .access import get_staff_reservation
-from .checkout import payment_token
+from .checkout import payment_request_url
 from .lessons import digest
 from .message_models import BookingMessage
 from .reservations import locked_profile, _audit
@@ -51,7 +50,6 @@ def context_for(user, item, amounts):
 
 def contents(item):
     school = item.profile.school
-    reverse = demo_reverse if school.is_demo else app_reverse
     when = timezone.localtime(item.starts_at, ZoneInfo(item.snapshot.get("timezone", "UTC")))
     end = timezone.localtime(item.ends_at, when.tzinfo)
     amounts = totals(item.order)
@@ -66,8 +64,7 @@ def contents(item):
         f"{label}: ${due / 100:.2f}"]
     if due < amounts["outstanding_cents"]:
         lines.append(f"You can also pay the full remaining amount of ${amounts['outstanding_cents'] / 100:.2f}.")
-    lines.extend(["", "Make payment:", reverse("scheduling:customer_payment", kwargs={
-        "school_slug": school.slug, "token": payment_token(item)}), "", "Thank you!"])
+    lines.extend(["", "Make payment:", payment_request_url(item), "", "Thank you!"])
     return f"{school.display_name or school.slug}: Payment requested"[:200], "\n".join(lines)
 
 

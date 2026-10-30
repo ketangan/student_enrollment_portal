@@ -2,6 +2,7 @@
 import uuid
 
 from django.db import models
+from django.conf import settings
 from django.utils import timezone
 
 MESSAGE_STATES = [
@@ -23,6 +24,8 @@ RESULT_LABELS = {
 
 
 class BookingMessage(models.Model):
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    is_html = models.BooleanField(default=False)
     reservation = models.ForeignKey("scheduling.Reservation", null=True, blank=True, on_delete=models.PROTECT)
     notice_kind = models.CharField(max_length=16, blank=True)
     notice_signature = models.CharField(max_length=64, blank=True)

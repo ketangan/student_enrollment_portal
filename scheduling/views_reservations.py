@@ -156,6 +156,7 @@ def reservation_detail(request, school_slug, public_id):
 
 def _reservation_page(request, school_slug, public_id, tab="details"):
     from . import terminal_payments
+    from . import reservation_email
     profile, role = require_location_access(request.user, school_slug, capability="reservations")
     item = get_staff_reservation(profile, public_id, exclude_visits=True)
     error = ""
@@ -163,9 +164,19 @@ def _reservation_page(request, school_slug, public_id, tab="details"):
     if tab == "preparation" and request.method == "POST" and action not in {"save_notes", "save_selections", "save_guest"}:
         return HttpResponseBadRequest("Choose a preparation action.")
     notes_form = None
+    email_form = None
     guest_form = None
     guest_index = None
-    if action == "save_notes":
+    if action == "send_email":
+        require_location_access(request.user, school_slug, "sessions.edit", capability="reservations")
+        if not (item.party_request_id or item.workshop_request_id):
+            return HttpResponseBadRequest("Email is unavailable for this reservation.")
+        email_form, notice = reservation_email.send(request.user, school_slug, public_id, request.POST)
+        if notice:
+            if notice.state in {"queued", "retry", "sending"}:
+                messages.success(request, "Email queued.")
+            return redirect(request.path + "?audit_page=1#audit-title")
+    elif action == "save_notes":
         notes_form = reservation_notes.update(request.user, school_slug, public_id, request.POST)
         if notes_form.is_valid():
             query = request.GET.copy()
@@ -242,6 +253,8 @@ def _reservation_page(request, school_slug, public_id, tab="details"):
                     catalog_for(item.workshop_request.session.offering), request.POST)
                 entry["error"] = error
     context["notes_form"] = notes_form if notes_form is not None else reservation_notes.form_for(item, profile)
+    if context["can_edit_sessions"]:
+        context.update(reservation_email.context_for(request.user, item, email_form))
     context.update(reservation_notes.context_for(item, request.GET.get("notes_page")))
     context["audit_open"] = "audit_page" in request.GET
     context.update(prep_context(item, profile))
@@ -291,7 +304,7 @@ def _reservation_page(request, school_slug, public_id, tab="details"):
             entry.correction_form = form
             context.update(payment_correction_form=form, payment_correction_entry=entry)
     return render(request, "scheduling/reservation_detail.html", context,
-        status=400 if error or (notes_form is not None and notes_form.errors) else 200)
+        status=400 if error or (notes_form is not None and notes_form.errors) or (email_form is not None and email_form.errors) else 200)
 
 
 @never_cache

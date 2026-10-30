@@ -51,7 +51,7 @@ jobs:
       - name: Test scheduling browser controls
         run: node --test --experimental-test-coverage --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 scripts/tests/*.test.cjs
       - name: Test with local-only providers and coverage gate
-        run: python -m coverage run --source=scheduling,core.payments,testing,core.services.portal_environment,core.services.audit_environment,core.services.demo_access,core.templatetags.account_menu,core.admin.portal_scope,core.management.commands.maintain_demo_account,core.services.school_pricing,core.forms_school_pricing,core.views_school_pricing -m pytest
+        run: python -m coverage run --source=scheduling,core.payments,testing,core.services.portal_environment,core.services.audit_environment,core.services.demo_access,core.templatetags.account_menu,core.admin.portal_scope,core.management.commands.maintain_demo_account,core.services.school_pricing,core.forms_school_pricing,core.views_school_pricing,core.services.email_content -m pytest
       - name: Enforce coverage floor
         run: python -m coverage report --fail-under=90
       - name: Export module coverage

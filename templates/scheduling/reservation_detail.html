@@ -1,5 +1,6 @@
 {% extends 'scheduling/base.html' %}{% load static %}
 {% block title %}{{ item.snapshot.name }}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'scheduling/email-settings.css' %}?v=20261030-templates">{% endblock %}
 {% block page_heading %}{% include 'scheduling/reservation_heading.html' %}{% endblock %}
 {% block content %}
 <div class="reservation-workspace" data-reservation-workspace>
@@ -9,5 +10,6 @@
   </div>
   <aside class="reservation-notes-sidebar">{% if item.party_request_id %}{% include 'scheduling/customer_notes.html' with customer_notes=item.party_request.customer_notes %}{% endif %}{% include 'scheduling/reservation_notes.html' %}</aside>
 </div>
+{% if email_form %}{% include 'scheduling/reservation_email.html' %}{% endif %}
 {% endblock %}
-{% block scripts %}<script defer src="{% static 'scheduling/reservation-workspace.js' %}?v=20261028-notes"></script>{% endblock %}
+{% block scripts %}<script defer src="{% static 'scheduling/reservation-workspace.js' %}?v=20261028-notes"></script><script defer src="{% static 'scheduling/email-editor.js' %}?v=20261030-drawer"></script><script defer src="{% static 'scheduling/email-drawer.js' %}?v=20261030"></script>{% endblock %}

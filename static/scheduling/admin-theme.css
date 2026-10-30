@@ -38,7 +38,8 @@
 .booking-admin input, .booking-admin select, .booking-admin textarea { color: var(--dash-text); font-family: inherit; max-width: 100%; }
 .booking-admin input[type=checkbox], .booking-admin input[type=radio] { min-height: 18px; width: 18px; accent-color: var(--dash-primary); }
 .booking-admin :focus-visible { outline-color: var(--dash-primary); }
-.booking-admin .settings-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--dash-border); margin-bottom: 24px; }
+.booking-admin .settings-tabs { display: flex; gap: 0; overflow-x: auto; border-bottom: 2px solid var(--dash-border); margin-bottom: 24px; }
+.booking-admin .settings-tabs .settings-tab { flex-shrink: 0; min-height: 44px; box-sizing: border-box; }
 .booking-admin .settings-tab { padding: 10px 20px; font-size: 13px; font-weight: 500; color: var(--dash-muted); text-decoration: none; border-bottom: 3px solid transparent; margin-bottom: -2px; white-space: nowrap; transition: color .12s, border-color .12s; }
 .booking-admin .settings-tab:hover { color: var(--dash-text); }
 .booking-admin .settings-tab.active { color: var(--dash-primary); border-bottom-color: var(--dash-primary); font-weight: 600; }
@@ -399,7 +400,9 @@
 .booking-admin .reservation-audit table { min-width: 550px; }
 .booking-admin .reservation-audit th:first-child { width: 150px; }
 .booking-admin .reservation-audit th:last-child { width: 160px; }
-.booking-admin .reservation-audit p { margin: 6px 0 0; overflow-wrap: anywhere; }
+.booking-admin .reservation-audit td { vertical-align: top; }
+.booking-admin .reservation-workspace .reservation-audit p { margin: 6px 0 0; font-size: inherit; line-height: inherit; overflow-wrap: anywhere; }
+.booking-admin .reservation-audit .email-audit-content summary { font-size: inherit; font-weight: 600; margin-bottom: 0; }
 .booking-admin .terminal-payments { max-width:100%; overflow-x:auto; }
 .booking-admin .terminal-payments table { width:100%; min-width:540px; table-layout:fixed; }
 .booking-admin .terminal-payments :is(th,td) { white-space:normal; overflow-wrap:anywhere; }
@@ -413,8 +416,8 @@
 .booking-admin .prep-badge { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .booking-admin .prep-complete { color: #168447; }
 .booking-admin .prep-pending { color: #a65b08; }
-.booking-admin .reservation-summary summary { cursor: pointer; font-size: 18px; font-weight: 700; }
-.booking-admin .reservation-summary[open] summary { margin-bottom: 24px; }
+.booking-admin .reservation-summary > summary { cursor: pointer; font-size: 18px; font-weight: 700; }
+.booking-admin .reservation-summary[open] > summary { margin-bottom: 24px; }
 .booking-admin .participant-table table { min-width: 480px; }
 .booking-admin .participant-table tbody th, .booking-admin .materials-table tbody th { text-transform: none; letter-spacing: 0; font-size: 14px; background: transparent; color: var(--dash-text); font-weight: 400; }
 .booking-admin .participant-table .dash-student-cell { min-width: 170px; }

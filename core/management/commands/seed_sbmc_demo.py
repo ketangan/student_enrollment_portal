@@ -317,6 +317,7 @@ def _seed_email_templates(school, stdout=None):
     for tmpl in _EMAIL_TEMPLATES:
         _, created = SchoolEmailTemplate.objects.update_or_create(
             school=school,
+            purpose="enrollment",
             name=tmpl["name"],
             defaults={"subject": tmpl["subject"], "body": tmpl["body"]},
         )

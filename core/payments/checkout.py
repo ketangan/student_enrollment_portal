@@ -36,7 +36,7 @@ def amount_due(order):
 
 
 @transaction.atomic
-def prepare_attempt(order, *, return_url, payment_option="due"):
+def prepare_attempt(order, *, return_url, payment_option="due", cancel_url=None):
     """Call inside the domain inventory lock; no mutable client amount or account input."""
     School.objects.select_for_update().get(pk=order.school_id)
     order = PaymentOrder.objects.select_for_update(of=("self",)).select_related("account").get(pk=order.pk)
@@ -55,7 +55,7 @@ def prepare_attempt(order, *, return_url, payment_option="due"):
         raise ValidationError("No payable balance of at least $0.50 remains.")
     # 35 minutes leaves room for network latency within Stripe's 30-minute minimum.
     return PaymentAttempt.objects.create(order=order, account=order.account, amount_cents=amount,
-        success_url=return_url, cancel_url=return_url, expires_at=timezone.now() + timedelta(minutes=35))
+        success_url=return_url, cancel_url=cancel_url or return_url, expires_at=timezone.now() + timedelta(minutes=35))
 
 
 def _validate_session(attempt, session):

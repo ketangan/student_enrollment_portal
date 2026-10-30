@@ -1,7 +1,7 @@
 {% extends 'scheduling/experience/base.html' %}{% load tz %}
 {% block content %}
 <div class="party-experience" data-step="3">
-<h1>{% if item.state == 'canceled' %}Reservation canceled{% elif item.state == 'review' %}Reservation needs review{% elif confirmed %}Your party is confirmed.{% else %}Let's plan your plushie party.{% endif %}</h1>
+<h1>{% if item.state == 'canceled' %}Reservation canceled{% elif item.state == 'review' %}Reservation needs review{% elif payment_requested and amounts.outstanding_cents > 0 %}Your party payment{% elif confirmed %}Your party is confirmed.{% else %}Let's plan your plushie party.{% endif %}</h1>
 <p class="lead">{{ customer_copy.party_note }}</p>
 <div class="split"><section>
 <h2>{% if confirmed %}Your booking details{% else %}One last look before the party.{% endif %}</h2>
@@ -17,12 +17,14 @@
 {% if guest_list_url %}<p><a href="{{ guest_list_url }}">Add or update guest details</a></p>{% endif %}
 {% if item.state == 'review' %}<p role="status">Please contact the studio to confirm your reservation.</p>{% endif %}
 {% if hold_expired %}<p role="status">Your hold has expired. We will check availability again before payment.</p>{% endif %}
+{% if payment_requested or not confirmed or not payment_requirement_met %}
 {% if ready %}
 <form method="post" action="{{ payment_form_url }}">{% csrf_token %}
 {% include 'scheduling/payment_choice.html' %}
 <div class="bottom-actions" data-booking-review-actions>{% if customer_edit_url %}<a class="quiet" href="{{ customer_edit_url }}">Edit details</a>{% endif %}<button class="button" type="submit">Continue to payment</button></div>
 </form>
 {% elif amounts.outstanding_cents > 0 and item.state != 'canceled' and item.state != 'review' %}<p role="status">Online payment is unavailable. Please contact the studio about the remaining balance.</p>{% endif %}
+{% endif %}
 </section><aside class="summary">
 <h2>Your party</h2><h3>{{ party_quote.name|default:item.snapshot.workshop }}</h3>
 <p>{{ item.party_request.offering_snapshot.location }}</p>

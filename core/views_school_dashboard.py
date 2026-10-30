@@ -923,7 +923,7 @@ def school_settings_view(request, school_slug: str):
         programs_no_active_warning = not _SchoolProgram.objects.filter(school=school, is_active=True).exists()
 
     from core.models import SchoolCustomToken, SchoolEmailTemplate
-    _all_templates = SchoolEmailTemplate.objects.filter(school=school).order_by("name")
+    _all_templates = SchoolEmailTemplate.objects.filter(school=school, purpose="enrollment").order_by("name")
     email_templates          = [t for t in _all_templates if t.is_active]
     email_templates_inactive = [t for t in _all_templates if not t.is_active]
     custom_tokens = list(SchoolCustomToken.objects.filter(school=school))

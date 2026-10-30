@@ -1,0 +1,11 @@
+{% load email_content %}<div class="form-field email-body-field" data-email-editor>
+{{ body_field.label_tag }}
+<div class="email-toolbar" hidden role="toolbar" aria-label="Message formatting">
+<button type="button" data-command="bold" aria-label="Bold" title="Bold"><i data-lucide="bold" aria-hidden="true"></i></button>
+<button type="button" data-command="italic" aria-label="Italic" title="Italic"><i data-lucide="italic" aria-hidden="true"></i></button>
+<button type="button" data-command="underline" aria-label="Underline" title="Underline"><i data-lucide="underline" aria-hidden="true"></i></button>
+<button type="button" data-command="createLink" aria-label="Add link" title="Add link"><i data-lucide="link" aria-hidden="true"></i></button>
+</div>
+<textarea id="{{ body_field.id_for_label }}" name="{{ body_field.html_name }}" rows="10" maxlength="20000" required>{{ body_field.value|default_if_none:''|sanitize_email }}</textarea>{{ body_field.errors }}
+<div class="email-rich-editor" hidden contenteditable="true" role="textbox" aria-label="Message" aria-multiline="true"></div>
+</div>

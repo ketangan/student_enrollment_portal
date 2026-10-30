@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: October 29, 2026.
+Updated: October 30, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -8,6 +8,201 @@ Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 This Markdown file remains the source of truth; the viewer does not edit milestone status.
 
 ## Current Status
+
+### October 30 Template Consistency Release Candidate
+
+- Reservation composition now uses only the school's active, applicable Bookings
+  templates from Settings, plus Blank message. Removed the separate built-in menu.
+  Included button selects None, Payment, or Guest details / participant selections.
+  Unavailable actions remain visible but disabled; forged/stale requests are rejected.
+  Payment amounts and customer links are resolved for the actual reservation, not
+  embedded in reusable template text. Existing Enrollment templates remain separate.
+- Explicit `seed_booking_email_templates --school <slug>` adds missing editable
+  Confirmation, Payment reminder and Guest details records for one enabled Bookings
+  school without overwriting edits or touching Enrollment. Run only where requested;
+  local preview data is not deployed by Git. The local preview has these records.
+- Hosted demo manual delivery is default-off. `BOOKINGS_DEMO_EMAIL_RECIPIENTS` is a
+  JSON mapping from configured hosted-demo school slugs to approved recipient lists
+  (maximum 20 each). Requires the existing demo feature/host gates, notification
+  setting, school email transport and outbox worker. It never captures automatic demo
+  confirmations/reminders. Recipient permission is rechecked before sending.
+  No hosted setting, SMTP credentials or production school data changed. Approved
+  test recipient addresses and hosted activation remain pending user confirmation.
+- Focused checks: 308 passed, including SBMC workflow and broadcast regressions.
+  Settings, sanitizer and explicit seed command have 100% measured coverage;
+  reservation email has 97.31%. Fixed a time-bound signed-URL comparison in an
+  existing customer-edit test by verifying destination and access instead.
+- Chrome checked template selection, saved None/Payment changes, guest-link switching,
+  persistence, 390x844 phone and 768x1024 / 1024x768 tablet layouts. Narrow template
+  tables place status below the name. Included-button controls are 44px high;
+  no page overflow. SBMC and Kid Works enrollment navigation/settings smoke-tested.
+  Physical Android Chrome, virtual keyboards and actual email delivery remain pending.
+- Full predecessor `jasmine-email-payment-audit-20261030` was interrupted, not passed:
+  4,297 passed, one signed-URL assertion failed, three skipped. The assertion is now
+  fixed. Final candidate regression will be logged as `jasmine-email-release-20261030`;
+  push is gated on its complete migration, Python, coverage and JavaScript results.
+
+### October 30 Email Audit and Balance Payment Corrections (Local, Not Pushed)
+
+- Removed the local-preview capture banner. Audit records now say Email not sent for
+  unsent captures instead of Email requested - Not queued; queued/provider acceptance,
+  failures and uncertain delivery remain distinguishable. No unsent message is marked sent.
+- Audit email bodies are sanitized without interactive anchors/buttons; stored outbound
+  content and customer email action buttons remain intact. Nested message disclosures and
+  body text use the table's 13px font, and timestamps/actors align at the top of each row.
+  Scoped CSS fixes include cache-version updates for existing browsers.
+- Payment emails now use an explicit payment action on the existing signed customer route.
+  Confirmed parties with deposits paid can pay the remaining balance from that link, while
+  the ordinary post-booking confirmation still has no unwanted Continue to payment action.
+  Checkout cancellation returns to the actionable payment review; success returns to the
+  confirmation. The shared checkout's optional cancel URL retains the previous default for
+  every existing caller. School/account/environment checks and payment locks remain in place.
+- Added regressions that follow generated party/workshop email links, verify deposit versus
+  balance amounts, reject foreign-school access, preserve retry/error behavior, reuse one
+  checkout on repeated submission, and remove payment actions once paid. Audit sanitization
+  is tested separately from the outgoing email button. Historical messages are not rewritten.
+- Final focused verification: 455 Python tests and 17 JavaScript tests passed, including
+  Square, booking confirmation, email isolation, Enrollment and SBMC checks. Migration
+  consistency and whitespace checks passed. No unexpected migrations were generated.
+- Chrome manual checks: the reported party's newly generated payment link reaches Square
+  card entry for $399.45, and Back returns to an actionable review. No payment submitted.
+  The guest link opens the correct four-person editable list. Desktop, 390x844 phone,
+  768x1024 and 1024x768 tablet layouts checked for payment actions and audit readability.
+  Audit text is consistently 13px; message disclosure is 44px tall and payment action 48px.
+  Narrow audit tables retain contained horizontal scrolling, without page-wide overflow.
+  Physical Android Chrome and virtual-keyboard verification remain pending.
+- Stopped `jasmine-email-drawer-20261030` before edits; it was still running and is not a pass.
+  Cleared interrupted-run fixtures only in the existing disposable `test_pontora_local` DB;
+  preview data was not cleared. Replacement detached full suite:
+  `jasmine-email-payment-audit-20261030`, pending verification. No customer email sent,
+  production configuration changed, commit or push performed. Browser checkout verification
+  created one unpaid local sandbox checkout for the reported party, without card submission.
+- Evidence: `reservation-email-audit-fixed.png`, `party-balance-email-checkout.png`, plus
+  phone/tablet screenshots in the task's local visualization directory.
+
+### October 30 Reservation Email Drawer and Customer Links (Local, Not Pushed)
+
+- Moved reservation email composition into a right-side modal drawer, opened by Email
+  beside the heading actions. Removed inline/sidebar email controls. A single template
+  dropdown includes blank, confirmation, eligible payment/guest actions, and the school's
+  active applicable templates. Preview remains removed from Bookings; Enrollment unchanged.
+- Drawer has editable recipient/subject/body, fixed Send/Cancel controls, keyboard focus
+  containment, Escape/close draft retention, and automatic reopening with preserved input
+  on server validation errors. Delegated opening survives inline reservation heading updates
+  and works from Workshop/Party Prep. Phone drawer fills the screen.
+- Added an explicit Included link setting to school-scoped Bookings templates. Reuses
+  existing secure party guest-list, workshop selection and payment routes. Shows the included
+  action below the message and appends a sanitized customer button to the captured email;
+  the complete message remains in the reservation audit log.
+- Payment links display the checkout's amount due (deposit or remaining balance), not an
+  invented amount. Account/readiness checks hide unavailable actions. Signed link snapshots
+  bind user, reservation, action and amount; locked send-time checks reject stale balances
+  and closed guest actions. Delivery rechecks linked messages and suppresses stale ones.
+  Retries of the same submission reuse the captured message, without duplicate action links.
+- Existing templates default to No link through additive migration 0068. No global/shared
+  template content, automatic email triggers or customer-specific application branches added.
+- Verification: 285 focused Python tests and 17 JavaScript tests passed; email settings and
+  safe HTML helpers have 100% measured coverage, reservation email 98.20%. Migration consistency
+  and whitespace checks passed. Existing disposable test DB was flushed after interrupted-run
+  residue caused fixture collisions; preview/production data were not cleared or recreated.
+- Chrome checked desktop, 390x844 phone, 768x1024 and 1024x768 tablets: template switching,
+  secure-link descriptions, paid workshop filtering, Prep-tab action, draft retention,
+  focus cycling, error reopening and local-only capture. Controls are at least 44px, footer
+  remains reachable and no page overflow was observed. Physical Android/virtual keyboard
+  and external provider delivery remain pending. No customer email sent or payment made.
+- Previous full run `jasmine-email-simplified-20261030` was interrupted before edits, not a
+  pass. Replacement detached run `jasmine-email-drawer-20261030` was subsequently interrupted
+  before the requested audit/payment corrections; not a passing full-suite result.
+  No commit or push performed. Screenshot: `reservation-email-drawer-final.png` in the
+  task's local visualization directory.
+
+### October 30 Email Controls Simplification (Local, Not Pushed)
+
+- Removed Bookings email Preview controls and handlers from reservation composition and
+  template editing. Removed the redundant Write message shortcut and its JavaScript.
+  Enrollment/SBMC broadcast preview is unchanged. Obsolete preview POSTs are rejected
+  without saving a template or capturing/sending an email.
+- Unedited template switching replaces both subject and message immediately; manually
+  edited drafts still require confirmation before replacement.
+- Added two sample templates through the local Plushumi demo settings only: Before your
+  visit and After your visit, both applicable to parties and workshops. These are not
+  global defaults, migrations, automatic emails or templates for any other school.
+- All 155 focused Python tests (including SBMC/Enrollment) and seven editor tests passed.
+  Chrome verification exercised all three templates at desktop, 390px phone, 768x1024
+  and 1024x768 tablet sizes. No horizontal overflow; composer controls are at least 44px
+  tall. Physical Android Chrome and virtual-keyboard checks remain pending.
+- Stopped the preceding full run before source edits; it was still running, not a pass.
+  Replacement detached full run: `jasmine-email-simplified-20261030`, subsequently interrupted
+  before the requested drawer work; not a passing full-suite result.
+  No customer messages sent, production settings changed, commit or push performed.
+
+### October 30 Reservation Email Composer and Audit History (Local, Not Pushed)
+
+- Added editable booking email templates in Settings, with party/workshop applicability,
+  active status, reservation fields and preview. Reuses SchoolEmailTemplate with an
+  explicit purpose: existing records remain Enrollment templates; Bookings and Enrollment
+  selectors/edit routes are separately scoped within each school. No cross-school sharing.
+- Added the Enrollment-style inline Send message composer to party and workshop reservation
+  details: template selection, editable recipient/subject/rich-text body, preview and send.
+  Sidebar confirmation/payment shortcuts load the composer for review; they do not send.
+- Reuses the existing reservation outbox, worker and shared school email connection.
+  Signed user/reservation-bound submission keys and profile locking prevent duplicate sends.
+  Existing live/demo/test gates remain; local tests only capture messages. Manual messages
+  can be composed after cancellation, but cancellation does not automatically send mail.
+- Email contents, recipient, subject, requesting staff, delivery-attempt times and actual
+  outcomes appear in the existing reservation audit log. Provider acceptance is distinguished
+  from local capture, retry and uncertain outcomes, and is not described as delivered.
+- Restricted HTML sanitization covers template loading, previews, captured bodies, delivery
+  and audit display. External images, scripts, event handlers and unsafe links are removed.
+  School/location permissions are rechecked, including before queued manual delivery.
+- Focused verification: 302 Python tests and 13 JavaScript tests passed. New Python modules:
+  email settings 100%, HTML content 100%, reservation email 98.53% combined coverage.
+  Migration consistency passed. The final focused follow-up passed all 191 tests.
+  Detached full run `jasmine-reservation-email-20261030` was interrupted before the
+  subsequent requested email simplification; it is not a passing full-suite result.
+- Chrome checks covered desktop, 390px phone, 768x1024 portrait and 1024x768 landscape:
+  template creation/preview, reservation template loading, editable confirmation/payment
+  drafts, bold formatting, local capture and audit display. No horizontal page overflow;
+  narrow composers stack To/Subject and phone template lists use a compact readable layout.
+  Physical Android Chrome, real virtual-keyboard behavior and external delivery remain pending.
+- Jasmine's automatic-template content/trigger decisions remain pending. Existing automatic
+  notifications are unchanged; no new cancellation or staff-edit automatic sends were added.
+  No production settings changed, customer email sent, commit or push performed.
+
+### October 29 Paid Party Confirmation (Local, Not Pushed)
+
+- Removed the checkout form and misleading payment-unavailable warning from party
+  confirmations after the booking payment requirement is met. Paid amount, remaining
+  balance and guest-list access remain visible. Unpaid and staff-confirmed bookings
+  that still need their deposit retain payment access.
+- Added regressions for deposit/full-payment returns, repeated reloads, unavailable
+  checkout and staff confirmation without payment. All 184 focused payment/party checks passed.
+- Verified the user's paid-party page in Chrome at desktop, 390px phone, 768x1024
+  and 1024x768 tablet sizes; no page-level horizontal overflow. No additional payment
+  submitted. Physical Android checks remain pending.
+- Previous email full run was explicitly interrupted before editing, not a passing
+  full-suite result. It exposed one stale Settings navigation expectation; added
+  Email settings to that test while retaining checks that every destination loads.
+  Replacement full run: `jasmine-party-confirmation-20261029` passed all gates with an
+  unchanged fingerprint, checked before starting the October 30 email changes.
+- No commit or push requested or performed for this fix.
+
+### October 29 Shared Email Settings (Local, Not Released)
+
+- Added Bookings Settings > Email settings using the same School SMTP fields and
+  SchoolEmailTemplate records as Enrollment. No copied configuration or new email
+  transport. Templates are listed read-only in this first slice; shared template
+  editing and reservation composition remain next. Automatic triggers are unchanged.
+- Only active, school-wide Bookings owners can access this page. Environment and
+  school boundaries are enforced. Blank passwords retain the existing credential;
+  credentials are not rendered or logged. Saving does not send a test email.
+- 157 focused email, Enrollment settings, navigation and location tests passed.
+  The new email settings module has 100% measured statement/branch coverage.
+- Chrome layouts checked at desktop, 390px phone, 768x1024 and 1024x768 tablet sizes.
+  Checked mobile navigation, 44px save control and invalid-port blocking. Fixed
+  tablet settings-tab overflow and phone template-table clipping. Physical Android
+  Chrome and virtual-keyboard checks remain pending.
+- Background full verification: `jasmine-email-settings-20261029` pending.
 
 ### October 29 Release Verification
 
@@ -23,7 +218,10 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
   targets, deferred selections, late failures and checkout handoff. All 54 focused
   checks passed. Combined coverage: customer edits 91.34%, customer edit views 94.29%,
   party policy and staff party views 100%. No production behavior changed in this
-  verification pass. Final full run: `jasmine-release-final-20261029` pending.
+  verification pass. Final full run `jasmine-release-final-20261029`: 4,990 passed,
+  3 skipped; migration, JavaScript and overall/per-module coverage gates all passed
+  with an unchanged working-tree fingerprint. Pushed main commit `7c0a8b9`.
+  GitHub run `40978153285` pending when the email follow-up began.
 - Existing Chrome desktop/phone/tablet evidence is recorded below. Physical Android
   Chrome verification remains pending. No real charge or customer email sent.
 - Email follow-up will reuse School delivery settings, SchoolEmailTemplate records,

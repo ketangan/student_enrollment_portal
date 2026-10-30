@@ -23,7 +23,7 @@
 </section>
 <details class="reservation-section reservation-summary"{% if audit_open %} open{% endif %}><summary id="audit-title">Audit log</summary>
 <div class="table-wrap reservation-audit" role="region" aria-label="Reservation audit log" tabindex="0"><table class="dash-table"><thead><tr><th>When</th><th>Activity</th><th>By</th></tr></thead><tbody>
-{% for event in audit.rows %}<tr><td>{% timezone item.snapshot.timezone %}{{ event.at|date:"M j, Y" }}<br>{{ event.at|date:"g:i A" }}{% endtimezone %}</td><td><strong>{{ event.title }}</strong>{% if event.detail %}<p>{{ event.detail }}</p>{% endif %}</td><td>{{ event.actor }}</td></tr>{% empty %}<tr><td colspan="3">No activity recorded.</td></tr>{% endfor %}
+{% for event in audit.rows %}<tr><td>{% timezone item.snapshot.timezone %}{{ event.at|date:"M j, Y" }}<br>{{ event.at|date:"g:i A" }}{% endtimezone %}</td><td><strong>{{ event.title }}</strong>{% if event.detail %}<p>{{ event.detail }}</p>{% endif %}{% if event.email_body %}<details class="email-audit-content"><summary>View message</summary><div>{% if event.email_html %}{{ event.email_body|safe }}{% else %}{{ event.email_body|linebreaksbr }}{% endif %}</div></details>{% endif %}</td><td>{{ event.actor }}</td></tr>{% empty %}<tr><td colspan="3">No activity recorded.</td></tr>{% endfor %}
 </tbody></table></div>
 {% if audit.has_previous or audit.has_next %}<nav class="pagination" aria-label="Audit pages">{% if audit.has_previous %}<a href="{% querystring audit_page=audit.previous %}#audit-title">Previous</a>{% endif %}<span>Page {{ audit.number }}</span>{% if audit.has_next %}<a href="{% querystring audit_page=audit.next %}#audit-title">Next</a>{% endif %}</nav>{% endif %}
 </details>

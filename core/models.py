@@ -516,6 +516,9 @@ class SchoolEmailTemplate(models.Model):
                   {{status}}, {{school_name}}
     """
     school     = models.ForeignKey(School, on_delete=models.CASCADE, related_name="email_templates")
+    purpose = models.CharField(max_length=16, choices=[("enrollment", "Enrollment"), ("bookings", "Bookings")], default="enrollment")
+    booking_kind = models.CharField(max_length=16, choices=[("both", "Parties and workshops"), ("party", "Parties"), ("workshop", "Workshops")], default="both")
+    booking_link = models.CharField(max_length=16, choices=[("none", "No link"), ("payment", "Payment link"), ("guests", "Guest details / selections link")], default="none")
     name       = models.CharField(max_length=120)
     subject    = models.CharField(max_length=255)
     body       = models.TextField()

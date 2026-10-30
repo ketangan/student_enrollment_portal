@@ -5,6 +5,7 @@ from django.db.models import Q
 
 from scheduling.models import SchedulingProfile
 from scheduling.party_notifications import capture_for_reservation, process, live_enabled
+from scheduling.reservation_email import demo_recipients
 
 
 class Command(BaseCommand):
@@ -22,10 +23,11 @@ class Command(BaseCommand):
         profiles = SchedulingProfile.objects.select_related("school").filter(
             Q(party_notifications_enabled=True) | Q(workshop_notifications_enabled=True), enabled=True)
         if options["all_schools"]:
-            if settings.DEBUG or not settings.BOOKINGS_PARTY_EMAIL_ENABLED:
+            if settings.DEBUG or not (settings.BOOKINGS_PARTY_EMAIL_ENABLED or settings.BOOKINGS_DEMO_EMAIL_RECIPIENTS):
                 self.stdout.write("Party email delivery is disabled; no schools processed.")
                 return
-            profiles = profiles.filter(school__is_demo=False)
+            if not settings.BOOKINGS_PARTY_EMAIL_ENABLED:
+                profiles = profiles.filter(school__is_demo=True)
         else:
             profiles = profiles.filter(school__slug=options["school"])
             if not profiles.exists():
@@ -33,9 +35,12 @@ class Command(BaseCommand):
         count = 0
         failures = 0
         for profile in profiles.iterator(chunk_size=100):
-            if options["all_schools"] and not live_enabled(profile):
+            if options["all_schools"] and not (live_enabled(profile) or demo_recipients(profile)):
                 continue
             try:
+                if profile.school.is_demo and demo_recipients(profile):
+                    count += process(profile.pk, options["limit"])
+                    continue
                 reservations = profile.reservations.filter(Q(party_request__isnull=False) | Q(workshop_request__isnull=False),
                     state="confirmed", starts_at__gt=timezone.now())
                 if options["all_schools"]:

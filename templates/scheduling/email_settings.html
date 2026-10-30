@@ -1,0 +1,34 @@
+{% extends 'scheduling/base.html' %}
+{% load static %}
+{% block title %}Email settings{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'scheduling/email-settings.css' %}?v=20261030-templates">{% endblock %}
+{% block content %}
+<section class="email-settings-section" aria-labelledby="email-delivery-heading">
+  <div class="section-heading"><h2 id="email-delivery-heading">Email delivery</h2><span class="muted">{% if custom_delivery %}Custom SMTP{% else %}Default email service{% endif %}</span></div>
+  <p class="muted">Shared with Enrollment. Changes apply to both.</p>
+  <form method="post" class="setup-form email-settings-form">{% csrf_token %}
+    <input type="hidden" name="action" value="save">
+    {{ email_form.non_field_errors }}
+    <div class="email-settings-fields">
+    {% for field in email_form %}{% if field.name != 'smtp_use_tls' %}
+      <div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<p class="muted field-help">{{ field.help_text }}</p>{% endif %}</div>
+    {% endif %}{% endfor %}
+    </div>
+    <label class="email-tls">{{ email_form.smtp_use_tls }} {{ email_form.smtp_use_tls.label }}</label>
+    <button type="submit" class="primary">Save email settings</button>
+  </form>
+  {% if custom_delivery %}<details class="email-default"><summary>Default email service</summary>
+    <p class="muted">Remove the shared SMTP settings and stored credentials.</p>
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="clear"><button type="submit">Use default service</button></form>
+  </details>{% endif %}
+</section>
+<section class="email-settings-section" aria-labelledby="email-templates-heading">
+  <div class="section-heading"><h2 id="email-templates-heading">Booking email templates</h2><a class="button primary" href="{% url 'scheduling:email_template_new' school_slug=profile.school.slug %}"><i data-lucide="plus" aria-hidden="true"></i>Add template</a></div>
+  <div class="table-wrap" role="region" aria-label="Booking email templates" tabindex="0">
+    <table><thead><tr><th>Name</th><th class="email-template-scope">Available for</th><th class="email-template-subject">Subject</th><th>Included button</th><th class="email-template-status">Status</th><th><span class="sr-only">Edit</span></th></tr></thead><tbody>
+      {% for template in email_templates %}<tr><td><strong>{{ template.name }}</strong><span class="email-template-scope-mobile muted">{{ template.get_booking_kind_display }}<br>{% if template.is_active %}Active{% else %}Inactive{% endif %}</span></td><td class="email-template-scope">{{ template.get_booking_kind_display }}</td><td class="email-template-subject">{{ template.subject }}</td><td>{% if template.booking_link == 'payment' %}Payment{% elif template.booking_link == 'guests' %}Guest details{% else %}None{% endif %}</td><td class="email-template-status">{% if template.is_active %}Active{% else %}Inactive{% endif %}</td><td><a class="button icon-button" title="Edit {{ template.name }}" aria-label="Edit {{ template.name }}" href="{% url 'scheduling:email_template_edit' school_slug=profile.school.slug pk=template.pk %}"><i data-lucide="pencil" aria-hidden="true"></i></a></td></tr>
+      {% empty %}<tr><td colspan="6">No booking email templates yet.</td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+</section>
+{% endblock %}

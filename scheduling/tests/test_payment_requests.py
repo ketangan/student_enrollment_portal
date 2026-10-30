@@ -164,8 +164,10 @@ def test_reservation_uses_clean_guest_actions_and_honest_email_status(stock, boo
     assert response.status_code == 200
     for text in (b"Copy guest selection link", b"Email preview only; not sent", b"reservation-guest-actions"):
         assert text not in response.content
-    for text in (b"Copy host link", b"View design guide", b"Not queued", b"The space stays reserved", b"Materials have not been reserved", b"Resend payment request"):
+    for text in (b"Copy host link", b"View design guide", b"The space stays reserved", b"Materials have not been reserved", b"Resend payment request"):
         assert text not in response.content
+    assert b"Not queued" not in response.content.split(b'id="audit-title"')[0]
+    assert b"Email not sent" in response.content
     notice.state = "sent"
     notice.save()
     response = client.get(path)
