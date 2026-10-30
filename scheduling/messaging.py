@@ -117,9 +117,9 @@ def claim(profile_id, *, party_delivery=False):
         return None
     if party_delivery:
         from .party_notifications import live_enabled
-        from .reservation_email import demo_recipients, MANUAL_KINDS
+        from .reservation_email import demo_delivery_enabled, MANUAL_KINDS
         live = live_enabled(profile)
-        demo = bool(demo_recipients(profile))
+        demo = demo_delivery_enabled(profile)
         if not live and not demo:
             return None
     blocked = unresolved_messages(profile, OuterRef("group_key"))

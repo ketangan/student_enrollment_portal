@@ -5,7 +5,7 @@ from django.db.models import Q
 
 from scheduling.models import SchedulingProfile
 from scheduling.party_notifications import capture_for_reservation, process, live_enabled
-from scheduling.reservation_email import demo_recipients
+from scheduling.reservation_email import demo_delivery_enabled
 
 
 class Command(BaseCommand):
@@ -20,10 +20,13 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if not 1 <= options["limit"] <= 20:
             raise CommandError("Limit must be between 1 and 20.")
+        demo_slugs = getattr(settings, "BOOKING_HOSTED_DEMO_SLUGS", ())
         profiles = SchedulingProfile.objects.select_related("school").filter(
-            Q(party_notifications_enabled=True) | Q(workshop_notifications_enabled=True), enabled=True)
+            Q(party_notifications_enabled=True) | Q(workshop_notifications_enabled=True)
+            | Q(school__is_demo=True, school__slug__in=demo_slugs), enabled=True)
         if options["all_schools"]:
-            if settings.DEBUG or not (settings.BOOKINGS_PARTY_EMAIL_ENABLED or settings.BOOKINGS_DEMO_EMAIL_RECIPIENTS):
+            if settings.DEBUG or not (settings.BOOKINGS_PARTY_EMAIL_ENABLED or
+                    demo_slugs and getattr(settings, "BOOKING_HOSTED_DEMO_HOSTS", ())):
                 self.stdout.write("Party email delivery is disabled; no schools processed.")
                 return
             if not settings.BOOKINGS_PARTY_EMAIL_ENABLED:
@@ -35,10 +38,10 @@ class Command(BaseCommand):
         count = 0
         failures = 0
         for profile in profiles.iterator(chunk_size=100):
-            if options["all_schools"] and not (live_enabled(profile) or demo_recipients(profile)):
+            if options["all_schools"] and not (live_enabled(profile) or demo_delivery_enabled(profile)):
                 continue
             try:
-                if profile.school.is_demo and demo_recipients(profile):
+                if profile.school.is_demo and demo_delivery_enabled(profile):
                     count += process(profile.pk, options["limit"])
                     continue
                 reservations = profile.reservations.filter(Q(party_request__isnull=False) | Q(workshop_request__isnull=False),

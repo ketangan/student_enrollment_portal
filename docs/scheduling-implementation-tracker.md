@@ -21,13 +21,15 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
   Confirmation, Payment reminder and Guest details records for one enabled Bookings
   school without overwriting edits or touching Enrollment. Run only where requested;
   local preview data is not deployed by Git. The local preview has these records.
-- Hosted demo manual delivery is default-off. `BOOKINGS_DEMO_EMAIL_RECIPIENTS` is a
-  JSON mapping from configured hosted-demo school slugs to approved recipient lists
-  (maximum 20 each). Requires the existing demo feature/host gates, notification
-  setting, school email transport and outbox worker. It never captures automatic demo
-  confirmations/reminders. Recipient permission is rechecked before sending.
-  No hosted setting, SMTP credentials or production school data changed. Approved
-  test recipient addresses and hosted activation remain pending user confirmation.
+- Hosted demo manual delivery uses the existing school SMTP configuration, or
+  Pontora's default service when no custom SMTP is set. The user explicitly approved
+  staff-triggered emails without a recipient allowlist. These sends require existing
+  configured hosted-demo/active-school/capability gates and authorized staff, but do
+  not depend on automatic confirmation/reminder switches. Local debug remains
+  capture-only. Automatic demo emails are never claimed or captured by this worker
+  path, even if global live-email or per-school automatic switches are on.
+  No hosted setting, SMTP credentials or production school data changed. The existing
+  outbox worker must run for provider delivery; actual inbox delivery is unverified.
 - Focused checks: 308 passed, including SBMC workflow and broadcast regressions.
   Settings, sanitizer and explicit seed command have 100% measured coverage;
   reservation email has 97.31%. Fixed a time-bound signed-URL comparison in an
@@ -39,8 +41,11 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
   Physical Android Chrome, virtual keyboards and actual email delivery remain pending.
 - Full predecessor `jasmine-email-payment-audit-20261030` was interrupted, not passed:
   4,297 passed, one signed-URL assertion failed, three skipped. The assertion is now
-  fixed. Final candidate regression will be logged as `jasmine-email-release-20261030`;
-  push is gated on its complete migration, Python, coverage and JavaScript results.
+  fixed. Candidate `21e5d86` passed `jasmine-email-release-20261030`: 5,081 passed,
+  three skipped, all migration/coverage/JavaScript gates passed, fingerprint unchanged.
+  The user subsequently approved unrestricted staff-triggered demo delivery as above;
+  285 focused tests passed for that revision. The revised candidate requires a fresh
+  `jasmine-email-release-manual-20261030` full run. Push remains gated on those checks.
 
 ### October 30 Email Audit and Balance Payment Corrections (Local, Not Pushed)
 

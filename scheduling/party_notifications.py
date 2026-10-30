@@ -154,7 +154,7 @@ def process(profile_id, limit=20):
                 continue
             profile = SchedulingProfile.objects.select_related("school").get(pk=profile_id)
             from .reservation_email import external_delivery_allowed, MANUAL_KINDS
-            allowed = (external_delivery_allowed(message.reservation, message.recipient)
+            allowed = (external_delivery_allowed(message.reservation)
                 if message.notice_kind in MANUAL_KINDS else live_enabled(profile))
             if not allowed:
                 count += messaging.finish(message, "suppressed")

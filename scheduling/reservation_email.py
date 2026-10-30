@@ -6,7 +6,6 @@ from django import forms
 from django.conf import settings
 from django.core import signing
 from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
 from django.db import transaction
 from django.http import Http404
 from django.utils import timezone
@@ -30,29 +29,16 @@ LINK_SALT = "scheduling.manual-email-link.v1"
 MANUAL_KINDS = ("manual", "manual_payment", "manual_guests")
 
 
-def demo_recipients(profile):
+def demo_delivery_enabled(profile):
     from .experience_demo.config import available, hosted_demo
-    mapping = getattr(settings, "BOOKINGS_DEMO_EMAIL_RECIPIENTS", {})
-    if not isinstance(mapping, dict) or not hosted_demo(profile.school.slug) or not available(profile):
-        return ()
-    values = mapping.get(profile.school.slug, [])
-    if not isinstance(values, list) or not values or len(values) > 20:
-        return ()
-    try:
-        for value in values:
-            if not isinstance(value, str):
-                return ()
-            validate_email(value)
-    except ValidationError:
-        return ()
-    return tuple(value.strip().lower() for value in values)
+    return hosted_demo(profile.school.slug) and available(profile)
 
 
-def external_delivery_allowed(item, recipient):
+def external_delivery_allowed(item):
     if not enabled(item):
         return False
     if item.profile.school.is_demo:
-        return item.order.environment == "test" and recipient.strip().lower() in demo_recipients(item.profile)
+        return item.order.environment == "test" and demo_delivery_enabled(item.profile)
     return item.order.environment == "live" and party_notifications.live_enabled(item.profile)
 
 
@@ -188,6 +174,8 @@ def context_for(user, item, form=None):
 
 def enabled(item):
     profile = item.profile
+    if demo_delivery_enabled(profile):
+        return has_capability(profile, "parties" if item.party_request_id else "workshops")
     return (profile.enabled and profile.party_notifications_enabled and has_capability(profile, "parties")) if item.party_request_id else workshop_notifications.enabled(profile)
 
 
@@ -239,7 +227,7 @@ def send(user, slug, public_id, data):
             form.add_error(None, "The included link or payment amount changed. Review the link below before sending again.")
             return form, None
         body += f'<p><a class="booking-email-action" href="{escape(supplied["url"])}">{escape(link["label"])}</a></p>'
-    live = external_delivery_allowed(item, form.cleaned_data["recipient"])
+    live = external_delivery_allowed(item)
     if not live and not (settings.DEBUG and item.order.environment == "test"):
         form.add_error(None, "Email delivery is disabled for this workspace. Check Guest communication settings.")
         return form, None
