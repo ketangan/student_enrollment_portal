@@ -36,10 +36,11 @@ def test_existing_reservations_remain_clear_when_new_intake_is_disabled(inventor
     assert b"check Reservations for confirmed bookings" in response.content
     assert b"These are not confirmed seats" not in response.content
     response = client.get(path(booking_member, "party_detail", public_id=party.public_id))
-    assert b"View reservation" in response.content
-    assert b"Save review" not in response.content
-    for page in ("requests", "parties"):
-        assert b"Held - awaiting payment" in client.get(path(booking_member, page)).content
+    assert response.status_code == 302
+    assert response.url == path(booking_member, "reservation_detail", public_id=party.reservation.public_id)
+    assert b"Party details" in client.get(response.url).content
+    assert b"Held - awaiting payment" in client.get(path(booking_member, "requests")).content
+    assert b"Awaiting payment" in client.get(path(booking_member, "parties")).content
 
 
 @pytest.fixture
@@ -445,7 +446,9 @@ def test_party_browser_quote_is_server_owned(inventory, booking_member, client):
     response = client.post(url,{"total":"0","deposit":"0","confirm":"on", "source_revision":0})
     assert response.status_code == 302
     assert Reservation.objects.get().order.total_cents == 40000
-    assert b"View reservation" in client.get(path(booking_member,"party_detail",public_id=source.public_id)).content
+    detail = client.get(path(booking_member,"party_detail",public_id=source.public_id))
+    assert detail.status_code == 302 and detail.url == response.url
+    assert b"Party details" in client.get(detail.url).content
     overlapping = party_request(inventory)
     assert client.post(path(booking_member,"reservation_from_party",public_id=overlapping.public_id),{"confirm":"on", "source_revision":0}).status_code == 400
 
@@ -521,16 +524,17 @@ def test_disable_stops_new_sales_not_existing_settlement(inventory, booking_memb
     assert client.post(settings,{"action":"bad"}).status_code == 400
     assert client.post(settings,{"action":"disable"}).status_code == 302
     paused = client.get(path(booking_member,"reservations"))
-    assertContains(paused, '<input type="checkbox" role="switch" name="action" value="enable">', html=True)
-    assertContains(paused, '<span class="status inactive">Paused</span>', html=True)
+    assert b"New reservations:" not in paused.content
+    assert b"Accept new reservations" not in paused.content
     with pytest.raises(ValidationError):
         reserve(booking_member,workshop_request(inventory))
     assert settle(booking_member,item).state == "confirmed"
     # A checked HTML switch submits both the hidden fallback and the enabled value.
     assert client.post(settings,"action=disable&action=enable", content_type="application/x-www-form-urlencoded").status_code == 302
     enabled = client.get(path(booking_member,"reservations"))
-    assertContains(enabled, '<input type="checkbox" role="switch" name="action" value="enable" checked>', html=True)
-    assertContains(enabled, '<span class="status ">Open</span>', html=True)
+    assert b"New reservations:" not in enabled.content
+    booking_member.profile.refresh_from_db()
+    assert booking_member.profile.native_reservations_enabled
     item.refresh_from_db()
     assert item.state == "confirmed" and Reservation.objects.count() == 1
 
@@ -539,10 +543,13 @@ def test_reservation_filters_have_active_state_and_specific_empty_message(bookin
     client.force_login(booking_member.user)
     target = path(booking_member, "reservations")
     normal = client.get(target)
-    assertContains(normal, '<a href="?" aria-current="page">All reservations</a>', html=True)
+    assert b'booking-quick-filters' in normal.content
+    assert b'All reservations</a>' not in normal.content
     assert b"No payments need follow-up." not in normal.content
     attention = client.get(target, {"attention": 1})
-    assertContains(attention, '<a href="?attention=1" aria-current="page">Payment follow-up <span class="filter-count">0</span></a>', html=True)
+    assert attention.context['attention_only']
+    assert b'Balance due' in attention.content
+    assert b'Payment follow-up' not in attention.content
     assertContains(attention, 'No payments need follow-up.')
 
 
@@ -555,7 +562,7 @@ def test_read_only_money_permissions(inventory, booking_member, client, role):
     client.force_login(booking_member.user)
     detail = path(booking_member,"reservation_detail",public_id=item.public_id)
     assert client.get(detail).status_code == 200
-    assert b'role="switch"' not in client.get(path(booking_member,"reservations")).content
+    assert b'New reservations:' not in client.get(path(booking_member,"reservations")).content
     assert b"Record offline entry" not in client.get(detail).content
     assert client.post(detail,{}).status_code == 404
     assert client.get(path(booking_member,"reservation_from_workshop",public_id=source.public_id)).status_code == 404

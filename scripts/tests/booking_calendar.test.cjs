@@ -20,7 +20,7 @@ function page({focused=false, form=false, search='?view=calendar'} = {}) {
   const ids = ['booking-calendar', 'calendar-config', 'calendar-error', 'calendar-count',
     'calendar-hide-empty', 'calendar-detail', 'calendar-detail-body', 'calendar-detail-title',
     'calendar-detail-close', 'calendar-range', 'calendar-offerings', 'calendar-retry',
-    'calendar-unpaid', 'calendar-balances', 'calendar-empty'];
+    'calendar-unpaid', 'calendar-balances', 'calendar-empty', 'calendar-detail-badges', 'calendar-detail-print', 'calendar-prep-print'];
   const nodes = Object.fromEntries(ids.map(id => [id, element()]));
   nodes['calendar-error'].append(element('span'));
   if (form) {
@@ -28,12 +28,13 @@ function page({focused=false, form=false, search='?view=calendar'} = {}) {
     nodes['dashboard-location-filter'].querySelector=selector=>nodes['dashboard-location-filter'].children.find(child=>selector===`input[name="${child.name}"]`) || null;
   }
   nodes['calendar-config'].textContent = JSON.stringify({location:focused?'1':'',today:'2026-10-20',
-    eventsUrl:'/calendar/events/',resources:[{id:'2',title:'East',zone:'America/New_York'}],offerings:[{id:'1',title:'<script>not markup</script>'},{id:'2',title:'Workshop'}]});
+    printUrl:'/preparation/',eventsUrl:'/calendar/events/',resources:[{id:'2',title:'East',zone:'America/New_York'}],offerings:[{id:'1',title:'<script>not markup</script>'},{id:'2',title:'Workshop'}]});
   const ranges = ['day','week','month'].map(value => Object.assign(element('button'),{dataset:{calendarRange:value}}));
   const actions = ['prev','next','today'].map(value => Object.assign(element('button'),{dataset:{calendarAction:value}}));
   const filters = ['all','none'].map(value => Object.assign(element('button'),{dataset:{calendarFilter:value}}));
   const requests = [];
-  let options, refetches=0;
+  const opened = [];
+  let options, refetches=0, prints=0;
   const location = {href:`http://localhost/bookings/test/${search}`,origin:'http://localhost',search,assign(url){this.href=String(url);}};
   const calendar = {setOption(key,value) {options[key]=value;},getOption(key) {return key==='date'?new Date(options.date):options[key];},
     refetchEvents() {refetches++;},next() {this.nextCalled=true;},prev() {this.prevCalled=true;}};
@@ -45,16 +46,45 @@ function page({focused=false, form=false, search='?view=calendar'} = {}) {
       if(selector==='#calendar-offerings input')return nodes['calendar-offerings'].children.map(label=>label.children[0]);
       return [];
     }};
-  vm.runInNewContext(source,{document,location,URL,URLSearchParams,AbortController,Intl,
+  vm.runInNewContext(source,{document,location,URL,URLSearchParams,AbortController,Intl,window:{print(){prints++;},open(...args){opened.push(args);}},
     history:{replaceState(_a,_b,url){location.href=String(url);}},queueMicrotask,
     fetch:(url,opts)=>new Promise((resolve,reject)=>requests.push({url,opts,resolve,reject})),
     EventCalendar:{create(_root,opts){options=opts;return calendar;}}}, {filename});
-  return {nodes,ranges,actions,filters,requests,calendar,location,get options(){return options;},get refetches(){return refetches;}};
+  return {nodes,ranges,actions,filters,requests,calendar,location,opened,get prints(){return prints;},get options(){return options;},get refetches(){return refetches;}};
 }
 
 const interval = {startStr:'2026-10-18T00:00:00',endStr:'2026-10-25T00:00:00'};
+test('print follows visible period, location and selected workshops without changing the calendar', () => {
+  for (const period of ['day','week','month']) {
+    const p=page({focused:true,search:`?range=${period}&date=2026-10-28`});
+    p.options.datesSet({view:{currentStart:new Date('2026-10-25T00:00:00Z'),title:'Selected range'}});
+    p.nodes['calendar-prep-print'].listeners.click();
+    const [url,target,features]=p.opened[0];
+    assert.equal(url.searchParams.get('date'),'2026-10-25');
+    assert.equal(url.searchParams.get('period'),period);
+    assert.equal(url.searchParams.get('location'),'1');
+    assert.equal(target,'_blank');assert.equal(features,'noopener');
+    p.filters[1].listeners.click();p.nodes['calendar-prep-print'].listeners.click();
+    assert.equal(p.opened[1][0].searchParams.get('offering'),'none');
+  }
+});
 const summary = {unpaid:1,balance:2,empty:3};
+const detailSummary = {booked:2,capacity:6,open:4,needs_action:0,reservation_count:1,payments:[{received:2500,expected:6500,order__currency:'usd'}]};
 function resolve(request,events=[]) {request.resolve({ok:true,json:async()=>({events,summary})});}
+
+test('month event and keyboard activation open the day instead of session details',()=>{
+  for (const keyboard of [false,true]) {
+    const p=page({search:'?range=month'});
+    const event={title:'Workshop',start:new Date('2026-10-24T10:00:00Z'),extendedProps:{kind:'session',location:'Studio',seats:1,capacity:6}};
+    if (keyboard) {
+      const el=element();p.options.eventDidMount({el,event});el.listeners.keydown({key:'Enter',preventDefault(){}});
+    } else p.options.eventClick({event});
+    assert.equal(p.options.view,'resourceTimelineDay');
+    assert.equal(p.options.date,'2026-10-24');
+    assert.equal(p.requests.length,0);
+    assert.ok(!p.nodes['calendar-detail'].open);
+  }
+});
 
 test('controls change views and navigate through the calendar library',()=>{
   const p=page();
@@ -66,6 +96,21 @@ test('controls change views and navigate through the calendar library',()=>{
   p.actions[2].listeners.click();assert.equal(p.options.date,'2026-10-20');
   assert.equal(p.options.editable,false);
   assert.equal(p.options.eventDurationEditable,false);
+  assert.equal(p.options.slotDuration,'01:00:00');
+  assert.equal(p.options.slotHeight,48);
+});
+
+test('overflow links drill into the day without opening the vendor popup',()=>{
+  for(const type of ['click','keydown']) {
+    const p=page({search:'?range=month'});let stopped=false,prevented=false;
+    const target={closest:()=>({querySelector:()=>({getAttribute:()=> '2026-10-24'})})};
+    p.nodes['booking-calendar'].listeners[type]({type,key:'Enter',target,preventDefault(){prevented=true;},stopPropagation(){stopped=true;}});
+    assert.equal(p.options.view,'resourceTimelineDay');assert.equal(p.options.date,'2026-10-24');assert.ok(stopped&&prevented);
+  }
+  const p=page();
+  p.nodes['booking-calendar'].listeners.keydown({type:'keydown',key:'Tab'});
+  p.nodes['booking-calendar'].listeners.click({type:'click',target:{closest:()=>null}});
+  assert.equal(p.options.view,'timeGridWeek');
 });
 
 test('none filter does not accidentally fetch all workshops',async()=>{
@@ -95,8 +140,12 @@ test('failed loads clear stale events and expose retry',async()=>{
 test('crowded simultaneous sessions collapse into a day-view link',async()=>{
   const p=page();let events;
   const pending=p.options.eventSources[0].events(interval,value=>{events=value;});
-  resolve(p.requests[0],[1,2,3].map(id=>({id:`session-${id}`,title:'Workshop',start:'2026-10-24T10:00:00',end:'2026-10-24T12:00:00',extendedProps:{kind:'session',seats:1,capacity:6}})));
+  resolve(p.requests[0],[1,2,3].map(id=>({id:`session-${id}`,title:'Workshop',start:'2026-10-24T10:00:00',end:'2026-10-24T12:00:00',extendedProps:{kind:'session',location:`Studio ${id}`,seats:1,capacity:6}})));
   await pending;assert.equal(events.length,1);assert.equal(events[0].extendedProps.seats,3);
+  assert.equal(p.options.eventContent({event:events[0],timeText:'10 AM'}).domNodes[0].textContent,'3 sessions');
+  assert.equal(events[0].extendedProps.location,'3 locations');
+  assert.equal(p.options.eventContent({event:events[0],timeText:'10 AM'}).domNodes[1].textContent,'3 locations');
+  assert.match(p.options.eventContent({event:events[0],timeText:'10 AM'}).domNodes[3].textContent,/3\/18 participants/);
   p.options.eventClick({event:events[0]});assert.equal(p.options.view,'resourceTimelineDay');
 });
 
@@ -104,26 +153,32 @@ test('untrusted event titles use text nodes, not HTML',()=>{
   const p=page();
   const event={title:'<img onerror=alert(1)>',extendedProps:{location:'<script>x</script>',seats:1,capacity:6,published:true}};
   const content=p.options.eventContent({event,timeText:'10 AM'});
-  assert.equal(content.domNodes[0].textContent,'<script>x</script>');
-  assert.equal(content.domNodes[0].innerHTML,undefined);
+  assert.equal(content.domNodes[0].textContent,'1 session');
+  assert.equal(content.domNodes[1].textContent,'<script>x</script>');
+  assert.equal(content.domNodes[1].innerHTML,undefined);
+  assert.equal(content.domNodes[3].textContent,'1/6 participants');
 });
 
 test('session details render verified totals and existing reservation links',async()=>{
   const p=page();
   const pending=p.options.eventClick({event:{title:'Session',extendedProps:{detailUrl:'/details/'}}});
   assert.equal(p.nodes['calendar-detail'].open,true);
-  p.requests[0].resolve({ok:true,json:async()=>({title:'Workshop',time:'Saturday',location:'Studio',room:'Room',url:'/workshop/',truncated:true,
-    reservations:[{name:'<img>',quantity:2,state:'Confirmed',received:2500,total:6500,currency:'usd',url:'/reservation/'}]})});
+  p.requests[0].resolve({ok:true,json:async()=>({title:'Workshop',time:'Saturday',location:'Studio',room:'Room',url:'/workshop/',truncated:true,summary:detailSummary,category:'Group workshop',availability:'Published',
+    reservations:[{name:'<img>',quantity:2,state:'Confirmed',payment_status:'Deposit paid',received:2500,total:6500,currency:'usd',url:'/reservation/'}]})});
   await pending;
   assert.equal(p.nodes['calendar-detail-title'].textContent,'Workshop');
-  const table=p.nodes['calendar-detail-body'].children[2].children[0];
+  const table=p.nodes['calendar-detail-body'].children[4].children[0];
   const row=table.children[1].children[0];
-  assert.equal(row.children[0].textContent,'<img>');
-  assert.equal(row.children[4].textContent,'$40.00');
-  const reservationLink = new URL(row.children[5].children[0].href, 'http://localhost');
+  assert.equal(row.children[0].children[0].children.length,1);
+  assert.equal(row.children[0].children[0].children[0].textContent,'<img>');
+  assert.match(row.children[2].children[1].textContent,/\$40.00 balance/);
+  assert.deepEqual(Array.from(row.children, cell => cell.attrs['data-label']), ['Customer', 'Participants', 'Payment', '']);
+  assert.equal(row.children[3].children[0].attrs['aria-label'], 'View reservation for <img>');
+  const reservationLink = new URL(row.children[3].children[0].href, 'http://localhost');
   assert.equal(reservationLink.pathname, '/reservation/');
   assert.match(reservationLink.searchParams.get('calendar'), /^\/bookings\/test\/\?view=calendar/);
   assert.equal(p.nodes['calendar-detail-body'].children.some(child => child.tag === 'a'), false);
+  p.nodes['calendar-detail-print'].listeners.click();assert.equal(p.prints,1);
   p.nodes['calendar-detail-close'].listeners.click();assert.equal(p.nodes['calendar-detail'].open,false);
 });
 
@@ -132,9 +187,9 @@ test('empty, failed and closed detail dialogs do not show stale results',async()
   const first=p.options.eventClick({event});p.requests[0].resolve({ok:false});await first;
   assert.match(p.nodes['calendar-detail-body'].children[0].textContent,/Could not/);
   const retry=p.nodes['calendar-detail-body'].children[1].listeners.click();
-  p.requests[1].resolve({ok:true,json:async()=>({title:'Empty',time:'Now',location:'Studio',reservations:[],url:'/workshop/'})});await retry;
-  assert.equal(p.nodes['calendar-detail-body'].children[2].textContent,'No active reservations.');
-  assert.equal(p.nodes['calendar-detail-body'].children.length,3);
+  p.requests[1].resolve({ok:true,json:async()=>({title:'Empty',time:'Now',location:'Studio',reservations:[],url:'/workshop/',summary:{...detailSummary,reservation_count:0,payments:[]}})});await retry;
+  assert.equal(p.nodes['calendar-detail-body'].children[4].textContent,'No active reservations.');
+  assert.equal(p.nodes['calendar-detail-body'].children.length,5);
   const third=p.options.eventClick({event});p.nodes['calendar-detail'].close();
   p.requests[2].resolve({ok:true,json:async()=>({title:'Stale'})});await third;
   assert.notEqual(p.nodes['calendar-detail-title'].textContent,'Stale');

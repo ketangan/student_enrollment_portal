@@ -118,7 +118,7 @@ def test_completion_permissions_confirmation_and_csrf(stock, role, allowed):
     SchedulingMembership.objects.filter(user=s.user).update(role=role)
     target = url(s, "reservation_complete", public_id=item.public_id)
     detail = url(s, "reservation_detail", public_id=item.public_id)
-    assert (b"Workshop completed</a>" in s.client.get(detail).content) == allowed
+    assert (b"Mark workshop completed</a>" in s.client.get(detail).content) == allowed
     csrf = Client(enforce_csrf_checks=True); csrf.force_login(s.user)
     assert csrf.post(target, {"action": "complete"}).status_code == 403
     assert s.client.get(target).status_code == (200 if allowed else 404)
@@ -140,7 +140,7 @@ def test_completion_permissions_confirmation_and_csrf(stock, role, allowed):
 def test_completed_tabs_list_filter_and_audit(stock):
     s = stock; item = reserve(s); confirm(s, item)
     finish(s, item)
-    response = s.client.get(url(s, "reservations"), {"state": "completed"})
+    response = s.client.get(url(s, "reservations"), {"state": "completed", "hide_completed": "0"})
     assert list(response.context["items"]) == [item]
     detail = s.client.get(url(s, "reservation_detail", public_id=item.public_id))
     assert b"Reservation completed" in detail.content and b"Materials used" in detail.content
@@ -177,13 +177,13 @@ def test_details_and_prep_share_participants_and_summary_without_studio_in_mater
             rendered = render_to_string(f"scheduling/{partial}.html", values).encode()
             assert rendered in page.content
     assert [row["values"] for row in detail.context["participant_table"]["rows"]] == [row["values"] for row in prep.context["participant_table"]["rows"]]
-    assert b'<details class="reservation-section reservation-summary"><summary>' in prep.content
+    assert b'data-reservation-panel="details" hidden' in prep.content
     assert detail.context["participant_table"]["columns"] == ["Design", "Color"]
     assert b"Not selected" in prep.content and b"&lt;script&gt;" in prep.content
     assert b"<script>unsafe" not in detail.content
     assert b'<th scope="col">Material</th><th scope="col" class="numeric">Quantity</th><th scope="col">Stock status</th>' in prep.content
-    assert b"Mark materials used" not in prep.content and b"Preparation Pending" in prep.content
-    assert b"Payment summary" in detail.content and b">Money<" not in detail.content
+    assert b"Mark materials used" not in prep.content and b"Mark prepared" in prep.content
+    assert b"Payment history" in detail.content and b">Money<" not in detail.content
 
 
 def test_completed_camp_and_party_without_inventory(inventory, booking_member, camp, client):

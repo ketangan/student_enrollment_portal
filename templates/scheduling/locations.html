@@ -5,6 +5,7 @@
 {% for location in locations %}
 <section class="location-section">
   <div class="section-heading"><div><h3>{{ location.name }}</h3><p class="muted">{{ location.address }}{% if location.address %} &middot; {% endif %}{{ location.timezone_name }}</p></div>{% if can_edit_setup %}<a href="{% url 'scheduling:location_edit' school_slug=business.slug pk=location.pk %}">Edit location</a>{% endif %}</div>
+  <p class="muted">Default sales tax: {% if location.default_tax_rate != None %}{{ location.default_tax_rate|floatformat:'-3' }}%{% else %}Not set{% endif %}</p>
   <div class="table-wrap" role="region" aria-label="{{ location.name }} rooms" tabindex="0"><table><thead><tr><th>Room</th><th class="number">Capacity</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
   {% for room in location.rooms.all %}<tr><td>{{ room.name }}</td><td class="number">{{ room.capacity }}</td><td>{% if can_edit_setup %}<a class="dash-action-btn dash-action-btn--secondary" href="{% url 'scheduling:room_edit' school_slug=business.slug pk=room.pk %}" aria-label="Edit {{ room.name }}">Edit</a>{% endif %}</td></tr>{% empty %}<tr><td colspan="3" class="muted">No rooms added.</td></tr>{% endfor %}
   </tbody></table></div>

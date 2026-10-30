@@ -1,65 +1,44 @@
 {% extends 'scheduling/base.html' %}{% load tz booking_navigation %}
 {% block title %}Reservations{% endblock %}
 {% block content %}
-{% if features.parties and can_edit_sessions %}<div class="actions"><a class="button" href="{% url 'scheduling:staff_party_create' school_slug=business.slug %}"><i data-lucide="plus" aria-hidden="true"></i> New party request</a></div>{% endif %}
-<details class="reservation-availability"><summary>New reservations: {% if profile.native_reservations_enabled %}Open{% else %}Paused{% endif %}</summary>
-<section class="reservation-intake" aria-label="Booking availability">
-  <div>
-    <h2>New reservations <span class="status {% if not profile.native_reservations_enabled %}inactive{% endif %}">{% if profile.native_reservations_enabled %}Open{% else %}Paused{% endif %}</span></h2>
-    <p class="muted">Existing reservations remain available.</p>
-  </div>
-  {% if can_edit_setup and school_wide_access %}
-  <form method="post" action="{% url 'scheduling:reservation_settings' school_slug=business.slug %}" class="intake-form">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="disable">
-    <label class="intake-switch"><input type="checkbox" role="switch" name="action" value="enable" {% if profile.native_reservations_enabled %}checked{% endif %}><span>Accept new reservations</span></label>
-    <button type="submit">Save</button>
-  </form>
-  {% endif %}
-</section>
-</details>
-<div class="booking-list-metrics">
-  <a class="dash-card" href="?attention=1"><strong>{{ attention_count }}</strong><span>Needs payment review</span></a>
-  <a class="dash-card" href="?"><strong>{{ total_count }}</strong><span>Total</span></a>
-</div>
-<nav class="actions list-filter reservation-filter" aria-label="Reservation filter">
-  <a href="?{{ tab_filters }}" {% if not attention_only and not preparation_only %}aria-current="page"{% endif %}>All reservations</a>
-  <a href="?attention=1{% if tab_filters %}&amp;{{ tab_filters }}{% endif %}" {% if attention_only %}aria-current="page"{% endif %}>Payment follow-up <span class="filter-count">{{ attention_count }}</span></a>
+<nav class="booking-quick-filters" aria-label="Reservation quick filters">
+  <a class="quick-filter" href="{{ total_url }}"{% if not attention_only and not preparation_only and not balance_only %} aria-current="page"{% endif %}>All <span>{{ total_count }}</span></a>
+  <a class="quick-filter quick-filter--attention" href="{{ balance_url }}"{% if balance_only %} aria-current="page"{% endif %}>Balance due <span>{{ balance_count }}</span></a>
+  <a class="quick-filter" href="{{ preparation_url }}"{% if preparation_only %} aria-current="page"{% endif %}>Prep pending <span>{{ preparation_count }}</span></a>
 </nav>
-<form method="get" class="booking-search-strip" aria-label="Find reservations">
+<form method="get" id="reservation-filters" aria-label="Find reservations">
   {% if attention_only %}<input type="hidden" name="attention" value="1">{% endif %}
+  {% if balance_only %}<input type="hidden" name="balance" value="1">{% endif %}
   {% if preparation_only %}<input type="hidden" name="preparation" value="1">{% endif %}
+  {% if sort %}<input type="hidden" name="sort" value="{{ sort }}">{% endif %}
   {{ filter_form.non_field_errors }}
-  <div class="booking-search-row"><label class="sr-only" for="{{ filter_form.q.id_for_label }}">Customer or workshop</label>{{ filter_form.q }}<button class="primary">Search</button></div>{{ filter_form.q.errors }}
-  {% if has_filters %}<p class="booking-clear-filters"><a href="?{% if attention_only %}attention=1{% endif %}">Clear filters</a></p>{% endif %}
-  <details class="booking-advanced-filters" {% if filter_form.state.value or filter_form.date_from.value or filter_form.date_to.value or filter_form.errors %}open{% endif %}><summary>Status &amp; date filters</summary>
-  <div class="booking-search-filters">
-    {% for field in filter_form %}{% if field.name != 'q' and field.name != 'location' %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}
-    <button type="submit">Apply filters</button>
-  </div></details>
-</form>
-<div class="booking-list-toolbar"><p class="muted" role="status">{{ items.paginator.count }} reservation{{ items.paginator.count|pluralize }}{% if preparation_only %} to prepare{% endif %}</p></div>
+  <div class="reservation-search-toolbar">
+    <div class="booking-search-row"><label class="sr-only" for="{{ filter_form.q.id_for_label }}">Customer or workshop</label>{{ filter_form.q }}<button type="submit" class="primary" aria-label="Apply reservation filters" title="Apply filters"><i data-lucide="search" aria-hidden="true"></i></button></div>
+    {% include 'scheduling/show_completed_switch.html' %}
+    {% if has_filters %}<a href="{% if attention_only %}{{ attention_url }}{% else %}{{ total_url }}{% endif %}">Clear filters</a>{% endif %}
+  </div>{{ filter_form.q.errors }}
+<div class="booking-list-toolbar"><p class="muted" role="status">{{ items.paginator.count }} reservation{{ items.paginator.count|pluralize }}{% if preparation_only %} to prepare{% endif %}</p>{% if party_packages_only and can_edit_sessions %}<a class="button primary" href="{% url 'scheduling:staff_party_create' school_slug=business.slug %}"><i data-lucide="plus" aria-hidden="true"></i> New party booking</a>{% endif %}</div>
 <div class="dash-card reservation-table">
 <div class="dash-table-scroll" role="region" aria-label="Reservations" tabindex="0">
   <table class="dash-table">
     <colgroup><col class="reservation-customer"><col class="reservation-workshop"><col class="reservation-scheduled"><col class="reservation-quantity"><col class="reservation-state"><col class="reservation-prep"><col class="reservation-total"><col class="reservation-actions"></colgroup>
     <thead><tr>
       <th scope="col"{% if sort == 'name' %} aria-sort="ascending"{% elif sort == '-name' %} aria-sort="descending"{% endif %}><a class="reservation-sort-link" href="{{ sort_urls.name }}">Customer <span class="reservation-sort-icon" aria-hidden="true">{% if sort == 'name' %}&uarr;{% elif sort == '-name' %}&darr;{% else %}&varr;{% endif %}</span></a></th>
-      <th scope="col">Workshop / location</th>
-      <th scope="col"{% if sort == 'scheduled' %} aria-sort="ascending"{% elif sort == '-scheduled' %} aria-sort="descending"{% endif %}><a class="reservation-sort-link" href="{{ sort_urls.scheduled }}">Scheduled <span class="reservation-sort-icon" aria-hidden="true">{% if sort == 'scheduled' %}&uarr;{% elif sort == '-scheduled' %}&darr;{% else %}&varr;{% endif %}</span></a></th>
-      <th scope="col" class="number">Participants</th><th scope="col">Status</th><th scope="col">Prep</th><th scope="col" class="number">Total</th><th scope="col"><span class="sr-only">Actions</span></th>
+      <th scope="col"><button type="button" class="column-menu-trigger" data-column-menu="reservation-workshop-filter" aria-expanded="false">Workshop / location <span aria-hidden="true">▾</span></button><div class="col-filter-panel" id="reservation-workshop-filter"><p class="cf-title">Workshop</p>{% include 'scheduling/column_filter_options.html' with field=filter_form.offering %}<hr class="cf-sep"><p class="cf-title">Location</p>{% include 'scheduling/column_filter_options.html' with field=filter_form.location %}</div></th>
+      <th scope="col"{% if sort == 'scheduled' %} aria-sort="ascending"{% elif sort == '-scheduled' %} aria-sort="descending"{% endif %}><button type="button" class="column-menu-trigger" data-column-menu="reservation-date-filter" aria-expanded="false">Scheduled <span aria-hidden="true">▾</span></button><div class="col-filter-panel" id="reservation-date-filter"><a class="cf-option" href="{{ sort_urls.scheduled }}">Reverse date order</a><div class="reservation-date-filter"><label for="{{ filter_form.date_from.id_for_label }}">From</label>{{ filter_form.date_from }}{{ filter_form.date_from.errors }}<label for="{{ filter_form.date_to.id_for_label }}">Through</label>{{ filter_form.date_to }}{{ filter_form.date_to.errors }}<button type="submit" class="primary">Apply dates</button></div></div></th>
+      <th scope="col" class="number">Participants</th><th scope="col"><button type="button" class="column-menu-trigger" data-column-menu="reservation-status-filter" aria-expanded="false">Status <span aria-hidden="true">▾</span></button><div class="col-filter-panel" id="reservation-status-filter"><p class="cf-title">Status</p>{% include 'scheduling/column_filter_options.html' with field=filter_form.state %}</div></th><th scope="col"><button type="button" class="column-menu-trigger" data-column-menu="reservation-prep-filter" aria-expanded="false">Prep status <span aria-hidden="true">▾</span></button><div class="col-filter-panel" id="reservation-prep-filter"><p class="cf-title">Prep status</p>{% include 'scheduling/column_filter_options.html' with field=filter_form.prep %}</div></th><th scope="col" class="number">Payment</th><th scope="col"><span class="sr-only">Actions</span></th>
     </tr></thead>
     <tbody>
     {% for item in items %}
       <tr>
-        <td><div class="dash-student-cell"><span class="dash-initials" aria-hidden="true">{{ item.snapshot.name|booking_initials }}</span><a class="dash-student-name" href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.public_id %}">{{ item.snapshot.name }}</a></div></td>
+        <td><div class="dash-student-cell"><a class="dash-student-name" href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.public_id %}">{{ item.snapshot.name }}</a></div><span class="reservation-kind{% if item.party_request_id %} reservation-kind--party{% endif %}">{% if item.party_request_id %}<i data-lucide="party-popper" aria-hidden="true"></i>Party{% else %}<i data-lucide="ticket" aria-hidden="true"></i>Workshop{% endif %}</span></td>
         <td><span class="reservation-cell-primary">{{ item.snapshot.workshop }}</span>{% if item.location_name %}<span class="reservation-cell-secondary">{{ item.location_name }}</span>{% endif %}</td>
         <td class="reservation-date-cell">{% timezone item.snapshot.timezone %}<span class="reservation-cell-primary">{{ item.starts_at|date:"M j, Y" }}</span><span class="reservation-cell-secondary">{{ item.starts_at|date:"g:i A" }}</span>{% endtimezone %}</td>
         <td class="number">{{ item.quantity }}</td>
         <td>{% include 'scheduling/reservation_status.html' %}</td>
         <td><a class="prep-link" href="{% url 'scheduling:reservation_preparation' school_slug=business.slug public_id=item.public_id %}"><span class="sr-only">Workshop prep for {{ item.snapshot.name }}: </span>{% include 'scheduling/preparation_badge.html' %}</a></td>
-        <td class="number">${{ item.total_amount|floatformat:2 }}</td>
-        <td><a class="dash-action-btn dash-action-btn--secondary" href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.public_id %}" aria-label="Open {{ item.snapshot.name }}">Open</a></td>
+        <td class="number reservation-payment-cell">{% if item.state == 'canceled' %}<strong class="muted">Canceled</strong><span class="reservation-cell-secondary">${{ item.total_amount|floatformat:2 }}</span>{% elif item.balance_amount %}<strong class="payment-due">${{ item.balance_amount|floatformat:2 }} due</strong><span class="reservation-cell-secondary">of ${{ item.total_amount|floatformat:2 }}</span>{% else %}<strong class="payment-paid">{% if item.effective_total %}Paid{% else %}No payment due{% endif %}</strong><span class="reservation-cell-secondary">${{ item.total_amount|floatformat:2 }}</span>{% endif %}</td>
+        <td><a class="dash-action-btn dash-action-btn--secondary" href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.public_id %}" aria-label="View {{ item.snapshot.name }}">View</a></td>
       </tr>
     {% empty %}
       <tr><td colspan="8">{% if has_filters %}No reservations match these filters.{% elif attention_only %}No payments need follow-up.{% else %}No reservations yet.{% endif %}</td></tr>
@@ -68,6 +47,7 @@
   </table>
 </div>
 </div>
+</form>
 {% if items.has_other_pages %}
 <nav class="pagination" aria-label="Reservation pages">
   {% if items.has_previous %}<a href="?page={{ items.previous_page_number }}{% if filters %}&amp;{{ filters }}{% endif %}{% if attention_only %}&amp;attention=1{% endif %}">Previous</a>{% endif %}

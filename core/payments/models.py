@@ -37,7 +37,10 @@ class PaymentAccount(models.Model):
 
 
 class PaymentOrder(models.Model):
-    """Immutable commercial snapshot. Domain state and financial state are separate."""
+    """Commercial quote; unpaid booking amendments are audited before any new checkout.
+
+    Settled orders and individual payment attempts are immutable.
+    """
 
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     school = models.ForeignKey("core.School", on_delete=models.PROTECT)
@@ -80,7 +83,7 @@ class LedgerEntry(models.Model):
     kind = models.CharField(max_length=8, choices=[("payment", "Payment"), ("refund", "Refund"), ("void", "Entry correction")])
     amount_cents = models.PositiveIntegerField()
     reference = models.CharField(max_length=100)
-    channel = models.CharField(max_length=8, default="offline", choices=[("offline", "Offline"), ("stripe", "Stripe"), ("square", "Square"), ("terminal", "Square Terminal (staff-recorded)")])
+    channel = models.CharField(max_length=8, default="offline", choices=[("offline", "Offline"), ("stripe", "Stripe"), ("square", "Square"), ("terminal", "Square Terminal (staff-recorded)"), ("cash", "Cash")])
     external_reference = models.CharField(max_length=100, blank=True)
     extra_charge_cents = models.PositiveIntegerField(default=0)
     paid_on = models.DateField(null=True, blank=True)
@@ -96,10 +99,10 @@ class LedgerEntry(models.Model):
             models.CheckConstraint(condition=Q(kind__in=["payment", "refund", "void"]), name="payment_entry_kind_valid"),
             models.CheckConstraint(condition=Q(environment__in=["test", "live"]), name="payment_entry_environment_valid"),
             models.CheckConstraint(condition=Q(amount_cents__gt=0, amount_cents__lte=99999999), name="payment_entry_amount_valid"),
-            models.CheckConstraint(condition=Q(channel__in=["offline", "terminal"], actor__isnull=False) | Q(channel__in=["stripe", "square"], actor__isnull=True), name="payment_entry_source_valid"),
-            models.CheckConstraint(condition=(Q(kind="void", channel="terminal", reverses__isnull=False) | (~Q(kind="void") & Q(reverses__isnull=True))), name="payment_correction_source_valid"),
-            models.CheckConstraint(condition=(~Q(channel="terminal") | Q(kind__in=["payment", "void"], paid_on__isnull=False)), name="payment_terminal_details_valid"),
-            models.CheckConstraint(condition=Q(extra_charge_cents=0) | Q(channel="terminal", kind__in=["payment", "void"], extra_charge_cents__lte=models.F("amount_cents")), name="payment_extra_charge_valid"),
+            models.CheckConstraint(condition=Q(channel__in=["offline", "terminal", "cash"], actor__isnull=False) | Q(channel__in=["stripe", "square"], actor__isnull=True), name="payment_entry_source_valid"),
+            models.CheckConstraint(condition=(Q(kind="void", channel__in=["terminal", "cash"], reverses__isnull=False) | (~Q(kind="void") & Q(reverses__isnull=True))), name="payment_correction_source_valid"),
+            models.CheckConstraint(condition=(~Q(channel__in=["terminal", "cash"]) | Q(kind__in=["payment", "void"], paid_on__isnull=False)), name="payment_terminal_details_valid"),
+            models.CheckConstraint(condition=Q(extra_charge_cents=0) | Q(channel__in=["terminal", "cash"], kind__in=["payment", "void"], extra_charge_cents__lte=models.F("amount_cents")), name="payment_extra_charge_valid"),
         ]
 
     @property

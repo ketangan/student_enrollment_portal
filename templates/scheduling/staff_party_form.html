@@ -1,20 +1,31 @@
-{% extends 'scheduling/base.html' %}
+{% extends 'scheduling/base.html' %}{% load static %}
 {% block title %}New party request{% endblock %}
 {% block content %}
 <a class="back-link" href="{% url 'scheduling:parties' school_slug=business.slug %}"><i data-lucide="arrow-left" aria-hidden="true"></i> Party inquiries</a>
 <h2>New party request</h2>
-<form method="post" class="setup-form workshop-settings-form staff-party-form" novalidate>
+<form method="post" class="setup-form staff-party-form party-request-layout" novalidate data-party-request>
   {% csrf_token %}
   {% if form.errors %}<div class="notice error" role="alert">Please correct the fields below.{{ form.non_field_errors }}</div>{% endif %}
   {% include 'scheduling/form_hidden_fields.html' %}
-  <div class="workshop-settings-fields">
-    {% for field in form.visible_fields %}
-    <div class="form-field{% if field.name == 'customer_notes' %} workshop-description-field{% endif %}">
-      <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span aria-hidden="true"> *</span>{% endif %}</label>
-      {{ field }}{{ field.errors }}
-    </div>
-    {% endfor %}
+  <div class="party-request-fields">
+    <section class="reservation-section"><h2><span class="party-step">1</span> Where and when</h2>
+      {% include 'scheduling/party_form_field.html' with field=form.offering %}
+      <div class="party-field-pair">{% include 'scheduling/party_form_field.html' with field=form.starts_at %}{% include 'scheduling/party_form_field.html' with field=form.space %}</div>
+      {% include 'scheduling/party_form_field.html' with field=form.duration_minutes %}
+    </section>
+    <section class="reservation-section"><h2><span class="party-step">2</span> The party</h2>
+      <div class="party-field-pair">{% include 'scheduling/party_form_field.html' with field=form.group_size %}{% include 'scheduling/party_form_field.html' with field=form.age_range %}</div>
+      <div class="party-field-pair">{% include 'scheduling/party_form_field.html' with field=form.participant_estimate %}</div>
+      {% include 'scheduling/party_form_field.html' with field=form.occasion %}
+      {% include 'scheduling/party_form_field.html' with field=form.customer_notes %}
+    </section>
+    <section class="reservation-section"><h2><span class="party-step">3</span> Customer</h2>
+      {% include 'scheduling/party_form_field.html' with field=form.organizer_name %}
+      <div class="party-field-pair">{% include 'scheduling/party_form_field.html' with field=form.organizer_email %}{% include 'scheduling/party_form_field.html' with field=form.organizer_phone %}</div>
+    </section>
+    <div class="actions form-actions"><button type="submit" class="primary">Continue to review</button><a href="{% url 'scheduling:parties' school_slug=business.slug %}">Cancel</a></div>
   </div>
-  <div class="actions form-actions"><button type="submit" class="primary">Continue to review</button><a href="{% url 'scheduling:parties' school_slug=business.slug %}">Cancel</a></div>
+  <aside class="party-request-summary" aria-label="Party summary"><h2>Summary</h2><strong data-summary="occasion">Custom party</strong><p data-summary="offering">Location not selected</p><p data-summary="starts_at">Date and time not selected</p><dl class="payment-totals"><div><dt>Participants</dt><dd data-summary="group_size">Not set</dd></div><div><dt>Space</dt><dd data-summary="space">Not selected</dd></div><div><dt>Customer</dt><dd data-summary="organizer_name">Not entered</dd></div><div><dt>Estimate</dt><dd>Not quoted</dd></div><div><dt>Deposit</dt><dd>Not quoted</dd></div></dl></aside>
 </form>
 {% endblock %}
+{% block scripts %}<script defer src="{% static 'scheduling/party-request.js' %}"></script>{% endblock %}

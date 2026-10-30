@@ -138,14 +138,14 @@ def test_stock_shortage_and_invalid_choices_do_not_mutate_booking(stock):
     assert not item.stock_allocations.exists()
 
 
-@pytest.mark.parametrize("state,prepared", [("held", False), ("canceled", False), ("completed", False), ("confirmed", True)])
+@pytest.mark.parametrize("state,prepared", [("held", False), ("canceled", False), ("completed", False)])
 def test_closed_reservations_reject_changes(stock, state, prepared):
     s = stock
     item, person = pending_booking(s)
     item.state = state
     item.prepared_at = timezone.now() if prepared else None
     item.save()
-    with pytest.raises(ValidationError, match="confirmed, unprepared"):
+    with pytest.raises(ValidationError, match="confirmed workshops with unused materials"):
         save(s, item, person)
 
 

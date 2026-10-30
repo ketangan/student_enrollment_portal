@@ -1,8 +1,9 @@
-{% extends "school_admin/base.html" %}
+{% extends "school_admin/base.html" %}{% load static %}
 
 {% block page_title %}Submissions{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'school_admin/column-filters.css' %}">
 <style>
 /* ── Column filter panel ─────────────────────────────── */
 .col-filterable {
@@ -21,24 +22,6 @@
   border-top: 5px solid currentColor;
 }
 .col-filterable.col-filtered .col-filter-btn { color: var(--dash-primary); opacity: 1; }
-.col-filter-panel {
-  display: none; position: fixed; top: 0; left: 0; z-index: 9999;
-  background: #fff; border: 1px solid var(--dash-border, #e2e8f0);
-  border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12);
-  min-width: 180px; padding: 6px 0;
-}
-.col-filter-panel.open { display: block; }
-.cf-title {
-  font-size: 11px; font-weight: 700; color: var(--dash-muted);
-  padding: 4px 14px; text-transform: uppercase; letter-spacing: .04em;
-}
-.cf-option {
-  display: block; padding: 7px 14px; font-size: 13px; color: var(--dash-text);
-  text-decoration: none; white-space: nowrap;
-}
-.cf-option:hover { background: var(--dash-hover, #f8fafc); }
-.cf-option.cf-active { color: var(--dash-primary); font-weight: 600; }
-.cf-sep { border: none; border-top: 1px solid var(--dash-border, #e2e8f0); margin: 4px 0; }
 
 /* ── Filter chip bar ─────────────────────────────────── */
 .filter-chip-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
@@ -471,6 +454,7 @@ th.col-sorted-desc .col-sort-icon { opacity: 1; color: var(--dash-primary); }
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'school_admin/column-filters.js' %}"></script>
 <script>
 (function () {
   // ── Column filter panel (escape overflow via position:fixed) ──────────────
@@ -479,18 +463,6 @@ th.col-sorted-desc .col-sort-icon { opacity: 1; color: var(--dash-primary); }
     document.querySelectorAll('.col-toggle-panel.open').forEach(function(p){ p.classList.remove('open'); });
   }
 
-  window.colPanelToggle = function(id, evt) {
-    evt.stopPropagation();
-    var panel = document.getElementById(id);
-    var wasOpen = panel.classList.contains('open');
-    closeAllPanels();
-    if (!wasOpen) {
-      var rect = evt.currentTarget.getBoundingClientRect();
-      panel.style.top = (rect.bottom + 4) + 'px';
-      panel.style.left = rect.left + 'px';
-      panel.classList.add('open');
-    }
-  };
 
   window.subColPanelToggle = function(evt) {
     evt.stopPropagation();

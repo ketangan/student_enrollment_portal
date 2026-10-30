@@ -23,9 +23,9 @@
       const option = designs.find(d => d.id === designSelect.value);
       const design = config.designs.find(d => d.name === option?.name);
       const color = colors.find(c => c.id === colorSelect.value);
-      const exact = recipe()?.image_url;
+      const exact = config.base_images_only ? null : recipe()?.image_url;
       photo($('.plushie-image', root), exact ? {...design, image_url: exact} : design, config.image);
-      $('.tint', root).hidden = Boolean(exact);
+      $('.tint', root).hidden = Boolean(exact) || Boolean(config.base_images_only);
       $('.tint', root).style.setProperty('--color', color?.swatch || '#fff');
       $('.selection-label', root).textContent = design && color ? `${color.name} ${design.name}` : 'Choose a design and color';
       $$('.design-option', root).forEach(el => el.setAttribute('aria-pressed', String(el.dataset.value === designSelect.value)));

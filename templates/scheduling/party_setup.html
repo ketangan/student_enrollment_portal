@@ -2,13 +2,12 @@
 {% load tz %}
 {% block title %}Parties{% endblock %}
 {% block extra_css %}<style>
-.booking-admin .party-package-table table { min-width: 900px; }
+.booking-admin .party-package-table table { min-width: 1000px; table-layout: fixed; }
+.party-package-table .party-name-column { width: 24%; }
+.party-package-table .party-status-column { width: 100px; }
+.party-package-table .party-actions-column { width: 180px; }
 .booking-admin .party-package-table thead th { white-space:nowrap; }
 .booking-admin .party-package-table svg { width: 16px; height: 16px; }
-.party-share { display:flex; gap:16px; align-items:end; flex-wrap:wrap; margin:24px 0; }
-.party-share > div { flex:1; min-width:220px; }
-.party-share a { overflow-wrap:anywhere; }
-.party-share p { margin:0 0 6px; }
 .booking-admin .party-package-table input:not([type=checkbox]), .booking-admin .party-package-table select { width:100%; min-width:70px; padding:8px; min-height:38px; border:1px solid var(--dash-border); border-radius:4px; background:var(--dash-card); }
 .party-package-table .package-name { min-width:180px; }
 .party-package-table tbody > tr > th:first-child { min-width:150px; }
@@ -17,29 +16,21 @@
 .booking-admin .party-package-table .editing-package input[type=checkbox] { margin-top:10px; }
 .party-package-table .row-actions { display:flex; gap:8px; align-items:center; }
 .party-package-table .row-actions button, .party-package-table .row-actions a { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; padding:0; }
-.booking-admin .party-package-editor { padding:20px 0; max-width:960px; text-align:left; }
-.booking-admin .party-package-editor label { text-align:left; }
-.party-package-table tr[id], #package-new { scroll-margin-top:90px; }
-.party-package-editor .actions { margin-top:24px; }
-.party-package-editor .checkbox-field { display:flex; align-items:center; gap:12px; }
-.party-package-editor .checkbox-field input { width:20px; height:20px; flex:none; }
-.party-package-editor .checkbox-field label { margin:0; }
+.party-package-table tr[id] { scroll-margin-top:90px; }
 .booking-admin .party-package-table .booking-rules-link { width:auto; white-space:nowrap; padding:0 8px; }
-@media(max-width:640px) { .party-package-editor { width:calc(100vw - 100px); } }
 </style>{% endblock %}
 {% block content %}
-<div class="section-heading"><h2>Party packages</h2><div class="actions"><a class="button" href="{% url 'scheduling:parties' school_slug=business.slug %}">Party inquiries</a>{% if can_edit_setup %}<a class="button primary" href="?new=1#package-new">Add package</a>{% endif %}</div></div>
-<div class="party-share"><div><p>Customer inquiry link</p><a href="{{ share_url }}" target="_blank" rel="noopener">{{ share_url }}</a></div><a class="button" href="{% url 'scheduling:party_start' school_slug=business.slug %}?preview=1" target="_blank" rel="noopener">Preview form</a></div>
+{% if party_packages_only %}<p class="notice">Customers and staff book published packages at offered times. Existing approval-based packages need a room and tax rate saved in Booking rules, then published times, before they become bookable.</p>{% endif %}
+{% if can_edit_setup %}<div class="section-heading package-list-actions"><a class="button primary" href="{% url 'scheduling:party_package_new' school_slug=business.slug %}{% if selected_location %}?location={{ selected_location.pk }}{% endif %}"><i data-lucide="plus" aria-hidden="true"></i> Add package</a></div>{% endif %}
 {% if editing_pk %}<form method="post" id="package-edit" novalidate>{% csrf_token %}<input type="hidden" name="package_id" value="{{ editing_pk }}">{% for field in package_form.hidden_fields %}{{ field }}{% endfor %}{% for field in preserved_package_fields %}{{ field.as_hidden }}{% endfor %}</form>{% endif %}
 {% for field in preserved_package_fields %}{% if field.errors %}<p>{{ field.label }}: {{ field.errors }}</p>{% endif %}{% endfor %}
-{% if package_form and not editing_pk %}<section class="party-package-editor" id="package-new"><h3>Add package</h3>{% include 'scheduling/party_package_editor.html' %}</section>{% endif %}
 {% for location in locations %}
 <section class="workshop-settings-section">
 <div class="section-heading"><h3>{{ location.name }}</h3></div>
 {% for offering in location.offerings.all %}
 <div class="section-heading"><h4>{{ offering.name }}</h4></div>
 {% if not offering.is_published or not offering.accepts_party_requests %}<p class="muted">Packages are hidden from customers: {% if not offering.is_published %}this workshop is unpublished{% else %}party requests are disabled for this workshop{% endif %}.{% if can_edit_setup %} <a href="{% url 'scheduling:workshop_edit' school_slug=business.slug pk=offering.pk %}?return_to=parties">Edit workshop settings</a>{% endif %}</p>{% endif %}
-<div class="table-wrap party-package-table" tabindex="0" role="region" aria-label="{{ offering.name }} packages"><table><thead><tr><th>Party</th><th>Participants</th><th>Duration (min)</th><th>Price (USD)</th><th>Deposit (USD)</th><th>Published</th>{% if can_edit_setup %}<th>Actions</th>{% endif %}</tr></thead><tbody>
+<div class="table-wrap party-package-table" tabindex="0" role="region" aria-label="{{ offering.name }} packages"><table><colgroup><col class="party-name-column"><col span="4"><col class="party-status-column">{% if can_edit_setup %}<col class="party-actions-column">{% endif %}</colgroup><thead><tr><th>Party</th><th>Participants</th><th>Duration (min)</th><th>Price (USD)</th><th>Deposit (USD)</th><th>Published</th>{% if can_edit_setup %}<th>Actions</th>{% endif %}</tr></thead><tbody>
 {% for package in offering.party_packages.all %}
 {% if editing_pk == package.pk and not rules_view %}
 <tr id="package-{{ package.pk }}" class="editing-package"><td class="package-name">{{ package_form.name }}{{ package_form.name.errors }}</td><td>{{ package_form.participant_limit }}{{ package_form.participant_limit.errors }}</td><td>{{ package_form.duration_minutes }}{{ package_form.duration_minutes.errors }}</td><td>{{ package_form.total }}{{ package_form.total.errors }}</td><td>{{ package_form.deposit }}{{ package_form.deposit.errors }}</td><td>{{ package_form.is_published }}{{ package_form.is_published.errors }}</td><td><div class="row-actions"><button class="primary" type="submit" form="package-edit" aria-label="Save package" title="Save package"><i data-lucide="check" aria-hidden="true"></i></button><a href="?location={{ location.pk }}#package-{{ package.pk }}" aria-label="Cancel editing" title="Cancel editing"><i data-lucide="x" aria-hidden="true"></i></a></div></td></tr>
@@ -54,9 +45,9 @@
   <div class="section-heading"><div><h3 id="party-rules-title">Booking rules</h3><p>{{ package_form.instance.name }} · {{ package_form.instance.offering.location.name }}</p></div><button type="button" data-close-setup-dialog aria-label="Close booking rules" title="Close"><i data-lucide="x" aria-hidden="true"></i></button></div>
   {{ package_form.non_field_errors }}{{ package_form.edit_revision.errors }}
   <div class="workshop-settings-fields">
-    {% for field in booking_rule_fields %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+    {% for field in booking_rule_fields %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<p class="muted">{{ field.help_text }}</p>{% endif %}</div>{% endfor %}
   </div>
-  <div class="actions"><button class="primary" type="submit" form="package-edit">Save changes</button><button type="button" data-close-setup-dialog>Cancel</button></div>
+  <div class="actions"><button type="button" data-close-setup-dialog>Cancel</button><button class="primary" type="submit" form="package-edit">Save changes</button></div>
   {% if package_form.instance.booking_mode == 'direct' %}
   <hr><h4>Available party times</h4>
   <p class="notice" data-save-rules-first hidden>Save booking rules before changing party times.</p>

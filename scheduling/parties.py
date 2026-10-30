@@ -19,6 +19,8 @@ from .capabilities import require_capability
 from .models import Offering, PartyRequest, SchedulingProfile, Session
 from .party_forms import PartyInquiryForm, PartyReviewForm
 from .requests import submission_digest
+from .party_policy import party_policy
+from .booking_policies import party_acknowledgments
 
 TOKEN_SALT = "scheduling.party-inquiry.v1"
 ACTIVE_STATUSES = [PartyRequest.Status.PENDING, PartyRequest.Status.REVIEWED]
@@ -37,8 +39,9 @@ def inquiry_digest(offering):
     packages = list(offering.party_packages.values("id", "is_published", "name", "participant_limit", "duration_minutes", "total", "deposit", "space",
         "room_id", "included_observers", "additional_participant_limit", "additional_participant_price", "tax_rate", "booking_mode"))
     return hashlib.sha256(json.dumps([offering.pk, offering.name, offering.location.name,
-        offering.location.timezone_name, offering.is_published, offering.accepts_party_requests, catalog,
-        packages, list(offering.party_packages.values("slots__id", "slots__starts_at", "slots__is_published"))], default=str).encode()).hexdigest()
+        offering.location.timezone_name, offering.location.default_tax_rate, offering.is_published, offering.accepts_party_requests, catalog,
+        packages, list(offering.party_packages.values("slots__id", "slots__starts_at", "slots__is_published")),
+        party_policy(offering.location.profile.school), party_acknowledgments(offering.location.profile.school)], default=str).encode()).hexdigest()
 
 
 def inquiry_token(offering, browser):
@@ -81,20 +84,30 @@ def submit_inquiry(slug, pk, data, browser):
         item = PartyRequest.objects.create(offering=offering, **form.inquiry_values(),
             submission_key=key, submission_digest=digest, browser_digest=browser,
             offering_snapshot={"workshop": offering.name, "location": offering.location.name,
-                               "timezone": offering.location.timezone_name})
+                               "timezone": offering.location.timezone_name,
+                               "acknowledgments": form.acknowledgment_record()})
     if item.package_id and item.package.booking_mode == "direct":
-        from .reservations import booking_account, party_reservation_item, save_reservation
-        profile = offering.location.profile
-        require_capability(profile, "reservations")
-        if not profile.native_reservations_enabled:
-            raise ValidationError("Online party bookings are not available. Please contact the studio.")
-        account = booking_account(profile, True, offering.location)
-        save_reservation(party_reservation_item(profile, item), item, "party",
-            int(item.proposed_total * 100), int(item.proposed_deposit * 100), account, None)
-        item.status = PartyRequest.Status.REVIEWED
-        item.save(update_fields=["status"])
+        reserve_package(item)
     audit_party(None, offering.location.profile, item, {"status": {"from": None, "to": item.status}})
     return item, form
+
+
+def reserve_package(item, *, user=None):
+    """Validated intake only, inside the transaction holding the profile lock."""
+    from .reservations import booking_account, party_reservation_item, save_reservation
+    profile = item.offering.location.profile
+    require_capability(profile, "reservations")
+    if not profile.native_reservations_enabled:
+        raise ValidationError("Party bookings are not available. Please contact the studio.")
+    account = booking_account(profile, user is None, item.offering.location)
+    reservation = party_reservation_item(profile, item)
+    if user is not None:
+        reservation.state = "confirmed"
+        reservation.snapshot["staff_managed"] = True
+    save_reservation(reservation, item, "party", int(item.proposed_total * 100),
+                     int(item.proposed_deposit * 100), account, user)
+    item.status = PartyRequest.Status.REVIEWED
+    item.save(update_fields=["status"])
 
 
 def scoped_parties(profile):

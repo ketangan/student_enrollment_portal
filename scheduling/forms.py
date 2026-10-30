@@ -14,12 +14,16 @@ class LocationForm(forms.ModelForm):
 
     class Meta:
         model = Location
-        fields = ["name", "address", "timezone_name"]
-        labels = {"name": "Location name"}
+        fields = ["name", "address", "timezone_name", "default_tax_rate"]
+        labels = {"name": "Location name", "default_tax_rate": "Default sales tax (%)"}
+        help_texts = {"default_tax_rate": "Used by workshop checkout and party packages without a tax override. Changes apply to new bookings only. Enter 0 for no tax."}
+        widgets = {"default_tax_rate": forms.NumberInput(attrs={"step": "0.001", "inputmode": "decimal"})}
 
     def __init__(self, *args, profile, **kwargs):
         super().__init__(*args, **kwargs)
         self.instance.profile = profile
+        if self.is_bound and "default_tax_rate" not in self.data:
+            self.fields["default_tax_rate"].disabled = True
         self.fields["timezone_name"].initial = self.instance.timezone_name
         if self.instance.pk and (Session.objects.filter(offering__location=self.instance).exists() or PartyRequest.objects.filter(offering__location=self.instance).exists() or LessonAvailability.objects.filter(location=self.instance).exists() or LessonSeries.objects.filter(location=self.instance).exists()):
             self.fields["timezone_name"].disabled = True

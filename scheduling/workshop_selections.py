@@ -16,8 +16,8 @@ from .requests import catalog_for
 from .reservations import _audit
 
 
-def editable(item):
-    return bool(item.workshop_request_id and item.state == "confirmed" and not item.prepared_at)
+def editable(item, *, staff=False):
+    return bool(item.workshop_request_id and item.state == "confirmed" and (staff or not item.prepared_at))
 
 
 def revision(person):
@@ -43,10 +43,18 @@ def update(user, slug, public_id, participant_id, data):
     SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
     profile, _ = require_location_access(user, slug, "sessions.edit", capability="reservations")
     item = get_staff_reservation(profile, public_id, exclude_visits=True)
-    if not editable(item) or item.stock_allocations.filter(consumed_at__isnull=False).exists():
-        raise ValidationError("Designs can only be added to confirmed, unprepared workshops.")
+    if not editable(item, staff=True) or item.stock_allocations.filter(consumed_at__isnull=False).exists():
+        raise ValidationError("Selections can only be changed for confirmed workshops with unused materials.")
     person = get_object_or_404(item.workshop_request.participants, pk=participant_id)
-    return complete(item, person, data, actor=user)
+    before = revision(person)
+    complete(item, person, data, actor=user)
+    if item.prepared_at and revision(person) != before:
+        from . import preparation
+        item = preparation.update(user, slug, public_id, {
+            "action": "reopen",
+            "edit_revision": preparation.form_for(item, profile)["edit_revision"].value(),
+        })
+    return item
 
 
 def complete(item, person, data, *, actor=None):

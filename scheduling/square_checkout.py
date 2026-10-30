@@ -98,6 +98,8 @@ def square_checkout(request, school_slug, token):
     if request.method == "POST":
         try:
             if request.POST.get("action") == "retry":
+                if attempt.close_requested:
+                    return redirect(attempt.cancel_url)
                 if attempt.state != "expired":
                     raise ValidationError("Check payment status before trying again.")
                 option = "full" if attempt.amount_cents > checkout.amount_due(item.order) else "due"
@@ -125,7 +127,12 @@ def square_checkout(request, school_slug, token):
                  and attempt.state in PaymentAttempt.ACTIVE and attempt.expires_at > timezone.now())
     except ValidationError as exc:
         error = error or exc.messages[0]
+    from .customer_experience import checkout_presentation
+    from .checkout import payment_token
+    from django.urls import reverse
+    back_url = reverse("scheduling:customer_payment", kwargs={"school_slug": school_slug, "token": payment_token(item)}) if item.workshop_request_id and "experience_demo" in item.workshop_request.session_snapshot else attempt.cancel_url
     response = render(request, "scheduling/square_checkout.html", {
+        **checkout_presentation(item, back_url), "checkout_back_url": back_url,
         "business": attempt.order.school, "item": item, "attempt": attempt, "ready": ready, "error": error,
         "square_options": {"applicationId": square.environment_setting(attempt.account.environment, "APPLICATION_ID"),
                            "locationId": attempt.account.location_reference, "amount": str(attempt.amount)},

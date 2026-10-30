@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST, require_http_methods
 from core.payments import refunds
 from core.payments.models import Refund
 from .access import get_staff_reservation, require_location_access
-from .checkout import approve_refund, recover_attempt, request_close, resolve_review
+from .checkout import approve_refund, resolve_review
 from .reservation_forms import RefundForm
 from .views import _context
 from .reservations import _audit
@@ -30,25 +30,6 @@ def _item(request, slug, public_id):
 
 def _back(slug, public_id):
     return redirect("scheduling:reservation_detail", school_slug=slug, public_id=public_id)
-
-
-@never_cache
-@login_required
-@require_POST
-def payment_recover(request, school_slug, public_id, attempt_id):
-    _, _, item = _item(request, school_slug, public_id)
-    attempt = get_object_or_404(item.order.attempts.all(), public_id=attempt_id)
-    action = request.POST.get("action")
-    if action not in {"check", "close"}:
-        return HttpResponseBadRequest("Choose check or close.")
-    if action == "close":
-        if request.POST.get("confirm") != "yes":
-            return HttpResponseBadRequest("Confirm closing checkout first.")
-        attempt = request_close(request.user, school_slug, public_id, attempt_id)
-    result = recover_attempt(attempt, force=True)
-    messages.info(request, "Provider check completed. Review the payment status below." if result else
-        "Payment is not yet verified, or a check is already running/recent. Capacity has not been released by this request.")
-    return _back(school_slug, public_id)
 
 
 @never_cache

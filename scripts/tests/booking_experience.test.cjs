@@ -17,7 +17,7 @@ function element(select = false) {
     replaceChildren(...items) { this.children = items; if (select) this.value = items[0]?.value || ''; },
     add(item) { this.children.push(item); if (this.children.length === 1) this.value = item.value; },
     append(...items) { this.children.push(...items); },
-    querySelector(selector) { return this.children.find(node => `.${node.className}` === selector); },
+    querySelector(selector) { return this.children.find(node => selector === 'button' ? node.type === 'button' : `.${node.className}` === selector); },
     style: {setProperty(name, value) { this[name] = value; }},
   };
 }
@@ -158,9 +158,9 @@ test('sidebar and header follow studio and chosen time, including cleared select
   assert.equal(p['summary-session'].textContent, 'Choose your date and time');
 });
 
-function choicesPage({customPhoto = false, variantPhoto = '', bookingMode = false} = {}) {
+function choicesPage({customPhoto = false, variantPhoto = '', bookingMode = false, ageRequired = false, baseImagesOnly = false} = {}) {
   const config = {design_group: 'Design', color_group: 'Color', age_group: 'Age', price: 6500, limit: 8,
-    initial_count: 1, image: '/designs.jpg', tracks_stock: true, deferred_groups: ['Design', 'Color'],
+    initial_count: 1, image: '/designs.jpg', tracks_stock: true, deferred_groups: ['Design', 'Color'], age_required: ageRequired, base_images_only: baseImagesOnly,
     options: {Design: [{id: '1', name: 'Bear'}, {id: '2', name: 'Bunny'}],
       Color: [{id: '3', name: 'Blue', swatch: '#abc'}, {id: '4', name: 'Grey', swatch: '#ccc'}]},
     designs: [{name: 'Bear', x: '50%', y: '50%', image_url: customPhoto ? '/bear.jpg' : ''},
@@ -211,6 +211,56 @@ function choicesPage({customPhoto = false, variantPhoto = '', bookingMode = fals
     Option: function(text, value) {this.textContent = text;this.value = value;}}, {filename});
   return nodes;
 }
+
+test('participant tabs and summaries expose named removal buttons and completion state', () => {
+  const p = choicesPage();
+  const first = p['participant-list'].children[0];
+  first.name.value = 'Riley'; first.fields.Design.value = '1'; first.fields.Color.value = '3'; first.fields.Age.value = '8';
+  first.name.listeners.change();
+  assert.equal(p['person-tabs'].children[0].children[0].attrs['aria-label'], 'Riley, selections complete');
+  const completeTab = p['person-tabs'].children[0].children[0];
+  assert.equal(completeTab.attrs['data-ready'], 'true');
+  assert.equal(completeTab.children[0].attrs['data-lucide'], 'circle-check');
+  assert.equal(completeTab.children[0].attrs['aria-hidden'], 'true');
+  assert.equal(completeTab.children[1].textContent, 'Riley');
+  assert.equal(p['person-tabs'].children[0].attrs['data-active'], 'true');
+  p['add-person'].listeners.click();
+  const pendingTab = p['person-tabs'].children[1].children[0];
+  assert.equal(pendingTab.attrs['data-ready'], 'false');
+  assert.equal(pendingTab.children[0].attrs['data-lucide'], 'circle');
+  assert.equal(p['person-tabs'].children[0].attrs['data-active'], 'false');
+  assert.equal(p['person-tabs'].children[0].children[1].children[0].attrs['data-lucide'], 'x');
+  assert.equal(p['person-tabs'].children[0].children[1].attrs['aria-label'], 'Remove Riley');
+  assert.equal(p['group-summary-list'].children[0].children[2].attrs['aria-label'], 'Remove Riley');
+  p['person-tabs'].children[1].children[1].listeners.click();
+  assert.equal(p['participant-list'].children.length, 1);
+  assert.equal(p['id_participants-TOTAL_FORMS'].value, 1);
+  assert.equal(p['participant-list'].children[0].name.value, 'Riley');
+  assert.equal(p['person-tabs'].children[0].children.length, 1);
+});
+
+test('editing a completed participant updates its icon without changing the name', () => {
+  const p = choicesPage();
+  const person = p['participant-list'].children[0];
+  person.name.value = 'Riley'; person.fields.Design.value = '1'; person.fields.Color.value = '3'; person.fields.Age.value = '8';
+  person.name.listeners.change();
+  person.fields.Age.value = '';
+  person.fields.Age.listeners.change();
+  const tab = p['person-tabs'].children[0].children[0];
+  assert.equal(tab.attrs['data-ready'], 'false');
+  assert.equal(tab.children[0].attrs['data-lucide'], 'circle');
+  assert.equal(tab.children[1].textContent, 'Riley');
+});
+
+test('base-image policy suppresses tinting and variant photo replacement', () => {
+  const p = choicesPage({baseImagesOnly:true, variantPhoto:'/blue-bear.jpg', customPhoto:true});
+  const first = p['participant-list'].children[0];
+  first.name.value = 'Riley'; first.fields.Design.value = '1'; first.fields.Color.value = '3'; first.fields.Age.value = '8';
+  first.name.listeners.change();
+  assert.equal(first.parts['.tint'].hidden, true);
+  assert.equal(first.parts['.plushie-image'].children[0].style.backgroundImage, 'url("/bear.jpg")');
+  assert.equal(p['group-summary-list'].children[0].children[0].children.length, 1);
+});
 
 test('live group summary shows names, age and choices without counting incomplete participants', () => {
   const p = choicesPage(), person = p['participant-list'].children[0];
@@ -294,6 +344,19 @@ test('one booking choice defers six participants and preserves their place count
   p['choose-later'].checked = true; p['choose-later'].listeners.change();
   change(p['later-count'], '2');
   assert.equal(p['participant-list'].children.length, 2);
+});
+
+test('age remains visible and required when a configured studio allows designs later', () => {
+  const p = choicesPage({bookingMode:true, ageRequired:true});
+  p['choose-later'].checked = true; p['choose-later'].listeners.change();
+  change(p['later-count'], '2');
+  assert.equal(p['person-tabs'].hidden, false);
+  const people = p['participant-list'].children;
+  assert.equal(people.filter(person => !person.hidden).length, 1);
+  assert.ok(people.every(person => person.fields.Age.required && !person.fields.Age.disabled));
+  assert.ok(people.every(person => person.fields.Design.disabled && person.fields.Color.disabled));
+  p['person-tabs'].children[0].children[0].listeners.click();
+  assert.equal(people[0].hidden, false);
 });
 
 test('exact design and color photo replaces the tint in preview and group summary', () => {

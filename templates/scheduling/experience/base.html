@@ -1,19 +1,19 @@
-{% load static %}<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ demo.name }} | Book a workshop</title>
-<link rel="stylesheet" href="{% static 'scheduling/experience.css' %}?v=20261025-group-choice-2">
+{% load static booking_policies %}{% customer_booking_copy business as customer_copy %}<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ demo.name }} | {% if party_experience %}Book a party{% else %}Book a workshop{% endif %}</title>
+<link rel="stylesheet" href="{% static 'scheduling/experience.css' %}?v=20261029-controls-2">
 <link rel="stylesheet" href="{% static 'scheduling/payment-choice.css' %}">
 <link rel="stylesheet" href="{% static 'scheduling/catalog-picker.css' %}">
-<script defer src="{% static 'scheduling/catalog-picker.js' %}"></script>
-<script defer src="{% static 'demo/plushumi/assets/lucide.js' %}"></script><script defer src="{% static 'scheduling/material-availability.js' %}"></script><script defer src="{% static 'scheduling/experience.js' %}?v=20261025-group-choice-2"></script></head>
+<script defer src="{% static 'scheduling/catalog-picker.js' %}?v=20261029-base-image"></script>
+<script defer src="{% static 'demo/plushumi/assets/lucide.js' %}"></script><script defer src="{% static 'scheduling/material-availability.js' %}"></script><script defer src="{% static 'scheduling/experience.js' %}?v=20261029-controls"></script>{% block extra_head %}{% endblock %}</head>
 <body><a class="skip" href="#content">Skip to content</a>
 <header class="brandbar">
-<nav aria-label="Workshops"><a href="{% url 'scheduling:experience_start' school_slug=business.slug %}"><i data-lucide="calendar-days" aria-hidden="true"></i> Our workshops</a></nav>
-<a class="brand-logo" href="{% url 'scheduling:experience_start' school_slug=business.slug %}"><img src="{{ demo.logo }}" alt="{{ demo.name }}" width="125" height="96"></a>
-<span class="brand-location"><i data-lucide="map-pin" aria-hidden="true"></i><span id="brand-location">{% if session %}{{ session.offering.location.name }}{% elif item %}{{ item.session_snapshot.location }}{% else %}Choose a studio{% endif %}</span></span>
+<nav aria-label="Workshops"><a href="{% if party_experience %}{% url 'scheduling:public_schedule' school_slug=business.slug %}{% else %}{% url 'scheduling:experience_start' school_slug=business.slug %}{% endif %}"><i data-lucide="calendar-days" aria-hidden="true"></i> Our workshops</a></nav>
+<a class="brand-logo" href="{% if party_experience %}{% url 'scheduling:party_start' school_slug=business.slug %}{% else %}{% url 'scheduling:experience_start' school_slug=business.slug %}{% endif %}">{% if demo.logo %}<img src="{{ demo.logo }}" alt="{{ demo.name }}" width="125" height="96">{% else %}{{ demo.name }}{% endif %}</a>
+<span class="brand-location"><i data-lucide="map-pin" aria-hidden="true"></i><span id="brand-location">{% if offering %}{{ offering.location.name }}{% elif session %}{{ session.offering.location.name }}{% elif item %}{{ item.session_snapshot.location }}{% else %}Choose a studio{% endif %}</span></span>
 </header>
 {% if step %}<ol class="steps" aria-label="Booking progress">
-<li class="{% if step > 1 %}done{% endif %}" {% if step == 1 %}aria-current="step"{% endif %}><b>{% if step > 1 %}<i data-lucide="check" aria-hidden="true"></i>{% else %}1{% endif %}</b> Your workshop</li>
-<li class="{% if step > 2 %}done{% endif %}" {% if step == 2 %}aria-current="step"{% endif %}><b>{% if step > 2 %}<i data-lucide="check" aria-hidden="true"></i>{% else %}2{% endif %}</b> Your plushies</li>
-<li {% if step >= 3 %}aria-current="step"{% endif %}><b>3</b> Review &amp; pay</li></ol>{% endif %}
+<li data-booking-step="1" class="{% if step > 1 %}done{% endif %}" {% if step == 1 %}aria-current="step"{% endif %}><b>{% if step > 1 %}<i data-lucide="check" aria-hidden="true"></i>{% else %}1{% endif %}</b> {% if party_experience %}Your party{% else %}Your workshop{% endif %}</li>
+<li data-booking-step="2" class="{% if step > 2 %}done{% endif %}" {% if step == 2 %}aria-current="step"{% endif %}><b>{% if step > 2 %}<i data-lucide="check" aria-hidden="true"></i>{% else %}2{% endif %}</b> {% if party_experience %}Your group{% else %}Your plushies{% endif %}</li>
+<li data-booking-step="3" {% if step >= 3 %}aria-current="step"{% endif %}><b>3</b> Review &amp; pay</li></ol>{% endif %}
 <main id="content">{% if error %}<p class="alert" role="alert">{{ error }}</p>{% endif %}{% block content %}{% endblock %}
-</main><footer><span>Pontora x {{ demo.name }}</span><nav aria-label="Booking navigation"><a href="{% url 'booking_integration_preview' %}" target="_top">Back to booking options</a></nav></footer></body></html>
+</main><footer><span>Pontora x {{ demo.name }}</span><nav aria-label="Booking navigation">{% if payment_review_url %}<a href="{{ payment_review_url }}">Your booking</a>{% elif party_experience %}<a href="{% url 'scheduling:party_start' school_slug=business.slug %}">Back to parties</a>{% else %}<a href="{% url 'booking_integration_preview' %}" target="_top">Back to booking options</a>{% endif %}</nav></footer>{% block scripts %}{% endblock %}</body></html>

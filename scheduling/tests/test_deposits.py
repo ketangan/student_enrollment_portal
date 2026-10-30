@@ -49,19 +49,18 @@ def test_workshop_quote_and_full_payment_default(inventory):
         reservations.workshop_quote(offering, 2000, 2)
 
 
-@pytest.mark.parametrize("mode,deposit,valid", [
-    ("full", "", True), ("deposit", "100", True), ("deposit", "0", False),
-    ("deposit", "", False), ("deposit", "400", False), ("deposit", "399.75", False),
+@pytest.mark.parametrize("deposit,valid", [
+    ("0", True), ("100", True), ("", False), ("400", False), ("399.75", False), ("0.49", False),
 ])
-def test_party_deposit_is_per_reservation(inventory, mode, deposit, valid):
+def test_party_deposit_is_per_reservation(inventory, deposit, valid):
     party = party_request(inventory)
     form = PartyReviewForm({"revision": party.revision, "status": "reviewed", "room": party.room_id,
-        "proposed_total": "400", "payment_at_booking": mode, "proposed_deposit": deposit}, instance=party)
+        "proposed_total": "400", "proposed_deposit": deposit}, instance=party)
     assert form.is_valid() == valid, form.errors
     if valid:
         saved = form.save()
-        assert saved.proposed_deposit == (Decimal(deposit) if mode == "deposit" else 0)
-        assert saved.proposed_balance == (300 if mode == "deposit" else 0)
+        assert saved.proposed_deposit == Decimal(deposit)
+        assert saved.proposed_balance == (400 - Decimal(deposit) if Decimal(deposit) else 0)
 
 
 def test_public_review_snapshots_deposit_and_rejects_stale_settings(stripe_demo, browser):
@@ -72,7 +71,7 @@ def test_public_review_snapshots_deposit_and_rejects_stale_settings(stripe_demo,
     assert review.context["due_now"] == Decimal("50")
     assert review.context["due_later"] == Decimal("80")
     assert b"Pay in full or pay a $50.00 deposit" in review.content
-    assert b"Continue to checkout <" in review.content
+    assert b"Continue to payment" in review.content
     for removed_copy in (b"Deposit option", b"checkout demo", b"test checkout", b"No real charge"):
         assert removed_copy not in review.content
     data.update(action="checkout", review_token=review.context["review_token"])
@@ -162,7 +161,7 @@ def test_admin_balance_action_requires_access(inventory, merchant, booking_membe
     route = reverse("scheduling:reservation_detail", args=[inventory[0].school.slug, item.public_id])
     assert client.get(route).status_code == 302
     client.force_login(booking_member.user)
-    assert b"Take online payment" in client.get(route).content
+    assert b"Take online payment" not in client.get(route).content
 
 
 @pytest.mark.parametrize("provider_fixture", ["merchant", "square_account"])

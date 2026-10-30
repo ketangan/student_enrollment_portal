@@ -47,6 +47,8 @@ def update(user, slug, public_id, data):
     if prepared == bool(item.prepared_at):
         return item
     if prepared:
+        if item.party_request_id and "guest_list_draft" in item.snapshot:
+            raise ValidationError("Finish the guest selections before marking this party prepared.")
         validate_materials(item, allocations)
         from .inventory import ensure_stock
         ensure_stock(item, physical=True)

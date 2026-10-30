@@ -103,13 +103,14 @@ def test_customer_footer_returns_to_options_from_every_booking_step(demo, browse
 
 @pytest.mark.parametrize('blank_details', [False, True, 'group'])
 def test_deferred_selection_survives_review_checkout_and_confirmation(demo, browser, blank_details):
-    session = service.sessions(demo).filter(offering__inventory_catalog__isnull=False).first()
+    session = service.sessions(demo).filter(offering__inventory_catalog__isnull=False,
+        starts_at__gt=timezone.now() + timedelta(days=7)).first()
     session.offering.allow_deferred_selections = True
     session.offering.save()
     session, data = form_data(browser, demo, count=6 if blank_details == 'group' else 1, session=session)
     data['participants-0-selections_deferred'] = 'on'
     for group in requests.catalog_for(session.offering):
-        if group.tracks_stock or blank_details:
+        if group.tracks_stock or (blank_details and not getattr(group, 'is_participant_age', False)):
             data.pop(f'participants-0-choice_{group.pk}')
     if blank_details:
         data['participants-0-name'] = ''
@@ -118,7 +119,8 @@ def test_deferred_selection_survives_review_checkout_and_confirmation(demo, brow
         for index in range(6):
             data[f'participants-{index}-name'] = ''
             for group in requests.catalog_for(session.offering):
-                data.pop(f'participants-{index}-choice_{group.pk}', None)
+                if not getattr(group, 'is_participant_age', False):
+                    data.pop(f'participants-{index}-choice_{group.pk}', None)
     review = browser.post(url('choose', pk=session.pk), data)
     assert review.status_code == 200 and b'Choosing at the studio' in review.content
     data.update(action='checkout', review_token=review.context['review_token'])
@@ -131,7 +133,7 @@ def test_deferred_selection_survives_review_checkout_and_confirmation(demo, brow
     assert all(p.selections_deferred for p in item.participants.all())
     if blank_details:
         assert item.participants.first().name == 'Participant 1'
-        assert item.participants.first().selections == []
+        assert [(s['group'], s['option']) for s in item.participants.first().selections] == [('Age', '7')]
     if blank_details == 'group':
         assert item.participants.count() == 6
         assert b'Choose your designs' in confirmation.content
@@ -181,7 +183,9 @@ def test_pasadena_seed_rolls_back_without_recipes(demo):
     assert not Offering.objects.filter(name="Cozy Creations").exists()
 
 
-def test_review_and_checkout_show_each_participant_preview(demo, browser):
+def test_review_and_checkout_show_each_participant_preview(demo, browser, monkeypatch):
+    from scheduling import customer_experience
+    monkeypatch.setattr(customer_experience, "customer_copy", lambda school: {})
     from scheduling.models import CatalogVariant
     session, data = form_data(browser, demo)
     groups = requests.catalog_for(session.offering)
@@ -328,7 +332,7 @@ def held(browser, demo, count=2):
     assert review.status_code == 200
     assert review.context["total"] == 65*count
     assert b"This demo charges nothing" not in review.content
-    assert b"Continue to checkout <" in review.content
+    assert b"Simulate booking" in review.content
     data.update(action="checkout", review_token=review.context["review_token"])
     result = browser.post(url("choose", pk=session.pk), data)
     assert result.status_code == 302
@@ -513,7 +517,7 @@ def test_prepared_booking_updates_roster_without_consuming_stock(demo, browser):
     assert list(StockLevel.objects.values_list("pk", "on_hand")) == counts
     assert list(StockAdjustment.objects.values()) == adjustments
     detail = browser.get(reverse("scheduling:reservation_preparation", kwargs={"school_slug": SLUG, "public_id": item.reservation.public_id}))
-    assert b"Workshop completed" in detail.content and b"Mark materials used" not in detail.content
+    assert b"Mark workshop completed" in detail.content and b"Mark materials used" not in detail.content
 
 
 def test_pausing_intake_keeps_existing_checkout_receipt_and_staff_views(demo, browser):
@@ -643,7 +647,7 @@ def test_complete_customer_staff_and_projection_journey(demo, browser):
     assert projected.status_code == 200
     props = projected.context["projection"].payload["properties"]
     assert item.session_snapshot["location"] in props["Workshop"]["title"][0]["text"]["content"]
-    assert "Participant 1: Design: Unicorn; Color: White; Age: Under 5" in props["Participant selections"]["rich_text"][0]["text"]["content"]
+    assert "Participant 1: Design: Unicorn; Color: White; Age: 7" in props["Participant selections"]["rich_text"][0]["text"]["content"]
     workspace = browser.get(reverse("scheduling:workspace", kwargs={"school_slug": SLUG}))
     assert b">Reservations</a>" in workspace.content and b"Enrollment admin" not in workspace.content
     assert "Workshop Prep" not in [tab["label"] for tab in prep.context["booking_navigation"]["section"]["tabs"]]

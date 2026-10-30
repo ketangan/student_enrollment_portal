@@ -1,34 +1,13 @@
-{% extends 'scheduling/base.html' %}{% load tz %}
+{% extends 'scheduling/base.html' %}{% load static %}
 {% block title %}{{ item.snapshot.name }}{% endblock %}
 {% block page_heading %}{% include 'scheduling/reservation_heading.html' %}{% endblock %}
 {% block content %}
-{% if item.state == 'review' %}<p role="alert" class="notice error">Payment is recorded, but this reservation is not confirmed. {% if checkout_pending %}Capacity stays held until the open checkout is verified.{% else %}It holds no capacity.{% endif %} Review the payment and availability before promising this booking.</p>{% endif %}
-{% if overpaid %}<p role="alert" class="notice error">Recorded payments exceed this quote. Review the extra payment; no automatic refund has been issued.</p>{% endif %}
-{% if item.state == 'canceled' and amounts.net_cents %}<p role="alert" class="notice error">Canceled with ${{ amounts.net|floatformat:2 }} still received. A cancellation does not by itself return money.</p>{% endif %}
-<section class="reservation-section" aria-labelledby="reservation-details"><h2 id="reservation-details">Reservation details</h2>
-{% include 'scheduling/reservation_summary.html' %}</section>
-{% if not item.party_request_id or participant_table.rows %}{% include 'scheduling/reservation_participants.html' %}{% endif %}
-{% if guest_list_due or guest_list_url %}<section class="reservation-section reservation-guests">
-<div class="section-heading"><h2>Guest list</h2><span class="muted">{{ item.quantity }} participant{{ item.quantity|pluralize }}</span></div>
-<p class="guest-selection-status"><span>{% if guest_list_complete %}Selections complete{% else %}Selections pending{% endif %}</span>{% if guest_list_due %}<span class="muted">Due {% timezone item.snapshot.timezone %}{{ guest_list_due|date:"M j, Y" }}{% endtimezone %}</span>{% endif %}{% if guest_list_draft_count %}<span class="muted">{{ guest_list_draft_count }} guests saved</span>{% endif %}</p>
-{% if guest_list_url %}<div class="reservation-guest-actions"><a class="button" href="{{ staff_guest_list_url }}"><i data-lucide="pencil" aria-hidden="true"></i> Edit guest list</a><button type="button" data-copy-link="{{ guest_list_url }}" title="Copy the customer's guest selection link"><i data-lucide="copy" aria-hidden="true"></i> Copy guest selection link</button><span data-copy-status role="status" aria-live="polite"></span></div>{% endif %}
-</section>{% endif %}
-<section class="reservation-section" aria-labelledby="money-title"><h2 id="money-title">Payment summary</h2>
-<dl class="reservation-money">
-  <div><dt>Total</dt><dd>${{ amounts.total|floatformat:2 }}</dd>{% if amounts.extras_cents %}<span class="muted">Includes ${{ amounts.extras|floatformat:2 }} extra purchases</span>{% endif %}</div>
-  <div><dt>Deposit</dt><dd>${{ item.order.deposit|floatformat:2 }}</dd></div>
-  <div class="money-received"><dt><i data-lucide="circle-check" aria-hidden="true"></i> Received</dt><dd>${{ amounts.paid|floatformat:2 }}</dd>{% if amounts.refunded_cents %}<span class="muted">${{ amounts.net|floatformat:2 }} retained</span>{% endif %}</div>
-  <div class="money-balance{% if item.state != 'canceled' and amounts.outstanding_cents %} money-due{% endif %}"><dt><i data-lucide="wallet" aria-hidden="true"></i> Balance</dt><dd>{% if item.state == 'canceled' %}Not due{% else %}${{ amounts.outstanding|floatformat:2 }}{% endif %}</dd></div>
-  <div><dt>Refunded</dt><dd>${{ amounts.refunded|floatformat:2 }}</dd></div>
-</dl>
-{% if can_edit_setup %}{% include 'scheduling/reservation_payments.html' %}{% endif %}
-{% include 'scheduling/reservation_terminal_payments.html' %}
-</section>
-{% include 'scheduling/reservation_notes.html' %}
-<details class="reservation-section reservation-summary"{% if audit_open %} open{% endif %}><summary id="audit-title">Audit log</summary>
-<div class="table-wrap reservation-audit" role="region" aria-label="Reservation audit log" tabindex="0"><table class="dash-table"><thead><tr><th>When</th><th>Activity</th><th>By</th></tr></thead><tbody>
-{% for event in audit.rows %}<tr><td>{% timezone item.snapshot.timezone %}{{ event.at|date:"M j, Y" }}<br>{{ event.at|date:"g:i A" }}{% endtimezone %}</td><td><strong>{{ event.title }}</strong>{% if event.detail %}<p>{{ event.detail }}</p>{% endif %}</td><td>{{ event.actor }}</td></tr>{% empty %}<tr><td colspan="3">No activity recorded.</td></tr>{% endfor %}
-</tbody></table></div>
-{% if audit.has_previous or audit.has_next %}<nav class="pagination" aria-label="Audit pages">{% if audit.has_previous %}<a href="{% querystring audit_page=audit.previous %}#audit-title">Previous</a>{% endif %}<span>Page {{ audit.number }}</span>{% if audit.has_next %}<a href="{% querystring audit_page=audit.next %}#audit-title">Next</a>{% endif %}</nav>{% endif %}
-</details>
+<div class="reservation-workspace" data-reservation-workspace>
+  <div class="reservation-workspace-main">
+    <div data-reservation-panel="details"{% if reservation_tab == 'preparation' %} hidden{% endif %}>{% include 'scheduling/reservation_detail_panel.html' %}</div>
+    <div data-reservation-panel="preparation"{% if reservation_tab != 'preparation' %} hidden{% endif %}>{% include 'scheduling/reservation_preparation_panel.html' %}</div>
+  </div>
+  <aside class="reservation-notes-sidebar">{% if item.party_request_id %}{% include 'scheduling/customer_notes.html' with customer_notes=item.party_request.customer_notes %}{% endif %}{% include 'scheduling/reservation_notes.html' %}</aside>
+</div>
 {% endblock %}
+{% block scripts %}<script defer src="{% static 'scheduling/reservation-workspace.js' %}?v=20261028-notes"></script>{% endblock %}

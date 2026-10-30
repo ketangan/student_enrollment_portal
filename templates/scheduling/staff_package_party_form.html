@@ -1,0 +1,43 @@
+{% extends 'scheduling/base.html' %}{% load static %}
+{% block title %}New party booking{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'scheduling:reservations' school_slug=business.slug %}"><i data-lucide="arrow-left" aria-hidden="true"></i> Reservations</a>
+<h2>New party booking</h2>
+<form method="get" class="setup-form package-booking-location">
+  {% include 'scheduling/party_form_field.html' with field=form.offering %}
+  <button type="submit">Choose location</button>
+</form>
+{% if form.selected_offering %}
+<form method="post" class="setup-form staff-party-form party-request-layout" id="party-request-form" data-packages-only="true" data-staff="true" novalidate>
+  {% csrf_token %}{{ form.request_token }}
+  <input type="hidden" name="offering" value="{{ form.selected_offering.pk }}">
+  <div class="party-request-fields">
+    {% if form.errors %}<div class="notice error" role="alert">Please correct the fields below.{{ form.non_field_errors }}{{ form.offering.errors }}</div>{% endif %}
+    <section class="reservation-section"><h2>Where and when</h2>
+      <div data-party-field="package">{% include 'scheduling/party_form_field.html' with field=form.package %}</div>
+      <div data-party-field="party_slot">{% include 'scheduling/party_form_field.html' with field=form.party_slot %}</div>
+      <div data-party-field="starts_at" hidden>{{ form.starts_at }}</div>
+      <div data-custom-party-field hidden>{{ form.space }}</div>
+    </section>
+    <section class="reservation-section"><h2>The party</h2>
+      <div class="party-field-pair">{% include 'scheduling/party_form_field.html' with field=form.group_size %}{% include 'scheduling/party_form_field.html' with field=form.age_range %}</div>
+      {% include 'scheduling/party_form_field.html' with field=form.participant_estimate %}
+      {% include 'scheduling/party_form_field.html' with field=form.occasion %}
+      <div class="party-field-pair"><div data-party-field="birthday_name">{% include 'scheduling/party_form_field.html' with field=form.birthday_name %}</div><div data-party-field="birthday_age">{% include 'scheduling/party_form_field.html' with field=form.birthday_age %}</div></div>
+      {% include 'scheduling/party_form_field.html' with field=form.customer_notes %}
+    </section>
+    <section class="reservation-section"><h2>Customer</h2>
+      {% include 'scheduling/party_form_field.html' with field=form.organizer_name %}
+      <div class="party-field-pair">{% include 'scheduling/party_form_field.html' with field=form.organizer_email %}{% include 'scheduling/party_form_field.html' with field=form.organizer_phone %}</div>
+    </section>
+    <p class="muted" id="party-next-step">Payment is recorded separately on the reservation.</p>
+    <div class="actions form-actions"><a class="button" href="{% url 'scheduling:reservations' school_slug=business.slug %}">Cancel</a><button type="submit" class="primary" id="party-submit">Create booking</button></div>
+  </div>
+  <aside class="party-request-summary" aria-label="Party summary"><h2>Package summary</h2><p id="party-package-summary" aria-live="polite">Choose a package.</p></aside>
+</form>
+{% else %}
+{% if form.errors %}<div class="notice error" role="alert">{{ form.non_field_errors }}{{ form.offering.errors }}</div>{% endif %}
+{% if not form.offering.field.queryset.exists %}<p>No published booking packages are available at your locations.</p>{% endif %}
+{% endif %}
+{% endblock %}
+{% block scripts %}{{ form.package_details|json_script:'party-package-details' }}{{ form.slot_packages|json_script:'party-slot-packages' }}<script defer src="{% static 'scheduling/party-inquiry.js' %}"></script>{% endblock %}

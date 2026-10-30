@@ -46,6 +46,8 @@ footer nav{display:flex;gap:20px}
 .button:hover{background:#454545}
 .button.disabled{pointer-events:none;opacity:.4}
 .quiet{background:#fff;border:1px solid #ccc;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.bottom-actions a.quiet,#review-payment a.quiet{min-height:44px;padding:12px 20px;border-radius:4px;color:#222;text-decoration:none;font-weight:700;box-sizing:border-box}
+.bottom-actions a.quiet:hover,#review-payment a.quiet:hover{background:#f5f5f5}
 .lucide{width:18px;height:18px;flex-shrink:0}
 .workshop-field{margin-bottom:26px}
 .session-schedule{display:grid;grid-template-columns:minmax(245px,310px) minmax(170px,260px);gap:24px;align-items:start}
@@ -83,7 +85,7 @@ summary{cursor:pointer;font-weight:700}
 .toolbar button{font-size:12px;padding:9px 12px}
 .person-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 18px}
 .person-tabs button{font-size:13px;min-width:100px;overflow-wrap:anywhere}
-.person-tabs [aria-pressed=true]{background:#ffe0e4;border-color:#ff8a92;font-weight:700}
+.person-tabs [aria-pressed=true]{font-weight:700}
 .participant{border:0;border-bottom:1px solid #eee;padding:0 0 18px;margin:0 0 18px;min-width:0}
 .participant legend{padding:0;margin-bottom:14px;font-size:13px;font-weight:700}
 .person-fields{display:grid;grid-template-columns:2fr 1fr;gap:16px}
@@ -104,6 +106,7 @@ summary{cursor:pointer;font-weight:700}
 .check{display:flex;align-items:center;font-weight:400;margin-top:18px;font-size:12px}
 .bottom-actions{border-top:1px solid #ddd;padding:24px 0;margin-top:24px;font-size:13px}
 .bottom-actions.end{justify-content:flex-end}
+.bottom-actions[data-booking-review-actions]>button,.bottom-actions[data-booking-review-actions]>a{min-height:48px;line-height:20px;padding:12px 16px;box-sizing:border-box}
 .errorlist,.alert{color:#9b203b}
 .alert{padding:15px;border:1px solid #d56c7e;background:#fff1f3;border-radius:4px}
 .table-wrap{overflow-x:auto}
@@ -166,4 +169,67 @@ td{overflow-wrap:anywhere}
 }
 @media print{.demo-bar,.brandbar,.steps,.assumptions,footer{display:none}main{max-width:none}.table-wrap{overflow:visible}body{font-size:11px}.boundary{background:white}}
 .choice-timing {border:0;padding:0;margin:0 0 24px}.choice-timing legend{font-weight:600;margin-bottom:12px}.choice-timing .check{margin:10px 0}
+.participant-tab{display:inline-flex;max-width:100%;align-items:center;gap:0;border:1px solid #d5d5d5;border-radius:6px;background:#fff}
+.participant-tab[data-active=true]{background:#fff0f2;border-color:#ed8b96}
+.person-tabs .participant-select{display:inline-flex;align-items:center;gap:8px;min-width:0;max-width:calc(100% - 44px);border:0;background:transparent;padding:10px 12px;text-align:left;border-radius:5px}
+.participant-tab:only-child .participant-select{max-width:100%}
+.person-tabs .participant-status{width:16px;height:16px;flex:0 0 16px;color:#929292}
+.person-tabs [data-ready=true] .participant-status{color:#258449}
+.person-tabs .participant-icon{border:0;background:transparent;color:#666;border-radius:5px}
+.person-tabs .participant-icon:hover{background:#f4dfe2;color:#222}
+.person-tabs .participant-icon .lucide{width:14px;height:14px}
+.person-tabs button:focus-visible{outline:2px solid #222;outline-offset:2px}
+.person-tabs .participant-icon,.participant-icon{width:44px;height:44px;min-width:44px;padding:10px;display:inline-flex;align-items:center;justify-content:center}
+.person-tabs button,.toolbar button{min-height:44px}
+.group-person{grid-template-columns:52px minmax(0,1fr) auto}
+.party-experience textarea{font:inherit;width:100%;min-height:100px;border:1px solid #c7c7c7;border-radius:4px;padding:10px 12px;resize:vertical}
+.party-experience{max-width:1080px;margin-inline:auto}
+.party-experience .split{grid-template-columns:minmax(0,680px) minmax(240px,300px);gap:32px}
+.party-experience #party-location-form{max-width:340px}
+.party-experience [data-party-field="package"],.party-experience [data-party-field="occasion"]{max-width:340px}
+.party-experience [data-party-field="group_size"]{max-width:180px}
+.party-experience .fields{margin:0;gap:20px}
+.party-experience .party-studio-package .form-field{max-width:none}
+.party-experience .contact{margin-top:20px;padding-top:20px}
+.party-experience .party-group-guidance{margin:0 0 20px;color:#626262;font-size:13px;line-height:1.5}
+.party-experience .party-group-guidance p{margin:4px 0}
+.party-experience #party-count-help{margin:6px 0 0;font-size:12px;line-height:1.5;color:#626262}
+.party-experience [data-party-panel="2"]>.fields{align-items:start}
+.party-acknowledgments{border-top:1px solid #ddd;margin-top:24px;padding-top:20px}
+.party-acknowledgments h3{font-size:16px;margin:0 0 16px}
+.party-experience .acknowledgment-field{margin-bottom:16px}
+.party-experience .acknowledgment-field label{display:flex;align-items:flex-start;gap:12px;min-height:44px;font-size:14px;font-weight:400;line-height:1.5}
+.party-experience .acknowledgment-field input{flex:0 0 18px;width:18px;height:18px;min-height:18px;margin:2px 0 0}
+.party-experience .acknowledgment-field>a{display:inline-block;margin-left:30px;font-size:14px}
+.party-experience fieldset{border:0;padding:0;min-width:0;margin:0}
+.party-experience .form-field{margin:0 0 20px}
+.party-experience .form-field label{margin-bottom:8px}
+.party-experience .form-field p{font-size:13px}
+.party-experience .party-time-picker{display:grid;grid-template-columns:minmax(0,310px) minmax(0,1fr);gap:24px}
+.party-experience .party-date-input{display:none}
+.party-experience .party-time-buttons{display:flex;gap:8px;flex-wrap:wrap}
+.party-experience .party-time-buttons button{min-height:44px}
+.party-experience [aria-pressed=true]{background:#ffe0e4;border-color:#a94058}
+.party-experience .flatpickr-calendar{box-shadow:none;max-width:100%;border:1px solid #e5e5e5}
+.party-experience .booking-calendar.flatpickr-calendar{box-shadow:none;font-family:inherit}
+.party-experience .booking-calendar .flatpickr-day{height:44px;line-height:42px}
+.party-experience .booking-calendar .flatpickr-day.selected{background:#ff8a92;border-color:#ff8a92;color:#252525}
+.party-experience .booking-calendar .flatpickr-day:not(.flatpickr-disabled):hover{background:#ffedef;border-color:#a94058}
+.party-experience .booking-calendar .flatpickr-prev-month,.party-experience .booking-calendar .flatpickr-next-month{height:44px;width:44px}
+.party-experience #party-time-date{font-size:16px;margin:5px 0 18px}
+.party-experience .booking-payment-choice label{display:flex}
+.party-experience .booking-payment-choice input{width:20px;min-height:20px}
+.party-review-list{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.party-experience .summary>p{margin:6px 0;color:#626262;line-height:1.5}
+.party-experience #party-summary-time{white-space:pre-line}
+.party-price-summary{margin:20px 0 0;padding-top:12px;border-top:1px solid #e4e4e4;font-size:14px}
+.party-price-summary>div{display:flex;justify-content:space-between;align-items:baseline;gap:16px;padding:6px 0}
+.party-price-summary dd{margin:0;white-space:nowrap;font-variant-numeric:tabular-nums}
+.party-price-summary .price-total{font-weight:600;padding-bottom:14px}
+.party-price-summary .price-due{border-top:1px solid #e4e4e4;padding-top:14px;font-size:17px;font-weight:700}
+.party-review-list dt{color:#686868;font-size:13px}.party-review-list dd{margin:4px 0 0;overflow-wrap:anywhere}
+.party-experience[data-step="3"] .workshop-photo{display:none}
+@media(max-width:850px){.party-experience[data-step="3"] .summary,.booking-review .summary{order:-1}}
+@media(max-width:850px){.party-experience .split{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){.party-experience .party-time-picker,.party-review-list{grid-template-columns:minmax(0,1fr)}.party-experience .fields{grid-template-columns:1fr}}
 .choice-timing input[type=radio]{width:18px;height:18px;min-height:18px;flex:0 0 18px;margin:0 10px 0 0;padding:0}#later-count-field{max-width:160px}

@@ -1,16 +1,20 @@
 {% extends 'scheduling/experience/base.html' %}{% load booking_policies %}{% block content %}<h1>A plushie for every personality.</h1><p class="lead">Choose a design and color for each participant.</p>
 <form method="post" id="choices-form">{% csrf_token %}<input type="hidden" name="request_token" value="{{ request_token }}">{{ participants.management_form }}{{ participants.non_form_errors }}
+{% if editing_booking %}<input type="hidden" name="edit_revision" value="{{ edit_revision }}">{% endif %}
 {% if purchaser.non_field_errors %}<div class="alert" role="alert">{{ purchaser.non_field_errors }}</div>{% endif %}
 <div class="split selection-layout"><section class="selection-main" aria-label="Participant choices">
-{% if empty_participant.selections_deferred %}<fieldset class="choice-timing"><legend>When would you like to choose?</legend><label class="check"><input type="radio" name="choose_when" value="now"{% if request.POST.choose_when != 'later' %} checked{% endif %}>Choose designs now</label><label class="check"><input type="radio" id="choose-later" name="choose_when" value="later"{% if request.POST.choose_when == 'later' %} checked{% endif %}>Choose later</label></fieldset>{% endif %}
+{% if selection_deadline_days %}<p class="muted">Choosing later? Complete your designs at least {{ selection_deadline_days }} days before your workshop. Within that window, choose your designs now.</p>{% endif %}
+{% include 'scheduling/design_guide_link.html' %}
+{% if empty_participant.selections_deferred %}<fieldset class="choice-timing"><legend>When would you like to choose?</legend><label class="check"><input type="radio" name="choose_when" value="now"{% if choose_when != 'later' %} checked{% endif %}>Choose designs now</label><label class="check"><input type="radio" id="choose-later" name="choose_when" value="later"{% if choose_when == 'later' %} checked{% endif %}>Choose later</label></fieldset>{% endif %}
 <div class="toolbar"><button type="button" id="add-person" class="quiet"><i data-lucide="user-plus"></i> Add participant</button></div>
 <label id="later-count-field" hidden>Participants<input id="later-count" type="number" min="1" max="{{ catalog_data.limit }}" value="{{ catalog_data.initial_count }}"></label>
 <div id="person-tabs" class="person-tabs" role="group" aria-label="Participants"></div><div id="participant-list">{% for form in participants %}{% include 'scheduling/experience/participant.html' %}{% endfor %}</div>
 <template id="empty-person">{% include 'scheduling/experience/participant.html' with form=empty_participant %}</template>
 <div class="group-color"><label>Same color for everyone?<select id="group-color"><option value="">Choose a color</option></select></label><button type="button" id="apply-color" class="quiet">Apply to all</button></div>
 <p id="group-color-status" role="status"></p>
+{% if customer_copy.accessories_note %}<p class="muted">{{ customer_copy.accessories_note }}</p>{% endif %}
 <section class="contact"><h2>Your booking details</h2><div class="fields">{% for field in purchaser %}<label>{{ field.label }}{{ field }}{{ field.errors }}</label>{% endfor %}</div>
-{% booking_policy business 'workshop' %}<label class="check">{{ policy.policy_ack }}{{ policy.policy_ack.label }}</label>{{ policy.errors }}</section>
-<div class="bottom-actions"><a href="{% url 'scheduling:experience_start' school_slug=business.slug %}">Change workshop</a><button name="action" value="review" class="button">Review booking <i data-lucide="arrow-right" aria-hidden="true"></i></button></div></section>
+{% booking_policy business 'workshop' %}{% if customer_copy.waiver_note %}<p>{{ customer_copy.waiver_note }}</p>{% endif %}<label class="check">{{ policy.policy_ack }}{{ policy.policy_ack.label }}</label>{{ policy.errors }}</section>
+<div class="bottom-actions"><a href="{% if change_workshop_url %}{{ change_workshop_url }}{% else %}{% url 'scheduling:experience_start' school_slug=business.slug %}{% endif %}">Change workshop</a><button name="action" value="review" class="button">Review booking <i data-lucide="arrow-right" aria-hidden="true"></i></button></div></section>
 <aside class="summary group-summary"><h2>Your group</h2><p class="tiny muted">{{ session.offering.name }}<br>{{ session.offering.location.name }} &middot; {{ session.starts_at|date:'M j' }} &middot; {{ session.starts_at|date:'g:i A' }}</p><div id="group-summary-list"></div><p id="group-completeness" class="selection-completeness" role="status"></p><div class="total"><strong id="selection-total"></strong></div><p class="tiny muted">Any applicable tax is calculated at checkout.</p></aside></div></form>
 {{ catalog_data|json_script:'catalog-data' }}{% endblock %}

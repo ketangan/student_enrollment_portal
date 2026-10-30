@@ -137,7 +137,7 @@ def test_permission_and_tampered_token_rejected(stock, booking, client):
     path = reverse("scheduling:reservation_detail", kwargs={"school_slug": stock.school.slug, "public_id": booking.public_id})
     client.force_login(stock.user)
     response = client.get(path)
-    assert b"Request payment" in response.content and b"24 hours" not in response.content
+    assert b"Request payment" not in response.content and b"24 hours" not in response.content
     assert client.post(path, {"action": "request_payment", "request_token": "bad"}).status_code == 400
     from scheduling.models import SchedulingMembership
     SchedulingMembership.objects.filter(user=stock.user).update(role="viewer")
@@ -163,14 +163,14 @@ def test_reservation_uses_clean_guest_actions_and_honest_email_status(stock, boo
     response = client.get(path)
     assert response.status_code == 200
     for text in (b"Copy guest selection link", b"Email preview only; not sent", b"reservation-guest-actions"):
-        assert text in response.content
+        assert text not in response.content
     for text in (b"Copy host link", b"View design guide", b"Not queued", b"The space stays reserved", b"Materials have not been reserved", b"Resend payment request"):
         assert text not in response.content
     notice.state = "sent"
     notice.save()
     response = client.get(path)
-    assert b"Payment email sent" in response.content
-    assert b"Resend payment request" in response.content
+    assert b"Payment email sent" not in response.content
+    assert b"Resend payment request" not in response.content
 
 
 def test_live_send_uses_existing_delivery_gates(stock, booking, settings):

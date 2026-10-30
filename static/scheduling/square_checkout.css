@@ -10,6 +10,7 @@
 .payment-summary button { min-height: 44px; }
 @media (max-width: 480px) { .payment-summary button { width: 100%; } }
 .square-checkout h1 { margin: 24px 0 8px; }
+.square-checkout .back-link { display: inline-flex; align-items: center; min-height: 44px; }
 .square-amounts { margin: 24px 0; border-block: 1px solid var(--border, #dfe3e8); padding: 16px 0; }
 .square-amounts > div { display: flex; justify-content: space-between; gap: 16px; padding: 6px 0; }
 .square-amounts dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }

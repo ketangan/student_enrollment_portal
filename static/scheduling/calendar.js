@@ -10,6 +10,8 @@
   const hideEmpty = document.getElementById("calendar-hide-empty");
   const dialog = document.getElementById("calendar-detail");
   const detailBody = document.getElementById("calendar-detail-body");
+  const detailBadges = document.getElementById("calendar-detail-badges");
+  const printButton = document.getElementById("calendar-detail-print");
   const selected = new Set(config.offerings.map(item => item.id));
   let range = ["day", "week", "month"].includes(params.get("range")) ? params.get("range") : "week";
   const requestedDate = params.get("date") || "";
@@ -17,6 +19,7 @@
   let anchorDate = Number.isFinite(parsedDate.getTime()) && parsedDate.toISOString().slice(0,10) === requestedDate
     && requestedDate >= "1900-01-01" && requestedDate <= "2200-12-31" ? requestedDate : config.today;
   let pendingNavigation = false;
+  let visibleStart = anchorDate;
   let requestNumber = 0, detailNumber = 0, controller;
   const node = (tag, text, className) => {
     const el = document.createElement(tag);
@@ -59,15 +62,18 @@
     }
     return [...groups.values()].flatMap(group => {
       if (group.length < 3) return group;
+      const locations = [...new Set(group.map(event => event.extendedProps.location))];
       return [{...group[0],id:`group-${group[0].id}`,title:`${group.length} sessions`,
-        extendedProps:{kind:"group",size:group.length,location:"All locations",published:true,
+        extendedProps:{kind:"group",size:group.length,location:locations.length === 1 ? locations[0] : `${locations.length} locations`,published:true,
           seats:group.reduce((sum,event)=>sum+event.extendedProps.seats,0),
           capacity:group.reduce((sum,event)=>sum+event.extendedProps.capacity,0)}}];
     });
   }
   async function openDetail(event) {
-    if (event.extendedProps.kind === "group") {openDay(event.start); return;}
+    if (range === "month" || event.extendedProps.kind === "group") {openDay(event.start); return;}
     const current = ++detailNumber;
+    printButton.disabled = true;
+    detailBadges.replaceChildren();
     document.getElementById("calendar-detail-title").textContent = event.title;
     detailBody.replaceChildren(node("p", "Loading session..."));
     if (!dialog.open) dialog.showModal();
@@ -77,19 +83,40 @@
       const data = await response.json();
       if (current !== detailNumber || !dialog.open) return;
       document.getElementById("calendar-detail-title").textContent = data.title;
+      detailBadges.replaceChildren(node("span",data.category,"calendar-detail-badge"));
       detailBody.replaceChildren(node("p", data.time), node("p", [data.location,data.room].filter(Boolean).join(" · "), "muted"));
+      const summary = data.summary;
+      const metrics = node("div",undefined,"calendar-detail-metrics");
+      function metric(label,value,caption) {
+        const item=node("div",undefined,"calendar-detail-metric");
+        item.append(node("span",label),node("strong",value),node("small",caption));metrics.append(item);return item;
+      }
+      const booked=metric("Booked",`${summary.booked} of ${summary.capacity}`,"seats filled");
+      const progress=node("progress"); progress.max=Math.max(1,summary.capacity);progress.value=summary.booked;
+      progress.setAttribute("aria-label","Booked seats");booked.append(progress);
+      metric("Open",summary.open,"seats left");
+      metric("Collected",summary.payments.length ? summary.payments.map(p=>money(p.received,p.order__currency)).join(" + ") : "—",
+        summary.payments.length ? `of ${summary.payments.map(p=>money(p.expected,p.order__currency)).join(" + ")} expected` : "No payments");
+      metric("Needs action",summary.needs_action,summary.needs_action ? "payment review" : "No payment issues");
+      detailBody.append(metrics,node("h3",`${summary.reservation_count} reservation${summary.reservation_count === 1 ? "" : "s"}`));
       if (data.reservations.length) {
         const wrap = node("div", undefined, "calendar-roster"), table = node("table"), head = node("tr");
-        for (const label of ["Customer", "Participants", "Status", "Received", "Balance", ""]) head.append(node("th", label));
+        for (const label of ["Customer", "Seats", "Payment", ""]) head.append(node("th", label));
         const thead = node("thead"), body = node("tbody"); thead.append(head); table.append(thead,body);
         for (const row of data.reservations) {
           const tr = node("tr");
-          for (const value of [row.name,row.quantity,row.state,money(row.received,row.currency),money(Math.max(0,row.total-row.received),row.currency)]) tr.append(node("td",value));
-          const cell = node("td"), link = node("a","View reservation"); link.href = detailLink(row.url); cell.append(link); tr.append(cell); body.append(tr);
+          const customer=node("td"), identity=node("div",undefined,"calendar-customer");
+          identity.append(node("span",row.name));customer.append(identity);tr.append(customer,node("td",`${row.quantity} ${row.quantity === 1 ? "seat" : "seats"}`));
+          const payment=node("td"), status=node("span",row.payment_status,`calendar-payment-status ${row.payment_status === "Paid" ? "paid" : "pending"}`);
+          payment.append(status,node("small",`${money(row.received,row.currency)} received · ${money(Math.max(0,row.total-row.received),row.currency)} balance`,"calendar-payment-amount"));tr.append(payment);
+          const cell = node("td"), link = node("a","View","dash-action-btn dash-action-btn--secondary"); link.href = detailLink(row.url);link.setAttribute("aria-label",`View reservation for ${row.name}`); cell.append(link); tr.append(cell);
+          ["Customer", "Participants", "Payment", ""].forEach((label, index) => tr.children[index].setAttribute("data-label", label));
+          body.append(tr);
         }
         wrap.append(table); detailBody.append(wrap);
       } else detailBody.append(node("p","No active reservations."));
       if (data.truncated) detailBody.append(node("p","Showing the first 500 reservations."));
+      printButton.disabled = false;
     } catch (_) {
       if (current === detailNumber && dialog.open) {
         const retry = node("button", "Retry"); retry.type="button"; retry.addEventListener("click", () => openDetail(event));
@@ -98,14 +125,27 @@
     }
   }
   document.getElementById("calendar-detail-close").addEventListener("click", () => dialog.close());
+  printButton.addEventListener("click", () => {if (dialog.open && !printButton.disabled) window.print();});
+  document.getElementById("calendar-prep-print").addEventListener("click", () => {
+    const url = new URL(config.printUrl, location.origin);
+    url.searchParams.set("print", "1");
+    url.searchParams.set("period", range);
+    url.searchParams.set("date", visibleStart);
+    if (config.location) url.searchParams.set("location", config.location);
+    if (!selected.size) url.searchParams.append("offering", "none");
+    else if (selected.size !== config.offerings.length) for (const id of selected) url.searchParams.append("offering", id);
+    window.open(url, "_blank", "noopener");
+  });
   dialog.addEventListener("close", () => {detailNumber++;});
   const calendar = EventCalendar.create(root, {
     view:viewName(), date:anchorDate,
     timeZone:"UTC", headerToolbar:false, height:"680px", allDaySlot:false, nowIndicator:false, dayMaxEvents:true,
     editable:false, selectable:false, eventStartEditable:false, eventDurationEditable:false,
     scrollTime:"09:00:00", slotMinTime:"09:00:00", slotMaxTime:"19:00:00", flexibleSlotTimeLimits:true,
-    slotWidth:Math.max(44,Math.floor((root.clientWidth-180)/20)), resources:config.resources,
+    slotDuration:"01:00:00", slotHeight:48, slotLabelInterval:"01:00:00",
+    slotWidth:Math.max(88,Math.floor((root.clientWidth-180)/10)), resources:config.resources,
     datesSet(info) {
+      visibleStart=info.view.currentStart.toISOString().slice(0,10);
       if (pendingNavigation) {anchorDate=info.view.currentStart.toISOString().slice(0,10);pendingNavigation=false;}
       document.getElementById("calendar-range").textContent = info.view.title;
       queueMicrotask(syncUrl);
@@ -139,13 +179,22 @@
     },
     eventContent({event,timeText}) {
       const p=event.extendedProps;
-      const title=node("strong",config.location || range === "day" || p.kind === "group" ? event.title : p.location,"calendar-event-title");
-      const detail=node("span",`${timeText} · ${p.seats}/${p.capacity} places${p.published ? "" : " · Draft"}`,"calendar-event-meta");
+      if (range === "week") {
+        const size=p.kind === "group" ? p.size : 1;
+        return {domNodes:[
+          node("strong",`${size} session${size === 1 ? "" : "s"}`,"calendar-event-title"),
+          node("span",p.location,"calendar-event-location"),
+          node("span",timeText,"calendar-event-meta"),
+          node("span",`${p.seats}/${p.capacity} participants${p.published ? "" : " · Draft"}`,"calendar-event-meta")
+        ]};
+      }
+      const title=node("strong",config.location || range === "day" ? event.title : p.location,"calendar-event-title");
+      const detail=node("span",`${timeText} · ${p.seats}/${p.capacity} participants${p.published ? "" : " · Draft"}`,"calendar-event-meta");
       return {domNodes:[title,detail]};
     },
     eventClick:({event}) => openDetail(event),
     eventDidMount({el,event}) {
-      el.tabIndex=0; el.setAttribute("role","button"); el.setAttribute("aria-label",`${event.title}, ${event.extendedProps.location}, ${event.extendedProps.seats} of ${event.extendedProps.capacity} places`);
+      el.tabIndex=0; el.setAttribute("role","button"); el.setAttribute("aria-label",`${event.title}, ${event.extendedProps.location}, ${event.extendedProps.seats} of ${event.extendedProps.capacity} participants`);
       el.addEventListener("keydown",e=>{if(e.key==="Enter" || e.key===" "){e.preventDefault();openDetail(event);}});
     },
     dateClick(info) {openDay(info.date);},
@@ -172,6 +221,17 @@
       return {domNodes:[button,zone]};
     },
   });
+  // The bundled calendar exposes overflow content, but no more-link click hook.
+  // Capture its native trigger before the library opens the month popover.
+  function openOverflow(event) {
+    if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") return;
+    const target=range === "month" ? event.target : event.target.closest('.ec-day-foot a[role="button"]');
+    const date=target?.closest('.ec-day')?.querySelector('time[datetime]')?.getAttribute('datetime');
+    if (!date) return;
+    event.preventDefault();event.stopPropagation();openDay(date);
+  }
+  root.addEventListener("click",openOverflow,true);
+  root.addEventListener("keydown",openOverflow,true);
   function setRange() {
     root.dataset.range=range;
     calendar.setOption("view",viewName());

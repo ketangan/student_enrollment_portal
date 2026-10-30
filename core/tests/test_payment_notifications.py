@@ -3,7 +3,7 @@ import hashlib
 import hmac
 import json
 import time
-from datetime import timedelta
+from datetime import timedelta, timezone as datetime_timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -86,7 +86,8 @@ def test_failure_starts_exactly_seven_days_and_retries_do_not_extend(school, pro
     apply(provider, first)
     apply(provider, invoice_event(attempt=2))
     school.refresh_from_db()
-    expected = timezone.datetime.fromtimestamp(first["created"], tz=timezone.get_default_timezone()) + timedelta(days=7)
+    # Grace is seven elapsed days, including weeks that cross a DST change.
+    expected = timezone.datetime.fromtimestamp(first["created"], tz=datetime_timezone.utc) + timedelta(days=7)
     assert school.payment_grace_ends_at == expected
     assert not school.is_payment_access_expired
     assert PaymentNotification.objects.count() == 2

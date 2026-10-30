@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal
 from django import forms
 from django.core.validators import MaxValueValidator
-from .models import Location, Reservation
+from .models import Location, Offering, Reservation
 from .access import staff_locations
 
 
@@ -11,6 +11,12 @@ class ReservationFilterForm(forms.Form):
     q = forms.CharField(label="Customer or workshop", required=False, max_length=100,
                         widget=forms.TextInput(attrs={"type": "search", "placeholder": "Name, email or workshop"}))
     location = forms.ModelChoiceField(label="Studio", queryset=Location.objects.none(), required=False, empty_label="All studios")
+    offering = forms.ModelChoiceField(label="Workshop", queryset=Offering.objects.none(), required=False, empty_label="All workshops")
+    prep = forms.ChoiceField(label="Prep status", required=False, choices=[("", "All prep statuses"),
+        ("pending", "Preparation pending"), ("complete", "Complete"), ("hold", "On hold"), ("not_required", "Not required")])
+    hide_completed = forms.BooleanField(label="Hide completed workshops", required=False, initial=True)
+    show_completed = forms.BooleanField(label="Show completed", required=False,
+        widget=forms.CheckboxInput(attrs={"role": "switch"}))
     state = forms.ChoiceField(label="Status", required=False, choices=[("", "All statuses"), *Reservation.State.choices])
     date_from = forms.DateField(label="From", required=False, widget=forms.DateInput(attrs={"type": "date"}))
     date_to = forms.DateField(label="Through", required=False, widget=forms.DateInput(attrs={"type": "date"}),
@@ -19,6 +25,8 @@ class ReservationFilterForm(forms.Form):
     def __init__(self, *args, profile, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["location"].queryset = staff_locations(profile)
+        self.fields["offering"].queryset = Offering.objects.filter(location__in=staff_locations(profile)).select_related("location")
+        self.fields["offering"].label_from_instance = lambda offering: f"{offering.name} ({offering.location.name})"
 
     def clean(self):
         data = super().clean()

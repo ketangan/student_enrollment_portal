@@ -1,0 +1,40 @@
+{% extends 'scheduling/experience/base.html' %}{% load tz %}
+{% block content %}
+<div class="party-experience" data-step="3">
+<h1>{% if item.state == 'canceled' %}Reservation canceled{% elif item.state == 'review' %}Reservation needs review{% elif confirmed %}Your party is confirmed.{% else %}Let's plan your plushie party.{% endif %}</h1>
+<p class="lead">{{ customer_copy.party_note }}</p>
+<div class="split"><section>
+<h2>{% if confirmed %}Your booking details{% else %}One last look before the party.{% endif %}</h2>
+<dl class="party-review-list">
+<div><dt>Your name</dt><dd>{{ item.snapshot.name }}</dd></div>
+<div><dt>Email</dt><dd>{{ item.party_request.organizer_email }}</dd></div>
+{% if item.snapshot.organizer_phone %}<div><dt>Phone</dt><dd>{{ item.snapshot.organizer_phone }}</dd></div>{% endif %}
+<div><dt>Plushie makers</dt><dd>{{ item.snapshot.participant_estimate|default:item.quantity }}</dd></div>
+{% if item.snapshot.age_range %}<div><dt>Participants' ages</dt><dd>{{ item.snapshot.age_range }}</dd></div>{% endif %}
+{% if item.snapshot.occasion %}<div><dt>Occasion</dt><dd>{{ item.snapshot.occasion }}</dd></div>{% endif %}
+{% if item.party_request.customer_notes %}<div><dt>Anything we should know?</dt><dd>{{ item.party_request.customer_notes|linebreaksbr }}</dd></div>{% endif %}
+</dl>
+{% if guest_list_url %}<p><a href="{{ guest_list_url }}">Add or update guest details</a></p>{% endif %}
+{% if item.state == 'review' %}<p role="status">Please contact the studio to confirm your reservation.</p>{% endif %}
+{% if hold_expired %}<p role="status">Your hold has expired. We will check availability again before payment.</p>{% endif %}
+{% if ready %}
+<form method="post" action="{{ payment_form_url }}">{% csrf_token %}
+{% include 'scheduling/payment_choice.html' %}
+<div class="bottom-actions" data-booking-review-actions>{% if customer_edit_url %}<a class="quiet" href="{{ customer_edit_url }}">Edit details</a>{% endif %}<button class="button" type="submit">Continue to payment</button></div>
+</form>
+{% elif amounts.outstanding_cents > 0 and item.state != 'canceled' and item.state != 'review' %}<p role="status">Online payment is unavailable. Please contact the studio about the remaining balance.</p>{% endif %}
+</section><aside class="summary">
+<h2>Your party</h2><h3>{{ party_quote.name|default:item.snapshot.workshop }}</h3>
+<p>{{ item.party_request.offering_snapshot.location }}</p>
+{% timezone item.snapshot.timezone %}<p>{{ item.starts_at|date:"D, M j, Y" }}<br>{{ item.starts_at|date:"g:i A T" }} &middot; {{ party_duration_label }}</p>{% endtimezone %}
+<p>{{ item.quantity }} plushie maker{{ item.quantity|pluralize }}{% if party_quote.included_observers %} &middot; {{ party_quote.included_observers }} observers included{% endif %}</p>
+<dl class="party-price-summary">
+{% if party_quote.subtotal %}<div><dt>Subtotal</dt><dd>${{ party_quote.subtotal|floatformat:2 }}</dd></div><div><dt>Tax</dt><dd>${{ party_quote.tax|floatformat:2 }}</dd></div>{% endif %}
+<div class="price-total"><dt>Total</dt><dd>${{ item.order.total|floatformat:2 }}</dd></div>
+{% if amounts.net_cents %}<div><dt>Paid</dt><dd>${{ amounts.net|floatformat:2 }}</dd></div>{% endif %}
+{% if amounts.refunded_cents %}<div><dt>Refunded</dt><dd>${{ amounts.refunded|floatformat:2 }}</dd></div>{% endif %}
+{% if not confirmed and ready %}<div class="price-due"><dt>Pay today</dt><dd>${{ review_due|floatformat:2 }}</dd></div><div><dt>At the party</dt><dd>${{ review_later|floatformat:2 }}</dd></div>
+{% else %}<div class="price-due"><dt>Balance remaining</dt><dd>${{ amounts.outstanding|floatformat:2 }}</dd></div>{% endif %}
+</dl>
+</aside></div></div>
+{% endblock %}

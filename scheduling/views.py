@@ -111,6 +111,7 @@ def workspace(request, school_slug):
             items = items.filter(location=location)
         context["calendar_config"] = {
             "eventsUrl": reverse("scheduling:calendar_events", kwargs={"school_slug": school_slug}),
+            "printUrl": reverse("scheduling:studio_preparation", kwargs={"school_slug": school_slug}),
             "location": str(location.pk) if location else "",
             "resources": [{"id": str(item.pk), "title": item.name, "zone": item.timezone_name} for item in locations],
             "offerings": [{"id": str(item.pk), "title": f"{item.name} ({item.location.name})"} for item in items],
@@ -248,7 +249,7 @@ def setup_edit(request, school_slug, kind, pk=None, offering_pk=None):
     profile, role = require_location_access(request.user, school_slug, edit_permission(kind))
     return_to_parties = kind == "workshops" and bool(pk) and request.GET.get("return_to") == "parties"
     parties_url = reverse("scheduling:party_setup", kwargs={"school_slug": school_slug})
-    if kind == "party_packages" and request.method == "GET":
+    if kind == "party_packages" and pk and request.method == "GET":
         form = build_form(profile, kind, pk=pk)
         query = f"?location={form.instance.offering.location_id}&edit={pk}#package-{pk}" if pk else "?new=1#package-new"
         return redirect(reverse("scheduling:party_setup", kwargs={"school_slug": school_slug}) + query)
@@ -272,6 +273,12 @@ def setup_edit(request, school_slug, kind, pk=None, offering_pk=None):
         context["parties_return_url"] = f"{parties_url}?location={form.instance.location_id}"
     context.update(form=form, kind=kind, editing=bool(pk), party_setup=kind == "party_packages", entity_label={"locations": "location", "rooms": "room", "workshops": "workshop", "sessions": "session", "party_packages": "party package"}[kind])
     context["hide_setup_tabs"] = kind in {"workshops", "sessions"}
+    if kind == "party_packages" and not pk:
+        from .party_forms import package_editor_context
+        context["hide_setup_tabs"] = True
+        context.update(package_editor_context(form, profile, context.get("selected_location")))
+        return render(request, "scheduling/party_package_form.html", context,
+            status=400 if request.method == "POST" else 200)
     zone = form.instance.offering.location.timezone_name if kind == "sessions" else timezone.get_default_timezone_name()
     context["session_location"] = form.instance.offering.location if kind == "sessions" else None
     with timezone.override(ZoneInfo(zone)):

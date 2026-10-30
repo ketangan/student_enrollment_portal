@@ -2,6 +2,7 @@
   const read = id => JSON.parse(document.getElementById(id)?.textContent || 'null');
   let catalog = read('party-catalog');
   let partyPicker;
+  let selectedDay = '';
   function setupPartyTimes(slots, direct) {
     const box = document.getElementById('party-time-picker');
     if (!box || !window.flatpickr) return;
@@ -24,17 +25,19 @@
         button.setAttribute('aria-pressed', String(slots.value === option.value));
         button.addEventListener('click', () => {
           slots.value = option.value;
+          slots.dispatchEvent(new Event('change', {bubbles:true}));
           document.getElementById('party-submit').disabled = false;
           for (const other of buttons.children) other.setAttribute('aria-pressed', String(other === button));
         });
         buttons.append(button);
       }
     };
-    const selected = dates[slots.value]?.date;
+    const selected = dates[slots.value]?.date || (days.includes(selectedDay) ? selectedDay : '');
+    selectedDay = selected;
     partyPicker = window.flatpickr(document.getElementById('party-date'), {
       inline:true, dateFormat:'Y-m-d', enable:days, disableMobile:true, monthSelectorType:'static',
       appendTo:document.getElementById('party-date-calendar'), defaultDate:selected,
-      onChange:(_, day) => { slots.value = ''; document.getElementById('party-submit').disabled = true; renderTimes(day); },
+      onChange:(_, day) => { selectedDay = day; slots.value = ''; slots.dispatchEvent(new Event('change', {bubbles:true})); document.getElementById('party-submit').disabled = true; renderTimes(day); },
       onReady:(_, __, picker) => {
         picker.calendarContainer.classList.add('booking-calendar');
         picker.calendarContainer.setAttribute('aria-label', 'Choose a party date');
@@ -124,7 +127,9 @@
       const update = () => {
         const selected = details[select.value];
         document.getElementById('party-package-summary').textContent = selected ? selected.text : '';
-        const direct = Boolean(selected?.direct);
+        const packageOnly = document.getElementById('party-request-form')?.dataset.packagesOnly === 'true';
+        const staff = document.getElementById('party-request-form')?.dataset.staff === 'true';
+        const direct = packageOnly || Boolean(selected?.direct);
         const slots = document.getElementById('id_party_slot');
         if (slots) {
           const mapping = read('party-slot-packages') || {};
@@ -140,16 +145,16 @@
           preferred.disabled = direct;
           preferred.required = !direct;
           preferred.closest('[data-party-field]').hidden = direct;
-          document.getElementById('party-submit').textContent = direct ? 'Continue to payment' : 'Send party request';
-          document.getElementById('party-next-step').textContent = direct ? 'Your party is confirmed after payment.' : 'Subject to availability and staff confirmation.';
+          document.getElementById('party-submit').textContent = staff ? 'Create booking' : direct ? 'Continue to payment' : 'Send party request';
+          document.getElementById('party-next-step').textContent = staff ? 'Payment is recorded separately on the reservation.' : direct ? 'Your party is confirmed after payment.' : 'Subject to availability and staff confirmation.';
           const noTimes = direct && ![...slots.options].some(option => option.value && !option.disabled);
           document.getElementById('party-submit').disabled = noTimes;
-          if (noTimes) document.getElementById('party-next-step').textContent = 'No party times are currently offered. Choose another party or send a custom request.';
+          if (noTimes) document.getElementById('party-next-step').textContent = select.value ? 'No party times are currently offered. Choose another package or location.' : 'Choose a package to see available times.';
           setupPartyTimes(slots, direct);
         }
         document.querySelectorAll('[data-custom-party-field]').forEach(field => {
-          field.hidden = Boolean(selected);
-          field.querySelectorAll('input, select').forEach(input => { input.disabled = Boolean(selected); });
+          field.hidden = packageOnly || Boolean(selected);
+          field.querySelectorAll('input, select').forEach(input => { input.disabled = packageOnly || Boolean(selected); });
         });
       };
       select.addEventListener('change', update); update();
@@ -160,6 +165,8 @@
   setup();
   document.addEventListener('party-material-added', setupMaterials);
   const location = document.getElementById('party-location'), form = document.getElementById('party-request-form');
+  if (location && (!form || form.dataset.customerSteps === 'true')) location.addEventListener('change', () => location.form.requestSubmit());
+  if (form?.dataset.customerSteps === 'true') return;
   if (!location || !form) return;
   let current = location.value, pending;
   location.addEventListener('change', async () => {

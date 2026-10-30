@@ -1,0 +1,4 @@
+<nav class="booking-view-toggle" aria-label="Dashboard view">
+  <a href="?view=overview{% if selected_location %}&amp;location={{ selected_location.pk }}{% endif %}"{% if active_view == 'dashboard' %} aria-current="page"{% endif %}><i data-lucide="layout-dashboard" aria-hidden="true"></i> Dashboard</a>
+  <a href="?view=calendar{% if selected_location %}&amp;location={{ selected_location.pk }}{% endif %}"{% if active_view == 'calendar' %} aria-current="page"{% endif %}><i data-lucide="calendar-days" aria-hidden="true"></i> Calendar</a>
+</nav>

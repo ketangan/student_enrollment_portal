@@ -1,0 +1,33 @@
+{% extends 'scheduling/base.html' %}
+{% load static %}
+{% block title %}Add package{% endblock %}
+{% block page_heading %}<div class="booking-page-heading workshop-edit-heading"><a class="back-link" href="{% url 'scheduling:party_setup' school_slug=business.slug %}"><i data-lucide="arrow-left" aria-hidden="true"></i> Parties</a><h1>Add package</h1></div>{% endblock %}
+{% block content %}
+<form method="post" class="setup-form staff-party-form party-request-layout package-editor" novalidate data-package-form>
+{% csrf_token %}{% include 'scheduling/form_hidden_fields.html' %}
+{% if form.errors %}<div class="notice error" role="alert">Please correct the fields below.{{ form.non_field_errors }}</div>{% endif %}
+<div class="party-request-fields">
+<section class="reservation-section"><h2>Basics</h2>
+{% include 'scheduling/party_form_field.html' with field=form.name %}
+<div class="party-field-pair package-basics-row">{% include 'scheduling/party_form_field.html' with field=form.offering %}{% include 'scheduling/party_form_field.html' with field=form.duration_minutes %}</div>
+</section>
+<section class="reservation-section"><h2>Group size</h2>
+<div class="party-field-pair package-numeric-row">{% include 'scheduling/party_form_field.html' with field=form.participant_limit %}{% include 'scheduling/party_form_field.html' with field=form.included_observers %}</div>
+<div class="party-field-pair package-numeric-row">{% include 'scheduling/party_form_field.html' with field=form.additional_participant_limit %}{% include 'scheduling/party_form_field.html' with field=form.additional_participant_price %}</div>
+</section>
+<section class="reservation-section"><h2>Pricing</h2>
+<div class="package-pricing-row">{% include 'scheduling/party_form_field.html' with field=form.total %}{% include 'scheduling/party_form_field.html' with field=form.tax_rate %}{% include 'scheduling/party_form_field.html' with field=form.deposit %}</div>
+</section>
+<section class="reservation-section"><h2>Space &amp; booking</h2>
+<div class="party-field-pair">{% include 'scheduling/party_form_field.html' with field=form.space %}{% include 'scheduling/party_form_field.html' with field=form.room %}</div>
+{% if not form.booking_mode.is_hidden %}<div class="package-booking-method">{% include 'scheduling/party_form_field.html' with field=form.booking_mode %}</div>{% endif %}
+{{ form.is_published.errors }}
+</section>
+<div class="actions package-save-actions"><a class="button" href="{% url 'scheduling:party_setup' school_slug=business.slug %}">Cancel</a><button type="submit" name="save_action" value="draft">Save Draft</button><button class="primary" type="submit" name="save_action" value="publish">Save and Publish</button></div>
+</div>
+<aside class="party-request-summary" aria-label="Package summary"><h2>Package summary</h2><strong data-package-summary="name">New package</strong><p data-package-summary="offering">Workshop not selected</p><p data-package-summary="duration">Duration not set</p><strong class="package-summary-price" data-package-summary="price">Price not set</strong>
+<dl class="payment-totals"><div><dt>Participants included</dt><dd data-package-summary="participants">Not set</dd></div><div><dt>Observers included</dt><dd data-package-summary="observers">0</dd></div><div><dt>Extra participants</dt><dd data-package-summary="extras">None</dd></div><div><dt>Deposit</dt><dd data-package-summary="deposit">None</dd></div><div><dt>Largest group</dt><dd data-package-summary="maximum">Not set</dd></div></dl></aside>
+</form>
+{{ package_offerings|json_script:'package-offerings' }}{{ package_rooms|json_script:'package-rooms' }}
+{% endblock %}
+{% block scripts %}<script defer src="{% static 'scheduling/party-package.js' %}?v=20261029-location-tax"></script>{% endblock %}

@@ -7,9 +7,11 @@
   {% if item.snapshot.party_package.name %}<div><dt>Party</dt><dd>{{ item.snapshot.party_package.name }}</dd></div>{% endif %}
   {% if item.snapshot.occasion %}<div><dt>Occasion</dt><dd>{{ item.snapshot.occasion }}</dd></div>{% endif %}
   {% if party_space_label %}<div><dt>Space</dt><dd>{{ party_space_label }}</dd></div>{% endif %}
+  {% if party_duration %}<div><dt>Duration</dt><dd>{{ party_duration }} minutes</dd></div>{% endif %}
   {% if item.snapshot.party_package.included_observers != None %}<div><dt>Observers included</dt><dd>{{ item.snapshot.party_package.included_observers }}</dd></div>{% endif %}
   {% if item.snapshot.organizer_phone %}<div><dt>Phone</dt><dd>{{ item.snapshot.organizer_phone }}</dd></div>{% endif %}
   {% if item.snapshot.birthday_name %}<div><dt>Birthday person</dt><dd>{{ item.snapshot.birthday_name }}</dd></div>{% endif %}
   {% if item.party_request_id and item.snapshot.birthday_age != None %}<div><dt>Turning</dt><dd>{{ item.snapshot.birthday_age }}</dd></div>{% endif %}
+  {% if item.snapshot.participant_estimate %}<div><dt>Estimated participants</dt><dd>{{ item.snapshot.participant_estimate }}</dd></div>{% endif %}
   {% if item.state == 'held' %}<div><dt>Hold deadline</dt><dd>{% timezone item.snapshot.timezone %}{{ item.hold_until|date:"M j, g:i A" }}{% endtimezone %}</dd></div>{% endif %}
 </dl>

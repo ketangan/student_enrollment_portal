@@ -142,8 +142,41 @@ def test_consumed_booking_cannot_be_changed(stock):
     item, person = booked(s, 1)
     red, _ = replacement(s)
     inventory.consume(s.user, s.school.slug, item.public_id)
-    with pytest.raises(ValidationError, match="confirmed, unprepared"):
+    with pytest.raises(ValidationError, match="confirmed workshops with unused materials"):
         save(s, item, person, edit_data(s, person, red))
+
+
+@pytest.mark.parametrize("outcome", ["change", "noop", "shortage"])
+def test_prepared_staff_edits_reopen_only_after_a_successful_change(stock, outcome):
+    from scheduling import preparation
+    s = stock
+    item, person = booked(s, 1)
+    red, level = replacement(s, quantity=0 if outcome == "shortage" else 1)
+    item = preparation.update(s.user, s.school.slug, item.public_id, {
+        "action": "prepare",
+        "edit_revision": preparation.form_for(item, s.profile)["edit_revision"].value(),
+    })
+    original_prepared = item.prepared_at
+    original_version = item.preparation_version
+    assert not workshop_selections.editable(item)
+    assert workshop_selections.editable(item, staff=True)
+    url = reverse("scheduling:reservation_detail", kwargs={"school_slug": s.school.slug, "public_id": item.public_id})
+    assert f'edit_participant={person.pk}'.encode() in s.client.get(url).content
+    data = edit_data(s, person, None if outcome == "noop" else red)
+    if outcome == "shortage":
+        with pytest.raises(ValidationError, match="only 0"):
+            save(s, item, person, data)
+    else:
+        save(s, item, person, data)
+    item.refresh_from_db()
+    person.refresh_from_db()
+    changed = outcome == "change"
+    assert item.prepared_at == (None if changed else original_prepared)
+    assert item.preparation_version == original_version + int(changed)
+    assert item.prepared_by_id == (None if changed else s.user.pk)
+    assert inventory.reserved(level) == int(changed)
+    assert inventory.reserved(s.level) == int(not changed)
+    assert any(row["option"] == ("Red" if changed else "Blue") for row in person.selections)
 
 
 def test_catalog_replacement_cannot_rewrite_old_reservation(stock):

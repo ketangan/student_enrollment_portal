@@ -118,12 +118,13 @@ def test_customer_deposit_and_balance_signed_events_do_not_change_school(invento
     assert LedgerEntry.objects.filter(channel="stripe", actor=None).count() == 2
 
 
-def test_payment_return_navigation_requires_workspace_access(inventory, merchant, booking_member, client, django_user_model):
+def test_public_payment_navigation_stays_public_even_for_staff(inventory, merchant, booking_member, client, django_user_model):
     item = online(booking_member, workshop_request(inventory))
     url = path(booking_member, "customer_payment", token=payment_token(item))
     detail = path(booking_member, "reservation_detail", public_id=item.public_id)
     client.force_login(booking_member.user)
-    assert f'href="{detail}"'.encode() in client.get(url).content
+    assert f'href="{detail}"'.encode() not in client.get(url).content
+    assert b"Back to workshops" in client.get(url).content
     other = django_user_model.objects.create_user(username="other-payment-viewer")
     client.force_login(other)
     assert b"Back to reservation" not in client.get(url).content
@@ -140,7 +141,7 @@ def test_staff_party_payment_link_keeps_space_reserved(inventory, merchant, book
     response = client.get(response.url)
     share_url = response.context["share_payment_url"]
     assert share_url.startswith("http://testserver/bookings/")
-    assert b"Copy payment link" in response.content
+    assert b"Copy payment link" not in response.content
     assert b"24 hours" not in response.content
     assert item.state == "confirmed" and item.snapshot["staff_managed"]
     client.logout()
@@ -498,7 +499,7 @@ def test_owner_ui_online_quote_and_immutable_payment_method(inventory, merchant,
     with pytest.raises(ValidationError):
         reserve(booking_member,source)
     response=client.get(result.url)
-    assert b"Take online payment" in response.content
+    assert b"Take online payment" not in response.content
     assert b"Record offline entry" not in response.content
     # The explicit Terminal action is supported; the retired offline payload is not.
     assert client.post(result.url,{"key":uuid.uuid4(),"amount":"100","kind":"payment","reference":"no","confirm":"on"}).status_code==400

@@ -2,7 +2,7 @@
 {% block title %}Integrations{% endblock %}
 {% block content %}
 <section class="square-settings" aria-labelledby="square-heading">
-<div class="section-heading"><div><h2 id="square-heading">Square</h2><p class="muted">{{ square.environment }} account</p></div><span class="status {% if square.connection.status == 'connected' %}confirmed{% else %}draft{% endif %}">{{ square.connection.display_status|default:"Not connected" }}</span></div>
+<div class="section-heading"><div><h2 id="square-heading">Square</h2><p class="muted">{{ square.environment }} account</p></div>{% with connection_status=square.connection.display_status %}<span class="status {% if connection_status == 'Connected' %}confirmed{% else %}draft{% endif %}">{{ connection_status|default:"Not connected" }}</span>{% endwith %}</div>
 <div class="square-account-actions">
   <p class="muted">{% if not square.ready %}Connection setup pending{% elif square.connection.checked_at %}Last checked {{ square.connection.checked_at|date:"M j, g:i A" }}{% else %}Connect your account to match your locations.{% endif %}</p>
   {% if square.ready %}

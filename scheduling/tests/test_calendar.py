@@ -68,6 +68,12 @@ def test_counts_holds_expiry_and_roster(stock):
     assert len(result["reservations"]) == 1
     assert str(second.public_id) in result["reservations"][0]["url"]
     assert result["reservations"][0]["received"] == 100
+    assert result["reservations"][0]["payment_status"] == "Paid"
+    assert result["summary"]["booked"] == 1
+    assert result["summary"]["open"] == s.session.capacity - 1
+    assert result["summary"]["reservation_count"] == 1
+    assert result["summary"]["payments"][0]["received"] == 100
+    assert result["summary"]["needs_action"] == 0
     assert "Parent" not in str(calendar_events(s.profile,params(s)))
 
 
@@ -208,6 +214,7 @@ def test_camp_capacity_is_not_duplicated(stock):
     assert len(result)==2 and all(event["extendedProps"]["seats"]==1 for event in result)
     assert calendar_summary(s.profile,result)["unpaid"]==1
     assert len(calendar_detail(s.profile,"session",s.session.pk)["reservations"])==1
+    assert calendar_detail(s.profile,"session",s.session.pk)["summary"]["booked"]==1
 
 
 def test_calendar_host_isolation(stock,settings):

@@ -20,12 +20,13 @@ function element() {
   };
 }
 
-function page({saved = null, blocked = false, chooser = false, noAccount = false, dashboard = false, icons = false, payment = null, dialog = null, trigger = null, terminal = null, setupDialog = null, copy = null, clipboard = null, print = null} = {}) {
+function page({saved = null, blocked = false, chooser = false, noAccount = false, dashboard = false, reservationFilters = null, icons = false, payment = null, dialog = null, trigger = null, terminal = null, setupDialog = null, copy = null, clipboard = null, print = null} = {}) {
   const document = element();
   document.body = element();
   const summary = element();
   const nodes = Object.fromEntries(['booking-nav', 'booking-nav-toggle', 'booking-account', 'booking-theme'].map(id => [id, element()]));
   if (print) nodes['print-report'] = element();
+  if (reservationFilters) nodes['reservation-filters'] = reservationFilters;
   if (dashboard) {
     nodes['dashboard-location-filter'] = element();
     nodes['dashboard-location-filter'].submissions = 0;
@@ -65,6 +66,15 @@ test('preparation print button uses the browser print dialog', () => {
   const {nodes} = page({print: () => calls++});
   nodes['print-report'].listeners.click();
   assert.equal(calls, 1);
+});
+
+test('reservation column controls submit filters but typing a search does not',()=>{
+  const filters=element();let calls=0;filters.requestSubmit=()=>calls++;
+  page({reservationFilters:filters});
+  filters.listeners.change({target:{matches:()=>true}});
+  assert.equal(calls,1);
+  filters.listeners.change({target:{matches:()=>false}});
+  assert.equal(calls,1);
 });
 
 test('host link copy confirms success and gives a fallback when clipboard is unavailable', async () => {
@@ -209,8 +219,8 @@ test('server validation reopens payment dialog; absent dialog is harmless', () =
 test('extras preview updates without an additional confirmation field', () => {
   const amount = element(), row = element(), summary = element();
   amount.value = '40';
-  const terminal = {elements: {amount, expected_balance:{value:'4000'}, expected_total:{value:'6500'}},
-    querySelector: selector => selector === '[data-terminal-extras]' ? row : summary};
+  const terminal = {addEventListener() {}, elements: {amount, expected_balance:{value:'4000'}, expected_total:{value:'6500'}},
+    querySelector: selector => selector === '[data-terminal-extras]' ? row : selector === '[data-extras-summary]' ? summary : null};
   page({terminal});
   assert.equal(row.hidden,true);
   amount.value='55'; amount.listeners.input();

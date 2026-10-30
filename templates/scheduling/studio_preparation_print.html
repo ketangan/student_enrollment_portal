@@ -1,0 +1,29 @@
+{% load static tz material_numbers %}<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Studio prep</title><link rel="stylesheet" href="{% static 'scheduling/preparation-print.css' %}"><script defer src="{% static 'scheduling/preparation-print.js' %}"></script></head>
+<body data-print-ready="{{ print_valid|yesno:'true,false' }}">
+<nav class="print-controls"><button type="button" id="print-report">Print</button><span>Studio prep &middot; {{ print_period|capfirst }}</span></nav>
+{% if not print_valid %}<main><h1>Choose valid dates and a location you can access.</h1>{{ preparation_range.errors }}{{ location_filter.errors }}</main>{% endif %}
+{% for studio in studios %}{% timezone studio.location.timezone_name %}
+<main class="studio-sheet">
+  <header class="report-header"><div><small>Studio prep &middot; {{ print_period }}</small><h1>{{ studio.location.name }}</h1></div><div class="report-range"><strong>{% if print_period == 'month' %}{{ print_start|date:'F Y' }}{% elif print_period == 'day' %}{{ print_start|date:'l, M j, Y' }}{% else %}{{ print_start|date:'D, M j' }} &ndash; {{ print_end|date:'D, M j, Y' }}{% endif %}</strong><p>{{ studio.entries|length }} reservations &middot; {{ studio.participants }} participants &middot; {{ studio.pending }} need prep</p></div></header>
+  {% if print_period != 'month' %}{% include 'scheduling/preparation_print_materials.html' %}{% endif %}
+  {% if print_period == 'month' %}
+  <table class="month-overview"><thead><tr><th>Date</th><th>Time</th><th>Booking</th><th>People</th><th>Selections</th><th>Prep</th></tr></thead><tbody>
+  {% for entry in studio.entries %}<tr><td>{{ entry.starts_at|date:'D, M j' }}</td><td>{{ entry.starts_at|date:'g:i A' }}&ndash;{{ entry.ends_at|date:'g:i A' }}</td><td><strong>{{ entry.item.snapshot.name }}</strong><div>{{ entry.item.snapshot.workshop }}{% if entry.item.room %} &middot; {{ entry.item.room.name }}{% endif %}</div>{% for note in entry.notes %}<p class="staff-note">{{ note }}</p>{% endfor %}</td><td>{{ entry.item.quantity }}</td><td>{{ entry.selection_summary|default:'Choosing at the studio' }}</td><td>{% if entry.item.state == 'completed' %}Completed{% elif entry.item.prepared_at %}Prepared{% elif entry.is_past %}Past{% else %}<span class="check-box"></span> To do{% endif %}</td></tr>{% endfor %}
+  </tbody></table>
+  {% include 'scheduling/preparation_print_materials.html' %}
+  {% else %}
+  {% for entry in studio.entries %}
+  {% if print_period == 'week' %}{% ifchanged entry.starts_at|date:'Y-m-d' %}<h2 class="day-heading">{{ entry.starts_at|date:'l, M j' }}</h2>{% endifchanged %}{% endif %}
+  <section class="print-reservation">
+    <header class="booking-heading"><div><strong>{{ entry.starts_at|date:'g:i A' }} &ndash; {{ entry.ends_at|date:'g:i A' }}</strong> <b>{{ entry.item.snapshot.name }}</b> &middot; {{ entry.item.quantity }} participant{{ entry.item.quantity|pluralize }}<div>{{ entry.item.snapshot.workshop }}{% if entry.item.room %} &middot; {{ entry.item.room.name }}{% endif %}</div></div><span class="prep-state">{% if entry.item.state == 'completed' %}Completed{% elif entry.materials_used %}Materials used{% else %}<span class="check-box">{% if entry.item.prepared_at %}&#10003;{% endif %}</span> Prepared{% endif %}</span></header>
+    {% for note in entry.notes %}<p class="staff-note"><strong>Internal note:</strong> {{ note }}</p>{% endfor %}
+    <table class="participants"><thead><tr><th>Participant</th>{% for column in entry.print_columns %}<th>{{ column }}</th>{% empty %}<th>Selections (write in)</th>{% endfor %}</tr></thead><tbody>
+    {% for person in entry.print_rows %}<tr><th scope="row">{{ person.name }}</th>{% for value in person.values %}<td>{{ value }}</td>{% empty %}<td></td>{% endfor %}</tr>{% endfor %}
+    </tbody></table>
+    {% if print_period == 'day' %}<div class="writing-lines"><small>Day-of notes</small><div></div><div></div></div>{% endif %}
+  </section>
+  {% endfor %}{% endif %}
+  <footer>{{ business.display_name }} &middot; Printed {{ printed_at|date:'D, M j, Y, g:i A' }} &middot; {{ studio.location.name }}</footer>
+</main>{% endtimezone %}{% empty %}{% if print_valid %}<main class="studio-sheet"><h1>Studio prep</h1><p>{{ print_start|date:'M j, Y' }} &ndash; {{ print_end|date:'M j, Y' }}</p><p>No reservations for these dates and filters.</p></main>{% endif %}{% endfor %}
+</body></html>

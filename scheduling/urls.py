@@ -11,6 +11,7 @@ from . import views_staff_parties
 from . import views_reservations
 from . import views_preparation
 from . import views_checkout
+from . import views_customer_edits
 from . import square_checkout
 from . import views_recovery
 from . import views_camps
@@ -145,6 +146,7 @@ urlpatterns = [
     path("square/live/webhook/", square_checkout.square_live_webhook, name="square_live_webhook"),
     path("<slug:school_slug>/square/pay/<str:token>/", square_checkout.square_checkout, name="square_checkout"),
     path("<slug:school_slug>/pay/<str:token>/", views_checkout.customer_payment, name="customer_payment"),
+    path("<slug:school_slug>/pay/<str:token>/edit/", views_customer_edits.edit_booking, name="customer_edit_booking"),
     path("", views.index, name="index"),
     path("<slug:school_slug>/", views.workspace, name="workspace"),
     path("<slug:school_slug>/access/", views.access_list, name="access"),
@@ -155,7 +157,6 @@ urlpatterns = [
     path("<slug:school_slug>/reservations/<uuid:public_id>/", views_reservations.reservation_detail, name="reservation_detail"),
     path("<slug:school_slug>/reservations/<uuid:public_id>/workshop-prep/", views_reservations.reservation_preparation, name="reservation_preparation"),
     path("<slug:school_slug>/reservations/<uuid:public_id>/cancel/", views_reservations.reservation_cancel, name="reservation_cancel"),
-    path("<slug:school_slug>/reservations/<uuid:public_id>/payments/<uuid:attempt_id>/check/", views_recovery.payment_recover, name="payment_recover"),
     path("<slug:school_slug>/reservations/<uuid:public_id>/confirm/", views_recovery.payment_review, name="payment_review"),
     path("<slug:school_slug>/reservations/<uuid:public_id>/refund/", views_recovery.refund_create, name="refund_create"),
     path("<slug:school_slug>/reservations/<uuid:public_id>/refunds/<uuid:refund_id>/check/", views_recovery.refund_recover, name="refund_recover"),

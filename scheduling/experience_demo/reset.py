@@ -17,7 +17,7 @@ def reset_demo(profile):
     orders = PaymentOrder.objects.filter(school=school)
     if (PaymentAccount.objects.filter(school=school).exists()
             or PaymentAttempt.objects.filter(order__in=orders).exists()
-            or LedgerEntry.objects.filter(order__in=orders, channel="terminal").exists()
+            or LedgerEntry.objects.filter(order__in=orders, channel__in=["terminal", "cash"]).exists()
             or orders.exclude(environment="test").exists()
             or school.stripe_customer_id or school.smtp_host or school.app_fee_stripe_secret_key
             or profile.connections.exists()

@@ -43,7 +43,14 @@ def test_direct_party_holds_once_and_uses_existing_checkout(client, direct_party
     assert item.starts_at == slot.starts_at
     assert item.order.total_cents == 49500 and item.order.deposit_cents == 15000
     assert payment_choices(item.order)["payment_has_choice"]
-    assert send(client, slot.package.offering, data).url == response.url
+    from django.core import signing
+    from django.urls import resolve
+    repeated = send(client, slot.package.offering, data)
+    assert repeated.status_code == 302
+    original_route, repeated_route = resolve(response.url), resolve(repeated.url)
+    assert repeated_route.view_name == original_route.view_name
+    assert signing.loads(repeated_route.kwargs["token"], salt="booking-payment") == signing.loads(
+        original_route.kwargs["token"], salt="booking-payment")
     assert Reservation.objects.count() == 1
     attempt = prepare_booking_checkout(item, "http://localhost:8002/return/")
     assert attempt.amount_cents == 15000
@@ -182,7 +189,10 @@ def test_concurrent_direct_party_submissions_do_not_double_book(direct_party):
         close_old_connections()
         barrier.wait()
         try:
-            submit_inquiry(slot.package.offering.location.profile.school.slug, slot.package.offering_id, pair[1], pair[0])
+            item, form = submit_inquiry(slot.package.offering.location.profile.school.slug, slot.package.offering_id, pair[1], pair[0])
+            if item is None:
+                assert "party_slot" in form.errors
+                return "unavailable"
             return "reserved"
         except ValidationError:
             return "unavailable"
@@ -578,9 +588,80 @@ def test_share_link_follows_environment_and_preview_opens_new_tab(client, packag
     client.force_login(booking_member.user)
     response = client.get(route("party_setup", package.offering), HTTP_HOST=host, secure=host != "localhost:8002")
     assert response.status_code == 200
-    scheme = "http" if host == "localhost:8002" else "https"
-    assert response.context["share_url"] == f"{scheme}://{host}{route('party_start', package.offering)}"
-    assert b'?preview=1" target="_blank" rel="noopener"' in response.content
+    assert b'Customer inquiry link' not in response.content
+    assert b'Preview form' not in response.content
+    assert b'>Party packages<' not in response.content
+    assert route('party_package_new', package.offering).encode() in response.content
+
+
+def test_new_package_is_separate_grouped_page_and_saves(client, package, booking_member):
+    client.force_login(booking_member.user)
+    address = route("party_package_new", package.offering)
+    response = client.get(address)
+    assert response.status_code == 200
+    assert "scheduling/party_package_form.html" in [template.name for template in response.templates]
+    for section in (b"Basics", b"Group size", b"Pricing", b"Space &amp; booking", b"Package summary"):
+        assert section in response.content
+    assert b'party-package.js' in response.content
+    form = response.context["form"]
+    assert set(PartyPackageForm.Meta.fields) <= set(form.fields)
+    raw = {"name": "New group", "offering": package.offering_id, "participant_limit": 8,
+        "duration_minutes": 90, "total": "280", "deposit": "50", "space": "shared",
+        "included_observers": 2, "additional_participant_limit": 4, "additional_participant_price": "25",
+        "tax_rate": "", "booking_mode": "review", "room": "", "is_published": "on"}
+    invalid = client.post(address, {**raw, "participant_limit": "1.5"})
+    assert invalid.status_code == 400
+    assert invalid.context["form"]["name"].value() == "New group"
+    assert client.post(address, raw).status_code == 302
+    created = PartyPackage.objects.get(name="New group")
+    assert created.offering_id == package.offering_id
+    assert created.participant_limit == 8 and created.additional_participant_limit == 4
+    assert created.total == Decimal("280") and created.deposit == Decimal("50")
+    assert client.get(route("party_setup", package.offering), {"new": 1}).url == address
+
+
+def test_new_package_denies_read_only_staff(client, package, booking_member):
+    booking_member.role = "viewer"
+    booking_member.save()
+    client.force_login(booking_member.user)
+    address = route("party_package_new", package.offering)
+    assert client.get(address).status_code == 404
+    assert client.post(address, {}).status_code == 404
+
+
+@pytest.mark.parametrize("action,published", [("draft", False), ("publish", True)])
+def test_new_package_save_action_controls_publication(client, package, booking_member, action, published):
+    client.force_login(booking_member.user)
+    address = route("party_package_new", package.offering)
+    page = client.get(address)
+    assert b'name="is_published"' not in page.content
+    assert b'>Save Draft<' in page.content
+    assert b'>Save and Publish<' in page.content
+    raw = {"name": "Action package", "offering": package.offering_id,
+        "participant_limit": 8, "duration_minutes": 90, "total": "280",
+        "deposit": "50", "space": "shared", "booking_mode": "review",
+        "save_action": action, "is_published": "" if published else "on"}
+    invalid = client.post(address, {**raw, "deposit": "300"})
+    assert invalid.status_code == 400
+    assert not PartyPackage.objects.filter(name="Action package").exists()
+    assert b'>Save Draft<' in invalid.content and b'>Save and Publish<' in invalid.content
+    assert client.post(address, {**raw, "save_action": "unknown"}).status_code == 400
+    assert client.post(address, raw).status_code == 302
+    assert PartyPackage.objects.get(name="Action package").is_published is published
+
+
+def test_new_package_validation_retry_keeps_other_scoped_rooms(client, package, booking_member):
+    from scheduling.models import Room
+    location = Location.objects.create(profile=booking_member.profile, name="Second studio")
+    offering = Offering.objects.create(location=location, name="Second workshop")
+    room = Room.objects.create(location=location, name="Second room", capacity=12)
+    client.force_login(booking_member.user)
+    response = client.post(route("party_package_new", package.offering), {
+        "offering": package.offering_id, "name": "Incomplete", "participant_limit": "bad", "space": "shared"})
+    assert response.status_code == 400
+    assert str(room.pk) in response.context["package_rooms"]
+    assert str(offering.pk) in response.context["package_offerings"]
+    assert not PartyPackage.objects.filter(name="Incomplete").exists()
 
 
 def test_public_entry_renders_complete_form_and_scoped_catalog(stock, client):

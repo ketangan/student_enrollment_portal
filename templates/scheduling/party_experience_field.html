@@ -1,0 +1,1 @@
+<div data-party-field="{{ field.name }}" class="form-field"{% if field.is_hidden %} hidden{% endif %}><label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>{{ field }}{{ field.errors }}{% if field.help_text %}<p class="muted">{{ field.help_text }}</p>{% endif %}</div>

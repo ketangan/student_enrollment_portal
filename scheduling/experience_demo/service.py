@@ -8,6 +8,7 @@ from django import forms
 from django.core import signing
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Exists, OuterRef
 from django.http import Http404, QueryDict
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -44,10 +45,12 @@ def sessions(profile, *, online=False):
         starts_at__gt=booking_cutoff(online=online), camps__isnull=True).select_related("offering__location__profile", "room").prefetch_related("camps").order_by("starts_at", "pk")
 
 
-def session_rows(profile, *, online=False):
+def session_rows(profile, *, online=False, exclude=None):
     result = []
     catalogs = {}
-    for session in sessions(profile, online=online)[:240]:
+    available_sessions = sessions(profile, online=online).annotate(studio_blocked=Exists(
+        reservations.studio_claims(OuterRef("offering__location_id"), OuterRef("starts_at"), OuterRef("ends_at"))))
+    for session in available_sessions[:240]:
         key = ("catalog", session.offering.inventory_catalog_id) if session.offering.inventory_catalog_id else ("workshop", session.offering_id)
         if key not in catalogs:
             catalogs[key] = requests.catalog_for(session.offering)
@@ -61,13 +64,13 @@ def session_rows(profile, *, online=False):
             "date": local.strftime("%Y-%m-%d"),
             "day": local.strftime("%a, %b %d"), "time": local.strftime("%I:%M %p"),
             "end": timezone.localtime(session.ends_at, ZoneInfo(location.timezone_name)).strftime("%I:%M %p"),
-            "places": max(0, session.capacity-reservations.session_places_taken(session))})
+            "places": 0 if session.studio_blocked else max(0, session.capacity-reservations.session_places_taken(session, exclude=exclude))})
     return result
 
 
 def payload(data, catalog):
     # Only form fields enter the signed review. Browser-supplied prices and actions never do.
-    allowed = {"request_token", "purchaser_name", "purchaser_email", "policy_ack", "choose_when",
+    allowed = {"request_token", "purchaser_name", "purchaser_email", "purchaser_phone", "policy_ack", "choose_when",
                "participants-TOTAL_FORMS", "participants-INITIAL_FORMS"}
     for index in range(21):
         allowed.add(f"participants-{index}-name")
@@ -79,7 +82,7 @@ def payload(data, catalog):
     return result
 
 
-def validate(session, data, *, check_stock=True):
+def validate(session, data, *, check_stock=True, exclude=None):
     catalog = requests.catalog_for(session.offering)
     purchaser, participants = request_forms(session, catalog, data)
     valid = purchaser.is_valid()
@@ -89,7 +92,7 @@ def validate(session, data, *, check_stock=True):
     if valid and check_stock:
         from scheduling.inventory import check_selections
         try:
-            check_selections(session.offering, [f.participant_snapshot() for f in participants], starts_at=session.starts_at)
+            check_selections(session.offering, [f.participant_snapshot() for f in participants], starts_at=session.starts_at, exclude=exclude)
         except ValidationError as exc:
             purchaser.add_error(None, exc)
             valid = False
@@ -100,6 +103,7 @@ def review_token(session, data, catalog, browser, config):
     return signing.dumps({"session": session.pk, "browser": browser,
         "digest": requests.submission_digest(payload(data, catalog)), "price": config["price_cents"],
         "deposit": str(session.offering.deposit_per_participant),
+        "tax_rate": str(session.offering.location.default_tax_rate),
         "policy": config["policy_revision"], "published_policy": notice(session.offering.location.profile.school, "workshop"),
         "stripe_checkout": bool(config.get("stripe_checkout")),
         "payment_provider": config.get("payment_provider", "stripe")}, salt=REVIEW_SALT)
@@ -120,6 +124,7 @@ def begin(profile, session, data, browser, config):
     if not available(profile, require_intake=True):
         raise Http404
     session.offering.refresh_from_db()
+    session.offering.location.refresh_from_db()
     if session.starts_at <= booking_cutoff(online=bool(config.get("stripe_checkout"))):
         raise ValidationError("Online booking has closed for this session. Choose another time.")
     catalog = requests.catalog_for(session.offering)
@@ -131,6 +136,7 @@ def begin(profile, session, data, browser, config):
                 or token["price"] != config["price_cents"] or token["policy"] != config["policy_revision"]
                 or token.get("published_policy", {}) != notice(profile.school, "workshop")
                 or token.get("deposit") != str(session.offering.deposit_per_participant)
+                or token.get("tax_rate") != str(session.offering.location.default_tax_rate)
                 or token.get("stripe_checkout", False) != bool(config.get("stripe_checkout"))
                 or token.get("payment_provider", "stripe") != profile.payment_provider):
             raise ValueError
@@ -145,6 +151,8 @@ def begin(profile, session, data, browser, config):
         item.session_snapshot["experience_demo"] = {"policy": config["policy_revision"],
             "published_policy": notice(profile.school, "workshop"),
             "reviewed_at": timezone.now().isoformat(), "price_cents": config["price_cents"]}
+        item.session_snapshot["price_breakdown"] = reservations.workshop_price_breakdown(
+            session.offering, config["price_cents"], item.participants.count())
         item.save(update_fields=["session_snapshot"])
     total, deposit = reservations.workshop_quote(session.offering, config["price_cents"], item.participants.count())
     reservations.create_reservation(actor(profile, config), profile.school.slug, "workshop", item.public_id,
@@ -210,7 +218,9 @@ def refund_simulated_payment(user, profile, reservation, key):
 
 def selection_previews(rows, offering, config):
     """Resolve images once per page, scoped to this workshop's catalog."""
-    variants = list(offering.inventory_catalog.items.all()) if offering.inventory_catalog_id else []
+    from scheduling.customer_experience import customer_copy
+    base_only = customer_copy(offering.location.profile.school).get("base_images_only", False)
+    variants = list(offering.inventory_catalog.items.all()) if offering.inventory_catalog_id and not base_only else []
     for row in rows:
         choices = row["selections"]
         selected = {choice.get("option_id") for choice in choices}
@@ -225,7 +235,7 @@ def selection_previews(rows, offering, config):
         legacy = config.get("design_previews", {}).get(str(design.get("option_id")),
             next((entry for entry in config["designs"] if entry["name"] == design.get("option")), {}))
         row["preview"] = {
-            "image": exact or design.get("image_url", ""), "exact": bool(exact),
+            "image": exact or design.get("image_url", ""), "exact": bool(exact), "base_only": base_only,
             "x": legacy.get("x", ""), "y": legacy.get("y", "0%"),
             "swatch": color.get("swatch") or next((c["hex"] for c in config["colors"]
                 if c["name"] == color.get("option")), "#ffffff"),

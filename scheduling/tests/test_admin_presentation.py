@@ -32,12 +32,13 @@ class PrepSections(HTMLParser):
             self.details.pop()
 
 
-def test_prep_participants_are_inside_closed_summary_but_materials_stay_visible(stock):
+def test_prep_and_details_share_workspace_but_materials_stay_visible(stock):
     item = reserve(stock, 2)
     confirm(stock, item)
     prep = stock.client.get(url(stock, "reservation_preparation", public_id=item.public_id))
     parsed = PrepSections(prep.content)
-    assert parsed.participants == [[{"class": "reservation-section reservation-summary"}]]
+    assert parsed.participants == [[]]
+    assert b'data-reservation-panel="details" hidden' in prep.content
     assert parsed.materials == [[]]
     assert b"Design" in prep.content and b"Color" in prep.content
     detail = stock.client.get(url(stock, "reservation_detail", public_id=item.public_id))
@@ -101,7 +102,7 @@ def test_grid_keeps_full_long_values_and_column_structure(stock):
     assert 'class="reservation-cell-primary"' in content
     assert 'class="reservation-cell-secondary"' in content
     assert 'tabindex="0"' in content
-    assert 'aria-label="Open ' in content
+    assert 'aria-label="View ' in content
     assert '<div class="dash-card reservation-table">' in content
     assert '<div class="dash-table-scroll" role="region" aria-label="Reservations" tabindex="0">' in content
     assert 'class="reservation-sort-link"' in content

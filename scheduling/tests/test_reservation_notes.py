@@ -33,6 +33,7 @@ def test_staff_notes_append_and_preserve_booking(inventory, booking_member, camp
     item.refresh_from_db()
     assert (item.state, item.quantity, item.order.total_cents) == before
     page = client.get(target)
+    assert b"Note added." not in page.content
     assert b"&lt;script&gt;alert(1)&lt;/script&gt;" in page.content
     assert b"Internal note added" in page.content
     assert item.notes.get().body == data["body"]

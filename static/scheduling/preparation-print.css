@@ -1,0 +1,40 @@
+* { box-sizing:border-box; }
+body { margin:0; background:#e5e7eb; color:#111827; font:12px/1.4 Arial,sans-serif; }
+.print-controls { display:flex; align-items:center; gap:16px; padding:16px; justify-content:center; }
+.print-controls button { padding:8px 20px; font:inherit; cursor:pointer; }
+.studio-sheet { background:#fff; width:min(100%,210mm); min-height:275mm; padding:14mm; margin:16px auto; }
+.report-header { display:flex; justify-content:space-between; align-items:end; gap:20px; border-bottom:2px solid #374151; padding-bottom:10px; margin-bottom:16px; }
+.report-header small { text-transform:uppercase; }
+.report-header > div, .booking-heading > div { min-width:0; overflow-wrap:anywhere; }
+h1 { font-size:20px; margin:0; } p { margin:4px 0; }
+.report-range { text-align:right; }
+.report-range p, small { font-size:10px; }
+.materials-summary { padding:10px; border:1px solid #9ca3af; border-radius:3px; margin:16px 0; break-inside:avoid; }
+.materials-summary header { display:flex; justify-content:space-between; }
+.materials-summary ul { list-style:none; padding:0; margin:8px 0 0; display:flex; flex-wrap:wrap; gap:8px 24px; }
+.check-box { display:inline-block; width:10px; height:10px; border:1px solid #4b5563; vertical-align:baseline; line-height:9px; }
+.day-heading { font-size:13px; border-bottom:1px solid #9ca3af; margin:20px 0 8px; break-after:avoid; }
+.print-reservation { margin:12px 0 20px; }
+.booking-heading { display:flex; justify-content:space-between; gap:16px; background:#f3f4f6; padding:6px; border:1px solid #d1d5db; break-after:avoid; }
+.booking-heading b { margin-left:8px; }
+.prep-state { white-space:nowrap; }
+.staff-note { padding:6px; background:#f9fafb; border:1px solid #e5e7eb; white-space:pre-wrap; overflow-wrap:anywhere; break-inside:avoid; }
+table { width:100%; border-collapse:collapse; margin-top:8px; table-layout:fixed; }
+th,td { text-align:left; padding:5px 6px; border:1px solid #d1d5db; overflow-wrap:anywhere; vertical-align:top; }
+thead { display:table-header-group; background:#f3f4f6; } th { font-weight:600; }
+tr { break-inside:avoid; } .participants td { height:27px; }
+.month-overview { font-size:10px; } .month-overview th:nth-child(3) { width:29%; } .month-overview th:nth-child(4) { width:8%; }
+.writing-lines { margin-top:10px; } .writing-lines div { height:22px; border-bottom:1px solid #d1d5db; }
+footer { margin-top:24px; border-top:1px solid #d1d5db; padding-top:8px; font-size:9px; color:#4b5563; }
+@page { size:auto; margin:12mm; }
+@media print {
+  html, body { width:auto; max-width:100%; margin:0; padding:0; background:#fff; font-size:10px; }
+  .print-controls { display:none; }
+  .studio-sheet { width:100%; max-width:100%; min-width:0; min-height:0; margin:0; padding:2mm; break-before:page; }
+  table { width:100%; max-width:100%; min-width:0; }
+  .report-header, .booking-heading, .materials-summary header { flex-wrap:wrap; }
+  .materials-summary li { min-width:0; overflow-wrap:anywhere; }
+  .studio-sheet:first-of-type { break-before:auto; }
+  h1 { font-size:17px; }
+  .participants td { height:22px; }
+}

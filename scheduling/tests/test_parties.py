@@ -88,15 +88,15 @@ def test_full_party_flow_persists_review_and_preparation_without_booking_or_paym
     staff = Client()
     staff.force_login(booking_member.user)
     detail_url = route("party_detail", party_offering, public_id=item.public_id)
-    assert b"No room assigned" in staff.get(detail_url).content
+    assert b"Party Prep" in staff.get(detail_url).content
     assert staff.post(detail_url, review_data(item)).status_code == 302
     item.refresh_from_db()
     assert item.status == "reviewed" and item.proposed_balance == Decimal("300.00") and item.revision == 1
     assert item.ends_at - item.starts_at == timedelta(hours=2)
     detail = staff.get(detail_url)
-    assert b"$300.00 USD" in detail.content and b"Prepare eight stations." in detail.content
-    assert b"Reviewed (not booked)" in detail.content and b"No room is held" in detail.content
-    assert b"No overlapping published" in detail.content
+    assert b"$400.00" in detail.content and b"$100.00" in detail.content
+    assert b"Not booked" in detail.content and b"No payments recorded" in detail.content
+    assert b"Room review" not in detail.content
     assert b"Morgan Demo" in staff.get(route("parties", party_offering)).content
     public_receipt = client.get(response.url).content.decode().replace(str(item.public_id), "")
     assert "400" not in public_receipt  # A random UUID may legitimately contain these digits.
@@ -193,7 +193,7 @@ def test_bad_wrong_browser_expired_and_wrong_offering_tokens(client, party_offer
     {"proposed_total": "-1"}, {"proposed_deposit": "401"}, {"proposed_deposit": "-1"},
     {"proposed_total": "NaN"}, {"proposed_total": "1000000"}, {"proposed_deposit": "1.001"},
     {"proposed_total": ""}, {"proposed_deposit": ""}, {"status": "confirmed"},
-    {"status": "paid"}, {"room": ""}, {"preparation_notes": "x" * 3001}, {"revision": "-1"},
+    {"status": "paid"}, {"room": ""}, {"revision": "-1"},
 ])
 def test_invalid_review_does_not_change_saved_request(client, party_offering, booking_member, changes):
     item = create_inquiry(client, party_offering)
@@ -208,8 +208,8 @@ def test_invalid_review_does_not_change_saved_request(client, party_offering, bo
 
 @pytest.mark.parametrize("changes, field, message", [
     ({"proposed_total": "", "payment_at_booking": "deposit"}, "proposed_total", "Enter the total price for this party."),
-    ({"proposed_deposit": ""}, "proposed_deposit", "Enter the deposit amount, or choose full payment."),
-    ({"proposed_deposit": "", "payment_at_booking": "deposit"}, "proposed_deposit", "Enter a deposit of at least $0.50 per reservation."),
+    ({"proposed_deposit": ""}, "proposed_deposit", "Enter the deposit amount, or 0 if no deposit is required."),
+    ({"proposed_deposit": "", "payment_at_booking": "deposit"}, "proposed_deposit", "Enter the deposit amount, or 0 if no deposit is required."),
 ])
 def test_missing_quote_values_have_field_errors(client, party_offering, booking_member, changes, field, message):
     item = create_inquiry(client, party_offering)
@@ -230,7 +230,7 @@ def test_stale_staff_save_cannot_overwrite_and_identical_save_is_noop(client, pa
     assert response.status_code == 400 and b"Someone changed" in response.content
     assert b"Open saved review" in response.content
     item.refresh_from_db()
-    assert item.preparation_notes == "Prepare eight stations."
+    assert item.preparation_notes == ""
     assert client.post(url, review_data(item)).status_code == 302
     item.refresh_from_db()
     assert item.revision == 1 and AdminAuditLog.objects.filter(model_label="scheduling.partyrequest").count() == 2
@@ -284,8 +284,8 @@ def test_overlaps_are_half_open_scoped_and_never_create_reservations(client, par
     client.force_login(booking_member.user)
     url = route("party_detail", party_offering, public_id=item.public_id)
     page = client.get(url)
-    assert b"private room cannot be promised" in page.content
-    assert b"Published sessions" in page.content and b"Other active inquiries" in page.content
+    assert b"Room review" not in page.content
+    assert b"Published sessions" not in page.content and b"Other active inquiries" not in page.content
     assert client.post(url, review_data(item)).status_code == 302
     item.refresh_from_db()
     assert item.status == "reviewed" and Session.objects.count() == 3
@@ -294,7 +294,7 @@ def test_overlaps_are_half_open_scoped_and_never_create_reservations(client, par
     assert room_overlaps(item)[1] == []
     item.space = "shared"
     item.save()
-    assert b"Shared-space capacity" in client.get(url).content
+    assert b"Shared-space capacity" not in client.get(url).content
     assert client.post(url, review_data(item, status="withdrawn")).status_code == 302
     item.refresh_from_db()
     assert item.status == "withdrawn" and item.proposed_balance == Decimal("300")
@@ -462,7 +462,7 @@ def test_concurrent_staff_reviews_only_one_wins(client, party_offering, booking_
         try:
             barrier.wait(timeout=10)
             form = review_inquiry(booking_member.user, booking_member.profile.school.slug, item.public_id,
-                review_data(item, preparation_notes=f"Writer {index}"))
+                review_data(item, proposed_total=str(400 + index)))
             return form.is_valid()
         finally:
             close_old_connections()
@@ -470,4 +470,4 @@ def test_concurrent_staff_reviews_only_one_wins(client, party_offering, booking_
         results = list(pool.map(attempt, range(2)))
     assert sorted(results) == [False, True]
     item.refresh_from_db()
-    assert item.revision == 1 and item.preparation_notes in {"Writer 0", "Writer 1"}
+    assert item.revision == 1 and item.proposed_total in {Decimal(400), Decimal(401)}

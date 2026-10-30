@@ -151,7 +151,8 @@ def test_reservation_filters_search_dates_status_and_studio_are_scoped(stock):
         assert response.context["filter_form"].errors and not list(response.context["items"])
     response = s.client.get(target, {"q": "Parent", "state": "confirmed", "attention": 1})
     assertContains(response, "q=Parent&amp;state=confirmed")
-    assertContains(response, 'href="?attention=1">Clear filters')
+    from django.utils.html import escape
+    assertContains(response, f'href="{escape(response.context["attention_url"])}">Clear filters')
 
 
 def test_catalog_search_pagination_and_grouped_navigation(stock):

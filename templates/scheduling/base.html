@@ -8,7 +8,8 @@
   <link rel="icon" href="{% static 'favicon.png' %}">
   <link rel="stylesheet" href="{% static 'scheduling/workspace.css' %}?v=20261004-integrations">
   <link rel="stylesheet" href="{% static 'admin/dashboard.css' %}?v=20261022-shared-team">
-  <link rel="stylesheet" href="{% static 'scheduling/admin-theme.css' %}?v=20261026-reservation-cleanup">
+  <link rel="stylesheet" href="{% static 'scheduling/admin-theme.css' %}?v=20261029-location-tax">
+  <link rel="stylesheet" href="{% static 'school_admin/column-filters.css' %}">
 <link rel="stylesheet" href="{% static 'scheduling/materials.css' %}?v=20261006-color-settings">
 {% include 'scheduling/date_picker_assets.html' %}
 {% block extra_css %}{% endblock %}
@@ -70,7 +71,8 @@
     {% endif %}
   </main>
   <script defer src="{% static 'demo/plushumi/assets/lucide.js' %}"></script>
-  <script defer src="{% static 'scheduling/admin.js' %}?v=20261026-copy-feedback"></script>
+  <script defer src="{% static 'scheduling/admin.js' %}?v=20261027-reservation-workspace"></script>
+  <script defer src="{% static 'school_admin/column-filters.js' %}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

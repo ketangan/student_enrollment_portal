@@ -51,7 +51,9 @@ def start(request, school_slug):
     return page(request, "start", profile, config, {"sessions": rows, "step": 1})
 
 
-def choice_context(request, session, config, purchaser, participants, policy, catalog, browser):
+def choice_context(request, session, config, purchaser, participants, policy, catalog, browser, *, exclude=None):
+    from scheduling.customer_experience import customer_copy
+    from scheduling.guest_lists import deadline_days
     empty_participant = participants.empty_form
     for form in [*participants, empty_participant]:
         for field in form.fields.values():
@@ -67,12 +69,16 @@ def choice_context(request, session, config, purchaser, participants, policy, ca
             next((row for row in config["designs"] if row["name"] == option["name"]), {}))
         designs.append({**legacy, "name": option["name"], "image_url": option["image_url"]})
     from scheduling.inventory import availability_payload
-    stock = availability_payload(session.offering, starts_at=session.starts_at) if session.offering.inventory_catalog_id else {}
+    stock = availability_payload(session.offering, starts_at=session.starts_at, exclude=exclude) if session.offering.inventory_catalog_id else {}
     return {"session": session, "purchaser": purchaser, "participants": participants, "policy": policy,
         "empty_participant": empty_participant,
+        "choose_when": purchaser.data.get("choose_when", "now") if purchaser.is_bound else "now",
+        "selection_deadline_days": deadline_days(session.offering.location.profile.school),
         "request_token": request.POST.get("request_token") or requests.request_token(session, catalog, browser),
         "catalog_data": {"options": options, "designs": designs, "colors": config["colors"],
+            "base_images_only": customer_copy(session.offering.location.profile.school).get("base_images_only", False),
             "deferred_groups": [g.name for g in catalog if g.tracks_stock],
+            "age_required": any(getattr(g, "is_participant_age", False) for g in catalog),
             "inventory": stock, "tracks_stock": bool(session.offering.inventory_catalog_id),
             "image": config["design_image"], "design_group": config["design_group"],
             "color_group": config["color_group"], "age_group": config["age_group"],
@@ -108,17 +114,26 @@ def choose(request, school_slug, pk):
                 valid = False
         if valid and action == "review":
             rows = [{"name": form.cleaned_data["name"], **form.participant_snapshot()} for form in participants]
+            breakdown = service.reservations.workshop_price_breakdown(session.offering, config["price_cents"], len(rows))
             service.selection_previews(rows, session.offering, config)
             values = {"session": session, "rows": rows, "purchaser": purchaser.cleaned_data,
                 "fields": [(key, value) for key, values in data.lists() for value in values],
                 "review_token": service.review_token(session, data, catalog, browser, config),
+                "subtotal": service.money(breakdown["subtotal_cents"]), "tax": service.money(breakdown["tax_cents"]),
                 "total": service.money(total), "due_now": service.money(deposit or total),
-                "due_later": service.money(total - deposit if deposit else 0), "step": 3}
+                "due_later": service.money(total - deposit if deposit else 0), "step": 3,
+                "payment_has_choice": bool(deposit), "payment_minimum": service.money(deposit),
+                "payment_full": service.money(total), "payment_later": service.money(total - deposit),
+                "payment_option": "due"}
             with timezone.override(ZoneInfo(session.offering.location.timezone_name)):
                 return page(request, "review", profile, config, values)
         if valid and action == "checkout":
             try:
                 item = service.begin(profile, session, request.POST, browser, config)
+                if item.reservation.order.account_id and request.POST.get("start_payment") == "1":
+                    return redirect(payments.start_checkout(request, profile, item))
+                if request.POST.get("simulate_checkout") == "1":
+                    service.simulate(profile, item, config, "complete")
                 return redirect("scheduling:experience_booking", school_slug=school_slug, public_id=item.public_id)
             except ValidationError as exc:
                 error = " ".join(exc.messages)
@@ -169,10 +184,14 @@ def booking(request, school_slug, public_id):
         from core.payments.checkout import amount_due
         from core.payments.service import totals
         from scheduling.checkout import payment_choices
+        from scheduling.checkout import payment_token
+        from scheduling.customer_edits import editable
+        from django.urls import reverse
         amounts = totals(item.reservation.order)
         from scheduling import workshop_followup, guest_lists
         followup_token = workshop_followup.token_for(item.reservation) if guest_lists.editable(item.reservation) and item.session.offering.inventory_catalog_id else ""
         return page(request, "booking", profile, config, {"item": item, "people": service.people(item, config),
+            "customer_edit_url": reverse("scheduling:customer_edit_booking", kwargs={"school_slug": school_slug, "token": payment_token(item.reservation)}) if editable(item.reservation) else "",
             "followup_token": followup_token,
             "total": service.money(amounts["total_cents"]), "error": error, "step": 4,
             "amounts": amounts, "due_now": service.money(amount_due(item.reservation.order)),

@@ -108,10 +108,14 @@ class Location(models.Model):
     address = models.CharField(max_length=300, blank=True)
     timezone_name = models.CharField(max_length=64, default="America/Los_Angeles", validators=[validate_timezone])
     inventory_buffer_days = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(365)])
+    default_tax_rate = models.DecimalField(max_digits=5, decimal_places=3, null=True, blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(Decimal("99.999"))])
 
     class Meta:
         ordering = ["name", "pk"]
-        constraints = [models.UniqueConstraint(Lower("name"), "profile", name="scheduling_location_name_unique")]
+        constraints = [models.UniqueConstraint(Lower("name"), "profile", name="scheduling_location_name_unique"),
+            models.CheckConstraint(condition=models.Q(default_tax_rate__isnull=True) | models.Q(
+                default_tax_rate__gte=0, default_tax_rate__lte=Decimal("99.999")), name="location_tax_rate_valid")]
 
     def __str__(self):
         return self.name
@@ -306,6 +310,7 @@ class WorkshopRequest(models.Model):
     session = models.ForeignKey(Session, on_delete=models.PROTECT, related_name="requests")
     purchaser_name = models.CharField(max_length=100)
     purchaser_email = models.EmailField()
+    purchaser_phone = models.CharField(max_length=40, blank=True, default="")
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     submission_key = models.UUIDField(unique=True, editable=False)
@@ -400,19 +405,27 @@ class PartyPackage(models.Model):
         if errors:
             raise ValidationError(errors)
 
+    @property
+    def effective_tax_rate(self):
+        return self.tax_rate if self.tax_rate is not None else self.offering.location.default_tax_rate
+
     def quote(self, quantity):
-        if self.total is None or not 1 <= quantity <= self.participant_limit + self.additional_participant_limit:
-            raise ValidationError("Choose a participant count within this package's limit.")
+        maximum = self.participant_limit + self.additional_participant_limit
+        if self.total is None:
+            raise ValidationError("This package does not have a price yet. Please contact the studio.")
+        if not 1 <= quantity <= maximum:
+            raise ValidationError(f"This package allows a maximum of {maximum} participants. Enter a number or range between 1 and {maximum}.")
         extra = max(0, quantity - self.participant_limit)
         subtotal = self.total + extra * self.additional_participant_price
-        tax = (subtotal * (self.tax_rate or Decimal(0)) / 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        rate = self.effective_tax_rate
+        tax = (subtotal * (rate or Decimal(0)) / 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         if subtotal + tax > Decimal("999999.99"):
             raise ValidationError("This group's price exceeds the supported reservation amount.")
         return {"name": self.name, "participant_limit": self.participant_limit,
             "duration_minutes": self.duration_minutes, "base_price": str(self.total),
             "additional_participants": extra, "additional_participant_limit": self.additional_participant_limit,
             "additional_participant_price": str(self.additional_participant_price),
-            "subtotal": str(subtotal), "tax_rate": str(self.tax_rate) if self.tax_rate is not None else None,
+            "subtotal": str(subtotal), "tax_rate": str(rate) if rate is not None else None,
             "tax": str(tax), "total": str(subtotal + tax), "deposit": str(self.deposit),
             "included_observers": self.included_observers, "space": self.space,
             "room_id": self.room_id, "booking_mode": self.booking_mode}
@@ -436,8 +449,8 @@ class PartySlot(models.Model):
         if self.is_published and self.package_id:
             if self.starts_at and not timezone.now() + timedelta(minutes=40) < self.starts_at <= timezone.now() + timedelta(days=366):
                 raise ValidationError("Choose a time more than 40 minutes ahead and within the next year.")
-            if self.package.booking_mode != "direct" or not self.package.room_id or self.package.tax_rate is None:
-                raise ValidationError("Set direct booking, a room/table and an explicit tax rate before publishing party times.")
+            if self.package.booking_mode != "direct" or not self.package.room_id or self.package.effective_tax_rate is None:
+                raise ValidationError("Set direct booking, a room/table and a package or location tax rate before publishing party times.")
             if not self.package.duration_minutes or self.package.total is None:
                 raise ValidationError("Set the party price and duration before publishing party times.")
 
@@ -463,6 +476,7 @@ class PartyRequest(models.Model):
     package_snapshot = models.JSONField(default=dict, blank=True, editable=False)
     occasion = models.CharField(max_length=150, blank=True)
     age_range = models.CharField(max_length=100, blank=True)
+    participant_estimate = models.CharField(max_length=32, blank=True)
     organizer_name = models.CharField(max_length=100)
     organizer_email = models.EmailField()
     organizer_phone = models.CharField(max_length=40, blank=True)
@@ -620,7 +634,8 @@ class Reservation(models.Model):
 
 class ReservationNote(models.Model):
     """Append-only staff comments, separate from customer-facing booking snapshots."""
-    reservation = models.ForeignKey(Reservation, on_delete=models.PROTECT, related_name="notes")
+    reservation = models.ForeignKey(Reservation, null=True, blank=True, on_delete=models.PROTECT, related_name="notes")
+    party_request = models.ForeignKey(PartyRequest, null=True, blank=True, on_delete=models.PROTECT, related_name="staff_notes")
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
     body = models.TextField(max_length=3000)
     submission_id = models.UUIDField(default=uuid.uuid4)
@@ -628,7 +643,12 @@ class ReservationNote(models.Model):
 
     class Meta:
         ordering = ["-created_at", "-pk"]
-        constraints = [models.UniqueConstraint(fields=["reservation", "submission_id"], name="reservation_note_submission_unique")]
+        constraints = [
+            models.UniqueConstraint(fields=["reservation", "submission_id"], name="reservation_note_submission_unique"),
+            models.UniqueConstraint(fields=["party_request", "submission_id"], name="party_note_submission_unique"),
+            models.CheckConstraint(condition=(models.Q(reservation__isnull=False, party_request__isnull=True)
+                | models.Q(reservation__isnull=True, party_request__isnull=False)), name="staff_note_single_owner"),
+        ]
 
 
 class ReservationOccurrence(models.Model):

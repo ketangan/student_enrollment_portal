@@ -60,6 +60,93 @@ def test_draft_submit_and_retry(client, stock, booking):
     assert booking.stock_allocations.count() == 1
 
 
+def test_partial_submission_keeps_second_guest_and_shows_prep(client, stock, booking):
+    booking.quantity = 6
+    booking.save()
+    assert client.post(url(booking), payload(stock, 1, action="draft")).status_code == 302
+    response = client.post(url(booking), payload(stock, 2, revision=1))
+    assert response.status_code == 302 and "saved=1" in response.url
+    booking.refresh_from_db()
+    assert len(booking.snapshot["guest_list_draft"]) == 2
+    assert not booking.stock_allocations.exists()
+    client.force_login(stock.user)
+    path = reverse("scheduling:reservation_detail", args=[stock.school.slug, booking.public_id])
+    page = client.get(path)
+    assert page.context["party_guest_selected_count"] == 2
+    assert b"All parties" in page.content
+    assert b"Guest 2" in page.content
+    assert b"These choices are saved, but their materials are not reserved yet" in page.content
+    assert b"Copy guest" not in page.content
+
+
+def test_staff_inline_names_then_selections_and_stale_edits(client, stock, booking):
+    client.force_login(stock.user)
+    path = reverse("scheduling:reservation_detail", args=[stock.school.slug, booking.public_id])
+    raw = {"action": "save_guest", "guest_index": 0, "revision": 0, "guest_name": "Riley", "guest_age": "8"}
+    page = client.get(path, {"edit_guest": 0})
+    assert page.context["party_guest_form"] is not None
+    assert client.post(path, raw).status_code == 302
+    assert client.post(path, raw).status_code == 400
+    booking.refresh_from_db()
+    assert booking.snapshot["guest_list_draft"][0]["guest_name"] == "Riley"
+    assert not booking.stock_allocations.exists()
+    selected = {**raw, "revision": 1, "design": stock.cat.pk, "color": stock.blue.pk}
+    assert client.post(path, selected).status_code == 302
+    assert client.post(path, {**selected, "revision": 2, "guest_index": 1, "guest_name": "Taylor"}).status_code == 302
+    booking.refresh_from_db()
+    assert "guest_list_draft" not in booking.snapshot
+    assert booking.stock_allocations.get().quantity == 2
+    booking.prepared_at = timezone.now()
+    booking.save()
+    assert client.post(path, {**selected, "revision": 3, "guest_name": "Riley updated"}).status_code == 302
+    booking.refresh_from_db()
+    assert booking.prepared_at is None
+    assert booking.stock_allocations.get().quantity == 2
+
+
+def test_inline_guest_permissions_invalid_choice_and_consumed_stock(client, stock, booking):
+    from scheduling.models import SchedulingMembership
+    client.force_login(stock.user)
+    path = reverse("scheduling:reservation_detail", args=[stock.school.slug, booking.public_id])
+    raw = {"action": "save_guest", "guest_index": 0, "revision": 0, "guest_name": "Riley",
+           "design": stock.cat.pk, "color": stock.blue.pk}
+    assert client.post(path, {**raw, "guest_index": 6}).status_code == 404
+    assert client.post(path, {**raw, "color": ""}).status_code == 400
+    assert client.post(path, {**raw, "design": 999999}).status_code == 400
+    SchedulingMembership.objects.filter(user=stock.user).update(role="viewer")
+    assert client.post(path, raw).status_code == 404
+    SchedulingMembership.objects.filter(user=stock.user).update(role="owner")
+    assert client.post(url(booking), payload(stock)).status_code == 302
+    booking.stock_allocations.update(consumed_at=timezone.now())
+    assert client.post(path, {**raw, "revision": 1}).status_code == 400
+    assert client.get(path, {"edit_guest": 0}).context["party_guest_form"] is None
+
+
+def test_partial_guests_cannot_be_marked_fully_prepared(client, stock, booking):
+    from scheduling import preparation
+    assert client.post(url(booking), payload(stock, 1)).status_code == 302
+    booking.refresh_from_db()
+    revision = preparation.form_for(booking, stock.profile)["edit_revision"].value()
+    with pytest.raises(ValidationError, match="Finish the guest selections"):
+        preparation.update(stock.user, stock.school.slug, booking.public_id,
+            {"action": "prepare", "edit_revision": revision})
+
+
+def test_staff_grid_query_count_does_not_grow_per_guest(stock, booking):
+    from django.db import connection
+    from django.test import RequestFactory
+    from django.test.utils import CaptureQueriesContext
+    request = RequestFactory().get("/reservation/")
+    counts = []
+    for quantity in (2, 40):
+        booking.quantity = quantity
+        with CaptureQueriesContext(connection) as queries:
+            context = guest_lists.staff_context(request, booking, can_edit=True)
+        assert len(context["party_guest_rows"]) == quantity
+        counts.append(len(queries))
+    assert counts[1] <= counts[0]
+
+
 @pytest.mark.parametrize("state", ["held", "canceled", "completed", "review"])
 def test_closed_states(client, stock, booking, state):
     booking.state = state; booking.save()
@@ -101,7 +188,7 @@ def test_reservation_guest_list_summary_and_edit_permissions(client, stock, book
 
 def test_counts_invalid_selection_and_stock_rollback(client, stock, booking):
     path = url(booking)
-    for count in [0, 1, 3]:
+    for count in [0, 3]:
         assert client.post(path, payload(stock, count)).status_code == 400
     data = payload(stock); data["materials-0-design"] = 999999
     assert client.post(path, data).status_code == 400
@@ -175,7 +262,7 @@ def test_package_review_defers_guests_and_preserves_previous_selections(stock, b
     source.materials = [{"item_id": stock.item.pk, "name": stock.item.name, "quantity": 2}]
     original = list(source.materials)
     form = PartyReviewForm({"revision": source.revision, "status": "reviewed", "room": stock.room.pk,
-        "proposed_total": "100", "payment_at_booking": "full", "duration_minutes": "120"}, instance=source)
+        "proposed_total": "100", "proposed_deposit": "0", "duration_minutes": "120"}, instance=source)
     assert form.material_forms is None
     assert form.is_valid(), form.errors
     assert source.materials == original
@@ -203,13 +290,13 @@ def test_staff_can_enter_emailed_guests_with_ages(client, stock, booking, role):
     client.force_login(stock.user)
     path = staff_url(booking)
     response = client.get(path)
-    assert response.status_code == 200
-    assert b"Back to reservation" in response.content
+    assert response.status_code == 302
+    assert response.url.endswith("#party-guests")
     data = payload(stock, count=1, action="draft")
     data["materials-0-guest_age"] = "0"
     assert client.post(path, data).status_code == 302
-    response = client.get(path)
-    assert response.context["form"].material_forms.forms[0]["guest_age"].value() == 0
+    response = client.get(path, follow=True)
+    assert response.context["party_guest_rows"][0]["age"] == 0
     assert not booking.stock_allocations.exists()
     data = payload(stock, revision=1)
     data["materials-0-guest_age"] = "8"
@@ -222,8 +309,11 @@ def test_staff_can_enter_emailed_guests_with_ages(client, stock, booking, role):
         object_id=str(booking.pk), changes__action="guest_list_submitted").exists()
     # Host and staff edit the same revision, not separate copies of guest data.
     assert client.post(url(booking), payload(stock, revision=1)).status_code == 400
+    booking.refresh_from_db()
     booking.prepared_at = timezone.now(); booking.save()
-    assert client.post(path, payload(stock, revision=2)).status_code == 400
+    assert client.post(path, payload(stock, revision=2)).status_code == 302
+    booking.refresh_from_db()
+    assert booking.prepared_at is None
 
 
 def test_staff_access_is_scoped_and_viewers_cannot_write(client, stock, booking):

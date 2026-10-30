@@ -33,9 +33,16 @@ def browser_key(request, create=False):
 
 
 def catalog_for(offering):
+    from .participant_policy import age_policy, eligible_label
     groups = offering.inventory_catalog.choice_groups if offering.inventory_catalog_id else offering.choice_groups
-    return list(groups.filter(is_active=True).prefetch_related(
+    catalog = list(groups.filter(is_active=True).prefetch_related(
         Prefetch("options", queryset=ChoiceOption.objects.filter(is_active=True), to_attr="active_options")))
+    policy = age_policy(offering.location.profile.school)
+    for group in catalog:
+        group.is_participant_age = bool(policy and group.name == policy["choice_group"] and not group.tracks_stock)
+        if group.is_participant_age:
+            group.active_options = [option for option in group.active_options if eligible_label(option.label, policy)]
+    return catalog
 
 
 def session_for_request(slug, pk):

@@ -7,8 +7,7 @@
   <p class="dash-greeting-sub">Here's what needs your attention today.</p>
 </div>
 <div class="booking-dashboard-tools"><div class="actions">
-{% if calendar_available %}<a class="button" href="?view=calendar{% if selected_location %}&amp;location={{ selected_location.pk }}{% endif %}"><i data-lucide="calendar-days" aria-hidden="true"></i> Calendar</a>{% endif %}
-{% if experience_demo_available %}<a class="button" href="{{ customer_demo_url }}">Customer demo</a>{% endif %}
+{% if calendar_available %}{% include 'scheduling/dashboard_toggle.html' with active_view='dashboard' %}{% endif %}
 {% if features.lessons and profile.lessons_enabled %}<a class="button" href="{% url 'scheduling:lessons' school_slug=business.slug %}">Open lesson calendar</a>{% endif %}
 {% if request.user.is_superuser %}<a href="{% url 'scheduling:features' school_slug=business.slug %}">Manage available features</a>{% endif %}
 </div></div>
@@ -35,7 +34,6 @@
 <aside class="dash-card booking-activity" aria-labelledby="activity-heading">
   <div class="dash-card-header"><h2 id="activity-heading" class="dash-card-title">Recent Activity</h2></div>
   {% for event in recent_activity %}<div class="dash-activity-item">
-    <div class="dash-initials dash-initials--sm">{{ event.name|booking_initials }}</div>
     <div class="dash-activity-body"><div class="dash-activity-who"><a href="{{ event.url }}">{{ event.name }}</a></div><div class="dash-activity-what">{{ event.action }}</div><div class="dash-activity-when">{{ event.created_at|timesince }} ago</div></div>
   </div>{% empty %}<p class="dash-no-data">No recent booking activity.</p>{% endfor %}
 </aside>

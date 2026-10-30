@@ -262,15 +262,16 @@ def test_staff_recovery_and_refund_ui_no_provider_calls_on_get(inventory, mercha
     fetch = MagicMock(side_effect=lambda a: session_for(a, status="complete"))
     monkeypatch.setattr(gateway, "retrieve_order_checkout", fetch)
     detail = path(booking_member, "reservation_detail", public_id=item.public_id)
-    recover = path(booking_member, "payment_recover", public_id=item.public_id, attempt_id=attempt.public_id)
-    assert b"Check payment status" in client.get(detail).content
+    page = client.get(detail)
+    assert b"is being verified" in page.content
+    for label in (b"Check payment status", b"Stop this checkout", b"Close checkout"):
+        assert label not in page.content
+    removed_url = f"{detail}payments/{attempt.public_id}/check/"
+    assert client.post(removed_url, {"action": "check"}).status_code == 404
     listing = client.get(path(booking_member, "reservations")+"?attention=1")
     assert listing.context["attention_count"] == 1 and not fetch.called
-    assert client.get(recover).status_code == 405
-    assert client.post(recover, {"action": "wrong"}).status_code == 400
-    assert client.post(recover, {"action": "close"}).status_code == 400
-    assert client.post(recover, {"action": "check"}).status_code == 302 and fetch.call_count == 1
-    assert client.post(recover, {"action": "check"}).status_code == 302 and fetch.call_count == 1
+    recover_attempt(attempt, force=True)
+    assert fetch.call_count == 1
     cancel_reservation(booking_member.user, item.profile.school.slug, item.public_id)
     refund_url = path(booking_member, "refund_create", public_id=item.public_id)
     refund_page = client.get(refund_url)
@@ -297,8 +298,7 @@ def test_staff_recovery_and_refund_ui_no_provider_calls_on_get(inventory, mercha
 @pytest.mark.parametrize("action", ["check", "retry"])
 def test_recovery_views_permissions_csrf_and_cross_order(inventory, merchant, booking_member, client, action):
     item, attempt, refund = approved(inventory, booking_member)
-    urls = [path(booking_member, "payment_recover", public_id=item.public_id, attempt_id=attempt.public_id),
-        path(booking_member, "payment_review", public_id=item.public_id),
+    urls = [path(booking_member, "payment_review", public_id=item.public_id),
         path(booking_member, "refund_create", public_id=item.public_id),
         path(booking_member, "refund_recover", public_id=item.public_id, refund_id=refund.public_id)]
     for url in urls:
@@ -308,10 +308,9 @@ def test_recovery_views_permissions_csrf_and_cross_order(inventory, merchant, bo
     csrf.force_login(booking_member.user)
     for url in urls:
         assert csrf.post(url, {"action": action}).status_code == 403
-    assert client.post(urls[0].replace(str(attempt.public_id), str(uuid.uuid4())), {"action": "check"}).status_code == 404
-    assert client.post(urls[3].replace(str(refund.public_id), str(uuid.uuid4())), {"action": action}).status_code == 404
+    assert client.post(urls[2].replace(str(refund.public_id), str(uuid.uuid4())), {"action": action}).status_code == 404
     if action == "retry":
-        assert client.post(urls[3], {"action": action}).status_code == 400  # Stripe is unchanged.
+        assert client.post(urls[2], {"action": action}).status_code == 400  # Stripe is unchanged.
     booking_member.role = "viewer"
     booking_member.save()
     for url in urls:
@@ -324,8 +323,8 @@ def test_close_and_review_actions(inventory, merchant, booking_member, client, m
     client.force_login(booking_member.user)
     monkeypatch.setattr(gateway, "retrieve_order_checkout", session_for)
     monkeypatch.setattr(gateway, "expire_order_checkout", lambda a, sid: session_for(a, status="expired"))
-    url = path(booking_member, "payment_recover", public_id=item.public_id, attempt_id=attempt.public_id)
-    assert client.post(url, {"action": "close", "confirm": "yes"}).status_code == 302
+    request_close(booking_member.user, item.profile.school.slug, item.public_id, attempt.public_id)
+    recover_attempt(attempt, force=True)
     url = path(booking_member, "payment_review", public_id=item.public_id)
     assert client.post(url).status_code == 400
     assert client.post(url, {"confirm": "yes"}).status_code == 302
@@ -567,6 +566,6 @@ def test_excess_payment_refund_preserves_confirmed_capacity(inventory, merchant,
 def test_refund_cannot_race_outstanding_checkout(inventory, merchant, booking_member):
     item, attempt = paid(inventory, booking_member)
     prepare(item)
-    with pytest.raises(ValidationError, match="Close"):
+    with pytest.raises(ValidationError, match="finish or expire"):
         approve_refund(booking_member.user, item.profile.school.slug, item.public_id, attempt.public_id,
             key=uuid.uuid4(), amount_cents=100, reason="Too early")

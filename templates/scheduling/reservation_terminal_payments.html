@@ -1,43 +1,40 @@
 {% if terminal_error %}<p role="alert" class="notice error">{{ terminal_error }}</p>{% endif %}
 {% if can_edit_setup %}{% if item.state == 'confirmed' or item.state == 'completed' %}
 <dialog id="terminal-payment-dialog" class="reservation-payment-dialog" aria-labelledby="terminal-payment-title"{% if terminal_error and terminal_form.is_bound %} data-payment-error{% endif %}>
-  <header><h2 id="terminal-payment-title">Record Square Terminal payment</h2><button type="button" class="payment-dialog-close" data-close-payment-dialog aria-label="Close payment form" title="Close"><i data-lucide="x" aria-hidden="true"></i></button></header>
-  <p class="muted">Already paid on the Terminal. No card will be charged.</p>
+  <header><h2 id="terminal-payment-title">Record payment</h2><button type="button" class="payment-dialog-close" data-close-payment-dialog aria-label="Close payment form" title="Close"><i data-lucide="x" aria-hidden="true"></i></button></header>
+  <p class="muted">Money you already collected. {{ item.snapshot.name }} won't be charged.</p>
+  <dl class="payment-dialog-totals"><div><dt>Total</dt><dd>${{ amounts.total|floatformat:2 }}</dd></div><div><dt>Paid</dt><dd>${{ amounts.net|floatformat:2 }}</dd></div><div><dt>Balance due</dt><dd>${{ amounts.outstanding|floatformat:2 }}</dd></div></dl>
   {% if terminal_error and terminal_form.is_bound %}<p role="alert" class="notice error">{{ terminal_error }}</p>{% endif %}
-  {% if checkout_pending %}<p class="notice error">Check or close the open online checkout above before recording this payment.</p>{% endif %}
-  <form method="post" class="setup-form" data-terminal-payment>{% csrf_token %}
+  {% if checkout_pending %}<p class="notice error">An online payment is still pending. Wait for it to finish or expire before recording another payment.</p>{% endif %}
+  <form method="post" action="{{ booking_navigation.section.tabs.0.url }}" class="setup-form" data-terminal-payment>{% csrf_token %}
     <input type="hidden" name="action" value="record_terminal">
     {{ terminal_form.key }}{{ terminal_form.expected_balance }}{{ terminal_form.expected_total }}
+    <fieldset class="payment-method"><legend>Paid with</legend>{{ terminal_form.method }}{{ terminal_form.method.errors }}</fieldset>
     <div class="workshop-settings-fields">
       <div class="form-field">{{ terminal_form.amount.label_tag }}{{ terminal_form.amount }}{{ terminal_form.amount.errors }}</div>
       <div class="form-field">{{ terminal_form.paid_on.label_tag }}{{ terminal_form.paid_on }}{{ terminal_form.paid_on.errors }}</div>
     </div>
     <div class="terminal-extras" data-terminal-extras>
       <p data-extras-summary aria-live="polite"></p>
+      <div class="form-field">{{ terminal_form.description.label_tag }}{{ terminal_form.description }}{{ terminal_form.description.errors }}</div>
     </div>
-    <div class="form-field">{{ terminal_form.external_reference.label_tag }}{{ terminal_form.external_reference }}{{ terminal_form.external_reference.errors }}</div>
-    <p><label>{{ terminal_form.confirm }} {{ terminal_form.confirm.label }}</label>{{ terminal_form.confirm.errors }}</p>
-    <div class="actions"><button type="button" class="button" data-close-payment-dialog>Cancel</button><button type="submit" class="button primary" {% if checkout_pending %}disabled{% endif %}>Save payment record</button></div>
+    <div class="form-field" data-payment-receipt>{{ terminal_form.external_reference.label_tag }}{{ terminal_form.external_reference }}{{ terminal_form.external_reference.errors }}</div>
+    <input type="hidden" name="confirm" value="on">
+    <div class="actions payment-dialog-footer"><span data-payment-after aria-live="polite"></span><button type="button" class="button" data-close-payment-dialog>Cancel</button><button type="submit" class="button primary" data-payment-submit {% if checkout_pending %}disabled{% endif %}>Record payment</button></div>
   </form>
 </dialog>
 {% endif %}{% endif %}
 {% if terminal_entries %}
-<h3>Terminal payments</h3>
+<details id="payment-corrections" class="payment-corrections"{% if payment_correction_form %} open{% endif %}><summary>Correct a recorded payment</summary>
+{% if payment_correction_form %}<form id="payment-correction-form" method="post" action="{{ booking_navigation.section.tabs.0.url }}">{% csrf_token %}<input type="hidden" name="action" value="correct_terminal"><input type="hidden" name="entry_id" value="{{ payment_correction_entry.pk }}">{{ payment_correction_form.key }}{{ payment_correction_form.expected_balance }}{{ payment_correction_form.expected_total }}</form>{% endif %}
 <div class="table-wrap reservation-audit terminal-payments" role="region" aria-label="Terminal payments" tabindex="0">
 <table class="dash-table"><thead><tr><th>Payment date</th><th>Amount</th><th>Receipt number</th><th>Recorded by</th><th>Status</th><th></th></tr></thead><tbody>
 {% for entry in terminal_entries %}<tr>
-  <td>{{ entry.paid_on|date:"M j, Y" }}</td><td>${{ entry.amount|floatformat:2 }}{% if entry.extra_charge_cents %}<p>Includes ${{ entry.extra_charge|floatformat:2 }} extra purchases</p>{% endif %}</td>
-  <td>{{ entry.external_reference|default:"Not added" }}{% if entry.note %}<p>{{ entry.note }}</p>{% endif %}</td>
+  <td>{{ entry.paid_on|date:"M j, Y" }}</td><td>{% if entry.correction_form %}{{ entry.correction_form.amount }}{{ entry.correction_form.amount.errors }}{% else %}${{ entry.amount|floatformat:2 }}{% endif %}{% if entry.extra_charge_cents %}<p>Includes ${{ entry.extra_charge|floatformat:2 }} extra purchases</p>{% endif %}</td>
+  <td>{% if entry.correction_form %}{{ entry.correction_form.external_reference }}{{ entry.correction_form.external_reference.errors }}{% else %}{{ entry.external_reference|default:"Not added" }}{% endif %}{% if entry.note %}<p>{{ entry.note }}</p>{% endif %}</td>
   <td>{{ entry.actor.get_username }}</td>
   <td>{% if entry.reversal %}Voided<p>{{ entry.reversal.note }}</p>{% else %}Staff-recorded{% endif %}</td>
-  <td>{% if can_edit_setup and not entry.reversal %}<button type="button" class="button" data-payment-dialog="correct-payment-{{ entry.pk }}" aria-haspopup="dialog">Correct entry</button>
-    <dialog id="correct-payment-{{ entry.pk }}" class="reservation-payment-dialog" aria-labelledby="correct-title-{{ entry.pk }}">
-    <header><h2 id="correct-title-{{ entry.pk }}">Correct payment record</h2><button type="button" class="payment-dialog-close" data-close-payment-dialog aria-label="Close correction form" title="Close"><i data-lucide="x" aria-hidden="true"></i></button></header>
-    <form method="post" class="setup-form">{% csrf_token %}
-      <input type="hidden" name="action" value="void_terminal"><input type="hidden" name="entry_id" value="{{ entry.pk }}">
-      <label for="void-reason-{{ entry.pk }}">Reason for correction</label><textarea id="void-reason-{{ entry.pk }}" name="reason" rows="2" maxlength="240" required></textarea>
-      <p><label><input type="checkbox" name="confirm" required> Incorrect record, not a customer refund</label></p>
-      <div class="actions"><button type="button" class="button" data-close-payment-dialog>Cancel</button><button type="submit" class="button">Void incorrect entry</button></div>
-    </form></dialog>{% endif %}</td>
+  <td>{% if can_edit_setup %}<div class="participant-actions">{% if entry.correction_form %}<button class="icon-button" type="submit" form="payment-correction-form" title="Save payment correction" aria-label="Save payment correction"><i data-lucide="check" aria-hidden="true"></i></button><a class="icon-button" data-inline-section="payment" href="{{ payment_cancel_url }}" title="Cancel edit" aria-label="Cancel payment edit"><i data-lucide="x" aria-hidden="true"></i></a>{% else %}<a class="icon-button" data-inline-section="payment" href="{{ entry.edit_url }}" aria-label="Correct payment of ${{ entry.amount|floatformat:2 }}" title="Correct payment"><i data-lucide="pencil" aria-hidden="true"></i></a>{% endif %}</div>{% endif %}</td>
 </tr>{% endfor %}</tbody></table></div>
 {% endif %}
+{% if terminal_entries %}</details>{% endif %}

@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: October 26, 2026.
+Updated: October 29, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -8,6 +8,370 @@ Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 This Markdown file remains the source of truth; the viewer does not edit milestone status.
 
 ## Current Status
+
+### October 29 Release Verification
+
+- User authorized pushing all pending application changes to main after verification.
+  The separately dirty nested `.claude/worktrees` checkout is excluded.
+- Initial regression exposed three stale payment-button assertions (33 dependent
+  failures). Updated them to the current Continue to payment label without changing
+  payment/security assertions; all 138 affected payment tests passed.
+- Full release run `jasmine-release-20261029`: 4,972 Python tests passed, 3 skipped;
+  migrations and all 110 JavaScript tests/coverage passed, working tree unchanged.
+  Overall Python coverage passed but four modules missed the per-module gate.
+- Added regression cases for stale reviews, read-only validation, cross-school
+  targets, deferred selections, late failures and checkout handoff. All 54 focused
+  checks passed. Combined coverage: customer edits 91.34%, customer edit views 94.29%,
+  party policy and staff party views 100%. No production behavior changed in this
+  verification pass. Final full run: `jasmine-release-final-20261029` pending.
+- Existing Chrome desktop/phone/tablet evidence is recorded below. Physical Android
+  Chrome verification remains pending. No real charge or customer email sent.
+- Email follow-up will reuse School delivery settings, SchoolEmailTemplate records,
+  and the existing notification transport, preserving separate Bookings permissions.
+
+### October 29 Booking Controls and Regression Coverage (Local)
+
+- Participant tabs now share one outline with a compact remove icon and consistent
+  completion icons. Remove controls retain a 44px touch target; the final participant
+  cannot be removed. Clearing required details resets the completion indicator.
+- Workshop review actions now match parties: Edit on the left and Continue to
+  payment on the right, below the review rather than in the summary sidebar.
+  Both buttons are 48px tall; narrow screens show totals before the actions.
+- Added regression assertions for participant readiness/removal and shared review
+  action placement. Existing checkout-return and early availability cases remain
+  in the regression suite. 126 focused Python tests and 25 JavaScript tests passed;
+  all 29 customer refresh tests passed again after the final layout adjustment.
+- Chrome desktop, 390px phone, 768x1024 and 1024x768 tablet layouts checked, including
+  participant removal and returning from review without losing details. No payment
+  submitted. Physical Android Chrome remains pending. Screenshots:
+  `/tmp/workshop-participant-controls.png`, `/tmp/workshop-review-controls.png`.
+- The preceding availability full run was stopped before edits (exit -15, JavaScript
+  passed), not reported as a full pass. Replacement full run
+  `jasmine-booking-controls-20261029` is pending. No push/deployment.
+
+### October 29 Earlier Party Availability Checks (Local)
+
+- Party time pickers now exclude private-room conflicts, published sessions, camp
+  occurrences and lessons as well as full-studio blocks. The query is batched;
+  it does not run a conflict query for every offered slot.
+- Before Review & pay, the shared party form rechecks room capacity for the entered
+  group. Existing booking edits exclude their own reservation. The final locked
+  reservation/payment check remains to prevent races and expired-hold overselling.
+- Verified 185 focused Python tests and 9 JavaScript checks. Includes conflicting
+  private rooms, shared capacity, own edits, canceled/expired holds, adjacent times,
+  published sessions and concurrent submissions. Two existing assertions were
+  updated for earlier form errors and published-session blocking.
+- Local Chrome check: occupied Charlotte November 10/17 dates disabled; November 24
+  selectable after releasing only the two synthetic QA checkout holds from the
+  previous task. User-created bookings untouched. Evidence:
+  `/tmp/party-availability-checked.png`. No layout changes or real payment submitted.
+- The preceding background run was stopped before editing (exit -15, no passing
+  full-suite claim); its JavaScript suite passed. Fresh full regression run
+  `jasmine-party-availability-20261029` is pending. No push/deployment.
+
+### October 29 Editable Checkout Return (Local)
+
+- Supersedes the read-only return limitation below. Both party and workshop card
+  Back actions return to the branded saved review with Edit details. Editing uses
+  the existing populated intake, then saves and continues to card payment.
+- Unpaid held bookings retain their reservation, source and order IDs. Changes
+  revalidate capacity, inventory, package/session configuration, totals and school
+  scope. Old unpaid attempts must be closed before changing the quote; submitted
+  or uncertain payments block changes. Prior amounts remain in attempt/audit evidence.
+- Signed edit revisions reject stale tabs; repeated identical saves are idempotent.
+  Paid, canceled, completed and review-state reservations are not amended by this flow.
+- Focused Python checks: 175 passed before the catalog edit-link correction; all 45
+  customer edit/refresh checks passed after that correction. JavaScript: 28 passed.
+  Browser: completed Back -> edit -> review -> save -> card -> Back for both local
+  QA bookings, with saved participant/design/contact details preserved. No payment
+  submitted and no email sent. Existing customer bookings were not edited.
+- Chrome layouts inspected at desktop, 390px phone, 768x1024 and 1024x768 tablet
+  sizes. Edit actions have at least 44px touch targets. Physical Android Chrome and
+  virtual-keyboard behavior remain pending. Evidence: `/tmp/party-editable-review.png`.
+- Full regression run: `jasmine-editable-checkout-20261029`; background result pending.
+  No commit, push or deployment.
+
+### October 29 Party Payment Return (Local)
+
+- Party card entry and the signed payment-return review now use the customer booking
+  shell, progress indicator, typography and summary layout. The review uses the saved
+  reservation and original package quote, not current package prices.
+- Card Back returns to the saved review. Removed the return page's Back to parties
+  action that started an empty intake. Footer Your booking retains the signed context.
+- Repeated Continue uses the existing payment attempt; no new reservation/order is
+  created. This does not add editing of a booking with an active payment attempt.
+- Verified the existing local unpaid checkout: card -> Back -> review -> Continue ->
+  same attempt, without entering card details or paying. Square card form loaded.
+- 225 focused Python tests passed, covering deposit/full-payment returns, retry
+  identity, tenant isolation, canceled/review states and immutable quoted prices.
+  Desktop Chrome and 390x844, 768x1024, 1024x768 responsive layouts checked without
+  horizontal overflow. Physical Android testing remains pending. No full-suite run
+  for this iteration; no deployment or push.
+
+### October 29 Party Limits and Acknowledgments (Local)
+
+- Package options show included count and base price. Count helper/error states
+  the actual maximum including configured extras. Removed the invented drop-off
+  explanation; age minimum and one-person/one-plushie guidance remain.
+- Added three required, school-configured acknowledgments on review, using the
+  owner's screenshot: signed-waiver requirement, participant seats/chaperones,
+  and booking/cancellation policy. Chaperone allowance follows the chosen package.
+  These are acknowledgments, not a replacement signed liability waiver.
+- Final server validation requires all three; the pre-review validation does not
+  require checkboxes customers have not yet seen. Accepted text, revision, policy
+  URL and timestamp persist in the party offering snapshot. Policy changes invalidate
+  stale forms; retries preserve original evidence. Package changes clear checkboxes.
+- Verification: 182 focused Python and nine JS tests passed. Browser checked an
+  over-limit range, corrected advancement and acknowledgement rendering. Desktop,
+  phone and both tablet viewport widths checked; no agreements or payment submitted
+  in the browser. No full suite started, consistent with the current focused workflow.
+- Open content mismatch: published website says two chaperones; local Package B
+  allows four. No silent package-data change. Design selection remains in the existing
+  post-booking guest list; an optional pre-payment editor is not implemented here.
+
+### October 29 Group Form Polish (Local)
+
+- Studio/package now share a row, stacking on phones. Participant count is one
+  required text field for a number or range (examples: 8 or 7-9), using the existing
+  upper-bound quantity/price validation. Removed customer count-mode radios.
+- Matched count/age input widths, tightened explanatory text and spacing, and
+  retained the plain occasion field. Age examples include a number and a range.
+- Focused verification: 18 Python and four JS checks passed; desktop, phone and
+  tablet viewport overflow checks passed. No full suite launched per user request.
+  Previous full run had one stale staff-navigation assertion; that assertion was
+  updated and its focused test passed with the preceding layout change.
+
+### October 29 Compact Party Flow and Guest Ranges (Local)
+
+- First step contains studio, package and date/time only. Group/contact controls
+  use constrained widths; occasion is plain text with no birthday-specific fields.
+- Customer chooses exact count OR guest range. Owner explicitly changed the prior
+  estimate-only decision: a range reserves/prices its upper bound. Server derives
+  quantity, ignores forged lower exact counts, rejects invalid/over-capacity ranges,
+  and keeps existing booking locks/idempotency. Exact mode discards stale estimates.
+- Changing packages preserves an eligible selected day and immediately redraws
+  its offered times, while requiring a fresh slot choice for the new package.
+- Public payment navigation no longer exposes staff reservation links, even to
+  logged-in staff; party return navigation leads to the public party page. Staff
+  authorization remains enforced independently. Square card validation is unchanged:
+  use Square's documented sandbox cards rather than Stripe's 4242 test number.
+- Preceding full suite completed with three obsolete copy assertions, now updated
+  and verified (63 targeted tests). Final affected Python suite: 271 passed; JS:
+  eight passed. Desktop/390px phone/768x1024 and 1024x768 Chrome emulation checked.
+  Actual Android/virtual keyboard checks remain pending; no live payments submitted.
+- New fingerprinted full run `jasmine-party-compact-20261029` is pending.
+
+### October 29 Party Step Validation Follow-up (Local)
+
+- Review now validates customer fields using the existing server form before
+  advancing. Invalid phone, age range and participant estimates remain on their
+  editable step with inline errors; validation creates no booking or payment.
+  Duplicate review clicks are blocked while checking; network failure keeps inputs.
+- Removed the package-description tax sentence; tax stays in the order summary.
+  Final-submit service errors are now visible instead of silently returning to
+  the booking form.
+- Verification: 110 Python and six JavaScript tests passed. Browser reproduction
+  confirmed invalid fields stay on step two and corrected values advance. Desktop,
+  390px phone and 768x1024/1024x768 tablet emulation checked without overflow;
+  physical Android remains unverified. No live booking/payment was submitted.
+- Previous full suite stopped cleanly before edits: 3179 passed, exit 2,
+  JavaScript exit 0, unchanged fingerprint. New full run
+  `jasmine-party-validation-20261029` is pending.
+
+### October 29 Customer Booking Refresh (Local)
+
+- Package-only customer parties now reuse the workshop presentation with three
+  steps: party/time, group/contact details, and review/payment. Other schools retain
+  their existing inquiry workflow. Existing booking locks, capacity checks and
+  payment services remain authoritative; payment retries use the signed payment URL.
+- Workshop review now hands off directly to checkout, removing the redundant
+  fourth screen. New quotes include the location tax, snapshot the breakdown, and
+  reject stale rates without repricing existing reservations.
+- Added workshop contact phone, participant completion indicators and accessible
+  removal controls. Remaining selections survive removal. Scoped policy retains
+  ages 7 through adult, base design photos, and enforces the configured choose-later
+  deadline on the server as well as the screen.
+- Scoped customer copy references the studio's published party/cancellation pages,
+  including maker-seat wording and onsite accessories at $10-$18. The actual waiver
+  document is still required; the informational notice is not a substitute waiver.
+- With explicit approval, configured local sample availability for complete,
+  room-compatible Pasadena and Charlotte packages on November 10, 17 and 24 at
+  4 PM local time. No package prices were invented; incomplete/oversized packages
+  remain unavailable. No production updates, live payments or emails were made.
+- Verification: 422 focused Python tests and 22 JavaScript tests passed before
+  final polish. Chrome desktop, phone 390px, and tablet 768x1024/1024x768 layouts
+  checked; Back preserves party entries. Physical Android/keyboard testing remains
+  pending. Final payment/checkout regression: 141 tests passed; JavaScript rerun:
+  22 passed. Whitespace and migration drift checks passed. Full run
+  `jasmine-customer-flow-20261029` is pending; do not treat the previous interrupted
+  tax suite as a passing full run.
+- Weekly Studio Prep remains deferred at the owner's request.
+
+### October 29 Location Tax Defaults and Inquiry Retirement (Local)
+
+- Removed Past inquiries navigation for package-only studios. Old inquiry URLs
+  redirect to Reservations (or their linked reservation); retired inquiry POSTs
+  are rejected. Historical records and other schools' inquiry workflows remain.
+- Added editable Location default sales tax with validated 0-99.999% values.
+  Blank package tax inherits it; explicit zero remains an override. New quotes
+  snapshot the effective rate, stale forms are rejected, and booked totals and
+  successful retries retain their original prices. Workshop checkout is unchanged.
+- Seeded only the existing local demo locations: Pasadena 11%, Charlotte 8.25%,
+  Dallas/Houston 8.25%, New York City 8.875%. Official sources checked October 29:
+  https://cdtfa.ca.gov/taxes-and-fees/rates.aspx,
+  https://www.ncdor.gov/taxes-forms/sales-and-use-tax/sales-and-use-tax-rates/current-sales-and-use-tax-rates,
+  https://comptroller.texas.gov/taxes/sales/city.php,
+  https://portal.311.nyc.gov/article/?kanumber=KA-01675.
+  Saved addresses are blank: city-level defaults still require address/taxability
+  review before live use. No production data was changed.
+- Verification: 323 focused Python tests and three package-summary JS tests passed.
+  Migration applied locally; migration drift and whitespace checks passed.
+  Chrome desktop, 390px phone, 768x1024 and 1024x768 responsive checks found no
+  location-form overflow; editable controls now meet 44px minimum height.
+  Physical Android, virtual keyboard and device printing remain unverified.
+- Previous full run was interrupted cleanly before edits: 4153 passed, three
+  skipped, Python exit 2; JavaScript exit 0. This is not a full regression pass.
+  Replacement full run: `jasmine-location-tax-20261029`, pending completion.
+  Next substantive task: Weekly Studio Prep, with participant and reservation
+  prep, customer/internal notes, day/time grouping and printable weekly views.
+
+### October 29 Package-Only Party Booking (Local)
+
+- Scoped `scheduling.party_booking` policy requires published direct-booking
+  packages for new customer and staff bookings. Ketan confirmed staff phone
+  bookings use the same packages and offered times, without a custom override.
+  Generic approval-based workflows remain available to other schools. Historical
+  inquiries remain accessible under Past inquiries; new party reservations are
+  created directly through the shared capacity, inventory and payment-order service.
+- Exact booked counts determine price/capacity; estimates stay informational.
+  Existing staff-confirmed/offline-payment behavior is retained. Customer bookings
+  still use the existing payment hold/checkout. Package/time changes invalidate
+  stale forms, while identical successful retries preserve the original snapshot.
+  Profile locking serializes concurrent bookings. Reassigned staff cannot retrieve
+  previous-location bookings through a reused token.
+- New package editor defaults are two extra participants at $65 each. Existing
+  packages, bookings and agreed prices are not rewritten. Publishing requires a
+  room and explicit tax rate. Slot labels use the studio timezone. Full-studio
+  claims remove overlapping party slots and show workshop availability as zero;
+  existing checkout validation remains authoritative.
+- Configuration follow-up: current published local packages are approval-based,
+  without room/tax configuration. They need Booking rules saved and offered times
+  published before they become bookable. No tax rates or rooms were guessed.
+  The existing Local booking verification package was temporarily published for
+  browser QA and restored to draft afterward; its QA slot was unpublished.
+- Verification: 380 focused Python tests passed, including concurrent retry,
+  conflict rollback, stale prices, permissions and historical behavior. Six focused
+  JavaScript tests passed. Migration drift and whitespace checks passed (existing
+  duplicate jazzmin template-tag warning remains). Browser checks cover desktop,
+  390px phone, 768x1024 and 1024x768 Chrome responsive viewports: package/time
+  selection, keyboard focus, 44px staff controls and no horizontal overflow.
+  Physical Android, virtual-keyboard and device printing checks remain pending.
+- Full regression is launched separately in `jasmine-package-booking-20261029`;
+  results are pending until its status file is checked. No deployment, commit,
+  push, actual payment or email. Next substantive slice: Weekly Studio Prep.
+
+### October 29 Minimum Ages and Party Participant Estimates (Local)
+
+- Added an opt-in `scheduling.participant_age` school policy, configured to seven
+  for this studio. Shared workshop catalogs exclude underage/undisclosed choices;
+  server-side form choices reject forged IDs. Workshop age remains required when
+  designs are deferred. Missing configured age groups fail validation rather than
+  silently bypassing the rule. The configured group name must match the catalog's
+  non-stock age group; renaming it requires updating the operator configuration.
+- Customer and staff party age ranges accept bounded entries such as `7-9` or
+  `Adults`, rejecting under-seven, reversed and invalid ranges. Birthday and supplied
+  individual guest ages use the same minimum. Existing optional party age fields
+  remain optional, including unfinished guest lists. No historical participant
+  records or catalog options were deleted or rewritten; other schools have no
+  minimum-age rule unless explicitly configured. No seven-day behavior changed.
+- Jasmine's follow-up requested an estimated participant range. Ketan confirmed it
+  is informational: an exact booked count remains required for price and capacity.
+  Added `Estimated participants` with `e.g. 7-9 guests`, a 32-character limit and
+  bounded range validation. It is saved separately on the request and frozen in
+  the reservation summary. The existing quote/capacity calculation is unchanged.
+- Additive migration 0045 applied only to the existing local preview database.
+  No production migration, payment, email, commit or push. Customer package-only
+  flow is the next independent slice, not claimed complete here.
+- Verification: affected Python suite 259 passed; a further focused run with added
+  customer/staff rejection and persistence tests plus shared intake/selection tests
+  passed 141 tests (overlapping coverage, not 400 distinct tests). All 17 experience
+  JavaScript tests passed. Migration drift and whitespace checks passed. Browser
+  checks covered filtered ages, deferred-design age entry, customer/staff estimate
+  fields and the customer party form at 390px without horizontal overflow.
+- Previous overnight regression was interrupted after 4,065 passes and a signed
+  invitation token expiry during a long wall-clock delay. All 47 appointment tests
+  passed on rerun; the interrupted run is not a full pass. New full regression is
+  tracked separately in `jasmine-age-estimates-20261029/status.json` and remains
+  pending until checked. Screenshot: `party-age-estimate-mobile.png` in the local
+  visualization folder.
+
+### October 28 Jasmine Meeting: Agreed Work and Priority
+
+This is the current implementation queue. Older inquiry/custom-party plans below
+are history, not authorization to continue those flows for this studio. Existing
+bookings and inquiries must remain accessible. No deployment is implied.
+
+1. **Booking correctness (next substantive slice).** Enforce the configured minimum
+   participant age of seven in customer and staff submissions, not just dropdowns;
+   remove under-seven and undisclosed-age choices without rewriting history or
+   changing other schools. Party group ages remain short, validated free text with
+   examples such as `7-9 or Adults`. Use predefined published packages for direct
+   party booking, not new inquiries/custom packages. Default extra participants to
+   two at $65 each through scoped settings; preserve existing agreed prices. Verify
+   full-studio reservations block conflicting workshop availability and checkout.
+2. **Weekly Studio Prep.** Location-scoped, grouped by day and time range; editable
+   participant names/designs/colors; participant prep plus reservation-level extra
+   requests review. Overall Prepared must not contradict unfinished participants.
+   Explicit bulk preparation, reversible status, stale-edit protection and audit.
+   Selection changes reopen affected prep, name corrections do not. Show customer
+   and internal notes distinctly, existing materials, outstanding balances, and
+   overdue unfinished work. Print on regular pages, grouped by time, with each
+   location starting a new page. No shift/break scheduling. Partial party materials
+   need a deliberate allocation policy; saved selections are not proof of reserved
+   stock. Optional multiple instructors per session, without a staffing subsystem.
+3. **Customer booking simplification.** Plushie-maker and one-person/one-plushie
+   wording, existing waivers, base design images, clear participant add/remove and
+   completion controls, phone in staff details, subtotal/tax/total, combined final
+   review/payment step. Same party flow with payable-now versus later amounts.
+   Accessories remain customer notes; verify existing-site pricing/copy and guide
+   before adding them. Mobile calendar reservation View action is the first small
+   defect being addressed alongside this scope audit.
+4. **Communications and documents.** Reuse enrollment email templates/composer and
+   sending infrastructure for editable manual emails and payment-email resend.
+   Jasmine already owns the template/trigger list; no duplicate request to her.
+   Cancellation messages require staff review, not unconditional automatic sending.
+   Add printable/emailable booking summaries showing subtotal, tax, paid and balance;
+   do not call an unpaid summary a receipt or build a second invoicing engine.
+   Formal Square invoice integration is a separate decision, not already implemented.
+5. **Post-launch, not blockers.** Partial cancellation credits (no expiry initially),
+   gift-card/promo management and Wix import/redemption, analytics and customer
+   rescheduling. Keep extension points compatible; do not promise automatic Wix
+   redemption or build these financial systems as incidental launch work.
+
+**Policy hold:** The exact seven-day locking/incomplete-selection behavior is not
+recoverable from the notes. Do not invent it or ask Jasmine again now. Record the
+confirmed choose-later guidance, but defer boundary-sensitive behavior until the
+answer is recovered. Do not request another gift-card redemption demonstration.
+
+**Initial audit:** The existing age options include Under 5, 5, 6 and Prefer not to
+say; party guest ages currently accept zero. Correct enforcement must cover the
+shared intake paths, not only the demo seed. Weekly prep currently has reservation
+readiness but needs participant readiness and invalidation. The calendar roster's
+720px minimum table width pushes View out of the initial mobile viewport.
+
+**Acceptance gates:** Focused tests and desktop/mobile review per slice; shared
+school isolation, authorization, concurrent edits and money/stock invariants where
+affected. Previous background regression passed unchanged; new work needs its own
+verification. No release, customer email or real payment is authorized by this queue.
+
+**First completed slice (local):** Calendar session rosters now stack into labeled
+rows on phones, with View alongside the customer rather than beyond a 720px-wide
+table. Desktop and print retain the table layout. Verified at 320px and 390px with
+no roster horizontal overflow, opened the correct reservation through View, and
+reviewed desktop rendering. All 19 calendar Python tests and 15 calendar JavaScript
+tests passed; whitespace checks passed. Screenshot: local visualization artifact
+`calendar-mobile-meeting-followup.png`. Full regression will run separately; age
+enforcement and the weekly prep feature are not claimed complete.
 
 ### October 26 Booking Journey Release Audit
 

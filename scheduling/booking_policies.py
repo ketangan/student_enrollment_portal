@@ -17,3 +17,17 @@ def notice(school, kind):
         return {}
     return {"revision": raw.get("revision", ""), "source_url": url,
             "text": raw.get(f"{kind}_text") or ""}
+
+
+def party_acknowledgments(school):
+    config = load_school_config(school.slug)
+    raw = (config.raw if config else {}).get("scheduling", {}).get("booking_policies") or {}
+    acknowledgments = raw.get("party_acknowledgments")
+    if not acknowledgments:
+        return {}
+    if not isinstance(acknowledgments, dict) or not all(
+        isinstance(acknowledgments.get(key), str) and acknowledgments[key].strip()
+        for key in ("revision", "waiver", "attendance", "policy")
+    ) or not notice(school, "party"):
+        raise ValidationError("Party acknowledgments need complete text, a revision and a valid policy URL.")
+    return {**acknowledgments, "source_url": notice(school, "party")["source_url"]}

@@ -97,6 +97,130 @@ def test_partial_full_payment_and_correction(paid_booking, booking_member):
     assert staff_reservations(item.profile).get(pk=item.pk).net_received == 6500
 
 
+def test_inline_correction_preserves_evidence_and_retries(paid_booking, booking_member, client):
+    item = paid_booking
+    original = record(booking_member, item, data(item, amount="30", description="Original description"))
+    raw = data(item, amount="20", external_reference="Corrected-456", paid_on="2000-01-01",
+        method="cash", description="Must not change")
+    client.force_login(booking_member.user)
+    page = client.get(url(booking_member, item), {"edit_payment": original.pk})
+    form = page.context["payment_correction_form"]
+    assert set(form.fields) == {"key", "expected_balance", "expected_total", "amount", "external_reference"}
+    assert b'form="payment-correction-form"' in page.content
+    response = client.post(url(booking_member, item), {**raw, "action": "correct_terminal", "entry_id": original.pk})
+    assert response.status_code == 302
+    replacement = terminal.correct(booking_member.user, item.profile.school.slug, item.public_id, original.pk, raw)
+    original.refresh_from_db()
+    assert original.amount_cents == 3000 and original.external_reference == "Receipt-123"
+    assert replacement.amount_cents == 2000 and replacement.external_reference == "Corrected-456"
+    assert (replacement.channel, replacement.actor_id, replacement.paid_on, replacement.note) == (
+        original.channel, original.actor_id, original.paid_on, original.note)
+    assert item.order.entries.filter(kind="void").count() == 1
+    assert totals(item.order)["outstanding_cents"] == 2000
+    assert totals(item.order)["refunded_cents"] == 0
+    assert not Refund.objects.exists()
+    assert AdminAuditLog.objects.filter(changes__action="terminal_payment_corrected").count() == 1
+    with pytest.raises(ValidationError):
+        terminal.correct(booking_member.user, item.profile.school.slug, item.public_id, original.pk,
+            data(item, amount="21"))
+
+
+@pytest.mark.parametrize("override", [{"amount": "0"}, {"amount": "40.01"},
+    {"amount": "NaN"}, {"expected_total": 1}, {"external_reference": "online-deposit"}])
+def test_invalid_inline_correction_does_not_void_original(paid_booking, booking_member, override):
+    item = paid_booking
+    entry = record(booking_member, item, data(item, amount="30"))
+    with pytest.raises(ValidationError):
+        terminal.correct(booking_member.user, item.profile.school.slug, item.public_id, entry.pk,
+            data(item, amount="20", **override) if "amount" not in override else data(item, **override))
+    assert not LedgerEntry.objects.filter(reverses=entry).exists()
+    assert totals(item.order)["outstanding_cents"] == 1000
+
+
+def test_inline_correction_keeps_extra_charge_total(paid_booking, booking_member):
+    item = paid_booking
+    entry = record(booking_member, item, data(item, amount="55", description="Extra materials"))
+    replacement = terminal.correct(booking_member.user, item.profile.school.slug, item.public_id, entry.pk,
+        data(item, amount="50", external_reference="Fixed"))
+    assert replacement.extra_charge_cents == entry.extra_charge_cents == 1500
+    assert totals(item.order)["total_cents"] == 8000
+    assert totals(item.order)["outstanding_cents"] == 500
+
+
+def test_inline_correction_rejects_viewer_and_provider_entry(paid_booking, booking_member, client):
+    item = paid_booking
+    entry = record(booking_member, item, data(item, amount="30"))
+    raw = {**data(item, amount="20"), "action": "correct_terminal", "entry_id": entry.pk}
+    client.force_login(booking_member.user)
+    booking_member.role = "viewer"
+    booking_member.save()
+    assert client.post(url(booking_member, item), raw).status_code == 404
+    booking_member.role = "owner"
+    booking_member.save()
+    provider_entry = item.order.entries.exclude(channel="terminal").get()
+    assert client.post(url(booking_member, item), {**raw, "entry_id": provider_entry.pk}).status_code == 404
+    assert not LedgerEntry.objects.filter(reverses=entry).exists()
+
+
+def test_inline_correction_waits_for_active_checkout(paid_booking, booking_member):
+    item = paid_booking
+    entry = record(booking_member, item, data(item, amount="30"))
+    item.order.attempts.update(state="unknown")
+    with pytest.raises(ValidationError, match="checkout"):
+        terminal.correct(booking_member.user, item.profile.school.slug, item.public_id, entry.pk, data(item, amount="20"))
+    assert not LedgerEntry.objects.filter(reverses=entry).exists()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_concurrent_inline_corrections_serialize(paid_booking, booking_member):
+    item = paid_booking
+    entry = record(booking_member, item, data(item, amount="30"))
+    raw = data(item, amount="20", external_reference="Fixed")
+    barrier = Barrier(2)
+
+    def submit():
+        close_old_connections()
+        try:
+            barrier.wait(timeout=10)
+            return terminal.correct(booking_member.user, item.profile.school.slug, item.public_id, entry.pk, raw).pk
+        finally:
+            close_old_connections()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(submit) for _ in range(2)]
+        assert len({future.result(timeout=15) for future in futures}) == 1
+    assert item.order.entries.filter(kind="void").count() == 1
+    assert totals(item.order)["outstanding_cents"] == 2000
+
+
+def test_cash_extra_purchase_retry_and_correction(paid_booking, booking_member):
+    item = paid_booking
+    raw = data(item, method="cash", amount="55", description="Extra materials")
+    entry = record(booking_member, item, raw)
+    assert entry.channel == "cash" and entry.actor == booking_member.user
+    assert entry.external_reference == "" and entry.note == "Extra materials"
+    assert entry.extra_charge_cents == 1500
+    assert totals(item.order)["total_cents"] == 8000
+    assert record(booking_member, item, raw).pk == entry.pk
+    with pytest.raises(ValidationError, match="different details"):
+        record(booking_member, item, {**raw, "description": "Changed"})
+    with pytest.raises(ValidationError, match="outside Pontora"):
+        cancel(booking_member.user, item.profile.school.slug, item.public_id,
+            key=uuid.uuid4(), resolution="with_refund", reason="Cancel")
+    correction = void(booking_member, item, entry)
+    assert correction.channel == "cash"
+    assert totals(item.order)["total_cents"] == 6500
+    assert totals(item.order)["outstanding_cents"] == 4000
+    assert totals(item.order)["refunded_cents"] == 0
+    assert "Cash entry voided (no refund)" in [row["title"] for row in audit_page(item, 1)["rows"]]
+
+
+def test_invalid_payment_method_is_not_recorded(paid_booking, booking_member):
+    with pytest.raises(ValidationError):
+        record(booking_member, paid_booking, data(paid_booking, method="other"))
+    assert totals(paid_booking.order)["paid_cents"] == 2500
+
+
 @pytest.mark.parametrize("changes", [
     {"amount": "0"}, {"amount": "-2"}, {"amount": "40.001"},
     {"amount": "NaN"}, {"confirm": ""}, {"external_reference": "x" * 101}, {"key": "bad"},
@@ -199,11 +323,11 @@ def test_optional_receipt_and_removed_note(paid_booking, booking_member, client)
     address = url(booking_member, paid_booking)
     page = client.get(address)
     assert b'Square receipt number (optional)' in page.content
-    assert b'Record payment already received' in page.content
-    assert b'Take online payment' in page.content
+    assert b'Record $40.00 payment' in page.content
+    assert b'Take online payment' not in page.content
     assert b'Collect balance:' not in page.content
     payment_section = page.content.split(b'aria-labelledby="money-title"', 1)[1].split(b'aria-labelledby="internal-notes"', 1)[0]
-    assert b'<details' not in payment_section
+    assert b'class="payment-columns"' in payment_section
     assert b'aria-labelledby="terminal-payment-title"' in page.content
     assert b'name="note"' not in page.content
     assert b'Payment &amp; refund status' not in page.content
@@ -230,7 +354,8 @@ def test_only_unresolved_payment_controls_remain(paid_booking, booking_member, c
         success_url="https://example.invalid/", cancel_url="https://example.invalid/")
     page = client.get(address)
     assert list(page.context["attempts"]) == [attempt]
-    assert b'Check payment status' in page.content and b'Close checkout' in page.content
+    assert b'is being verified' in page.content
+    assert b'Check payment status' not in page.content and b'Close checkout' not in page.content
     assert b'Payment &amp; refund status' not in page.content
     attempt.state = "expired"
     attempt.save()
@@ -283,14 +408,15 @@ def test_correction_permissions_reason_and_source(paid_booking, booking_member):
 
 
 @pytest.mark.parametrize("role", ["scheduler", "viewer"])
-def test_non_financial_staff_denied(paid_booking, booking_member, client, role):
+@pytest.mark.parametrize("method", ["terminal", "cash"])
+def test_non_financial_staff_denied(paid_booking, booking_member, client, role, method):
     booking_member.role = role
     booking_member.save()
     client.force_login(booking_member.user)
     response = client.get(url(booking_member, paid_booking))
     assert response.status_code == 200
-    assert b"Record payment already received" not in response.content
-    assert client.post(url(booking_member, paid_booking), {**data(paid_booking), "action": "record_terminal"}).status_code == 404
+    assert b'data-payment-dialog="terminal-payment-dialog"' not in response.content
+    assert client.post(url(booking_member, paid_booking), {**data(paid_booking, method=method), "action": "record_terminal"}).status_code == 404
     with pytest.raises(Http404):
         record(booking_member, paid_booking)
 
@@ -330,19 +456,22 @@ def test_staff_ui_correction_and_no_automatic_refund(paid_booking, booking_membe
     client.force_login(booking_member.user)
     address = url(booking_member, paid_booking)
     page = client.get(address)
-    assert b"Record payment already received" in page.content
+    assert b"Record $40.00 payment" in page.content
     assert client.post(address, {**data(paid_booking), "action": "record_terminal"}).status_code == 302
     page = client.get(address)
     assert b"Staff-recorded" in page.content and b"Receipt-123" in page.content
-    assert b"Record payment already received" in page.content
-    assert b'data-payment-dialog="correct-payment-' in page.content
+    assert b"> Record payment</button>" in page.content
+    assert b'data-inline-section="payment"' in page.content
+    assert b'aria-label="Correct payment of $40.00"' in page.content
+    assert b'title="Correct payment"><i data-lucide="pencil"' in page.content
+    assert b'>Correct entry</button>' not in page.content
     with pytest.raises(ValidationError, match="outside Pontora"):
         cancel(booking_member.user, booking_member.profile.school.slug, paid_booking.public_id,
             key=uuid.uuid4(), resolution="with_refund", reason="Cancel")
     entry = paid_booking.order.entries.get(channel="terminal")
     response = client.post(address, {"action": "void_terminal", "entry_id": entry.pk, "reason": "Wrong amount", "confirm": "on"})
     assert response.status_code == 302
-    assert b"Voided" in client.get(address).content
+    assert b"Terminal entry voided" in client.get(address).content
     assert totals(paid_booking.order)["refunded_cents"] == 0
     invalid = client.post(address, {**data(paid_booking, amount="0"), "action": "record_terminal"})
     assert invalid.status_code == 400
@@ -387,12 +516,13 @@ def test_void_cannot_erase_money_already_refunded(paid_booking, booking_member):
     assert not LedgerEntry.objects.filter(kind="void").exists()
 
 
-def test_local_reset_preserves_terminal_receipts(inventory, booking_member):
+@pytest.mark.parametrize("method", ["terminal", "cash"])
+def test_local_reset_preserves_terminal_receipts(inventory, booking_member, method):
     from scheduling.experience_demo.reset import reset_demo
     item = reserve(booking_member, party_request(inventory))
     item.state = "confirmed"
     item.save()
-    entry = record(booking_member, item, data(item, amount="10"))
+    entry = record(booking_member, item, data(item, amount="10", method=method))
     void(booking_member, item, entry)
     school = item.profile.school
     school.slug = "plushumi-demo"
@@ -476,9 +606,10 @@ def test_online_checkout_and_terminal_payment_serialize(paid_booking, booking_me
 
 
 @pytest.mark.django_db(transaction=True)
-def test_concurrent_submits_only_record_once(paid_booking, booking_member):
+@pytest.mark.parametrize("method", ["terminal", "cash"])
+def test_concurrent_submits_only_record_once(paid_booking, booking_member, method):
     barrier = Barrier(2)
-    raw = data(paid_booking)
+    raw = data(paid_booking, method=method)
     def submit():
         close_old_connections()
         try:

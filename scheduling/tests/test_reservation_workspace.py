@@ -28,6 +28,32 @@ from .test_camps import camp, register
 pytestmark = pytest.mark.django_db
 
 
+@pytest.mark.parametrize("received", [2500, 10000])
+def test_record_payment_stays_in_left_balance_column(inventory, booking_member, client, received):
+    item = reserve(booking_member, workshop_request(inventory))
+    settle(booking_member, item, received)
+    client.force_login(booking_member.user)
+    html = client.get(path(booking_member, "reservation_detail", public_id=item.public_id)).content.decode()
+    balance, history = html.split('<div class="payment-balance">', 1)[1].split('<div class="payment-history">', 1)
+    assert 'data-payment-dialog="terminal-payment-dialog"' in balance
+    assert 'data-payment-dialog="terminal-payment-dialog"' not in history.split('</div></div>', 1)[0]
+
+
+@pytest.mark.parametrize("state,prepared,current", [("confirmed", False, "Confirmed"), ("confirmed", True, "Prepared"), ("completed", True, "Completed")])
+def test_reservation_progress_marks_only_the_current_step(stock, state, prepared, current):
+    from xml.etree import ElementTree
+    item = stock_reserve(stock)
+    item.state = state
+    item.prepared_at = timezone.now() if prepared else None
+    item.save()
+    response = stock.client.get(url(stock, "reservation_detail", public_id=item.public_id))
+    markup = response.content.decode().split('<ol class="reservation-progress"', 1)[1].split('</ol>', 1)[0]
+    progress = ElementTree.fromstring('<ol class="reservation-progress"' + markup + '</ol>')
+    active = progress.findall('li[@aria-current="step"]')
+    assert len(active) == 1 and ''.join(active[0].itertext()).strip() == current
+    assert len(progress.findall('li[@class="done"]')) == ["Confirmed", "Prepared", "Completed"].index(current)
+
+
 def cancel_data(**changes):
     return {"key": uuid.uuid4(), "resolution": "without_refund", "reason": "Plans changed", **changes}
 
@@ -37,20 +63,21 @@ def test_list_and_record_tabs_have_distinct_scope(inventory, booking_member, cli
     client.force_login(booking_member.user)
     listing = client.get(path(booking_member, "reservations"))
     assert "Workshop Prep" not in [tab["label"] for tab in listing.context["booking_navigation"]["section"]["tabs"]]
-    assert b">Prep</th>" in listing.content and b"On hold" in listing.content
+    assert b"Prep status" in listing.content and b"On hold" in listing.content
     target = path(booking_member, "reservation_detail", public_id=item.public_id)
     response = client.get(target)
     assert [tab["label"] for tab in response.context["booking_navigation"]["section"]["tabs"]] == ["Reservation", "Workshop Prep"]
-    assert b"<dt>Room</dt>" not in response.content
+    assert b'data-reservation-panel="preparation" hidden' in response.content
     assert b"customer@example.com" in response.content and b"<dt>Studio</dt>" in response.content
-    assert b"Record offline" not in response.content and b"Payment history" not in response.content
+    assert b"Record offline" not in response.content and b"Payment history" in response.content
     assert b"Audit log" in response.content and b"Reservation created" in response.content
     assert b'name="confirm"' not in response.content
     assert client.post(target, {"kind": "payment", "amount": "1"}).status_code == 400
     assert not item.order.entries.exists()
     assert response.context["location_action"] == path(booking_member, "reservations")
-    body = response.content.decode().split('class="reservation-money"')[1].split('</dl>')[0]
-    assert body.index('Total') < body.index('Deposit') < body.index('Received') < body.index('Balance') < body.index('Refunded')
+    body = response.content.decode().split('class="payment-totals"')[1].split('</dl>')[0]
+    assert body.index('Total') < body.index('Received') < body.index('Refunded')
+    assert response.content.count(b'id="internal-notes"') == 1
 
 
 def test_prep_is_one_booking_and_ready_state_is_in_list_and_audit(stock):

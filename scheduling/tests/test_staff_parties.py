@@ -39,7 +39,7 @@ def data_for(member, studio, **changes):
     data.update({"request_token": staff_parties.token_for(member.user, member.profile),
         "offering": str(studio.pk), "organizer_name": "Phone customer", "organizer_email": "phone@example.com",
         "starts_at": (timezone.now().astimezone(ZoneInfo(studio.location.timezone_name)) + timedelta(days=6)).strftime("%Y-%m-%dT%H:%M"),
-        "group_size": "24", "space": "exclusive", **changes})
+        "group_size": "24", "space": "exclusive", "duration_minutes": "120", **changes})
     return data
 
 
@@ -63,13 +63,15 @@ def test_staff_entry_reuses_inquiry_review_and_online_payment_link(booking_membe
     response = client.post(route(booking_member), data_for(booking_member, studio))
     assert response.status_code == 302
     item = PartyRequest.objects.get()
-    assert item.group_size == 24 and item.status == "pending" and item.ends_at is None
+    assert item.group_size == 24 and item.status == "pending" and item.ends_at - item.starts_at == timedelta(hours=2)
     assert item.room is None and item.proposed_total is None
     assert item.materials == [] and not Reservation.objects.exists() and not PaymentOrder.objects.exists()
     audit = AdminAuditLog.objects.get(model_label="scheduling.partyrequest")
     assert audit.actor == booking_member.user and audit.changes["created_by_staff"]
     assert audit.action == "add"
     assert client.get(response.url).status_code == 200
+    assert b'name="duration_minutes"' not in client.get(response.url).content
+    assert b'name="payment_at_booking"' not in client.get(response.url).content
     review = review_inquiry(booking_member.user, profile.school.slug, item.public_id, {
         "revision": "0", "status": "reviewed", "room": str(studio.location.rooms.get().pk),
         "duration_minutes": "120", "proposed_total": "1560", "payment_at_booking": "deposit",
@@ -85,7 +87,7 @@ def test_staff_entry_reuses_inquiry_review_and_online_payment_link(booking_membe
     assert reservation.order.total_cents == 156000 and reservation.order.deposit_cents == 60000
     assert not LedgerEntry.objects.exists()
     page = client.get(route(booking_member, "reservation_detail", public_id=reservation.public_id))
-    assert b"Copy payment link" in page.content
+    assert b"Copy payment link" not in page.content
     assert page.context["share_payment_url"].startswith("http")
     from scheduling.checkout import payment_token
     payment_page = Client().get(route(booking_member, "customer_payment", token=payment_token(reservation)))
@@ -142,7 +144,8 @@ def test_custom_group_reuses_mapped_square_account_and_defers_materials(mapped, 
     ("organizer_email", "not-email"), ("organizer_name", ""), ("organizer_phone", "abc"),
     ("group_size", "0"), ("group_size", "10001"), ("group_size", "1.5"),
     ("group_size", "-1"), ("group_size", "abc"), ("space", "invalid"),
-    ("starts_at", "2000-01-01T10:00"), ("starts_at", "bad"), ("request_token", "bad")])
+    ("starts_at", "2000-01-01T10:00"), ("starts_at", "bad"), ("request_token", "bad"),
+    ("duration_minutes", ""), ("duration_minutes", "14"), ("duration_minutes", "721"), ("duration_minutes", "1.5")])
 def test_invalid_input_writes_nothing(booking_member, studio, field, value):
     item, form = staff_parties.create(booking_member.user, booking_member.profile.school.slug,
         data_for(booking_member, studio, **{field: value}))

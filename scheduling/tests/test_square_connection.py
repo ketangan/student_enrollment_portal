@@ -307,6 +307,22 @@ def test_status_expiry_and_due_check(client, setup):
     assert saved.display_status == "Verification due"
 
 
+@pytest.mark.parametrize("state", ["connected", "due", "expired", "attention", "disconnected"])
+def test_connection_badge_only_shows_success_for_current_connection(client, setup, state):
+    saved = connected(client, setup)
+    if state == "due":
+        saved.next_check_at = timezone.now() - timedelta(seconds=1)
+    elif state == "expired":
+        saved.expires_at = timezone.now() - timedelta(seconds=1)
+    else:
+        saved.status = state
+    saved.save()
+    response = client.get(url(setup, "integrations"), secure=True)
+    assert response.status_code == 200
+    expected_class = "confirmed" if state == "connected" else "draft"
+    assert f'class="status {expected_class}">{saved.display_status}</span>' in response.content.decode()
+
+
 @pytest.mark.parametrize("change", ["app", "cipher", "environment", "payload"])
 def test_stored_credentials_cannot_be_rebound(client, setup, settings, change):
     saved = connected(client, setup)

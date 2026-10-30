@@ -169,8 +169,8 @@ def check_items(offering, counts, exclude=None, *, starts_at=None):
     return check_materials(offering, material_requirements(offering, counts), exclude, starts_at=starts_at)
 
 
-def check_selections(offering, participants, *, starts_at=None):
-    return check_items(offering, selection_items(offering, participants), starts_at=starts_at)
+def check_selections(offering, participants, *, starts_at=None, exclude=None):
+    return check_items(offering, selection_items(offering, participants), starts_at=starts_at, exclude=exclude)
 
 
 def allocate(reservation):
@@ -351,9 +351,9 @@ def stock_rows(profile, location=None, catalog=None):
     return rows
 
 
-def availability_payload(offering, *, starts_at=None):
+def availability_payload(offering, *, starts_at=None, exclude=None):
     rows = stock_rows(offering.location.profile, offering.location, offering.inventory_catalog)
-    forecast = StockForecast([row["level"] for row in rows]) if starts_at is not None else None
+    forecast = StockForecast([row["level"] for row in rows], exclude=exclude) if starts_at is not None else None
     materials = {str(row["level"].material_id): int((forecast.available(row["level"], starts_at) if forecast else row["available"]) * 1000) for row in rows}
     variants = []
     for variant in offering.inventory_catalog.items.filter(is_active=True).prefetch_related("requirements__material"):

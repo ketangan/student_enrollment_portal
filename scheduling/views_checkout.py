@@ -12,8 +12,6 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from core.payments import checkout, service
 from core.services import billing_stripe
-from .access import require_location_access, get_staff_reservation
-from .capabilities import has_capability
 from .checkout import customer_reservation, payment_choices, prepare_booking_checkout, settle_booking_event, validate_booking_checkout
 
 
@@ -32,6 +30,7 @@ def customer_payment(request, school_slug, token):
         else:
             return redirect(url or return_url)
     item.refresh_from_db()
+    from .customer_edits import editable
     due = checkout.amount_due(item.order)
     try:
         validate_booking_checkout(item)
@@ -42,29 +41,44 @@ def customer_payment(request, school_slug, token):
     amounts = service.totals(item.order)
     from .payment_requests import deposit_received
     payment_requirement_met = deposit_received(item)
-    can_view_reservation = False
-    if request.user.is_authenticated and not item.visit_booking_id and has_capability(item.profile, "reservations"):
-        try:
-            staff_profile, _ = require_location_access(request.user, school_slug)
-            get_staff_reservation(staff_profile, item.public_id)
-        except Http404:
-            pass
-        else:
-            can_view_reservation = True
     context = {"item": item, "business": item.profile.school, "due": Decimal(due) / 100,
+               "payment_form_url": reverse("scheduling:customer_payment", kwargs={"school_slug": school_slug, "token": token}),
                "amounts": amounts, "ready": ready, "error": error, **payment_choices(item.order),
-               "can_view_reservation": can_view_reservation,
                "balance_due_today": timezone.localdate(timezone=ZoneInfo(item.snapshot["timezone"])) >= timezone.localdate(item.starts_at, ZoneInfo(item.snapshot["timezone"])),
                "deposit_due": bool(item.order.deposit_cents and amounts["net_cents"] < item.order.deposit_cents),
                "confirmed": item.state in ("confirmed", "completed"),
                "payment_requirement_met": payment_requirement_met}
     if item.party_request_id and item.party_request.offering.inventory_catalog_id:
-        from .guest_lists import editable, token_for
-        if editable(item) and payment_requirement_met:
+        from .guest_lists import editable as guest_list_editable, token_for
+        if guest_list_editable(item) and payment_requirement_met:
             context["guest_list_url"] = reverse("scheduling:guest_list", kwargs={
                 "school_slug": school_slug, "token": token_for(item)})
     context["hold_expired"] = item.state == "held" and item.hold_until <= timezone.now()
-    response = render(request, "scheduling/customer_payment.html", context, status=400 if error else 200)
+    from .customer_experience import checkout_presentation
+    context.update(checkout_presentation(item, context["payment_form_url"]))
+    if editable(item):
+        context["customer_edit_url"] = reverse("scheduling:customer_edit_booking", kwargs={"school_slug": school_slug, "token": token})
+    context["review_due"] = context["payment_active_amount"] or context["payment_minimum"]
+    context["review_later"] = max(Decimal(0), amounts["outstanding"] - context["review_due"])
+    template = "scheduling/party_payment.html" if context.get("party_experience") else "scheduling/customer_payment.html"
+    if context.get("workshop_experience") and editable(item):
+        from .experience_demo.config import context as experience_context
+        from .experience_demo import service as experience_service
+        _, config = experience_context(request, school_slug)
+        source = item.workshop_request
+        rows = [{"name": person.name, "selections": person.selections,
+                 "selections_deferred": person.selections_deferred} for person in source.participants.all()]
+        experience_service.selection_previews(rows, source.session.offering, config)
+        breakdown = source.session_snapshot.get("price_breakdown", {})
+        context.update(saved_review=True, demo=config, rows=rows, session=source.session,
+            purchaser={"purchaser_name": source.purchaser_name, "purchaser_email": source.purchaser_email,
+                       "purchaser_phone": source.purchaser_phone},
+            unit_price=Decimal(config["price_cents"])/100, total=amounts["total"],
+            subtotal=Decimal(breakdown.get("subtotal_cents", item.order.total_cents))/100,
+            tax=Decimal(breakdown.get("tax_cents", 0))/100, stripe_checkout=True,
+            due_now=context["review_due"], due_later=context["review_later"])
+        template = "scheduling/experience/review.html"
+    response = render(request, template, context, status=400 if error else 200)
     response["Referrer-Policy"] = "same-origin"
     return response
 

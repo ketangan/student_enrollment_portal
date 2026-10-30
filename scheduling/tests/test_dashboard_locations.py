@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone as dt_timezone
 from zoneinfo import ZoneInfo
 from urllib.parse import parse_qs, urlsplit
+from html import unescape
+import re
 
 import pytest
 from django.core.exceptions import ValidationError
@@ -221,7 +223,10 @@ def test_location_survives_review_tabs_and_pagination(client, inventory, second_
     client.force_login(booking_member.user)
     first = client.get(url(profile, name), {"review": "1", "location": place.pk})
     assert first.context["items"].paginator.count == 51
-    assert f'?location={place.pk}&amp;page=2&amp;review=1'.encode() in first.content
+    links = re.findall(r'href="([^"]+)"', first.content.decode())
+    expected = {"location": [str(place.pk)], "page": ["2"], "review": ["1"]}
+    assert any(all(parse_qs(urlsplit(unescape(link)).query).get(key) == value
+                   for key, value in expected.items()) for link in links)
     second = client.get(url(profile, name), {"review": "1", "location": place.pk, "page": "2"})
     assert len(second.context["items"]) == 1
     assert second.context["selected_location"] == place

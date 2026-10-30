@@ -122,7 +122,7 @@ def detail_time(start, end):
 
 
 def calendar_detail(profile, kind, pk):
-    from .reservation_queries import staff_reservations
+    from .reservation_queries import ATTENTION, staff_reservations
     if not str(pk).isdecimal() or len(str(pk)) > 18:
         raise Http404
     if kind == "session":
@@ -136,6 +136,8 @@ def calendar_detail(profile, kind, pk):
             predicate |= Q(occurrences__session=session)
         url = reverse("scheduling:workshop_detail", kwargs={"school_slug": profile.school.slug, "pk": session.offering_id})
         room = session.room.name if session.room else ""
+        capacity, published = session.capacity, session.is_published
+        category = "Camp" if has_capability(profile, "camps") and session.camps.exists() else "Group workshop"
     elif kind == "party" and has_capability(profile, "parties") and has_capability(profile, "reservations"):
         try:
             item = active_claims().select_related("party_request__offering__location", "room").get(pk=pk, profile=profile, party_request__offering__in=offerings(profile))
@@ -144,19 +146,28 @@ def calendar_detail(profile, kind, pk):
         title, start, end, location = item.snapshot.get("workshop", "Party"), item.starts_at, item.ends_at, item.party_request.offering.location
         predicate, room = Q(pk=item.pk), item.room.name if item.room else ""
         url = reverse("scheduling:reservation_detail", kwargs={"school_slug": profile.school.slug, "public_id": item.public_id})
+        capacity, published, category = item.quantity, False, "Party"
     else:
         raise Http404
     rows = []
+    summary = {"booked": 0, "capacity": capacity, "open": capacity, "needs_action": 0, "reservation_count": 0, "payments": []}
     if has_capability(profile, "reservations"):
         reservations = staff_reservations(profile).filter(predicate).filter(pk__in=active_claims().values("pk")).distinct().order_by("created_at")
+        totals = reservations.aggregate(booked=Sum("quantity"), needs_action=Count("pk", filter=ATTENTION), reservation_count=Count("pk"))
+        summary.update(booked=totals["booked"] or 0, needs_action=totals["needs_action"], reservation_count=totals["reservation_count"])
+        summary["open"] = max(0, capacity - summary["booked"])
+        summary["payments"] = list(reservations.order_by().values("order__currency").annotate(
+            received=Sum("net_received"), expected=Sum("effective_total")))
         for item in reservations[:501]:
             rows.append({"name": item.snapshot.get("name", "Guest"), "quantity": item.quantity,
                 "state": item.get_state_display(), "received": item.net_received, "total": item.effective_total,
+                "payment_status": "Paid" if item.net_received >= item.effective_total else "Part paid" if item.net_received > 0 else "Unpaid",
                 "currency": item.order.currency, "url": reverse("scheduling:reservation_detail", kwargs={"school_slug": profile.school.slug, "public_id": item.public_id})})
     local_start, local_end = local_times(start, end, location)
     return {"title": title, "location": location.name, "room": room,
         "time": detail_time(local_start, local_end),
-        "url": url, "reservations": rows[:500], "truncated": len(rows) > 500}
+        "url": url, "category": category, "availability": "Reserved" if kind == "party" else "Published" if published else "Unpublished",
+        "summary": summary, "reservations": rows[:500], "truncated": len(rows) > 500}
 
 
 def calendar_summary(profile, events):

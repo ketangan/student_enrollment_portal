@@ -1,10 +1,10 @@
-{% extends 'scheduling/public_base.html' %}
+{% extends checkout_base|default:'scheduling/public_base.html' %}
 {% load static %}
 {% block title %}Secure payment{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{% static 'scheduling/square_checkout.css' %}">
 <section class="square-checkout">
-  <a href="{{ attempt.cancel_url }}" class="back-link">&larr; Back to reservation</a>
+  <a href="{{ checkout_back_url }}" class="back-link">&larr; {% if checkout_base %}Back to review{% else %}Back to payment summary{% endif %}</a>
   <h1>Complete your payment</h1>
   <p class="muted">{{ item.snapshot.workshop }}</p>
   <dl class="square-amounts">
@@ -15,7 +15,7 @@
   {% if ready %}
   <form id="square-payment-form" method="post">
     {% csrf_token %}<div id="square-card"></div>
-    <button id="square-pay" class="primary" type="submit" disabled>Pay ${{ attempt.amount|floatformat:2 }}</button>
+    <button id="square-pay" class="{% if checkout_base %}button{% else %}primary{% endif %}" type="submit" disabled>Pay ${{ attempt.amount|floatformat:2 }}</button>
   </form>
   <noscript><p>Enable JavaScript to use the secure payment form.</p></noscript>
   {{ square_options|json_script:'square-options' }}

@@ -230,10 +230,14 @@ class PartyMaterialRow(forms.Form):
     item = forms.ModelChoiceField(queryset=CatalogVariant.objects.none(), label="Design / color")
     quantity = forms.IntegerField(min_value=1, max_value=10000, label="Participants")
 
-    def __init__(self, *args, offering, guest_mode=False, **kwargs):
+    def __init__(self, *args, offering, guest_mode=False, allow_incomplete=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.guest_mode = guest_mode
         if guest_mode:
+            from .participant_policy import age_policy
+            policy = age_policy(offering.location.profile.school)
+            if policy:
+                self.fields["guest_age"] = forms.IntegerField(min_value=policy["minimum"], max_value=130, required=False, label="Age")
             self.fields["guest_name"].label = "Name"
             self.fields["quantity"].initial = 1
             self.fields["quantity"].disabled = True
@@ -251,6 +255,10 @@ class PartyMaterialRow(forms.Form):
                 self.fields[key] = forms.ModelChoiceField(queryset=group.options.filter(is_active=True), label=group.name)
                 self.fields[key].initial = next((pk for pk in previous.option_ids if group.options.filter(pk=pk).exists()), None) if previous else None
             self.order_fields(["design", "color", "quantity"])
+        if allow_incomplete:
+            for name in ("item", "design", "color"):
+                if name in self.fields:
+                    self.fields[name].required = False
 
     def clean(self):
         data = super().clean()
@@ -263,14 +271,14 @@ class PartyMaterialRow(forms.Form):
         return data
 
 
-def party_material_forms(offering, data=None, initial=None, *, guest_mode=False):
+def party_material_forms(offering, data=None, initial=None, *, guest_mode=False, allow_incomplete=False):
     if not offering.inventory_catalog_id:
         return None
     factory = forms.formset_factory(PartyMaterialRow, extra=1, max_num=50, validate_max=True, absolute_max=51, can_delete=True)
     return factory(data, initial=[{"item": row["item_id"], "quantity": row["quantity"],
                                   "guest_name": row.get("guest_name", ""),
                                   "guest_age": row.get("guest_age")} for row in initial or []],
-                   prefix="materials", form_kwargs={"offering": offering, "guest_mode": guest_mode})
+                   prefix="materials", form_kwargs={"offering": offering, "guest_mode": guest_mode, "allow_incomplete": allow_incomplete})
 
 
 def party_catalog_data(offering):

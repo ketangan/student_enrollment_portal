@@ -18,7 +18,7 @@
 {% include 'scheduling/design_guide_link.html' %}
 <p>{{ item.snapshot.workshop }} &middot; {% timezone item.snapshot.timezone %}{{ item.starts_at|date:"M j, Y, g:i A" }}{% endtimezone %} &middot; {{ item.quantity }} guests</p>
 {% if due_at %}<p>{% if due_now %}Guest selections are due now.{% else %}Guest selections due {% timezone item.snapshot.timezone %}{{ due_at|date:"M j, Y" }}{% endtimezone %}.{% endif %}</p>{% endif %}
-{% if submitted %}<p role="status">Guest list submitted. The studio has your selections.</p>{% elif saved %}<p role="status">Progress saved. Return to this link to finish your guest list.</p>{% endif %}
+{% if submitted %}<p role="status">Guest list submitted. The studio has your selections.</p>{% elif saved %}<p role="status">{{ saved_guest_count }} of {{ item.quantity }} guests saved. You can return to finish the remaining selections.</p>{% endif %}
 {% if editable %}<form method="post" novalidate>{% csrf_token %}{{ form.revision }}{{ form.non_field_errors }}
 <input id="id_group_size" type="hidden" value="{{ item.quantity }}">
 {% include 'scheduling/party_materials.html' %}

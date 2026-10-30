@@ -56,7 +56,7 @@
       }));
       const link = $('#start-booking'); link.classList.toggle('disabled', !selected);
       link.setAttribute('aria-disabled', String(!selected));
-      if (selected) link.href = link.dataset.url.replace('/0/', `/${selected.id}/`) + `?participants=${places}`;
+      if (selected) link.href = link.dataset.editUrl ? `${link.dataset.editUrl}?session=${selected.id}&participants=${places}` : link.dataset.url.replace('/0/', `/${selected.id}/`) + `?participants=${places}`;
       else link.removeAttribute('href');
       $('#availability').textContent = selected ? `${selected.places} places available. Times are local to this studio.` : (days.length ? 'Select a start time.' : 'No upcoming sessions available.');
       const price = Number($('#price-total').dataset.unit);
@@ -90,6 +90,19 @@
     const select = (person, name) => field(person, name)?.querySelector('select');
     const optionName = el => el.selectedOptions[0]?.textContent || '';
     const updates = new Map();
+    const remove = person => {
+      if (persons().length < 2) return;
+      const index = persons().indexOf(person);
+      updates.delete(person); person.remove();
+      if (index < active) active--;
+      rebuild();
+    };
+    const iconButton = (icon, label, action) => {
+      const node = button('', action, 'participant-icon');
+      node.setAttribute('aria-label', label); node.title = label;
+      const symbol = document.createElement('i'); symbol.setAttribute('data-lucide', icon);
+      symbol.setAttribute('aria-hidden', 'true'); node.append(symbol); return node;
+    };
     const refresh = () => {
       persons().forEach(person => updates.get(person)?.());
       summarize();
@@ -106,12 +119,12 @@
       const all = persons(); active = Math.min(active, all.length - 1);
       const later = $('#choose-later')?.checked;
       if ($('#choose-later')) all.forEach(person => {const input = $('[name$="-selections_deferred"]', person); if (input) input.checked = later;});
-      $('#person-tabs').hidden = Boolean(later);
+      $('#person-tabs').hidden = Boolean(later) && !config.age_required;
       if ($('#later-count')) {$('#later-count-field').hidden = !later; $('#later-count').value = all.length;}
       $('#add-person').hidden = Boolean(later);
       $('#id_participants-TOTAL_FORMS').value = all.length;
       all.forEach((person, index) => {
-        person.hidden = Boolean(later) || active !== index;
+        person.hidden = (Boolean(later) && !config.age_required) || active !== index;
         $('.person-number', person).textContent = index + 1;
         $$('[name],[id],[for]', person).forEach(el => ['name', 'id', 'for'].forEach(attr => {
           if (el.hasAttribute(attr)) el.setAttribute(attr, el.getAttribute(attr).replace(/participants-(?:\d+|__prefix__)-/g, `participants-${index}-`));
@@ -121,6 +134,8 @@
           field(person, config.color_group).hidden = true;
         }
         $$('input,select', person).filter(input => input.type !== 'checkbox').forEach(input => {input.required = !deferred(person);});
+        const ageInput = select(person, config.age_group);
+        if (config.age_required && ageInput) ageInput.required = true;
         (config.deferred_groups || []).forEach(name => {
           const label = field(person, name);
           if (!label) return;
@@ -132,8 +147,13 @@
       });
       $('#person-tabs').replaceChildren(...all.map((person, index) => {
         const name = $('input[type=text]', person).value.trim();
-        const node = button(name || `Participant ${index+1}`, () => {active = index; rebuild();});
-        node.setAttribute('aria-pressed', String(active === index)); return node;
+        const node = button(name || `Participant ${index+1}`, () => {active = index; rebuild();}, 'participant-select');
+        node.setAttribute('aria-pressed', String(active === index));
+        const wrapper = document.createElement('span'); wrapper.className = 'participant-tab';
+        wrapper.setAttribute('data-active', String(active === index));
+        wrapper.append(node);
+        if (all.length > 1) wrapper.append(iconButton('x', `Remove ${name || `participant ${index+1}`}`, () => remove(person)));
+        return wrapper;
       }));
       $('#add-person').disabled = all.length >= config.limit;
       $('.group-color').hidden = !visual || all.every(deferred);
@@ -149,9 +169,9 @@
         const design = deferred(person) ? null : config.designs.find(d => d.name === optionName(select(person, config.design_group) || {selectedOptions: []}));
         const color = deferred(person) ? null : config.options[config.color_group]?.find(c => c.id === select(person, config.color_group)?.value);
         const row = document.createElement('div'); row.className = 'group-person';
-        const exactPhoto = recipe(person)?.image_url;
+        const exactPhoto = config.base_images_only ? null : recipe(person)?.image_url;
         const picture = document.createElement('div'); picture.className = 'plushie-image group-photo'; photo(picture, exactPhoto ? {...design, image_url: exactPhoto} : design);
-        if (color && !exactPhoto) {
+        if (color && !exactPhoto && !config.base_images_only) {
           const tint = document.createElement('span'); tint.className = 'tint'; tint.style.setProperty('--color', color.swatch); picture.append(tint);
         }
         picture.setAttribute('aria-hidden', 'true');
@@ -160,22 +180,38 @@
         const ageSelect = select(person, config.age_group);
         const age = ageSelect?.value ? optionName(ageSelect) : '';
         description.textContent = deferred(person) ? 'Choosing at the studio' : [age && /^\d+$/.test(age) ? `Age ${age}` : age, design?.name, color?.name].filter(Boolean).join(' / ') || 'Selections pending';
-        if ((name || deferred(person)) && $$('input,select', person).filter(el => el.required).every(el => el.value)
-            && (deferred(person) || !config.tracks_stock || !visual || available(person))) complete++;
-        details.append(title, description); row.append(picture, details); return row;
+        const ready = (name || deferred(person)) && $$('input,select', person).filter(el => el.required).every(el => el.value)
+            && (deferred(person) || !config.tracks_stock || !visual || available(person));
+        if (ready) complete++;
+        const tab = $('#person-tabs').children[index]?.querySelector('button');
+        if (tab) {
+          const status = document.createElement('i');
+          status.setAttribute('data-lucide', ready ? 'circle-check' : 'circle');
+          status.setAttribute('aria-hidden', 'true'); status.className = 'participant-status';
+          const label = document.createElement('span'); label.textContent = name || `Participant ${index+1}`;
+          tab.replaceChildren(status, label);
+          tab.setAttribute('data-ready', String(Boolean(ready)));
+          tab.setAttribute('aria-label', `${label.textContent}${ready ? ', selections complete' : ', selections pending'}`);
+        }
+        const removeTab = $('#person-tabs').children[index]?.children[1];
+        if (removeTab) { removeTab.setAttribute('aria-label', `Remove ${name || `participant ${index+1}`}`); removeTab.title = `Remove ${name || `participant ${index+1}`}`; }
+        details.append(title, description); row.append(picture, details);
+        if (persons().length > 1) row.append(iconButton('trash-2', `Remove ${name || `participant ${index+1}`}`, () => remove(person)));
+        return row;
       }));
       const status = $('#group-completeness'); status.textContent = `${complete} of ${persons().length} participants ready`;
       const later = Boolean($('#choose-later')?.checked);
       $('#group-summary-list').hidden = later;
       if (later) status.textContent = `${persons().length} ${persons().length === 1 ? 'participant' : 'participants'} / Choosing designs later`;
       status.classList.toggle('all-ready', complete === persons().length);
+      icons();
     };
     const setup = person => {
       $('[name$="-selections_deferred"]', person)?.addEventListener('change', rebuild);
       $('input[type=text]', person).addEventListener('change', rebuild);
       $('input[type=text]', person).addEventListener('input', summarize);
       select(person, config.age_group)?.addEventListener('change', summarize);
-      $('.remove-person', person).addEventListener('click', () => {updates.delete(person); person.remove(); rebuild();});
+      $('.remove-person', person).addEventListener('click', () => remove(person));
       if (!visual) return;
       const designSelect = select(person, config.design_group), colorSelect = select(person, config.color_group);
       const update = window.PontoraCatalogPicker.mount(person, designSelect, colorSelect, config, {

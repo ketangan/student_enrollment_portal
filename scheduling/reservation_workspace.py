@@ -26,6 +26,13 @@ def participant_table(participants, catalog=()):
         for row in rows]}
 
 
+def party_participants(party):
+    return [{"name": row.get("guest_name") or f"Guest {index + 1}",
+             "selections": [{"group": "Selection", "option": row["name"]}]
+             + ([{"group": "Age", "option": str(row["guest_age"])}] if row.get("guest_age") is not None else [])}
+            for index, row in enumerate(party.materials)]
+
+
 def participant_context(item):
     if item.workshop_request_id:
         participants = [{"name": p.name, "selections": p.selections, "selections_deferred": p.selections_deferred,
@@ -33,10 +40,11 @@ def participant_context(item):
     elif item.camp_registration_id:
         participants = item.camp_registration.participants
     elif item.party_request_id:
+        from .guest_lists import saved_rows
         participants = [{"name": row.get("guest_name") or f"Guest {index + 1}",
-                         "selections": [{"group": "Selection", "option": row["name"]}]
-                         + ([{"group": "Age", "option": str(row["guest_age"])}] if row.get("guest_age") is not None else [])}
-                        for index, row in enumerate(item.party_request.materials)]
+            "selections": [{"group": "Selection", "option": row.get("name") or "Not selected"}]
+            + ([{"group": "Age", "option": str(row["guest_age"])}] if row.get("guest_age") is not None else [])}
+            for index, row in enumerate(saved_rows(item))]
     else:
         participants = []
     return {"participants": participants, "participant_table": participant_table(participants)}
@@ -90,11 +98,12 @@ def detail_context(request, context, item, tab="details"):
         from .requests import catalog_for
         people = list(item.workshop_request.participants.all())
         context["deferred_participants"] = [p for p in people if p.selections_deferred]
-        if people and offering.inventory_catalog_id and context.get("can_edit_sessions") and workshop_selections.editable(item) and not item.stock_allocations.filter(consumed_at__isnull=False).exists():
+        if people and offering.inventory_catalog_id and context.get("can_edit_sessions") and workshop_selections.editable(item, staff=True) and not item.stock_allocations.filter(consumed_at__isnull=False).exists():
             catalog = catalog_for(offering)
             context["selection_forms"] = [{"person": p, "form": workshop_selections.form_for(p, catalog)} for p in people]
     if item.party_request_id:
         context["party_space_label"] = dict(PartyRequest.Space.choices).get(item.snapshot.get("space"), "")
+        context["party_duration"] = int((item.ends_at - item.starts_at).total_seconds() // 60)
     if item.party_request_id and offering.inventory_catalog_id:
         from .guest_lists import due_at, editable, token_for
         context.update(guest_list_due=due_at(item), guest_list_complete=bool(item.party_request.materials),
@@ -108,7 +117,7 @@ def detail_context(request, context, item, tab="details"):
         completion_label="Camp completed" if item.camp_registration_id else "Party completed" if item.party_request_id else "Workshop completed")
     context["booking_navigation"]["section"]["tabs"] = [
         {"label": "Reservation", "url": reverse("scheduling:reservation_detail", kwargs={"school_slug": slug, "public_id": item.public_id}), "active": tab == "details"},
-        {"label": "Workshop Prep", "url": reverse("scheduling:reservation_preparation", kwargs={"school_slug": slug, "public_id": item.public_id}), "active": tab == "preparation"},
+        {"label": "Party Prep" if item.party_request_id else "Workshop Prep", "url": reverse("scheduling:reservation_preparation", kwargs={"school_slug": slug, "public_id": item.public_id}), "active": tab == "preparation"},
     ]
     # Header location changes leave this record and return to the scoped list.
     context["location_action"] = reverse("scheduling:reservations", kwargs={"school_slug": slug})
@@ -153,3 +162,15 @@ def prep_context(item, profile):
         "allocations": allocations, "materials_used": any(row.consumed_at for row in allocations),
         "materials_remaining": any(not row.consumed_at for row in allocations),
         "preparation_form": preparation.form_for(item, profile), "prep_return": "reservation"}
+
+
+def selection_summary(participants):
+    groups = {}
+    for person in participants:
+        for choice in person.get("selections", []):
+            values = groups.setdefault(choice["group"], {})
+            value = str(choice["option"])
+            values[value] = values.get(value, 0) + 1
+    return [{"label": group, "value": ", ".join(
+        f"{value} x {count}" if count > 1 else value for value, count in values.items())}
+        for group, values in groups.items()]

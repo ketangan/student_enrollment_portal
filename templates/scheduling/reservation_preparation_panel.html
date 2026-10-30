@@ -1,0 +1,15 @@
+<dl class="prep-overview">
+  <div><dt>Room</dt><dd>{{ item.room.name|default:"Not assigned" }}</dd></div>
+  <div><dt>Participants</dt><dd>{{ item.quantity }}</dd></div>
+  <div><dt>Selections</dt><dd>{% for group in preparation_selections %}<span class="prep-selection-group">{{ group.label }}: {{ group.value }}</span>{% empty %}Selections pending{% endfor %}</dd></div>
+</dl>
+{% if selection_forms %}<a class="prep-edit-selections" href="{{ booking_navigation.section.tabs.0.url }}#participants-title" data-reservation-switch="details">Edit participant selections</a>{% endif %}
+{% if item.state != 'confirmed' or item.camp_registration_id or customer_notes %}<section class="reservation-section" aria-labelledby="prep-heading"><h2 id="prep-heading" class="sr-only">Workshop Prep</h2>
+{% if item.state == 'completed' %}<p class="muted">Completed. Materials used are recorded below.</p>
+{% elif item.state != 'confirmed' %}<p class="muted">{% if item.state == 'canceled' %}This reservation is canceled. No preparation is required.{% else %}Preparation is on hold until this reservation is confirmed.{% endif %}</p>{% endif %}
+{% include 'scheduling/occurrences.html' %}
+{% if customer_notes %}<dl class="reservation-facts prep-notes"><div><dt>Customer notes</dt><dd>{{ customer_notes|linebreaksbr }}</dd></div></dl>{% endif %}
+</section>{% endif %}
+{% include 'scheduling/stock_usage.html' %}
+{% if party_guest_draft %}<section class="reservation-section"><div class="section-heading"><h2>Saved guest selections</h2><span class="muted">{{ party_guest_selected_count }} of {{ item.quantity }}</span></div><p class="muted">These choices are saved, but their materials are not reserved yet.{% if allocations %} The materials above belong to the previously submitted list.{% endif %}</p><ul>{% for guest in party_guest_rows %}{% if guest.selected %}<li><strong>{{ guest.name }}</strong> &middot; {{ guest.values|join:" · " }}</li>{% endif %}{% endfor %}</ul></section>{% endif %}
+{% if party_materials and not allocations %}<section class="reservation-section"><h2>Requested materials</h2><ul>{% for material in party_materials %}<li>{{ material.quantity }} &times; {{ material.name }}</li>{% endfor %}</ul></section>{% endif %}

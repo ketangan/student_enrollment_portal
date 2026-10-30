@@ -6,6 +6,7 @@ from .access import has_permission, require_location_access, location_restricted
 from .capabilities import has_capability
 from .messaging import preview_enabled
 from .visits import enrollment_access
+from .party_policy import party_policy
 
 
 def workspace_navigation(context):
@@ -13,6 +14,7 @@ def workspace_navigation(context):
     features = context["features"]
     slug = context["business"].slug
     active = context["active_nav"]
+    context["party_packages_only"] = features["parties"] and party_policy(context["business"])["packages_only"]
 
     def link(key, label, route):
         return {"key": key, "label": label,
@@ -21,8 +23,7 @@ def workspace_navigation(context):
     reservations = []
     if features["reservations"]:
         reservations.append(link("reservations", "Reservations", "reservations"))
-        reservations.append(link("studio_preparation", "Studio Prep", "studio_preparation"))
-    if features["parties"]:
+    if features["parties"] and not context["party_packages_only"]:
         reservations.append(link("party_inquiries", "Party inquiries", "parties"))
     if features["visits"]:
         reservations.append(link("visits", "Tours", "visits"))
@@ -48,7 +49,7 @@ def workspace_navigation(context):
                          "url": reverse("scheduling:school_billing", kwargs={"school_slug": slug})})
 
     # Legacy request detail links still work, but requests are not a menu item.
-    if active in {"requests", "preparation"}:
+    if active in {"requests", "preparation", "studio_preparation"}:
         active = "reservations" if features["reservations"] else "workshops"
     sections = [{**link("overview", "Dashboard", "workspace"), "tabs": [], "active": active == "overview"}]
     for key, label, tabs in (("reservations", "Reservations", reservations),

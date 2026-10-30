@@ -23,15 +23,25 @@ class ChoiceOptionForm(forms.ModelForm):
 class PurchaserForm(forms.Form):
     purchaser_name = forms.CharField(label="Your name", max_length=100, widget=forms.TextInput(attrs={"autocomplete": "name"}))
     purchaser_email = forms.EmailField(label="Email", max_length=254, widget=forms.EmailInput(attrs={"autocomplete": "email"}))
+    purchaser_phone = forms.CharField(label="Phone", max_length=40, required=False,
+        widget=forms.TextInput(attrs={"type": "tel", "autocomplete": "tel"}))
+
+    def clean_purchaser_phone(self):
+        value = self.cleaned_data["purchaser_phone"]
+        if value and (sum(char.isdigit() for char in value) < 7
+                      or any(not char.isdigit() and char not in "+(). -" for char in value)):
+            raise forms.ValidationError("Enter a phone number, including the area or country code.")
+        return value
 
 
 class ParticipantForm(forms.Form):
     name = forms.CharField(label="Participant name", max_length=100, widget=forms.TextInput(attrs={"required": True}))
 
-    def __init__(self, *args, catalog, allow_deferred=False, **kwargs):
+    def __init__(self, *args, catalog, allow_deferred=False, require_age_choice=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.empty_permitted = False
         self.catalog = catalog
+        self.require_age_choice = require_age_choice
         self.allow_deferred = allow_deferred and any(g.tracks_stock for g in catalog)
         if self.allow_deferred:
             self.fields["selections_deferred"] = forms.BooleanField(label="Choose my design at the studio", required=False)
@@ -42,12 +52,14 @@ class ParticipantForm(forms.Form):
             self.fields["name"].widget.attrs.pop("required", None)
         for group in catalog:
             field = forms.ChoiceField(label=group.name, choices=[(str(o.pk), o.label) for o in group.active_options], widget=forms.RadioSelect)
-            if deferred:
+            if deferred and not getattr(group, "is_participant_age", False):
                 field.required = False
             self.fields[f"choice_{group.pk}"] = field
 
     def clean(self):
         data = super().clean()
+        if self.require_age_choice and not any(getattr(group, "is_participant_age", False) for group in self.catalog):
+            raise forms.ValidationError("Age choices are not configured for this workshop. Please contact the studio.")
         if not self.allow_deferred and self.data.get(self.add_prefix("selections_deferred")):
             raise forms.ValidationError("Choose a design before continuing.")
         if data.get("selections_deferred") and not data.get("name"):
@@ -75,16 +87,27 @@ class ParticipantForm(forms.Form):
 
 
 def request_forms(session, catalog, data=None):
+    from .participant_policy import age_policy
+    from .guest_lists import deadline_days
+    from datetime import timedelta
+    from django.utils import timezone
+    days = deadline_days(session.offering.location.profile.school)
+    before_deadline = days is None or session.starts_at > timezone.now() + timedelta(days=days)
     if data is not None and "choose_when" in data:
         data = data.copy()
         for index in range(MAX_PARTICIPANTS + 1):
             data[f"participants-{index}-selections_deferred"] = "on" if data.get("choose_when") == "later" else ""
     return participant_forms(session.capacity, catalog, data,
-        allow_deferred=session.offering.allow_deferred_selections and bool(session.offering.inventory_catalog_id))
+        include_phone=True,
+        require_age_choice=bool(age_policy(session.offering.location.profile.school)),
+        allow_deferred=before_deadline and session.offering.allow_deferred_selections and bool(session.offering.inventory_catalog_id))
 
 
-def participant_forms(capacity, catalog, data=None, *, allow_deferred=False):
+def participant_forms(capacity, catalog, data=None, *, allow_deferred=False, require_age_choice=False, include_phone=False):
     limit = min(MAX_PARTICIPANTS, capacity)
     factory = formset_factory(ParticipantForm, extra=0, min_num=1, validate_min=True,
                               max_num=limit, validate_max=True, absolute_max=MAX_PARTICIPANTS + 1)
-    return PurchaserForm(data), factory(data, prefix="participants", form_kwargs={"catalog": catalog, "allow_deferred": allow_deferred})
+    purchaser = PurchaserForm(data)
+    if not include_phone:
+        purchaser.fields.pop("purchaser_phone")
+    return purchaser, factory(data, prefix="participants", form_kwargs={"catalog": catalog, "allow_deferred": allow_deferred, "require_age_choice": require_age_choice})

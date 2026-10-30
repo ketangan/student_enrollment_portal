@@ -1,0 +1,1 @@
+<section class="materials-summary">{% load material_numbers %}<header><strong>Materials to pull</strong><small>Not yet prepared</small></header><ul>{% for material in studio.totals %}<li><span class="check-box"></span> {{ material.name }} {{ material.quantity|material_amount }} {{ material.unit }}</li>{% empty %}<li>No outstanding materials.</li>{% endfor %}</ul></section>

@@ -14,6 +14,19 @@ from .access import scope_reservations, staff_locations
 
 ATTENTION = (Q(state="review") | Q(state="canceled", net_received__gt=0)
     | Q(net_received__gt=F("effective_total")) | Q(payment_pending=True) | Q(refund_pending=True))
+BALANCE_DUE = Q(effective_total__gt=F("net_received")) & ~Q(state="canceled")
+
+
+def completion_filter_query(query):
+    """Keep existing saved links working while exposing the positive switch."""
+    query = query.copy()
+    if "show_completed" in query:
+        show = query.get("show_completed") in {"1", "true", "on"}
+    else:
+        show = query.get("hide_completed") in {"0", "false"}
+    query["show_completed"] = "true" if show else "false"
+    query["hide_completed"] = "false" if show else "true"
+    return query
 
 
 def reservation_location(location):
@@ -25,6 +38,10 @@ def reservation_location(location):
 def preparation_queue(items, now):
     return items.filter(state="confirmed", prepared_at__isnull=True, ends_at__gt=now).exclude(
         stock_allocations__consumed_at__isnull=False)
+
+
+def hide_completed_reservations(items, now):
+    return items.exclude(Q(state="completed") | Q(ends_at__lte=now))
 
 
 def staff_reservations(profile):
@@ -55,11 +72,28 @@ def filter_reservations(items, form, profile):
             | Q(camp_registration__purchaser_email__icontains=query))
     if data["state"]:
         items = items.filter(state=data["state"])
+    if data["offering"]:
+        items = items.filter(Q(workshop_request__session__offering=data["offering"])
+            | Q(party_request__offering=data["offering"]) | Q(camp_registration__camp__offering=data["offering"]))
+    complete = Q(state="completed") | Q(prepared_at__isnull=False) | Q(materials_used=True)
+    if data["prep"] == "not_required":
+        items = items.filter(state="canceled")
+    elif data["prep"] == "complete":
+        items = items.exclude(state="canceled").filter(complete)
+    elif data["prep"] == "pending":
+        items = items.filter(state="confirmed").exclude(complete)
+    elif data["prep"] == "hold":
+        items = items.exclude(state__in=["canceled", "confirmed"]).exclude(complete)
+    return filter_local_dates(items, data, profile, reservation_location)
+
+
+def filter_local_dates(items, data, profile, location_predicate):
+    """Apply inclusive calendar dates in each permitted studio's local timezone."""
     if data["location"] or data["date_from"] or data["date_to"]:
         locations = [data["location"]] if data["location"] else staff_locations(profile)
         predicate = Q(pk__in=[])
         for location in locations:
-            local = reservation_location(location)
+            local = location_predicate(location)
             zone = ZoneInfo(location.timezone_name)
             if data["date_from"]:
                 local &= Q(starts_at__gte=datetime.combine(data["date_from"], time.min, zone))

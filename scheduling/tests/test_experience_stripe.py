@@ -26,7 +26,7 @@ def stripe_demo(demo, settings):
 def booking(browser, demo):
     session, data = form_data(browser, demo, count=1)
     review = browser.post(url("choose", pk=session.pk), data)
-    assert b"Continue to checkout <" in review.content
+    assert b"Continue to payment" in review.content
     assert b"Stripe test checkout" not in review.content
     data.update(action="checkout", review_token=review.context["review_token"])
     result = browser.post(url("choose", pk=session.pk), data)
@@ -260,7 +260,7 @@ def test_adapter_refuses_unavailable_demo(stripe_demo, browser, monkeypatch):
 def test_disabled_mode_preserves_existing_simulation(demo, browser):
     session, data = form_data(browser, demo, count=1)
     review = browser.post(url("choose", pk=session.pk), data)
-    assert b"Continue to checkout <" in review.content
+    assert b"Simulate booking" in review.content
     data.update(action="checkout", review_token=review.context["review_token"])
     response = browser.post(url("choose", pk=session.pk), data)
     assert b"Simulate successful checkout" in browser.get(response.url).content

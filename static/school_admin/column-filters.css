@@ -1,0 +1,7 @@
+.col-filter-panel { display:none; position:fixed; top:0; left:0; z-index:9999; background:var(--dash-card,#fff); border:1px solid var(--dash-border,#e2e8f0); border-radius:8px; box-shadow:0 4px 16px #0000001f; min-width:180px; max-width:min(360px,calc(100vw - 24px)); max-height:70vh; overflow:auto; padding:6px 0; }
+.col-filter-panel.open { display:block; }
+.cf-title { font-size:11px; font-weight:700; color:var(--dash-muted); padding:4px 14px; text-transform:uppercase; margin:0; }
+.cf-option { display:block; padding:7px 14px; font-size:13px; color:var(--dash-text); text-decoration:none; white-space:normal; }
+.cf-option:hover { background:var(--dash-hover,#f8fafc); }
+.cf-option.cf-active { color:var(--dash-primary); font-weight:600; }
+.cf-sep { border:0; border-top:1px solid var(--dash-border,#e2e8f0); margin:4px 0; }

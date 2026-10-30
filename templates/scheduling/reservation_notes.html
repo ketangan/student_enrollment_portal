@@ -8,7 +8,7 @@
 </form>
 {% endif %}
 <div class="reservation-note-list">
-{% for note in staff_notes %}<article class="reservation-note"><p class="muted"><strong>{{ note.actor.get_username|default:"Former staff member" }}</strong> &middot; {% timezone item.snapshot.timezone %}{{ note.created_at|date:"M j, Y, g:i A" }}{% endtimezone %}</p><p>{{ note.body|linebreaksbr }}</p></article>{% endfor %}
+{% for note in staff_notes %}<article class="reservation-note"><p class="muted"><strong>{{ note.actor.get_username|default:"Former staff member" }}</strong> &middot; {% timezone notes_timezone %}{{ note.created_at|date:"M j, Y, g:i A" }}{% endtimezone %}</p><p>{{ note.body|linebreaksbr }}</p></article>{% endfor %}
 {% for note in legacy_notes %}<article class="reservation-note"><p class="muted">Earlier note</p><p>{{ note|linebreaksbr }}</p></article>{% endfor %}
 {% if not staff_notes and not legacy_notes %}<p class="muted">No internal notes yet.</p>{% endif %}
 </div>

@@ -1,42 +1,41 @@
-{% extends 'scheduling/base.html' %}{% load tz %}
-{% block title %}Party review{% endblock %}
+{% extends 'scheduling/base.html' %}{% load tz static %}
+{% block title %}{{ item.organizer_name }}{% endblock %}
+{% block page_heading %}
+<div class="reservation-heading"><div><a class="back-link" href="{% url 'scheduling:parties' school_slug=business.slug %}"><i data-lucide="arrow-left" aria-hidden="true"></i>All party inquiries</a><h1>{{ item.organizer_name }}</h1><p>{{ item.offering_snapshot.workshop }} &middot; {% timezone item.offering_snapshot.timezone %}{{ item.starts_at|date:"D, M j, Y" }} &middot; {{ item.starts_at|date:"g:i A" }}{% endtimezone %} &middot; {{ item.offering_snapshot.location|default:item.offering.location.name }}</p></div>
+{% if features.reservations and profile.native_reservations_enabled and can_edit_setup and item.status == 'reviewed' %}<a class="button primary" href="{% url 'scheduling:reservation_from_party' school_slug=business.slug public_id=item.public_id %}">Create reservation</a>{% endif %}</div><span class="status draft">{{ party_status }}</span>
+{% endblock %}
 {% block content %}
-<a class="back-link" href="{% url 'scheduling:parties' school_slug=business.slug %}">All party inquiries</a>
-<div class="section-heading"><div><h2>{{ item.organizer_name }}</h2><p>{{ item.organizer_email }}</p></div><span class="status draft">{{ item.get_status_display }}</span></div>
-{% if item.reservation %}<p><a class="button" href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.reservation.public_id %}">View reservation: {{ item.reservation.state_label }}</a></p><p class="notice">Original inquiry and proposal. Current booking and payment records are on the reservation page.</p>{% else %}<p class="notice">Internal proposal only. Reviewed does not mean booked. No room is held and no payment is collected.</p>{% if features.reservations and profile.native_reservations_enabled and can_edit_setup and item.status == 'reviewed' %}<p><a class="button" href="{% url 'scheduling:reservation_from_party' school_slug=business.slug public_id=item.public_id %}">Create reservation</a></p>{% endif %}{% endif %}
-<div class="party-review-layout">
-<section><h2>Requested party</h2><dl class="details">
-<div><dt>Workshop</dt><dd>{{ item.offering_snapshot.workshop }}</dd></div>
-<div><dt>Location</dt><dd>{{ item.offering_snapshot.location }}</dd></div>
-{% if item.package_snapshot %}<div><dt>Package</dt><dd>{{ item.package_snapshot.name }}</dd></div>{% endif %}
-{% if item.occasion %}<div><dt>Occasion</dt><dd>{{ item.occasion }}</dd></div>{% endif %}
-{% if item.organizer_phone %}<div><dt>Phone</dt><dd>{{ item.organizer_phone }}</dd></div>{% endif %}
-{% if item.birthday_name %}<div><dt>Birthday person</dt><dd>{{ item.birthday_name }}</dd></div>{% endif %}
-{% if item.birthday_age != None %}<div><dt>Turning</dt><dd>{{ item.birthday_age }}</dd></div>{% endif %}
-{% if item.age_range %}<div><dt>Age range</dt><dd>{{ item.age_range }}</dd></div>{% endif %}
-{% timezone item.offering_snapshot.timezone %}<div><dt>Preferred time</dt><dd>{{ item.starts_at|date:"D, M j, Y, g:i A" }}{% if item.ends_at %} &ndash; {{ item.ends_at|date:"M j, Y, g:i A" }}{% else %} &middot; Duration awaiting staff review{% endif %}</dd></div>{% endtimezone %}
-<div><dt>Participants</dt><dd>{{ item.group_size }}</dd></div><div><dt>Space preference</dt><dd>{{ item.get_space_display }}</dd></div>
-<div><dt>Customer notes</dt><dd>{{ item.customer_notes|default:"None"|linebreaksbr }}</dd></div>
-</dl>
-<section class="party-preparation"><h2>Preparation &amp; pricing proposal</h2><dl class="details">
-<div><dt>Proposed room</dt><dd>{{ item.room.name|default:"Not assigned" }}</dd></div>
-<div><dt>Proposed total</dt><dd>{% if item.proposed_total != None %}${{ item.proposed_total }} USD{% else %}Not set{% endif %}</dd></div>
-<div><dt>Payment at booking</dt><dd>{% if item.proposed_deposit %}${{ item.proposed_deposit }} deposit per reservation{% elif item.proposed_total != None %}Full payment{% else %}Not set{% endif %}</dd></div>
-<div><dt>Proposed balance</dt><dd>{% if item.proposed_balance != None %}${{ item.proposed_balance }} USD{% else %}Not set{% endif %}</dd></div>
-<div><dt>Internal notes</dt><dd>{{ item.preparation_notes|default:"None"|linebreaksbr }}</dd></div>
-<div><dt>Materials</dt><dd>{% for row in item.materials %}{% if row.guest_name %}{{ row.guest_name }}: {% endif %}{{ row.quantity }} &times; {{ row.name }}{% if not forloop.last %}<br>{% endif %}{% empty %}Not selected{% endfor %}</dd></div>
-</dl></section>
-<section class="party-preparation"><h2>Room review</h2>
-{% if not item.room_id %}<p class="muted">No room assigned. Availability has not been checked.</p>{% elif not item.ends_at %}<p class="muted">Set the duration before checking room availability.</p>{% else %}
-{% if overlapping_sessions or overlapping_parties %}<p class="notice error">Overlapping activity needs review. {% if item.space == 'exclusive' %}A private room cannot be promised for this time.{% else %}Shared-space capacity has not been reserved or verified.{% endif %}</p>
-{% if overlapping_sessions %}<h3>Published sessions</h3><ul>{% for session in overlapping_sessions %}<li><a href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=session.offering_id %}">{{ session.offering.name }}</a>{% timezone item.offering_snapshot.timezone %}: {{ session.starts_at|date:"M j, g:i A" }} &ndash; {{ session.ends_at|date:"g:i A" }}{% endtimezone %}</li>{% endfor %}</ul>{% endif %}
-{% if overlapping_parties %}<h3>Other active inquiries (not reservations)</h3><ul>{% for party in overlapping_parties %}<li><a href="{% url 'scheduling:party_detail' school_slug=business.slug public_id=party.public_id %}">{{ party.organizer_name }}</a> &middot; {{ party.group_size }} participants &middot; {{ party.get_space_display }}</li>{% endfor %}</ul>{% endif %}
-{% else %}<p class="muted">No overlapping published sessions or assigned/private-room inquiries found here. This does not verify external calendars or reserve the room.</p>{% endif %}{% endif %}
-</section></section>
-{% if can_edit_sessions and not item.reservation %}<section><h2>Staff review</h2>{% if form.errors %}<p><a href="{% url 'scheduling:party_detail' school_slug=business.slug public_id=item.public_id %}">Open saved review</a></p>{% endif %}<form method="post" class="setup-form">{% csrf_token %}{{ form.non_field_errors }}{{ form.revision }}{{ form.revision.errors }}
-{% for field in form.visible_fields %}<div class="form-field"{% if field.name == 'proposed_deposit' %} data-booking-deposit{% endif %}>{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
-{% include 'scheduling/party_materials.html' %}
-<button class="primary" type="submit">Save review</button>
-</form></section>{% endif %}
+<div class="reservation-workspace" data-reservation-workspace>
+  <div class="reservation-workspace-main">
+    <form method="post" class="party-review-form" novalidate>{% csrf_token %}{{ form.revision }}{{ form.revision.errors }}{{ form.non_field_errors }}
+    {% if form.errors %}<p class="notice error" role="alert">Check the review fields below. <a href="{{ request.path }}">Open saved review</a></p>{% endif %}
+    <div data-reservation-panel="details"{% if reservation_tab == 'preparation' %} hidden{% endif %}>
+      <section class="reservation-section"><h2>Party details</h2><dl class="reservation-facts">
+        <div><dt>Email</dt><dd>{{ item.organizer_email }}</dd></div><div><dt>Phone</dt><dd>{{ item.organizer_phone|default:"Not provided" }}</dd></div>
+        <div><dt>Participants</dt><dd>{{ item.group_size }}</dd></div><div><dt>Space preference</dt><dd>{{ item.get_space_display }}</dd></div>
+        <div><dt>Duration</dt><dd>{% if party_duration %}{{ party_duration }} minutes{% else %}Not set{% endif %}</dd></div>
+        {% if item.package_snapshot %}<div><dt>Package</dt><dd>{{ item.package_snapshot.name }}</dd></div>{% endif %}
+        {% if item.occasion %}<div><dt>Occasion</dt><dd>{{ item.occasion }}</dd></div>{% endif %}
+        {% if item.age_range %}<div><dt>Participants' ages</dt><dd>{{ item.age_range }}</dd></div>{% endif %}
+        {% if item.participant_estimate %}<div><dt>Estimated participants</dt><dd>{{ item.participant_estimate }}</dd></div>{% endif %}
+        {% if item.birthday_name %}<div><dt>Birthday person</dt><dd>{{ item.birthday_name }}</dd></div>{% endif %}
+        {% if item.birthday_age != None %}<div><dt>Turning</dt><dd>{{ item.birthday_age }}</dd></div>{% endif %}
+      </dl></section>
+      {% include 'scheduling/reservation_participants.html' with participant_count=item.group_size %}
+      <section class="reservation-payment"><header><h2>Payment</h2><span class="payment-state payment-state-due">Not booked</span></header>
+        <div class="payment-columns"><div class="payment-balance"><span class="muted">Proposed total</span><strong class="payment-balance-value">{% if item.proposed_total != None %}${{ item.proposed_total|floatformat:2 }}{% else %}Not quoted{% endif %}</strong><dl class="payment-totals"><div><dt>Deposit</dt><dd>{% if item.proposed_deposit != None %}${{ item.proposed_deposit|floatformat:2 }}{% else %}Not set{% endif %}</dd></div></dl></div>
+        <div class="payment-history"><h3>Proposed pricing</h3>{% if can_edit_sessions and not item.reservation %}<div class="party-field-pair">{% include 'scheduling/party_form_field.html' with field=form.proposed_total %}{% include 'scheduling/party_form_field.html' with field=form.proposed_deposit %}</div>{% endif %}<p class="muted">No payments recorded.</p></div></div>
+      </section>
+    </div>
+    <div data-reservation-panel="preparation"{% if reservation_tab != 'preparation' %} hidden{% endif %}>
+      <section class="reservation-section"><h2>Party Prep</h2>{% if can_edit_sessions and not item.reservation %}{% include 'scheduling/party_form_field.html' with field=form.room %}{% if form.duration_minutes %}{% include 'scheduling/party_form_field.html' with field=form.duration_minutes %}{% endif %}{% else %}<dl class="details"><div><dt>Proposed room</dt><dd>{{ item.room.name|default:"Not assigned" }}</dd></div></dl>{% endif %}</section>
+      <section class="reservation-section"><h2>Materials</h2><div class="table-wrap"><table class="dash-table"><thead><tr><th>Selection</th><th>Quantity</th></tr></thead><tbody>{% for row in item.materials %}<tr><td>{{ row.name }}</td><td>{{ row.quantity }}</td></tr>{% empty %}<tr><td colspan="2">No materials selected.</td></tr>{% endfor %}</tbody></table></div>
+      {% if can_edit_sessions and not item.reservation %}{% include 'scheduling/party_materials.html' %}{% endif %}</section>
+    </div>
+    {% if can_edit_sessions and not item.reservation %}<div class="party-review-actions">{% include 'scheduling/party_form_field.html' with field=form.status %}<button class="primary" type="submit">Save review</button></div>{% endif %}
+    </form>
+  </div>
+  <aside class="reservation-notes-sidebar">{% include 'scheduling/customer_notes.html' with customer_notes=item.customer_notes %}{% include 'scheduling/reservation_notes.html' %}</aside>
 </div>
 {% endblock %}
+{% block scripts %}<script defer src="{% static 'scheduling/reservation-workspace.js' %}?v=20261028-notes"></script>{% endblock %}

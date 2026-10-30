@@ -166,7 +166,7 @@ def approve_refund(user, slug, public_id, attempt_id, **kwargs):
     School.objects.select_for_update().get(pk=profile.school_id)
     PaymentOrder.objects.select_for_update().get(pk=item.order_id)
     if item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).exists():
-        raise ValidationError("Close outstanding checkouts and cancel the reservation before approving a refund.")
+        raise ValidationError("Wait for outstanding online payments to finish or expire before approving a refund.")
     attempt = get_object_or_404(PaymentAttempt, order=item.order, public_id=attempt_id)
     existing = Refund.objects.filter(key=kwargs["key"], attempt=attempt).exists()
     if item.state != "canceled" and not existing:

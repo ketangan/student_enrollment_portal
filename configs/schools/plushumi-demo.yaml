@@ -2,9 +2,32 @@ school:
   slug: plushumi-demo
   display_name: The Plushie Workshop
 scheduling:
+  customer_experience:
+    logo: /static/demo/plushumi/assets/logo.png
+    photo: /static/demo/plushumi/assets/workshop.jpg
+    participant_note: 'Participants must be at least 7 years old.'
+    sharing_note: '1 Person, 1 Plushie: each participant needs their own booked seat and makes their own plushie.'
+    accessories_note: 'Accessories are available to choose and purchase at the studio for $10-$18, while supplies last.'
+    party_note: 'Celebrate a birthday or another special occasion with a guided plushie-making experience. Materials are included, and each maker takes home their creation.'
+    waiver_note: 'A signed waiver is required before participation. A parent or guardian must sign for minors; contact the studio in advance if they will not be present.'
+    base_images_only: true
+  party_booking:
+    packages_only: true
+    maximum_participants: 30
+    default_extra_participants: 2
+    default_extra_price: '65.00'
+  participant_age:
+    minimum: 7
+    choice_group: Age
+    adult_label: Adult
   guest_list_deadline_days: 7
   # Published excerpts checked 2026-10-26. Unresolved terms remain unset.
   booking_policies:
+    party_acknowledgments:
+      revision: party-acknowledgments-2026-10-29
+      waiver: 'By checking this box, I acknowledge that a signed waiver is required to participate in the workshop. If booking for a minor, the parent/guardian must sign the waiver at the studio or in advance via email; without it, participation is not allowed.'
+      attendance: 'By checking this box, I confirm that a seat has been reserved for each participant attending the workshop. I understand that the workshop space is reserved for participants, with up to {observers} non-participating chaperones included in the party package.'
+      policy: 'By checking this box, I agree to the Booking and Cancellation Policy.'
     revision: website-2026-10-26
     source_url: https://www.theplushieworkshop.com/booking-and-cancellation-policy
     workshop_text: Only participants with reserved seats are permitted in the workshop space.

@@ -7,6 +7,7 @@
 {% else %}<h1>Checkout</h1><p>No payment is collected.</p><p class="muted">Your places are held until {{ item.reservation.hold_until|date:'g:i A' }}.</p>
 {% endif %}
 {% if payment_message %}<p class="boundary" role="status">{{ payment_message }} <a href="?checkout_return=1">Check payment status</a></p>{% endif %}
+{% if customer_edit_url %}<p><a class="quiet" href="{{ customer_edit_url }}">Edit booking details</a></p>{% endif %}
 <div class="confirmation-layout"><section><img class="workshop-photo" src="{{ demo.photo }}" alt="Participants creating plushies in the workshop"><div class="details"><h2>{{ item.session_snapshot.workshop }}</h2><p>{{ item.session_snapshot.location }}<br>{{ item.requested_start|date:'D, M j, Y' }} at {{ item.requested_start|date:'g:i A' }}</p><p class="total">{{ people|length }} participant{{ people|pluralize }} <strong>${{ total }}</strong></p><p class="reference">Reference: {{ item.public_id }}</p></div>
 {% if item.reservation.state == 'confirmed' %}<a class="button" href="{% url 'scheduling:experience_calendar' school_slug=business.slug public_id=item.public_id %}"><i data-lucide="calendar-plus" aria-hidden="true"></i> Add to calendar</a>{% endif %}
 {% if item.reservation.state != 'canceled' %}

@@ -1,14 +1,36 @@
-{% extends 'scheduling/base.html' %}{% load tz %}
+{% extends 'scheduling/base.html' %}{% load tz booking_navigation %}
 {% block title %}Party inquiries{% endblock %}
 {% block content %}
-<a class="back-link" href="{% url 'scheduling:party_setup' school_slug=business.slug %}">Party packages</a>
-{% include 'scheduling/location_filter.html' %}
-<div class="section-heading"><h2>Party inquiries</h2>{% if can_edit_sessions %}<a class="button primary" href="{% url 'scheduling:staff_party_create' school_slug=business.slug %}"><i data-lucide="plus" aria-hidden="true"></i> New party request</a>{% endif %}</div><p class="muted">Original inquiries and their current reservation status.</p>
-<nav class="actions list-filter" aria-label="Party filter"><a href="?location={{ selected_location.pk }}" {% if not review_only %}aria-current="page"{% endif %}>All inquiries</a><a href="?review=1&amp;location={{ selected_location.pk }}" {% if review_only %}aria-current="page"{% endif %}>Awaiting review</a></nav>
-<div class="table-wrap request-table" tabindex="0" role="region" aria-label="Party inquiries"><table><thead><tr><th scope="col">Organizer</th><th scope="col">Workshop / preferred time</th><th scope="col">Group / space</th><th scope="col">Status</th></tr></thead><tbody>
-{% for item in items %}<tr><th scope="row"><a href="{% url 'scheduling:party_detail' school_slug=business.slug public_id=item.public_id %}">{{ item.organizer_name }}</a><p class="muted">{{ item.organizer_email }}</p></th>
-<td>{{ item.offering_snapshot.workshop }}{% timezone item.offering_snapshot.timezone %}<p class="muted">{{ item.starts_at|date:"M j, Y, g:i A" }}</p>{% endtimezone %}</td>
-<td>{{ item.group_size }} participants<p class="muted">{{ item.get_space_display }}</p></td><td>{% if item.reservation %}<a href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.reservation.public_id %}">{% include 'scheduling/reservation_status.html' with item=item.reservation %}</a>{% else %}<span class="status {% if item.status == 'pending' %}draft{% elif item.status == 'reviewed' %}info{% else %}inactive{% endif %}">{{ item.get_status_display }}</span>{% endif %}</td></tr>
-{% empty %}<tr><td colspan="4">{% if review_only %}No inquiries awaiting review.{% else %}No party inquiries yet.{% endif %}</td></tr>{% endfor %}</tbody></table></div>
-{% if items.has_other_pages %}<nav class="pagination" aria-label="Party inquiry pages">{% if items.has_previous %}<a aria-label="Previous page" href="?location={{ selected_location.pk }}&amp;page={{ items.previous_page_number }}{% if review_only %}&amp;review=1{% endif %}">&larr;</a>{% endif %}<span>{{ items.number }} / {{ items.paginator.num_pages }}</span>{% if items.has_next %}<a aria-label="Next page" href="?location={{ selected_location.pk }}&amp;page={{ items.next_page_number }}{% if review_only %}&amp;review=1{% endif %}">&rarr;</a>{% endif %}</nav>{% endif %}
+<nav class="booking-quick-filters" aria-label="Party inquiry quick filters">
+  <a class="quick-filter" href="{{ total_url }}"{% if not review_only %} aria-current="page"{% endif %}>All <span>{{ total_count }}</span></a>
+  <a class="quick-filter quick-filter--attention" href="{{ review_url }}"{% if review_only %} aria-current="page"{% endif %}>Awaiting review <span>{{ review_count }}</span></a>
+</nav>
+<form method="get" id="reservation-filters" aria-label="Find party inquiries">
+  {% if review_only %}<input type="hidden" name="review" value="1">{% endif %}
+  {{ filter_form.non_field_errors }}
+  <div class="reservation-search-toolbar">
+    <div class="booking-search-row"><label class="sr-only" for="{{ filter_form.q.id_for_label }}">Customer or workshop</label>{{ filter_form.q }}<button type="submit" class="primary" aria-label="Apply inquiry filters" title="Apply filters"><i data-lucide="search" aria-hidden="true"></i></button></div>
+    {% include 'scheduling/show_completed_switch.html' %}
+    {% if has_filters %}<a href="{% if review_only %}{{ review_url }}{% else %}{{ total_url }}{% endif %}">Clear filters</a>{% endif %}
+  </div>{{ filter_form.q.errors }}
+  <div class="booking-list-toolbar"><p class="muted" role="status">{{ items.paginator.count }} inquir{{ items.paginator.count|pluralize:'y,ies' }}</p>{% if can_edit_sessions %}<a class="button primary" href="{% url 'scheduling:staff_party_create' school_slug=business.slug %}"><i data-lucide="plus" aria-hidden="true"></i> {% if party_packages_only %}New party booking{% else %}New party request{% endif %}</a>{% endif %}</div>
+  <div class="dash-card reservation-table party-inquiry-table"><div class="dash-table-scroll" tabindex="0" role="region" aria-label="Party inquiries"><table class="dash-table"><colgroup><col class="inquiry-organizer"><col class="inquiry-workshop"><col class="inquiry-date"><col class="inquiry-group"><col class="inquiry-state"><col class="inquiry-actions"></colgroup><thead><tr>
+    <th scope="col">Organizer</th>
+    <th scope="col"><button type="button" class="column-menu-trigger" data-column-menu="party-workshop-filter" aria-expanded="false">Workshop / location <span aria-hidden="true">&#9662;</span></button><div class="col-filter-panel" id="party-workshop-filter"><p class="cf-title">Location</p>{% include 'scheduling/column_filter_options.html' with field=filter_form.location %}</div></th>
+    <th scope="col"><button type="button" class="column-menu-trigger" data-column-menu="party-date-filter" aria-expanded="false">Preferred time <span aria-hidden="true">&#9662;</span></button><div class="col-filter-panel" id="party-date-filter"><div class="reservation-date-filter"><label for="{{ filter_form.date_from.id_for_label }}">From</label>{{ filter_form.date_from }}{{ filter_form.date_from.errors }}<label for="{{ filter_form.date_to.id_for_label }}">Through</label>{{ filter_form.date_to }}{{ filter_form.date_to.errors }}<button type="submit" class="primary">Apply dates</button></div></div></th>
+    <th scope="col">Group / space</th>
+    <th scope="col"><button type="button" class="column-menu-trigger" data-column-menu="party-status-filter" aria-expanded="false">Status <span aria-hidden="true">&#9662;</span></button><div class="col-filter-panel" id="party-status-filter"><p class="cf-title">Status</p>{% include 'scheduling/column_filter_options.html' with field=filter_form.state %}</div></th>
+    <th scope="col"><span class="sr-only">Actions</span></th>
+  </tr></thead><tbody>
+  {% for item in items %}<tr>
+    <td><div class="dash-student-cell"><a class="dash-student-name" href="{% url 'scheduling:party_detail' school_slug=business.slug public_id=item.public_id %}">{{ item.organizer_name }}</a></div><span class="reservation-cell-secondary">{{ item.organizer_email }}</span></td>
+    <td><span class="reservation-cell-primary">{{ item.offering_snapshot.workshop }}</span><span class="reservation-cell-secondary">{{ item.offering.location.name }}</span></td>
+    <td class="reservation-date-cell">{% timezone item.offering_snapshot.timezone %}<span class="reservation-cell-primary">{{ item.starts_at|date:'M j, Y' }}</span><span class="reservation-cell-secondary">{{ item.starts_at|date:'g:i A' }}</span>{% endtimezone %}</td>
+    <td>{{ item.group_size }} participant{{ item.group_size|pluralize }}<span class="reservation-cell-secondary">{{ item.get_space_display }}</span></td>
+    <td><span class="status {% if item.list_status == 'Confirmed' or item.list_status == 'Completed' %}active{% elif item.list_status == 'Canceled' %}inactive{% else %}draft{% endif %}">{{ item.list_status }}</span></td>
+    <td><a class="dash-action-btn dash-action-btn--secondary" href="{% url 'scheduling:party_detail' school_slug=business.slug public_id=item.public_id %}" aria-label="View {{ item.organizer_name }}">View</a></td>
+  </tr>{% empty %}<tr><td colspan="6">{% if has_filters %}No inquiries match these filters.{% elif review_only %}No inquiries awaiting review.{% else %}No party inquiries yet.{% endif %}</td></tr>{% endfor %}
+  </tbody></table></div></div>
+</form>
+{% if items.has_other_pages %}<nav class="pagination" aria-label="Party inquiry pages">{% if items.has_previous %}<a aria-label="Previous page" href="?page={{ items.previous_page_number }}&amp;{{ filters }}">Previous</a>{% endif %}<span>Page {{ items.number }} of {{ items.paginator.num_pages }}</span>{% if items.has_next %}<a aria-label="Next page" href="?page={{ items.next_page_number }}&amp;{{ filters }}">Next</a>{% endif %}</nav>{% endif %}
 {% endblock %}

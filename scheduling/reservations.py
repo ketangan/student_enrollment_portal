@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Q, Sum
+from django.db.models import Exists, OuterRef, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
@@ -30,6 +30,31 @@ def studio_claims(location_id, start, end, exclude=None):
 def ensure_studio_available(location_id, start, end, exclude=None):
     if studio_claims(location_id, start, end, exclude).exists():
         raise ValidationError("This studio has an exclusive full-studio reservation at that time.")
+
+
+def available_party_slots(slots, location_id, exclude=None):
+    """Filter advertised times in one query; group capacity is checked on review."""
+    from .lessons import scheduled_lessons
+    window = dict(starts_at__lt=OuterRef("slot_end"), ends_at__gt=OuterRef("starts_at"))
+    claims = active_claims().exclude(pk=exclude).filter(**window)
+    room_claims = claims.filter(room_id=OuterRef("package__room_id"))
+    sessions = Session.objects.filter(is_published=True, **window)
+    occurrences = ReservationOccurrence.objects.filter(reservation__in=active_claims().exclude(pk=exclude), **window)
+    lessons = scheduled_lessons().filter(**window)
+    return slots.annotate(
+        studio_blocked=Exists(studio_claims(location_id, OuterRef("starts_at"), OuterRef("slot_end"), exclude)),
+        room_claimed=Exists(room_claims),
+        room_exclusive=Exists(room_claims.filter(Q(exclusive=True) | Q(session__isnull=False))),
+        room_session=Exists(sessions.filter(room_id=OuterRef("package__room_id"))),
+        room_camp=Exists(occurrences.filter(room_id=OuterRef("package__room_id"))),
+        room_lesson=Exists(lessons.filter(series__room_id=OuterRef("package__room_id"))),
+        studio_claimed=Exists(claims.filter(room__location_id=location_id)),
+        studio_session=Exists(sessions.filter(offering__location_id=location_id)),
+        studio_camp=Exists(occurrences.filter(session__offering__location_id=location_id)),
+        studio_lesson=Exists(lessons.filter(series__location_id=location_id)),
+    ).filter(studio_blocked=False, room_exclusive=False, room_session=False, room_camp=False, room_lesson=False).exclude(
+        Q(package__space__in=["exclusive", "studio"], room_claimed=True)
+        | (Q(package__space="studio") & (Q(studio_claimed=True) | Q(studio_session=True) | Q(studio_camp=True) | Q(studio_lesson=True))))
 
 
 def peak_quantity(intervals):
@@ -107,28 +132,33 @@ def ensure_capacity(item):
         session = Session.objects.select_related("offering").get(pk=item.session_id)
         ensure_session_capacity(item, session, item.starts_at, item.ends_at, item.room_id)
         return
-    room = item.room
-    ensure_studio_available(room.location_id, item.starts_at, item.ends_at, item.pk)
-    if item.snapshot.get("space") == "studio":
+    ensure_party_capacity(item.room, item.starts_at, item.ends_at, item.quantity,
+                          exclusive=item.exclusive, space=item.snapshot.get("space"), exclude=item.pk)
+
+
+def ensure_party_capacity(room, starts_at, ends_at, quantity, *, exclusive, space, exclude=None):
+    claims = active_claims().exclude(pk=exclude)
+    ensure_studio_available(room.location_id, starts_at, ends_at, exclude)
+    if space == "studio":
         from .lessons import scheduled_lessons
-        window = dict(starts_at__lt=item.ends_at, ends_at__gt=item.starts_at)
+        window = dict(starts_at__lt=ends_at, ends_at__gt=starts_at)
         if (claims.filter(room__location_id=room.location_id, **window).exists()
                 or Session.objects.filter(offering__location_id=room.location_id, is_published=True, **window).exists()
                 or ReservationOccurrence.objects.filter(reservation__in=claims, session__offering__location_id=room.location_id, **window).exists()
                 or scheduled_lessons().filter(series__location_id=room.location_id, **window).exists()):
             raise ValidationError("The full studio is not available at that time.")
     from .lessons import validate_lesson_room
-    validate_lesson_room(item.room_id, item.starts_at, item.ends_at)
-    overlaps = claims.filter(room=room, starts_at__lt=item.ends_at, ends_at__gt=item.starts_at)
-    if Session.objects.filter(room=room, is_published=True, starts_at__lt=item.ends_at, ends_at__gt=item.starts_at).exists():
+    validate_lesson_room(room.pk, starts_at, ends_at)
+    overlaps = claims.filter(room=room, starts_at__lt=ends_at, ends_at__gt=starts_at)
+    if Session.objects.filter(room=room, is_published=True, starts_at__lt=ends_at, ends_at__gt=starts_at).exists():
         raise ValidationError("This room has a published session at the requested time.")
     if ReservationOccurrence.objects.filter(reservation__in=claims, room=room,
-            starts_at__lt=item.ends_at, ends_at__gt=item.starts_at).exists():
+            starts_at__lt=ends_at, ends_at__gt=starts_at).exists():
         raise ValidationError("This room has a camp reservation at the requested time.")
-    if overlaps.exists() and (item.exclusive or overlaps.filter(Q(exclusive=True) | Q(session__isnull=False)).exists()):
+    if overlaps.exists() and (exclusive or overlaps.filter(Q(exclusive=True) | Q(session__isnull=False)).exists()):
         raise ValidationError("An exclusive reservation conflicts with this room and time.")
     intervals = list(overlaps.values_list("starts_at", "ends_at", "quantity"))
-    intervals.append((item.starts_at, item.ends_at, item.quantity))
+    intervals.append((starts_at, ends_at, quantity))
     if peak_quantity(intervals) > room.capacity:
         raise ValidationError("This room does not have enough shared capacity for the whole group.")
 
@@ -166,7 +196,7 @@ def create_reservation(user, slug, kind, public_id, total_cents=None, deposit_ce
         item = Reservation(profile=profile, workshop_request=source, session=session, room=session.room,
             starts_at=session.starts_at, ends_at=session.ends_at, quantity=source.participants.count(),
             snapshot={"name": source.purchaser_name, "workshop": source.session_snapshot["workshop"],
-                      "timezone": source.session_snapshot["timezone"]})
+                      "timezone": source.session_snapshot["timezone"], "organizer_phone": source.purchaser_phone})
     elif kind == "party":
         require_capability(profile, "parties")
         source = get_object_or_404(PartyRequest.objects.select_related("offering__location", "room"),
@@ -200,6 +230,7 @@ def party_reservation_item(profile, source):
                   "party_package": source.package_snapshot, "space": source.space,
                   "guest_list_deadline_days": deadline_days(profile.school),
                   "occasion": source.occasion, "age_range": source.age_range,
+                  "participant_estimate": source.participant_estimate,
                   "organizer_phone": source.organizer_phone,
                   "birthday_name": source.birthday_name, "birthday_age": source.birthday_age})
 
@@ -224,7 +255,16 @@ def workshop_quote(offering, unit_price_cents, quantity):
     deposit = int(offering.deposit_per_participant * 100)
     if deposit and (deposit < 50 or deposit > unit_price_cents - 50):
         raise ValidationError("This workshop's deposit needs updating. Please contact the studio.")
-    return unit_price_cents * quantity, deposit * quantity
+    return workshop_price_breakdown(offering, unit_price_cents, quantity)["total_cents"], deposit * quantity
+
+
+def workshop_price_breakdown(offering, unit_price_cents, quantity):
+    from decimal import Decimal, ROUND_HALF_UP
+    subtotal = unit_price_cents * quantity
+    rate = offering.location.default_tax_rate or Decimal("0")
+    tax = int((Decimal(subtotal) * rate / 100).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    return {"subtotal_cents": subtotal, "tax_cents": tax, "total_cents": subtotal + tax,
+            "tax_rate": str(rate)}
 
 
 def booking_account(profile, online, location=None):

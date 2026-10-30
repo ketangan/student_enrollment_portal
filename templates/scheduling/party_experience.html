@@ -1,0 +1,78 @@
+{% extends 'scheduling/experience/base.html' %}{% load static booking_policies %}
+{% block extra_head %}{% include 'scheduling/date_picker_assets.html' %}{% endblock %}
+{% block content %}
+<div class="party-experience">
+<h1>Let's plan your plushie party.</h1><p class="lead">{{ customer_copy.party_note }}</p>
+{% if admin_preview %}<a href="{% url 'scheduling:party_setup' school_slug=business.slug %}">Back to party setup</a>{% endif %}
+<div class="split"><section>
+<form method="get" action="{% if party_location_url %}{{ party_location_url }}{% else %}{% url 'scheduling:party_start' school_slug=business.slug %}{% endif %}" id="party-location-form"></form>
+<p id="party-loading" role="status" hidden></p>
+{% if not offerings %}<p role="status">No party packages are currently available. Please contact the studio.</p>{% endif %}
+{% if form %}
+<form method="post" id="party-request-form" data-packages-only="true" data-customer-steps="true" action="{% if party_form_url %}{{ party_form_url }}{% else %}{% url 'scheduling:party_start' school_slug=business.slug %}?offering={{ offering.pk }}{% endif %}" novalidate>
+{% if editing_booking %}<input type="hidden" name="edit_revision" value="{{ edit_revision }}"><input type="hidden" name="start_payment" value="1">{% endif %}
+{% csrf_token %}<input type="hidden" name="request_token" value="{{ request_token }}"><input type="hidden" name="customer_flow" value="three-step">
+<div id="party-form-errors" role="alert">{% if error %}<p>{{ error }}</p>{% endif %}{{ form.non_field_errors }}</div>
+<fieldset data-party-panel="1"><legend class="skip">Your party</legend>
+{% endif %}
+<div class="fields party-studio-package">
+<div class="form-field"><label for="party-location">Studio</label><select id="party-location" name="offering" form="party-location-form"><option value="">Choose a studio</option>{% for item in offerings %}<option value="{{ item.pk }}"{% if item.pk == offering.pk %} selected{% endif %}>{{ item.location.name }}</option>{% endfor %}</select></div><noscript><button form="party-location-form">Choose studio</button></noscript>
+{% if form %}
+{% include 'scheduling/party_experience_field.html' with field=form.package %}
+{% endif %}
+</div>
+{% if form %}
+<p id="party-package-summary" class="muted"></p>
+{% include 'scheduling/party_experience_field.html' with field=form.space %}
+{% include 'scheduling/party_experience_field.html' with field=form.starts_at %}
+<div data-party-field="party_slot" class="form-field"><label for="id_party_slot">Party date and time</label>{{ form.party_slot }}{{ form.party_slot.errors }}
+<div id="party-time-picker" class="party-time-picker" hidden><div id="party-date-calendar"><input id="party-date" class="party-date-input" aria-label="Party date"></div><div><h2 id="party-time-date">Choose a date</h2><div id="party-time-buttons" class="party-time-buttons" role="group" aria-label="Available party times"></div></div></div></div>
+<div class="bottom-actions end"><button type="button" class="button" data-party-next="2">Your group <i data-lucide="arrow-right" aria-hidden="true"></i></button></div>
+</fieldset>
+<fieldset data-party-panel="2"><legend class="skip">Your group</legend>
+<h2>Your group</h2>
+<input type="hidden" name="participant_count_mode" value="estimate">
+<div data-party-field="group_size" hidden>{{ form.group_size.as_hidden }}</div>
+<div class="fields">
+<div data-party-field="participant_estimate" class="form-field"><label for="id_participant_estimate">Plushie makers *</label><input type="text" name="participant_estimate" id="id_participant_estimate" value="{{ form.participant_estimate.value|default_if_none:'' }}" maxlength="32" placeholder="e.g. 8 or 7-9" required aria-describedby="party-count-help">{{ form.participant_estimate.errors }}<p id="party-count-help" class="muted"></p></div>
+{% include 'scheduling/party_experience_field.html' with field=form.age_range %}
+</div>
+<div class="party-group-guidance"><p>{{ customer_copy.participant_note }}</p><p>{{ customer_copy.sharing_note }}</p></div>
+{% include 'scheduling/party_experience_field.html' with field=form.occasion %}
+<section class="contact"><h2>Your booking details</h2>{% include 'scheduling/party_experience_field.html' with field=form.organizer_name %}
+<div class="fields">{% include 'scheduling/party_experience_field.html' with field=form.organizer_email %}{% include 'scheduling/party_experience_field.html' with field=form.organizer_phone %}</div>
+{% include 'scheduling/party_experience_field.html' with field=form.customer_notes %}</section>
+<p>{{ customer_copy.accessories_note }}</p>{% include 'scheduling/design_guide_link.html' %}
+<div id="party-materials"></div>
+<div class="bottom-actions"><button type="button" class="quiet" data-party-next="1">Back</button><button type="button" class="button" data-party-next="3">Review &amp; pay <i data-lucide="arrow-right" aria-hidden="true"></i></button></div>
+</fieldset>
+<fieldset data-party-panel="3"><legend class="skip">Review and pay</legend><h2>One last look before the party.</h2>
+<dl id="party-review-details" class="party-review-list"></dl>
+{% if form.acknowledgment_fields %}
+<section class="party-acknowledgments" aria-labelledby="party-acknowledgments-heading">
+<h3 id="party-acknowledgments-heading">Before you book</h3>
+{% for field in form.acknowledgment_fields %}
+<div class="acknowledgment-field" data-party-field="{{ field.name }}">
+<label for="{{ field.id_for_label }}">{{ field }}<span data-acknowledgment-text="{{ field.name }}" data-template="{{ field.label }}">{{ field.label }}</span></label>
+{{ field.errors }}
+{% if field.name == 'policy_acknowledged' %}<a href="{{ form.acknowledgments.source_url }}" target="_blank" rel="noopener">Read the Booking and Cancellation Policy</a>{% endif %}
+</div>
+{% endfor %}
+</section>
+{% else %}{% booking_policy business 'party' %}<p>{{ customer_copy.waiver_note }}</p>{% endif %}
+<p id="party-next-step" class="muted">Your party is confirmed after payment.</p>
+<div class="bottom-actions" data-booking-review-actions><button type="button" class="quiet" data-party-next="2">Edit details</button><button class="button" type="submit" id="party-submit">Continue to payment</button></div>
+</fieldset></form>{% endif %}
+</section><aside class="summary"><img class="workshop-photo" src="{{ demo.photo }}" alt="Plushie-making workshop"{% if not demo.photo %} hidden{% endif %}>
+<h2>Your party</h2><h3 id="party-summary-name">Choose a package</h3><p>{{ offering.location.name }}</p><p id="party-summary-time"></p><p id="party-summary-guests"></p>
+<dl class="party-price-summary">
+<div><dt>Subtotal</dt><dd id="party-subtotal">—</dd></div>
+<div><dt>Tax</dt><dd id="party-tax">—</dd></div>
+<div class="price-total"><dt>Total</dt><dd id="party-total">—</dd></div>
+<div class="price-due"><dt>Pay today</dt><dd id="party-due">—</dd></div>
+<div><dt>At the party</dt><dd id="party-later">—</dd></div>
+</dl>
+</aside></div></div>
+{% endblock %}
+{% block scripts %}{{ form.package_details|json_script:'party-package-details' }}{{ form.slot_packages|json_script:'party-slot-packages' }}{{ form.slot_dates|json_script:'party-slot-dates' }}
+<script defer src="{% static 'scheduling/party-inquiry.js' %}?v=20261029-party-compact"></script><script defer src="{% static 'scheduling/party-experience.js' %}?v=20261029-summary"></script>{% endblock %}

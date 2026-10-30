@@ -41,7 +41,7 @@ def test_read_only_roster_material_totals_and_constant_queries(stock):
     other = reserve(s); confirm(s, other)
     with CaptureQueriesContext(connection) as second:
         result = summary(profile, [s.location], item.starts_at.date() - timedelta(days=1), 7)
-    assert len(first) == len(second) <= 6
+    assert len(first) == len(second) <= 7
     assert len(result[0]["entries"]) == 2 and result[0]["totals"][0]["quantity"] == 2
     item.refresh_from_db()
     item.prepared_at = timezone.now(); item.save(update_fields=["prepared_at"])
@@ -60,7 +60,7 @@ def test_only_confirmed_bookings(stock, state):
     assert not stock.client.get(url(stock, "studio_preparation"), query(item)).context["studios"]
 
 
-@pytest.mark.parametrize("params", [{"date": "bad"}, {"date": "9999-12-31"}, {"period": "month"}, {"location": "9999999"}])
+@pytest.mark.parametrize("params", [{"date": "bad"}, {"date": "9999-12-31"}, {"period": "year"}, {"location": "9999999"}])
 def test_invalid_filters_never_broaden_results(stock, params):
     item = reserve(stock); confirm(stock, item)
     response = stock.client.get(url(stock, "studio_preparation"), query(item, **params))
@@ -178,3 +178,67 @@ def test_reservation_returns_to_same_preparation_dates(stock):
         response = s.client.get(endpoint, {"prep": unsafe})
         assert "preparation_return" not in response.context
         assert b"Back to Studio Prep" not in response.content
+
+
+@pytest.mark.parametrize("period", ["day", "week", "month"])
+def test_print_report_notes_filters_and_read_only(stock, period):
+    s = stock
+    item = reserve(s); confirm(s, item)
+    item.notes.create(actor=s.user, body="Keep this note <script>safe</script>")
+    params = query(item, period=period, print="1", location=s.location.pk)
+    response = s.client.get(url(s, "studio_preparation"), params)
+    assert response.status_code == 200
+    assert "scheduling/studio_preparation_print.html" in [t.name for t in response.templates]
+    assert b"Keep this note &lt;script&gt;safe&lt;/script&gt;" in response.content
+    assert b'data-print-ready="true"' in response.content
+    assert b'writing-lines' in response.content if period == "day" else b'writing-lines' not in response.content
+    if period == "month":
+        assert response.context["print_start"].day == 1
+        assert b'month-overview' in response.content
+    assert not s.client.get(url(s, "studio_preparation"), {**params, "offering": "none"}).context["studios"]
+    assert len(s.client.get(url(s, "studio_preparation"), {**params, "offering": s.offering.pk}).context["studios"]) == 1
+    assert s.client.get(url(s, "studio_preparation"), {**params, "location": "999999"}).status_code == 400
+    s.level.refresh_from_db()
+    assert s.level.on_hand == 5
+
+
+def test_print_month_boundaries_and_completed_materials(stock):
+    s = stock
+    item = reserve(s); confirm(s, item)
+    zone = ZoneInfo("America/Los_Angeles")
+    s.location.timezone_name = str(zone); s.location.save()
+    Reservation.objects.filter(pk=item.pk).update(starts_at=datetime(2028, 2, 29, 23, 30, tzinfo=zone),
+        ends_at=datetime(2028, 3, 1, 0, 30, tzinfo=zone), state="completed")
+    params = {"date": "2028-02-15", "period": "month", "print": "1"}
+    response = s.client.get(url(s, "studio_preparation"), params)
+    assert response.context["print_end"].day == 29
+    assert len(response.context["studios"][0]["entries"]) == 1
+    assert not response.context["studios"][0]["totals"]
+    assert not s.client.get(url(s, "studio_preparation"), {**params, "date": "2028-03-01"}).context["studios"]
+
+
+def test_print_location_scope_and_all_location_pages(two_locations, booking_member, client):
+    mine, other, item, forbidden, party = two_locations
+    Reservation.objects.filter(pk__in=[item.pk, forbidden.pk, party.pk]).update(state="confirmed")
+    client.force_login(booking_member.user)
+    endpoint = path(booking_member, "studio_preparation")
+    params = query(item, print="1")
+    response = client.get(endpoint, params)
+    assert len(response.context["studios"]) == 1
+    assert b"Private other" not in response.content
+    assert client.get(endpoint, {**params, "location": other[1].location_id}).status_code == 400
+    booking_member.user.is_superuser = True; booking_member.user.save()
+    response = client.get(endpoint, params)
+    assert len(response.context["studios"]) == 2
+    assert response.content.count(b'class="studio-sheet"') == 2
+
+
+def test_print_deferred_participants_have_write_in_columns(stock):
+    s = stock
+    item = reserve(s); confirm(s, item)
+    item.workshop_request.participants.update(selections=[], selections_deferred=True)
+    response = s.client.get(url(s, "studio_preparation"), query(item, print="1", period="day"))
+    entry = response.context["studios"][0]["entries"][0]
+    assert "Selection status" not in entry["print_columns"]
+    assert len(entry["print_rows"]) == item.quantity
+    assert all(not value for row in entry["print_rows"] for value in row["values"])

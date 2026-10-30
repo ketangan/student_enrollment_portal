@@ -39,7 +39,11 @@
     });
     dialog.showModal();
   });
+  const initializedPayments = new WeakSet();
+  const setupPayments = () => {
   document.querySelectorAll('[data-terminal-payment]').forEach(form => {
+    if (initializedPayments.has(form)) return;
+    initializedPayments.add(form);
     const amount = form.elements.amount;
     const balance = Number(form.elements.expected_balance.value);
     const total = Number(form.elements.expected_total.value);
@@ -50,11 +54,20 @@
       const extra = Number.isFinite(cents) ? Math.max(0, cents - balance) : 0;
       row.hidden = extra === 0;
       summary.textContent = extra ? `$${(extra / 100).toFixed(2)} in extra purchases. New total: $${((total + extra) / 100).toFixed(2)}.` : '';
+      const after = form.querySelector('[data-payment-after]');
+      if (after) after.textContent = extra ? `New total: $${((total + extra) / 100).toFixed(2)}` : `Balance after: $${(Math.max(0, balance - (cents || 0)) / 100).toFixed(2)}`;
+      const submit = form.querySelector('[data-payment-submit]');
+      if (submit) submit.textContent = Number.isFinite(cents) && cents > 0 ? `${extra ? 'Add charge & record' : 'Record'} $${(cents / 100).toFixed(2)}` : 'Record payment';
+      const receipt = form.querySelector('[data-payment-receipt]');
+      if (receipt) receipt.hidden = form.elements.method.value === 'cash';
     };
     amount.addEventListener('input', update);
+    form.addEventListener('change', update);
     update();
   });
   document.querySelectorAll('[data-payment-dialog]').forEach(button => {
+    if (initializedPayments.has(button)) return;
+    initializedPayments.add(button);
     const dialog = document.getElementById(button.dataset.paymentDialog);
     if (!dialog) return;
     button.addEventListener('click', () => dialog.showModal());
@@ -64,6 +77,9 @@
     dialog.addEventListener('close', () => button.focus());
     if (dialog.hasAttribute('data-payment-error')) dialog.showModal();
   });
+  };
+  setupPayments();
+  document.addEventListener('booking:content-updated', setupPayments);
   document.querySelectorAll('[name="payment_at_booking"]').forEach(select => {
     const row = select.form?.querySelector('[data-booking-deposit]');
     if (!row) return;
@@ -81,6 +97,16 @@
   const nav = document.getElementById('booking-nav');
   const toggle = document.getElementById('booking-nav-toggle');
   const locationFilter = document.getElementById('dashboard-location-filter');
+  const reservationFilters = document.getElementById('reservation-filters');
+  reservationFilters?.addEventListener('change', event => {
+    if (event.target.matches('select, input[type="checkbox"]')) reservationFilters.requestSubmit();
+  });
+  reservationFilters?.addEventListener('click', event => {
+    const option = event.target.closest('[data-filter-field]');
+    if (!option) return;
+    reservationFilters.elements[option.dataset.filterField].value = option.dataset.filterValue;
+    reservationFilters.requestSubmit();
+  });
   locationFilter?.addEventListener('change', () => locationFilter.requestSubmit());
   const setNav = open => {
     if (!nav || !toggle) return;

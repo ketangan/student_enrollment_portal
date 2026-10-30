@@ -1,0 +1,29 @@
+{% load tz %}
+{% if item.state == 'review' %}<p role="alert" class="notice error">Payment is recorded, but this reservation is not confirmed. {% if checkout_pending %}Capacity stays held until the open checkout is verified.{% else %}It holds no capacity.{% endif %} Review the payment and availability before promising this booking.</p>{% endif %}
+{% if overpaid %}<p role="alert" class="notice error">Recorded payments exceed this quote. Review the extra payment; no automatic refund has been issued.</p>{% endif %}
+{% if item.state == 'canceled' and amounts.net_cents %}<p role="alert" class="notice error">Canceled with ${{ amounts.net|floatformat:2 }} still received. A cancellation does not by itself return money.</p>{% endif %}
+<section class="reservation-section" aria-labelledby="reservation-details"><h2 id="reservation-details">{% if item.party_request_id %}Party details{% else %}Reservation details{% endif %}</h2>
+{% include 'scheduling/reservation_summary.html' %}</section>
+{% if item.party_request_id %}{% include 'scheduling/reservation_guests.html' %}{% else %}{% include 'scheduling/reservation_participants.html' %}{% endif %}
+<section class="reservation-payment" aria-labelledby="money-title">
+<header><h2 id="money-title">Payment</h2><span class="payment-state{% if amounts.outstanding_cents %} payment-state-due{% endif %}">{% if item.state == 'canceled' %}Canceled{% elif amounts.outstanding_cents %}Balance due{% else %}Paid in full{% endif %}</span></header>
+<div class="payment-columns"><div class="payment-balance">
+<span class="muted">Balance due</span><strong class="payment-balance-value">{% if item.state == 'canceled' %}Not due{% else %}${{ amounts.outstanding|floatformat:2 }}{% endif %}</strong>
+<progress aria-label="Payment received" max="{{ amounts.total_cents|default:1 }}" value="{{ amounts.net_cents }}"></progress>
+<p class="muted">${{ amounts.net|floatformat:2 }} of ${{ amounts.total|floatformat:2 }} received</p>
+{% if can_edit_setup %}{% if item.state == 'confirmed' or item.state == 'completed' %}<button type="button" class="primary" data-payment-dialog="terminal-payment-dialog"><i data-lucide="plus" aria-hidden="true"></i> {% if amounts.outstanding_cents %}Record ${{ amounts.outstanding|floatformat:2 }} payment{% else %}Record payment{% endif %}</button>{% endif %}{% endif %}
+<dl class="payment-totals"><div><dt>Total</dt><dd>${{ amounts.total|floatformat:2 }}</dd></div>{% if item.order.deposit_cents %}<div><dt>Deposit required</dt><dd>${{ item.order.deposit|floatformat:2 }}</dd></div>{% endif %}<div><dt>Received</dt><dd>${{ amounts.paid|floatformat:2 }}</dd></div><div><dt>Refunded</dt><dd>${{ amounts.refunded|floatformat:2 }}</dd></div></dl>
+</div><div class="payment-history"><div class="section-heading"><h3>Payment history</h3></div>
+{% for entry in payment_history %}<article class="payment-history-entry"><i data-lucide="{% if entry.channel == 'cash' %}banknote{% else %}credit-card{% endif %}" aria-hidden="true"></i><div><strong>{{ entry.get_channel_display }}{% if entry.kind == 'refund' %} &middot; Refund{% elif entry.reversal %} &middot; Voided{% elif not entry.actor_id %} &middot; Paid online{% endif %}</strong><p class="muted">{% if entry.paid_on %}{{ entry.paid_on|date:"M j, Y" }}{% else %}{% timezone item.snapshot.timezone %}{{ entry.created_at|date:"M j, Y" }}{% endtimezone %}{% endif %}{% if entry.external_reference %} &middot; {{ entry.external_reference }}{% endif %}</p>{% if entry.note %}<p>{{ entry.note }}</p>{% endif %}</div><strong>${{ entry.amount|floatformat:2 }}</strong></article>{% empty %}<p class="muted">No payments recorded.</p>{% endfor %}
+</div></div>
+<div class="payment-secondary-actions">
+{% if can_edit_setup %}{% include 'scheduling/reservation_payments.html' %}{% endif %}
+{% include 'scheduling/reservation_terminal_payments.html' %}
+</div>
+</section>
+<details class="reservation-section reservation-summary"{% if audit_open %} open{% endif %}><summary id="audit-title">Audit log</summary>
+<div class="table-wrap reservation-audit" role="region" aria-label="Reservation audit log" tabindex="0"><table class="dash-table"><thead><tr><th>When</th><th>Activity</th><th>By</th></tr></thead><tbody>
+{% for event in audit.rows %}<tr><td>{% timezone item.snapshot.timezone %}{{ event.at|date:"M j, Y" }}<br>{{ event.at|date:"g:i A" }}{% endtimezone %}</td><td><strong>{{ event.title }}</strong>{% if event.detail %}<p>{{ event.detail }}</p>{% endif %}</td><td>{{ event.actor }}</td></tr>{% empty %}<tr><td colspan="3">No activity recorded.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if audit.has_previous or audit.has_next %}<nav class="pagination" aria-label="Audit pages">{% if audit.has_previous %}<a href="{% querystring audit_page=audit.previous %}#audit-title">Previous</a>{% endif %}<span>Page {{ audit.number }}</span>{% if audit.has_next %}<a href="{% querystring audit_page=audit.next %}#audit-title">Next</a>{% endif %}</nav>{% endif %}
+</details>

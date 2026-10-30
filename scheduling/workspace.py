@@ -70,10 +70,10 @@ def overview(profile, *, location=None):
         metrics = reservations.aggregate(total=Count("pk"), review=Count("pk", filter=ATTENTION),
             preparation=Count("pk", filter=Q(pk__in=preparation_queue(reservations, now).values("pk"))))
         attention.append({"label": "Reservations needing payment review",
-            "count": metrics["review"], "url": list_url("reservations", attention=1)})
+            "count": metrics["review"], "url": list_url("reservations", attention=1, hide_completed=0)})
         cards.extend([
-            {"label": "Reservations", "count": metrics["total"], "sub": "All reservations", "color": "red", "accent": "primary", "icon": "calendar-check", "url": list_url("reservations"), "action": "View reservations"},
-            {"label": "Payment follow-up", "count": metrics["review"], "sub": "Need review", "color": "amber", "accent": "amber", "icon": "triangle-alert", "url": list_url("reservations", attention=1), "action": "Review now"},
+            {"label": "Reservations", "count": metrics["total"], "sub": "All reservations", "color": "red", "accent": "primary", "icon": "calendar-check", "url": list_url("reservations", hide_completed=0), "action": "View reservations"},
+            {"label": "Payment follow-up", "count": metrics["review"], "sub": "Need review", "color": "amber", "accent": "amber", "icon": "triangle-alert", "url": list_url("reservations", attention=1, hide_completed=0), "action": "Review now"},
             {"label": "Preparation Pending", "count": metrics["preparation"], "sub": "Upcoming confirmed bookings", "color": "blue", "icon": "clipboard-list", "url": list_url("reservations", preparation=1), "action": "View pending"},
         ])
         from .dashboard_activity import recent_activity

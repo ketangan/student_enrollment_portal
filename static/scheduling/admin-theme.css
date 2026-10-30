@@ -70,7 +70,7 @@
 .booking-admin .option-label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .booking-admin .icon-button { width: 40px; height: 40px; display: inline-flex; justify-content: center; align-items: center; flex-shrink: 0; border-radius: 6px; }
 .booking-admin .icon-button:hover, .booking-admin .icon-button:focus-visible { background: #e7edff; }
-.booking-admin .icon-button img { width: 18px; height: 18px; }
+.booking-admin .icon-button :is(img, svg) { width: 18px; height: 18px; flex-shrink: 0; }
 .booking-admin summary:focus-visible, .booking-admin .table-wrap:focus-visible, .booking-admin .dash-table-scroll:focus-visible { outline: 2px solid var(--dash-primary); outline-offset: 2px; }
 .inventory-heading { margin-top: 36px; }
 .stock-filter { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; margin-bottom: 20px; }
@@ -200,13 +200,17 @@
 .booking-admin .workshop-settings-form { max-width: 960px; }
 .booking-admin .workshop-settings-section { min-width: 0; padding: 20px 0 24px; margin: 0 0 24px; border: 0; border-bottom: 1px solid var(--dash-border); }
 .booking-admin .workshop-settings-section legend { padding: 0; font-size: 15px; font-weight: 700; color: var(--dash-text); }
-.booking-admin .party-rules-dialog { box-sizing:border-box; width:min(680px, calc(100vw - 32px)); max-height:calc(100dvh - 32px); overflow:auto; padding:24px; border:1px solid var(--dash-border); border-radius:8px; background:var(--dash-card); color:var(--dash-text); }
-.party-rules-dialog::backdrop { background:rgba(0,0,0,.4); }
+.booking-admin :is(.party-rules-dialog, .reservation-payment-dialog, #calendar-detail) { box-sizing: border-box; width: min(var(--booking-dialog-width, 680px), calc(100vw - 32px)); max-height: calc(100dvh - 32px); margin: auto; overflow: auto; padding: 24px; border: 1px solid var(--dash-border); border-radius: 8px; background: var(--dash-card); color: var(--dash-text); box-shadow: 0 16px 48px #0003; }
+.booking-admin :is(.party-rules-dialog, .reservation-payment-dialog, #calendar-detail)::backdrop { background: #0006; }
+.booking-admin :is(.party-rules-dialog h3, .reservation-payment-dialog h2, #calendar-detail h2) { margin: 0; font-size: 18px; }
+.booking-admin :is([data-close-setup-dialog][aria-label], .payment-dialog-close, #calendar-detail-close) { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 38px; width: 38px; height: 38px; min-height: 38px; padding: 0; border: 0; background: transparent; color: var(--dash-muted); }
+.booking-admin :is([data-close-setup-dialog][aria-label], .payment-dialog-close, #calendar-detail-close):hover { background: var(--dash-bg); }
+.booking-admin :is([data-close-setup-dialog][aria-label], .payment-dialog-close, #calendar-detail-close) svg { width: 18px; height: 18px; flex-shrink: 0; }
 .party-rules-dialog .section-heading { align-items:start; }
 .party-rules-dialog h3 { margin:0; }
 .party-rules-dialog .section-heading p { margin:8px 0 20px; }
 .party-rules-dialog svg { width:18px; height:18px; }
-.party-rules-dialog .actions { margin-top:24px; }
+.party-rules-dialog .actions { justify-content: flex-end; margin-top:24px; }
 .party-rules-dialog .setup-form input { width:100%; }
 .party-rules-dialog .flatpickr-wrapper { width:100%; }
 .party-rules-dialog .booking-calendar.static.open { position:relative; top:auto; max-width:100%; margin-top:8px; }
@@ -293,9 +297,27 @@
 .booking-admin .booking-list-metrics .dash-card { margin: 0; padding: 14px 20px; flex: 1; min-width: 100px; text-align: center; text-decoration: none; }
 .booking-admin .booking-list-metrics strong { display: block; font-size: 22px; line-height: 1.2; color: var(--dash-text); }
 .booking-admin .booking-list-metrics span { font-size: 12px; color: var(--dash-muted); }
+.booking-admin .booking-list-metrics .dash-card {border-radius:6px;box-shadow:none;display:grid;grid-template-columns:24px auto;gap:4px 12px;text-align:left;flex:1 1 0;}
+.booking-admin .booking-list-metrics .dash-card > svg {grid-row:span 2;width:22px;height:22px;align-self:center;}
+.booking-admin .booking-list-metrics .reservation-metric-review {border-left:4px solid #b45309;background:#fffbeb;color:#92400e;}
+.booking-admin .booking-list-metrics .reservation-metric-total {border-left:4px solid #2563eb;background:#eff6ff;color:#1e40af;}
+.booking-admin .booking-list-metrics .dash-card :is(strong,span) {color:inherit;}
+.booking-admin .booking-list-metrics [aria-current] {outline:2px solid currentColor;outline-offset:2px;}
+.booking-view-toggle {display:inline-flex;padding:3px;gap:3px;border:1px solid var(--dash-border);border-radius:6px;background:var(--dash-bg);}
+.booking-view-toggle a {display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border-radius:4px;color:var(--dash-muted);text-decoration:none;font-size:14px;font-weight:600;}
+.booking-view-toggle svg {width:16px;height:16px;}
+.booking-view-toggle [aria-current] {background:var(--dash-card);color:var(--dash-primary);box-shadow:0 1px 3px #0001;}
+.reservation-search-toolbar {display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin:24px 0 12px;}
+.reservation-search-toolbar .booking-search-row {flex:1 1 260px;min-width:0;}
+.booking-admin .reservation-hide-completed {display:flex;align-items:center;gap:8px;margin:0;font-size:14px;text-transform:none;font-weight:500;}
+.booking-admin .reservation-hide-completed input[type="checkbox"] {width:18px;height:18px;margin:0;}
+.booking-admin .reservation-table th {vertical-align:top;}
+.booking-admin .column-menu-trigger.column-menu-active { color:var(--dash-primary); }
 .booking-admin .booking-search-strip { position: relative; background: var(--dash-card); border: 1px solid var(--dash-border); border-radius: var(--dash-radius); box-shadow: var(--dash-shadow); padding: 14px 18px; margin-bottom: 16px; }
 .booking-admin .booking-search-row { display: flex; gap: 10px; align-items: center; }
 .booking-admin .booking-search-row input { flex: 1; min-width: 0; }
+.booking-admin .booking-search-row :is(input,button) { height:40px; box-sizing:border-box; margin:0; }
+.booking-admin .booking-search-row button { width:40px; flex:0 0 40px; padding:0; display:inline-flex; align-items:center; justify-content:center; }
 .booking-admin .booking-search-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-top: 12px; }
 .booking-admin .booking-search-filters .form-field { margin: 0; flex: 1; min-width: 130px; }
 .booking-admin .booking-advanced-filters { margin-top: 10px; }
@@ -304,6 +326,12 @@
 .booking-admin .booking-list-toolbar { display: flex; justify-content: space-between; align-items: center; margin: 10px 0; }
 .booking-admin .booking-list-toolbar p { margin: 0; }
 .booking-admin .reservation-table table { min-width: 1080px; table-layout: fixed; }
+.booking-admin .party-inquiry-table table { min-width:960px; }
+.booking-admin .inquiry-organizer { width:24%; }
+.booking-admin .inquiry-workshop { width:22%; }
+.booking-admin .inquiry-date { width:16%; }
+.booking-admin .inquiry-group, .booking-admin .inquiry-state { width:15%; }
+.booking-admin .inquiry-actions { width:8%; }
 .booking-admin .reservation-customer { width: 19%; }
 .booking-admin .reservation-workshop { width: 18%; }
 .booking-admin .reservation-scheduled { width: 12%; }
@@ -342,21 +370,11 @@
 .booking-admin .reservation-section h2 { margin: 0 0 20px; font-size: 18px; }
 .booking-admin .reservation-section .section-heading h2 { margin: 0; }
 .booking-admin .reservation-facts { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 24px; margin: 0; }
-.booking-admin .reservation-facts dt, .booking-admin .reservation-money dt { font-size: 13px; color: var(--dash-muted); margin-bottom: 8px; }
+.booking-admin .reservation-facts dt { font-size: 13px; color: var(--dash-muted); margin-bottom: 8px; }
 .booking-admin .reservation-facts dd { margin: 0; font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
 .booking-admin .reservation-date, .booking-admin .reservation-time { display: block; }
 .booking-admin .reservation-time { margin-top: 5px; font-weight: 400; font-size: 14px; }
-.booking-admin .reservation-money { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 16px; margin: 0; }
-.booking-admin .reservation-money > div { padding: 16px; border-left: 3px solid var(--dash-border); }
-.booking-admin .reservation-money dt { display: flex; align-items: center; gap: 6px; }
-.booking-admin .reservation-money dd { font-size: 24px; font-weight: 700; margin: 0; overflow-wrap: anywhere; }
-.booking-admin .reservation-money .money-received { border-color: #168447; background: #1684470c; }
-.booking-admin .money-received dt, .booking-admin .money-received dd { color: #168447; }
-.booking-admin .reservation-money .money-balance { border-color: var(--dash-primary); background: #2563eb0a; }
-.booking-admin .money-balance dt, .booking-admin .money-balance dd { color: var(--dash-primary); }
-.booking-admin .reservation-money .money-due { border-color: #a65b08; background: #a65b080a; }
-.booking-admin .money-due dt, .booking-admin .money-due dd { color: #a65b08; }
-.booking-admin .reservation-money svg, .booking-admin .prep-badge svg, .booking-admin .booking-danger svg { width: 16px; height: 16px; flex-shrink: 0; }
+.booking-admin .prep-badge svg, .booking-admin .booking-danger svg { width: 16px; height: 16px; flex-shrink: 0; }
 .booking-admin .reservation-payment-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
 .booking-admin .reservation-guest-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 16px; }
 .booking-admin .reservation-guest-actions :is(button, .button) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
@@ -366,11 +384,9 @@
 .booking-admin .payment-email-status { margin: 12px 0 0; font-size: 14px; }
 .booking-admin .reservation-payment-actions :is(button, a) { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .booking-admin .reservation-payment-actions svg, .booking-admin .payment-dialog-close svg { width: 18px; height: 18px; flex-shrink: 0; }
-.booking-admin .reservation-payment-dialog { box-sizing: border-box; width: min(560px, calc(100% - 32px)); max-height: calc(100dvh - 32px); margin: auto; padding: 24px; border: 1px solid var(--dash-border); border-radius: 8px; background: var(--dash-card); color: var(--dash-text); overflow: auto; box-shadow: 0 16px 48px #0003; }
-.booking-admin .reservation-payment-dialog::backdrop { background: #0006; }
+.booking-admin .reservation-payment-dialog { --booking-dialog-width: 560px; }
 .booking-admin .reservation-payment-dialog header { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
 .booking-admin .reservation-payment-dialog h2 { margin: 0; font-size: 18px; }
-.booking-admin .reservation-payment-dialog .payment-dialog-close { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 32px; height: 32px; padding: 0; background: transparent; color: var(--dash-muted); border: 0; }
 .booking-admin .reservation-payment-dialog .setup-form { width: 100%; max-width: none; }
 .booking-admin .reservation-payment-dialog .workshop-settings-fields { margin-bottom: 20px; }
 .booking-admin .reservation-payment-dialog .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 24px; }
@@ -384,8 +400,15 @@
 .booking-admin .reservation-audit th:first-child { width: 150px; }
 .booking-admin .reservation-audit th:last-child { width: 160px; }
 .booking-admin .reservation-audit p { margin: 6px 0 0; overflow-wrap: anywhere; }
-.booking-admin .terminal-payments table { min-width: 900px; }
-.booking-admin .terminal-payments th { white-space: nowrap; }
+.booking-admin .terminal-payments { max-width:100%; overflow-x:auto; }
+.booking-admin .terminal-payments table { width:100%; min-width:540px; table-layout:fixed; }
+.booking-admin .terminal-payments :is(th,td) { white-space:normal; overflow-wrap:anywhere; }
+.booking-admin .terminal-payments th:first-child { width:17%; }
+.booking-admin .terminal-payments th:nth-child(2) { width:18%; }
+.booking-admin .terminal-payments th:nth-child(3) { width:25%; }
+.booking-admin .terminal-payments th:last-child { width:112px; }
+.booking-admin .terminal-payments .icon-button { padding:0; border:0; background:transparent; color:var(--dash-primary); }
+.booking-admin .terminal-payments .icon-button:hover, .booking-admin .terminal-payments .icon-button:focus-visible { background:#e7edff; }
 .booking-admin .prep-link { text-decoration: none; }
 .booking-admin .prep-badge { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .booking-admin .prep-complete { color: #168447; }
@@ -429,12 +452,8 @@
 .booking-admin.dash-midnight .money-due dt, .booking-admin.dash-midnight .money-due dd,
 .booking-admin.dash-midnight .prep-pending { color: #fbbf24; }
 .booking-admin.dash-midnight .booking-danger:not(.booking-danger-solid) { color: #fca5a5; border-color: #fca5a5; }
-@media(max-width:900px) { .booking-admin .reservation-money { grid-template-columns: repeat(3,minmax(0,1fr)); } }
 @media(max-width:600px) {
   .booking-admin .reservation-facts { grid-template-columns: minmax(0,1fr); gap: 18px; }
-  .booking-admin .reservation-money { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
-  .booking-admin .reservation-money > div { padding: 12px; }
-  .booking-admin .reservation-money dd { font-size: 21px; }
   .booking-admin .reservation-heading-actions { width: 100%; justify-content: space-between; }
   .booking-admin .reservation-section .section-heading { align-items: flex-start; }
 }
@@ -501,4 +520,197 @@
   .booking-admin .square-mapping-form td, .booking-admin .square-mapping-form th { padding: 12px 8px; }
   .booking-admin .square-mapping-form select { min-width: 0; }
   .booking-admin .square-account-actions .actions { flex-wrap: wrap; }
+}
+.booking-admin .reservation-workspace { display:grid; grid-template-columns:minmax(0,1fr) 290px; gap:28px; align-items:start; }
+.reservation-workspace-main { min-width:0; }
+.booking-admin [data-reservation-panel][hidden] { display:none; }
+.booking-admin .reservation-notes-sidebar { position:sticky; top:24px; border-left:1px solid var(--dash-border); padding-left:24px; }
+.booking-admin .reservation-notes-sidebar .reservation-section { margin:0; padding:0; border:0; }
+.booking-admin .reservation-notes-sidebar h2 { font-size:16px; margin:0 0 16px; }
+.booking-admin .reservation-notes-sidebar textarea { min-height:90px; }
+.booking-admin .reservation-note-list { max-height:60vh; overflow:auto; margin-top:20px; }
+.booking-admin .reservation-note { font-size:14px; overflow-wrap:anywhere; }
+.booking-admin .reservation-note .muted { font-size:12px; }
+.booking-admin .prep-overview { display:grid; grid-template-columns:1fr 1fr 2fr; gap:24px; padding:20px 0; margin:0; border-bottom:1px solid var(--dash-border); }
+.booking-admin .prep-overview dt { color:var(--dash-muted); font-size:14px; margin-bottom:6px; }
+.booking-admin .prep-overview dd { margin:0; font-weight:600; overflow-wrap:anywhere; }
+.booking-admin .prep-edit-selections { display:inline-block; margin-top:16px; }
+.booking-admin .reservation-payment { margin:28px 0; border:1px solid var(--dash-border); border-radius:8px; background:var(--dash-card,#fff); overflow:hidden; }
+.booking-admin .reservation-payment > header { display:flex; align-items:center; gap:12px; padding:18px 22px; border-bottom:1px solid var(--dash-border); }
+.booking-admin .reservation-payment h2 { margin:0; font-size:18px; }
+.booking-admin .payment-state { border-radius:12px; background:#dcfce7; color:#166534; padding:4px 10px; font-size:12px; font-weight:600; }
+.booking-admin .payment-state-due { background:#ffedd5; color:#9a3412; }
+.booking-admin .payment-columns { display:grid; grid-template-columns:minmax(220px,1fr) minmax(0,1.8fr); }
+.booking-admin .payment-balance { padding:24px; border-right:1px solid var(--dash-border); }
+.booking-admin .payment-balance-value { display:block; font-size:32px; line-height:1.2; margin:5px 0 20px; }
+.booking-admin .payment-balance progress { display:block; width:100%; height:8px; appearance:none; border:0; border-radius:4px; overflow:hidden; background:#e5e7eb; color:#16a34a; }
+.booking-admin .payment-balance progress::-webkit-progress-bar { background:#e5e7eb; border-radius:4px; }
+.booking-admin .payment-balance progress::-webkit-progress-value { background:#16a34a; border-radius:4px; }
+.booking-admin .payment-balance progress::-moz-progress-bar { background:#16a34a; border-radius:4px; }
+.booking-admin .reservation-notes-sidebar { overflow-anchor:none; }
+.booking-admin .payment-balance p { font-size:14px; margin:8px 0 16px; }
+.booking-admin .payment-balance > button { width:100%; }
+.booking-admin .payment-totals { border-top:1px solid var(--dash-border); padding-top:16px; margin:20px 0 0; font-size:14px; }
+.booking-admin .payment-totals > div { display:flex; justify-content:space-between; gap:12px; margin-top:9px; }
+.booking-admin .payment-totals dd { margin:0; font-weight:600; }
+.booking-admin .payment-history { padding:24px; min-width:0; }
+.booking-admin .payment-history h3 { font-size:14px; margin:0; }
+.booking-admin .payment-history-entry { display:flex; align-items:center; gap:12px; padding:16px 0; border-bottom:1px solid var(--dash-border); font-size:14px; }
+.booking-admin .payment-history-entry > div { flex:1; min-width:0; overflow-wrap:anywhere; }
+.booking-admin .payment-history-entry > svg { width:22px; height:22px; flex-shrink:0; color:var(--dash-primary); }
+.booking-admin .payment-history-entry p { margin:4px 0 0; }
+.booking-admin .payment-secondary-actions { padding:0 22px 18px; }
+.booking-admin .payment-corrections { margin-top:16px; font-size:13px; }
+.booking-admin .reservation-payment-dialog { width:min(520px,calc(100vw - 32px)); border-radius:8px; }
+.booking-admin .payment-dialog-totals { display:grid; grid-template-columns:repeat(3,1fr); padding:14px; background:var(--dash-bg,#f3f4f6); border-radius:6px; gap:12px; }
+.booking-admin .payment-dialog-totals dt { font-size:12px; color:var(--dash-muted); }
+.booking-admin .payment-dialog-totals dd { margin:4px 0 0; font-weight:600; }
+.booking-admin .payment-method { border:0; padding:0; margin:16px 0; }
+.booking-admin .payment-method legend { font-weight:500; font-size:14px; margin-bottom:8px; }
+.booking-admin .payment-method > div { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.booking-admin .payment-method label { display:flex; justify-content:center; align-items:center; gap:8px; min-height:46px; padding:10px; border:1px solid var(--dash-border); border-radius:6px; font-size:14px; text-transform:none; cursor:pointer; }
+.booking-admin .payment-method label:has(input:checked) { border-color:var(--dash-primary); background:#eff6ff; color:var(--dash-primary); }
+.booking-admin .payment-method input { width:16px; height:16px; margin:0; }
+.booking-admin .payment-dialog-footer { display:flex; flex-wrap:wrap; align-items:center; gap:10px; border-top:1px solid var(--dash-border); padding-top:18px; }
+.booking-admin .payment-dialog-footer > span { margin-right:auto; font-size:13px; }
+.booking-admin .column-menu-trigger { border:0; background:transparent; padding:0; min-height:0; color:inherit; font:inherit; text-transform:inherit; border-radius:0; gap:6px; }
+.booking-admin .column-menu-trigger > span[aria-hidden] { font-size:18px; line-height:1; color:var(--dash-text); }
+.booking-admin thead th { line-height:20px; vertical-align:middle; }
+.booking-admin thead th :is(.column-menu-trigger, .reservation-sort-link) { display:inline-flex; align-items:center; vertical-align:middle; line-height:20px; min-height:20px; margin:0; padding:0; }
+.booking-admin .reservation-table thead th { line-height:20px; }
+.booking-admin .booking-quick-filters { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 24px; }
+.booking-admin .quick-filter { display:inline-flex; align-items:center; gap:10px; min-height:42px; padding:8px 16px; border:1px solid var(--dash-border); border-radius:24px; background:var(--dash-card); color:var(--dash-text); font-size:14px; font-weight:600; text-decoration:none; box-sizing:border-box; }
+.booking-admin .quick-filter span { font-variant-numeric:tabular-nums; }
+.booking-admin .quick-filter--attention { color:#9a3412; border-color:#fdba74; background:#fff7ed; }
+.booking-admin .quick-filter[aria-current=page] { background:#111827; border-color:#111827; color:#fff; }
+.booking-admin .quick-filter:focus-visible { outline:2px solid var(--dash-primary); outline-offset:3px; }
+.booking-admin .booking-completed-switch { display:inline-flex; align-items:center; gap:10px; white-space:nowrap; margin:0; font-size:14px; }
+.booking-admin .booking-completed-switch input[role=switch] { appearance:none; flex:none; width:40px; height:24px; min-height:24px; padding:2px; margin:0; border:1px solid #9ca3af; border-radius:16px; background:#d1d5db; cursor:pointer; }
+.booking-admin .booking-completed-switch input[role=switch]::before { content:""; display:block; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 1px 2px #0002; }
+.booking-admin .booking-completed-switch input[role=switch]:checked { background:var(--dash-primary); border-color:var(--dash-primary); }
+.booking-admin .booking-completed-switch input[role=switch]:checked::before { transform:translateX(16px); }
+.booking-admin .booking-completed-switch input[role=switch]:focus-visible { outline:2px solid var(--dash-primary); outline-offset:3px; }
+.booking-admin .reservation-kind { display:inline-flex; align-items:center; gap:5px; margin-top:6px; padding:3px 8px; border-radius:12px; background:#f3f4f6; color:#4b5563; font-size:12px; font-weight:600; }
+.booking-admin .reservation-kind svg { width:14px; height:14px; flex:none; }
+.booking-admin .calendar-create-actions { display:inline-flex; align-items:center; gap:8px; margin-left:auto; flex-shrink:0; }
+.booking-admin .reservation-kind--party { background:#f3e8ff; color:#7e22ce; }
+.booking-admin .reservation-payment-cell strong { display:block; }
+.booking-admin .payment-due { color:#9a3412; }
+.booking-admin .payment-paid { color:#15803d; }
+.booking-admin .reservation-total { width:12%; }
+.booking-admin .reservation-customer { width:17%; }
+.booking-admin .reservation-workshop { width:16%; }
+.booking-admin .col-filter-panel button.cf-option { width:100%; text-align:left; justify-content:flex-start; border:0; border-radius:0; background:transparent; min-height:34px; font-weight:400; }
+.booking-admin .col-filter-panel button.cf-option.cf-active { color:var(--dash-primary); font-weight:600; }
+.booking-admin .col-filter-panel button.cf-option:hover { background:var(--dash-hover,#f8fafc); }
+.booking-admin .reservation-date-filter { padding:10px 14px; display:grid; gap:8px; text-transform:none; }
+@media(max-width:1100px) { .booking-admin .reservation-workspace { grid-template-columns:minmax(0,1fr) 250px; gap:20px; } .booking-admin .payment-columns { grid-template-columns:1fr; } .booking-admin .payment-balance { border-right:0; border-bottom:1px solid var(--dash-border); } }
+@media(max-width:760px) { .booking-admin .reservation-workspace { grid-template-columns:minmax(0,1fr); } .booking-admin .reservation-notes-sidebar { position:static; padding:24px 0 0; border-left:0; border-top:1px solid var(--dash-border); } .booking-admin .prep-overview { grid-template-columns:1fr 1fr; } .booking-admin .prep-overview > div:last-child { grid-column:1/-1; } }
+.booking-admin .reservation-progress { list-style:none; display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:0; margin:0 0 24px; font-size:14px; }
+.booking-admin .reservation-progress li { display:flex; align-items:center; gap:8px; color:var(--dash-muted); }
+.booking-admin .reservation-progress .progress-marker { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; flex:0 0 22px; border-radius:50%; background:var(--dash-card); color:#cbd5e1; }
+.booking-admin .reservation-progress svg { width:22px; height:22px; }
+.booking-admin .reservation-progress .done { color:var(--dash-text); }
+.booking-admin .reservation-progress .done .progress-marker { background:#16a34a; color:white; }
+.booking-admin .reservation-progress .done svg { width:15px; height:15px; }
+.booking-admin .reservation-progress .current { color:var(--dash-primary); font-weight:600; }
+.booking-admin .reservation-progress .current .progress-marker { color:var(--dash-primary); }
+.booking-admin svg.lucide-circle-dot circle:last-child { r:4px; fill:currentColor; stroke:none; }
+.booking-admin .reservation-guests :is(input,select), .booking-admin .terminal-payments input { width:100%; min-width:0; box-sizing:border-box; }
+.booking-admin .reservation-guests table { width:100%; min-width:580px; table-layout:fixed; }
+.booking-admin .reservation-guests th:last-child { width:112px; }
+.booking-admin .reservation-guests :is(th,td,select,.dash-student-cell) { min-width:0; overflow-wrap:anywhere; }
+.booking-admin .reservation-guests th:first-child { width:26%; }
+.booking-admin .reservation-progress li + li::before { content:""; width:40px; height:2px; background:#d1d5db; margin-right:2px; }
+.booking-admin .reservation-progress .done + li::before { background:#16a34a; }
+@media (max-width:480px) {
+  .booking-admin .reservation-progress { gap:8px; }
+  .booking-admin .reservation-progress li { gap:4px; }
+  .booking-admin .reservation-progress li + li::before { width:12px; margin-right:0; }
+}
+.booking-admin .reservation-action-menu { position:relative; }
+.booking-admin .reservation-action-menu summary { list-style:none; cursor:pointer; }
+.booking-admin .reservation-action-menu summary::-webkit-details-marker { display:none; }
+.booking-admin .reservation-action-menu > div { position:absolute; z-index:10; top:calc(100% + 8px); right:0; min-width:240px; padding:8px; border:1px solid var(--dash-border); border-radius:8px; background:var(--dash-card,#fff); box-shadow:0 6px 20px #0002; }
+.booking-admin .reservation-action-menu a, .booking-admin .reservation-action-menu button { display:block; padding:12px; font-size:14px; border:0; background:none; text-align:left; text-decoration:none; }
+.booking-admin .prep-selection-group { display:block; font-size:14px; line-height:1.6; }
+.booking-admin .reservation-payment-dialog .form-field > label { text-transform:none; font-size:14px; font-weight:500; letter-spacing:0; color:var(--dash-text); }
+.booking-admin .reservation-payment-dialog .terminal-extras { border:1px solid #fed7aa; border-radius:6px; background:#fff7ed; color:#9a3412; }
+.booking-admin .reservation-payment-dialog .terminal-extras .form-field { margin:12px 0 0; }
+.booking-admin .reservation-payment-dialog .terminal-extras p { line-height:1.5; }
+.booking-admin .reservation-workspace { font-size:14px; line-height:1.5; }
+.booking-admin .reservation-workspace :is(h2, .reservation-notes-sidebar h2) { font-size:18px; line-height:1.4; }
+.booking-admin .reservation-workspace h3 { font-size:16px; line-height:1.4; }
+.booking-admin :is(.reservation-workspace, .reservation-heading-actions, .reservation-payment-dialog) :is(button, .button) { display:inline-flex; align-items:center; justify-content:center; gap:8px; font-size:14px; line-height:1.4; }
+.booking-admin :is(.reservation-workspace, .reservation-heading-actions, .reservation-payment-dialog) :is(button, .button) > svg { width:16px; height:16px; flex-shrink:0; }
+.booking-admin .back-link { display:inline-flex; align-items:center; gap:6px; font-size:14px; }
+.booking-admin .back-link > svg { width:16px; height:16px; flex-shrink:0; }
+.booking-admin .reservation-heading p { font-size:14px; line-height:1.5; }
+.booking-admin .reservation-workspace :is(p, dd, dt, .prep-selection-group) { font-size:14px; }
+.booking-admin .reservation-workspace :is(.payment-dialog-totals dt, .reservation-note .muted) { font-size:12px; }
+.party-request-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 28px; align-items: start; max-width: none; }
+.party-request-layout > .notice { grid-column: 1 / -1; }
+.booking-admin [data-staff="true"] :is(input:not([type=hidden]), select, button, a.button) { min-height:44px; }
+.booking-admin .package-booking-location { margin-bottom:28px; }
+.booking-admin .package-booking-location :is(select, button) { min-height:44px; }
+.booking-admin [data-staff="true"] .party-request-summary { top:96px; }
+.booking-admin [data-staff="true"] .party-request-summary p { line-height:1.5; }
+.party-request-fields, .party-field-pair > * { min-width: 0; }
+.party-request-fields .reservation-section { padding: 24px 0; border-bottom: 1px solid var(--border-color, #dfe3e8); }
+.party-request-fields .reservation-section:first-child { padding-top: 0; }
+.party-request-fields .form-field { margin: 18px 0 0; }
+.party-field-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.party-step { display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center; background: #17202e; color: white; border-radius: 50%; font-size: 13px; margin-right: 8px; }
+.party-request-summary { position: sticky; top: 24px; border-left: 1px solid var(--border-color, #dfe3e8); padding-left: 24px; overflow-wrap: anywhere; }
+.party-request-summary h2 { font-size: 14px; margin: 0 0 20px; }
+.party-request-summary p { margin: 8px 0; }
+.party-request-summary .payment-totals div { gap: 16px; }
+.party-request-summary dd { text-align: right; }
+.booking-admin .package-list-actions { justify-content:flex-end; }
+.booking-admin .package-summary-price { display:block; font-size:26px; margin:20px 0; }
+.booking-admin .setup-form.package-editor { max-width:1080px; grid-template-columns:minmax(0, 1fr) 280px; gap:24px 32px; }
+.booking-admin .package-editor .party-request-fields { background:var(--dash-card); padding:24px; border:1px solid var(--dash-border); border-radius:8px; }
+.booking-admin .package-editor .reservation-section { margin:0; padding:24px 0; }
+.booking-admin .package-editor .reservation-section:first-child { padding-top:0; }
+.booking-admin .package-editor .reservation-section:last-of-type { border-bottom:0; }
+.booking-admin .package-editor h2 { font-size:16px; margin:0 0 16px; }
+.booking-admin .package-editor .form-field { margin:0; display:flex; flex-direction:column; gap:8px; }
+.booking-admin .package-editor .form-field label { text-transform:none; font-size:14px; font-weight:500; line-height:20px; margin:0; letter-spacing:0; }
+.booking-admin .package-editor .form-field :is(input,select) { min-width:0; width:100%; height:42px; box-sizing:border-box; margin:0; }
+.booking-admin .package-editor :is(.party-field-pair, .package-pricing-row) { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:20px 24px; }
+.booking-admin .package-editor .party-field-pair { margin-top:20px; }
+.booking-admin .package-editor h2 + .party-field-pair { margin-top:0; }
+.booking-admin .package-booking-method { width:calc((100% - 24px) / 2); margin-top:20px; }
+.booking-admin .package-editor .party-request-summary { padding:24px 0 0 24px; top:24px; }
+.booking-admin .package-save-actions { display:flex; justify-content:flex-end; align-items:center; gap:12px; margin:0; padding:20px 0 0; border-top:1px solid var(--dash-border); }
+.booking-admin .package-save-actions :is(.button, button) { display:inline-flex; align-items:center; justify-content:center; height:40px; box-sizing:border-box; white-space:nowrap; text-decoration:none; }
+.booking-admin .package-editor > .notice { grid-column:1 / -1; }
+@media(max-width:900px) {
+  .booking-admin .setup-form.package-editor { grid-template-columns:minmax(0,1fr); }
+  .booking-admin .package-editor .party-request-summary { position:static; border-left:0; padding:0; }
+}
+@media(max-width:540px) {
+  .booking-admin .package-editor .party-request-fields { padding:20px 16px; }
+  .booking-admin .package-editor :is(.party-field-pair, .package-pricing-row) { grid-template-columns:minmax(0,1fr); }
+  .booking-admin .package-booking-method { width:100%; }
+  .booking-admin .package-save-actions { flex-wrap:wrap; gap:8px; }
+}
+.party-review-actions { display: flex; gap: 20px; align-items: end; margin-top: 24px; flex-wrap: wrap; }
+.party-review-actions .form-field { margin: 0; min-width: 200px; }
+.party-review-form .form-field input, .party-review-form .form-field select { width: 100%; }
+.party-review-form .payment-history .form-field { margin: 16px 0; }
+@media (max-width: 800px) {
+  .party-request-layout { grid-template-columns: minmax(0, 1fr); }
+  .party-request-summary { position: static; border-left: 0; border-top: 1px solid #dfe3e8; padding: 24px 0 0; }
+}
+@media (max-width: 480px) { .party-field-pair { grid-template-columns: minmax(0, 1fr); gap: 0; } }
+.location-settings-form input:not([type="hidden"]),
+.location-settings-form select,
+.location-settings-form .form-actions button,
+.location-settings-form .form-actions a {
+  min-height: 44px;
+}
+.location-settings-form .form-actions a {
+  display: inline-flex;
+  align-items: center;
 }

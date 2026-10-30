@@ -285,7 +285,7 @@ def test_local_payment_and_customer_return_link_respect_scope(two_locations, boo
     booking_member.all_locations = False
     booking_member.save()
     client.force_login(booking_member.user)
-    for item, allowed in [(own, True), (foreign, False)]:
+    for item in [own, foreign]:
         response = client.get(path(booking_member, "customer_payment", token=payment_token(item)))
         assert response.status_code == 200
-        assert response.context["can_view_reservation"] is allowed
+        assert b"Back to reservation" not in response.content

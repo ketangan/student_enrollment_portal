@@ -518,7 +518,7 @@ def test_customer_experience_uses_square_and_rejects_stale_provider_review(demo,
         reference="MTEST", location_reference="LTEST", enabled=True)
     session, data = form_data(browser, demo, count=1)
     review = browser.post(url("choose", pk=session.pk), data)
-    assert b"Continue to checkout <" in review.content
+    assert b"Continue to payment" in review.content
     assert b"Square test checkout" not in review.content and b"Stripe test checkout" not in review.content
     data.update(action="checkout", review_token=review.context["review_token"])
     if switch_before_submit:
