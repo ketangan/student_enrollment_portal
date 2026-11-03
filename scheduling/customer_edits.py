@@ -177,6 +177,7 @@ def save_party(item, offering, data, token):
 
 def save_workshop(item, session, data, token, config, *, review_token, browser):
     from .experience_demo import service
+    from .workshop_experience import snapshot_key
     if already_saved(item, token, data):
         return item
     if session.offering.location.profile_id != item.profile_id:
@@ -210,7 +211,7 @@ def save_workshop(item, session, data, token, config, *, review_token, browser):
         source.session_snapshot = {"workshop": session.offering.name, "location": session.offering.location.name,
             "room": session.room.name if session.room else "", "timezone": session.offering.location.timezone_name,
             "starts_at": session.starts_at.isoformat(), "ends_at": session.ends_at.isoformat(),
-            "experience_demo": {"policy": config["policy_revision"], "published_policy": service.notice(item.profile.school, "workshop"),
+            snapshot_key(item.profile): {"policy": config["policy_revision"], "published_policy": service.notice(item.profile.school, "workshop"),
                 "reviewed_at": timezone.now().isoformat(), "price_cents": price_cents}, "price_breakdown": breakdown}
         source.save()
         source.participants.all().delete()

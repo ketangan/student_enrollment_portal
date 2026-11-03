@@ -105,7 +105,10 @@
       symbol.setAttribute('aria-hidden', 'true'); node.append(symbol); return node;
     };
     const refresh = () => {
-      persons().forEach(person => updates.get(person)?.());
+      persons().forEach(person => {
+        updates.get(person)?.();
+        $('.selection-error', person).hidden = true;
+      });
       summarize();
     };
     const recipe = (person, color) => !deferred(person) && config.inventory.variants.find(row =>
@@ -250,10 +253,28 @@
       $('#group-color-status').textContent = 'Color applied to everyone.';
       refresh();
     });
-    $('#choices-form').addEventListener('invalid', event => {
-      const index = persons().findIndex(person => person.contains(event.target));
-      if (index >= 0) {active = index; rebuild();}
-    }, true);
+    const form = $('#choices-form');
+    // Native validation cannot focus the selects behind the visual picker.
+    form.noValidate = true;
+    form.addEventListener('submit', event => {
+      const invalid = $$('input,select', form).find(input => input.willValidate && !input.validity.valid);
+      if (!invalid) return;
+      event.preventDefault();
+      const index = persons().findIndex(person => person.contains(invalid));
+      if (index >= 0) {
+        active = index; rebuild();
+        const person = persons()[index];
+        const group = [config.design_group, config.color_group].find(name => select(person, name) === invalid);
+        if (visual && group) {
+          const error = $('.selection-error', person);
+          error.textContent = invalid.value ? invalid.validationMessage : `Choose a ${group === config.design_group ? 'design' : 'color'} for this participant.`;
+          error.hidden = false;
+          $(group === config.design_group ? '.design-option' : '.color-option:not(:disabled)', person)?.focus();
+          return;
+        }
+      }
+      invalid.reportValidity();
+    });
     const errorIndex = persons().findIndex(person => $$('.errorlist', person).length);
     active = Math.max(0, errorIndex); rebuild();
   }

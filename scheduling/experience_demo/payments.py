@@ -5,12 +5,12 @@ from django.urls import reverse
 from core.payments.checkout import open_checkout
 from core.payments.models import PaymentAttempt
 from scheduling.checkout import prepare_booking_checkout, recover_attempt
-from .config import available
+from scheduling.workshop_experience import available
 
 
 def start_checkout(request, profile, item):
     if not available(profile) or not item.reservation.order.account_id:
-        raise ValidationError("Test checkout is not enabled for this booking.")
+        raise ValidationError("Checkout is not enabled for this booking.")
     path = reverse("scheduling:experience_booking", kwargs={
         "school_slug": profile.school.slug, "public_id": item.public_id})
     return_url = request.build_absolute_uri(path + "?checkout_return=1")

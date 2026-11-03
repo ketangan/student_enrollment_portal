@@ -72,10 +72,11 @@ def customer_payment(request, school_slug, token):
     context["review_later"] = max(Decimal(0), amounts["outstanding"] - context["review_due"])
     template = "scheduling/party_payment.html" if context.get("party_experience") else "scheduling/customer_payment.html"
     if context.get("workshop_experience") and editable(item):
-        from .experience_demo.config import context as experience_context
+        from .workshop_experience import context as experience_context, offering_config
         from .experience_demo import service as experience_service
-        _, config = experience_context(request, school_slug)
+        profile, config = experience_context(request, school_slug)
         source = item.workshop_request
+        config = offering_config(profile, config, source.session.offering)
         rows = [{"name": person.name, "selections": person.selections,
                  "selections_deferred": person.selections_deferred} for person in source.participants.all()]
         experience_service.selection_previews(rows, source.session.offering, config)
@@ -83,7 +84,7 @@ def customer_payment(request, school_slug, token):
         context.update(saved_review=True, demo=config, rows=rows, session=source.session,
             purchaser={"purchaser_name": source.purchaser_name, "purchaser_email": source.purchaser_email,
                        "purchaser_phone": source.purchaser_phone},
-            unit_price=Decimal(config["price_cents"])/100, total=amounts["total"],
+            unit_price=Decimal(breakdown.get("subtotal_cents", item.order.total_cents))/100/item.quantity, total=amounts["total"],
             subtotal=Decimal(breakdown.get("subtotal_cents", item.order.total_cents))/100,
             tax=Decimal(breakdown.get("tax_cents", 0))/100, stripe_checkout=True,
             due_now=context["review_due"], due_later=context["review_later"])

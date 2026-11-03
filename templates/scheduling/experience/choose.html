@@ -1,4 +1,4 @@
-{% extends 'scheduling/experience/base.html' %}{% load booking_policies %}{% block content %}<h1>A plushie for every personality.</h1><p class="lead">Choose a design and color for each participant.</p>
+{% extends 'scheduling/experience/base.html' %}{% load booking_policies %}{% block content %}<h1>{{ demo.choose_title|default:"A plushie for every personality." }}</h1><p class="lead">Choose a design and color for each participant.</p>
 <form method="post" id="choices-form">{% csrf_token %}<input type="hidden" name="request_token" value="{{ request_token }}">{{ participants.management_form }}{{ participants.non_form_errors }}
 {% if editing_booking %}<input type="hidden" name="edit_revision" value="{{ edit_revision }}">{% endif %}
 {% if purchaser.non_field_errors %}<div class="alert" role="alert">{{ purchaser.non_field_errors }}</div>{% endif %}

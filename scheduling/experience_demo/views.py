@@ -15,7 +15,7 @@ from scheduling.capabilities import has_capability
 from scheduling.models import Session, WorkshopRequest
 from scheduling.request_forms import request_forms
 from . import payments, service
-from .config import context
+from scheduling.workshop_experience import context, offering_config, payment_problem
 
 
 def page(request, template, profile, config, values=None, status=200):
@@ -50,7 +50,13 @@ def start(request, school_slug):
     rows = service.session_rows(profile, online=config.get("stripe_checkout", False)) if profile.native_reservations_enabled else []
     order = {location["name"]: index for index, location in enumerate(config["locations"])}
     rows.sort(key=lambda row: order.get(row["location"], len(order)))
-    return page(request, "start", profile, config, {"sessions": rows, "step": 1})
+    locations = profile.locations.in_bulk({row["location_id"] for row in rows}) if not profile.school.is_demo else {}
+    problems = {location_id: payment_problem(profile, location) for location_id, location in locations.items()}
+    for row in rows:
+        if problems.get(row["location_id"]):
+            row["places"] = 0
+    return page(request, "start", profile, config, {"sessions": rows, "step": 1,
+        "error": next((message for message in problems.values() if message), "")})
 
 
 def choice_context(request, session, config, purchaser, participants, policy, catalog, browser, *, exclude=None):
@@ -100,6 +106,12 @@ def choose(request, school_slug, pk):
         pk=pk, offering__location__profile=profile,
         offering__price_per_participant__isnull=False,
         offering__visit_program__isnull=True)
+    config = offering_config(profile, config, session.offering)
+    problem = payment_problem(profile, session.offering.location)
+    if problem:
+        return page(request, "start", profile, config, {"sessions": [], "step": 1, "error": problem}, 503)
+    if not profile.school.is_demo and request.POST.get("simulate_checkout"):
+        raise Http404
     browser = requests.browser_key(request, create=True)
     catalog = requests.catalog_for(session.offering)
     if (not requests.accepts_reservations(session, catalog)
@@ -161,6 +173,7 @@ def choose(request, school_slug, pk):
 def booking(request, school_slug, public_id):
     profile, config = context(request, school_slug)
     item = service.customer_booking(profile, public_id, requests.browser_key(request))
+    config = offering_config(profile, config, item.session.offering)
     error, status = "", 200
     stripe_checkout = bool(item.reservation.order.account_id)
     payment_message = ""
@@ -175,6 +188,8 @@ def booking(request, school_slug, public_id):
         elif request.GET.get("checkout_return") == "1":
             payment_message = payments.verify_return(item)
     elif request.method == "POST":
+        if not profile.school.is_demo:
+            raise Http404
         if request.POST.get("action") == "decline":
             if item.reservation.state in ("confirmed", "completed"):
                 error, status = "This booking is already confirmed. No new payment was attempted.", 400
@@ -215,7 +230,7 @@ def calendar(request, school_slug, public_id):
     if item.reservation.state not in ("confirmed", "completed"):
         raise Http404
     response = HttpResponse(service.calendar(item), content_type="text/calendar; charset=utf-8")
-    response["Content-Disposition"] = 'attachment; filename="workshop-demo.ics"'
+    response["Content-Disposition"] = 'attachment; filename="workshop.ics"'
     return response
 
 
@@ -223,6 +238,7 @@ def calendar(request, school_slug, public_id):
 @login_required
 @require_GET
 def preparation(request, school_slug):
+    from .config import context
     profile, config = context(request, school_slug)
     profile, role = require_location_access(request.user, school_slug)
     raw = request.GET.get("session")
@@ -250,6 +266,7 @@ def preparation(request, school_slug):
 @login_required
 @require_GET
 def integration(request, school_slug, public_id):
+    from .config import context
     profile, config = context(request, school_slug)
     require_access(request.user, school_slug, "setup.edit", capability="integrations")
     item = get_object_or_404(WorkshopRequest.objects.select_related("reservation"), public_id=public_id,

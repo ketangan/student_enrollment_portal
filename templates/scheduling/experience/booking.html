@@ -1,6 +1,6 @@
 {% extends 'scheduling/experience/base.html' %}{% block content %}
 {% if item.reservation.state == 'confirmed' %}
-<header class="confirmation-heading"><div class="confirmation-icon"><i data-lucide="check" aria-hidden="true"></i></div><p class="success">Booking confirmed</p><h1>Your plushie day is on the calendar!</h1><p class="lead">We look forward to creating with you, {{ item.purchaser_name }}.</p></header>
+<header class="confirmation-heading"><div class="confirmation-icon"><i data-lucide="check" aria-hidden="true"></i></div><p class="success">Booking confirmed</p><h1>{{ demo.confirmation_title|default:"Your plushie day is on the calendar!" }}</h1><p class="lead">We look forward to creating with you, {{ item.purchaser_name }}.</p></header>
 {% elif item.reservation.state == 'completed' %}<header class="confirmation-heading"><div class="confirmation-icon"><i data-lucide="check" aria-hidden="true"></i></div><p class="success">Workshop completed</p><h1>Thank you, {{ item.purchaser_name }}.</h1></header>
 {% elif item.reservation.state == 'canceled' %}<h1>Checkout canceled.</h1><p>Your places have been released.</p><a class="button" href="{% url 'scheduling:experience_start' school_slug=business.slug %}">Start a new booking</a>
 {% elif stripe_checkout %}<h1>Complete your booking</h1><p class="muted">Your places are held until {{ item.reservation.hold_until|date:'g:i A' }}.</p>
@@ -8,7 +8,7 @@
 {% endif %}
 {% if payment_message %}<p class="boundary" role="status">{{ payment_message }} <a href="?checkout_return=1">Check payment status</a></p>{% endif %}
 {% if customer_edit_url %}<p><a class="quiet" href="{{ customer_edit_url }}">Edit booking details</a></p>{% endif %}
-<div class="confirmation-layout"><section><img class="workshop-photo" src="{{ demo.photo }}" alt="Participants creating plushies in the workshop"><div class="details"><h2>{{ item.session_snapshot.workshop }}</h2><p>{{ item.session_snapshot.location }}<br>{{ item.requested_start|date:'D, M j, Y' }} at {{ item.requested_start|date:'g:i A' }}</p><p class="total">{{ people|length }} participant{{ people|pluralize }} <strong>${{ total }}</strong></p><p class="reference">Reference: {{ item.public_id }}</p></div>
+<div class="confirmation-layout"><section>{% if demo.photo %}<img class="workshop-photo" src="{{ demo.photo }}" alt="Workshop participants">{% endif %}<div class="details"><h2>{{ item.session_snapshot.workshop }}</h2><p>{{ item.session_snapshot.location }}<br>{{ item.requested_start|date:'D, M j, Y' }} at {{ item.requested_start|date:'g:i A' }}</p><p class="total">{{ people|length }} participant{{ people|pluralize }} <strong>${{ total }}</strong></p><p class="reference">Reference: {{ item.public_id }}</p></div>
 {% if item.reservation.state == 'confirmed' %}<a class="button" href="{% url 'scheduling:experience_calendar' school_slug=business.slug public_id=item.public_id %}"><i data-lucide="calendar-plus" aria-hidden="true"></i> Add to calendar</a>{% endif %}
 {% if item.reservation.state != 'canceled' %}
 <div class="details"><h2>Payment summary</h2><p class="total">Paid <strong>${{ amounts.net|floatformat:2 }}</strong></p>
@@ -20,7 +20,7 @@
 {% if stripe_checkout %}<form method="post" target="_top">{% csrf_token %}{% include 'scheduling/payment_choice.html' %}{% if not payment_has_choice and not payment_active_amount %}<p class="total">Pay today <strong>${{ due_now|floatformat:2 }}</strong></p>{% endif %}<button class="button" name="action" value="payment_checkout">Continue to {{ payment_provider_name }} Checkout <i data-lucide="arrow-up-right" aria-hidden="true"></i></button></form>
 {% else %}<p class="total">Pay today <strong>${{ due_now|floatformat:2 }}</strong></p>{% if due_later %}<p>Due on {{ item.requested_start|date:'M j, Y' }}: <strong>${{ due_later|floatformat:2 }}</strong></p>{% endif %}{% endif %}{% endif %}
 </div>{% endif %}
-</section><section><h2>Your plushie crew</h2>
+</section><section><h2>{{ demo.participant_heading|default:"Your plushie crew" }}</h2>
 {% if followup_token %}<p><a href="{% url 'scheduling:workshop_selections' school_slug=business.slug token=followup_token %}">Choose your designs</a></p>{% endif %}
 {% for person in people %}<article class="review-person">{% include 'scheduling/experience/selection_thumbnail.html' %}<div><h3>{{ person.name }}</h3><div class="selections">{% if person.age %}<span>Age: <strong>{{ person.age }}</strong></span>{% endif %}{% if person.selections_deferred %}<span>Choosing at the studio</span>{% else %}<span>Design: <strong>{{ person.design }}</strong></span><span><span class="swatch" style="--color:{{ person.swatch }}"></span><strong>{{ person.color }}</strong></span>{% endif %}</div></div></article>{% endfor %}
 </section></div>

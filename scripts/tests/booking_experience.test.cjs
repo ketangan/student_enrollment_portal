@@ -8,15 +8,18 @@ const filename = path.resolve(__dirname, '../../static/scheduling/experience.js'
 const source = fs.readFileSync(path.resolve(__dirname, '../../static/scheduling/catalog-picker.js'), 'utf8') + '\n' + fs.readFileSync(filename, 'utf8');
 
 function element(select = false) {
+  const classes = new Set();
   return {
     children: [], listeners: {}, attrs: {}, dataset: {}, value: '', textContent: '',
-    classList: {toggle() {}},
+    classList: {toggle(name, enabled) { if (enabled) classes.add(name); else classes.delete(name); },
+      contains(name) { return classes.has(name); }},
     addEventListener(event, callback) { this.listeners[event] = callback; },
     setAttribute(name, value) { this.attrs[name] = value; },
     removeAttribute(name) { delete this.attrs[name]; delete this[name]; },
     replaceChildren(...items) { this.children = items; if (select) this.value = items[0]?.value || ''; },
     add(item) { this.children.push(item); if (this.children.length === 1) this.value = item.value; },
     append(...items) { this.children.push(...items); },
+    focus() { this.focused = true; },
     querySelector(selector) { return this.children.find(node => selector === 'button' ? node.type === 'button' : `.${node.className}` === selector); },
     style: {setProperty(name, value) { this[name] = value; }},
   };
@@ -202,9 +205,14 @@ function choicesPage({customPhoto = false, variantPhoto = '', bookingMode = fals
       Age: dropdown([{value:'8',textContent:'8'},{value:'adult',textContent:'Adult'}])};
     const labels = Object.entries(fields).map(([field, node]) => ({dataset:{field},querySelector: () => node, querySelectorAll: () => [node]}));
     const parts = Object.fromEntries(['.remove-person','.person-number','.visual-picker','.plushie-image','.tint',
-      '.selection-label','.designs','.colors'].map(selector => [selector, element()]));
+      '.selection-label','.designs','.colors','.selection-error'].map(selector => [selector, element()]));
     parts['[name$="-selections_deferred"]'] = element();
-    p.querySelector = selector => selector === 'input[type=text]' ? name : parts[selector];
+    p.querySelector = selector => selector === 'input[type=text]' ? name : selector === '.design-option' ? parts['.designs'].children[0] : selector === '.color-option:not(:disabled)' ? parts['.colors'].children.find(node => !node.disabled) : parts[selector];
+    for (const input of [name, ...Object.values(fields)]) {
+      Object.defineProperty(input, 'willValidate', {get: () => !input.disabled});
+      Object.defineProperty(input, 'validity', {get: () => ({valid: (!input.required || Boolean(input.value)) && !input.validationMessage})});
+      input.reportValidity = () => {input.reported = true;};
+    }
     p.querySelectorAll = selector => ({'.person-fields label': labels,
       '.design-option': parts['.designs'].children, '.color-option': parts['.colors'].children,
       'input,select': [name, ...Object.values(fields)]}[selector] || []);
@@ -215,6 +223,7 @@ function choicesPage({customPhoto = false, variantPhoto = '', bookingMode = fals
   }
   nodes['participant-list'].children = [participant()];
   nodes['participant-list'].querySelectorAll = selector => selector === '.participant' ? nodes['participant-list'].children : [];
+  nodes['choices-form'].querySelectorAll = () => nodes['participant-list'].children.flatMap(person => [person.name, ...Object.values(person.fields)]);
   nodes['empty-person'].content = {cloneNode: () => participant()};
   const document = {getElementById: id => nodes[id],
     querySelectorAll: selector => selector === '[name="choose_when"]' && bookingMode ? [nodes['choose-now'], nodes['choose-later']] : [],
@@ -342,11 +351,46 @@ test('validation opens the participant containing the invalid field', () => {
   p['add-person'].listeners.click();
   const second = p['participant-list'].children[1];
   assert.equal(first.hidden, true);
-  p['choices-form'].listeners.invalid({target:first.name});
+  let prevented = false;
+  p['choices-form'].listeners.submit({preventDefault() {prevented = true;}});
+  assert.equal(prevented, true);
+  assert.equal(first.name.reported, true);
   assert.equal(first.hidden, false);
   assert.equal(second.hidden, true);
-  p['choices-form'].listeners.invalid({target:{}});
-  assert.equal(first.hidden, false);
+});
+
+test('missing design or color shows an explicit error and focuses its visible control', () => {
+  const p = choicesPage(), person = p['participant-list'].children[0];
+  person.name.value = 'Riley'; person.fields.Age.value = '8';
+  let prevented = 0;
+  const submit = () => p['choices-form'].listeners.submit({preventDefault() {prevented++;}});
+  submit();
+  assert.equal(person.parts['.selection-error'].textContent, 'Choose a design for this participant.');
+  assert.equal(person.parts['.designs'].children[0].focused, true);
+  person.parts['.designs'].children[0].listeners.click();
+  assert.equal(person.parts['.selection-error'].hidden, true);
+  submit();
+  assert.equal(person.parts['.selection-error'].textContent, 'Choose a color for this participant.');
+  assert.equal(person.parts['.selection-error'].hidden, false);
+  assert.equal(person.parts['.colors'].children[0].focused, true);
+  person.parts['.colors'].children[0].listeners.click();
+  submit();
+  assert.equal(prevented, 2);
+  assert.equal(person.parts['.selection-error'].hidden, true);
+});
+
+test('unavailable selections show their validation error, while choose later skips design and color', () => {
+  const p = choicesPage({bookingMode:true}), person = p['participant-list'].children[0];
+  person.name.value = 'Riley'; person.fields.Age.value = '8';
+  person.fields.Design.value = '1'; person.fields.Color.value = '4'; person.name.listeners.change();
+  let prevented = 0;
+  const submit = () => p['choices-form'].listeners.submit({preventDefault() {prevented++;}});
+  submit();
+  assert.equal(person.parts['.selection-error'].textContent, 'This selection is unavailable. Choose another design or color.');
+  p['choose-later'].checked = true; p['choose-later'].listeners.change();
+  submit();
+  assert.equal(prevented, 1);
+  assert.equal(person.parts['.selection-error'].hidden, true);
 });
 
 test('one booking choice defers six participants and preserves their place count', () => {
@@ -399,6 +443,7 @@ test('photo framing shows complete collage rows and contains custom photos', () 
   person.parts['.designs'].children[0].listeners.click();
   const art = person.parts['.plushie-image'].querySelector('.photo-art');
   assert.equal(art.style.aspectRatio, '1 / 1.08');
+  assert.equal(person.parts['.plushie-image'].classList.contains('individual-photo'), false);
   assert.equal(art.style.backgroundPosition, '50% 50%');
   assert.equal(person.parts['.colors'].children[0].textContent, 'Blue');
   const custom = choicesPage({customPhoto:true})['participant-list'].children[0];
@@ -407,6 +452,8 @@ test('photo framing shows complete collage rows and contains custom photos', () 
   assert.equal(customArt.style.backgroundImage, 'url("/bear.jpg")');
   assert.equal(customArt.style.backgroundPosition, 'center');
   assert.equal(customArt.style.backgroundSize, 'contain');
+  assert.equal(customArt.style.aspectRatio, '1 / 1');
+  assert.equal(custom.parts['.plushie-image'].classList.contains('individual-photo'), true);
   custom.parts['.colors'].children[0].listeners.click();
   assert.equal(custom.parts['.plushie-image'].children.length, 1);
 });

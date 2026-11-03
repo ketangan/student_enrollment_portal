@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: November 2, 2026.
+Updated: November 3, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -8,6 +8,221 @@ Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 This Markdown file remains the source of truth; the viewer does not edit milestone status.
 
 ## Current Status
+
+### November 3 Calendar and Participant Validation (Local, Release Pending)
+
+- Calendar day hit areas no longer overlap; the selected circle fits inside its
+  own day cell without being covered by adjacent disabled dates.
+- Review validates the first incomplete field, opens its participant and displays
+  an explicit design/color error beside the visual picker. Visible name, age,
+  contact and policy controls retain native validation. Choose-later remains valid
+  under the existing age/deadline policy; server validation is unchanged.
+- Focused verification: 104 Python cases and all 124 JavaScript cases passed,
+  including coverage gates. The repeatable browser regression is
+  `node scripts/workshop_ui_smoke.mjs <workshop-start-url> <screenshot-directory>`.
+  It requires an existing available workshop outside the choose-later deadline,
+  and stops at review without creating a reservation or submitting payment.
+- Chromium browser checks passed at 1440x900, 768x1024, 1024x768 and 390x844:
+  non-overlapping calendar cells, complete selected circle, missing design/color
+  errors, focus, correction, choose-later review and no page errors/overflow.
+  Screenshots were inspected. Physical Android Chrome remains Jasmine's acceptance
+  check, not a claim made from desktop touch emulation.
+- Final source verification: detached `workshop-validation-regression-20261103`
+  evidence directory. Push is gated on its unchanged-source full regression and
+  coverage results; the prior full pass below does not cover these follow-ups.
+
+### November 3 Real-School Workshop Enablement (Local, Release Pending)
+
+- The approved workshop screens now have an explicit opt-in for a non-demo school
+  under ordinary `scheduling.customer_experience.enabled` configuration. Locations,
+  sessions, pricing, tax, catalog images/options and stock come from that school's
+  records. Real intake does not read demo YAML or impersonate a demo owner.
+- The hosted demo adapter, host restrictions and saved booking links remain intact.
+  No school is automatically enabled; no hosted data, credentials or live settings
+  were changed. SBMC/enrollment/subscription behavior is not opted into this flow.
+- Production intake requires the school's ready live payment account for the studio,
+  blocks missing payment configuration before participant intake, rejects simulation
+  and sandbox fallback, and reuses existing locked reservations/payment/inventory
+  services. Verified provider settlement remains the only online payment evidence.
+- New snapshots use `customer_experience`; legacy `experience_demo` snapshots still
+  render. Signed payment review, editable back navigation and calendar downloads use
+  the shared screens. Pausing native intake preserves existing confirmation access.
+- Read-only `check_workshop_launch` and the [activation/rollback runbook](workshop-production-enablement.md)
+  document activation prerequisites and explicitly distinguish configuration checks
+  from live merchant/device acceptance. This closes the demo-only code dependency;
+  real tenant setup, deployment, Square authorization and launch acceptance remain.
+- The preceding compact-photo full regression had one stale popup expectation:
+  5,176 application cases passed, one failed, three skipped; migration/coverage/JS
+  gates passed. Corrected that test to require the removed popup to be absent.
+- Broader focused verification passed 326 Python cases. All 122 JavaScript cases
+  and their 90% coverage gates passed. The final focused run passed 174 cases,
+  including concurrent public submission and configuration-boundary cases. New
+  configuration module coverage is 100%, preflight command 98.11%, shared intake
+  service 98.69% (focused scope, not a full-repository claim).
+- Detached full regression `workshop-production-regression-20261103` completed
+  with an unchanged source fingerprint: 5,200 application cases plus 22 migration
+  cases passed (three skips), as did migration drift, combined/module coverage and
+  JavaScript gates. The subsequent calendar/validation changes require a fresh run.
+- Browser: local demo selection -> review -> edit retained values. Review checked at
+  1440x900, 768x1024, 1024x768 and 390x844 with no horizontal overflow, loaded images
+  and 48px action targets. No booking/payment submitted and no email sent. Physical
+  Android Chrome, virtual keyboard and device printing remain unverified.
+- Pending release includes the earlier compact photos, removed popup/two-tile hub,
+  audit documentation and parallel CI work. Preserve the unrelated nested worktree.
+  Push/merge only after the final unchanged-source full regression and coverage pass.
+
+### November 3 Jasmine Commitment Audit
+
+This audit preceded the enablement work above, which supersedes its demo-only code
+dependency finding. Dated "Local, Not Pushed" entries below are
+historical. Main `eb2f0c9` includes the November 2 work and approved photos; its CI
+passed. This audit and today's compact-photo/customer-hub/CI changes are local.
+The preceding exact-tree regression passed 5,197 Python cases (three skips), 133
+JavaScript cases, migration drift and both coverage gates. That pass is not proof
+for today's edits or production activation.
+
+Sources reviewed: the two connected email threads, September 29-November 2
+(`1a0eeb05d650cc36`, `1a117bf09ac4aee7`); October 7 and 13 saved recording transcripts;
+the October 28 meeting recap, October 29 participant-range reply, November 2 prep
+approval; and Ketan's subsequent decisions in this chat. Transcripts are approximate,
+not signed requirements. Original recordings, the signed contract and every image/PDF
+attachment were not independently re-audited in this pass. No messages were sent.
+"Implemented" below means code and regression evidence exist, not that the real
+studio's data, device and production settings have passed acceptance.
+
+#### Implemented Requirements and Evidence
+
+| Requirement | Evidence and remaining acceptance boundary |
+| --- | --- |
+| Three-step workshop and party intake; editable back navigation; validation before review/payment | `experience_demo/views.py`, `views_parties.py`, `customer_edits.py`; `test_customer_edits.py`, `test_experience_demo.py`, browser-control tests. Workshop production enablement remains blocked below. |
+| Clear participant add/remove/completion controls; names, phone and ages; minimum age seven | `participant_policy.py`, school YAML, `experience.js`; participant-policy and experience tests. Party ages accept a single age, range or Adult; under-seven values are rejected. |
+| One person/one plushie; observers differentiated from makers | School-scoped booking copy and acknowledgments. Regular workshops prohibit observers; party allowance comes from the selected package, not a universal two-person allowance. |
+| Single party count/range field; e.g. 7-9 guests; package limit and price visible | `party_forms.py`, `participant_policy.py`, `party-experience.js`. Latest Ketan decision prices/reserves the upper bound, superseding the earlier exact-count requirement. Bounded validation is server-side. |
+| Predefined packages, published times, staff phone bookings using the same restrictions | `party_policy.py`, `views_parties.py`, `test_party_packages.py`. Custom inquiry/birthday-specific fields were intentionally removed by later chat decisions. New York exception needs reconciliation below. |
+| Two additional participants at $65; location-specific party prices/durations/deposits/observers | Defaults in school YAML; editable package records; `test_party_packages.py`. Demo seed has standard A/B 6/12 participants, 2/4 observers, $495/$895; New York 8/16, 2/4, $595/$1,190; three hours. Actual launch records still require verification. |
+| Subtotal/tax/total, deposit and remaining balance; studio tax defaults editable | `PartyPackage.quote`, `reservations.workshop_quote`, location forms, payment totals and location-tax tests. Live rates/prices must be verified for each actual studio; demo values are not launch approval. |
+| Grey out exclusive/full-studio conflicts before checkout; retain payment-time race protection | Reservation availability services; `test_party_availability.py`, `test_customer_booking_refresh.py`. |
+| Default plushie photos; color selection without recoloring images | School `base_images_only` policy, shared catalog picker, nine approved images; `test_catalog_image_policy.py`. AI enhancement was approved by Ketan, who will disclose it to Jasmine. |
+| Design guide available during booking and later; replaceable by school | `guides.py`, scoped downloads, guide/storage tests. Automatic party confirmation/reminder PDF attachments are covered by `test_party_notifications.py`; this does not mean every manually composed email automatically attaches a guide. |
+| Choose later and post-booking participant/design updates | Guest-list and workshop-followup services; selected materials reserve incrementally; readiness resets on affected design edits. Deadline/cutoff details are documented below. |
+| Weekly Studio Prep by location/day/time, including half-hour overlapping starts | `studio_preparation.py`, `test_studio_preparation.py`; no copying bookings into a separate spreadsheet required. |
+| Participant check/uncheck, inline name/design/color edits, both note types, per-booking staff names | `participant_preparation.py`, associated tests including two bookings in the same session. Missing design/color prevents marking prepared. Overall readiness derives from participants; separate extras/Re-open Prep controls were removed intentionally. |
+| Party/workshop distinction, Hide prepared, remove Still to pull, weekly print | Prep templates and tests; print carries the displayed week/location and filters. Physical tablet printing still unverified. |
+| Location-scoped employee access; owners can access all assigned locations | `access.py`, `team_access.py`, `test_location_access.py`; direct URLs and writes are tested, not only menu visibility. Real staff accounts/assignments still need setup. |
+| Per-location inventory with central oversight, dated incoming stock, partial receipts and reservation holds | Inventory services and `test_inventory.py`, including concurrent bookings/receipts, expected arrival and delayed supply. Real recipes/on-hand counts and staff acceptance remain pending; this is not an automatic supplier/warehouse-transfer integration. |
+| Calendar/reservation filters, clear party/workshop badges, payment/prep status, editable notes | List/workspace/notes regression files; responsive calendar and reservation UI. Physical Android keyboard/usability acceptance remains pending. |
+| Reservation email drawer, editable subject/body, school-specific settings/templates, shared Enrollment token handling | `reservation_email.py`, existing `SchoolEmailTemplate` and `core.services.email_content`; email/settings/token/isolation tests. No cross-school template sharing. |
+| Payment/guest-list buttons with correct private links and current amount; sent history in audit | `test_reservation_email_links.py`, `test_reservation_email.py`; stale amounts and cross-school links rejected. Manual demo sending has no recipient allowlist; automatic demo sending stays disabled. |
+| School SMTP with platform fallback; explicit staff send; no automatic cancellation email | Existing enrollment transport reused; manual demo and notification tests. Cancellation suppresses pending notices; staff can compose a personal message. Real sender/inbox acceptance still required. |
+| Square online payments, balances/refunds, multiple sellers and studio mappings | `square_checkout.py`, integration settings, live/multiple-account/location tests. Same account, separate accounts and mixed mappings supported; existing payments keep their original account. Live authorization/charge/refund acceptance remains pending. |
+| Record Square Terminal/cash payments and accessory extras | `terminal_payments.py` and tests preserve ledger history and duplicate/retry safety. This is manual recording, not sending an amount to a physical Terminal. Jasmine accepted manual recording for launch in her October 17 email. |
+
+#### Open Work, Conflicts and Missing Acceptance
+
+1. **Launch blocker: real customer workflow.** The redesigned workshop path still
+   requires `experience_demo.config.context`, a demo school and demo configuration.
+   Replace this with ordinary school-scoped settings/catalog/session data and preserve
+   simulation fences. Merely enabling a flag or converting the demo tenant is unsafe.
+2. **Missing promised document.** A dedicated printable/emailable booking statement
+   and payment receipt are not implemented. Generic confirmation pages, ledger entries,
+   visit receipts and weekly prep printing do not satisfy this. Build from the existing
+   ledger; distinguish an unpaid statement from money actually received. Square formal
+   invoicing is a separate integration decision, not completed work.
+3. **Emails waiting on Jasmine.** Her November 2 response says templates/triggers are
+   still coming. Existing confirmation and seven-day guest reminder machinery is not
+   proof of every agreed staff-edit/event reminder trigger. Import approved content,
+   configure triggers and verify actual delivery/links/attachments and duplicate safety.
+4. **Real studio setup/cutover.** Create a separate live school; verify all five studios,
+   accounts/mappings, schedules, packages, tax, room capacity, recipes, inventory, staff
+   roles, guide and policies. Connect Wix booking buttons to the production flow. Decide
+   how pre-cutover Wix bookings/balances are handled so they are neither lost nor booked
+   twice. No completed Wix historical-booking migration is established by demo seeding.
+5. **Policy/waiver completeness.** Required acknowledgments and policy links exist;
+   `waiver_document`, privacy URL and full acknowledgment text remain unset in demo YAML.
+   Do not describe a checkbox as a signed parental waiver. Carry forward her existing
+   signing process and verify launch copy covers shared versus full studio, party-only
+   use of non-refundable deposits, cake/cupcakes/water and no outside meals/snacks.
+6. **Seven-day wording is not completely consistent across sources.** October 20 email:
+   final selections at least seven days ahead, short-notice bookings submit ASAP,
+   late changes subject to availability, rescheduling at least seven days ahead.
+   October 28 recap/chat: hide Choose later within seven days. Current customer edits
+   also close when prepared or started, not simply at a seven-day cutoff. Preserve the
+   last requested behavior; record this for acceptance, do not invent a different rule
+   or send Jasmine a repeat question without Ketan's agreement.
+7. **New York full-studio exception.** October 20/23 communications included approval
+   first; later Ketan decisions removed all inquiry/custom overrides for both customers
+   and staff. Demo config still seeds New York B with `booking_mode: review`, which is
+   excluded by the packages-only form. Resolve configuration before opening New York:
+   published, pre-approved offered times can support the later direct-booking decision.
+   Do not silently restore inquiries or publish unapproved studio availability.
+8. **Customer-change visibility is partial.** Selection edits are audited and affected
+   prep resets, but there is no dedicated unread customer-change review queue. The first
+   recording discussed flagging changed orders; decide whether existing prep/audit
+   visibility meets that need. Never turn a completed reservation back into payable
+   intake or reopen consumed inventory merely to make an edit possible.
+9. **Acceptance, not just automated tests.** Physical 7-9 inch Android Chrome, keyboard,
+   payment handoff and printing remain pending. Test actual studio timezone behavior
+   from a different browser timezone, real Square authorization/payment/refund,
+   production inbox delivery, backup/restore and tenant-isolation/SBMC smoke checks.
+
+#### Explicitly Deferred or Superseded
+
+- Partial non-expiring cancellation credits, gift-card/Wix-code redemption, promo
+  management and analytics were explicitly made non-blocking in the October 28 recap
+  and subsequent chat. They remain tracked work, not completed features. Existing
+  lesson-credit code is not a finished Plushie customer-credit/redemption workflow.
+- Customer self-service time rescheduling is post-launch. Collecting/editing designs
+  is not the same as changing a confirmed paid reservation's time.
+- Automatic Square Terminal pairing/collection is not implemented; manual collection
+  and recording is the accepted launch fallback. No hardware claim without device QA.
+- Notion was initially explored; October 23 proposed deciding after testing the staff
+  calendar, and Jasmine now approved Studio Prep. No completed sync and no new promise
+  to build it. Verify staff adoption rather than silently calling integration delivered.
+- AI-chat discovery/booking was an October 7 research follow-up, not a launch feature.
+  No completed follow-up response was found in the reviewed email threads.
+- Birthday-person-specific inputs, custom inquiries, prep extras, Re-open Prep and
+  color-changing photos were superseded by later explicit chat decisions. Do not
+  restore them based only on an older email or mock.
+- Commercial setup: October 9 written rate was $129/month across current locations
+  for the first 12 months, with later pricing discussed first. Do not infer an automatic
+  $179 renewal from Jasmine's question or change billing from this audit; check the
+  signed agreement during onboarding.
+
+#### Today's Local Changes and Release Timing
+
+- Direct photos now have square transparent containers; selected preview is 180px
+  on desktop/tablet and 120px on phone (previously 260px by 325px). Sprite fallback
+  framing stays intact for other catalogs. Updated asset URLs prevent stale browsers
+  retaining the old sizing. Base images stay unchanged when color is selected.
+- Removed the rejected popup route/template/script/screenshot and obsolete popup
+  tests. The customer hub has Workshops and Parties side by side, stacking on phone;
+  the party tile uses an actual booking-page screenshot. Old popup URLs return 404.
+- Last Render deploy took about 2m21s; PR CI took 19m58s and local full regression
+  18m10s. Migration tests dominate roughly half the Python runtime. CI now has two
+  isolated-runner partitions (`migration` / `not migration`) with combined coverage,
+  unchanged 90% overall/per-module/JS gates and the existing required `test` check.
+  A failed/cancelled partition fails that check. Only superseded PR runs cancel.
+  No new local database, reduced coverage floor or test exclusion was introduced.
+- Partition collection verified 5,199 pre-workflow-test cases: 22 migration cases and
+  5,177 application cases, each function/parametrization counted exactly once. Random
+  UUID/signed-token parameter labels were normalized for the cross-process comparison.
+  New workflow safety tests are additional. The faster CI wall time is an estimate
+  until the next real GitHub run; this pass does not claim a measured speedup.
+- Final focused verification: 40 Python tests passed; all 122 remaining JavaScript
+  tests passed with 98.99% lines, 94.92% branches and 98.65% functions. The 11 removed
+  JavaScript cases tested only the deleted popup implementation, not payment or
+  school-isolation behavior. Coverage artifact filename/combine behavior also checked
+  against a copy of the previous run's data (not new partition coverage evidence).
+- Chrome checks at 1440x900, 390x844, 768x1024 and 1024x768 verified photo sizing,
+  transparent backgrounds, unchanged base photo on color change, no horizontal
+  overflow, 44px-or-larger design/color targets and customer hub links/alignment.
+  Screenshots and measurements: `plushie-compact-audit-20261103` under the local
+  verification-artifact directory. This is responsive emulation, not physical Android.
+- Full detached regression `plushie-compact-audit-regression-20261103` pending. It
+  executes the two CI partitions sequentially on the same local disposable database,
+  combines their coverage and runs the unchanged gates. Do not push until it passes
+  against the final fingerprint. No production data/settings, SBMC behavior, payments
+  or customer emails changed during this pass.
 
 ### November 2 Square Accounts and Studio Mapping (Local, Not Pushed)
 

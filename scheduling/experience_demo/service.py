@@ -8,7 +8,7 @@ from django import forms
 from django.core import signing
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Exists, OuterRef
+from django.db.models import Exists, OuterRef, Q
 from django.http import Http404, QueryDict
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -20,6 +20,7 @@ from scheduling.models import Reservation, SchedulingMembership, SchedulingProfi
 from scheduling.integrations.payloads import BookingSnapshot, Participant, NotionDestination
 from scheduling.request_forms import request_forms
 from .config import available
+from scheduling.workshop_experience import available as experience_available, snapshot_key
 from scheduling.preparation import form_for
 
 REVIEW_SALT = "scheduling.experience-review.v1"
@@ -119,12 +120,16 @@ def actor(profile, config):
 
 @transaction.atomic
 def begin(profile, session, data, browser, config):
-    if not available(profile, require_intake=True):
+    if not experience_available(profile, require_intake=True):
         raise Http404
     SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
     profile.refresh_from_db()
-    if not available(profile, require_intake=True):
+    if not experience_available(profile, require_intake=True):
         raise Http404
+    if session.offering.location.profile_id != profile.pk:
+        raise Http404
+    if not profile.school.is_demo and not config.get("stripe_checkout"):
+        raise ValidationError("Online payment is required for this booking.")
     session.offering.refresh_from_db()
     session.offering.location.refresh_from_db()
     price_cents = reservations.workshop_unit_price(session.offering)
@@ -150,16 +155,28 @@ def begin(profile, session, data, browser, config):
     item, purchaser, participants = requests.submit_request(profile.school.slug, session.pk, body, browser, for_reservation=True)
     if item is None:
         raise ValidationError("Some participant details are incomplete. Return to your selections.")
-    if "experience_demo" not in item.session_snapshot:
-        item.session_snapshot["experience_demo"] = {"policy": config["policy_revision"],
+    key = snapshot_key(profile)
+    if key not in item.session_snapshot:
+        item.session_snapshot[key] = {"policy": config["policy_revision"],
             "published_policy": notice(profile.school, "workshop"),
             "reviewed_at": timezone.now().isoformat(), "price_cents": price_cents}
         item.session_snapshot["price_breakdown"] = reservations.workshop_price_breakdown(
             session.offering, price_cents, item.participants.count())
         item.save(update_fields=["session_snapshot"])
     total, deposit = reservations.workshop_quote(session.offering, price_cents, item.participants.count())
-    reservations.create_reservation(actor(profile, config), profile.school.slug, "workshop", item.public_id,
-                                   total_cents=total, deposit_cents=deposit, online=bool(config.get("stripe_checkout")))
+    if profile.school.is_demo:
+        reservations.create_reservation(actor(profile, config), profile.school.slug, "workshop", item.public_id,
+                                       total_cents=total, deposit_cents=deposit, online=bool(config.get("stripe_checkout")))
+    else:
+        from scheduling.workshop_experience import live_account
+        account = live_account(profile, session.offering.location)
+        existing = Reservation.objects.filter(workshop_request=item).first()
+        if existing:
+            if (existing.order.total_cents, existing.order.deposit_cents, existing.order.account_id) != (total, deposit, account.pk):
+                raise ValidationError("A reservation already exists with a different quote.")
+        else:
+            reservation = reservations.workshop_reservation_item(profile, item)
+            reservations.save_reservation(reservation, item, "workshop", total, deposit, account, None)
     return item
 
 
@@ -167,8 +184,9 @@ def customer_booking(profile, public_id, browser):
     if not browser:
         raise Http404
     return get_object_or_404(WorkshopRequest.objects.select_related("session__offering__location", "reservation__order")
-        .prefetch_related("participants"), session__offering__location__profile=profile,
-        session_snapshot__has_key="experience_demo", public_id=public_id, browser_digest=browser)
+        .prefetch_related("participants").filter(Q(session_snapshot__has_key="experience_demo") |
+            Q(session_snapshot__has_key="customer_experience")), session__offering__location__profile=profile,
+        public_id=public_id, browser_digest=browser)
 
 
 @transaction.atomic
@@ -313,11 +331,13 @@ def calendar(item):
     def stamp(value):
         return value.astimezone(utc_timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
-    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Pontora//Local booking demo//EN", "BEGIN:VEVENT",
-        f"UID:{item.public_id}@demo.pontora", f"DTSTAMP:{stamp(item.created_at)}",
+    demo = item.session.offering.location.profile.school.is_demo
+    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Pontora//Workshop booking//EN", "BEGIN:VEVENT",
+        f"UID:{item.public_id}@{'demo.pontora' if demo else 'pontora'}", f"DTSTAMP:{stamp(item.created_at)}",
         f"DTSTART:{stamp(item.requested_start)}", f"DTEND:{stamp(item.requested_end)}",
         f"SUMMARY:{escape(item.session_snapshot['workshop'])}", f"LOCATION:{escape(item.session_snapshot['location'])}",
-        "DESCRIPTION:Local demonstration booking. Not a real reservation.", "END:VEVENT", "END:VCALENDAR"]
+        "DESCRIPTION:" + ("Local demonstration booking. Not a real reservation." if demo else "Workshop reservation."),
+        "END:VEVENT", "END:VCALENDAR"]
     # RFC 5545 folding counts UTF-8 octets and never splits a code point.
     folded = []
     for line in lines:

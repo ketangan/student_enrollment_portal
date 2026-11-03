@@ -83,7 +83,7 @@ def test_hosted_opt_in_required_for_seed_and_routes(hosted):
     assert hosted.get(ROOT, secure=True).status_code == 404
 
 
-@pytest.mark.parametrize("variant", ["", "index.html", "inline.html", "modal.html"])
+@pytest.mark.parametrize("variant", ["", "index.html", "inline.html"])
 def test_real_flow_wrappers_are_guarded_and_same_origin(demo, hosted, variant):
     response = hosted.get(ROOT + variant, secure=True)
     assert response.status_code == (302 if variant == "inline.html" else 200)
@@ -92,16 +92,17 @@ def test_real_flow_wrappers_are_guarded_and_same_origin(demo, hosted, variant):
     assert "noindex" in response["X-Robots-Tag"]
     if variant == "inline.html":
         assert response.url == url("start")
-    if variant == "modal.html":
-        assert b'data-url="/bookings/plushumi-demo/experience/"' in response.content
-        assert b'<form' not in response.content
     assert hosted.post(ROOT + variant, secure=True).status_code == 405
 
 
 def test_booking_option_navigates_to_real_page_with_one_header(demo, hosted):
     hub = hosted.get(ROOT, secure=True)
-    assert b'href="inline.html"' in hub.content and b'href="modal.html"' in hub.content
-    assert b"Booking page" in hub.content and b"View inline preview" not in hub.content
+    assert b'href="inline.html"' in hub.content
+    assert b'href="/bookings/plushumi-demo/party/"' in hub.content
+    assert hub.content.count(b'<article class="option">') == 2
+    assert b"Workshops" in hub.content and b"Parties" in hub.content
+    assert b"modal.html" not in hub.content and b"popup" not in hub.content
+    assert hosted.get(ROOT + "modal.html", secure=True).status_code == 404
     redirect = hosted.get(ROOT + "inline.html", secure=True)
     assert redirect.status_code == 302 and redirect.url == url("start")
     response = hosted.get(redirect.url, secure=True)
@@ -111,7 +112,7 @@ def test_booking_option_navigates_to_real_page_with_one_header(demo, hosted):
     assert f'href="{url("start")}" target="_top">Back to workshops</a>'.encode() in response.content
     assert b'href="/demo/plushumi/integrations/"' not in response.content
     assert b"Parties &amp; camps" not in response.content and b"Studio team" not in response.content
-    for page in (hub, response, hosted.get(ROOT + "modal.html", secure=True)):
+    for page in (hub, response):
         assert b'class="preview-note"' not in page.content
         assert b'class="demo-bar"' not in page.content
         assert b"View assumptions" not in page.content

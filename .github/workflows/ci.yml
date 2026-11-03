@@ -6,9 +6,22 @@ on:
   pull_request:
     branches: [ main, master ]
 
+# Superseded PR revisions need not occupy runners; every main revision still runs.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  test:
+  python-tests:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: migrations
+            selection: migration
+          - suite: application
+            selection: not migration
 
     services:
       postgres:
@@ -43,15 +56,51 @@ jobs:
           pip install -r requirements.txt
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
       - name: Check migration drift
+        if: matrix.suite == 'migrations'
         run: python manage.py makemigrations --check --dry-run
+      - name: Test with local-only providers
+        env:
+          TEST_SELECTION: ${{ matrix.selection }}
+        run: python -m coverage run --data-file=coverage-part --source=scheduling,core.payments,testing,core.services.portal_environment,core.services.audit_environment,core.services.demo_access,core.templatetags.account_menu,core.admin.portal_scope,core.management.commands.maintain_demo_account,core.services.school_pricing,core.forms_school_pricing,core.views_school_pricing,core.services.email_content -m pytest -k "$TEST_SELECTION"
+      - name: Upload coverage partition
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.suite }}
+          path: coverage-part
+          if-no-files-found: error
+          retention-days: 7
+
+  # Keep the existing required check name. Failed/cancelled partitions must fail it.
+  test:
+    runs-on: ubuntu-latest
+    needs: python-tests
+    if: always()
+    steps:
+      - name: Require every Python partition
+        env:
+          PYTHON_RESULT: ${{ needs.python-tests.result }}
+        run: test "$PYTHON_RESULT" = success
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+      - name: Install coverage tools
+        run: pip install -r requirements.txt
       - name: Set up Node for scheduling UI tests
         uses: actions/setup-node@v4
         with:
           node-version: '22'
       - name: Test scheduling browser controls
         run: node --test --experimental-test-coverage --test-coverage-lines=90 --test-coverage-branches=90 --test-coverage-functions=90 scripts/tests/*.test.cjs
-      - name: Test with local-only providers and coverage gate
-        run: python -m coverage run --source=scheduling,core.payments,testing,core.services.portal_environment,core.services.audit_environment,core.services.demo_access,core.templatetags.account_menu,core.admin.portal_scope,core.management.commands.maintain_demo_account,core.services.school_pricing,core.forms_school_pricing,core.views_school_pricing,core.services.email_content -m pytest
+      - name: Download coverage partitions
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          path: coverage-parts
+      - name: Combine every partition
+        run: python -m coverage combine coverage-parts/coverage-migrations/coverage-part coverage-parts/coverage-application/coverage-part
       - name: Enforce coverage floor
         run: python -m coverage report --fail-under=90
       - name: Export module coverage

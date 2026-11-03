@@ -8,7 +8,8 @@
     art.style.backgroundImage = design?.image_url ? `url("${design.image_url}")` : design?.x ? `url("${image}")` : 'none';
     art.style.backgroundSize = design?.image_url ? 'contain' : '';
     art.style.backgroundPosition = design?.image_url ? 'center' : `${design?.x || '50%'} ${design?.y || '50%'}`;
-    art.style.aspectRatio = design?.image_url ? '4 / 5' : design?.y === '50%' ? '1 / 1.08' : design?.y === '100%' ? '1 / 1.15' : '4 / 5';
+    art.style.aspectRatio = design?.image_url ? '1 / 1' : design?.y === '50%' ? '1 / 1.08' : design?.y === '100%' ? '1 / 1.15' : '4 / 5';
+    node.classList.toggle('individual-photo', Boolean(design?.image_url));
     node.classList.toggle('no-photo', !design?.image_url && !design?.x);
   }
   function mount(root, designSelect, colorSelect, config, {recipe, available, change}) {

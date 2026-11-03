@@ -2,7 +2,7 @@
 {% block title %}Choose your designs{% endblock %}
 {% block public_home %}{{ request.path }}{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{% static 'scheduling/catalog-picker.css' %}">
+<link rel="stylesheet" href="{% static 'scheduling/catalog-picker.css' %}?v=20261103-compact-photos">
 <div class="workshop-followup">
 <h1>Choose your designs</h1>
 <p>{{ item.snapshot.workshop }} &middot; {% timezone item.snapshot.timezone %}{{ item.starts_at|date:"M j, Y, g:i A" }}{% endtimezone %}</p>
