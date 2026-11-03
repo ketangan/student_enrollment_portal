@@ -192,11 +192,7 @@ def create_reservation(user, slug, kind, public_id, total_cents=None, deposit_ce
             return existing
         if source.status != "pending":
             raise ValidationError("Only pending workshop requests can become reservations.")
-        session = source.session
-        item = Reservation(profile=profile, workshop_request=source, session=session, room=session.room,
-            starts_at=session.starts_at, ends_at=session.ends_at, quantity=source.participants.count(),
-            snapshot={"name": source.purchaser_name, "workshop": source.session_snapshot["workshop"],
-                      "timezone": source.session_snapshot["timezone"], "organizer_phone": source.purchaser_phone})
+        item = workshop_reservation_item(profile, source)
     elif kind == "party":
         require_capability(profile, "parties")
         source = get_object_or_404(PartyRequest.objects.select_related("offering__location", "room"),
@@ -219,6 +215,14 @@ def create_reservation(user, slug, kind, public_id, total_cents=None, deposit_ce
         item.snapshot["staff_managed"] = True
         item.state = "confirmed"
     return save_reservation(item, source, kind, total_cents, deposit_cents, account, user)
+
+
+def workshop_reservation_item(profile, source):
+    session = source.session
+    return Reservation(profile=profile, workshop_request=source, session=session, room=session.room,
+        starts_at=session.starts_at, ends_at=session.ends_at, quantity=source.participants.count(),
+        snapshot={"name": source.purchaser_name, "workshop": source.session_snapshot["workshop"],
+                  "timezone": source.session_snapshot["timezone"], "organizer_phone": source.purchaser_phone})
 
 
 def party_reservation_item(profile, source):

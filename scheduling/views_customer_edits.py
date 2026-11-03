@@ -85,7 +85,7 @@ def party(request, item, review_url, edit_revision):
 
 def workshop(request, item, review_url, edit_revision):
     from .experience_demo import service
-    from .experience_demo.config import context
+    from .workshop_experience import context, offering_config
     from .experience_demo.views import page, choice_context
     profile, config = context(request, item.profile.school.slug)
     browser = requests.browser_key(request, create=True)
@@ -97,6 +97,7 @@ def workshop(request, item, review_url, edit_revision):
             "edit_session_url": request.path})
     session = get_object_or_404(service.sessions(profile, online=True),
         pk=request.GET.get("session") or item.session_id)
+    config = offering_config(profile, config, session.offering)
     error = ""
     with timezone.override(ZoneInfo(session.offering.location.timezone_name)):
         body = service.payload(request.POST, requests.catalog_for(session.offering)) if request.method == "POST" else customer_edits.workshop_data(item, session)

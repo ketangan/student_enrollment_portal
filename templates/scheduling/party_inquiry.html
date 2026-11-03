@@ -3,7 +3,7 @@
 {% block title %}{% if packages_only %}Book a party{% else %}Party inquiry{% endif %}{% endblock %}
 {% block public_home %}{% url 'scheduling:party_start' school_slug=business.slug %}{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{% static 'scheduling/catalog-picker.css' %}">
+<link rel="stylesheet" href="{% static 'scheduling/catalog-picker.css' %}?v=20261103-compact-photos">
 <style>
 .party-inquiry {max-width:780px}
 .party-inquiry .setup-form {max-width:none}
@@ -59,4 +59,4 @@
 {% endif %}
 </div>
 {% endblock %}
-{% block scripts %}{% if form.package_mode %}{{ form.package_details|json_script:'party-package-details' }}{{ form.slot_packages|json_script:'party-slot-packages' }}{{ form.slot_dates|json_script:'party-slot-dates' }}{% endif %}{{ party_catalog|json_script:'party-catalog' }}<script src="{% static 'demo/plushumi/assets/lucide.js' %}" defer></script><script src="{% static 'scheduling/catalog-picker.js' %}" defer></script><script src="{% static 'scheduling/inventory.js' %}?v=20261019-party-rows" defer></script><script src="{% static 'scheduling/party-inquiry.js' %}?v=20261029-package-booking" defer></script>{% endblock %}
+{% block scripts %}{% if form.package_mode %}{{ form.package_details|json_script:'party-package-details' }}{{ form.slot_packages|json_script:'party-slot-packages' }}{{ form.slot_dates|json_script:'party-slot-dates' }}{% endif %}{{ party_catalog|json_script:'party-catalog' }}<script src="{% static 'demo/plushumi/assets/lucide.js' %}" defer></script><script src="{% static 'scheduling/catalog-picker.js' %}?v=20261103-compact-photos" defer></script><script src="{% static 'scheduling/inventory.js' %}?v=20261019-party-rows" defer></script><script src="{% static 'scheduling/party-inquiry.js' %}?v=20261029-package-booking" defer></script>{% endblock %}

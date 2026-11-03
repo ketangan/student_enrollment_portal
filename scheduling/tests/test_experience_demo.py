@@ -98,7 +98,7 @@ def test_customer_footer_returns_to_workshops_not_prototypes_from_every_step(dem
         assert b"Studio team" not in response.content
     options = browser.get(reverse("booking_integration_preview"))
     assert options.status_code == 200
-    assert b"Open booking page" in options.content and b"View popup preview" in options.content
+    assert b"Open booking page" in options.content and b"View popup preview" not in options.content
     assert reverse("scheduling:party_start", kwargs={"school_slug": "plushumi-demo"}).encode() in options.content
 
 

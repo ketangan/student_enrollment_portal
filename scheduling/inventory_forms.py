@@ -292,7 +292,7 @@ def party_catalog_data(offering):
     from .customer_experience import customer_copy
     from .experience_demo.config import configuration
     try:
-        artwork = configuration(offering.location.profile.school.slug)
+        artwork = configuration(offering.location.profile.school.slug) if offering.location.profile.school.is_demo else {}
     except Http404:
         artwork = {}
     options = {group.name: [{"id": str(option.pk), "name": option.label, "swatch": option.swatch,

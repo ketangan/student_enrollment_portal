@@ -24,22 +24,18 @@
         <a class="option-image" href="inline.html" tabindex="-1" aria-hidden="true"><img src="{% static 'scheduling/integrations/booking-overview.png' %}" width="1280" height="900" alt=""></a>
         <div class="option-body">
           <span class="option-number">01</span>
-          <h2>Booking page</h2>
+          <h2>Workshops</h2>
           <a class="option-link" href="inline.html">Open booking page <span aria-hidden="true">&rarr;</span></a>
         </div>
       </article>
       <article class="option">
-        <a class="option-image" href="modal.html" tabindex="-1" aria-hidden="true"><img src="{% static 'scheduling/integrations/modal-overview.png' %}" width="1280" height="900" alt=""></a>
+        <a class="option-image" href="{% url 'scheduling:party_start' school_slug=business.slug %}" tabindex="-1" aria-hidden="true"><img src="{% static 'scheduling/integrations/party-overview.jpg' %}" width="1280" height="900" alt=""></a>
         <div class="option-body">
           <span class="option-number">02</span>
-          <h2>Open from a booking button</h2>
-          <a class="option-link" href="modal.html">View popup preview <span aria-hidden="true">&rarr;</span></a>
+          <h2>Parties</h2>
+          <a class="option-link" href="{% url 'scheduling:party_start' school_slug=business.slug %}">Plan a party <span aria-hidden="true">&rarr;</span></a>
         </div>
       </article>
-    </section>
-    <section style="margin-top:32px;padding-top:24px;border-top:1px solid #ddd">
-      <h2>Parties</h2>
-      <a class="option-link" href="{% url 'scheduling:party_start' school_slug=business.slug %}">Plan a party <span aria-hidden="true">&rarr;</span></a>
     </section>
   </main>
   <footer class="site-footer"><span>Pontora x The Plushie Workshop</span></footer>

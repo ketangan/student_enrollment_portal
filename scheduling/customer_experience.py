@@ -14,7 +14,8 @@ def checkout_presentation(item, review_url):
     """Keep signed checkout pages in their customer booking experience."""
     from .party_policy import party_policy
     party = bool(item.party_request_id and party_policy(item.profile.school)["packages_only"])
-    workshop = bool(item.workshop_request_id and "experience_demo" in item.workshop_request.session_snapshot)
+    from .workshop_experience import is_workshop_experience
+    workshop = is_workshop_experience(item.workshop_request)
     if not party and not workshop:
         return {}
     school = item.profile.school

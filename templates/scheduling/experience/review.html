@@ -3,7 +3,7 @@
 <h1>One last look before the fun.</h1><p class="lead">Check your workshop and everyone's selections.</p>
 <input type="hidden" name="start_payment" value="1" form="review-payment">
 {% if editing_booking %}<input type="hidden" name="edit_revision" value="{{ edit_revision }}" form="review-payment">{% endif %}
-<div class="split booking-review"><section><h2>Your plushie crew</h2>
+<div class="split booking-review"><section><h2>{{ demo.participant_heading|default:"Your plushie crew" }}</h2>
 {% for person in rows %}<article class="review-person">{% include 'scheduling/experience/selection_thumbnail.html' %}<div><h3>{{ person.name }}</h3>{% if person.selections_deferred %}<p>Choosing at the studio</p>{% endif %}<div class="selections">{% for selection in person.selections %}<span>{{ selection.group }}: <strong>{{ selection.option }}</strong></span>{% endfor %}</div></div></article>{% endfor %}
 <section class="contact"><h2>Booking contact</h2><p>{{ purchaser.purchaser_name }}<br>{{ purchaser.purchaser_email }}{% if purchaser.purchaser_phone %}<br>{{ purchaser.purchaser_phone }}{% endif %}</p></section>
 <form method="post" target="_top" id="review-payment"{% if saved_review %} action="{{ payment_form_url }}"{% endif %}>

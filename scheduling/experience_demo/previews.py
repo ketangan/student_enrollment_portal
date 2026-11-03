@@ -1,4 +1,4 @@
-"""Booking-page and popup options for the explicitly enabled customer demo."""
+"""Workshop and party entry points for the explicitly enabled customer demo."""
 from django.http import Http404
 from django.shortcuts import redirect, render
 from django.views.decorators.cache import never_cache
@@ -10,7 +10,7 @@ from .config import context
 @never_cache
 @require_GET
 def preview(request, variant="index"):
-    if variant not in {"index", "inline", "modal"}:
+    if variant not in {"index", "inline"}:
         raise Http404
     profile, config = context(request, "plushumi-demo")
     if variant == "inline":

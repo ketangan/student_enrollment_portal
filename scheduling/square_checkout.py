@@ -130,7 +130,8 @@ def square_checkout(request, school_slug, token):
     from .customer_experience import checkout_presentation
     from .checkout import payment_token
     from django.urls import reverse
-    back_url = reverse("scheduling:customer_payment", kwargs={"school_slug": school_slug, "token": payment_token(item)}) if item.workshop_request_id and "experience_demo" in item.workshop_request.session_snapshot else attempt.cancel_url
+    from .workshop_experience import is_workshop_experience
+    back_url = reverse("scheduling:customer_payment", kwargs={"school_slug": school_slug, "token": payment_token(item)}) if is_workshop_experience(item.workshop_request) else attempt.cancel_url
     response = render(request, "scheduling/square_checkout.html", {
         **checkout_presentation(item, back_url), "checkout_back_url": back_url,
         "business": attempt.order.school, "item": item, "attempt": attempt, "ready": ready, "error": error,

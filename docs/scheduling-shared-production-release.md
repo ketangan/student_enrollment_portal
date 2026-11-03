@@ -54,9 +54,13 @@ revision `31220c5`; the later cleanup does not change payment logic, data or sch
 
 ### Live Links
 
+Historical release links below describe the October release. November 3 local
+cleanup retires the popup; use the customer hub for Workshops and Parties after
+that cleanup is deployed. See the current implementation tracker for release state.
+
 - Comparison hub: https://demo.mypontora.com/demo/plushumi/integrations/
 - Inline: https://demo.mypontora.com/demo/plushumi/integrations/inline.html
-- Modal: https://demo.mypontora.com/demo/plushumi/integrations/modal.html
+- Modal: retired by the November 3 cleanup (old links return 404 after deployment).
 - Admin: https://demo.mypontora.com/bookings/plushumi-demo/
 - Original storyboard: https://demo.mypontora.com/demo/plushumi/
 

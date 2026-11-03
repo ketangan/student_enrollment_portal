@@ -308,6 +308,9 @@ def publication(request, school_slug, kind, pk):
 def public_schedule(request, school_slug):
     profile = get_object_or_404(SchedulingProfile.objects.select_related("school"), school__slug=school_slug, enabled=True)
     require_capability(profile, "workshops")
+    from .workshop_experience import available
+    if not profile.school.is_demo and available(profile):
+        return redirect("scheduling:experience_start", school_slug=school_slug)
     sessions = Session.objects.filter(is_published=True, starts_at__gt=timezone.now()).select_related("room")
     offerings = Offering.objects.filter(
         location__profile=profile, is_published=True, visit_program__isnull=True,
