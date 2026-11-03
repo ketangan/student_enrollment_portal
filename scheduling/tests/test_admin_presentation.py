@@ -46,7 +46,7 @@ def test_prep_and_details_share_workspace_but_materials_stay_visible(stock):
 
 
 @pytest.mark.parametrize("route", ["workspace", "reservations", "workshops", "settings", "locations", "access"])
-def test_plushumi_demo_brand_and_static_banners_on_all_admin_sections(demo, browser, route):
+def test_admin_branding_has_no_sample_or_fabricated_trial_banners(demo, browser, route):
     browser.force_login(get_user_model().objects.get(username="plushie_admin"))
     flags_before = dict(demo.school.feature_flags)
     intake_before = demo.native_reservations_enabled
@@ -56,8 +56,8 @@ def test_plushumi_demo_brand_and_static_banners_on_all_admin_sections(demo, brow
     assert b'alt="The Plushie Workshop"' in response.content
     assert b'assets/logo.png' in response.content
     assert b'class="dash-school-name"' not in response.content
-    assert b"Built specifically for The Plushie Workshop &middot; Sample data loaded" in response.content
-    assert b'Trial ends in <strong>7 days</strong>.' in response.content
+    for text in (b"Built specifically for", b"Sample data loaded", b"Trial ends in", b"booking-demo-trial"):
+        assert text not in response.content
     assert b'<label class="sr-only" for="booking-location">Location</label>' in response.content
     assert b"Upgrade now" not in response.content
     demo.school.refresh_from_db()

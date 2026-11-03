@@ -164,6 +164,8 @@ class Offering(models.Model):
     location = models.ForeignKey(Location, on_delete=models.PROTECT, related_name="offerings")
     name = models.CharField(max_length=150)
     description = models.TextField(blank=True, max_length=3000)
+    price_per_participant = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(0)])
     deposit_per_participant = models.DecimalField(max_digits=8, decimal_places=2, default=0,
         validators=[MinValueValidator(0)])
     is_published = models.BooleanField(default=False)
@@ -177,7 +179,13 @@ class Offering(models.Model):
         ordering = ["name", "pk"]
         constraints = [models.CheckConstraint(
             condition=models.Q(deposit_per_participant=0) | models.Q(deposit_per_participant__gte=0.50),
-            name="workshop_deposit_valid")]
+            name="workshop_deposit_valid"),
+            models.CheckConstraint(condition=models.Q(price_per_participant__isnull=True)
+                | models.Q(price_per_participant__gte=0), name="workshop_price_nonnegative"),
+            models.CheckConstraint(condition=models.Q(price_per_participant__isnull=True)
+                | models.Q(deposit_per_participant=0)
+                | models.Q(price_per_participant__gte=models.F("deposit_per_participant") + Decimal("0.50")),
+                name="workshop_deposit_below_price")]
 
     def __str__(self):
         return self.name
@@ -185,6 +193,9 @@ class Offering(models.Model):
     def clean(self):
         if self.inventory_catalog_id and self.location_id and self.inventory_catalog.profile_id != self.location.profile_id:
             raise ValidationError({"inventory_catalog": "Choose a catalog belonging to this business."})
+        if (self.price_per_participant is not None and self.deposit_per_participant
+                and self.deposit_per_participant > self.price_per_participant - Decimal("0.50")):
+            raise ValidationError({"deposit_per_participant": "The deposit must leave at least $0.50 per participant to pay later. Choose full payment instead."})
         if self.pk:
             previous = Offering.objects.get(pk=self.pk)
             if previous.location_id != self.location_id:
@@ -605,6 +616,7 @@ class Reservation(models.Model):
         on_delete=models.SET_NULL, related_name="prepared_reservations")
     preparation_version = models.PositiveIntegerField(default=0)
     internal_notes = models.TextField(blank=True, max_length=3000)
+    staff_names = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

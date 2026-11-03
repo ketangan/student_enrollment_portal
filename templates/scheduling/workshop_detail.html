@@ -16,6 +16,7 @@
 {% endblock %}
 {% block content %}
 <section class="workshop-materials workshop-payment-summary" aria-label="Workshop payments">
+  <dl><dt>Price per participant</dt><dd>{% if offering.price_per_participant != None %}${{ offering.price_per_participant|floatformat:2 }}{% else %}Not set{% endif %}</dd></dl>
   <dl><dt>Payment at booking</dt><dd>{% if offering.deposit_per_participant %}${{ offering.deposit_per_participant|floatformat:2 }} deposit per participant{% else %}Full payment{% endif %}</dd></dl>
   {% if offering.deposit_per_participant %}<dl><dt>Remaining balance</dt><dd>Due on the workshop day</dd></dl>{% endif %}
 </section>

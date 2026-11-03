@@ -24,12 +24,13 @@ def revision(person):
     return digest({"id": person.pk, "name": person.name, "selections": person.selections, "pending": person.selections_deferred})
 
 
-def form_for(person, catalog, data=None):
+def form_for(person, catalog, data=None, *, edit_name=False):
     initial = {"name": person.name, **{f"choice_{s['group_id']}": str(s["option_id"]) for s in person.selections}}
     form = ParticipantForm(data, catalog=[g for g in catalog if g.tracks_stock], initial=initial, auto_id=f"participant_{person.pk}_%s")
     form.fields["selection_revision"] = forms.CharField(required=False, widget=forms.HiddenInput(), initial=revision(person))
-    form.fields["name"].disabled = True
-    form.fields["name"].widget = forms.HiddenInput()
+    if not edit_name:
+        form.fields["name"].disabled = True
+        form.fields["name"].widget = forms.HiddenInput()
     for name, field in form.fields.items():
         if name.startswith("choice_"):
             field.choices = [("", "Choose " + field.label.lower()), *field.choices]
@@ -46,14 +47,7 @@ def update(user, slug, public_id, participant_id, data):
     if not editable(item, staff=True) or item.stock_allocations.filter(consumed_at__isnull=False).exists():
         raise ValidationError("Selections can only be changed for confirmed workshops with unused materials.")
     person = get_object_or_404(item.workshop_request.participants, pk=participant_id)
-    before = revision(person)
     complete(item, person, data, actor=user)
-    if item.prepared_at and revision(person) != before:
-        from . import preparation
-        item = preparation.update(user, slug, public_id, {
-            "action": "reopen",
-            "edit_revision": preparation.form_for(item, profile)["edit_revision"].value(),
-        })
     return item
 
 
@@ -67,7 +61,7 @@ def complete(item, person, data, *, actor=None):
     if (offering.inventory_catalog_id != item.snapshot.get("material_catalog_id")
             or offering.location_id != item.snapshot.get("material_location_id")):
         raise ValidationError("This booking's catalog or studio has changed. Contact support before editing its designs.")
-    form = form_for(person, catalog_for(offering), data)
+    form = form_for(person, catalog_for(offering), data, edit_name=actor is not None and "name" in data)
     if not form.is_valid():
         raise ValidationError([message for errors in form.errors.values() for message in errors])
     validate_allocations(item, allow_pending=True)
@@ -75,18 +69,23 @@ def complete(item, person, data, *, actor=None):
     group_ids = {group.pk for group in form.catalog}
     previous = person.selections
     retained = [row for row in previous if row["group_id"] not in group_ids]
+    if person.name != form.cleaned_data["name"]:
+        old_name = person.name
+        person.name = form.cleaned_data["name"]
+        person.save(update_fields=["name"])
+        _audit(actor, item, "participant_name_changed", participant_id=person.pk,
+            previous_name=old_name, participant_name=person.name)
     if not person.selections_deferred and {(row["group_id"], row["option_id"]) for row in selected} == {
             (row["group_id"], row["option_id"]) for row in previous if row["group_id"] in group_ids}:
         return item
     counts = selection_items(offering, [{"selections": selected}])
-    recipes = item.snapshot.get("workshop_participant_materials")
-    if recipes is None:
-        # A total proves one participant's allocation, but cannot prove how an older group split it.
-        chosen = list(item.workshop_request.participants.filter(selections_deferred=False).values_list("pk", flat=True))
-        recipes = {str(chosen[0]): {str(row["material_id"]): row["quantity"]
-            for row in item.snapshot.get("materials", [])}} if len(chosen) == 1 else {}
-        if not person.selections_deferred and str(person.pk) not in recipes:
-            raise ValidationError("This older booking has no individual material breakdown. Contact support before editing its designs.")
+    from .legacy_materials import workshop_recipes, RecalculationRequired, confirmed
+    try:
+        recipes = workshop_recipes(item)
+    except RecalculationRequired:
+        if not confirmed(data, actor):
+            raise
+        return recalculate(item, person, selected, retained, previous, actor)
     old_recipe = recipes.get(str(person.pk), {})
     if not person.selections_deferred and not old_recipe:
         raise ValidationError("This participant's saved material recipe is missing. Contact support.")
@@ -121,13 +120,49 @@ def complete(item, person, data, *, actor=None):
         row["quantity"] = str(Decimal(row["quantity"]) + quantity)
     recipes = {**recipes, str(person.pk): {str(level.material_id): str(quantity) for level, quantity in additions}}
     was_pending = person.selections_deferred
+    from .participant_preparation import invalidate
+    invalidate(item, str(person.pk))
     person.selections = [*retained, *selected]
     person.selections_deferred = False
     person.save(update_fields=["selections", "selections_deferred"])
     item.snapshot = {**item.snapshot, "materials": list(frozen.values()),
         "workshop_participant_materials": recipes,
         "workshop_selections_pending": item.workshop_request.participants.filter(selections_deferred=True).exists()}
-    item.save(update_fields=["snapshot"])
+    item.save(update_fields=["snapshot", "prepared_at", "prepared_by", "preparation_version"])
     _audit(actor, item, "workshop_selections_completed" if was_pending else "workshop_selections_changed", participant_id=person.pk,
+        participant_name=person.name, selections=selected, previous_selections=previous)
+    return item
+
+
+def recalculate(item, person, selected, retained, previous, actor):
+    """Explicit staff-only rebase when historical recipes cannot be recovered."""
+    from .inventory import participant_recipes, check_materials
+    from .legacy_materials import reset_preparation
+    people = list(item.workshop_request.participants.all())
+    for participant in people:
+        if participant.pk == person.pk:
+            participant.selections = [*retained, *selected]
+            participant.selections_deferred = False
+    offering = item.workshop_request.session.offering
+    recipes = participant_recipes(offering, people)
+    quantities = {}
+    for recipe in recipes.values():
+        for key, value in recipe.items():
+            quantities[int(key)] = quantities.get(int(key), Decimal(0)) + Decimal(value)
+    levels = check_materials(offering, quantities, item.pk,
+        starts_at=item.starts_at if item.starts_at > timezone.now() else None)
+    reset_preparation(item, actor)
+    item.stock_allocations.exclude(level__material_id__in=quantities).delete()
+    materials = []
+    for level, quantity in levels:
+        StockAllocation.objects.update_or_create(reservation=item, level=level, defaults={"quantity": quantity})
+        materials.append({"material_id": level.material_id, "name": level.material.name,
+            "unit": level.material.unit, "quantity": str(quantity)})
+    person.selections, person.selections_deferred = [*retained, *selected], False
+    person.save(update_fields=["selections", "selections_deferred"])
+    item.snapshot = {**item.snapshot, "materials": materials, "workshop_participant_materials": recipes,
+        "workshop_selections_pending": any(p.selections_deferred for p in people)}
+    item.save(update_fields=["snapshot", "prepared_at", "prepared_by", "preparation_version"])
+    _audit(actor, item, "workshop_selections_changed", participant_id=person.pk,
         participant_name=person.name, selections=selected, previous_selections=previous)
     return item

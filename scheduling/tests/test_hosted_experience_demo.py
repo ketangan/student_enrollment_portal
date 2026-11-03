@@ -108,7 +108,8 @@ def test_booking_option_navigates_to_real_page_with_one_header(demo, hosted):
     assert response.status_code == 200
     assert response.content.count(b'<header class="brandbar">') == 1
     assert b"<iframe" not in response.content
-    assert b'href="/demo/plushumi/integrations/" target="_top">Back to booking options</a>' in response.content
+    assert f'href="{url("start")}" target="_top">Back to workshops</a>'.encode() in response.content
+    assert b'href="/demo/plushumi/integrations/"' not in response.content
     assert b"Parties &amp; camps" not in response.content and b"Studio team" not in response.content
     for page in (hub, response, hosted.get(ROOT + "modal.html", secure=True)):
         assert b'class="preview-note"' not in page.content

@@ -1,5 +1,4 @@
 """Reservation-scoped participant follow-up using the existing catalog and stock ledger."""
-from collections import Counter
 from datetime import timedelta
 import uuid
 
@@ -79,6 +78,8 @@ class StaffGuestForm(PartyMaterialRow):
             initial={"item": row.get("item_id"), "guest_name": row.get("guest_name", ""),
                      "guest_age": row.get("guest_age"), "revision": item.party_request.revision},
             auto_id=f"guest_{index}_%s", **kwargs)
+        from .legacy_materials import add_confirmation
+        add_confirmation(self, item)
 
     def clean(self):
         data = super().clean()
@@ -223,34 +224,26 @@ def _persist(item, form, rows, *, actor=None, submit=False):
     if form.errors:
         return item, form
     source = item.party_request
-    changed_rows = rows != saved_rows(item)
+    previous_rows = saved_rows(item)
+    from .participant_preparation import seed, invalidate
+    seed(item)
+    from .inventory import allocate_party_selections
+    from .legacy_materials import confirmed
+    allocate_party_selections(item, rows, recalculate=confirmed(form.data, actor), actor=actor)
     complete = len(rows) == item.quantity and all(row.get("item_id") for row in rows)
     submitted = submit and complete
+    source.materials = [row for row in rows if row.get("item_id")]
+    item.snapshot = {**item.snapshot, "guest_selections_pending": not complete}
     if submitted:
-        from .inventory import allocate, check_items
-        counts = Counter(row["item_id"] for row in rows)
-        previous = Counter()
-        for row in source.materials:
-            previous[row["item_id"]] += row["quantity"]
-        # Check first; all replacements and the existing allocation service share this lock.
-        if item.stock_allocations.filter(consumed_at__isnull=False).exists():
-            raise ValidationError("Materials have already been used. Contact the studio.")
-        changed = counts != previous or not item.stock_allocations.exists()
-        if changed:
-            check_items(source.offering, counts, item.pk, starts_at=item.starts_at)
-            item.stock_allocations.all().delete()
-        source.materials = rows
-        item.snapshot = {**item.snapshot, "guest_selections_pending": False,
-                         "guest_list_submitted_at": timezone.now().isoformat()}
+        item.snapshot["guest_list_submitted_at"] = timezone.now().isoformat()
         item.snapshot.pop("guest_list_draft", None)
-        if changed:
-            allocate(item)
     else:
         item.snapshot = {**item.snapshot, "guest_list_draft": rows}
-    if actor and item.prepared_at and changed_rows:
-        item.prepared_at = None
-        item.prepared_by = None
-        item.preparation_version += 1
+    for index in range(max(len(rows), len(previous_rows))):
+        old = previous_rows[index].get("item_id") if index < len(previous_rows) else None
+        new = rows[index].get("item_id") if index < len(rows) else None
+        if old != new:
+            invalidate(item, str(index))
     source.revision += 1
     source.save(update_fields=["materials", "revision"])
     item.save(update_fields=["snapshot", "prepared_at", "prepared_by", "preparation_version"])

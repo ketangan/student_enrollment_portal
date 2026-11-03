@@ -1,12 +1,13 @@
-{% extends 'scheduling/public_base.html' %}
+{% extends checkout_base|default:'scheduling/public_base.html' %}
 {% load static tz booking_policies %}
 {% block title %}Reservation payment{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{% static 'scheduling/square_checkout.css' %}">
+<link rel="stylesheet" href="{% static 'scheduling/square_checkout.css' %}?v=20261102-confirmation">
 <link rel="stylesheet" href="{% static 'scheduling/payment-choice.css' %}">
 <section class="payment-summary">
 {% if customer_edit_url %}<p><a href="{{ customer_edit_url }}">Edit booking details</a></p>{% endif %}
 {% if item.party_request_id %}<a class="back-link" href="{% url 'scheduling:party_start' school_slug=business.slug %}">&larr; Back to parties</a>
+{% elif workshop_experience %}<a class="back-link" href="{% url 'scheduling:experience_start' school_slug=business.slug %}">&larr; Back to workshops</a>
 {% else %}<a class="back-link" href="{% url 'scheduling:public_schedule' school_slug=business.slug %}">&larr; Back to workshops</a>{% endif %}
 <div class="section-heading"><h1>{% if item.state == 'canceled' %}Reservation canceled{% elif item.state == 'review' %}Reservation needs review{% elif confirmed and amounts.outstanding_cents == 0 %}Paid in full{% elif confirmed and amounts.net_cents > 0 %}Payment received{% else %}Reservation payment{% endif %}</h1></div>
 <h2>{{ item.snapshot.workshop }}</h2>

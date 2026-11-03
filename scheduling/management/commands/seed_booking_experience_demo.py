@@ -1,5 +1,6 @@
 """Opt-in fictional workshop data; never touches an existing customer's setup."""
 from datetime import datetime, time, timedelta
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
@@ -74,7 +75,10 @@ class Command(BaseCommand):
             location = saved(Location, profile=profile, name=place["name"], defaults={"timezone_name": place["zone"]})
             room = saved(Room, location=location, name="Workshop studio", defaults={"capacity": 12})
             offering = saved(Offering, location=location, name="Plushie-making workshop", defaults={"is_published": True,
+                "price_per_participant": Decimal(config["price_cents"]) / 100,
                 "accepts_requests": True, "accepts_party_requests": True, "description": "Choose your design and color, then create together."})
+            Offering.objects.filter(pk=offering.pk, price_per_participant__isnull=True).update(
+                price_per_participant=Decimal(config["price_cents"]) / 100)
             groups = [(config["design_group"], config["designs"]), (config["color_group"], config["colors"]),
                 (config["age_group"], [{"name": value} for value in ["Under 5", *map(str, range(5, 18)), "Adult", "Prefer not to say"]])]
             for order, (name, values) in enumerate(groups):

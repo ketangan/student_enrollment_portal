@@ -123,13 +123,13 @@ def workshop(request, item, review_url, edit_revision):
         if request.method == "POST" and valid and action == "review":
             try:
                 customer_edits.check_token(item, edit_revision)
-                total, deposit = service.reservations.workshop_quote(session.offering, config["price_cents"], len(participants))
+                total, deposit = service.reservations.workshop_quote(session.offering, service.reservations.workshop_unit_price(session.offering), len(participants))
             except ValidationError as exc:
                 error = " ".join(exc.messages)
             else:
                 rows = [{"name": form.cleaned_data["name"], **form.participant_snapshot()} for form in participants]
                 service.selection_previews(rows, session.offering, config)
-                breakdown = service.reservations.workshop_price_breakdown(session.offering, config["price_cents"], len(rows))
+                breakdown = service.reservations.workshop_price_breakdown(session.offering, service.reservations.workshop_unit_price(session.offering), len(rows))
                 return page(request, "review", profile, config, {**shared,
                     "session": session, "rows": rows, "purchaser": purchaser.cleaned_data,
                     "fields": [(key, value) for key, values in body.lists() for value in values],

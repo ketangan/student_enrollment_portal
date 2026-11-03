@@ -30,7 +30,7 @@ class CampForm(forms.ModelForm):
         model = Camp
         fields = ["name", "description", "sessions", "price", "deposit", "online", "is_open"]
         labels = {"price": "Full camp price per participant (USD)", "deposit": "Deposit per participant (USD; 0 means full payment)",
-                  "online": "Use Stripe test checkout", "is_open": "Open registration"}
+                  "online": "Collect payment online", "is_open": "Open registration"}
         widgets = {"description": forms.Textarea(attrs={"rows": 3})}
 
     def __init__(self, *args, offering, **kwargs):
@@ -47,7 +47,7 @@ class CampForm(forms.ModelForm):
         if data.get("online") and price is not None and deposit is not None:
             from decimal import Decimal
             if any(0 < amount < Decimal("0.50") for amount in (price, deposit, price - deposit)):
-                raise ValidationError("Each nonzero test payment, including the remaining balance, must be at least $0.50 per participant.")
+                raise ValidationError("Each nonzero payment, including the remaining balance, must be at least $0.50 per participant.")
         if "sessions" in data:
             validate_dates(self.instance, list(data["sessions"]), opening=data.get("is_open", False))
         return data

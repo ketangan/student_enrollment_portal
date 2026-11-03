@@ -36,7 +36,7 @@ class ReservationFilterForm(forms.Form):
 
 
 class QuoteForm(forms.Form):
-    online = forms.BooleanField(required=False, label="Use Stripe sandbox checkout (requires a connected test account)")
+    online = forms.BooleanField(required=False, label="Collect payment online")
     source_revision = forms.IntegerField(required=False, min_value=0, widget=forms.HiddenInput)
     total = forms.DecimalField(label="Total (USD)", min_value=0, max_value=Decimal("999999.99"), decimal_places=2, max_digits=8)
     deposit = forms.DecimalField(label="Deposit (USD; zero means full payment required)", min_value=0, max_value=Decimal("999999.99"), decimal_places=2, max_digits=8, initial=0)

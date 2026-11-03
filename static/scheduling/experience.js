@@ -59,8 +59,9 @@
       if (selected) link.href = link.dataset.editUrl ? `${link.dataset.editUrl}?session=${selected.id}&participants=${places}` : link.dataset.url.replace('/0/', `/${selected.id}/`) + `?participants=${places}`;
       else link.removeAttribute('href');
       $('#availability').textContent = selected ? `${selected.places} places available. Times are local to this studio.` : (days.length ? 'Select a start time.' : 'No upcoming sessions available.');
-      const price = Number($('#price-total').dataset.unit);
-      $('#price-total').textContent = `${places} participant${places === 1 ? '' : 's'}: ${dollars(places * price)}`;
+      const price = rows[0]?.price_cents;
+      $('#workshop-unit-price').textContent = price == null ? '' : `${dollars(price)} / participant`;
+      $('#price-total').textContent = price == null ? '' : `${places} participant${places === 1 ? '' : 's'}: ${dollars(places * price)}`;
       $('#workshop-name').textContent = rows[0]?.workshop || 'Plushie-making workshop';
       $('#brand-location').textContent = $('#summary-location').textContent = locations.get(Number(studio.value)) || 'Choose a studio';
       $('#summary-session').textContent = selected ? `${dateLabel(day, {weekday: 'short', month: 'short', day: 'numeric'})} at ${selected.time}` : 'Choose your date and time';

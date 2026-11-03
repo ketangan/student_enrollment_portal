@@ -32,8 +32,9 @@ pytestmark = pytest.mark.django_db
 def test_workshop_payment_setting(inventory, mode, deposit, valid):
     profile, offering, _, _ = inventory
     form = OfferingForm({"name": offering.name, "location": offering.location_id,
+        "price_per_participant": "65",
         "payment_at_booking": mode, "deposit_per_participant": deposit},
-        instance=offering, profile=profile, unit_price_cents=6500)
+        instance=offering, profile=profile)
     assert form.is_valid() == valid, form.errors
     if valid:
         saved = form.save()

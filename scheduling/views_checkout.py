@@ -61,6 +61,11 @@ def customer_payment(request, school_slug, token):
     context["hold_expired"] = item.state == "held" and item.hold_until <= timezone.now()
     from .customer_experience import checkout_presentation
     context.update(checkout_presentation(item, context["payment_form_url"]))
+    if context.get("workshop_experience") and payment_requirement_met:
+        from . import guest_lists, workshop_followup
+        if guest_lists.editable(item) and item.workshop_request.session.offering.inventory_catalog_id:
+            context["guest_list_url"] = reverse("scheduling:workshop_selections", kwargs={
+                "school_slug": school_slug, "token": workshop_followup.token_for(item)})
     if editable(item):
         context["customer_edit_url"] = reverse("scheduling:customer_edit_booking", kwargs={"school_slug": school_slug, "token": token})
     context["review_due"] = context["payment_active_amount"] or context["payment_minimum"]

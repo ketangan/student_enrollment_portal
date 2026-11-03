@@ -19,7 +19,6 @@
   let anchorDate = Number.isFinite(parsedDate.getTime()) && parsedDate.toISOString().slice(0,10) === requestedDate
     && requestedDate >= "1900-01-01" && requestedDate <= "2200-12-31" ? requestedDate : config.today;
   let pendingNavigation = false;
-  let visibleStart = anchorDate;
   let requestNumber = 0, detailNumber = 0, controller;
   const node = (tag, text, className) => {
     const el = document.createElement(tag);
@@ -126,16 +125,6 @@
   }
   document.getElementById("calendar-detail-close").addEventListener("click", () => dialog.close());
   printButton.addEventListener("click", () => {if (dialog.open && !printButton.disabled) window.print();});
-  document.getElementById("calendar-prep-print").addEventListener("click", () => {
-    const url = new URL(config.printUrl, location.origin);
-    url.searchParams.set("print", "1");
-    url.searchParams.set("period", range);
-    url.searchParams.set("date", visibleStart);
-    if (config.location) url.searchParams.set("location", config.location);
-    if (!selected.size) url.searchParams.append("offering", "none");
-    else if (selected.size !== config.offerings.length) for (const id of selected) url.searchParams.append("offering", id);
-    window.open(url, "_blank", "noopener");
-  });
   dialog.addEventListener("close", () => {detailNumber++;});
   const calendar = EventCalendar.create(root, {
     view:viewName(), date:anchorDate,
@@ -145,7 +134,6 @@
     slotDuration:"01:00:00", slotHeight:48, slotLabelInterval:"01:00:00",
     slotWidth:Math.max(88,Math.floor((root.clientWidth-180)/10)), resources:config.resources,
     datesSet(info) {
-      visibleStart=info.view.currentStart.toISOString().slice(0,10);
       if (pendingNavigation) {anchorDate=info.view.currentStart.toISOString().slice(0,10);pendingNavigation=false;}
       document.getElementById("calendar-range").textContent = info.view.title;
       queueMicrotask(syncUrl);

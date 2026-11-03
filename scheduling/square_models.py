@@ -10,6 +10,7 @@ class SquareConnection(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     profile = models.ForeignKey("scheduling.SchedulingProfile", on_delete=models.PROTECT)
     environment = models.CharField(max_length=8, choices=[("test", "Sandbox"), ("live", "Production")])
+    label = models.CharField(max_length=80, blank=True)
     application_id = models.CharField(max_length=100, blank=True, editable=False)
     merchant_id = models.CharField(max_length=100, blank=True, editable=False)
     credential_ciphertext = models.TextField(blank=True, editable=False)
@@ -27,7 +28,8 @@ class SquareConnection(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["profile", "environment"], name="square_profile_environment_unique"),
+            models.UniqueConstraint(fields=["profile", "environment"], condition=models.Q(merchant_id=""),
+                                    name="square_pending_account_unique"),
             models.UniqueConstraint(fields=["environment", "merchant_id"],
                 condition=~models.Q(merchant_id=""), name="square_seller_environment_unique"),
             models.CheckConstraint(condition=models.Q(environment__in=["test", "live"]), name="square_connection_environment_valid"),
@@ -38,6 +40,10 @@ class SquareConnection(models.Model):
     @property
     def provider(self):
         return "square"
+
+    @property
+    def display_name(self):
+        return self.label or self.merchant_id or "Square account"
 
     @property
     def display_status(self):
@@ -63,6 +69,10 @@ class SquareLocationMapping(models.Model):
     connection = models.ForeignKey(SquareConnection, on_delete=models.PROTECT, related_name="mappings")
     location = models.ForeignKey("scheduling.Location", on_delete=models.PROTECT)
     account = models.ForeignKey("payments.PaymentAccount", on_delete=models.PROTECT)
+    environment = models.CharField(max_length=8, choices=[("test", "Sandbox"), ("live", "Production")], default="test")
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["connection", "location"], name="square_location_mapping_unique")]
+        constraints = [
+            models.UniqueConstraint(fields=["location", "environment"], name="square_location_environment_unique"),
+            models.CheckConstraint(condition=models.Q(environment__in=["test", "live"]), name="square_mapping_environment_valid"),
+        ]

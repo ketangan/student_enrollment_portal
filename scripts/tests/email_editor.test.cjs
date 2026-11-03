@@ -3,10 +3,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('static/scheduling/email-editor.js', 'utf8');
+const tokensSource = fs.readFileSync('static/admin/email-template-tokens.js', 'utf8');
 
 function element(extra = {}) {
   return {listeners: {}, attributes: {}, value: '', hidden: true, textContent: '', innerHTML: '',
-    addEventListener(name, fn) { this.listeners[name] = fn; },
+    addEventListener(name, fn) { const previous = this.listeners[name]; this.listeners[name] = previous ? (...args) => { previous(...args); fn(...args); } : fn; },
     setAttribute(name, value) { this.attributes[name] = value; },
     focus() { this.focused = true; this.listeners.focus?.(); },
     ...extra};
@@ -20,7 +21,7 @@ function page({empty = false, template = false, saved = false} = {}) {
   const subject = element({selectionStart: 0, selectionEnd: 0,
     setRangeText(text) { this.value += text; }});
   const selector = template ? null : element();
-  const token = element({dataset: {emailToken: 'first_name'}});
+  const token = element({dataset: {token: 'first_name'}});
   const linkToken = template ? null : element();
   const linkNote = element(), linkHint = element();
   const wrapper = {querySelector: selector => ({textarea, '[contenteditable]': editor,
@@ -29,16 +30,21 @@ function page({empty = false, template = false, saved = false} = {}) {
     '[name="template"]': selector, '[name="link_token"]': linkToken,
     '[data-email-link-note]': linkNote, '[data-email-link-hint]': linkHint}[name]), querySelectorAll: () => [token]});
   const payload = {subject: 'Welcome', body: '<p>Ready</p>', link_token: 'signed-link', link_hint: 'Adds a guest details button.'};
+  const range = {commonAncestorContainer: editor, cloneRange() { return this; },
+    selectNodeContents() {}, collapse() {}, deleteContents() {}, insertNode(node) { editor.innerHTML += node.textContent; }};
   const selection = {rangeCount: 0, anchorNode: editor, focusNode: editor,
-    getRangeAt: () => ({cloneRange: () => ({commonAncestorContainer: editor})}),
+    getRangeAt: () => range,
     removeAllRanges() { this.removed = true; }, addRange() { this.added = true; }};
   const commands = [], alerts = [];
   const window = {getSelection: () => selection, confirm: () => true, prompt: () => 'https://example.invalid', alert: text => alerts.push(text)};
   const document = element({querySelector: name => ({'[data-email-form]': empty ? null : form}[name]),
+    createRange: () => range, createTextNode: text => ({textContent: text}),
     getElementById: id => template ? null : ({textContent: JSON.stringify({'': {subject:'',body:''}, '1': payload,
       '2': {subject: 'Visit update', body: '<p>Please review the changes.</p>'}})}),
     execCommand(command, _, value) { commands.push({command, value}); if (command === 'insertText') editor.innerHTML += value; }});
-  vm.runInNewContext(source, {document, window}, {filename: 'static/scheduling/email-editor.js'});
+  const context = vm.createContext({document, window});
+  vm.runInContext(tokensSource, context, {filename: 'static/admin/email-template-tokens.js'});
+  vm.runInContext(source, context, {filename: 'static/scheduling/email-editor.js'});
   return {form, textarea, editor, subject, selector, token, toolbar, linkToken, linkNote, linkHint,
     selection, commands, alerts, document, window};
 }
@@ -141,6 +147,21 @@ test('reservation tokens insert into focused subject or message', () => {
   assert.equal(p.subject.value, '{{first_name}}');
   p.editor.focus(); p.token.listeners.click();
   assert.equal(p.editor.innerHTML, '{{first_name}}{{first_name}}');
+  p.selection.rangeCount = 1;
+  p.document.listeners.selectionchange();
+  p.token.listeners.click();
+  assert.equal(p.editor.innerHTML, '{{first_name}}{{first_name}}{{first_name}}');
+});
+
+test('shared Enrollment token insertion works without a booking form or change callback', () => {
+  const p = page({empty: true});
+  p.window.EmailTemplateTokens.attach({editor: p.editor, subject: p.subject, buttons: [p.token]});
+  p.token.listeners.click();
+  assert.equal(p.editor.innerHTML, '{{first_name}}');
+  p.subject.focus(); p.token.listeners.click();
+  assert.equal(p.subject.value, '{{first_name}}');
+  p.window.getSelection = () => null;
+  p.document.listeners.selectionchange();
 });
 
 test('submission syncs rich text; blank and oversized messages stay in the form', () => {

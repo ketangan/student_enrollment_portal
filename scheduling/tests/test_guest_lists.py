@@ -22,9 +22,12 @@ def booking(stock):
         group_size=2, space="exclusive", submission_key=uuid.uuid4(), submission_digest="d", browser_digest="b", room=stock.room)
     order = PaymentOrder.objects.create(school=stock.school, purpose="booking", source_key=str(uuid.uuid4()),
         total_cents=10000, deposit_cents=0)
-    return Reservation.objects.create(profile=stock.profile, party_request=source, room=stock.room,
+    item = Reservation.objects.create(profile=stock.profile, party_request=source, room=stock.room,
         starts_at=source.starts_at, ends_at=source.ends_at, quantity=2, state="confirmed", order=order,
         hold_until=stock.start, snapshot={"timezone": "UTC", "workshop": "Party", "guest_list_deadline_days": 7})
+    from scheduling.inventory import allocate
+    allocate(item)
+    return item
 
 
 def payload(stock, count=2, revision=0, action="submit"):
@@ -47,7 +50,7 @@ def test_draft_submit_and_retry(client, stock, booking):
     assert client.post(path, payload(stock, 1, action="draft")).status_code == 302
     booking.refresh_from_db()
     assert len(booking.snapshot["guest_list_draft"]) == 1
-    assert not booking.stock_allocations.exists()
+    assert booking.stock_allocations.get().quantity == 1
     assert client.post(path, payload(stock, revision=1)).status_code == 302
     booking.refresh_from_db(); booking.party_request.refresh_from_db()
     assert len(booking.party_request.materials) == 2
@@ -68,14 +71,14 @@ def test_partial_submission_keeps_second_guest_and_shows_prep(client, stock, boo
     assert response.status_code == 302 and "saved=1" in response.url
     booking.refresh_from_db()
     assert len(booking.snapshot["guest_list_draft"]) == 2
-    assert not booking.stock_allocations.exists()
+    assert booking.stock_allocations.get().quantity == 2
     client.force_login(stock.user)
     path = reverse("scheduling:reservation_detail", args=[stock.school.slug, booking.public_id])
     page = client.get(path)
     assert page.context["party_guest_selected_count"] == 2
     assert b"All parties" in page.content
     assert b"Guest 2" in page.content
-    assert b"These choices are saved, but their materials are not reserved yet" in page.content
+    assert b"Materials are reserved for the saved selections" in page.content
     assert b"Copy guest" not in page.content
 
 
@@ -100,7 +103,7 @@ def test_staff_inline_names_then_selections_and_stale_edits(client, stock, booki
     booking.save()
     assert client.post(path, {**selected, "revision": 3, "guest_name": "Riley updated"}).status_code == 302
     booking.refresh_from_db()
-    assert booking.prepared_at is None
+    assert booking.prepared_at is not None
     assert booking.stock_allocations.get().quantity == 2
 
 
@@ -297,7 +300,7 @@ def test_staff_can_enter_emailed_guests_with_ages(client, stock, booking, role):
     assert client.post(path, data).status_code == 302
     response = client.get(path, follow=True)
     assert response.context["party_guest_rows"][0]["age"] == 0
-    assert not booking.stock_allocations.exists()
+    assert booking.stock_allocations.get().quantity == 1
     data = payload(stock, revision=1)
     data["materials-0-guest_age"] = "8"
     assert client.post(path, data).status_code == 302
@@ -313,7 +316,7 @@ def test_staff_can_enter_emailed_guests_with_ages(client, stock, booking, role):
     booking.prepared_at = timezone.now(); booking.save()
     assert client.post(path, payload(stock, revision=2)).status_code == 302
     booking.refresh_from_db()
-    assert booking.prepared_at is None
+    assert booking.prepared_at is not None
 
 
 def test_staff_access_is_scoped_and_viewers_cannot_write(client, stock, booking):

@@ -27,7 +27,8 @@ class Command(BaseCommand):
         location = profile.locations.get(name="Pasadena, CA")
         original = Offering.objects.get(location=location, name="Plushie-making workshop")
         workshop, created = Offering.objects.get_or_create(location=location, name="Cozy Creations",
-            defaults={"inventory_catalog": original.inventory_catalog, "is_published": True})
+            defaults={"inventory_catalog": original.inventory_catalog, "is_published": True,
+                      "price_per_participant": original.price_per_participant})
         if not created:
             self.stdout.write("Cozy Creations already exists; existing sessions and bookings preserved.")
             return

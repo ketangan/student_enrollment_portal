@@ -13,6 +13,7 @@ import re as _re
 from core.admin.audit import log_admin_audit
 from core.models import SchoolCustomToken, SchoolEmailTemplate
 from core.services.school_permissions import require_school_role
+from core.services.email_content import ENROLLMENT_TOKENS
 from core.views_school_common import _get_accessible_school_for_admin, _school_admin_base_context
 
 _SETTINGS_URL = lambda slug: reverse("school_settings", kwargs={"school_slug": slug})
@@ -20,14 +21,7 @@ _SETTINGS_URL = lambda slug: reverse("school_settings", kwargs={"school_slug": s
 _MAX_SUBJECT = 255
 _MAX_NAME    = 120
 
-_TOKENS = [
-    ("full_name",   "Student full name"),
-    ("first_name",  "Student first name"),
-    ("email",       "Applicant email"),
-    ("program",     "Program / class"),
-    ("status",      "Application status"),
-    ("school_name", "School name"),
-]
+_TOKENS = list(ENROLLMENT_TOKENS)
 
 
 def _validate_template(name, subject, body):

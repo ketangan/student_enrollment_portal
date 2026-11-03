@@ -47,15 +47,19 @@ class OfferingForm(forms.ModelForm):
 
     class Meta:
         model = Offering
-        fields = ["name", "location", "description", "inventory_catalog", "allow_deferred_selections", "payment_at_booking", "deposit_per_participant"]
+        fields = ["name", "location", "description", "inventory_catalog", "allow_deferred_selections", "price_per_participant", "payment_at_booking", "deposit_per_participant"]
         labels = {"name": "Workshop name", "inventory_catalog": "Catalog",
+                  "price_per_participant": "Price per participant (USD)",
                   "deposit_per_participant": "Deposit per participant (USD)",
                   "allow_deferred_selections": "Allow participants to choose designs at the studio"}
-        widgets = {"description": forms.Textarea(attrs={"rows": 4})}
+        widgets = {"description": forms.Textarea(attrs={"rows": 4}),
+                   "price_per_participant": forms.NumberInput(attrs={"min": "0", "step": "0.01", "inputmode": "decimal"}),
+                   "deposit_per_participant": forms.NumberInput(attrs={"min": "0.50", "step": "0.01", "inputmode": "decimal"})}
 
-    def __init__(self, *args, profile, unit_price_cents=None, **kwargs):
+    def __init__(self, *args, profile, **kwargs):
         super().__init__(*args, **kwargs)
-        self.unit_price_cents = unit_price_cents
+        if self.is_bound and "price_per_participant" not in self.data:
+            self.fields["price_per_participant"].disabled = True
         self.initial["payment_at_booking"] = "deposit" if self.instance.deposit_per_participant else "full"
         self.fields["deposit_per_participant"].required = False
         self.fields["location"].queryset = staff_locations(profile)
@@ -85,8 +89,6 @@ class OfferingForm(forms.ModelForm):
             deposit = data.get("deposit_per_participant")
             if deposit is None or deposit < Decimal("0.50"):
                 self.add_error("deposit_per_participant", "Enter a deposit of at least $0.50 per participant.")
-            elif self.unit_price_cents is not None and int(deposit * 100) > self.unit_price_cents - 50:
-                self.add_error("deposit_per_participant", "The deposit must leave at least $0.50 per participant to pay later. Choose full payment instead.")
         return data
 
 

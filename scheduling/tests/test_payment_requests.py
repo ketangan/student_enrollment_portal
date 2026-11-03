@@ -154,6 +154,19 @@ def test_http_send_and_retry(stock, booking, client):
     assert BookingMessage.objects.count() == 1
 
 
+def test_local_capture_has_no_preview_flash_and_never_claims_delivery(stock, booking, client):
+    stock.profile.message_preview_enabled = False
+    stock.profile.save()
+    client.force_login(stock.user)
+    path = reverse("scheduling:reservation_detail", kwargs={"school_slug": stock.school.slug, "public_id": booking.public_id})
+    response = client.post(path, {"action": "request_payment", "request_token": token(stock, booking)}, follow=True)
+    assert response.status_code == 200
+    assert BookingMessage.objects.get().state == "draft"
+    assert not list(response.context["messages"])
+    assert b"saved for local preview" not in response.content
+    assert b"Email not sent" in response.content
+
+
 def test_reservation_uses_clean_guest_actions_and_honest_email_status(stock, booking, client):
     notice = send(stock, booking)
     notice.state = "draft"

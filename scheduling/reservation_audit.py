@@ -8,6 +8,10 @@ from core.services.email_content import clean_html
 
 
 LABELS = {
+    "materials_recalculated": "Materials recalculated; preparation reset",
+    "participant_prepared": "Participant prepared",
+    "participant_prep_reopened": "Participant preparation reopened",
+    "participant_name_changed": "Participant name updated",
     "terminal_payment_corrected": "Payment record corrected",
     "workshop_selections_completed": "Participant selections saved",
     "workshop_selections_changed": "Participant selections changed",
@@ -60,7 +64,8 @@ def audit_page(item, raw_page):
             if action == "cancellation_decision":
                 handling = "With refund" if log.extra["resolution"] == "with_refund" else "Without refund"
                 detail = f'{handling}: {log.extra["reason"]}'
-            elif action in {"workshop_selections_completed", "workshop_selections_changed", "workshop_participant_named"}:
+            elif action in {"workshop_selections_completed", "workshop_selections_changed", "workshop_participant_named",
+                    "participant_prepared", "participant_prep_reopened", "participant_name_changed"}:
                 detail = log.extra.get("participant_name", "")
             elif action in {"refund_status", "checkout_status"}:
                 detail = log.extra.get("status", "")

@@ -41,6 +41,7 @@ def booking_cutoff(*, online=False):
 
 def sessions(profile, *, online=False):
     return Session.objects.filter(offering__location__profile=profile,
+        offering__price_per_participant__isnull=False,
         offering__is_published=True, offering__visit_program__isnull=True, is_published=True,
         starts_at__gt=booking_cutoff(online=online), camps__isnull=True).select_related("offering__location__profile", "room").prefetch_related("camps").order_by("starts_at", "pk")
 
@@ -59,6 +60,7 @@ def session_rows(profile, *, online=False, exclude=None):
         location = session.offering.location
         local = timezone.localtime(session.starts_at, ZoneInfo(location.timezone_name))
         result.append({"id": session.pk, "location_id": location.pk, "location": location.name,
+            "price_cents": reservations.workshop_unit_price(session.offering),
             "workshop_id": session.offering_id, "workshop": session.offering.name,
             "duration_minutes": round((session.ends_at-session.starts_at).total_seconds() / 60),
             "date": local.strftime("%Y-%m-%d"),
@@ -101,7 +103,7 @@ def validate(session, data, *, check_stock=True, exclude=None):
 
 def review_token(session, data, catalog, browser, config):
     return signing.dumps({"session": session.pk, "browser": browser,
-        "digest": requests.submission_digest(payload(data, catalog)), "price": config["price_cents"],
+        "digest": requests.submission_digest(payload(data, catalog)), "price": reservations.workshop_unit_price(session.offering),
         "deposit": str(session.offering.deposit_per_participant),
         "tax_rate": str(session.offering.location.default_tax_rate),
         "policy": config["policy_revision"], "published_policy": notice(session.offering.location.profile.school, "workshop"),
@@ -125,6 +127,7 @@ def begin(profile, session, data, browser, config):
         raise Http404
     session.offering.refresh_from_db()
     session.offering.location.refresh_from_db()
+    price_cents = reservations.workshop_unit_price(session.offering)
     if session.starts_at <= booking_cutoff(online=bool(config.get("stripe_checkout"))):
         raise ValidationError("Online booking has closed for this session. Choose another time.")
     catalog = requests.catalog_for(session.offering)
@@ -133,7 +136,7 @@ def begin(profile, session, data, browser, config):
         token = signing.loads(data.get("review_token", ""), salt=REVIEW_SALT, max_age=900)
         if (token["session"] != session.pk or not browser or not constant_time_compare(token["browser"], browser)
                 or token["digest"] != requests.submission_digest(body)
-                or token["price"] != config["price_cents"] or token["policy"] != config["policy_revision"]
+                or token["price"] != price_cents or token["policy"] != config["policy_revision"]
                 or token.get("published_policy", {}) != notice(profile.school, "workshop")
                 or token.get("deposit") != str(session.offering.deposit_per_participant)
                 or token.get("tax_rate") != str(session.offering.location.default_tax_rate)
@@ -150,11 +153,11 @@ def begin(profile, session, data, browser, config):
     if "experience_demo" not in item.session_snapshot:
         item.session_snapshot["experience_demo"] = {"policy": config["policy_revision"],
             "published_policy": notice(profile.school, "workshop"),
-            "reviewed_at": timezone.now().isoformat(), "price_cents": config["price_cents"]}
+            "reviewed_at": timezone.now().isoformat(), "price_cents": price_cents}
         item.session_snapshot["price_breakdown"] = reservations.workshop_price_breakdown(
-            session.offering, config["price_cents"], item.participants.count())
+            session.offering, price_cents, item.participants.count())
         item.save(update_fields=["session_snapshot"])
-    total, deposit = reservations.workshop_quote(session.offering, config["price_cents"], item.participants.count())
+    total, deposit = reservations.workshop_quote(session.offering, price_cents, item.participants.count())
     reservations.create_reservation(actor(profile, config), profile.school.slug, "workshop", item.public_id,
                                    total_cents=total, deposit_cents=deposit, online=bool(config.get("stripe_checkout")))
     return item

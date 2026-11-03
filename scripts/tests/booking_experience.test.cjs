@@ -24,7 +24,7 @@ function element(select = false) {
 
 const session = (id, location, workshop, name, date, duration = 120, places = 4) => ({
   id, location_id: location, location: location === 1 ? 'Charlotte, NC' : 'Pasadena, CA',
-  workshop_id: workshop, workshop: name, date, day: date, time: '10:00 AM', duration_minutes: duration, places,
+  workshop_id: workshop, workshop: name, date, day: date, time: '10:00 AM', duration_minutes: duration, places, price_cents: 6500,
 });
 const sessions = [
   session(1, 1, 10, 'Plushie-making workshop', '2030-10-10'),
@@ -35,12 +35,11 @@ const sessions = [
 
 function page(rows = sessions) {
   const nodes = Object.fromEntries(['sessions-data', 'studio', 'workshop', 'count', 'dates', 'times',
-    'start-booking', 'availability', 'price-total', 'workshop-name', 'workshop-duration',
+    'start-booking', 'availability', 'price-total', 'workshop-unit-price', 'workshop-name', 'workshop-duration',
     'calendar-month', 'previous-month', 'next-month', 'chosen-day', 'brand-location', 'summary-location', 'summary-session'].map(id => [id,
     element(['studio', 'workshop'].includes(id))]));
   nodes['sessions-data'].textContent = JSON.stringify(rows);
   nodes.count.value = '1';
-  nodes['price-total'].dataset.unit = '6500';
   nodes['start-booking'].dataset.url = '/experience/session/0/';
   const document = {getElementById: id => nodes[id], querySelector: selector => nodes[selector.slice(1)],
     createElement: () => element()};
@@ -116,6 +115,21 @@ test('empty availability has no enabled workshop or booking link', () => {
   assert.equal(p['previous-month'].disabled, true);
   assert.equal(p['next-month'].disabled, true);
   assert.equal(p.dates.children.length, 0);
+  assert.equal(p['workshop-unit-price'].textContent, '');
+  assert.equal(p['price-total'].textContent, '');
+});
+
+test('each workshop supplies its own price, including free workshops', () => {
+  const p = page(sessions.map(row => ({...row, price_cents: row.workshop_id === 10 ? 7250 : row.location_id === 2 ? 0 : 8800})));
+  assert.equal(p['workshop-unit-price'].textContent, '$72.50 / participant');
+  change(p.count, '2');
+  assert.equal(p['price-total'].textContent, '2 participants: $145.00');
+  change(p.workshop, '11');
+  assert.equal(p['workshop-unit-price'].textContent, '$88.00 / participant');
+  assert.equal(p['price-total'].textContent, '2 participants: $176.00');
+  change(p.studio, '2');
+  assert.equal(p['workshop-unit-price'].textContent, '$0.00 / participant');
+  assert.equal(p['price-total'].textContent, '2 participants: $0.00');
 });
 
 test('calendar handles leap years, Monday alignment and unavailable dates', () => {

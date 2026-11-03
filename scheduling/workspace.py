@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .capabilities import has_capability
+from .party_policy import party_policy
 from .access import scope_locations, staff_locations, location_restricted
 from .models import LessonAvailability, LessonOccurrence, Location, Offering, PartyRequest, Reservation, Session, WorkshopRequest
 from .reservation_queries import ATTENTION, reservation_location, staff_reservations, preparation_queue
@@ -60,7 +61,7 @@ def overview(profile, *, location=None):
         for session in sessions:
             event(session.starts_at, session.ends_at, session.offering.name, session.offering.location,
                 session.room, "Published session", url("preparation", pk=session.pk), session.confirmed_reservation_count)
-    if has_capability(profile, "parties"):
+    if has_capability(profile, "parties") and not party_policy(profile.school)["packages_only"]:
         pending = PartyRequest.objects.filter(offering__location__profile=profile, status="pending", reservation__isnull=True)
         attention.append({"label": "New party inquiries", "count": scoped(pending, "offering__location").count(), "url": list_url("parties", review=1)})
     if has_capability(profile, "reservations"):

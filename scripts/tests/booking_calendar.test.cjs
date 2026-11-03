@@ -20,7 +20,7 @@ function page({focused=false, form=false, search='?view=calendar'} = {}) {
   const ids = ['booking-calendar', 'calendar-config', 'calendar-error', 'calendar-count',
     'calendar-hide-empty', 'calendar-detail', 'calendar-detail-body', 'calendar-detail-title',
     'calendar-detail-close', 'calendar-range', 'calendar-offerings', 'calendar-retry',
-    'calendar-unpaid', 'calendar-balances', 'calendar-empty', 'calendar-detail-badges', 'calendar-detail-print', 'calendar-prep-print'];
+    'calendar-unpaid', 'calendar-balances', 'calendar-empty', 'calendar-detail-badges', 'calendar-detail-print'];
   const nodes = Object.fromEntries(ids.map(id => [id, element()]));
   nodes['calendar-error'].append(element('span'));
   if (form) {
@@ -28,7 +28,7 @@ function page({focused=false, form=false, search='?view=calendar'} = {}) {
     nodes['dashboard-location-filter'].querySelector=selector=>nodes['dashboard-location-filter'].children.find(child=>selector===`input[name="${child.name}"]`) || null;
   }
   nodes['calendar-config'].textContent = JSON.stringify({location:focused?'1':'',today:'2026-10-20',
-    printUrl:'/preparation/',eventsUrl:'/calendar/events/',resources:[{id:'2',title:'East',zone:'America/New_York'}],offerings:[{id:'1',title:'<script>not markup</script>'},{id:'2',title:'Workshop'}]});
+    eventsUrl:'/calendar/events/',resources:[{id:'2',title:'East',zone:'America/New_York'}],offerings:[{id:'1',title:'<script>not markup</script>'},{id:'2',title:'Workshop'}]});
   const ranges = ['day','week','month'].map(value => Object.assign(element('button'),{dataset:{calendarRange:value}}));
   const actions = ['prev','next','today'].map(value => Object.assign(element('button'),{dataset:{calendarAction:value}}));
   const filters = ['all','none'].map(value => Object.assign(element('button'),{dataset:{calendarFilter:value}}));
@@ -54,19 +54,11 @@ function page({focused=false, form=false, search='?view=calendar'} = {}) {
 }
 
 const interval = {startStr:'2026-10-18T00:00:00',endStr:'2026-10-25T00:00:00'};
-test('print follows visible period, location and selected workshops without changing the calendar', () => {
-  for (const period of ['day','week','month']) {
-    const p=page({focused:true,search:`?range=${period}&date=2026-10-28`});
-    p.options.datesSet({view:{currentStart:new Date('2026-10-25T00:00:00Z'),title:'Selected range'}});
-    p.nodes['calendar-prep-print'].listeners.click();
-    const [url,target,features]=p.opened[0];
-    assert.equal(url.searchParams.get('date'),'2026-10-25');
-    assert.equal(url.searchParams.get('period'),period);
-    assert.equal(url.searchParams.get('location'),'1');
-    assert.equal(target,'_blank');assert.equal(features,'noopener');
-    p.filters[1].listeners.click();p.nodes['calendar-prep-print'].listeners.click();
-    assert.equal(p.opened[1][0].searchParams.get('offering'),'none');
-  }
+test('weekly prep print lives outside Calendar; session roster printing remains', () => {
+  const template = fs.readFileSync('templates/scheduling/calendar.html', 'utf8');
+  assert.ok(!template.includes('calendar-prep-print'));
+  assert.ok(template.includes('calendar-detail-print'));
+  assert.doesNotThrow(() => page());
 });
 const summary = {unpaid:1,balance:2,empty:3};
 const detailSummary = {booked:2,capacity:6,open:4,needs_action:0,reservation_count:1,payments:[{received:2500,expected:6500,order__currency:'usd'}]};

@@ -2,13 +2,12 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.http import Http404, HttpResponseBadRequest
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import redirect
 from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST
 
 from .integrations import square_connection as service
-from .models import SquareConnection
 
 
 @never_cache
@@ -17,18 +16,28 @@ from .models import SquareConnection
 def update(request, school_slug):
     profile, _ = service.access(request, school_slug)
     action = request.POST.get("action")
-    if action not in {"connect", "check", "disconnect", "locations", "map"}:
+    if action not in {"add", "connect", "check", "disconnect", "locations", "map", "rename"}:
         return HttpResponseBadRequest("Choose a valid Square action.")
     try:
-        if action == "connect":
-            return redirect(service.begin(request, school_slug))
+        connection_id = request.POST.get("connection_id")
+        if action in {"add", "connect"}:
+            return redirect(service.begin(request, school_slug, connection_id=connection_id,
+                label=request.POST.get("label", "") if action == "add" else None))
+        if action == "map":
+            service.save_mappings(request, school_slug, request.POST)
+            messages.success(request, "Location mappings saved.")
+            return redirect("scheduling:integrations", school_slug=school_slug)
         revision = request.POST.get("revision", "")
         if not revision.isdecimal() or len(revision) > 10:
             raise ValidationError("Reload Square settings before trying again.")
-        connection = get_object_or_404(SquareConnection, profile=profile, environment=service.environment(profile))
-        if action in {"locations", "map"}:
-            service.update_locations(request, school_slug, int(revision), mappings=request.POST if action == "map" else None)
-            messages.success(request, "Location mappings saved." if action == "map" else "Square locations refreshed.")
+        connection = service.selected_connection(profile, connection_id)
+        if action == "rename":
+            service.rename(request, school_slug, connection.pk, int(revision), request.POST.get("label", ""))
+            messages.success(request, "Account name saved.")
+            return redirect("scheduling:integrations", school_slug=school_slug)
+        if action == "locations":
+            service.update_locations(request, school_slug, int(revision), connection_id=connection.pk)
+            messages.success(request, "Square locations refreshed.")
             return redirect("scheduling:integrations", school_slug=school_slug)
         service.maintain(connection.pk, disconnect=action == "disconnect", actor=request.user, expected_revision=int(revision))
         messages.success(request, "Square disconnected." if action == "disconnect" else "Square connection verified.")

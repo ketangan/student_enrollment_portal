@@ -1,4 +1,5 @@
 {% extends "school_admin/base.html" %}
+{% load static %}
 {% block page_title %}{{ form_heading }} — Settings{% endblock %}
 
 {% block content %}
@@ -109,19 +110,7 @@
     <div class="dash-card" style="width:220px;flex-shrink:0;padding:18px;">
 
       <!-- Built-in tokens -->
-      <div style="font-size:11px;font-weight:700;color:var(--dash-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Auto-filled Tokens</div>
-      <div style="font-size:11px;color:var(--dash-muted);margin-bottom:10px;">Click to insert at cursor.</div>
-      {% for token, label in tokens %}
-      <div style="margin-bottom:6px;">
-        <button type="button"
-                data-token="{{ token }}"
-                onclick="insertToken(this.dataset.token)"
-                style="font-family:monospace;font-size:11px;padding:4px 8px;border:1px solid var(--dash-border);border-radius:4px;background:var(--dash-bg);color:var(--dash-primary,#4f46e5);cursor:pointer;width:100%;text-align:left;">
-          &#123;&#123;{{ token }}&#125;&#125;
-        </button>
-        <div style="font-size:11px;color:var(--dash-muted);margin-top:2px;padding-left:2px;">{{ label }}</div>
-      </div>
-      {% endfor %}
+      {% include 'school_admin/includes/email_tokens.html' %}
 
       <!-- Custom tokens -->
       <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--dash-border);">
@@ -131,7 +120,6 @@
         <div style="display:flex;align-items:center;gap:4px;margin-bottom:6px;">
           <button type="button"
                   data-token="{{ ct.key }}"
-                  onclick="insertToken(this.dataset.token)"
                   style="font-family:monospace;font-size:11px;padding:4px 8px;border:1px solid var(--dash-border);border-radius:4px;background:var(--dash-bg);color:var(--dash-primary,#4f46e5);cursor:pointer;flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
                   title="{{ ct.label }}">
             &#123;&#123;{{ ct.key }}&#125;&#125;
@@ -189,23 +177,13 @@
 
 </main>
 
+<script src="{% static 'admin/email-template-tokens.js' %}?v=20261031"></script>
 <script>
 var editor = document.getElementById('body-editor');
 var _savedRange = null;
 
-function insertToken(token) {
-  editor.focus();
-  var text = '{' + '{' + token + '}' + '}';
-  var sel = window.getSelection();
-  if (sel && sel.rangeCount) {
-    var range = sel.getRangeAt(0);
-    range.deleteContents();
-    range.insertNode(document.createTextNode(text));
-    range.collapse(false);
-  } else if (document.queryCommandSupported('insertText')) {
-    document.execCommand('insertText', false, text);
-  }
-}
+window.EmailTemplateTokens.attach({editor: editor, subject: document.getElementById('id_subject'),
+  buttons: document.querySelectorAll('[data-token]')});
 
 // ── Link popover ──────────────────────────────────────────────────────────────
 

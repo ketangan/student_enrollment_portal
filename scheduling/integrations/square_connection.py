@@ -19,6 +19,7 @@ from core.payments.square_oauth import Application
 from core.services.portal_environment import request_environment
 from scheduling.models import SchedulingProfile, SquareAuthorization, SquareConnection
 from . import service, vault
+from .square_forms import AccountNameForm, MappingForm
 
 BUSY = "A Square connection update is in progress. Please try again shortly."
 RESTART = "This Square connection link has expired or changed. Start again from Integrations."
@@ -77,8 +78,18 @@ def _claim(connection):
     return connection.operation
 
 
+def selected_connection(profile, connection_id=None):
+    records = SquareConnection.objects.select_related("profile__school").filter(
+        profile=profile, environment=environment(profile))
+    try:
+        # Older open pages can still address the sole account, never an arbitrary account.
+        return records.get(pk=connection_id) if connection_id else records.get()
+    except (SquareConnection.DoesNotExist, SquareConnection.MultipleObjectsReturned, ValidationError):
+        raise Http404 from None
+
+
 @sensitive_variables()
-def begin(request, slug):
+def begin(request, slug, *, connection_id=None, label=None):
     profile, _ = access(request, slug)
     app = application(environment(profile))
     _origin(request, app)
@@ -91,13 +102,25 @@ def begin(request, slug):
         profile, _ = access(request, slug)
         if environment(profile) != app.environment:
             raise ValidationError(RESTART)
-        connection, _ = SquareConnection.objects.get_or_create(profile=profile, environment=app.environment)
+        if label is not None:
+            name_form = AccountNameForm({"label": label})
+            if not name_form.is_valid():
+                raise ValidationError("Enter an account name of up to 80 characters.")
+            connection, _ = SquareConnection.objects.get_or_create(
+                profile=profile, environment=app.environment, merchant_id="")
+            connection.label = name_form.cleaned_data["label"]
+        elif connection_id or SquareConnection.objects.filter(profile=profile, environment=app.environment).exists():
+            connection = selected_connection(profile, connection_id)
+        else:
+            connection = SquareConnection.objects.create(profile=profile, environment=app.environment)
+        account_label = connection.label
         connection = SquareConnection.objects.select_for_update().get(pk=connection.pk)
         _available(connection)
         if connection.status == "disconnecting":
             raise ValidationError("Finish disconnecting Square before reconnecting.")
         connection.revision += 1
-        connection.save(update_fields=["revision"])
+        connection.label = account_label
+        connection.save(update_fields=["revision", "label"])
         SquareAuthorization.objects.create(state_hash=digest(state), connection=connection, user=request.user,
             session_hash=digest(request.session.session_key), application_id=app.application_id,
             revision=connection.revision, expires_at=timezone.now() + timedelta(minutes=10))
@@ -223,23 +246,14 @@ def maintain(pk, *, disconnect=False, actor=None, expected_revision=None):
 
 
 def context(request, profile):
-    connection = SquareConnection.objects.filter(profile=profile, environment=environment(profile)).defer("credential_ciphertext").first()
     ready = True
     try:
         _origin(request, application(environment(profile)))
         vault.cipher()
     except (ValidationError, ValueError):
         ready = False
-    from django import forms
-    mappings = dict(connection.mappings.values_list("location_id", "account__location_reference")) if connection else {}
-    choices = [("", "Not mapped")]
-    choices += [(item["id"], item["name"]) for item in connection.locations] if connection else []
-    form = forms.Form()
-    for location in profile.locations.all():
-        selected = mappings.get(location.pk, "")
-        available = choices + ([(selected, "Unavailable Square location")] if selected and selected not in dict(choices) else [])
-        form.fields[f"location_{location.pk}"] = forms.ChoiceField(label=location.name, choices=available, required=False, initial=selected)
-    return {"connection": connection, "ready": ready, "mapping_form": form,
+    form = MappingForm(profile, environment(profile))
+    return {"accounts": form.connections, "ready": ready, "mapping_form": form,
             "environment": "Sandbox" if profile.school.is_demo else "Production"}
 
 
@@ -268,17 +282,14 @@ def payment_connection(account):
     return connection
 
 
-def update_locations(request, slug, revision, *, mappings=None):
-    """Refresh provider evidence outside locks, then apply a versioned mapping atomically."""
+def update_locations(request, slug, revision, *, connection_id=None):
+    """Refresh one seller outside database locks; reject stale results."""
     from core.payments import square
-    from core.payments.models import PaymentAccount
-    from scheduling.models import SquareLocationMapping
     profile, _ = access(request, slug)
-    connection = SquareConnection.objects.select_related("profile__school").get(profile=profile, environment=environment(profile))
+    connection = selected_connection(profile, connection_id)
     if connection.revision != revision:
         raise ValidationError("Square settings changed. Reload before trying again.")
     locations = square.list_locations(connection)
-    choices = {item["id"] for item in locations}
     with transaction.atomic():
         SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
         profile, _ = access(request, slug)
@@ -286,26 +297,82 @@ def update_locations(request, slug, revision, *, mappings=None):
         if current.revision != revision or environment(profile) != current.environment:
             raise ValidationError("Square settings changed. Reload before trying again.")
         _available(current)
-        if mappings is not None:
-            location_ids = list(profile.locations.values_list("pk", flat=True))
-            expected = {f"location_{pk}" for pk in location_ids}
-            if {key for key in mappings if key.startswith("location_")} != expected:
-                raise ValidationError("Locations changed. Reload before saving mappings.")
-            for pk in location_ids:
-                selected = mappings[f"location_{pk}"]
-                if selected and selected not in choices:
-                    raise ValidationError("Choose an active Square location from this account.")
-                if not selected:
-                    SquareLocationMapping.objects.filter(connection=current, location_id=pk).delete()
-                    continue
-                account, _ = PaymentAccount.objects.get_or_create(school=profile.school, environment=current.environment,
-                    provider="square", scope="connected", reference=current.merchant_id, location_reference=selected,
-                    defaults={"enabled": True})
-                SquareLocationMapping.objects.update_or_create(connection=current, location_id=pk, defaults={"account": account})
         current.locations, current.locations_checked_at = locations, timezone.now()
         current.revision += 1
         current.save(update_fields=["locations", "locations_checked_at", "revision"])
-        _audit(current, request.user, "square_locations_mapped" if mappings is not None else "square_locations_checked")
+        _audit(current, request.user, "square_locations_checked")
+
+
+def save_mappings(request, slug, data):
+    from core.payments import square
+    from core.payments.models import PaymentAccount
+    from scheduling.models import SquareLocationMapping
+
+    profile, _ = access(request, slug)
+    env = environment(profile)
+    form = MappingForm(profile, env, data)
+    if not form.is_valid():
+        raise ValidationError([message for errors in form.errors.values() for message in errors])
+    selections = {location.pk: form.cleaned_data[f"location_{location.pk}"] for location in form.locations}
+    selected_ids = {value.split(":", 1)[0] for value in selections.values() if value}
+    connections = {str(item.pk): item for item in form.connections}
+    if not selected_ids <= connections.keys():
+        raise ValidationError("Choose a Square account connected to this business.")
+    # Remote verification is performed once per selected seller, never inside a lock.
+    evidence = {pk: square.list_locations(connections[pk]) for pk in sorted(selected_ids)}
+    with transaction.atomic():
+        SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
+        profile, _ = access(request, slug)
+        list(SquareConnection.objects.select_for_update().filter(profile=profile, environment=env).order_by("pk"))
+        current_form = MappingForm(profile, environment(profile), data)
+        if not current_form.is_valid():
+            raise ValidationError([message for errors in current_form.errors.values() for message in errors])
+        current_connections = {str(item.pk): item for item in current_form.connections}
+        for pk in selected_ids:
+            current = current_connections[pk]
+            _available(current)
+            credential(current)
+        for location_id, value in selections.items():
+            if not value:
+                SquareLocationMapping.objects.filter(location_id=location_id, environment=env).delete()
+                continue
+            pk, square_location = value.split(":", 1)
+            current = current_connections[pk]
+            if square_location not in {item["id"] for item in evidence[pk]}:
+                raise ValidationError("Choose an active Square location from this account. Refresh its locations and try again.")
+            account, _ = PaymentAccount.objects.get_or_create(school=profile.school, environment=env,
+                provider="square", scope="connected", reference=current.merchant_id, location_reference=square_location,
+                defaults={"enabled": True})
+            SquareLocationMapping.objects.update_or_create(location_id=location_id, environment=env,
+                defaults={"account": account, "connection": current})
+        for pk in selected_ids:
+            current = current_connections[pk]
+            current.locations, current.locations_checked_at = evidence[pk], timezone.now()
+            current.revision += 1
+            current.save(update_fields=["locations", "locations_checked_at", "revision"])
+        AdminAuditLog.objects.create(actor=request.user, action="action",
+            environment="demo" if env == "test" else "production", model_label=profile._meta.label_lower,
+            object_id=str(profile.pk), object_repr="Square location mappings",
+            extra={"name": "square_locations_mapped", "scheduling_profile_id": profile.pk})
+
+
+@transaction.atomic
+def rename(request, slug, connection_id, revision, label):
+    profile, _ = access(request, slug)
+    SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
+    profile, _ = access(request, slug)
+    connection = selected_connection(profile, connection_id)
+    connection = SquareConnection.objects.select_for_update().get(pk=connection.pk)
+    if connection.revision != revision:
+        raise ValidationError("Square settings changed. Reload before trying again.")
+    _available(connection)
+    form = AccountNameForm({"label": label})
+    if not form.is_valid():
+        raise ValidationError("Enter an account name of up to 80 characters.")
+    connection.label = form.cleaned_data["label"]
+    connection.revision += 1
+    connection.save(update_fields=["label", "revision"])
+    _audit(connection, request.user, "square_account_renamed")
 
 
 def due(limit, school=None):

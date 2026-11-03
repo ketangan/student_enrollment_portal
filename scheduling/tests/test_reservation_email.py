@@ -258,6 +258,10 @@ def test_create_edit_deactivate_and_isolate_templates(stock):
     path = template_url(stock)
     response = stock.client.get(path)
     assert response.status_code == 200 and b'>Preview</button>' not in response.content
+    assert "school_admin/includes/email_tokens.html" in [template.name for template in response.templates]
+    assert b'data-token="full_name"' in response.content and b'data-token="booking_time"' in response.content
+    assert b"admin/email-template-tokens.js" in response.content
+    assert b"Reservation fields" not in response.content
     payload = {"name": "Party update", "booking_kind": "party", "subject": "Hi {{first_name}}",
         "body": '<p>Hello {{full_name}}</p><script>bad()</script>', "is_active": "on"}
     preview = stock.client.post(path, {**payload, "action": "preview"})
@@ -308,7 +312,11 @@ def test_enrollment_routes_cannot_edit_booking_templates(client):
     for name in ("school_email_template_edit", "school_email_template_delete", "school_email_template_reactivate"):
         path = reverse(name, kwargs={"school_slug": school.slug, "template_id": item.pk})
         assert client.post(path, {"name": "bad", "subject": "bad", "body": "bad"}).status_code == 404
-    assert client.get(reverse("school_email_template_edit", kwargs={"school_slug": school.slug, "template_id": enrollment.pk})).status_code == 200
+    page = client.get(reverse("school_email_template_edit", kwargs={"school_slug": school.slug, "template_id": enrollment.pk}))
+    assert page.status_code == 200
+    assert "school_admin/includes/email_tokens.html" in [template.name for template in page.templates]
+    assert b"admin/email-template-tokens.js" in page.content
+    assert b'data-token="full_name"' in page.content and b'data-token="booking_time"' not in page.content
     item.refresh_from_db()
     assert item.name == "Booking-only secret"
 

@@ -200,16 +200,18 @@ def test_participant_recipe_lookup_is_batched(stock, django_assert_num_queries):
     assert len(recipes) == 20
 
 
-def test_legacy_group_cannot_guess_individual_materials(stock):
+def test_legacy_identical_group_recovers_frozen_materials(stock):
     s = stock
     item, person = booked(s, 2)
     item.snapshot.pop("workshop_participant_materials")
     item.save()
     red, level = replacement(s)
-    with pytest.raises(ValidationError, match="older booking"):
-        save(s, item, person, edit_data(s, person, red))
-    assert inventory.reserved(s.level) == 2
-    assert inventory.reserved(level) == 0
+    recipe = s.item.requirements.get(); recipe.quantity = 3; recipe.save()
+    save(s, item, person, edit_data(s, person, red))
+    assert inventory.reserved(s.level) == 1
+    assert inventory.reserved(level) == 1
+    item.refresh_from_db()
+    assert len(item.snapshot["workshop_participant_materials"]) == 2
 
 
 def test_legacy_single_choice_uses_exact_frozen_total(stock):
@@ -261,10 +263,15 @@ def test_invalid_saved_participant_recipe_is_blocked(stock, corruption):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_competing_edits_keep_loser_original_selection(stock):
+@pytest.mark.parametrize("legacy", [False, True])
+def test_competing_edits_keep_loser_original_selection(stock, legacy):
     s = stock
     first = booked(s, 1)
     second = booked(s, 1)
+    if legacy:
+        for item, _ in (first, second):
+            item.snapshot.pop("workshop_participant_materials")
+            item.save(update_fields=["snapshot"])
     red, level = replacement(s)
 
     def submit(pair):

@@ -78,7 +78,7 @@ def test_policy_snapshot_and_stale_review(demo, browser, monkeypatch):
     assert item.session_snapshot["experience_demo"]["published_policy"] == original
 
 
-def test_customer_footer_returns_to_options_from_every_booking_step(demo, browser):
+def test_customer_footer_returns_to_workshops_not_prototypes_from_every_step(demo, browser):
     start = browser.get(url("start"))
     session, data = form_data(browser, demo, count=1)
     choice = browser.get(url("choose", pk=session.pk))
@@ -88,11 +88,12 @@ def test_customer_footer_returns_to_options_from_every_booking_step(demo, browse
     handoff = browser.get(checkout.url)
     assert browser.post(checkout.url, {"action": "complete"}).status_code == 302
     confirmation = browser.get(checkout.url)
-    link = f'<a href="{reverse("booking_integration_preview")}" target="_top">Back to booking options</a>'
+    link = f'<a href="{url("start")}" target="_top">Back to workshops</a>'
     html = SimpleTestCase()
     for response in (start, choice, review, handoff, confirmation):
         assert response.status_code == 200
         html.assertInHTML(link, response.content.decode(), count=1)
+        assert reverse("booking_integration_preview").encode() not in response.content
         assert b"Parties &amp; camps" not in response.content
         assert b"Studio team" not in response.content
     options = browser.get(reverse("booking_integration_preview"))
@@ -231,7 +232,7 @@ def test_admin_created_workshop_is_bookable_without_unpaid_intake(demo, browser)
     def admin_url(name, **kwargs):
         return reverse("scheduling:" + name, kwargs={"school_slug": SLUG, **kwargs})
     assert staff.post(admin_url("workshop_new"), {"name": "Young Horizons", "location": location.pk,
-        "inventory_catalog": original.inventory_catalog_id}).status_code == 302
+        "inventory_catalog": original.inventory_catalog_id, "price_per_participant": "70"}).status_code == 302
     offering = Offering.objects.get(location=location, name="Young Horizons")
     for days in (40, 42):
         start = (timezone.now() + timedelta(days=days)).strftime("%Y-%m-%dT10:00")
@@ -247,7 +248,7 @@ def test_admin_created_workshop_is_bookable_without_unpaid_intake(demo, browser)
     rows = [row for row in listing.context["sessions"] if row["id"] in {s.pk for s in sessions}]
     assert len(rows) == 2
     assert all(row["workshop"] == "Young Horizons" and row["location_id"] == location.pk
-        and row["workshop_id"] == offering.pk and row["duration_minutes"] == 90 for row in rows)
+        and row["workshop_id"] == offering.pk and row["duration_minutes"] == 90 and row["price_cents"] == 7000 for row in rows)
     assert b'id="workshop"' in listing.content
     for session in sessions:
         assert browser.get(url("choose", pk=session.pk)).status_code == 200
@@ -695,8 +696,7 @@ def test_signed_review_required_and_immutable(demo, browser, change, monkeypatch
     elif change == "changed_data":
         data["participants-0-name"] = "Replaced"
     elif change == "different_price":
-        original = config.configuration(SLUG)
-        monkeypatch.setattr("scheduling.experience_demo.views.context", lambda request, slug: (demo, {**original, "price_cents": 1}))
+        Offering.objects.filter(pk=session.offering_id).update(price_per_participant="75.00")
     elif change == "different_browser":
         browser = Client(HTTP_HOST="localhost")
     elif change == "expired":

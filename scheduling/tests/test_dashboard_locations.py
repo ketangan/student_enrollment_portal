@@ -40,6 +40,19 @@ def counts(data):
     return {item["label"]: item["count"] for item in data["attention_items"]}
 
 
+@pytest.mark.parametrize("packages_only", [False, True])
+def test_inquiry_dashboard_respects_booking_policy(inventory, monkeypatch, packages_only):
+    from scheduling import workspace
+
+    monkeypatch.setattr(workspace, "party_policy", lambda school: {"packages_only": packages_only})
+    item = party_request(inventory)
+    item.status = "pending"
+    item.save()
+    data = overview(inventory[0])
+    assert ("New party inquiries" in counts(data)) is not packages_only
+    assert any(card["label"] == "New party inquiries" for card in data["dashboard_cards"]) is not packages_only
+
+
 def test_dashboard_session_counts_and_labels(client, inventory, second_studio, booking_member):
     from scheduling.models import Reservation
 
