@@ -274,6 +274,13 @@ test('base-image policy suppresses tinting and variant photo replacement', () =>
   assert.equal(first.parts['.tint'].hidden, true);
   assert.equal(first.parts['.plushie-image'].children[0].style.backgroundImage, 'url("/bear.jpg")');
   assert.equal(p['group-summary-list'].children[0].children[0].children.length, 1);
+  first.fields.Color.value = '4'; first.fields.Color.listeners.change();
+  assert.equal(first.parts['.tint'].hidden, true);
+  assert.equal(first.parts['.plushie-image'].children[0].style.backgroundImage, 'url("/bear.jpg")');
+  first.fields.Color.value = '3'; first.fields.Color.listeners.change();
+  assert.equal(first.fields.Color.value, '3');
+  assert.equal(first.parts['.selection-label'].textContent, 'Blue Bear');
+  assert.equal(first.parts['.plushie-image'].children[0].style.backgroundImage, 'url("/bear.jpg")');
 });
 
 test('live group summary shows names, age and choices without counting incomplete participants', () => {

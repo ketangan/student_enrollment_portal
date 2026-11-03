@@ -27,3 +27,14 @@ Brand/product photo sources:
 
 Plus Jakarta Sans and Lucide are bundled locally so the demo does not depend on
 external font or script CDNs. Photo assets and logo belong to The Plushie Workshop.
+
+The nine individual photos in `static/demo/plushumi/assets/designs/` are
+AI-assisted edits of the original catalog photograph, approved by the project owner
+on November 3, 2026. They remove the shelf, printed labels and neighboring toys;
+texture and proportions are retouched, not pixel-identical to the originals.
+The original combined photo was retired; Git history retains it.
+
+After deploying the assets, run `sync_booking_design_images --school plushumi-demo`
+to preview the scoped data update, then repeat with `--apply`. This updates blank or
+retired catalog photo references and identity-bound previews, preserves custom school
+photos, and leaves reservation/payment snapshots and other schools untouched.

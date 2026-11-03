@@ -238,7 +238,7 @@ def selection_previews(rows, offering, config):
         legacy = config.get("design_previews", {}).get(str(design.get("option_id")),
             next((entry for entry in config["designs"] if entry["name"] == design.get("option")), {}))
         row["preview"] = {
-            "image": exact or design.get("image_url", ""), "exact": bool(exact), "base_only": base_only,
+            "image": exact or design.get("image_url") or legacy.get("image_url", ""), "exact": bool(exact), "base_only": base_only,
             "x": legacy.get("x", ""), "y": legacy.get("y", "0%"),
             "swatch": color.get("swatch") or next((c["hex"] for c in config["colors"]
                 if c["name"] == color.get("option")), "#ffffff"),

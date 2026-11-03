@@ -119,7 +119,7 @@ class Command(BaseCommand):
     def prepare_workshops(self):
         offering = saved(Offering, location=self.location, name="Creative workshop", defaults={"is_published": True,
             "accepts_requests": True, "accepts_party_requests": True, "description": "Choose a project and color, then create it together."})
-        group = saved(ChoiceGroup, offering=offering, name="Project", defaults={"reference_image": "/static/demo/plushumi/assets/designs.jpg"})
+        group = saved(ChoiceGroup, offering=offering, name="Project", defaults={"reference_image": ""})
         for name in ["Cat", "Bunny"]:
             saved(ChoiceOption, group=group, label=name)
         group = saved(ChoiceGroup, offering=offering, name="Color", defaults={"position": 1})

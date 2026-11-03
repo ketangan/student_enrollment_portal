@@ -289,6 +289,7 @@ def party_catalog_data(offering):
     if len(groups) != 2:
         return None
     from django.http import Http404
+    from .customer_experience import customer_copy
     from .experience_demo.config import configuration
     try:
         artwork = configuration(offering.location.profile.school.slug)
@@ -301,10 +302,11 @@ def party_catalog_data(offering):
     for option in options[groups[0].name]:
         legacy = artwork.get("design_previews", {}).get(option["id"],
             next((row for row in artwork.get("designs", []) if row["name"] == option["name"]), {}))
-        designs.append({**legacy, **option})
+        designs.append({**legacy, **option, "image_url": option["image_url"] or legacy.get("image_url", "")})
     variants = [{"options": row.option_ids, "image_url": row.image_url}
                 for row in CatalogVariant.objects.filter(catalog_id=offering.inventory_catalog_id, is_active=True)]
     return {"options": options, "designs": designs, "image": artwork.get("design_image", ""),
+            "base_images_only": customer_copy(offering.location.profile.school).get("base_images_only", False),
             "design_group": groups[0].name, "color_group": groups[1].name, "variants": variants}
 
 

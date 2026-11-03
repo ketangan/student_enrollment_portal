@@ -32,15 +32,16 @@ def test_plushumi_public_storyboard_without_database(client, screen):
 
 def test_plushumi_assets_are_deployable(client):
     content = client.get("/demo/plushumi/").content.decode()
-    assets = set(re.findall(r"/static/(demo/plushumi/assets/[\w.-]+)", content))
+    assets = set(re.findall(r"/static/(demo/plushumi/assets/[\w./-]+)", content))
     assert assets == {
         "demo/plushumi/assets/regular.ttf",
         "demo/plushumi/assets/bold.ttf",
         "demo/plushumi/assets/logo.png",
-        "demo/plushumi/assets/designs.jpg",
         "demo/plushumi/assets/workshop.jpg",
         "demo/plushumi/assets/lucide.js",
-    }
+    } | {f"demo/plushumi/assets/designs/{name}.jpg" for name in
+         ("unicorn", "cat", "bunny", "chinchilla", "bear", "dog", "blue-spike-dino", "duck", "pink-spike-dino")}
+    assert "assets/designs.jpg" not in content
     for asset in assets:
         assert finders.find(asset), asset
 
