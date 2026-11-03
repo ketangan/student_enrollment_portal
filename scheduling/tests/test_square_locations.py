@@ -27,6 +27,12 @@ from . import test_square_payments as scenarios
 pytestmark = pytest.mark.django_db
 
 
+def mapping_data(connection, values):
+    form = service.MappingForm(connection.profile, connection.environment)
+    return {"edit_revision": form["edit_revision"].value(), **{
+        key: f"{connection.pk}:{value}" if value else "" for key, value in values.items()}}
+
+
 @pytest.fixture
 def mapped(client, setup, settings, monkeypatch):
     settings.DEBUG = True
@@ -39,8 +45,9 @@ def mapped(client, setup, settings, monkeypatch):
     monkeypatch.setattr(square, "list_locations", listing)
     request = RequestFactory().post("/", secure=True)
     request.user = setup[0].user
-    service.update_locations(request, profile.school.slug, connection.revision,
-        mappings={f"location_{first.pk}": "LOC1", f"location_{second.pk}": "LOC2"})
+    service.update_locations(request, profile.school.slug, connection.revision)
+    service.save_mappings(request, profile.school.slug, mapping_data(connection,
+        {f"location_{first.pk}": "LOC1", f"location_{second.pk}": "LOC2"}))
     connection.refresh_from_db()
     return connection, first, second, request, listing
 
@@ -64,8 +71,8 @@ def test_mapping_save_and_refresh_ui(client, setup, mapped):
     assert b"Save mappings" in page.content and b"Square One" in page.content
     assert b"Online payment provider: Stripe" in page.content
     assert b"access-secret" not in page.content
-    response = client.post(url(setup), {"action": "map", "revision": connection.revision,
-        f"location_{first.pk}": "LOC2", f"location_{second.pk}": ""}, secure=True, follow=True)
+    response = client.post(url(setup), {"action": "map", **mapping_data(connection,
+        {f"location_{first.pk}": "LOC2", f"location_{second.pk}": ""})}, secure=True, follow=True)
     assert b"Location mappings saved" in response.content
     assert connection.mappings.count() == 1
     connection.refresh_from_db()
@@ -78,8 +85,8 @@ def test_remapping_does_not_change_old_order_or_account(mapped):
     original = connection.mappings.get(location=first).account
     order = create_order(school=connection.profile.school, purpose="booking", source_key="mapping-history",
         total_cents=10000, deposit_cents=2500, description="Reservation", account=original)
-    service.update_locations(request, connection.profile.school.slug, connection.revision,
-        mappings={f"location_{first.pk}": "LOC2", f"location_{second.pk}": ""})
+    service.save_mappings(request, connection.profile.school.slug, mapping_data(connection,
+        {f"location_{first.pk}": "LOC2", f"location_{second.pk}": ""}))
     order.refresh_from_db()
     original.refresh_from_db()
     assert order.account_id == original.pk and original.location_reference == "LOC1" and original.enabled
@@ -91,17 +98,17 @@ def test_remapping_does_not_change_old_order_or_account(mapped):
 def test_invalid_mapping_is_atomic(mapped, change):
     connection, first, second, request, _ = mapped
     data = {f"location_{first.pk}": "LOC2", f"location_{second.pk}": "LOC1"}
-    revision = connection.revision
     if change == "unknown":
         data[f"location_{second.pk}"] = "FOREIGN"
     elif change == "foreign":
         data["location_999999"] = "LOC1"
     elif change == "omitted":
         del data[f"location_{second.pk}"]
-    else:
-        revision -= 1
+    data = mapping_data(connection, data)
+    if change == "stale":
+        SquareConnection.objects.filter(pk=connection.pk).update(revision=connection.revision + 1)
     with pytest.raises(ValidationError):
-        service.update_locations(request, connection.profile.school.slug, revision, mappings=data)
+        service.save_mappings(request, connection.profile.school.slug, data)
     assert connection.mappings.get(location=first).account.location_reference == "LOC1"
     assert connection.mappings.get(location=second).account.location_reference == "LOC2"
 
@@ -144,7 +151,7 @@ def test_mapping_requires_school_wide_owner(client, setup, mapped, role, all_loc
     setup[0].role, setup[0].all_locations = role, all_locations
     setup[0].save()
     assert client.post(url(setup), {"action": "locations", "revision": connection.revision}, secure=True).status_code == 404
-    assert mapped[4].call_count == 1
+    assert mapped[4].call_count == 2
 
 
 def test_permission_removed_during_location_fetch_cannot_save(mapped, setup):

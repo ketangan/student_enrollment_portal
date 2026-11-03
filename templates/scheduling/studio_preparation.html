@@ -1,40 +1,49 @@
-{% extends 'scheduling/base.html' %}{% load tz material_numbers %}
+{% extends 'scheduling/base.html' %}{% load static tz %}
 {% block title %}Studio Prep{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'scheduling/studio-preparation.css' %}?v=20261102-week-print">{% endblock %}
+{% block page_heading %}{% endblock %}
 {% block content %}
-<section class="workshop-preparation">
-<h2>Studio Prep</h2>
-<form method="get" class="prep-filter studio-prep-filter" aria-label="Preparation dates">
-  {% if selected_location %}<input type="hidden" name="location" value="{{ selected_location.pk }}">{% endif %}
-  {% for field in preparation_range %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
-  <button type="submit">Show</button>
-  <button type="button" id="print-report" class="quiet" title="Print preparation" aria-label="Print preparation"><i data-lucide="printer" aria-hidden="true"></i></button>
-</form>
-{% for studio in studios %}
-<section class="reservation-section" aria-labelledby="studio-{{ studio.location.pk }}">
-  <h2 id="studio-{{ studio.location.pk }}">{{ studio.location.name }}</h2>
-  {% timezone studio.location.timezone_name %}
-  {% for entry in studio.entries %}
-  <section class="reservation-section" aria-labelledby="booking-{{ entry.item.pk }}-{{ forloop.counter }}">
-    <div class="section-heading">
-      <div><h3 id="booking-{{ entry.item.pk }}-{{ forloop.counter }}">{{ entry.item.snapshot.workshop }}</h3>
-      <p>{{ entry.starts_at|date:'D, M j' }} &middot; {{ entry.starts_at|date:'g:i A' }} &ndash; {{ entry.ends_at|date:'g:i A' }} &middot; {{ entry.item.quantity }} participant{{ entry.item.quantity|pluralize }}</p></div>
-      <a class="prep-contact" href="{% url 'scheduling:reservation_preparation' school_slug=business.slug public_id=entry.item.public_id %}?prep={{ preparation_return_path|urlencode }}">{{ entry.item.snapshot.name }} &rarr;</a>
+<section class="studio-prep{% if hide_prepared %} hide-prepared{% endif %}" data-clean-url="{{ clean_url }}">
+  <header class="prep-heading">
+    <div><h1>Studio prep</h1><p>{{ selected_location.name|default:'All locations' }} &middot; {{ print_start|date:'M j' }} &ndash; {{ print_end|date:'M j' }}</p></div>
+    <div class="prep-toolbar">
+      <nav class="prep-week" aria-label="Preparation week">
+        {% if previous_week %}<a href="{{ previous_week }}" aria-label="Previous week" title="Previous week"><i data-lucide="chevron-left"></i></a>{% endif %}
+        <a href="{{ current_week }}">This week</a>
+        <a href="{{ next_week }}" aria-label="Next week" title="Next week"><i data-lucide="chevron-right"></i></a>
+      </nav>
+      <a class="button quiet prep-print" href="{{ print_url }}" target="_blank" rel="noopener" aria-label="Print selected week" title="Print selected week"><i data-lucide="printer" aria-hidden="true"></i></a>
     </div>
-    <p>{% if entry.materials_used %}Materials used{% elif entry.item.prepared_at %}Prepared{% else %}Preparation pending{% endif %}</p>
-    {% if entry.participant_table.rows %}
-    <div class="table-wrap preparation-table" role="region" aria-label="{{ entry.item.snapshot.name }} participants" tabindex="0">
-      <table class="dash-table"><thead><tr><th>Participant</th>{% for column in entry.participant_table.columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
-      <tbody>{% for person in entry.participant_table.rows %}<tr><th scope="row">{{ person.name }}</th>{% for value in person.values %}<td>{{ value|default:'Not selected' }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+  </header>
+  {{ preparation_range.errors }}
+  <div id="prep-error" class="notice error" role="alert" hidden></div>
+  {% for studio in studios %}
+  <section class="prep-studio" aria-label="{{ studio.location.name }}">
+    {% if not selected_location %}<h2>{{ studio.location.name }}</h2>{% endif %}
+    <div class="weekly-prep-overview">
+      <div class="prep-progress-row"><span><strong>{{ studio.prepared_count }} of {{ studio.participants }}</strong> plushies prepared</span><progress value="{{ studio.prepared_count }}" max="{{ studio.participants|default:1 }}" aria-label="{{ studio.location.name }} plushies prepared"></progress>
+        <label class="prep-hide"><input type="checkbox" role="switch" data-hide-prepared {% if hide_prepared %}checked{% endif %}><span>Hide prepared</span></label>
+      </div>
     </div>
-    {% else %}<p class="muted">Participant details not provided.</p>{% endif %}
+    {% timezone studio.location.timezone_name %}
+    {% for day in studio.days %}
+    <section class="prep-day">
+      <header class="prep-day-heading"><h2>{{ day.date|date:'l, M j' }}</h2>{% if day.today %}<span class="prep-today">Today</span>{% endif %}</header>
+      {% for slot in day.slots %}
+      <div class="prep-slot">
+        <div class="prep-time"><strong>{{ slot.start|date:'g:i A' }}</strong><span>to {{ slot.end|date:'g:i A' }}</span>{% if slot.entries|length > 1 %}<small>{{ slot.entries|length }} bookings &middot; {{ slot.total }} makers</small>{% endif %}</div>
+        <div class="prep-bookings">
+          {% for entry in slot.entries %}{% include 'scheduling/studio_preparation_booking.html' %}{% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </section>
+    {% endfor %}
+    {% if studio.completed_entries %}<details class="prep-completed" open><summary>{{ studio.completed_entries|length }} completed booking{{ studio.completed_entries|pluralize }}</summary>{% for entry in studio.completed_entries %}<p>{{ entry.starts_at|date:'D, M j, g:i A' }} &middot; <a href="{% url 'scheduling:reservation_preparation' school_slug=business.slug public_id=entry.item.public_id %}?prep={{ preparation_return_path|urlencode }}">{{ entry.item.snapshot.name }}</a></p>{% endfor %}</details>{% endif %}
+    {% endtimezone %}
   </section>
-  {% endfor %}
-  {% endtimezone %}
-  <h3>Outstanding materials</h3>
-  <div class="table-wrap preparation-table"><table class="dash-table"><thead><tr><th>Material</th><th>Quantity</th></tr></thead><tbody>
-    {% for material in studio.totals %}<tr><td>{{ material.name }}</td><td>{{ material.quantity|material_amount }} {{ material.unit }}</td></tr>{% empty %}<tr><td colspan="2">No outstanding materials.</td></tr>{% endfor %}
-  </tbody></table></div>
-</section>
-{% empty %}{% if not preparation_range.errors and location_filter.is_valid %}<p class="muted">No confirmed bookings for these dates.</p>{% endif %}{% endfor %}
+  {% empty %}{% if not preparation_range.errors and location_filter.is_valid %}<p class="muted">No confirmed bookings for these dates.</p>{% endif %}{% endfor %}
+  <a class="prep-completed-link" href="{{ completed_url }}">{% if show_completed %}Hide{% else %}Show{% endif %} completed bookings</a>
 </section>
 {% endblock %}
+{% block scripts %}<script defer src="{% static 'scheduling/studio-preparation.js' %}?v=20261102-week-print"></script>{% endblock %}

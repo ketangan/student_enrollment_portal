@@ -220,7 +220,10 @@ def test_live_mapping_can_be_prepared_before_activation(live_attempt, monkeypatc
     request.user = actor
     settings.PAYMENTS_SQUARE_LIVE_ENABLED = False
     monkeypatch.setattr(square, "list_locations", Mock(return_value=[{"id": "NEWLIVE", "name": "Live studio"}]))
-    update_locations(request, profile.school.slug, connection.revision, mappings={f"location_{location.pk}": "NEWLIVE"})
+    from scheduling.integrations.square_connection import save_mappings
+    from .test_square_locations import mapping_data
+    update_locations(request, profile.school.slug, connection.revision)
+    save_mappings(request, profile.school.slug, mapping_data(connection, {f"location_{location.pk}": "NEWLIVE"}))
     mapping = connection.mappings.get(location=location)
     assert mapping.account.environment == "live"
     assert not ready(mapping.account)

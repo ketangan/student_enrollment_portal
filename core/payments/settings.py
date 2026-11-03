@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
+from django.db.models import F
 from django.shortcuts import redirect
 from django.urls import reverse
 
@@ -30,10 +31,11 @@ def save_provider(*, school, provider, expected_provider, actor):
         raise ValidationError("Live Stripe booking setup is not supported by this control. Existing Stripe settings are unchanged.")
     # Verify credentials before acquiring database locks. No payment is created here.
     from scheduling.models import SchedulingProfile, SquareConnection, SquareLocationMapping
-    connection = SquareConnection.objects.filter(profile__school=school, environment=environment).exclude(merchant_id="").first() if provider == "square" else None
-    if environment == "live" and connection is None:
+    connections = SquareConnection.objects.filter(profile__school=school, environment=environment).exclude(merchant_id="")
+    before = dict(connections.values_list("pk", "revision")) if provider == "square" else {}
+    if environment == "live" and not before:
         raise ValidationError("Connect Square and save location mappings in Settings > Integrations first.")
-    location = square.verified_location() if provider == "square" and connection is None else None
+    location = square.verified_location() if provider == "square" and not before else None
     with transaction.atomic():
         profile = SchedulingProfile.objects.select_for_update().get(school=school)
         school = School.objects.select_for_update().get(pk=school.pk)
@@ -42,14 +44,15 @@ def save_provider(*, school, provider, expected_provider, actor):
         if profile.payment_provider != expected_provider:
             raise ValidationError("Another operator changed the provider. Reload before saving.")
         account = PaymentAccount.objects.filter(school=school, environment=environment, provider=provider).first()
-        current_connection = SquareConnection.objects.filter(profile=profile, environment=environment).exclude(merchant_id="").first() if provider == "square" else None
-        if (current_connection.pk if current_connection else None) != (connection.pk if connection else None):
+        current = dict(connections.values_list("pk", "revision")) if provider == "square" else {}
+        if current != before:
             raise ValidationError("Square connection changed. Reload before selecting a provider.")
-        if provider == "square" and connection:
+        if provider == "square" and current:
             if environment == "live" and not settings.PAYMENTS_SQUARE_LIVE_ENABLED:
                 raise ValidationError("Live Square payments have not been activated by Pontora yet. Location mappings can be saved first.")
-            mappings = SquareLocationMapping.objects.filter(connection=current_connection, location__profile=profile,
-                account__school=school, account__reference=current_connection.merchant_id,
+            mappings = SquareLocationMapping.objects.filter(connection__profile=profile,
+                connection__environment=environment, environment=environment, location__profile=profile,
+                account__school=school, account__reference=F("connection__merchant_id"),
                 account__scope="connected", account__provider="square", account__environment=environment).select_related("account__school")
             accounts = [mapping.account for mapping in mappings]
             if not accounts or any(not item.enabled or not ready(item) for item in accounts):

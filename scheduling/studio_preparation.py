@@ -10,6 +10,7 @@ from .access import scope_reservations
 from .models import ChoiceGroup, Reservation, StockAllocation
 from .reservation_queries import reservation_location
 from .reservation_workspace import participant_context, participant_table, preparation_materials, selection_summary
+from .participant_preparation import rows_for, remaining_materials
 
 
 class PreparationRangeForm(forms.Form):
@@ -23,7 +24,7 @@ class PreparationRangeForm(forms.Form):
         return value
 
 
-def summary(profile, locations, start, days, *, for_print=False, offering_ids=None):
+def summary(profile, locations, start, days, *, for_print=False, offering_ids=None, include_completed=False):
     now = timezone.now()
     groups = {}
     if for_print:
@@ -41,11 +42,11 @@ def summary(profile, locations, start, days, *, for_print=False, offering_ids=No
             | Q(camp_registration__isnull=False, occurrences__starts_at__gte=lower, occurrences__starts_at__lt=upper))
         predicate |= reservation_location(location) & scheduled
     items = scope_reservations(Reservation.objects.filter(profile=profile,
-        state__in=["confirmed", "completed"] if for_print else ["confirmed"],
+        state__in=["confirmed", "completed"] if include_completed else ["confirmed"],
         visit_booking__isnull=True), profile).filter(predicate).distinct().select_related(
         "workshop_request__session__offering__location", "party_request__offering__location",
-        "camp_registration__camp__offering__location", "room").prefetch_related(
-        "workshop_request__participants", "occurrences", "notes",
+        "camp_registration__camp__offering__location", "room", "session").prefetch_related(
+        "workshop_request__participants", "occurrences", "notes", "party_request__staff_notes",
         Prefetch("stock_allocations", queryset=StockAllocation.objects.select_related(
             "level__material", "level__location"), to_attr="prep_allocations"))
     studios = {}
@@ -64,6 +65,9 @@ def summary(profile, locations, start, days, *, for_print=False, offering_ids=No
         if item.party_request_id and source.preparation_notes:
             notes.append(source.preparation_notes)
         notes.extend(note.body for note in item.notes.all())
+        if item.party_request_id:
+            notes.extend(note.body for note in source.staff_notes.all())
+        prep_rows = rows_for(item)
         table = participants["participant_table"]
         choices = "; ".join(f'{group["label"]}: {group["value"]}'
             for group in selection_summary(participants["participants"]))
@@ -74,9 +78,13 @@ def summary(profile, locations, start, days, *, for_print=False, offering_ids=No
         print_table = table
         if for_print:
             key = ("catalog", offering.inventory_catalog_id) if offering.inventory_catalog_id else ("offering", offering.pk)
-            people = participants["participants"] or [{"name": str(i + 1), "selections": []} for i in range(item.quantity)]
-            print_table = participant_table([{**person, "selections_deferred": False} for person in people], groups.get(key, []))
+            people = list(participants["participants"])
+            people.extend({"name": f"Guest {i + 1}", "selections": []} for i in range(len(people), item.quantity))
+            print_table = participant_table([{**person, "selections_deferred": False} for person in people],
+                [] if item.party_request_id else groups.get(key, []))
         print_rows = print_table["rows"]
+        for row, prep in zip(print_rows, prep_rows):
+            row["prepared"] = prep["prepared"]
         schedule = item.occurrences.all() if item.camp_registration_id else [item]
         for occurrence in schedule:
             if lower <= occurrence.starts_at < upper:
@@ -84,21 +92,47 @@ def summary(profile, locations, start, days, *, for_print=False, offering_ids=No
                     "starts_at": occurrence.starts_at, "ends_at": occurrence.ends_at,
                     "is_past": occurrence.ends_at < now,
                     "materials_used": used, "notes": notes,
+                    "customer_notes": getattr(source, "customer_notes", ""),
+                    "staff_names": item.staff_names,
+                    "prep_rows": prep_rows, "prepared_count": sum(row["prepared"] for row in prep_rows),
                     "print_rows": print_rows, "print_columns": print_table["columns"],
                     "selection_summary": choices})
         # Camp allocations belong to the whole reservation, not each attendance date.
-        if not item.prepared_at and not used and item.state != "completed" and (not for_print or item.ends_at >= now):
-            for row in allocations:
+        if not item.prepared_at and not used and item.state != "completed":
+            for row, quantity in remaining_materials(item, allocations):
+                if not quantity:
+                    continue
                 key = (row.level.material_id, row.material_unit)
                 total = studio["totals"].setdefault(key, {"name": row.material_name,
                     "unit": row.material_unit, "quantity": 0})
-                total["quantity"] += row.quantity
+                total["quantity"] += quantity
     result = sorted(studios.values(), key=lambda studio: studio["location"].name)
     for studio in result:
         studio["entries"].sort(key=lambda entry: (entry["starts_at"], entry["item"].pk))
         studio["totals"] = sorted(studio["totals"].values(), key=lambda row: row["name"])
         studio["participants"] = sum(entry["item"].quantity for entry in studio["entries"])
         studio["pending"] = sum(not entry["item"].prepared_at and entry["item"].state != "completed"
-            and not entry["materials_used"] and (not for_print or not entry["is_past"])
+            and not entry["materials_used"]
             for entry in studio["entries"])
+        studio["prepared_count"] = sum(entry["prepared_count"] for entry in studio["entries"])
+        studio["progress"] = round(100 * studio["prepared_count"] / studio["participants"]) if studio["participants"] else 0
+        days_by_date = {}
+        studio["completed_entries"] = []
+        for entry in studio["entries"]:
+            if entry["item"].state == "completed":
+                studio["completed_entries"].append(entry)
+                continue
+            local = timezone.localtime(entry["starts_at"], ZoneInfo(studio["location"].timezone_name))
+            day = days_by_date.setdefault(local.date(), {"date": local.date(), "slots": {}, "prepared": 0, "total": 0,
+                "today": local.date() == timezone.localdate(timezone=local.tzinfo)})
+            slot = day["slots"].setdefault((entry["starts_at"], entry["ends_at"]), {
+                "start": entry["starts_at"], "end": entry["ends_at"], "entries": [], "total": 0})
+            slot["entries"].append(entry)
+            slot["total"] += entry["item"].quantity
+            day["prepared"] += entry["prepared_count"]
+            day["total"] += entry["item"].quantity
+        studio["days"] = list(days_by_date.values())
+        for day in studio["days"]:
+            day["remaining"] = day["total"] - day["prepared"]
+            day["slots"] = list(day["slots"].values())
     return result

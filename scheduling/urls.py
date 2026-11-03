@@ -36,6 +36,7 @@ urlpatterns = [
     path("<slug:school_slug>/parties/new/", views_staff_parties.create, name="staff_party_create"),
     path("<slug:school_slug>/workshop-selections/<str:token>/", views_workshop_followup.selections, name="workshop_selections"),
     path("<slug:school_slug>/preparation/", views_preparation.studio_preparation, name="studio_preparation"),
+    path("<slug:school_slug>/preparation/<uuid:public_id>/", views_preparation.studio_preparation_update, name="studio_preparation_update"),
     path("square/oauth/callback/", views_square_connection.callback, name="square_oauth_callback"),
     path("<slug:school_slug>/integrations/square/update/", views_square_connection.update, name="square_connection_update"),
     path("<slug:school_slug>/guest-communication/", views_guides.settings, name="guest_communication"),

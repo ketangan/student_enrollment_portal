@@ -11,7 +11,6 @@
 .booking-admin .dash-logo { max-width: 80px; object-fit: contain; }
 .booking-admin .booking-demo-brand { display: inline-flex; align-items: center; flex-shrink: 0; padding: 3px; border-radius: 4px; background: #202020; }
 .booking-admin .booking-demo-brand img { display: block; width: 48px; height: 44px; object-fit: contain; }
-.booking-admin .booking-demo-banner { background: #1e40af; color: #fff; text-align: center; padding: 9px 16px; font-size: 12px; font-weight: 600; line-height: 1.5; }
 .booking-admin .dash-nav { flex-shrink: 0; }
 .booking-admin .dash-nav-link { color: var(--dash-muted); white-space: nowrap; }
 .booking-admin .dash-nav-link:hover, .booking-admin .dash-nav-link--active { color: var(--dash-text); }
@@ -216,6 +215,11 @@
 .party-rules-dialog .flatpickr-wrapper { width:100%; }
 .party-rules-dialog .booking-calendar.static.open { position:relative; top:auto; max-width:100%; margin-top:8px; }
 .booking-admin .workshop-settings-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; }
+.booking-admin .workshop-payment-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+.booking-admin .workshop-settings-form input:not([type="hidden"]):not([type="checkbox"]),
+.booking-admin .workshop-settings-form select,
+.booking-admin .workshop-settings-form .form-actions > button,
+.booking-admin .workshop-settings-form .form-actions > .button { min-height: 44px; }
 .booking-admin .workshop-settings-fields .form-field { min-width: 0; margin: 0; }
 .booking-admin .workshop-settings-fields .workshop-description-field { grid-column: 1 / -1; }
 .booking-admin .workshop-settings-form .form-actions { border: 0; margin: 0; padding: 0; }
@@ -468,7 +472,7 @@
 @media print {
   .booking-admin:has(.workshop-preparation) { background: white; color: black; font-size: 11px; }
   .booking-admin:has(.workshop-preparation) main { max-width: none; padding: 16px; }
-  .booking-admin:has(.workshop-preparation) :is(.booking-demo-banner, .dash-trial-banner) { display: none !important; }
+  .booking-admin:has(.workshop-preparation) .dash-trial-banner { display: none !important; }
   .booking-admin:has(.studio-prep-filter) .reservation-section { margin: 12px 0; padding: 0; }
   .booking-admin:has(.studio-prep-filter) .section-heading { margin: 0 0 6px; }
   .booking-admin:has(.studio-prep-filter) .table-wrap { padding: 0; box-shadow: none; }
@@ -486,7 +490,7 @@
   .booking-admin .dash-mobile-menu-btn { display: flex; }
   .booking-admin .dash-nav { display: none; }
   .booking-admin .dash-nav--mobile-open { display: flex; flex-direction: column; align-items: stretch; position: fixed; top: 60px; left: 0; right: 0; padding: 8px 16px 12px; gap: 2px; background: var(--dash-card); border-bottom: 1px solid var(--dash-border); box-shadow: 0 4px 12px rgba(0,0,0,.12); }
-  .booking-admin .dash-nav-link { padding: 12px; }
+  .booking-admin .dash-nav-link { padding: 12px; min-height: 44px; display: flex; align-items: center; }
   .booking-admin .has-location-filter { padding-bottom: 50px; }
   .booking-admin .has-location-filter .dashboard-location-filter { position: absolute; left: 16px; right: 16px; bottom: 10px; }
   .booking-admin .has-location-filter .dashboard-location-filter select { flex: 1; width: 0; }
@@ -514,13 +518,32 @@
 .booking-admin .square-mapping-form td { width: 50%; vertical-align: middle; }
 .booking-admin .square-mapping-form label { margin: 0; }
 .booking-admin .square-mapping-footer { margin-top: 16px; }
+.booking-admin .square-account { padding: 16px 0; border-bottom: 1px solid var(--dash-border); }
+.booking-admin .square-account-heading { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.booking-admin .square-account-heading h3 { margin: 0; overflow-wrap: anywhere; }
+.booking-admin .square-refresh { margin-left: auto; }
+.booking-admin .square-account > p { margin: 6px 0; }
+.booking-admin .square-settings summary { min-height: 44px; align-content: center; cursor: pointer; width: fit-content; padding-right: 12px; }
+.booking-admin .square-add-account { margin-top: 16px; }
+.booking-admin .square-add-account > summary { display: inline-flex; align-items: center; list-style: none; }
+.booking-admin .square-add-account > summary::-webkit-details-marker { display: none; }
+.booking-admin .square-name-form { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; margin: 8px 0 16px; }
+.booking-admin .square-name-form > div { width: 320px; max-width: 100%; }
+.booking-admin .square-name-form input { width: 100%; }
+.booking-admin .square-settings input, .booking-admin .square-settings select, .booking-admin .square-settings button { min-height: 44px; }
+.booking-admin .square-account-controls { flex-wrap: wrap; }
 .booking-admin .stock-entry-form { margin-bottom: 28px; }
 .booking-admin .stock-entry-form > button { margin-top: 16px; }
 .booking-admin .stock-deliveries { min-width: 720px; }
 .booking-admin .stock-deliveries th, .booking-admin .stock-deliveries td { white-space: nowrap; }
 @media (max-width: 600px) {
   .booking-admin .square-mapping-form table { min-width: 0; }
-  .booking-admin .square-mapping-form td, .booking-admin .square-mapping-form th { padding: 12px 8px; }
+  .booking-admin .square-mapping-form thead { display: none; }
+  .booking-admin .square-mapping-form table, .booking-admin .square-mapping-form tbody,
+  .booking-admin .square-mapping-form tr, .booking-admin .square-mapping-form td { display: block; width: 100%; }
+  .booking-admin .square-mapping-form td { border: 0; padding: 6px 8px 12px; }
+  .booking-admin .square-mapping-form td:first-child { padding: 12px 8px 0; }
+  .booking-admin .square-mapping-form tr + tr { border-top: 1px solid var(--dash-border); }
   .booking-admin .square-mapping-form select { min-width: 0; }
   .booking-admin .square-account-actions .actions { flex-wrap: wrap; }
 }
@@ -716,4 +739,29 @@
 .location-settings-form .form-actions a {
   display: inline-flex;
   align-items: center;
+}
+
+/* Keep booking controls touch-sized without changing the enrollment dashboard. */
+@media (max-width: 1100px), (pointer: coarse) {
+  .booking-admin[class] :is(button, .button, .dash-action-btn, select,
+      input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])) {
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+  .booking-admin[class] :is(.icon-button, .dash-mobile-menu-btn, .dash-account-avatar,
+      .session-actions a, .session-actions button, .payment-dialog-close,
+      #calendar-detail-close, #calendar-detail-print, [data-close-setup-dialog][aria-label]) {
+    min-width: 44px;
+    min-height: 44px;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+  }
+  .booking-admin[class] :is(.dash-nav-link, .dash-menu-item, .tabs a,
+      .booking-completed-switch, .intake-switch, label:has(input[type="checkbox"]),
+      label:has(input[type="radio"])) {
+    min-height: 44px;
+    align-content: center;
+    box-sizing: border-box;
+  }
 }

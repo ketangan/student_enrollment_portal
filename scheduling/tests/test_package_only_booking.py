@@ -153,6 +153,8 @@ def test_studio_block_masks_party_slots_and_workshop_rows(booking_member, direct
     package = direct_party.package
     package.space = "studio"
     package.save()
+    package.offering.price_per_participant = 65
+    package.offering.save(update_fields=["price_per_participant"])
     item, _ = staff_parties.create(booking_member.user, booking_member.profile.school.slug, staff_data(booking_member, direct_party))
     form = PartyInquiryForm(offering=package.offering)
     assert not form.fields["party_slot"].queryset.exists()

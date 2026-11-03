@@ -104,7 +104,7 @@ def test_decline_can_retry_without_a_ledger_entry(attempt, monkeypatch, client):
     monkeypatch.setattr(square, "request", Mock(side_effect=square.Declined("Card declined.")))
     url = checkout.open_checkout(attempt)
     response = client.post(url, {"source_id": "cnon:decline"}, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
-    assert response.status_code == 400 and response.json()["state"] == "expired"
+    assert response.status_code == 400 and response.json()["state"] == "expired", response.content
     assert not LedgerEntry.objects.exists()
     assert PaymentNotification.objects.filter(key__endswith=":failed").count() == 1
     assert b"Try another card" in client.get(url).content

@@ -220,9 +220,10 @@ def _reservation_page(request, school_slug, public_id, tab="details"):
             if action == "request_payment":
                 from . import payment_requests
                 notice = payment_requests.send(request.user, school_slug, public_id, request.POST.get("request_token", ""))
-                messages.success(request, "Payment request queued for email delivery." if notice.state in {"queued", "retry", "sending"}
-                    else "Payment request saved for local preview; no customer email sent." if notice.state in {"draft", "simulated"}
-                    else "This payment request has already been processed. Check its delivery status below.")
+                if notice.state in {"queued", "retry", "sending"}:
+                    messages.success(request, "Payment request queued for email delivery.")
+                elif notice.state not in {"draft", "simulated"}:
+                    messages.info(request, "This payment request has already been processed. Check its delivery status in the audit log.")
                 return redirect("scheduling:reservation_detail", school_slug=school_slug, public_id=public_id)
             elif action == "record_terminal":
                 terminal_payments.record(request.user, school_slug, public_id, request.POST)

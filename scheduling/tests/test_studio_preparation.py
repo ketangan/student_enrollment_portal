@@ -34,6 +34,8 @@ def test_read_only_roster_material_totals_and_constant_queries(stock):
     assert response.status_code == 200
     assert b"Child" in response.content and b"Cat" in response.content and b"Blue" in response.content
     assert response.context["studios"][0]["totals"][0]["quantity"] == 1
+    assert b"Still to pull" not in response.content
+    assert b"prep-materials" not in response.content
     assert response.context["location_action"] == endpoint
     profile, _ = require_location_access(s.user, s.school.slug, capability="reservations")
     with CaptureQueriesContext(connection) as first:
@@ -58,6 +60,23 @@ def test_only_confirmed_bookings(stock, state):
     item = reserve(stock)
     Reservation.objects.filter(pk=item.pk).update(state=state)
     assert not stock.client.get(url(stock, "studio_preparation"), query(item)).context["studios"]
+
+
+def test_overlapping_half_hour_starts_stay_in_separate_ordered_groups(stock):
+    s = stock
+    first = reserve(s); confirm(s, first)
+    original = s.session
+    items = [first]
+    for minutes in (30, 60):
+        s.session = Session.objects.create(offering=s.offering, room=s.room,
+            starts_at=original.starts_at + timedelta(minutes=minutes),
+            ends_at=original.ends_at + timedelta(minutes=minutes), capacity=10, is_published=True)
+        item = reserve(s); confirm(s, item)
+        items.append(item)
+    page = s.client.get(url(s, "studio_preparation"), query(first))
+    slots = page.context["studios"][0]["days"][0]["slots"]
+    assert [[entry["item"].pk for entry in slot["entries"]] for slot in slots] == [[item.pk] for item in items]
+    assert [slot["start"] for slot in slots] == [item.starts_at for item in items]
 
 
 @pytest.mark.parametrize("params", [{"date": "bad"}, {"date": "9999-12-31"}, {"period": "year"}, {"location": "9999999"}])
@@ -191,6 +210,7 @@ def test_print_report_notes_filters_and_read_only(stock, period):
     assert "scheduling/studio_preparation_print.html" in [t.name for t in response.templates]
     assert b"Keep this note &lt;script&gt;safe&lt;/script&gt;" in response.content
     assert b'data-print-ready="true"' in response.content
+    assert b'materials-summary' not in response.content
     assert b'writing-lines' in response.content if period == "day" else b'writing-lines' not in response.content
     if period == "month":
         assert response.context["print_start"].day == 1
@@ -209,12 +229,64 @@ def test_print_month_boundaries_and_completed_materials(stock):
     s.location.timezone_name = str(zone); s.location.save()
     Reservation.objects.filter(pk=item.pk).update(starts_at=datetime(2028, 2, 29, 23, 30, tzinfo=zone),
         ends_at=datetime(2028, 3, 1, 0, 30, tzinfo=zone), state="completed")
-    params = {"date": "2028-02-15", "period": "month", "print": "1"}
+    params = {"date": "2028-02-15", "period": "month", "print": "1", "completed": "1"}
     response = s.client.get(url(s, "studio_preparation"), params)
     assert response.context["print_end"].day == 29
     assert len(response.context["studios"][0]["entries"]) == 1
     assert not response.context["studios"][0]["totals"]
     assert not s.client.get(url(s, "studio_preparation"), {**params, "date": "2028-03-01"}).context["studios"]
+    assert not s.client.get(url(s, "studio_preparation"), {**params, "completed": "0"}).context["studios"]
+
+
+def test_week_print_link_preserves_scope_and_excludes_other_week(stock):
+    from urllib.parse import urlparse, parse_qs
+    s = stock
+    item = reserve(s); confirm(s, item)
+    other = reserve(s); confirm(s, other)
+    Reservation.objects.filter(pk=other.pk).update(starts_at=item.starts_at + timedelta(days=7),
+        ends_at=item.ends_at + timedelta(days=7))
+    endpoint = url(s, "studio_preparation")
+    response = s.client.get(endpoint, query(item, location=s.location.pk, offering=s.offering.pk,
+        hide_prepared="1", completed="1", edit="stale", staff="stale"))
+    link = response.context["print_url"]
+    params = parse_qs(urlparse(link).query)
+    assert params == {"date": [query(item)["date"]], "period": ["week"], "location": [str(s.location.pk)],
+        "offering": [str(s.offering.pk)], "hide_prepared": ["1"], "completed": ["1"], "print": ["1"]}
+    printed = s.client.get(link)
+    assert printed.status_code == 200
+    assert [entry["item"].pk for entry in printed.context["studios"][0]["entries"]] == [item.pk]
+    assert b'aria-label="Print selected week"' in response.content
+
+
+def test_print_link_freezes_saved_location_and_default_week(stock):
+    from urllib.parse import urlparse, parse_qs
+    s = stock
+    endpoint = url(s, "studio_preparation")
+    s.client.get(endpoint, {"location": s.location.pk})
+    page = s.client.get(endpoint)
+    params = parse_qs(urlparse(page.context["print_url"]).query)
+    assert params["location"] == [str(s.location.pk)]
+    assert params["date"] == [page.context["print_start"].isoformat()]
+    assert params["period"] == ["week"]
+    s.client.get(endpoint, {"location": ""})
+    assert s.client.get(page.context["print_url"]).context["selected_location"].pk == s.location.pk
+
+
+def test_print_hide_prepared_filters_individual_rows_and_whole_bookings(stock):
+    from scheduling.participant_preparation import apply, rows_for
+    s = stock
+    item = reserve(s, quantity=2); confirm(s, item)
+    people = rows_for(item)
+    apply(item, s.user, people[0]["key"], True)
+    endpoint = url(s, "studio_preparation")
+    params = query(item, print="1", hide_prepared="1")
+    page = s.client.get(endpoint, params)
+    assert len(page.context["studios"][0]["entries"][0]["print_rows"]) == 1
+    assert not page.context["studios"][0]["entries"][0]["print_rows"][0]["prepared"]
+    assert len(s.client.get(endpoint, {**params, "hide_prepared": "0"}).context["studios"][0]["entries"][0]["print_rows"]) == 2
+    item.refresh_from_db()
+    apply(item, s.user, people[1]["key"], True)
+    assert not s.client.get(endpoint, params).context["studios"]
 
 
 def test_print_location_scope_and_all_location_pages(two_locations, booking_member, client):

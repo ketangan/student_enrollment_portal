@@ -19,6 +19,8 @@ from .config import context
 
 
 def page(request, template, profile, config, values=None, status=200):
+    values = values or {}
+    session = values.get("session")
     staff = {}
     if template in {"preparation", "integration"}:
         from scheduling.views import _context
@@ -29,7 +31,7 @@ def page(request, template, profile, config, values=None, status=200):
         "profile": profile, "business": profile.school, "demo": config,
         "stripe_checkout": config.get("stripe_checkout", False),
         "payment_provider_name": profile.get_payment_provider_display(),
-        "unit_price": service.money(config["price_cents"]), **(values or {}),
+        "unit_price": service.money(service.reservations.workshop_unit_price(session.offering)) if session else None, **values,
     }, status=status)
     response["Referrer-Policy"] = "same-origin"
     response["X-Robots-Tag"] = "noindex, nofollow"
@@ -83,7 +85,7 @@ def choice_context(request, session, config, purchaser, participants, policy, ca
             "image": config["design_image"], "design_group": config["design_group"],
             "color_group": config["color_group"], "age_group": config["age_group"],
             "initial_count": request.GET.get("participants", "1") if request.method == "GET" else "1",
-            "price": config["price_cents"], "limit": min(session.capacity, 8)}, "step": 2}
+            "price": service.reservations.workshop_unit_price(session.offering), "limit": min(session.capacity, 8)}, "step": 2}
 
 
 @never_cache
@@ -95,6 +97,7 @@ def choose(request, school_slug, pk):
         return page(request, "start", profile, config, {"sessions": [], "step": 1}, status=409 if request.method == "POST" else 200)
     session = get_object_or_404(Session.objects.select_related("offering__location__profile", "room"),
         pk=pk, offering__location__profile=profile,
+        offering__price_per_participant__isnull=False,
         offering__visit_program__isnull=True)
     browser = requests.browser_key(request, create=True)
     catalog = requests.catalog_for(session.offering)
@@ -108,13 +111,13 @@ def choose(request, school_slug, pk):
         catalog, purchaser, participants, policy, valid = service.validate(session, data, check_stock=action != "checkout")
         if valid and action == "review":
             try:
-                total, deposit = service.reservations.workshop_quote(session.offering, config["price_cents"], len(participants))
+                total, deposit = service.reservations.workshop_quote(session.offering, service.reservations.workshop_unit_price(session.offering), len(participants))
             except ValidationError as exc:
                 purchaser.add_error(None, exc)
                 valid = False
         if valid and action == "review":
             rows = [{"name": form.cleaned_data["name"], **form.participant_snapshot()} for form in participants]
-            breakdown = service.reservations.workshop_price_breakdown(session.offering, config["price_cents"], len(rows))
+            breakdown = service.reservations.workshop_price_breakdown(session.offering, service.reservations.workshop_unit_price(session.offering), len(rows))
             service.selection_previews(rows, session.offering, config)
             values = {"session": session, "rows": rows, "purchaser": purchaser.cleaned_data,
                 "fields": [(key, value) for key, values in data.lists() for value in values],
@@ -137,6 +140,8 @@ def choose(request, school_slug, pk):
                 return redirect("scheduling:experience_booking", school_slug=school_slug, public_id=item.public_id)
             except ValidationError as exc:
                 error = " ".join(exc.messages)
+                if session.offering.price_per_participant is None:
+                    raise Http404("This workshop is no longer available for booking.") from exc
         elif action not in {"review", "edit"}:
             error = "Review your selections before continuing."
         status = 200 if action == "edit" else 400

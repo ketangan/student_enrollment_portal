@@ -12,4 +12,4 @@
 </div>
 {% if email_form %}{% include 'scheduling/reservation_email.html' %}{% endif %}
 {% endblock %}
-{% block scripts %}<script defer src="{% static 'scheduling/reservation-workspace.js' %}?v=20261028-notes"></script><script defer src="{% static 'scheduling/email-editor.js' %}?v=20261030-drawer"></script><script defer src="{% static 'scheduling/email-drawer.js' %}?v=20261030"></script>{% endblock %}
+{% block scripts %}<script defer src="{% static 'scheduling/reservation-workspace.js' %}?v=20261028-notes"></script><script defer src="{% static 'admin/email-template-tokens.js' %}?v=20261031"></script><script defer src="{% static 'scheduling/email-editor.js' %}?v=20261031-tokens"></script><script defer src="{% static 'scheduling/email-drawer.js' %}?v=20261030"></script>{% endblock %}

@@ -111,7 +111,6 @@ def workspace(request, school_slug):
             items = items.filter(location=location)
         context["calendar_config"] = {
             "eventsUrl": reverse("scheduling:calendar_events", kwargs={"school_slug": school_slug}),
-            "printUrl": reverse("scheduling:studio_preparation", kwargs={"school_slug": school_slug}),
             "location": str(location.pk) if location else "",
             "resources": [{"id": str(item.pk), "title": item.name, "zone": item.timezone_name} for item in locations],
             "offerings": [{"id": str(item.pk), "title": f"{item.name} ({item.location.name})"} for item in items],

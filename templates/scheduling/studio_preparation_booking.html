@@ -1,0 +1,39 @@
+<article class="prep-booking{% if entry.item.prepared_at %} booking-prepared{% endif %}" id="booking-{{ entry.item.pk }}">
+  <header class="prep-booking-heading">
+    <div class="prep-booking-title"><a href="{% url 'scheduling:reservation_preparation' school_slug=business.slug public_id=entry.item.public_id %}?prep={{ preparation_return_path|urlencode }}">{{ entry.item.snapshot.name }}</a>
+      {% if entry.item.party_request_id %}<span class="prep-party"><i data-lucide="party-popper"></i> Party</span>{% endif %}
+      <span>{{ entry.item.snapshot.workshop }} &middot; {{ entry.item.quantity }} maker{{ entry.item.quantity|pluralize }}</span>
+    </div>
+    {% if entry.staff_form %}
+    <form method="post" action="{{ entry.action_url }}" class="prep-action prep-staff-editor">{% csrf_token %}
+      <input type="hidden" name="edit_revision" value="{{ entry.revision }}"><input type="hidden" name="action" value="staff">
+      {{ entry.staff_form.edit_revision }}
+      <div><label for="{{ entry.staff_form.staff_names.id_for_label }}">Staff</label>{{ entry.staff_form.staff_names }}</div>
+      <div class="prep-inline-actions"><button type="submit" aria-label="Save staff" title="Save staff"><i data-lucide="check"></i></button><a class="button quiet" href="{{ clean_url }}#booking-{{ entry.item.pk }}" aria-label="Cancel staff editing" title="Cancel staff editing"><i data-lucide="x"></i></a></div>
+    </form>
+    {% else %}
+    <div class="prep-staff"><span><strong>Staff:</strong> {{ entry.staff_names|default:'Not assigned' }}</span>{% if entry.writable %}<a class="prep-edit" href="{{ entry.staff_edit_url }}" aria-label="Edit staff for {{ entry.item.snapshot.name }}" title="Edit staff"><i data-lucide="pencil"></i></a>{% endif %}</div>
+    {% endif %}
+    {% if entry.customer_notes %}<p class="prep-note"><strong>Customer:</strong> {{ entry.customer_notes }}</p>{% endif %}
+    {% for note in entry.notes %}<p class="prep-note"><strong>Internal:</strong> {{ note }}</p>{% endfor %}
+    {% if entry.materials_used %}<p class="prep-note">Materials used</p>{% endif %}
+  </header>
+  {% if not entry.participants %}<p class="prep-missing">Participant details not provided.</p>{% endif %}
+  {% for person in entry.prep_rows %}
+  <div class="prep-person{% if person.prepared %} person-prepared{% endif %}{% if person.form %} person-editing{% endif %}" id="prep-{{ entry.item.pk }}-{{ person.key }}">
+    <form method="post" action="{{ entry.action_url }}" class="prep-action">{% csrf_token %}<input type="hidden" name="edit_revision" value="{{ entry.revision }}"><input type="hidden" name="participant" value="{{ person.key }}"><input type="hidden" name="action" value="{% if person.prepared %}unready{% else %}ready{% endif %}">
+      <button type="submit" class="prep-check" role="checkbox" aria-checked="{{ person.prepared|yesno:'true,false' }}" aria-label="Prepared: {{ person.name }}" {% if not entry.writable or not person.selected %}disabled{% endif %} title="{% if not person.selected %}Choose a design and color first{% elif person.prepared %}Mark not prepared{% else %}Mark prepared{% endif %}"><span>{% if person.prepared %}<i data-lucide="check"></i>{% endif %}</span></button>
+    </form>
+    {% if person.form %}
+    <form method="post" action="{{ entry.action_url }}" class="prep-inline prep-action">{% csrf_token %}<input type="hidden" name="edit_revision" value="{{ entry.revision }}"><input type="hidden" name="participant" value="{{ person.key }}"><input type="hidden" name="action" value="edit">
+      {% for field in person.form %}{% if field.is_hidden %}{{ field }}{% elif field.name == 'recalculate_materials' %}<label class="prep-material-confirm">{{ field }}<span>{{ field.label }}</span></label>{% else %}<div class="prep-field" data-field="{{ field.name }}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}</div>{% endif %}{% endfor %}
+      <div class="prep-inline-actions"><button type="submit" aria-label="Save participant" title="Save participant"><i data-lucide="check"></i></button><a class="button quiet" href="{{ clean_url }}#prep-{{ entry.item.pk }}-{{ person.key }}" aria-label="Cancel editing" title="Cancel editing"><i data-lucide="x"></i></a></div>
+    </form>
+    {% else %}
+    <div class="prep-person-name"><strong>{{ person.name }}</strong>{% if person.age %}<span>{{ person.age }}</span>{% endif %}</div>
+    <div class="prep-design">{% if person.swatch %}<span class="prep-swatch" style="background-color: {{ person.swatch }}"></span>{% endif %}<span>{{ person.design }}</span></div>
+    {% if entry.writable and not entry.item.camp_registration_id %}<a class="prep-edit" href="{{ person.edit_url }}" aria-label="Edit {{ person.name }}" title="Edit participant"><i data-lucide="pencil"></i></a>{% endif %}
+    {% endif %}
+  </div>
+  {% endfor %}
+</article>

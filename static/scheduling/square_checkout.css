@@ -4,8 +4,8 @@
 .payment-summary h1 { margin: 0; font-size: 28px; }
 .payment-summary h2 { margin: 0; font-size: 18px; }
 .payment-summary .details { margin: 24px 0; }
-.payment-summary .details > div { grid-template-columns: minmax(0, 1fr) auto; gap: 16px; }
-.payment-summary .details dd { text-align: right; font-variant-numeric: tabular-nums; }
+.payment-summary .details > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; padding: 8px 0; }
+.payment-summary .details dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .payment-summary .payment-received { color: #187347; font-weight: 600; }
 .payment-summary button { min-height: 44px; }
 @media (max-width: 480px) { .payment-summary button { width: 100%; } }
@@ -17,6 +17,4 @@
 .square-due { font-size: 20px; font-weight: 700; }
 .square-checkout button { width: 100%; min-height: 44px; margin-top: 16px; }
 .square-checkout form[hidden] { display: none; }
-.square-test-cards { margin-top: 24px; }
-.square-test-cards summary { cursor: pointer; }
 #square-status { min-height: 24px; overflow-wrap: anywhere; }

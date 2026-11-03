@@ -74,6 +74,8 @@ def inline_selections(request, context):
         if str(entry["person"].pk) != active:
             continue
         row["editing"] = True
+        from .legacy_materials import add_confirmation
+        add_confirmation(entry["form"], context["item"])
         row["error"] = entry.get("error", "")
         row["form_id"] = f'participant-form-{entry["person"].pk}'
         context["inline_selection"] = entry
@@ -106,7 +108,7 @@ def detail_context(request, context, item, tab="details"):
         context["party_duration"] = int((item.ends_at - item.starts_at).total_seconds() // 60)
     if item.party_request_id and offering.inventory_catalog_id:
         from .guest_lists import due_at, editable, token_for
-        context.update(guest_list_due=due_at(item), guest_list_complete=bool(item.party_request.materials),
+        context.update(guest_list_due=due_at(item), guest_list_complete=bool(item.party_request.materials) and not item.snapshot.get("guest_selections_pending"),
             guest_list_draft_count=len(item.snapshot.get("guest_list_draft", [])))
         if editable(item) and context.get("can_edit_sessions"):
             context["staff_guest_list_url"] = reverse("scheduling:staff_guest_list", kwargs={

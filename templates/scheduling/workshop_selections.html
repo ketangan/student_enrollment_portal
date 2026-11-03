@@ -3,5 +3,6 @@
 <form method="post" id="{{ inline_selection.form_id }}">{% csrf_token %}
   <input type="hidden" name="action" value="save_selections"><input type="hidden" name="participant_id" value="{{ inline_selection.person.pk }}">
   {{ inline_selection.form.name }}{{ inline_selection.form.selection_revision }}
+  {% if inline_selection.form.recalculate_materials %}<label>{{ inline_selection.form.recalculate_materials }} {{ inline_selection.form.recalculate_materials.label }}</label>{% endif %}
 </form>
 {% endif %}

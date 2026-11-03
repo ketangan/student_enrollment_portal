@@ -45,7 +45,8 @@ def test_public_complete_journey_and_receipt_privacy(music, offer, client, mailo
     assert result.status_code==302
     receipt=client.get(result.url)
     assert b"Your lesson is booked" in receipt.content and b"No charge" in receipt.content
-    assert b"Taylor Visitor" in receipt.content and b"no email has been sent" in receipt.content
+    assert b"Taylor Visitor" in receipt.content
+    assert b"Local preview" not in receipt.content and b"confirmation email sent" not in receipt.content
     assert "no-store" in receipt["Cache-Control"] and receipt["X-Robots-Tag"].startswith("noindex")
     assert not mailoutbox
     assert Client().get(result.url).status_code==404

@@ -1,16 +1,17 @@
 {% extends 'scheduling/base.html' %}{% load static %}
 {% block title %}{{ template_heading }}{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'scheduling/email-settings.css' %}?v=20261030-templates">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'scheduling/email-settings.css' %}?v=20261031-tokens">{% endblock %}
 {% block content %}
 <section class="email-settings-section"><h2>{{ template_heading }}</h2>
 <form method="post" class="setup-form email-template-form" data-email-form>{% csrf_token %}{{ template_form.non_field_errors }}
+<div class="email-template-layout"><div class="email-template-fields">
 <div class="email-settings-fields"><div class="form-field">{{ template_form.name.label_tag }}{{ template_form.name }}{{ template_form.name.errors }}</div><div class="form-field">{{ template_form.booking_kind.label_tag }}{{ template_form.booking_kind }}{{ template_form.booking_kind.errors }}</div></div>
 <div class="form-field">{{ template_form.booking_link.label_tag }}{{ template_form.booking_link }}{{ template_form.booking_link.errors }}</div>
 <div class="form-field">{{ template_form.subject.label_tag }}{{ template_form.subject }}{{ template_form.subject.errors }}</div>
 {% include 'scheduling/email_editor.html' with body_field=template_form.body %}
-<details class="email-fields"><summary>Reservation fields</summary><div class="email-token-list">{% for token,label in template_tokens %}<button type="button" data-email-token="{{ token }}">{{ label }}</button>{% endfor %}</div></details>
 <label class="email-tls">{{ template_form.is_active }}Active</label>
 <div class="email-actions"><a class="button" href="{% url 'scheduling:email_settings' school_slug=profile.school.slug %}">Cancel</a><button type="submit" class="primary" name="action" value="save">Save template</button></div>
+</div><aside class="email-template-tokens" aria-label="Auto-filled tokens">{% include 'school_admin/includes/email_tokens.html' with tokens=template_tokens %}</aside></div>
 </form></section>
 {% endblock %}
-{% block scripts %}<script defer src="{% static 'scheduling/email-editor.js' %}?v=20261030-drawer"></script>{% endblock %}
+{% block scripts %}<script defer src="{% static 'admin/email-template-tokens.js' %}?v=20261031"></script><script defer src="{% static 'scheduling/email-editor.js' %}?v=20261031-tokens"></script>{% endblock %}

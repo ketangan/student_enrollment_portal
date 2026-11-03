@@ -11,7 +11,7 @@ from django.views.decorators.http import require_http_methods
 from core.admin.audit import log_admin_audit
 from core.models import School, SchoolEmailTemplate
 from core.services.portal_environment import scope_schools
-from core.services.email_content import TOKENS, TOKEN, validate_body
+from core.services.email_content import BOOKING_TOKENS, TOKENS, TOKEN, validate_body
 from .access import require_access
 from .models import SchedulingProfile
 from .views import _context
@@ -96,7 +96,7 @@ class BookingTemplateForm(forms.ModelForm):
         data = super().clean()
         for field in ("subject", "body"):
             if any(token not in TOKENS for token in TOKEN.findall(data.get(field, ""))):
-                self.add_error(field, "Use the available reservation fields below.")
+                self.add_error(field, "Use the available auto-filled tokens.")
         return data
 
 
@@ -117,8 +117,6 @@ def template_edit(request, school_slug, pk=None):
         messages.success(request, "Email template saved.")
         return redirect("scheduling:email_settings", school_slug=school_slug)
     context = _context(request, profile, role, "email_settings")
-    context.update(template_form=form, dashboard_location_form=None, template_tokens=zip(TOKENS,
-        ("Customer name", "First name", "Customer email", "Workshop", "Reservation status", "Business name",
-         "Booking date", "Booking time", "Location", "Participant count")),
+    context.update(template_form=form, dashboard_location_form=None, template_tokens=BOOKING_TOKENS,
         template_heading="Edit email template" if pk else "Add email template")
     return render(request, "scheduling/email_template_form.html", context, status=400 if form.errors else 200)

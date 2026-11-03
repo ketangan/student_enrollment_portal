@@ -150,10 +150,8 @@ def _render_template(s: str, context: Dict[str, Any]) -> str:
     Minimal safe template: replaces {{key}} occurrences.
     (No conditionals; MVP-only, intentionally simple.)
     """
-    out = s or ""
-    for k, v in (context or {}).items():
-        out = out.replace("{{" + k + "}}", str(v))
-    return out
+    from core.services.email_content import render_tokens
+    return render_tokens(s or "", context or {}, legacy=True)
 
 
 def _format_submission_lines(submission_data: Dict[str, Any]) -> str:

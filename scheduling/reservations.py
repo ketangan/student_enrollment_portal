@@ -251,6 +251,12 @@ def save_reservation(item, source, kind, total_cents, deposit_cents, account, us
     return item
 
 
+def workshop_unit_price(offering):
+    if offering.price_per_participant is None:
+        raise ValidationError("This workshop does not have a price yet. Please contact the studio.")
+    return int(offering.price_per_participant * 100)
+
+
 def workshop_quote(offering, unit_price_cents, quantity):
     deposit = int(offering.deposit_per_participant * 100)
     if deposit and (deposit < 50 or deposit > unit_price_cents - 50):
@@ -274,20 +280,24 @@ def booking_account(profile, online, location=None):
     environment = "test" if profile.school.is_demo else "live"
     if profile.payment_provider == "square":
         from .models import SquareConnection, SquareLocationMapping
-        connection = SquareConnection.objects.filter(profile=profile, environment=environment).exclude(merchant_id="").first()
-        if connection:
+        if SquareConnection.objects.filter(profile=profile, environment=environment).exclude(merchant_id="").exists():
+            from django.db.models import F
             mapping = SquareLocationMapping.objects.select_related("account__school").filter(
-                connection=connection, location=location, location__profile=profile,
-                account__school=profile.school, account__reference=connection.merchant_id,
+                connection__profile=profile, connection__environment=environment, environment=environment,
+                location=location, location__profile=profile,
+                account__school=profile.school, account__reference=F("connection__merchant_id"),
                 account__provider="square", account__scope="connected", account__environment=environment).first() if location else None
             if not mapping or not mapping.account.enabled or not ready(mapping.account):
                 raise ValidationError("Square is not ready for this location. Check Settings > Integrations.")
             return mapping.account
         if environment == "live":
             raise ValidationError("Connect Square and map this location in Settings > Integrations first.")
-    account = PaymentAccount.objects.filter(school=profile.school, provider=profile.payment_provider, enabled=True, environment="test").first()
+    accounts = PaymentAccount.objects.filter(school=profile.school, provider=profile.payment_provider, enabled=True, environment="test")
+    if profile.payment_provider == "square":
+        accounts = accounts.filter(scope="platform_demo")
+    account = accounts.first()
     if not account or not ready(account):
-        raise ValidationError("Payment sandbox is not connected. Use offline test records for now.")
+        raise ValidationError("Online payments are unavailable. Check Settings > Integrations.")
     return account
 
 

@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: October 30, 2026.
+Updated: November 2, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -8,6 +8,222 @@ Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 This Markdown file remains the source of truth; the viewer does not edit milestone status.
 
 ## Current Status
+
+### November 2 Square Accounts and Studio Mapping (Local, Not Pushed)
+
+- Extended the existing Square OAuth connection and settings, rather than adding a
+  parallel payment system. A business can name and connect multiple Square sellers;
+  each studio selects its seller/location from one grouped dropdown. Shared,
+  separate and mixed account arrangements are supported. Account maintenance is
+  scoped to its explicit ID; ambiguous older forms cannot choose an arbitrary seller.
+- Migration `0052_square_multiple_accounts` preserves connection IDs, encrypted
+  credentials and existing payment-account bindings. It adds account labels and
+  enforces one studio mapping per environment. Seller uniqueness across schools,
+  school-wide owner permissions, CSRF and environment boundaries remain enforced.
+  Once multiple sellers are connected, use a forward fix rather than attempting to
+  restore the old single-account constraint or deleting historical accounts.
+- New bookings use their studio mapping and fail closed if it is unavailable.
+  Existing deposits, balances, refunds and payment evidence keep their original
+  account. Mapping saves revalidate active Square locations outside database locks,
+  then reject concurrent/stale edits atomically using the shared setup edit token.
+- Verification: 460 combined targeted tests passed, including SBMC enrollment,
+  billing, Stripe checkout, migration preservation, mixed seller routing, duplicate
+  OAuth callbacks, concurrent saves, cross-school/environment rejection, and old
+  balances/refunds after remapping. Changed Square modules measured 97.01% combined
+  line/branch coverage; each measured module exceeds 90%. Mapping-form query count
+  stays at three queries as studios are added. Final settings presentation checks
+  also passed. No missing migrations; existing duplicate `jazzmin` warning remains.
+- Checked local Chrome desktop, 390x844 phone, 768x1024 portrait and 1024x768 landscape
+  layouts, account disclosures, empty-name validation, dropdown selection and 44px
+  controls. Phone mappings stack without horizontal overflow. No OAuth authorization
+  or payment was submitted. Physical Android Chrome/keyboard and real multi-seller
+  Square authorization remain unverified. Local preview uses its original database,
+  port and saved seller; existing mappings were preserved.
+- Previous Studio Prep full run was interrupted and is not a pass: 4,397 tests
+  passed and two date-filter tests failed before interruption. Those tests used
+  fixed November 1 dates against the real advancing clock. Fixed their clock and
+  verified both files (15 tests), then included them in the 460-test passing run.
+- Fresh full regression: `square-multi-account-regression-20261102`, pending.
+  No push, deployment, production payment activation or email sending.
+- Next Square phase: Terminal pairing and collection, with asynchronous payment
+  reconciliation and retry safeguards. This change does not send amounts to a
+  physical Terminal. Jasmine's image identifies the standalone Square Terminal.
+
+### November 2 Studio Prep Cleanup and Weekly Print (Local, Not Pushed)
+
+- Removed Still to pull from Studio Prep and material summaries from its print
+  report. Inventory allocations, stock tracking and preparation state are unchanged.
+- Weekly printing lives in Studio Prep beside week navigation; removed the duplicate
+  Calendar toolbar action. Individual-session roster printing remains in Calendar.
+- Print links explicitly carry the displayed week and location, including a location
+  inherited from staff preferences. Hide prepared updates the print link immediately;
+  printing respects that filter and the completed-bookings filter. Reports preserve
+  time grouping, party/workshop labels, participant selections, staff and notes.
+- Verification: 140 focused Python tests and 25 JavaScript tests passed. Covered
+  week boundaries, saved preferences, tenant/location scope, hidden participant rows,
+  completed bookings and read-only inventory behavior. Chrome desktop, 390x844 phone,
+  768x1024 portrait and 1024x768 landscape tablet checks showed no horizontal overflow;
+  the print action has a 44px target. Calendar loaded without errors.
+- Inspected Chrome's two-page print preview. Added keep-together rules after finding
+  a split booking header; final native pagination recheck was interrupted by concurrent
+  user browser activity. Physical Android Chrome and physical printing remain pending.
+- Full background regression: `studio-prep-print-regression-20261102`, interrupted;
+  see the subsequent Square entry for failures, fixes and replacement run.
+- Square review: current Terminal recording is manual ledger entry, not device
+  integration. Direct collection needs school-scoped device pairing, added device
+  credential permission, Terminal checkout lifecycle, verified payment reconciliation
+  and duplicate/retry safeguards. Existing online Square integration can be extended;
+  no payment code or settings were changed in that pass. Hardware subsequently
+  confirmed from Jasmine's supplied image as the standalone Square Terminal.
+
+### November 1 Workshop Pricing Foundation (Local, Not Pushed)
+
+- Started the next go-live item that does not require Jasmine's input. Workshop
+  prices are now stored per Offering and editable alongside deposit/full-payment
+  settings. Setup no longer loads the demo configuration to validate deposits.
+- New workshop quotes, selection totals, review tokens and unpaid amendments use
+  that saved price. The public picker updates prices when workshops/studios change.
+  Blank means unconfigured, not free; unpriced workshops cannot enter this checkout.
+  Explicit zero remains valid. Existing reservation totals and payment evidence do
+  not change when staff update the workshop's default price.
+- Added model/database safeguards, stale-review rejection and tests for tenant
+  isolation, tampered prices, missing prices, per-workshop amounts, unpaid edits,
+  migration preservation and unchanged confirmations. Demo seed commands initialize
+  prices only for demo records; they do not overwrite saved prices.
+- Migration `0051_workshop_price` deliberately leaves existing prices unset. Before
+  deploying this change, populate verified prices for existing public workshops;
+  do not silently apply a demo price to a real studio. The guarded demo seed can
+  initialize its original workshops, with other demo workshops configured explicitly.
+  Local preview's six existing non-camp workshops retained their prior $65 price.
+- UI: aligned price/payment/deposit fields, 44px controls, button-styled Cancel.
+  Bumped asset versions after a browser check caught cached JavaScript using the
+  old price markup. Checked Chrome desktop, 390x844, 768x1024 and 1024x768 layouts,
+  invalid deposit submission, successful save/reload, and customer price switching.
+  Temporary sessions 235/236 were removed and the temporary price restored. Physical
+  Android Chrome and virtual-keyboard checks remain unverified.
+- Verification: 409 focused Python tests passed, followed by 100 pricing/workspace/
+  presentation/payment checks and 29 final pricing/template checks; 21 booking
+  JavaScript tests passed. Schema check:
+  no missing migrations; existing duplicate `jazzmin` warning remains unchanged.
+  Full regression `workshop-pricing-regression-20261101` completed November 2:
+  migration, Python suite, overall/per-module coverage and JavaScript checks all
+  passed against an unchanged working-tree fingerprint.
+- Remaining independent work, in order: replace the workshop flow's remaining
+  demo-only access/catalog dependencies; printable/emailable booking summary and
+  payment receipt using the ledger; release/deployment readiness checks. Jasmine's
+  email content/triggers and final seven-day policy confirmation remain outstanding.
+  Credits, gift cards, promo management, analytics and customer rescheduling remain
+  deferred, not launch blockers. No deployment, live activation, payment or email.
+
+### November 1 Go-live Cleanup and Audit (Local, Not Pushed)
+
+- Removed the hardcoded seven-day trial countdown and sample-data promotional banner
+  from the Bookings workspace. Actual overdue-subscription notices remain intact.
+- Removed the legacy payment-request local-preview flash and customer lesson-receipt
+  preview banner. Audit delivery states remain truthful; an unsent email is not labeled
+  sent. No email transport or recipient restrictions were changed.
+- Quote/camp payment controls now use provider-neutral wording, and unavailable
+  payments point staff to Integrations instead of recommending offline test records.
+  Removed unused Square test-card styles. Payment execution and account selection
+  were not changed by these presentation edits.
+- Workshop customer footers return to the same school's workshop form, not the
+  hardcoded demo comparison hub. Tests cover multiple school slugs, parties and signed
+  payment-review destinations, plus the complete local/hosted workshop journey.
+- Checked scheduling code, templates, browser scripts, shared payment/email settings
+  and their guards for simulation hooks, sample copy, hardcoded demo routes, debug
+  output and test-environment branching. Deliberate sandbox transports, isolated seed
+  commands, diagnostic tools and historical simulated ledger evidence were retained.
+  They must not be relabeled as real delivery/payment or promoted to live data.
+- Verification: 509 targeted Python tests passed, including SBMC workflows, customer
+  navigation, demo/live Square boundaries and payment retry cases. Desktop Chrome,
+  390x844 phone, and 768x1024 / 1024x768 tablet responsive layouts checked; mobile
+  navigation and customer return link exercised. Physical Android testing is pending.
+  Django's configuration check reported the existing duplicate `jazzmin` template-tag
+  library warning; no configuration errors. The tag libraries were not changed here.
+- Previous full run was interrupted after 4,349 passed, one failure and three skips.
+  The OAuth decline/retry test expected an expired attempt but received pending. It
+  passed both isolated reruns and the broader targeted run; its cause is unconfirmed.
+  Added response details to the assertion for diagnosis if it recurs. Do not treat
+  that interrupted run or its incomplete coverage gate as passed.
+- Full regression: `go-live-cleanup-regression-20261101` completed successfully with
+  5,133 passed, three skipped; migration, overall/per-module coverage and JavaScript
+  gates all passed with an unchanged working-tree fingerprint. The earlier Square
+  failure did not recur; its cause remains unconfirmed. This result predates the
+  workshop-pricing changes above. No push, production settings, data deletion, real
+  payment or customer email was performed.
+
+#### Go-live Gates, in Priority Order
+
+1. **Production customer workflow:** the redesigned workshop intake still calls
+   `experience_demo.config.context`, requires an active demo school, and loads
+   `configs/booking_demos`. Replace this dependency with ordinary school-scoped
+   configuration and published catalogue/session data. Do not simply remove its
+   access guard: its no-provider branch offers simulated checkout, and existing
+   simulated receipts/refunds must stay isolated. Also separate prototype wrappers,
+   demo calendar metadata and demo branding from the real customer path.
+2. **Real studio setup and payments:** use a separate real school/profile with verified
+   locations, packages, schedules, recipes, stock, prices, tax and policy copy. Do not
+   flip the existing seeded demo school into a live school. Connect/map real Square
+   locations, verify live webhooks/reconciliation and perform an approved payment and
+   refund check. Square live routing exists behind explicit gates; Bookings' Stripe
+   fallback still selects test accounts and is not a general live-provider path.
+   Existing Enrollment/SBMC Stripe behavior must remain untouched.
+3. **Delivery:** verify the real school's SMTP/default service, sender identity,
+   outbox worker and actual inbox delivery, including payment and guest links on the
+   correct production host. Enable automatic triggers only after Jasmine approves
+   their templates/triggers; no automatic cancellation email by default.
+4. **Release proof:** green full regression/coverage and CI for the exact revision,
+   backup/migration rehearsal, school-isolation and SBMC smoke checks, Android Chrome
+   device/keyboard checks, and print verification. Local/demo records are not a live
+   data migration. Deployment and customer activation require explicit approval.
+
+### October 31 Shared Email Tokens (Local, Not Pushed)
+
+- Bookings and Enrollment reuse one auto-filled-token reference panel and cursor
+  insertion script for subject/message fields. Bookings adds its reservation fields
+  to the shared base vocabulary. Existing Enrollment exact-token replacement order
+  is preserved through the shared renderer; Bookings retains escaped HTML values and
+  unresolved-token validation. Templates remain scoped by school and workflow.
+- Included button options remain None, Payment, and Guest details / participant
+  selections. No custom-link option or new template data was added.
+- Verification: 284 targeted Python tests and 11 JavaScript editor/drawer tests passed,
+  including SBMC workflows, broadcasts, school administration, school isolation and
+  customer email links. Checked cursor insertion and Chrome layouts at desktop,
+  390x844 phone, and 768x1024 / 1024x768 tablet CSS sizes without page overflow.
+  Actual Android Chrome/keyboard checks and live SBMC UI verification remain pending;
+  SBMC's source implementation and automated regressions were checked, not live data.
+- Prior Studio Prep full run was canceled before these edits. Fresh detached run
+  `shared-email-tokens-regression-20261031` is required to pass before release; targeted
+  checks are not a full-suite pass. No email was sent and no changes were pushed.
+
+### October 30 Weekly Studio Prep Follow-up (Local, Not Pushed)
+
+- Weekly preparation groups bookings by studio, day and start/end time, with
+  participant name/design/color editing, reversible participant readiness, notes,
+  material totals and a print view. Each saved party selection reserves its materials;
+  an unselected participant cannot be marked prepared. Reservation extras and bulk
+  reopen controls were removed at the owner's request.
+- Staff names now belong to each reservation, including workshops sharing a session.
+  Migration 0050 preserves existing assignments before removing the session field.
+  Regression tests cover independent edits/clearing, stale and foreign tokens, and
+  migration preservation. Daily and per-booking preparation counters were removed.
+- Older bookings recover verified individual material recipes. Ambiguous historical
+  totals require explicit staff recalculation, with stock checks and preparation reset;
+  prices and payment evidence are unchanged.
+- Studio Prep has its own main-menu entry between Dashboard and Reservations for
+  workspaces with the reservations capability. Enrollment navigation is untouched.
+- Local Pasadena demo records at 10:30 AM and 11:00 AM on October 26 exercise
+  overlapping, half-hour start times. These are unpublished sample sessions with
+  zero-value demo bookings, not customer payments or emails.
+- Latest prep-focused checks: 55 Python tests and 10 JavaScript tests passed.
+  Desktop Chrome, phone 390x844 and tablet 768x1024 / 1024x768 emulation checked;
+  physical Android Chrome, virtual keyboard and physical printing remain unverified.
+  Full runs were canceled before subsequent requested edits, not passed. A fresh
+  navigation-inclusive full run is required before release.
+- Next priority: printable/emailable booking summary and payment receipt using the
+  existing payment ledger and school-scoped email infrastructure. Then complete hosted
+  email delivery verification and approved automatic-email triggers. Credits, gift
+  cards/promos, analytics and customer rescheduling remain deferred, not launch blockers.
 
 ### October 30 Template Consistency Release Candidate
 

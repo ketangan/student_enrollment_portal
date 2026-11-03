@@ -205,12 +205,13 @@ def save_workshop(item, session, data, token, config, *, review_token, browser):
         source.session = session
         for name, value in purchaser.cleaned_data.items():
             setattr(source, name, value)
-        breakdown = reservations.workshop_price_breakdown(session.offering, config["price_cents"], len(people))
+        price_cents = reservations.workshop_unit_price(session.offering)
+        breakdown = reservations.workshop_price_breakdown(session.offering, price_cents, len(people))
         source.session_snapshot = {"workshop": session.offering.name, "location": session.offering.location.name,
             "room": session.room.name if session.room else "", "timezone": session.offering.location.timezone_name,
             "starts_at": session.starts_at.isoformat(), "ends_at": session.ends_at.isoformat(),
             "experience_demo": {"policy": config["policy_revision"], "published_policy": service.notice(item.profile.school, "workshop"),
-                "reviewed_at": timezone.now().isoformat(), "price_cents": config["price_cents"]}, "price_breakdown": breakdown}
+                "reviewed_at": timezone.now().isoformat(), "price_cents": price_cents}, "price_breakdown": breakdown}
         source.save()
         source.participants.all().delete()
         RequestParticipant.objects.bulk_create([RequestParticipant(request=source, position=index,
@@ -220,5 +221,5 @@ def save_workshop(item, session, data, token, config, *, review_token, browser):
         item.snapshot = {"name": source.purchaser_name, "workshop": session.offering.name,
             "organizer_phone": source.purchaser_phone, "timezone": session.offering.location.timezone_name,
             "customer_edit_revision": revision(item)}
-        total, deposit = reservations.workshop_quote(session.offering, config["price_cents"], len(people))
+        total, deposit = reservations.workshop_quote(session.offering, price_cents, len(people))
         return finish(item, total, deposit, session.offering.name, token, requests.submission_digest(data))

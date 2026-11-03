@@ -176,6 +176,27 @@ def workshop_booking(browser, stripe_demo):
     return Reservation.objects.get(), data
 
 
+def test_paid_workshop_keeps_customer_layout_and_navigation(browser, stripe_demo):
+    import uuid
+    from core.payments.models import LedgerEntry
+
+    item, _ = workshop_booking(browser, stripe_demo)
+    LedgerEntry.objects.create(order=item.order, school=item.profile.school,
+        environment=item.order.environment, key=uuid.uuid4(), kind="payment",
+        amount_cents=item.order.total_cents, reference="paid-workshop", channel="stripe")
+    item.state = "confirmed"
+    item.save(update_fields=["state"])
+    response = browser.get(route(item, "customer_payment"))
+    assert response.status_code == 200
+    assert b"Paid in full" in response.content
+    assert b"Booking progress" in response.content
+    target = reverse("scheduling:experience_start", kwargs={"school_slug": item.profile.school.slug})
+    assert f'href="{target}"'.encode() in response.content
+    assert b"/schedule/" not in response.content
+    assert b"Continue to payment" not in response.content
+    assert b"/workshop-selections/" in response.content
+
+
 def test_workshop_back_edit_review_save_retains_people_and_reprices(browser, stripe_demo, settings):
     item, data = workshop_booking(browser, stripe_demo)
     attempt = square_attempt(item, settings)

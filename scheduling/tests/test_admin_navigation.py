@@ -51,12 +51,12 @@ def context(active="overview", enabled=(), owner=True, experience=False, lessons
 def test_plushumi_navigation_has_exact_groups_and_no_request_menu():
     result = workspace_navigation(context("settings", ("workshops", "parties", "camps", "reservations", "integrations"), experience=True))
     assert [(item["label"], [tab["label"] for tab in item["tabs"]]) for item in result["sections"]] == [
-        ("Dashboard", []), ("Reservations", ["Reservations", "Party inquiries"]),
+        ("Dashboard", []), ("Studio Prep", []), ("Reservations", ["Reservations", "Party inquiries"]),
         ("Setup", ["Workshop", "Parties", "Camps", "Catalog", "Materials Inventory"]),
         ("Settings", ["Location & rooms", "Guest communication", "Email settings", "Team Access", "Integrations"])]
     assert result["section"]["label"] == "Setup"
     assert [tab["label"] for tab in result["section"]["tabs"] if tab["active"]] == ["Materials Inventory"]
-    assert result["sections"][3]["url"] == "/bookings/navigation-test/locations/"
+    assert result["sections"][4]["url"] == "/bookings/navigation-test/locations/"
     assert all("requests" not in item["url"] for section in result["sections"] for item in section["tabs"])
 
 
@@ -64,7 +64,7 @@ def test_plushumi_navigation_has_exact_groups_and_no_request_menu():
     ("overview", "Dashboard"), ("reservations", "Reservations"), ("preparation", "Reservations"),
     ("requests", "Reservations"), ("workshops", "Setup"), ("parties", "Setup"), ("camps", "Setup"),
     ("settings", "Setup"), ("locations", "Settings"), ("access", "Settings"), ("integrations", "Settings"),
-    ("guest_communication", "Settings"), ("email_settings", "Settings"), ("studio_preparation", "Reservations"), ("party_inquiries", "Reservations"),
+    ("guest_communication", "Settings"), ("email_settings", "Settings"), ("studio_preparation", "Studio Prep"), ("party_inquiries", "Reservations"),
     ("visits", "Reservations"), ("lessons", "Reservations"), ("messages", "Reservations"), ("unknown", "Dashboard"),
 ])
 def test_every_page_selects_its_parent_section(active, section):
@@ -85,6 +85,7 @@ def test_optional_tools_and_permission_visibility(owner, enabled, lessons, messa
     assert ("Tours" in tabs) == ("visits" in enabled)
     assert ("Messages" in tabs) == (messages and bool({"lessons", "visits"}.intersection(enabled)))
     assert "Workshop Prep" not in tabs and "Studio Prep" not in tabs
+    assert "Studio Prep" not in {section["label"] for section in result["sections"]}
     assert "Reservations" not in tabs
     if "workshops" in enabled:
         assert result["section"]["label"] == "Setup"
@@ -93,7 +94,7 @@ def test_optional_tools_and_permission_visibility(owner, enabled, lessons, messa
 @pytest.mark.django_db
 @pytest.mark.parametrize("route,section,tab", [
     ("workspace", "Dashboard", None), ("reservations", "Reservations", "Reservations"),
-    ("studio_preparation", "Reservations", "Reservations"),
+    ("studio_preparation", "Studio Prep", None),
     ("workshops", "Setup", "Workshop"), ("parties", "Reservations", "Party inquiries"),
     ("party_setup", "Setup", "Parties"), ("camps", "Setup", "Camps"),
     ("settings", "Setup", "Materials Inventory"), ("catalogs", "Setup", "Catalog"), ("locations", "Settings", "Location & rooms"),
@@ -106,12 +107,14 @@ def test_rendered_navigation_and_existing_links(client, booking_member, route, s
     parsed = NavigationParser(response.content)
     groups = parsed.groups
     nav = groups["Bookings"]
-    assert [link["text"] for link in nav] == ["Dashboard", "Reservations", "Setup", "Settings"]
+    assert [link["text"] for link in nav] == ["Dashboard", "Studio Prep", "Reservations", "Setup", "Settings"]
     assert [link["text"] for link in nav if link.get("aria-current") == "page"] == [section]
     assert b'class="dash-school-name">Workshop Test</div>' in response.content
     if route == "workspace":
         assert b'class="dash-greeting-title"' in response.content
         assert b'Recent Activity' in response.content
+    elif route == "studio_preparation":
+        assert b"<h1>Studio prep</h1>" in response.content
     else:
         assert f"<h1>{section}</h1>".encode() in response.content
     assert b'id="dashboard-location-filter"' in response.content

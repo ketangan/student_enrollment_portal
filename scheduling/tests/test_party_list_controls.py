@@ -56,7 +56,8 @@ def test_party_list_shared_controls_and_filters(party_offering, booking_member, 
         assert response.status_code == 400 and response.context["items"].paginator.count == 0
 
 
-def test_party_list_scope_and_local_dates(party_offering, booking_member, client):
+def test_party_list_scope_and_local_dates(party_offering, booking_member, client, monkeypatch):
+    monkeypatch.setattr(django_timezone, "now", lambda: datetime(2026, 10, 31, tzinfo=timezone.utc))
     item = create_inquiry(client, party_offering)
     location = party_offering.location
     location.timezone_name = "America/Los_Angeles"

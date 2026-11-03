@@ -27,7 +27,6 @@
     <div class="calendar-segment" role="group" aria-label="Calendar range"><button type="button" data-calendar-range="day">Day</button><button type="button" data-calendar-range="week">Week</button><button type="button" data-calendar-range="month">Month</button></div>
     <div class="calendar-create-actions">
     {% if can_edit_sessions %}<a class="button" href="{% url 'scheduling:workshops' school_slug=business.slug %}{% if selected_location %}?location={{ selected_location.pk }}{% endif %}"><i data-lucide="plus" aria-hidden="true"></i> Add session</a>{% endif %}
-    <button type="button" id="calendar-prep-print" aria-label="Print studio prep for this date range" title="Print studio prep"><i data-lucide="printer" aria-hidden="true"></i></button>
     </div>
   </div>
   <div class="calendar-context"><span>Times are local to each location.</span><span id="calendar-count" aria-live="polite"></span></div>
@@ -42,4 +41,4 @@
 {{ calendar_config|json_script:'calendar-config' }}
 <noscript><p>JavaScript is required for the calendar. <a href="?view=overview">Open overview</a></p></noscript>
 {% endblock %}
-{% block scripts %}<script defer src="{% static 'vendor/event-calendar/event-calendar.min.js' %}"></script><script defer src="{% static 'scheduling/calendar.js' %}?v=20261028-mobile-roster"></script>{% endblock %}
+{% block scripts %}<script defer src="{% static 'vendor/event-calendar/event-calendar.min.js' %}"></script><script defer src="{% static 'scheduling/calendar.js' %}?v=20261102-prep-print"></script>{% endblock %}

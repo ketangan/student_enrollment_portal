@@ -124,7 +124,8 @@ def test_readiness_works_for_party_and_camp_reservations(stock):
     assert Reservation.objects.get(pk=workshop.pk).prepared_at
 
 
-def test_reservation_filters_search_dates_status_and_studio_are_scoped(stock):
+def test_reservation_filters_search_dates_status_and_studio_are_scoped(stock, monkeypatch):
+    monkeypatch.setattr("django.utils.timezone.now", lambda: datetime(2026, 10, 31, tzinfo=ZoneInfo("UTC")))
     s = stock
     booking = reserve(s)
     confirm(s, booking)

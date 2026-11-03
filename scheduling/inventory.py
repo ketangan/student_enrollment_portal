@@ -208,6 +208,10 @@ def allocate(reservation):
     if reservation.workshop_request_id:
         reservation.snapshot = {**reservation.snapshot,
             "workshop_participant_materials": participant_recipes(offering, people)}
+    elif reservation.party_request_id:
+        reservation.snapshot = {**reservation.snapshot, "party_material_recipes": {
+            str(key): {str(material): str(amount) for material, amount in recipe.items()}
+            for key, recipe in material_recipes(offering, counts).items()}}
     snapshot = []
     for level, quantity in check_items(offering, counts, reservation.pk, starts_at=reservation.starts_at):
         StockAllocation.objects.create(reservation=reservation, level=level, quantity=quantity)
@@ -219,6 +223,54 @@ def allocate(reservation):
     reservation.save(update_fields=["snapshot"])
 
 
+def allocate_party_selections(item, rows, *, recalculate=False, actor=None):
+    """Replace only changed party demand, retaining the recipes already promised."""
+    offering = item.party_request.offering
+    if not offering.inventory_catalog_id:
+        return
+    if (item.snapshot.get("material_catalog_id") != offering.inventory_catalog_id
+            or item.snapshot.get("material_location_id") != offering.location_id):
+        raise ValidationError("This booking's catalog or studio changed. Contact support before editing selections.")
+    validate_allocations(item, allow_pending=True)
+    previous = Counter()
+    for row in item.party_request.materials:
+        if row.get("item_id"):
+            previous[row["item_id"]] += row.get("quantity", 1)
+    counts = Counter(row["item_id"] for row in rows if row.get("item_id"))
+    from .legacy_materials import party_recipes, RecalculationRequired, reset_preparation
+    rebased = False
+    try:
+        recipes = party_recipes(item)
+    except RecalculationRequired:
+        if counts == previous:
+            return
+        if not recalculate or actor is None:
+            raise
+        recipes = {}
+        rebased = True
+    new_ids = {key for key in counts if str(key) not in recipes}
+    for key, recipe in material_recipes(offering, new_ids).items():
+        recipes[str(key)] = {str(material): str(amount) for material, amount in recipe.items()}
+    quantities = Counter()
+    for key, count in counts.items():
+        for material, amount in recipes[str(key)].items():
+            quantities[int(material)] += Decimal(amount) * count
+    levels = check_materials(offering, quantities, item.pk,
+        starts_at=item.starts_at if item.starts_at > timezone.now() else None)
+    if rebased:
+        reset_preparation(item, actor)
+    frozen = {row["material_id"]: row for row in item.snapshot.get("materials", [])}
+    item.stock_allocations.exclude(level__material_id__in=quantities).delete()
+    materials = []
+    for level, quantity in levels:
+        StockAllocation.objects.update_or_create(reservation=item, level=level, defaults={"quantity": quantity})
+        material = frozen.get(level.material_id, {"material_id": level.material_id,
+            "name": level.material.name, "unit": level.material.unit})
+        materials.append({**material, "quantity": str(quantity)})
+    item.snapshot = {**item.snapshot, "materials": materials,
+        "party_material_recipes": {str(key): recipes[str(key)] for key in counts}}
+
+
 def validate_allocations(reservation, allocations=None, *, allow_pending=False):
     workshop_pending = bool(reservation.snapshot.get("workshop_selections_pending"))
     if workshop_pending:
@@ -226,13 +278,12 @@ def validate_allocations(reservation, allocations=None, *, allow_pending=False):
             raise ValidationError("Pending selections do not match this booking. Contact support.")
         if not allow_pending:
             raise ValidationError("Choose designs for the remaining participants before preparing or completing this workshop.")
-    if reservation.snapshot.get("guest_selections_pending"):
-        if (not reservation.party_request_id
-                or reservation.party_request.materials or reservation.stock_allocations.exists()):
+    guest_pending = bool(reservation.snapshot.get("guest_selections_pending"))
+    if guest_pending:
+        if not reservation.party_request_id:
             raise ValidationError("Pending guest selections do not match this booking. Contact support.")
         if not allow_pending:
             raise ValidationError("Add the guest designs and colors before preparing or completing this party.")
-        return
     if not reservation.snapshot.get("material_catalog_id"):
         source = reservation.workshop_request or reservation.camp_registration or reservation.party_request
         offering = (source.session.offering if reservation.workshop_request_id else source.camp.offering
@@ -243,7 +294,7 @@ def validate_allocations(reservation, allocations=None, *, allow_pending=False):
     allocations = list(allocations if allocations is not None else reservation.stock_allocations.select_related("level__material", "level__location"))
     expected = {r["material_id"]: Decimal(r["quantity"]) for r in reservation.snapshot.get("materials", [])}
     actual = {a.level.material_id: a.quantity for a in allocations}
-    if ((not expected and not workshop_pending) or expected != actual or len(allocations) != len(expected)
+    if ((not expected and not workshop_pending and not guest_pending) or expected != actual or len(allocations) != len(expected)
             or any(a.level.material.profile_id != reservation.profile_id
                    or a.level.location.profile_id != reservation.profile_id
                    or a.level.location_id != reservation.snapshot.get("material_location_id") for a in allocations)):

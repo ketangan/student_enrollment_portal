@@ -18,12 +18,10 @@
   const selector = form.querySelector('[name="template"]');
   let dirty = Boolean(subject.value || textarea.value);
   let selectedTemplate = selector?.value || '';
-  let focusedField = editor;
   let savedRange = null;
   const sync = () => { textarea.value = editor.innerHTML; };
   editor.addEventListener('input', () => { dirty = true; sync(); });
   subject.addEventListener('input', () => { dirty = true; });
-  [editor, subject].forEach(field => field.addEventListener('focus', () => { focusedField = field; }));
   document.addEventListener('selectionchange', () => {
     const selection = window.getSelection();
     if (selection.rangeCount && editor.contains(selection.anchorNode) && editor.contains(selection.focusNode)) {
@@ -67,14 +65,8 @@
     dirty = true;
     sync();
   });
-  form.querySelectorAll('[data-email-token]').forEach(button => button.addEventListener('click', () => {
-    const text = '{{' + button.dataset.emailToken + '}}';
-    if (focusedField === subject) {
-      subject.setRangeText(text, subject.selectionStart, subject.selectionEnd, 'end');
-      subject.focus();
-      dirty = true;
-    } else insertText(text);
-  }));
+  window.EmailTemplateTokens.attach({editor, subject, buttons: form.querySelectorAll('[data-token]'),
+    changed: () => { dirty = true; sync(); }});
   const read = id => JSON.parse(document.getElementById(id)?.textContent || '{}');
   const options = read('email-options');
   const updateLink = value => {

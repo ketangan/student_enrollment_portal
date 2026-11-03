@@ -8,7 +8,7 @@
   <link rel="icon" href="{% static 'favicon.png' %}">
   <link rel="stylesheet" href="{% static 'scheduling/workspace.css' %}?v=20261004-integrations">
   <link rel="stylesheet" href="{% static 'admin/dashboard.css' %}?v=20261022-shared-team">
-  <link rel="stylesheet" href="{% static 'scheduling/admin-theme.css' %}?v=20261030-email-audit-3">
+  <link rel="stylesheet" href="{% static 'scheduling/admin-theme.css' %}?v=20261102-tablet-controls">
   <link rel="stylesheet" href="{% static 'school_admin/column-filters.css' %}">
 <link rel="stylesheet" href="{% static 'scheduling/materials.css' %}?v=20261006-color-settings">
 {% include 'scheduling/date_picker_assets.html' %}
@@ -50,10 +50,6 @@
     <span>Subscription payment failed. Resolve it by {{ business.payment_grace_ends_at|date:"M j, Y, g:i A" }} to keep access.</span>
     <a href="{% url 'scheduling:school_billing' business.slug %}">Review billing</a>
   </div>
-  {% endif %}
-  {% if branded_admin_demo %}
-  <div class="booking-demo-banner">Built specifically for {{ business }} &middot; Sample data loaded</div>
-  <div class="dash-trial-banner booking-demo-trial">Trial ends in <strong>7 days</strong>.</div>
   {% endif %}
   <main id="content" class="dash-main">
     {% if business %}

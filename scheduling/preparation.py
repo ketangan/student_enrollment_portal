@@ -23,6 +23,31 @@ def form_for(item, profile, data=None):
     return protect_edit(PreparationForm(data, instance=item), profile)
 
 
+class StaffNamesForm(forms.Form):
+    staff_names = forms.CharField(label="Staff", max_length=200, required=False)
+
+
+def staff_form_for(item, profile, data=None):
+    form = StaffNamesForm(data, prefix="staff", initial={"staff_names": item.staff_names})
+    form.instance = item
+    return protect_edit(form, profile)
+
+
+def save_staff_names(item, profile, user, data):
+    """Called under the preparation writer's profile lock."""
+    form = staff_form_for(item, profile, data)
+    if not form.is_valid():
+        raise ValidationError([message for errors in form.errors.values() for message in errors])
+    target = form.instance
+    names = form.cleaned_data["staff_names"]
+    if target.staff_names == names:
+        return
+    before = model_to_dict(target)
+    target.staff_names = names
+    target.save(update_fields=["staff_names"])
+    _audit(user, profile, target, before, "change")
+
+
 def validate_materials(item, allocations):
     """Recipes are frozen at booking; catalog edits never alter a saved kit."""
     from .inventory import validate_allocations
@@ -47,15 +72,18 @@ def update(user, slug, public_id, data):
     if prepared == bool(item.prepared_at):
         return item
     if prepared:
-        if item.party_request_id and "guest_list_draft" in item.snapshot:
+        if item.party_request_id and item.snapshot.get("guest_selections_pending"):
             raise ValidationError("Finish the guest selections before marking this party prepared.")
         validate_materials(item, allocations)
         from .inventory import ensure_stock
         ensure_stock(item, physical=True)
     before = model_to_dict(item)
+    from .participant_preparation import rows_for
+    item.snapshot = {**item.snapshot, "participant_preparation": {
+        row["key"]: row["signature"] for row in rows_for(item) if prepared and row["selected"]}}
     item.prepared_at = timezone.now() if prepared else None
     item.prepared_by = user if prepared else None
     item.preparation_version += 1
-    item.save(update_fields=["prepared_at", "prepared_by", "preparation_version"])
+    item.save(update_fields=["snapshot", "prepared_at", "prepared_by", "preparation_version"])
     _audit(user, profile, item, before, "change")
     return item
