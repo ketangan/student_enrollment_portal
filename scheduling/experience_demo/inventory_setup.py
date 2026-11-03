@@ -22,7 +22,7 @@ def bind_previews(profile, catalog, config):
     binding = profile.school.feature_flags["booking_demo_inventory"]
     if "design_previews" in binding:
         return
-    by_name = {row["name"]: {key: row[key] for key in ("x", "y") if key in row}
+    by_name = {row["name"]: {key: row[key] for key in ("x", "y", "image_url") if key in row}
                for row in config.get("designs", [])}
     # Bind the original sprite to option identity, not an editable label or display order.
     previews = {str(option.pk): by_name[option.label] for option in ChoiceOption.objects.filter(
@@ -48,7 +48,8 @@ def seed_inventory(profile, config, user):
         (config["color_group"], config["colors"]), (config["age_group"], [{"name": x} for x in ["Under 5", *map(str, range(5, 18)), "Adult", "Prefer not to say"]])]):
         group = ChoiceGroup.objects.create(catalog=catalog, name=name, position=position, tracks_stock=position < 2,
             reference_image=config.get("design_image", "") if position == 0 else "")
-        options = [ChoiceOption.objects.create(group=group, label=c["name"], position=i, swatch=c.get("hex", ""))
+        options = [ChoiceOption.objects.create(group=group, label=c["name"], position=i,
+                   swatch=c.get("hex", ""), image_url=c.get("image_url", ""))
                    for i, c in enumerate(choices)]
         if group.tracks_stock:
             dimensions.append(options)

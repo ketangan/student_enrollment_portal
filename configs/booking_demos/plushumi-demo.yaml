@@ -4,7 +4,8 @@ customer_demo_path: /demo/plushumi/integrations/
 admin_branding: true
 logo: /static/demo/plushumi/assets/logo.png
 photo: /static/demo/plushumi/assets/workshop.jpg
-design_image: /static/demo/plushumi/assets/designs.jpg
+design_image: ''
+retired_design_images: [/static/demo/plushumi/assets/designs.jpg]
 price_cents: 6500
 policy_revision: concept-1
 party_package_defaults:
@@ -25,15 +26,15 @@ locations:
   - {name: 'Dallas, TX', zone: America/Chicago}
   - {name: 'Charlotte, NC', zone: America/New_York}
 designs:
-  - {name: Unicorn, x: '28%', y: '0%'}
-  - {name: Cat, x: '50%', y: '0%'}
-  - {name: Bunny, x: '74%', y: '0%'}
-  - {name: Chinchilla, x: '28%', y: '50%'}
-  - {name: Bear, x: '50%', y: '50%'}
-  - {name: Dog, x: '74%', y: '50%'}
-  - {name: Blue-spike Dino, x: '28%', y: '100%'}
-  - {name: Duck, x: '50%', y: '100%'}
-  - {name: Pink-spike Dino, x: '74%', y: '100%'}
+  - {name: Unicorn, x: '28%', y: '0%', image_url: /static/demo/plushumi/assets/designs/unicorn.jpg}
+  - {name: Cat, x: '50%', y: '0%', image_url: /static/demo/plushumi/assets/designs/cat.jpg}
+  - {name: Bunny, x: '74%', y: '0%', image_url: /static/demo/plushumi/assets/designs/bunny.jpg}
+  - {name: Chinchilla, x: '28%', y: '50%', image_url: /static/demo/plushumi/assets/designs/chinchilla.jpg}
+  - {name: Bear, x: '50%', y: '50%', image_url: /static/demo/plushumi/assets/designs/bear.jpg}
+  - {name: Dog, x: '74%', y: '50%', image_url: /static/demo/plushumi/assets/designs/dog.jpg}
+  - {name: Blue-spike Dino, x: '28%', y: '100%', image_url: /static/demo/plushumi/assets/designs/blue-spike-dino.jpg}
+  - {name: Duck, x: '50%', y: '100%', image_url: /static/demo/plushumi/assets/designs/duck.jpg}
+  - {name: Pink-spike Dino, x: '74%', y: '100%', image_url: /static/demo/plushumi/assets/designs/pink-spike-dino.jpg}
 colors:
   - {name: White, hex: '#fafafa'}
   - {name: Pink, hex: '#f6b3cd'}

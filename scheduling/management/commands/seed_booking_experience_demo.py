@@ -85,7 +85,8 @@ class Command(BaseCommand):
                 group = saved(ChoiceGroup, offering=offering, name=name, defaults={"position": order,
                     "reference_image": config["design_image"] if order == 0 else ""})
                 for index, choice in enumerate(values):
-                    saved(ChoiceOption, group=group, label=choice["name"], defaults={"position": index, "swatch": choice.get("hex", "")})
+                    saved(ChoiceOption, group=group, label=choice["name"], defaults={"position": index,
+                        "swatch": choice.get("hex", ""), "image_url": choice.get("image_url", "")})
             # Preserve dates and practice changes when the setup is run a second time.
             if not offering.sessions.exists():
                 for days in (0, 7, 14):
