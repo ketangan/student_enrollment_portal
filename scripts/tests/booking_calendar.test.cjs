@@ -54,6 +54,14 @@ function page({focused=false, form=false, search='?view=calendar'} = {}) {
 }
 
 const interval = {startStr:'2026-10-18T00:00:00',endStr:'2026-10-25T00:00:00'};
+test('compact calendar roster includes portrait tablets, keeping View beside the customer', () => {
+  const css = fs.readFileSync('static/scheduling/calendar.css', 'utf8');
+  const roster = css.split('@media screen and (max-width:800px) {')[1]?.split('@media print')[0];
+  assert.ok(roster, 'The compact roster must cover the 768px tablet viewport.');
+  assert.match(roster, /table \{min-width:0;\}/);
+  assert.match(roster, /td:last-child \{grid-column:2;grid-row:1;/);
+  assert.match(roster, /td:last-child a \{min-height:44px;/);
+});
 test('weekly prep print lives outside Calendar; session roster printing remains', () => {
   const template = fs.readFileSync('templates/scheduling/calendar.html', 'utf8');
   assert.ok(!template.includes('calendar-prep-print'));
