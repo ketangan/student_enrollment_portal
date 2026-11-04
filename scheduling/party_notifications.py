@@ -168,6 +168,8 @@ def process(profile_id, limit=20):
                 to=[message.recipient], headers={"Message-ID": f"<booking-{message.public_id}@mypontora.com>"},
                 connection=connection)
             attach_guide(email, message)
+            from .booking_documents import attach
+            attach(email, message)
             if message.is_html:
                 from core.services.email_content import transport_html
                 email.body = transport_html(message.body)

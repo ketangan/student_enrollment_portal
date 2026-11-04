@@ -96,6 +96,8 @@ def audit_page(item, raw_page):
             f'{-adjustment.delta.normalize():f} {adjustment.level.material.unit} {adjustment.level.material.name}', adjustment.actor)
     def email_event(message, stamp, key, title, actor=None):
         add(stamp, key, title, f"To: {message.recipient} / Subject: {message.subject}", actor)
+        if message.document_snapshot:
+            rows[-1]["detail"] += f' / Attachment: {message.document_snapshot["title"]} (PDF)'
         rows[-1].update(email_body=clean_html(message.body, links=False) if message.is_html else message.body,
             email_html=message.is_html)
 

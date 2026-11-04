@@ -33,9 +33,11 @@ def require_preview():
 
 
 @transaction.atomic
-def capture(profile, *, event_key, group_key, recipient, subject, body):
+def capture(profile, *, event_key, group_key, recipient, subject, body, document_snapshot=None):
     profile = SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
     payload = dict(group_key=group_key, recipient=recipient, subject=subject, body=body)
+    if document_snapshot:
+        payload["document_snapshot"] = document_snapshot
     fingerprint = digest(payload)
     existing = BookingMessage.objects.filter(profile=profile, event_key=event_key).first()
     if existing:
@@ -159,6 +161,8 @@ def local_transport(message, outcome):
         headers={"Message-ID": f"<booking-{message.public_id}@preview.invalid>"}, connection=connection)
     from .party_notifications import attach_guide
     attach_guide(email, message)
+    from .booking_documents import attach
+    attach(email, message)
     if message.is_html:
         from core.services.email_content import transport_html
         email.body = transport_html(message.body)

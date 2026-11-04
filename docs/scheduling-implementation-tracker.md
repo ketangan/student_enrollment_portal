@@ -9,6 +9,43 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
+### November 3 Booking Statements and Receipts (Local, Not Pushed)
+
+- Added Statement and paid-only Receipt actions to workshop and party payment
+  sections. Both offer a clean Letter-size print view and downloadable PDF.
+  Documents use the saved quote and existing ledger, including tax, additional
+  purchases, deposits, refunds, net received and remaining balance. Missing legacy
+  tax detail is disclosed rather than reconstructed using today's rate.
+- An unpaid statement is not proof of payment. Pending/failed refunds are not
+  returned money; corrected/voided entries are excluded. Canceled bookings show
+  no collectible balance without implying an automatic refund. Overpayments are
+  labeled as overpayments, not unimplemented customer credits.
+- The existing reservation email drawer has an optional PDF attachment selector.
+  Existing school-specific SMTP/fallback, permissions, templates and audit history
+  are reused. The document is frozen when queued and included in idempotency checks;
+  retries cannot silently change its figures. Audit history lists the attachment
+  without adding download/payment buttons. No enrollment/SBMC flow was edited.
+- Added ReportLab and booking-message migration 0053. Forward/reverse migration,
+  existing-message preservation, concurrent submission, retry, school/location
+  isolation, private-note exclusion, Unicode and multi-page output are tested.
+- Final focused verification: **231 Python tests passed**; the three new document
+  modules have 100% line/branch coverage. **126 JavaScript tests passed**, including
+  coverage gates. Migration drift and whitespace checks passed. A first sandboxed
+  rerun could not access PostgreSQL; the authorized local-database rerun passed.
+- Browser checks on the existing localhost:8002 preview covered document navigation,
+  PDF download, template switching with an attachment, and local-only email capture
+  with its audit entry. Receipt and email drawer layouts were checked at 1440x900,
+  768x1024, 1024x768 and 390x844; no horizontal overflow, 44px action controls.
+  PDF pages were rendered and visually inspected, including long payment history.
+  Evidence: `booking-documents-20261103` in the local visualization directory.
+- Full regression is **pending** in detached `booking-documents-regression-20261103`;
+  verify its exit status and unchanged source fingerprint before any release.
+  Physical Android Chrome/printing and real inbox attachment delivery remain pending.
+  No hosted data, real payments or external emails were changed/sent.
+- Main `fc722da` already contains the workshop-enablement/calendar/validation work
+  below. Their dated release-pending headings are historical, not current blockers.
+  This document feature is not Square's formal invoice integration.
+
 ### November 3 Calendar and Participant Validation (Local, Release Pending)
 
 - Calendar day hit areas no longer overlap; the selected circle fits inside its
@@ -123,11 +160,10 @@ studio's data, device and production settings have passed acceptance.
    requires `experience_demo.config.context`, a demo school and demo configuration.
    Replace this with ordinary school-scoped settings/catalog/session data and preserve
    simulation fences. Merely enabling a flag or converting the demo tenant is unsafe.
-2. **Missing promised document.** A dedicated printable/emailable booking statement
-   and payment receipt are not implemented. Generic confirmation pages, ledger entries,
-   visit receipts and weekly prep printing do not satisfy this. Build from the existing
-   ledger; distinguish an unpaid statement from money actually received. Square formal
-   invoicing is a separate integration decision, not completed work.
+2. **Document release and acceptance.** Dedicated printable/emailable booking statements
+   and payment receipts are now implemented locally; see the November 3 entry above.
+   Full regression, deployment and real-device/inbox acceptance remain pending.
+   Square formal invoicing is a separate integration decision, not completed work.
 3. **Emails waiting on Jasmine.** Her November 2 response says templates/triggers are
    still coming. Existing confirmation and seven-day guest reminder machinery is not
    proof of every agreed staff-edit/event reminder trigger. Import approved content,

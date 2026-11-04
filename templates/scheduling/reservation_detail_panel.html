@@ -17,6 +17,10 @@
 {% for entry in payment_history %}<article class="payment-history-entry"><i data-lucide="{% if entry.channel == 'cash' %}banknote{% else %}credit-card{% endif %}" aria-hidden="true"></i><div><strong>{{ entry.get_channel_display }}{% if entry.kind == 'refund' %} &middot; Refund{% elif entry.reversal %} &middot; Voided{% elif not entry.actor_id %} &middot; Paid online{% endif %}</strong><p class="muted">{% if entry.paid_on %}{{ entry.paid_on|date:"M j, Y" }}{% else %}{% timezone item.snapshot.timezone %}{{ entry.created_at|date:"M j, Y" }}{% endtimezone %}{% endif %}{% if entry.external_reference %} &middot; {{ entry.external_reference }}{% endif %}</p>{% if entry.note %}<p>{{ entry.note }}</p>{% endif %}</div><strong>${{ entry.amount|floatformat:2 }}</strong></article>{% empty %}<p class="muted">No payments recorded.</p>{% endfor %}
 </div></div>
 <div class="payment-secondary-actions">
+{% if item.party_request_id or item.workshop_request_id %}<div class="reservation-payment-actions" aria-label="Booking documents">
+<a class="button" href="{% url 'scheduling:booking_document' school_slug=business.slug public_id=item.public_id kind='statement' %}"><i data-lucide="file-text" aria-hidden="true"></i>Statement</a>
+{% if amounts.paid_cents %}<a class="button" href="{% url 'scheduling:booking_document' school_slug=business.slug public_id=item.public_id kind='receipt' %}"><i data-lucide="receipt" aria-hidden="true"></i>Receipt</a>{% endif %}
+</div>{% endif %}
 {% if can_edit_setup %}{% include 'scheduling/reservation_payments.html' %}{% endif %}
 {% include 'scheduling/reservation_terminal_payments.html' %}
 </div>

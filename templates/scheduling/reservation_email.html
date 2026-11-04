@@ -8,6 +8,7 @@
       <div class="form-field">{{ email_form.recipient.label_tag }}{{ email_form.recipient }}{{ email_form.recipient.errors }}</div>
       <div class="form-field">{{ email_form.subject.label_tag }}{{ email_form.subject }}{{ email_form.subject.errors }}</div>
       {% include 'scheduling/email_editor.html' with body_field=email_form.body %}
+      <div class="form-field">{{ email_form.document.label_tag }}{{ email_form.document }}{{ email_form.document.errors }}</div>
       <div class="email-included-link" data-email-link-note hidden role="status"><i data-lucide="link" aria-hidden="true"></i><span data-email-link-hint></span></div>
     </div>
     <footer class="email-drawer-footer email-actions"><button type="button" data-email-close>Cancel</button><button type="submit" name="action" value="send_email" class="primary"><i data-lucide="send" aria-hidden="true"></i>Send email</button></footer>

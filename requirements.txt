@@ -28,6 +28,7 @@ pytest-django==4.11.1
 python-dotenv==1.2.1
 python-dateutil==2.9.0.post0
 pypdf==6.21.2
+reportlab==4.5.1
 PyYAML==6.0.3
 sentry-sdk==2.51.0
 setuptools==80.9.0
