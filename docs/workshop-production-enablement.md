@@ -116,6 +116,13 @@ Its 27 workshop-production tests also verified SELECT-only preflight queries and
 unchanged intake flags. Command coverage was 100% of lines and 98.11% combined
 line/branch coverage. Full regression remains a separate release requirement.
 
+November 4 verification update: detached `production-cutover-regression-20261104`
+completed for `8b803af` with unchanged source. All 5,231 application tests and 23
+migration tests passed (three skips), along with migration drift, overall/module
+coverage and 126 JavaScript checks. The follow-up is still local pending its own
+GitHub release checks. Current actions are maintained in the
+[active Plushie todo list](scheduling-implementation-tracker.md#november-4-active-plushie-todo-list).
+
 The existing launch command is a **workshop configuration check**, not a complete
 studio go-live certificate. It only inspects locations represented by upcoming
 eligible workshop sessions. A location with no sessions, party-only availability,
@@ -143,6 +150,13 @@ payment reconciliation when `--include-live-recovery` is supplied. Verify the
 deployed scheduled command and failure alerts before enabling live intake; do not
 change it as part of demo receipt verification. Token renewal already runs through
 the same bounded maintenance command.
+
+- [ ] **Live-payment launch gate (operator):** add `--include-live-recovery` to the
+  production scheduled command at activation, verify its database/account scope,
+  successful runs and failure alerts, and record idempotent uncertain-payment/refund
+  recovery evidence. Keep processing in-flight payments when intake is paused. This
+  is not complete merely because the command supports the flag. Leave SBMC Stripe
+  processing unchanged.
 
 ### Website and Existing Bookings
 

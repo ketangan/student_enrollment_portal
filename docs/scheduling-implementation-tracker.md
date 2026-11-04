@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: November 3, 2026.
+Updated: November 4, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -8,6 +8,85 @@ Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 This Markdown file remains the source of truth; the viewer does not edit milestone status.
 
 ## Current Status
+
+### November 4 Active Plushie Todo List
+
+This is the current action list. Dated entries below preserve implementation history;
+their earlier "pending" labels do not override the verified status recorded here.
+Operational details live in the [production cutover runbook](workshop-production-enablement.md).
+
+1. **Booking statements/receipts release and hosted acceptance (in progress).**
+   Receipt PR [#18](https://github.com/ketangan/student_enrollment_portal/pull/18)
+   passed all GitHub application, migration and final coverage/JavaScript checks and
+   merged to main as `986d2a2` on November 4. The earlier GitHub status inconsistency
+   is resolved. Confirm Render is serving this revision with migration 0053, then
+   verify a real PDF email arrives at `ketan@mypontora.com` using an existing synthetic
+   booking. Verify the attachment contents, audit history and unchanged SBMC pages.
+   Merge alone is not deployment or inbox-delivery proof. Physical tablet/printing
+   acceptance remains separate.
+2. **Production setup/cutover rehearsal (locally verified; follow-up not released).**
+   Commit `8b803af` lets the read-only workshop preflight inspect configuration while
+   intake stays paused; customer-facing gates remain unchanged. 176 focused tests
+   passed. Detached `production-cutover-regression-20261104` completed with unchanged
+   source: 5,231 application and 23 migration tests passed, three skips, and all
+   migration-drift, overall/module coverage and 126 JavaScript checks passed.
+   Release this follow-up separately through GitHub checks. Runbook preparation is
+   not actual live-school activation, a restore drill or live merchant acceptance.
+3. **Required before live payments: enable and verify scheduled live-payment recovery.**
+   The hosted job currently runs `python manage.py process_booking_maintenance --limit 20`
+   every five minutes. At live activation, the operator must add
+   `--include-live-recovery`, confirm the job targets the correct production database
+   and intended Square accounts, and verify successful runs, failure monitoring and
+   idempotent reconciliation of uncertain payments/refunds. Preserve pending payment
+   processing even when new intake is paused. Do not change SBMC Stripe billing or
+   enable live recovery merely for demo testing. This gate remains OPEN until hosted
+   configuration and recovery evidence are recorded.
+4. **Jasmine's email content and triggers (waiting on input).** Import approved
+   school-scoped templates/triggers, confirm sender choice and verify delivery,
+   private links, PDF attachments and retry safety. Existing template infrastructure
+   is not acceptance of content/triggers she has not supplied.
+5. **Live studio setup and website handover (pending).** Verify each studio's
+   payment mapping, schedules/packages, taxes, capacity, inventory, staff access,
+   guide and policies; reconcile existing Wix bookings/deposits before switching
+   website buttons. Carry forward the waiver process and resolve the recorded
+   seven-day and New York configuration acceptance points below without inventing
+   policies or sending repeat questions without Ketan's agreement.
+6. **Final launch acceptance (pending).** Owner-approved live payment/refund and
+   callback/recovery checks; physical Android Chrome in both orientations, keyboard
+   and printing; production inbox delivery; backup/restore rehearsal and rollback;
+   tenant/location isolation and SBMC regression smoke checks.
+7. **Square Terminal integration (approved additional work; not implemented).**
+   Implement device pairing, per-studio Terminal selection and staff-initiated
+   collection from the reservation, reusing the existing Square account/location
+   mapping and ledger. Track asynchronous completion, cancellation, timeout and
+   uncertain outcomes; verify payment before recording it, with duplicate/retry
+   protection. Complete sandbox/regression testing, then owner-authorized physical
+   Terminal acceptance. This is not merely recording a payment taken separately.
+   Ketan approved doing this while Jasmine tests, without making it a launch
+   dependency. It must not be silently postponed until after launch; finish the
+   current receipt/preflight release work first. Manual recording remains the
+   launch fallback until device collection passes acceptance.
+
+#### Square Workstream Status
+
+| Work | Current status / next action |
+| --- | --- |
+| Connect one or multiple Square sellers; map each studio to its Square location | Implemented. Verify Jasmine's actual live accounts and mappings; preserve original account binding for existing payments/refunds. |
+| Online deposits, remaining balances and refunds | Implemented with sandbox/automated evidence. Owner-authorized live charge/refund and webhook acceptance remain pending. |
+| Scheduled live-payment recovery | Required live-activation gate; see item 3 above. Not yet enabled/verified on the hosted job. |
+| Manual Terminal/cash recording and accessory extras | Implemented; staff currently take the payment separately and record it. Not automatic device collection. |
+| Pair Terminal and send a reservation amount to it | Approved pending implementation; item 7 above. Sandbox success will not substitute for physical-device acceptance. |
+| Formal Square invoices, Square gift-card redemption and Square analytics | Separate evaluation/backlog, not completed or launch-blocking. Pontora's receipt PDFs do not implement these Square products. |
+
+**Deferred until Plushie is in a good state (Ketan, November 4):** separate demo and
+production application services/databases. Research is complete, implementation is
+not started or authorized by this tracker entry. Inventory and rehearse moving only
+demo, leaving the existing production database in place; address onboarding,
+credentials, files, links and jobs. Do not clone live customer data into demo or
+silently include this infrastructure project in the current release. Credits,
+gift-card/promo redemption and analytics remain separately tracked scope, not
+implicit launch blockers. Terminal collection is approved pending work above,
+not deferred by the database-separation decision.
 
 ### November 3 Booking Statements and Receipts (Local, Not Pushed)
 
@@ -38,8 +117,8 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
   768x1024, 1024x768 and 390x844; no horizontal overflow, 44px action controls.
   PDF pages were rendered and visually inspected, including long payment history.
   Evidence: `booking-documents-20261103` in the local visualization directory.
-- Full regression is **pending** in detached `booking-documents-regression-20261103`;
-  verify its exit status and unchanged source fingerprint before any release.
+- November 4 update: detached `booking-documents-regression-20261103` passed with
+  unchanged source; PR #18 also passed all GitHub checks and merged as recorded above.
   Physical Android Chrome/printing and real inbox attachment delivery remain pending.
   No hosted data, real payments or external emails were changed/sent.
 - Main `fc722da` already contains the workshop-enablement/calendar/validation work
@@ -156,13 +235,14 @@ studio's data, device and production settings have passed acceptance.
 
 #### Open Work, Conflicts and Missing Acceptance
 
-1. **Launch blocker: real customer workflow.** The redesigned workshop path still
-   requires `experience_demo.config.context`, a demo school and demo configuration.
-   Replace this with ordinary school-scoped settings/catalog/session data and preserve
-   simulation fences. Merely enabling a flag or converting the demo tenant is unsafe.
+1. **Resolved code dependency: real customer workflow.** Main `fc722da` includes
+   the non-demo workshop enablement described above. The demo-only dependency is no
+   longer an open code blocker. Actual live studio setup and acceptance remain open;
+   do not treat a successful demo or tenant conversion as live activation approval.
 2. **Document release and acceptance.** Dedicated printable/emailable booking statements
    and payment receipts are now implemented locally; see the November 3 entry above.
-   Full regression, deployment and real-device/inbox acceptance remain pending.
+   Full regression and PR checks passed; deployment and real-device/inbox acceptance
+   remain pending as recorded in the November 4 action list.
    Square formal invoicing is a separate integration decision, not completed work.
 3. **Emails waiting on Jasmine.** Her November 2 response says templates/triggers are
    still coming. Existing confirmation and seven-day guest reminder machinery is not
@@ -209,8 +289,10 @@ studio's data, device and production settings have passed acceptance.
   lesson-credit code is not a finished Plushie customer-credit/redemption workflow.
 - Customer self-service time rescheduling is post-launch. Collecting/editing designs
   is not the same as changing a confirmed paid reservation's time.
-- Automatic Square Terminal pairing/collection is not implemented; manual collection
-  and recording is the accepted launch fallback. No hardware claim without device QA.
+- Automatic Square Terminal pairing/collection is not implemented. Ketan subsequently
+  approved completing it while Jasmine tests, without expanding launch dependencies;
+  see the active Square workstream above. Manual collection and recording remains
+  the launch fallback. No hardware claim without device QA.
 - Notion was initially explored; October 23 proposed deciding after testing the staff
   calendar, and Jasmine now approved Studio Prep. No completed sync and no new promise
   to build it. Verify staff adoption rather than silently calling integration delivered.
