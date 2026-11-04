@@ -16,8 +16,8 @@ class Command(BaseCommand):
         if not profile or profile.school.is_demo:
             raise CommandError("Choose an existing non-demo scheduling school.")
         errors = []
-        if not available(profile, require_intake=True):
-            errors.append("Enable the school customer experience, workshops/reservations capabilities and native intake.")
+        if not available(profile):
+            errors.append("Enable the school customer experience and workshops/reservations capabilities.")
         from scheduling.experience_demo.service import sessions
         from scheduling.requests import catalog_for, accepts_reservations
         from scheduling.reservations import workshop_quote, workshop_unit_price
@@ -33,7 +33,7 @@ class Command(BaseCommand):
                     live_account(profile, offering.location)
                 except ValidationError as exc:
                     errors.append(f"{offering.location.name}: {' '.join(exc.messages)}")
-            if not accepts_reservations(session, catalog_for(offering)):
+            if not accepts_reservations(session, catalog_for(offering), require_intake=False):
                 errors.append(f"{offering.name}: session {session.pk} has unavailable catalog choices.")
             try:
                 workshop_quote(offering, workshop_unit_price(offering), 1)
@@ -43,4 +43,5 @@ class Command(BaseCommand):
             raise CommandError("\n".join(errors))
         self.stdout.write(self.style.SUCCESS(
             f"Configuration checks passed for {school}: {len(upcoming)} sessions, {len(checked_locations)} locations. "
+            f"Native intake remains {'enabled' if profile.native_reservations_enabled else 'paused'}. "
             "Physical-device, live payment/refund, inbox delivery and policy acceptance are still required."))
