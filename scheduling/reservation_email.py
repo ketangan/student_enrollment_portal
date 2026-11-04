@@ -125,6 +125,8 @@ class ComposeForm(forms.Form):
     body = forms.CharField(label="Message", max_length=20000, widget=forms.Textarea(attrs={"rows": 10}))
     email_token = forms.CharField(widget=forms.HiddenInput)
     link_token = forms.CharField(required=False, widget=forms.HiddenInput)
+    document = forms.ChoiceField(required=False, label="Attachment", choices=[
+        ("", "None"), ("statement", "Booking statement (PDF)"), ("receipt", "Payment receipt (PDF)")])
 
     def __init__(self, *args, item, options=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -232,8 +234,19 @@ def send(user, slug, public_id, data):
         form.add_error(None, "Email delivery is disabled for this workspace. Check Guest communication settings.")
         return form, None
     try:
-        message = messaging.capture(profile, event_key=f"manual:{item.public_id}:{key}", group_key=f"manual:{key}",
-            recipient=form.cleaned_data["recipient"], subject=form.cleaned_data["subject"], body=body)
+        from . import booking_documents
+        from .message_models import BookingMessage
+        event_key = f"manual:{item.public_id}:{key}"
+        existing = BookingMessage.objects.filter(profile=profile, event_key=event_key).first()
+        kind = form.cleaned_data["document"]
+        document = {}
+        if kind:
+            # Retrying an accepted submission keeps its original financial snapshot.
+            document = (existing.document_snapshot if existing and existing.document_snapshot.get("kind") == kind
+                        else booking_documents.snapshot(item, kind))
+        message = messaging.capture(profile, event_key=event_key, group_key=f"manual:{key}",
+            recipient=form.cleaned_data["recipient"], subject=form.cleaned_data["subject"], body=body,
+            document_snapshot=document)
     except ValidationError as exc:
         form.add_error(None, exc)
         return form, None

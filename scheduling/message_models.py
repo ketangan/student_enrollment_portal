@@ -36,6 +36,7 @@ class BookingMessage(models.Model):
     recipient = models.EmailField()
     subject = models.CharField(max_length=200)
     body = models.TextField()
+    document_snapshot = models.JSONField(default=dict, blank=True)
     payload_digest = models.CharField(max_length=64)
     state = models.CharField(max_length=16, choices=MESSAGE_STATES, default="draft")
     attempts = models.PositiveSmallIntegerField(default=0)
