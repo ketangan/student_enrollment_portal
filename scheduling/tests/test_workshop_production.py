@@ -225,11 +225,22 @@ def test_edit_and_saved_payment_review_use_same_non_demo_flow(live):
     assert s.browser.get(review_url).context["rows"][0]["name"] == "Updated maker"
 
 
-def test_preflight_readonly_success_and_errors(live):
+@pytest.mark.parametrize("intake_enabled", [True, False])
+def test_preflight_readonly_success_and_errors(live, intake_enabled):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
     s = live
+    s.profile.native_reservations_enabled = intake_enabled
+    s.profile.save()
     output = StringIO()
-    call_command("check_workshop_launch", s.school.slug, stdout=output)
+    with CaptureQueriesContext(connection) as queries:
+        call_command("check_workshop_launch", s.school.slug, stdout=output)
+    assert all(query["sql"].lstrip().upper().startswith("SELECT") for query in queries)
     assert "Configuration checks passed" in output.getvalue()
+    assert f"Native intake remains {'enabled' if intake_enabled else 'paused'}" in output.getvalue()
+    s.profile.refresh_from_db()
+    assert s.profile.native_reservations_enabled is intake_enabled
     assert not WorkshopRequest.objects.exists()
     with pytest.raises(CommandError):
         call_command("check_workshop_launch", "missing")
@@ -246,6 +257,25 @@ def test_preflight_readonly_success_and_errors(live):
     s.blue.is_active = False; s.blue.save()
     with pytest.raises(CommandError, match="unavailable catalog"):
         call_command("check_workshop_launch", s.school.slug)
+
+
+@pytest.mark.parametrize("problem", ["school", "profile", "capability"])
+def test_paused_preflight_does_not_bypass_activation_requirements(live, problem):
+    s = live
+    s.profile.native_reservations_enabled = False
+    if problem == "school":
+        s.school.is_active = False
+        s.school.save()
+    elif problem == "profile":
+        s.profile.enabled = False
+    else:
+        s.profile.capabilities = []
+    s.profile.save()
+    with pytest.raises(CommandError, match="Enable the school customer experience"):
+        call_command("check_workshop_launch", s.school.slug)
+    s.profile.refresh_from_db()
+    assert not s.profile.native_reservations_enabled
+    assert not Reservation.objects.exists()
 
 
 def test_config_boundaries_and_renamed_dimensions(live, monkeypatch):

@@ -60,9 +60,9 @@ def accepts_requests(session, catalog):
     return session.offering.accepts_requests and session_available(session, catalog)
 
 
-def accepts_reservations(session, catalog):
+def accepts_reservations(session, catalog, *, require_intake=True):
     profile = session.offering.location.profile
-    return (profile.enabled and profile.native_reservations_enabled
+    return (profile.enabled and (profile.native_reservations_enabled or not require_intake)
             and has_capability(profile, "reservations") and session_available(session, catalog)
             and not session.camps.exists())
 
