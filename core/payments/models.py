@@ -150,17 +150,39 @@ class PaymentAttempt(RecoveryRecord):
     entry = models.OneToOneField(LedgerEntry, null=True, on_delete=models.PROTECT)
     close_requested = models.BooleanField(default=False)
     submitted_at = models.DateTimeField(null=True, blank=True)
+    collection_method = models.CharField(max_length=10, default="online", choices=[("online", "Online"), ("terminal", "Terminal")])
+    device_reference = models.CharField(max_length=100, blank=True)
+    terminal_checkout_id = models.CharField(max_length=255, null=True, unique=True)
+    terminal_status = models.CharField(max_length=20, blank=True)
+    adjustment_cents = models.IntegerField(default=0)
+    adjustment_kind = models.CharField(max_length=10, blank=True, choices=[
+        ("purchase", "Additional purchase"), ("discount", "Discount"), ("credit", "Manual credit")])
+    adjustment_reason = models.CharField(max_length=240, blank=True)
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["order"], condition=Q(state__in=["pending", "open", "unknown"]), name="payment_one_active_attempt"),
             models.CheckConstraint(condition=Q(state__in=["pending", "open", "unknown", "paid", "expired"]), name="payment_attempt_state_valid"),
             models.CheckConstraint(condition=Q(amount_cents__gt=0, amount_cents__lte=99999999), name="payment_attempt_amount_valid"),
+            models.CheckConstraint(condition=(Q(collection_method="online", device_reference="", terminal_checkout_id__isnull=True)
+                | (Q(collection_method="terminal") & ~Q(device_reference=""))), name="payment_attempt_collection_valid"),
+            models.CheckConstraint(condition=Q(adjustment_cents=0, adjustment_kind="", adjustment_reason="") | (
+                Q(collection_method="terminal", requested_by__isnull=False) & (
+                    Q(adjustment_cents=0, adjustment_kind="")
+                    | Q(adjustment_kind="purchase", adjustment_cents__gt=0, adjustment_cents__lte=models.F("amount_cents"))
+                    | Q(adjustment_kind__in=["discount", "credit"], adjustment_cents__lt=0, adjustment_cents__gte=-99999999)
+                )), name="payment_attempt_adjustment_valid"),
         ]
 
     @property
     def amount(self):
         return Decimal(self.amount_cents) / 100
+
+    @property
+    def terminal_message(self):
+        from .square_terminal import status_message
+        return status_message(self)
 
 
 class Refund(RecoveryRecord):
@@ -171,6 +193,7 @@ class Refund(RecoveryRecord):
     key = models.UUIDField(unique=True)
     attempt = models.ForeignKey(PaymentAttempt, related_name="refunds", on_delete=models.PROTECT)
     amount_cents = models.PositiveIntegerField()
+    reduction_cents = models.PositiveIntegerField(default=0)
     reason = models.CharField(max_length=240)
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     state = models.CharField(max_length=20, default="queued", choices=[
@@ -186,6 +209,7 @@ class Refund(RecoveryRecord):
     class Meta:
         constraints = [
             models.CheckConstraint(condition=Q(amount_cents__gt=0, amount_cents__lte=99999999), name="payment_refund_amount_valid"),
+            models.CheckConstraint(condition=Q(reduction_cents__gte=0, reduction_cents__lte=models.F("amount_cents")), name="payment_refund_reduction_valid"),
             models.CheckConstraint(condition=Q(state__in=["queued", "unknown", "pending", "requires_action", "succeeded", "failed", "canceled"]), name="payment_refund_state_valid"),
         ]
 

@@ -1,5 +1,7 @@
 """Shared, account-bound refunds. Domain code authorizes eligibility first."""
 
+from datetime import timedelta
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Sum
@@ -13,7 +15,7 @@ from . import recovery
 
 
 @transaction.atomic
-def approve(attempt, *, key, amount_cents, reason, actor):
+def approve(attempt, *, key, amount_cents, reason, actor, reduction_cents=0):
     School.objects.select_for_update().get(pk=attempt.order.school_id)
     PaymentOrder.objects.select_for_update().get(pk=attempt.order_id)
     attempt = PaymentAttempt.objects.select_related("order__account").get(pk=attempt.pk)
@@ -23,16 +25,20 @@ def approve(attempt, *, key, amount_cents, reason, actor):
         raise ValidationError("Only verified payments can be refunded.")
     if type(amount_cents) is not int or amount_cents < 1 or not reason.strip() or len(reason.strip()) > 240:
         raise ValidationError("Enter a valid refund amount and reason.")
+    if (type(reduction_cents) is not int or not 0 <= reduction_cents <= amount_cents
+            or (reduction_cents and attempt.account.provider != "square")):
+        raise ValidationError("Invalid refund price reduction.")
     existing = Refund.objects.filter(key=key).first()
     if existing:
-        if (existing.attempt_id, existing.amount_cents, existing.reason, existing.actor_id) != (
-                attempt.pk, amount_cents, reason.strip(), actor.pk):
+        if (existing.attempt_id, existing.amount_cents, existing.reason, existing.actor_id, existing.reduction_cents) != (
+                attempt.pk, amount_cents, reason.strip(), actor.pk, reduction_cents):
             raise ValidationError("This refund request was already used with different details.")
         return existing
     allocated = attempt.refunds.exclude(state__in=["failed", "canceled"]).aggregate(value=Sum("amount_cents"))["value"] or 0
     if amount_cents > attempt.amount_cents - allocated:
         raise ValidationError("Refund exceeds the payment available after completed and pending refunds.")
-    return Refund.objects.create(attempt=attempt, key=key, amount_cents=amount_cents, reason=reason.strip(), actor=actor)
+    return Refund.objects.create(attempt=attempt, key=key, amount_cents=amount_cents, reason=reason.strip(), actor=actor,
+        reduction_cents=reduction_cents)
 
 
 @transaction.atomic
@@ -70,7 +76,7 @@ def apply_snapshot(refund, snapshot):
     return refund
 
 
-def process(refund, *, force=False, retry_submission=False):
+def process(refund, *, force=False, retry_submission=False, interactive=False):
     def operation(current):
         validate_account(current.attempt.order, new_payment=False)
         if current.attempt.account_id != current.attempt.order.account_id:
@@ -89,4 +95,7 @@ def process(refund, *, force=False, retry_submission=False):
         else:
             snapshot = gateway(current.attempt.account).retrieve_order_refund(current)
         apply_snapshot(current, snapshot)
-    return recovery.run(refund, operation, force=force)
+    recent_booking = (interactive and refund.attempt.account.provider == "square"
+        and refund.attempt.order.purpose == "booking"
+        and (refund.submitted_at or refund.created_at) > timezone.now() - timedelta(minutes=2))
+    return recovery.run(refund, operation, force=force, minimum_interval=5 if recent_booking else 30)

@@ -1,0 +1,14 @@
+{% if can_edit_setup %}{% if can_refund or refund_form.errors %}
+<dialog id="booking-refund-dialog" class="reservation-payment-dialog" aria-labelledby="booking-refund-title"{% if refund_form.errors %} data-payment-error{% endif %}>
+  <header><h2 id="booking-refund-title">Refund</h2><button type="button" class="payment-dialog-close" data-close-payment-dialog aria-label="Close refund" title="Close"><i data-lucide="x" aria-hidden="true"></i></button></header>
+  <form method="post" action="{{ booking_navigation.section.tabs.0.url }}" class="setup-form" data-booking-refund>
+    {% csrf_token %}<input type="hidden" name="action" value="refund_payment">
+    {% for field in refund_form.hidden_fields %}{{ field }}{{ field.errors }}{% endfor %}
+    {{ refund_form.non_field_errors }}
+    <div class="form-field">{{ refund_form.amount.label_tag }}{{ refund_form.amount }}{{ refund_form.amount.errors }}</div>
+    <div class="form-field">{{ refund_form.description.label_tag }}{{ refund_form.description }}{{ refund_form.description.errors }}</div>
+    <p data-payment-progress role="status" hidden></p>
+    <div class="actions payment-dialog-footer"><button type="button" data-close-payment-dialog>Cancel</button><button type="submit" class="primary"><i data-lucide="rotate-ccw" aria-hidden="true"></i>Refund</button></div>
+  </form>
+</dialog>
+{% endif %}{% endif %}

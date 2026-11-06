@@ -24,6 +24,8 @@ def index(request, school_slug):
     context = _context(request, profile, role, "integrations")
     context.update(connections=service.connections(profile), providers=PROVIDERS.values())
     context["square"] = square_connection.context(request, profile)
+    from .integrations.square_terminals import context as terminal_context
+    context.update(terminal_context(profile))
     return render(request, "scheduling/integrations/index.html", context)
 
 

@@ -40,8 +40,8 @@
     if (index >= 0) show(names[index], location.href, false);
   });
   let busy = false;
-  const updateParticipants = async (url, options = {}, kind = '') => {
-    if (busy) return;
+  const updateParticipants = async (url, options = {}, kind = '', silent = false) => {
+    if (busy) return false;
     busy = true;
     const selector = kind === 'notes' ? 'section[aria-labelledby="internal-notes"]' : kind === 'guests' ? 'section[aria-labelledby="party-guests"]' : kind === 'payment' ? 'section[aria-labelledby="money-title"]' : 'section[aria-labelledby="participants-title"]';
     const section = workspace.querySelector(selector);
@@ -56,12 +56,12 @@
       if (!replacement) throw new Error();
       section.replaceWith(replacement);
       // Preparation quantities and readiness may have changed with these selections.
-      const prep = kind !== 'notes' && page.querySelector('[data-reservation-panel="preparation"]');
+      const prep = !silent && kind !== 'notes' && page.querySelector('[data-reservation-panel="preparation"]');
       if (prep) {
         const current = workspace.querySelector('[data-reservation-panel="preparation"]');
         current.innerHTML = prep.innerHTML;
       }
-      for (const selector of (kind === 'notes' ? [] : ['.reservation-heading', '.reservation-progress'])) {
+      for (const selector of (silent || kind === 'notes' ? [] : ['.reservation-heading', '.reservation-progress'])) {
         const fresh = page.querySelector(selector);
         const current = document.querySelector(selector);
         if (fresh && current) current.replaceWith(fresh);
@@ -75,22 +75,31 @@
       window.lucide?.createIcons();
       if (document.dispatchEvent) document.dispatchEvent(new Event('booking:content-updated'));
       const focusRow = rowId ? document.getElementById(rowId) : replacement;
-      focusRow?.querySelector('textarea, select, input:not([type="hidden"]), .participant-actions a')?.focus({preventScroll: true});
+      if (!silent) focusRow?.querySelector('textarea, select, input:not([type="hidden"]), .participant-actions a')?.focus({preventScroll: true});
       window.scrollTo({top: y, behavior: 'instant'});
+      return true;
     } catch (_) {
+      // The Terminal caller owns feedback for background payment refreshes.
+      if (silent) return false;
       let error = section.querySelector('[data-inline-error]');
-      if (!error) {
+      if (!error && kind !== 'payment') {
         error = document.createElement('p');
         error.dataset.inlineError = '';
         error.setAttribute('role', 'alert');
         section.append(error);
       }
-      error.textContent = kind === 'notes' ? 'Could not refresh notes. Your text is still here. Check the saved notes before trying again.' : 'Could not refresh selections. Check the reservation before trying again.';
+      if (!error) return false;
+      error.hidden = false;
+      error.textContent = kind === 'payment' ? 'Could not refresh payment details. Check the payment status before collecting again.' : kind === 'notes' ? 'Could not refresh notes. Your text is still here. Check the saved notes before trying again.' : 'Could not refresh selections. Check the reservation before trying again.';
+      return false;
     } finally {
       section.removeAttribute('aria-busy');
       busy = false;
     }
   };
+  document.addEventListener('booking:refresh-payment', async event => {
+    event.detail.resolve(await updateParticipants(tabs[0].href, {}, 'payment', true));
+  });
   workspace.addEventListener('click', event => {
     const switchLink = event.target.closest('[data-reservation-switch]');
     if (switchLink) {

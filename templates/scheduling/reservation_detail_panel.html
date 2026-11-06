@@ -6,23 +6,34 @@
 {% include 'scheduling/reservation_summary.html' %}</section>
 {% if item.party_request_id %}{% include 'scheduling/reservation_guests.html' %}{% else %}{% include 'scheduling/reservation_participants.html' %}{% endif %}
 <section class="reservation-payment" aria-labelledby="money-title">
-<header><h2 id="money-title">Payment</h2><span class="payment-state{% if amounts.outstanding_cents %} payment-state-due{% endif %}">{% if item.state == 'canceled' %}Canceled{% elif amounts.outstanding_cents %}Balance due{% else %}Paid in full{% endif %}</span></header>
+<header><div class="payment-heading"><h2 id="money-title" tabindex="-1">Payment</h2><span class="payment-state{% if amounts.outstanding_cents %} payment-state-due{% endif %}">{% if item.state == 'canceled' %}Canceled{% elif amounts.outstanding_cents %}Balance due{% elif amounts.refunded_cents and not amounts.net_cents %}Refunded{% else %}Paid in full{% endif %}</span></div>
+{% if item.party_request_id or item.workshop_request_id %}<div class="reservation-payment-actions" aria-label="Booking documents">
+<a class="button" href="{% url 'scheduling:booking_document' school_slug=business.slug public_id=item.public_id kind='statement' %}"><i data-lucide="file-text" aria-hidden="true"></i>Statement</a>
+{% if amounts.paid_cents %}<a class="button" href="{% url 'scheduling:booking_document' school_slug=business.slug public_id=item.public_id kind='receipt' %}"><i data-lucide="receipt" aria-hidden="true"></i>Receipt</a>{% endif %}
+{% if can_edit_setup and adjustable_refunds %}{% if amounts.paid_cents or refund_form.errors %}<button type="button" data-payment-dialog="booking-refund-dialog"{% if not can_refund and not refund_form.errors %} disabled{% if refund_in_progress %} aria-describedby="booking-refund-pending" title="A refund is still processing"{% elif checkout_pending %} title="A payment is still processing"{% else %} title="No refundable payment remaining"{% endif %}{% endif %}><i data-lucide="rotate-ccw" aria-hidden="true"></i>Refund</button>{% endif %}{% endif %}
+</div>{% endif %}
+</header>
+{% if can_edit_setup and adjustable_refunds %}{% include 'scheduling/reservation_refund_status.html' %}{% endif %}
+{% if can_edit_setup %}{% include 'scheduling/reservation_payment_status.html' %}{% endif %}
 <div class="payment-columns"><div class="payment-balance">
 <span class="muted">Balance due</span><strong class="payment-balance-value">{% if item.state == 'canceled' %}Not due{% else %}${{ amounts.outstanding|floatformat:2 }}{% endif %}</strong>
 <progress aria-label="Payment received" max="{{ amounts.total_cents|default:1 }}" value="{{ amounts.net_cents }}"></progress>
 <p class="muted">${{ amounts.net|floatformat:2 }} of ${{ amounts.total|floatformat:2 }} received</p>
-{% if can_edit_setup %}{% if item.state == 'confirmed' or item.state == 'completed' %}<button type="button" class="primary" data-payment-dialog="terminal-payment-dialog"><i data-lucide="plus" aria-hidden="true"></i> {% if amounts.outstanding_cents %}Record ${{ amounts.outstanding|floatformat:2 }} payment{% else %}Record payment{% endif %}</button>{% endif %}{% endif %}
+{% if can_edit_setup and collection_devices and not checkout_pending and not refund_in_progress %}<button type="button" class="primary" data-payment-dialog="terminal-collection-dialog"><i data-lucide="credit-card" aria-hidden="true"></i>Collect on Terminal</button>{% endif %}
+{% if can_edit_setup and not refund_in_progress %}{% if item.state == 'confirmed' or item.state == 'completed' %}<button type="button"{% if not collection_devices %} class="primary"{% endif %} data-payment-dialog="terminal-payment-dialog"><i data-lucide="plus" aria-hidden="true"></i> {% if amounts.outstanding_cents %}Record ${{ amounts.outstanding|floatformat:2 }} payment{% else %}Record payment{% endif %}</button>{% endif %}{% endif %}
 <dl class="payment-totals"><div><dt>Total</dt><dd>${{ amounts.total|floatformat:2 }}</dd></div>{% if item.order.deposit_cents %}<div><dt>Deposit required</dt><dd>${{ item.order.deposit|floatformat:2 }}</dd></div>{% endif %}<div><dt>Received</dt><dd>${{ amounts.paid|floatformat:2 }}</dd></div><div><dt>Refunded</dt><dd>${{ amounts.refunded|floatformat:2 }}</dd></div></dl>
+{% if amounts.extras_cents or amounts.discount_cents or amounts.credit_cents %}<dl class="payment-totals">{% if amounts.extras_cents %}<div><dt>Additional purchases</dt><dd>${{ amounts.extras|floatformat:2 }}</dd></div>{% endif %}{% if amounts.discount_cents %}<div><dt>Discount</dt><dd>-${{ amounts.discount|floatformat:2 }}</dd></div>{% endif %}{% if amounts.credit_cents %}<div><dt>Manual credit</dt><dd>-${{ amounts.credit|floatformat:2 }}</dd></div>{% endif %}</dl>{% endif %}
+{% if amounts.refund_reduction_cents %}<dl class="payment-totals"><div><dt>Refund price adjustment</dt><dd>-${{ amounts.refund_reduction|floatformat:2 }}</dd></div></dl>{% endif %}
 </div><div class="payment-history"><div class="section-heading"><h3>Payment history</h3></div>
-{% for entry in payment_history %}<article class="payment-history-entry"><i data-lucide="{% if entry.channel == 'cash' %}banknote{% else %}credit-card{% endif %}" aria-hidden="true"></i><div><strong>{{ entry.get_channel_display }}{% if entry.kind == 'refund' %} &middot; Refund{% elif entry.reversal %} &middot; Voided{% elif not entry.actor_id %} &middot; Paid online{% endif %}</strong><p class="muted">{% if entry.paid_on %}{{ entry.paid_on|date:"M j, Y" }}{% else %}{% timezone item.snapshot.timezone %}{{ entry.created_at|date:"M j, Y" }}{% endtimezone %}{% endif %}{% if entry.external_reference %} &middot; {{ entry.external_reference }}{% endif %}</p>{% if entry.note %}<p>{{ entry.note }}</p>{% endif %}</div><strong>${{ entry.amount|floatformat:2 }}</strong></article>{% empty %}<p class="muted">No payments recorded.</p>{% endfor %}
+{% for entry in payment_history %}<article class="payment-history-entry"><i data-lucide="{% if entry.channel == 'cash' %}banknote{% else %}credit-card{% endif %}" aria-hidden="true"></i><div><strong>{{ entry.get_channel_display }}{% if entry.refund_label %} &middot; {{ entry.refund_label }}{% elif entry.kind == 'refund' %} &middot; Refund{% if adjustable_refunds %} completed{% endif %}{% elif entry.reversal %} &middot; Voided{% elif entry.paymentattempt.collection_method == 'terminal' %} &middot; Terminal{% elif not entry.actor_id %} &middot; Paid online{% endif %}</strong><p class="muted">{% if entry.paid_on %}{{ entry.paid_on|date:"M j, Y" }}{% else %}{% timezone item.snapshot.timezone %}{{ entry.created_at|date:"M j, Y" }}{% endtimezone %}{% endif %}{% if entry.external_reference %} &middot; {{ entry.external_reference }}{% endif %}</p>{% if entry.refund_detail %}<p>{{ entry.refund_detail }}</p>{% endif %}{% if entry.note %}<p>{{ entry.note }}</p>{% endif %}
+</div><strong>${{ entry.amount|floatformat:2 }}</strong></article>{% empty %}<p class="muted">No payments recorded.</p>{% endfor %}
 </div></div>
 <div class="payment-secondary-actions">
-{% if item.party_request_id or item.workshop_request_id %}<div class="reservation-payment-actions" aria-label="Booking documents">
-<a class="button" href="{% url 'scheduling:booking_document' school_slug=business.slug public_id=item.public_id kind='statement' %}"><i data-lucide="file-text" aria-hidden="true"></i>Statement</a>
-{% if amounts.paid_cents %}<a class="button" href="{% url 'scheduling:booking_document' school_slug=business.slug public_id=item.public_id kind='receipt' %}"><i data-lucide="receipt" aria-hidden="true"></i>Receipt</a>{% endif %}
-</div>{% endif %}
+<p data-inline-error class="notice error" role="alert" hidden></p>
 {% if can_edit_setup %}{% include 'scheduling/reservation_payments.html' %}{% endif %}
 {% include 'scheduling/reservation_terminal_payments.html' %}
+{% include 'scheduling/reservation_terminal_collection.html' %}
+{% include 'scheduling/reservation_refund.html' %}
 </div>
 </section>
 <details class="reservation-section reservation-summary"{% if audit_open %} open{% endif %}><summary id="audit-title">Audit log</summary>

@@ -74,7 +74,8 @@ operator controls. Keep the customer-experience opt-in, school and profile activ
 existing confirmations, signed links and provider recovery must remain available.
 Do not disable the whole school or delete payment mappings to pause intake.
 
-No schema migration or existing-school activation is included. If code rollback is
+The workshop-enablement change itself includes no schema migration or existing-school
+activation. The optional Terminal addition below has separate additive migrations. If code rollback is
 needed after real bookings exist, use a compatible fix-forward/release preserving
 `customer_experience` snapshot support, rather than blindly rolling back to a
 demo-only version that cannot display those bookings. Do not reverse payment or
@@ -119,8 +120,12 @@ line/branch coverage. Full regression remains a separate release requirement.
 November 4 verification update: detached `production-cutover-regression-20261104`
 completed for `8b803af` with unchanged source. All 5,231 application tests and 23
 migration tests passed (three skips), along with migration drift, overall/module
-coverage and 126 JavaScript checks. The follow-up is still local pending its own
-GitHub release checks. Current actions are maintained in the
+coverage and 126 JavaScript checks. PR #19 subsequently passed all GitHub release
+checks (`41905788167`), merged as `27e7e02` and was verified Live on Render.
+Post-merge main CI `41908101571` subsequently completed successfully.
+No real school was activated and the live-recovery job flag was not enabled.
+Hosted receipt delivery was separately verified in Ketan's inbox with its PDF.
+Current actions are maintained in the
 [active Plushie todo list](scheduling-implementation-tracker.md#november-4-active-plushie-todo-list).
 
 The existing launch command is a **workshop configuration check**, not a complete
@@ -157,6 +162,58 @@ the same bounded maintenance command.
   recovery evidence. Keep processing in-flight payments when intake is paused. This
   is not complete merely because the command supports the flag. Leave SBMC Stripe
   processing unchanged.
+
+### Optional Square Terminal Activation
+
+Terminal collection is separate from online cards and is not a launch dependency.
+The local implementation reuses original order account bindings, the existing
+ledger/refunds/receipts, signed Square callbacks and maintenance recovery. It does
+not change SBMC Stripe/enrollment settings. Manual recording remains available.
+
+1. Deploy only after the final full regression, migrations and review pass. Apply
+   additive `payments.0012-0016` and `scheduling.0054-0056`; old attempts remain online
+   and have zero adjustments. Existing refunds keep zero price reductions. Never
+   reverse these after recording new payment evidence.
+2. Connect/reconnect each intended Square seller through Integrations to authorize
+   `DEVICE_CREDENTIAL_MANAGEMENT`, alongside existing payment permissions. Existing
+   card-only grants still renew without this permission; they cannot pair devices.
+3. Subscribe the existing environment-specific signed Square webhook to
+   `terminal.checkout.created` and `terminal.checkout.updated`, retaining the
+   existing payment/refund subscriptions. Verify callback reachability/signatures.
+4. In Settings > Integrations > Square Terminals, choose the mapped studio, name
+   the device and get a pairing code. Sign the physical Terminal into Terminal API
+   mode with that code (expires after five minutes), then Check pairing. Pairing
+   may require signing out of its current Square POS mode; agree the change with
+   studio staff first. Never pair a sandbox simulation with a live seller.
+   Use **Check connection** separately: pairing is not proof the device is online.
+   The non-charging PING request checks the original device/account binding and
+   polls for its response. Verify this on the actual device before acceptance.
+   Reference: [Square device information/PING](https://developer.squareup.com/docs/terminal-api/advanced-features/check-device-information).
+5. Enable `PAYMENTS_SQUARE_TERMINAL_LIVE_ENABLED=true` only for an authorized live
+   acceptance window, with existing `PAYMENTS_SQUARE_LIVE_ENABLED=true`. The new
+   flag defaults false. Confirm the live-recovery job gate above is satisfied.
+6. With owner authorization, collect a small real payment, verify the correct
+   studio/account, receipt and ledger, then verify the refund. Test cancellation,
+   disconnected Terminal, duplicate submit and delayed callback/recovery. A timed
+   out browser request is not proof that no money was collected. Check status or
+   retry the SAME uncertain request; do not manually record or create another
+   payment until Square confirms its outcome.
+   Also test partial payment, an additional purchase, explicit discount and manual
+   credit. Verify exact charged money, receipt and list/calendar totals. Cancel an
+   adjusted attempt and confirm neither money nor adjustment is recorded. Manual
+   credit does not redeem a Wix balance or enforce future promo-code rules; staff
+   must verify their authority separately. Zero-dollar/credit-only settlement is
+   not a Terminal charge. Additional purchase amounts include any applicable tax;
+   the original saved tax breakdown is not recalculated from today's settings.
+7. Disable a device in settings or turn the Terminal flag off to stop new device
+   collection. Keep webhook and recovery processing running for submitted attempts;
+   do not reverse migrations or delete payment evidence after collecting money.
+
+Local sandbox acceptance used the existing preview/database, synthetic $25 workshop
+and party bookings, and Square's documented virtual devices. Success produced one
+ledger entry, zero balance and a receipt. Customer cancellation produced no entry
+and preserved the balance. No card/physical device or live account was charged.
+Desktop Chromium responsive checks are not physical Android/keyboard/printer proof.
 
 ### Website and Existing Bookings
 

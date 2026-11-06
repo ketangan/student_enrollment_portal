@@ -18,6 +18,8 @@ from django.views.decorators.debug import sensitive_variables
 from .square import API_VERSION, NoRedirect, identifier
 
 SCOPES = ("MERCHANT_PROFILE_READ", "PAYMENTS_READ", "PAYMENTS_WRITE")
+# Existing card-only grants remain valid during renewal; reconnect adds pairing.
+AUTHORIZATION_SCOPES = (*SCOPES, "DEVICE_CREDENTIAL_MANAGEMENT")
 HOSTS = {"test": "https://connect.squareupsandbox.com", "live": "https://connect.squareup.com"}
 ERROR = "Square authorization could not be verified. Reconnect the account or try again later."
 
@@ -54,7 +56,7 @@ class Application:
             raise ValidationError("Square authorization state is invalid.")
         return HOSTS[self.environment] + "/oauth2/authorize?" + urlencode({
             "client_id": self.application_id, "redirect_uri": self.redirect_uri,
-            "scope": " ".join(SCOPES), "session": "false", "state": state})
+            "scope": " ".join(AUTHORIZATION_SCOPES), "session": "false", "state": state})
 
     @sensitive_variables()
     def exchange(self, code):

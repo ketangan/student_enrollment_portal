@@ -11,7 +11,7 @@ KINDS = {"statement": "Booking statement", "receipt": "Payment receipt"}
 
 
 def money(cents):
-    return f"${Decimal(cents) / 100:,.2f}"
+    return f"{'-' if cents < 0 else ''}${abs(Decimal(cents)) / 100:,.2f}"
 
 
 def quote_breakdown(item):
@@ -54,6 +54,9 @@ def snapshot(item, kind):
              [{"label": "Booked amount", "amount": money(item.order.total_cents)}])
     if amounts["extras_cents"]:
         lines.append({"label": "Additional purchases", "amount": money(amounts["extras_cents"])})
+    for field, label in (("discount_cents", "Discount"), ("credit_cents", "Manual credit"), ("refund_reduction_cents", "Refund price adjustment")):
+        if amounts[field]:
+            lines.append({"label": label, "amount": money(-amounts[field])})
     lines.extend([{"label": "Total", "amount": money(amounts["total_cents"]), "strong": True},
                   {"label": "Payments received", "amount": money(amounts["paid_cents"])}])
     if amounts["refunded_cents"]:

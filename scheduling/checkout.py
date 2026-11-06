@@ -2,6 +2,7 @@
 
 from datetime import timedelta
 from decimal import Decimal
+import uuid
 
 from django.core import signing
 from django.core.exceptions import ValidationError
@@ -13,7 +14,7 @@ from django.utils import timezone
 
 from core.payments import checkout, recovery, refunds, service
 from core.payments.providers import gateway
-from core.models import School
+from core.models import AdminAuditLog, School
 from core.payments.models import PaymentAttempt, PaymentOrder, Refund
 from .models import Reservation, SchedulingProfile
 from .access import get_staff_reservation
@@ -68,6 +69,8 @@ def prepare_booking_checkout(item, return_url, *, payment_option="due", cancel_u
     SchedulingProfile.objects.select_for_update().get(pk=item.profile_id)
     item = Reservation.objects.select_related("order__account", "profile").get(pk=item.pk)
     validate_booking_checkout(item)
+    if Refund.objects.filter(attempt__order=item.order, state__in=Refund.ACTIVE, reduction_cents__gt=0).exists():
+        raise ValidationError("A refund is in progress. Wait for it to finish before collecting another payment.")
     if item.state not in ("confirmed", "completed"):
         ensure_capacity(item)
     attempt = checkout.prepare_attempt(item.order, return_url=return_url, payment_option=payment_option, cancel_url=cancel_url)
@@ -139,7 +142,7 @@ def settle_booking_snapshot(attempt, snapshot):
     _settle(item, attempt, previous)
 
 
-def recover_attempt(attempt, *, force=False):
+def recover_attempt(attempt, *, force=False, interactive_terminal=False):
     def operation(current):
         checkout.validate_account(current.order, new_payment=False)
         if current.account_id != current.order.account_id or current.order.purpose != "booking":
@@ -154,7 +157,8 @@ def recover_attempt(attempt, *, force=False):
         if snapshot.get("status") == "open" and (current.close_requested or current.expires_at <= timezone.now()):
             snapshot = gateway(current.account).expire_order_checkout(current, snapshot["id"])
         settle_booking_snapshot(current, snapshot)
-    return recovery.run(attempt, operation, force=force)
+    return recovery.run(attempt, operation, force=force,
+        minimum_interval=5 if interactive_terminal and attempt.collection_method == "terminal" else 30)
 
 
 @transaction.atomic
@@ -168,6 +172,65 @@ def request_close(user, slug, public_id, attempt_id):
     return attempt
 
 
+def supports_refund_adjustment(item):
+    return bool((item.party_request_id or item.workshop_request_id) and item.order.account_id
+        and item.order.account.provider == "square" and item.state in {"confirmed", "completed", "canceled"})
+
+
+def refundable_payments(order):
+    allocated = dict(Refund.objects.filter(attempt__order=order).exclude(state__in=["failed", "canceled"])
+        .values("attempt_id").annotate(amount=Sum("amount_cents")).values_list("attempt_id", "amount"))
+    attempts = order.attempts.filter(state="paid", entry__isnull=False, account_id=order.account_id).exclude(
+        provider_intent="").select_related("order", "account").order_by("-created_at", "-pk")
+    return [(attempt, attempt.amount_cents - allocated.get(attempt.pk, 0)) for attempt in attempts
+        if attempt.amount_cents > allocated.get(attempt.pk, 0)]
+
+
+@transaction.atomic
+def approve_booking_refund(user, slug, public_id, *, key, amount_cents, description="", expected_total, expected_net, expected_state):
+    profile = locked_profile(user, slug)
+    item = get_staff_reservation(profile, public_id, exclude_visits=True)
+    School.objects.select_for_update().get(pk=profile.school_id)
+    PaymentOrder.objects.select_for_update().get(pk=item.order_id)
+    if not supports_refund_adjustment(item):
+        raise ValidationError("Refunds are not available for this booking.")
+    if type(amount_cents) is not int or amount_cents <= 0 or len(description.strip()) > 240:
+        raise ValidationError("Enter a valid refund amount and description.")
+    description = description.strip()
+    previous = AdminAuditLog.objects.filter(model_label="scheduling.reservation", object_id=str(item.pk),
+        changes__action="refund_approved", extra__booking_refund_key=str(key)).first()
+    if previous:
+        if (previous.actor_id, previous.extra["amount_cents"], previous.extra["description"]) != (user.pk, amount_cents, description):
+            raise ValidationError("This refund request was already used with different details.")
+        return list(Refund.objects.filter(attempt__order=item.order, public_id__in=previous.extra["refunds"]))
+    if item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).exists():
+        raise ValidationError("Wait for outstanding payments to finish before refunding.")
+    if Refund.objects.filter(attempt__order=item.order, state__in=Refund.ACTIVE).exists():
+        raise ValidationError("A refund is already in progress. Wait for it to finish before issuing another.")
+    amounts = service.totals(item.order)
+    if (expected_total, expected_net, expected_state) != (amounts["total_cents"], amounts["net_cents"], item.state):
+        raise ValidationError("Booking or payment details changed. Reload before refunding.")
+    payments = refundable_payments(item.order)
+    maximum = min(amounts["net_cents"], sum(available for _, available in payments))
+    if amount_cents > maximum:
+        raise ValidationError(f"Enter an amount of ${max(0, maximum) / 100:.2f} or less.")
+    # Allocate against original payments, newest first; commit every intent before contacting Square.
+    excess = max(0, amounts["net_cents"] - amounts["total_cents"])
+    remaining, approved = amount_cents, []
+    for attempt, available in payments:
+        amount = min(remaining, available)
+        reduction = max(0, amount - excess) if item.state != "canceled" else 0
+        approved.append(refunds.approve(attempt, actor=user, key=uuid.uuid5(key, str(attempt.public_id)),
+            amount_cents=amount, reason=description or "Customer refund", reduction_cents=reduction))
+        excess = max(0, excess - amount)
+        remaining -= amount
+        if not remaining:
+            break
+    _audit(user, item, "refund_approved", booking_refund_key=str(key), amount_cents=amount_cents,
+        description=description, refunds=[str(refund.public_id) for refund in approved])
+    return approved
+
+
 @transaction.atomic
 def approve_refund(user, slug, public_id, attempt_id, **kwargs):
     profile = locked_profile(user, slug)
@@ -177,7 +240,7 @@ def approve_refund(user, slug, public_id, attempt_id, **kwargs):
     if item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).exists():
         raise ValidationError("Wait for outstanding online payments to finish or expire before approving a refund.")
     attempt = get_object_or_404(PaymentAttempt, order=item.order, public_id=attempt_id)
-    existing = Refund.objects.filter(key=kwargs["key"], attempt=attempt).exists()
+    existing = Refund.objects.filter(key=kwargs["key"], attempt=attempt).first()
     if item.state != "canceled" and not existing:
         pending = Refund.objects.filter(attempt__order=item.order, state__in=Refund.ACTIVE).aggregate(
             value=Sum("amount_cents"))["value"] or 0
@@ -188,7 +251,9 @@ def approve_refund(user, slug, public_id, attempt_id, **kwargs):
         if item.state not in ("confirmed", "completed") or type(kwargs["amount_cents"]) is not int or not 0 < kwargs["amount_cents"] <= excess:
             raise ValidationError("Only excess payment can be returned while keeping a confirmed booking. Otherwise cancel it first.")
     refund = refunds.approve(attempt, actor=user, **kwargs)
-    _audit(user, item, "refund_approved", refund=str(refund.public_id), amount_cents=refund.amount_cents)
+    if not existing:
+        _audit(user, item, "refund_approved", refund=str(refund.public_id), amount_cents=refund.amount_cents,
+            reduction_cents=refund.reduction_cents)
     return refund
 
 

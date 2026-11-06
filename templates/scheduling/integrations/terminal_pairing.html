@@ -1,0 +1,10 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Pair Square Terminal{% endblock %}
+{% block content %}
+<section class="terminal-pairing"><h2>Pair Square Terminal</h2>
+<p>On the Terminal, sign out, then choose Sign in with a device code.</p>
+<p class="terminal-pairing-code">{{ pairing_code }}</p>
+<p>Enter this code within five minutes. Then return to settings and select Check pairing.</p>
+<a class="button" href="{% url 'scheduling:integrations' school_slug=business.slug %}">Back to Integrations</a>
+</section>
+{% endblock %}

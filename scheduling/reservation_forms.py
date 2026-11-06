@@ -66,5 +66,18 @@ class RefundForm(forms.Form):
 
     def __init__(self, *args, order, **kwargs):
         super().__init__(*args, **kwargs)
+        attempts = list(order.attempts.filter(state="paid").order_by("created_at"))
         self.fields["attempt"].choices = [(str(a.public_id), f"${a.amount:.2f} (payment ...{a.provider_intent[-8:]})")
-            for a in order.attempts.filter(state="paid").order_by("created_at")]
+            for a in attempts]
+
+
+class BookingRefundForm(forms.Form):
+    key = forms.UUIDField(widget=forms.HiddenInput, initial=uuid.uuid4)
+    expected_total = forms.IntegerField(min_value=0, widget=forms.HiddenInput)
+    expected_net = forms.IntegerField(min_value=0, widget=forms.HiddenInput)
+    expected_state = forms.ChoiceField(choices=Reservation.State.choices, widget=forms.HiddenInput)
+    amount = forms.DecimalField(label="Amount to refund (USD)", min_value=Decimal("0.01"),
+        max_value=Decimal("999999.99"), decimal_places=2, max_digits=8,
+        widget=forms.NumberInput(attrs={"inputmode": "decimal", "placeholder": "0.00"}))
+    description = forms.CharField(label="Description (optional)", required=False, max_length=240,
+        widget=forms.Textarea(attrs={"rows": 2}))

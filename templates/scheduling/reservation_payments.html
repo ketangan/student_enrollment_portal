@@ -1,17 +1,15 @@
 {% load tz %}
+{% if payment_url and not adjustable_refunds %}
 <div class="reservation-payment-actions">
-{% if payment_url %}
 {% if item.state == 'canceled' and amounts.net_cents %}<a class="button" href="{% url 'scheduling:refund_create' school_slug=business.slug public_id=item.public_id %}">Review refund</a>{% endif %}
 {% if item.state == 'completed' and overpaid %}<a class="button" href="{% url 'scheduling:refund_create' school_slug=business.slug public_id=item.public_id %}">Refund excess payment</a>{% endif %}
 {% if item.state == 'confirmed' and overpaid %}<a class="button" href="{% url 'scheduling:refund_create' school_slug=business.slug public_id=item.public_id %}">Refund excess payment</a>{% endif %}
-{% endif %}
 </div>
-{% for attempt in attempts %}<div class="payment-operation"><p class="muted" role="status">Online payment of ${{ attempt.amount|floatformat:2 }} is being verified.</p>
-{% if attempt.attention %}<p class="notice error" role="alert">{{ attempt.attention }}</p>{% endif %}
-{% if attempt.close_requested %}<p>Checkout closure requested. Waiting for verification.</p>{% endif %}
-</div>{% endfor %}
+{% endif %}
 {% if item.state == 'review' %}<form class="withdraw-form" method="post" action="{% url 'scheduling:payment_review' school_slug=business.slug public_id=item.public_id %}">{% csrf_token %}<label><input type="checkbox" name="confirm" value="yes" required> Confirm this booking if capacity and payment are valid</label><button>Recheck and confirm</button></form>{% endif %}
+{% if not adjustable_refunds %}
 {% for refund in refunds %}<div class="payment-operation"><h3>{{ refund.get_state_display }} &middot; ${{ refund.amount|floatformat:2 }}</h3><p>{{ refund.reason }}</p>
 {% if refund.attention %}<p class="notice error" role="alert">{{ refund.attention }}</p>{% endif %}
 {% if refund.state == 'requires_action' %}<p class="notice error">Check this refund in the payment provider's dashboard. It has not been recorded as completed.</p>{% endif %}
-<form method="post" action="{% url 'scheduling:refund_recover' school_slug=business.slug public_id=item.public_id refund_id=refund.public_id %}">{% csrf_token %}{% if refund.state == 'unknown' and not refund.provider_refund and item.order.account.provider == 'square' %}<button name="action" value="retry">Retry refund</button><p class="muted">Retries this approved refund, not a new refund.</p>{% else %}<button name="action" value="check">Check refund status</button>{% endif %}</form></div>{% endfor %}
+{% if refund.state != 'failed' %}<form method="post" action="{% url 'scheduling:refund_recover' school_slug=business.slug public_id=item.public_id refund_id=refund.public_id %}"{% if adjustable_refunds %} data-refund-poll data-state="{{ refund.state }}" data-status="{{ refund.state }}" data-attention="{{ refund.attention }}" data-paused="{% if refund.recovery_failures >= 6 %}true{% else %}false{% endif %}"{% endif %}>{% csrf_token %}{% if refund.state == 'unknown' and not refund.provider_refund and item.order.account.provider == 'square' %}<button name="action" value="retry">Retry refund</button><p class="muted">Retries this approved refund, not a new refund.</p>{% else %}<button name="action" value="check">Check refund status</button>{% endif %}<p data-terminal-message class="notice error" role="alert" hidden></p></form>{% endif %}</div>{% endfor %}
+{% endif %}

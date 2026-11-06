@@ -53,7 +53,7 @@ def test_authorization_uses_explicit_environment_and_minimal_permissions(environ
     values = parse_qs(url.query)
     assert url.netloc == host and url.path == "/oauth2/authorize"
     assert values == {"client_id": [app_id], "redirect_uri": [redirect], "session": ["false"],
-                      "state": ["n" * 43], "scope": [" ".join(oauth.SCOPES)]}
+                      "state": ["n" * 43], "scope": [" ".join(oauth.AUTHORIZATION_SCOPES)]}
     assert "private-secret" not in repr(app) and "private-secret" not in url.query
 
 

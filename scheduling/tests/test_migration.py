@@ -45,6 +45,9 @@ def test_square_and_deposit_upgrade_preserves_existing_stripe_payments():
             provider_session="cs_test_migration", provider_intent=entry.reference,
             expires_at=timezone.now(), success_url="https://example.invalid/return",
             cancel_url="https://example.invalid/return")
+        actor = apps.get_model(settings.AUTH_USER_MODEL).objects.create(username="refund-migration-owner")
+        old_refund = apps.get_model("payments", "Refund").objects.create(attempt=attempt,
+            key=uuid.uuid4(), amount_cents=1000, reason="Existing refund", actor=actor, state="pending")
         MigrationExecutor(connection).migrate(latest)
         from core.payments.models import PaymentAccount, PaymentAttempt, PaymentOrder, LedgerEntry
         from scheduling.models import SchedulingProfile, Offering
@@ -56,9 +59,18 @@ def test_square_and_deposit_upgrade_preserves_existing_stripe_payments():
                 saved_account.enabled) == ("stripe", account.reference, "", True)
         assert (saved_order.account_id, saved_order.total_cents, saved_order.deposit_cents) == (account.pk, 6500, 2500)
         assert (saved_attempt.state, saved_attempt.entry_id, saved_attempt.submitted_at) == ("paid", entry.pk, None)
+        assert (saved_attempt.collection_method, saved_attempt.device_reference,
+                saved_attempt.terminal_checkout_id, saved_attempt.terminal_status) == ("online", "", None, "")
+        assert (saved_attempt.adjustment_cents, saved_attempt.adjustment_kind,
+                saved_attempt.adjustment_reason, saved_attempt.requested_by_id) == (0, "", "", None)
+        from scheduling.models import SquareTerminal
+        assert not SquareTerminal.objects.exists()
         assert (saved_entry.channel, saved_entry.amount_cents, saved_entry.reference) == ("stripe", 2500, entry.reference)
         assert (saved_entry.external_reference, saved_entry.paid_on, saved_entry.note, saved_entry.reverses_id) == ("", None, "", None)
         assert saved_entry.extra_charge_cents == 0
+        from core.payments.models import Refund
+        saved_refund = Refund.objects.get(pk=old_refund.pk)
+        assert (saved_refund.reduction_cents, saved_refund.amount_cents, saved_refund.state) == (0, 1000, "pending")
         assert SchedulingProfile.objects.get(pk=profile.pk).payment_provider == "stripe"
         assert Offering.objects.get(pk=offering.pk).deposit_per_participant == 0
         from scheduling.models import Location, PartyRequest
