@@ -1,0 +1,25 @@
+<section class="square-settings" aria-labelledby="terminal-heading">
+<div class="section-heading"><h2 id="terminal-heading">Square Terminals</h2></div>
+{% if business.is_demo %}<p class="muted">Sandbox devices simulate payments without charging a card.</p>{% endif %}
+<div class="square-accounts">
+{% for device in square_terminals %}<article class="square-account">
+  <div class="square-account-heading"><h3>{{ device.name }}</h3><span class="status">{{ device.get_status_display }}</span></div>
+  <p class="muted">{{ device.location.name }}{% if device.simulation %} &middot; Sandbox: {{ device.simulation_label }}{% endif %}</p>
+  {% if not device.simulation and device.status == 'paired' %}<form method="post" action="{% url 'scheduling:square_terminal_update' school_slug=business.slug %}" data-terminal-health data-active="{% if device.ping_status == 'PENDING' or device.ping_status == 'IN_PROGRESS' %}true{% else %}false{% endif %}">{% csrf_token %}<input type="hidden" name="device" value="{{ device.pk }}"><button name="action" value="ping">Check connection</button><p role="status" data-terminal-message>{% if device.ping_status == 'COMPLETED' %}Terminal responded at {{ device.ping_checked_at|date:"M j, g:i A" }}.{% elif device.ping_status == 'PENDING' or device.ping_status == 'IN_PROGRESS' %}Checking Terminal connection...{% elif device.ping_status == 'CANCELED' %}Terminal did not respond.{% endif %}</p></form>{% endif %}
+  <form method="post" action="{% url 'scheduling:square_terminal_update' school_slug=business.slug %}" class="actions">
+    {% csrf_token %}<input type="hidden" name="device" value="{{ device.pk }}">
+    {% if device.status == 'disabled' %}<button name="action" value="enable">Enable</button>{% else %}
+    {% if not device.simulation %}<button name="action" value="check">Check pairing</button>{% endif %}
+    <button name="action" value="disable">Disable</button>
+    {% endif %}
+  </form>
+</article>{% empty %}<p class="muted">No Terminals paired.</p>{% endfor %}
+</div>
+<details class="square-add-account"><summary class="button"><i data-lucide="plus" aria-hidden="true"></i>{% if business.is_demo %}Add sandbox device{% else %}Pair Terminal{% endif %}</summary>
+  <form method="post" action="{% url 'scheduling:square_terminal_update' school_slug=business.slug %}" class="setup-form terminal-setup-form">
+    {% csrf_token %}{{ terminal_form.key }}
+    {% for field in terminal_form.visible_fields %}<div class="form-field">{{ field.label_tag }}{{ field }}</div>{% endfor %}
+    <button name="action" value="add" class="primary">{% if business.is_demo %}Add device{% else %}Get pairing code{% endif %}</button>
+  </form>
+</details>
+</section>

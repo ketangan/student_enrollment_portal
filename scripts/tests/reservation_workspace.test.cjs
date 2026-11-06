@@ -12,7 +12,7 @@ function element(extra = {}) {
     classList: {toggle() {}}, querySelector() { return null; }, ...extra};
 }
 
-function page(inquiry = false) {
+function page(inquiry = false, failRequest = false) {
   const panels = ['details', 'preparation'].map(name => element({dataset: {reservationPanel: name}}));
   const tabs = ['http://localhost/detail/', 'http://localhost/detail/prep/'].map(href => element({href}));
   if (inquiry) tabs[1].href = 'http://localhost/detail/?tab=preparation';
@@ -32,7 +32,7 @@ function page(inquiry = false) {
   class FormData { constructor(form) { this.form = form; } }
   class DOMParser { parseFromString() { return {getElementById: () => null, querySelector: selector => selector.startsWith('section') ? replacement : null}; } }
   vm.runInNewContext(source, {document, window, history, location, URL, FormData, DOMParser,
-    fetch: async (url, options) => { calls.push({url, options}); return {ok: true, text: async () => '<section />'}; }});
+    fetch: async (url, options) => { calls.push({url, options}); if (failRequest) throw new Error('Offline'); return {ok: true, text: async () => '<section />'}; }});
   return {panels, tabs, notes, workspace, window, section, replacement, pushes, calls, document, menu, location};
 }
 
@@ -90,3 +90,37 @@ test(`${action} ignores the shadowing action field and restores scroll position`
   assert.equal(p.notes.value, 'An unsaved note');
 });
 }
+
+test('automatic payment refresh does not move focus or replace preparation/notes', async () => {
+  const p = page();
+  p.replacement.querySelector = () => ({focus() { throw Error('Automatic refresh stole focus'); }});
+  let result;
+  await p.document.listeners['booking:refresh-payment']({detail: {resolve(value) { result = value; }}});
+  assert.equal(result, true);
+  assert.equal(p.section.replacement, p.replacement);
+  assert.equal(p.panels[1].innerHTML, undefined);
+  assert.equal(p.notes.value, 'An unsaved note');
+});
+
+test('failed automatic payment refresh leaves feedback to the Terminal form', async () => {
+  const p = page(false, true);
+  p.section.append = () => assert.fail('Payment feedback appended outside its form');
+  let result;
+  await p.document.listeners['booking:refresh-payment']({detail: {resolve(value) { result = value; }}});
+  assert.equal(result, false);
+  assert.equal(p.section.attributes['aria-busy'], undefined);
+  assert.equal(p.notes.value, 'An unsaved note');
+});
+
+test('failed manual payment refresh uses the existing aligned error slot', async () => {
+  const p = page(false, true);
+  const error = {hidden: true};
+  p.section.querySelector = selector => selector === '[data-inline-error]' ? error : null;
+  p.section.append = () => assert.fail('Payment feedback appended outside its slot');
+  const form = {elements: {action: {value: 'correct_terminal'}}, getAttribute: () => null};
+  p.workspace.listeners.submit({target: form, preventDefault() {}});
+  await new Promise(setImmediate);
+  assert.equal(error.hidden, false);
+  assert.match(error.textContent, /Could not refresh payment details/);
+  assert.equal(p.section.attributes['aria-busy'], undefined);
+});

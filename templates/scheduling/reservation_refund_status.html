@@ -1,0 +1,24 @@
+{% if refunds %}
+<div class="booking-refund-status" data-refund-status>
+  {% if refund_in_progress %}<div class="refund-status-actions"><p id="booking-refund-pending" class="muted" role="status" data-refund-summary><i data-lucide="loader-circle" class="payment-spinner" aria-hidden="true"></i>Refund pending &middot; ${{ refund_pending_amount|floatformat:2 }}</p><button type="submit" form="refund-check-{{ refund_check_id }}" name="action" value="check_all" data-refund-check><i data-lucide="refresh-cw" aria-hidden="true"></i>Refresh status</button></div>{% endif %}
+  <p data-payment-progress role="status" hidden></p>
+  <div data-refund-feedback hidden>
+    <p data-terminal-message class="notice error" role="alert"></p>
+  </div>
+  {% for refund in refunds %}
+    {% if refund.state == 'failed' %}<p class="notice error">Refund of ${{ refund.amount|floatformat:2 }} failed. No money was returned for this part of the refund.</p>{% endif %}
+    {% if refund.attention %}<p class="notice error" role="alert">{{ refund.attention }}</p>{% endif %}
+    {% if refund.state == 'requires_action' %}<p class="notice error">Check the ${{ refund.amount|floatformat:2 }} refund in Square. It has not been recorded as completed.</p>{% endif %}
+    {% if refund.state != 'failed' %}
+    <form id="refund-check-{{ refund.public_id }}" method="post" action="{% url 'scheduling:refund_recover' school_slug=business.slug public_id=item.public_id refund_id=refund.public_id %}" data-refund-poll data-poll-started="{{ refund.created_at|date:'U' }}" data-state="{{ refund.state }}" data-status="{{ refund.state }}" data-attention="{{ refund.attention }}" data-paused="{% if refund.recovery_failures >= 6 %}true{% else %}false{% endif %}">
+      {% csrf_token %}
+      {% if refund.state == 'unknown' and not refund.provider_refund %}
+        <button name="action" value="retry">Retry ${{ refund.amount|floatformat:2 }} refund</button>
+      {% elif refund.recovery_failures >= 6 or refund.state == 'requires_action' %}
+        <button name="action" value="check">Check ${{ refund.amount|floatformat:2 }} refund</button>
+      {% endif %}
+    </form>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endif %}

@@ -76,3 +76,39 @@ class SquareLocationMapping(models.Model):
             models.UniqueConstraint(fields=["location", "environment"], name="square_location_environment_unique"),
             models.CheckConstraint(condition=models.Q(environment__in=["test", "live"]), name="square_mapping_environment_valid"),
         ]
+
+
+class SquareTerminal(models.Model):
+    """A paired device stays bound to its original seller/location account."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    location = models.ForeignKey("scheduling.Location", on_delete=models.PROTECT)
+    account = models.ForeignKey("payments.PaymentAccount", on_delete=models.PROTECT)
+    name = models.CharField(max_length=60)
+    device_id = models.CharField(max_length=100, blank=True)
+    code_id = models.CharField(max_length=100, blank=True)
+    simulation = models.BooleanField(default=False)
+    ping_key = models.UUIDField(null=True, editable=False)
+    ping_id = models.CharField(max_length=255, blank=True, editable=False)
+    ping_started_at = models.DateTimeField(null=True, editable=False)
+    ping_checked_at = models.DateTimeField(null=True, editable=False)
+    ping_status = models.CharField(max_length=20, blank=True, editable=False)
+    status = models.CharField(max_length=10, default="pairing", choices=[
+        ("pairing", "Pairing"), ("paired", "Paired"), ("expired", "Code expired"), ("disabled", "Disabled")])
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def simulation_label(self):
+        from core.payments.square_terminal import SIMULATIONS
+        return next((label for label, identity in SIMULATIONS.values() if identity == self.device_id), "Virtual device")
+
+    @property
+    def collection_maximum(self):
+        from core.payments.square_terminal import maximum_amount_cents
+        maximum = maximum_amount_cents("test" if self.simulation else "live", self.device_id)
+        return maximum / 100 if maximum is not None else 999999.99
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["account", "device_id"],
+                condition=~models.Q(device_id=""), name="square_terminal_device_unique"),
+        ]

@@ -50,11 +50,15 @@ def staff_reservations(profile):
         value=Sum(Case(When(kind="payment", then=F("amount_cents")), default=-F("amount_cents"), output_field=IntegerField()))).values("value")
     extras = LedgerEntry.objects.filter(order_id=OuterRef("order_id")).order_by().values("order_id").annotate(
         value=Sum(Case(When(kind="void", then=-F("extra_charge_cents")), default=F("extra_charge_cents"), output_field=IntegerField()))).values("value")
+    adjustments = PaymentAttempt.objects.filter(order_id=OuterRef("order_id"), state="paid").order_by().values("order_id").annotate(
+        value=Sum("adjustment_cents")).values("value")
+    reductions = Refund.objects.filter(attempt__order_id=OuterRef("order_id"), state="succeeded").order_by().values("attempt__order_id").annotate(
+        value=Sum("reduction_cents")).values("value")
     return scope_reservations(Reservation.objects.filter(profile=profile, visit_booking__isnull=True), profile).select_related("order").annotate(
         location_name=Coalesce("workshop_request__session__offering__location__name", "party_request__offering__location__name",
             "camp_registration__camp__offering__location__name", Value(""), output_field=CharField()),
         net_received=Coalesce(Subquery(net), 0),
-        effective_total=F("order__total_cents") + Coalesce(Subquery(extras), 0),
+        effective_total=F("order__total_cents") + Coalesce(Subquery(extras), 0) + Coalesce(Subquery(adjustments), 0) - Coalesce(Subquery(reductions), 0),
         payment_pending=Exists(PaymentAttempt.objects.filter(order_id=OuterRef("order_id"), state__in=PaymentAttempt.ACTIVE)),
         refund_pending=Exists(Refund.objects.filter(attempt__order_id=OuterRef("order_id"), state__in=Refund.ACTIVE)),
         materials_used=Exists(StockAllocation.objects.filter(reservation_id=OuterRef("pk"), consumed_at__isnull=False)),

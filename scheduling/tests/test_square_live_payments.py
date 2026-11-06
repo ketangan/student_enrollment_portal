@@ -63,6 +63,44 @@ def live_payment(attempt):
     return payment
 
 
+def test_live_terminal_gate_verified_settlement_and_recovery(live_attempt, monkeypatch, settings):
+    from core.payments import square_terminal
+    from scheduling import terminal_checkout
+    attempt = live_attempt
+    attempt.collection_method = "terminal"
+    attempt.device_reference = "physical_terminal"
+    attempt.save(update_fields=["collection_method", "device_reference"])
+    from scheduling.models import SquareTerminal
+    item = attempt.order.reservation
+    item.state = "confirmed"
+    item.save(update_fields=["state"])
+    SquareTerminal.objects.create(account=attempt.account, location_id=terminal_checkout.location_id(item),
+        name="Live counter", device_id=attempt.device_reference, status="paired")
+    settings.PAYMENTS_SQUARE_TERMINAL_LIVE_ENABLED = False
+    call = Mock()
+    monkeypatch.setattr(square, "request", call)
+    with pytest.raises(ValidationError, match="not enabled"):
+        square_terminal.create(attempt)
+    assert not call.called
+    settings.PAYMENTS_SQUARE_TERMINAL_LIVE_ENABLED = True
+    result = {"id": "terminal_live_checkout", "status": "COMPLETED",
+        "amount_money": {"amount": attempt.amount_cents, "currency": "USD"},
+        "reference_id": str(attempt.public_id), "device_options": {"device_id": attempt.device_reference},
+        "location_id": attempt.account.location_reference, "app_id": "sq0idp-live-app",
+        "payment_ids": [live_payment(attempt)["id"]]}
+    payment = live_payment(attempt)
+    payment["terminal_checkout_id"] = result["id"]
+    call.side_effect = lambda method, path, payload=None, **kwargs: (
+        {"payment": payment} if path.startswith("/payments/") else {"checkout": result})
+    terminal_checkout.submit(attempt)
+    attempt.refresh_from_db()
+    assert attempt.state == "paid" and attempt.entry.environment == "live"
+    assert attempt.order.entries.count() == 1
+    settings.PAYMENTS_SQUARE_TERMINAL_LIVE_ENABLED = False
+    terminal_checkout.settle(attempt, result)
+    assert attempt.order.entries.count() == 1
+
+
 def pay(attempt, monkeypatch):
     call = Mock(return_value={"payment": live_payment(attempt)})
     monkeypatch.setattr(square, "request", call)

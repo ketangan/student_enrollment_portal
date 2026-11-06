@@ -17,7 +17,7 @@ def due_records(model, *, active):
     ).filter(Q(lease_until__isnull=True) | Q(lease_until__lte=now)).order_by("next_check_at", "pk")
 
 
-def run(record, operation, *, force=False):
+def run(record, operation, *, force=False, minimum_interval=30):
     """Lease commits before I/O; failed/ambiguous work remains durable and visible."""
     model = type(record)
     now = timezone.now()
@@ -26,7 +26,7 @@ def run(record, operation, *, force=False):
         current = model.objects.select_for_update().get(pk=record.pk)
         if current.lease_until and current.lease_until > now:
             return False
-        if current.checked_at and current.checked_at > now - timedelta(seconds=30):
+        if current.checked_at and current.checked_at > now - timedelta(seconds=minimum_interval):
             return False
         if not force and (current.recovery_failures >= 6 or (current.next_check_at and current.next_check_at > now)):
             return False

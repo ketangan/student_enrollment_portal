@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: November 4, 2026.
+Updated: November 6, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -9,29 +9,37 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
-### November 4 Active Plushie Todo List
+### November 5 Active Plushie Todo List
 
 This is the current action list. Dated entries below preserve implementation history;
 their earlier "pending" labels do not override the verified status recorded here.
 Operational details live in the [production cutover runbook](workshop-production-enablement.md).
 
-1. **Booking statements/receipts release and hosted acceptance (in progress).**
+1. **Booking statements/receipts release and hosted verification (complete).**
    Receipt PR [#18](https://github.com/ketangan/student_enrollment_portal/pull/18)
    passed all GitHub application, migration and final coverage/JavaScript checks and
    merged to main as `986d2a2` on November 4. The earlier GitHub status inconsistency
-   is resolved. Confirm Render is serving this revision with migration 0053, then
-   verify a real PDF email arrives at `ketan@mypontora.com` using an existing synthetic
-   booking. Verify the attachment contents, audit history and unchanged SBMC pages.
-   Merge alone is not deployment or inbox-delivery proof. Physical tablet/printing
-   acceptance remains separate.
-2. **Production setup/cutover rehearsal (locally verified; follow-up not released).**
+   is resolved. Render deployment was verified Live. Hosted workshop receipt/PDF
+   and party statement/receipt totals passed, including a $150 deposit and $399.45
+   remaining balance. One synthetic receipt email arrived in `ketan@mypontora.com`
+   at 20:30:48 UTC; its actual PDF contents and provider-acceptance audit were checked.
+   Receipt/email layouts passed desktop, phone and both tablet viewport checks,
+   including landscape attachment scrolling. SBMC registration/billing read-only
+   smoke checks passed. Evidence: `booking-receipt-release-20261104` in the local
+   visualization directory. Physical Android/printing acceptance remains separate.
+   Minor copy follow-up: singular document participant wording.
+2. **Production setup/cutover preflight release (deployed; live activation pending).**
    Commit `8b803af` lets the read-only workshop preflight inspect configuration while
    intake stays paused; customer-facing gates remain unchanged. 176 focused tests
    passed. Detached `production-cutover-regression-20261104` completed with unchanged
    source: 5,231 application and 23 migration tests passed, three skips, and all
    migration-drift, overall/module coverage and 126 JavaScript checks passed.
-   Release this follow-up separately through GitHub checks. Runbook preparation is
-   not actual live-school activation, a restore drill or live merchant acceptance.
+   PR #19 passed application, migration and final coverage/JavaScript checks in run
+   `41905788167`; merged to main as `27e7e02` and verified Live on Render (1m 50s).
+   The rebased release tree matches the locally tested application/test source.
+   Post-merge main CI `41908101571` subsequently completed successfully. Hosted booking and SBMC registration smoke
+   checks passed after deployment. No school was activated or payment settings
+   changed. Runbook preparation is not a restore drill or live merchant acceptance.
 3. **Required before live payments: enable and verify scheduled live-payment recovery.**
    The hosted job currently runs `python manage.py process_booking_maintenance --limit 20`
    every five minutes. At live activation, the operator must add
@@ -55,17 +63,261 @@ Operational details live in the [production cutover runbook](workshop-production
    callback/recovery checks; physical Android Chrome in both orientations, keyboard
    and printing; production inbox delivery; backup/restore rehearsal and rollback;
    tenant/location isolation and SBMC regression smoke checks.
-7. **Square Terminal integration (approved additional work; not implemented).**
-   Implement device pairing, per-studio Terminal selection and staff-initiated
-   collection from the reservation, reusing the existing Square account/location
-   mapping and ledger. Track asynchronous completion, cancellation, timeout and
-   uncertain outcomes; verify payment before recording it, with duplicate/retry
-   protection. Complete sandbox/regression testing, then owner-authorized physical
-   Terminal acceptance. This is not merely recording a payment taken separately.
-   Ketan approved doing this while Jasmine tests, without making it a launch
-   dependency. It must not be silently postponed until after launch; finish the
-   current receipt/preflight release work first. Manual recording remains the
-   launch fallback until device collection passes acceptance.
+7. **Square Terminal integration (implemented; release checks in progress, live activation pending).**
+   Added per-studio device pairing and Collect on Terminal for confirmed workshop
+   and party reservations, using the existing Square mappings, ledger, receipts,
+   refund service and recovery job. Verified real Square sandbox success ($25)
+   and customer cancellation (unchanged $25 balance), plus 514 focused automated
+   tests and the Stripe-history migration regression. New-module combined coverage
+   is 96.05%; each new module exceeds 90%. Final review added revalidation before
+   first send/retry: disabled devices/profiles and canceled bookings cannot start
+   collection, while already submitted payments remain recoverable. Desktop, phone and both tablet viewport
+   checks cover collection and settings; physical Android/Terminal acceptance is
+   still pending. Full detached evidence: `square-terminal-final-regression-20261104`
+   in the local visualization directory. That run was checked on November 5 and
+   passed with unchanged source: 5,289 application tests, 23 migration tests,
+   126 JavaScript tests and overall/module coverage gates. It predates the
+   improvements below and is not release evidence for them. Live Terminal collection defaults OFF; rollout steps are
+   in the production runbook. No real charge, hosted change or live activation was
+   made. The earlier `square-terminal-regression-20261104` run was deliberately
+   interrupted before this final guard; it is not passing release evidence. Manual
+   recording remains the launch fallback.
+
+#### November 5 Terminal Collection Improvements (Local)
+
+- Automatic five-second status checks refresh only the payment section and audit,
+  preserving unsaved notes and preparation edits. Provider checks retain a shared
+  lease, error backoff and retry limits. Other payment recovery retains its
+  existing interval. Manual checks remain available when automatic checks fail.
+- Staff can enter a positive amount ($0.01 minimum). A smaller amount is a partial
+  payment by default. An optional "Nothing more to pay after this" checkbox reveals
+  Discount on this booking / Credit from an earlier booking choices. An amount
+  above the balance records an additional purchase, including on an already-paid
+  booking. Notes are optional; actor, amounts and adjustment type remain audited.
+  The original quote is never rewritten; adjustments apply
+  atomically with verified settlement and do not apply to canceled payments.
+- Booking details, list/calendar totals and statements/receipts include adjustments.
+  Refunds remain limited to actual Square money, not discount/credit amounts.
+- Sandbox device options name their simulation. Paired no longer implies online.
+  Physical devices have a separate non-charging connection check using Square PING.
+  Real hardware acceptance is still pending; sandbox success is not proof of it.
+- Real Square Sandbox UI checks: additional purchase, discount, cancellation and
+  partial payments, manual credit and automatic payment refresh; portrait 768x1024, landscape 1024x768, phone 390x844,
+  desktop 1440x900. No horizontal overflow; visible dialog controls are at least
+  44px high. Unsaved notes survived settlement. Physical Android/keyboard/printing
+  remain unverified. Expanded focused payment regression: 436 tests passed; final
+  targeted rerun after the one-cent minimum/receipt correction: 187 passed.
+  Stripe-history/additive migration check passed; all 135 JavaScript tests passed.
+  New collection script coverage: 100% lines/functions, 98.48% branches. Detached
+  full regression in `terminal-collection-regression-20261105` PASSED with an
+  unchanged fingerprint. This predates the simplification and Sandbox-limit fix
+  below and is not release evidence for those changes.
+- November 5 follow-up: removed the normal-payment dropdown and mandatory note.
+  Square's success simulator only supports up to $25. Requests above that are now
+  rejected in the browser and server before provider submission (including the
+  older full-balance path). Live Terminals do not inherit this limit. Pending
+  messages distinguish waiting for the device, customer action, cancellation and
+  unresolved verification. An existing $33.22 local Sandbox attempt was canceled
+  through Square and verified CANCELED with no payment entry or added charge.
+  Real Sandbox UI checks covered a canceled credit with no note and a $1 partial
+  payment, automatic refresh and preservation of an unsaved internal note. The
+  expanded focused checkout/receipt/payment regression passed 375 tests; all 136
+  JavaScript tests passed with coverage gates. Final Terminal/Stripe-history
+  migration rerun passed 105 tests. A workshop's $1 additional purchase with an
+  empty note also settled through the real Sandbox and refreshed automatically.
+  Desktop 1440x900, phone 390x844 and
+  tablet 768x1024 / 1024x768 browser emulation checked; physical Android remains
+  pending. `terminal-simple-regression-20261105` completed migration checks but
+  was deliberately interrupted (exit 2) during application tests for the next
+  UI request; it is not passing full-suite evidence.
+- November 5 amount-entry follow-up: removed the redundant Terminal success text
+  from both automatic refresh and the non-JavaScript redirect. Errors and canceled
+  payment notices remain. A paid booking's collect amount starts empty with a
+  0.00 placeholder; entering a prefilled amount selects it for replacement by
+  keyboard or first pointer click, without interfering with later caret edits.
+  Focused Terminal tests: 105 passed; all 138 JavaScript tests and coverage gates
+  passed. Browser typing verified on desktop, phone and both tablet orientations.
+  That full regression was deliberately interrupted (exit 2; 17 migration tests
+  passed) before the next requested edit; it is not passing release evidence.
+- November 5 Terminal-feedback follow-up: removed all standalone Terminal outcome
+  messages (including canceled/closed) from asynchronous refresh and normal
+  redirects. Fixed form slots retain actionable failures; background refresh no
+  longer appends duplicate errors below Payment. Bound manual-payment validation
+  is not duplicated outside its dialog. Added outcome and failure-path regressions.
+  Focused Terminal tests: 115 passed; JavaScript: 146 passed with coverage gates.
+  A real Square Sandbox cancellation refreshed automatically with no floating
+  message, no new payment and unchanged $60.57 total/received on the synthetic
+  booking. Browser checks covered desktop 1440x900, phone 390x844 and tablet
+  768x1024 / 1024x768, including dialog opening/closing, aligned validation and
+  44px controls. Physical Android/virtual keyboard checks remain pending.
+  Full regression checked November 6: PASSED in
+  `terminal-feedback-regression-20261105`, all steps exit 0 and source unchanged.
+  This is evidence for the preceding Terminal changes, not the refund work below.
+- November 6 booking refunds (local, not pushed; simplified after staff feedback):
+  one Refund button beside Statement and Receipt opens the existing payment-style
+  dialog. Only amount and optional description are visible. Removed per-payment
+  action buttons, reason categories and separate entry/review pages. One submission
+  allocates the requested amount to eligible original Square payments, newest first.
+  Batch intents are committed atomically; retrying the same submission cannot create
+  extra refunds, including when only part of the batch succeeds.
+  Partial/full refunds reuse the existing verified Square refund service.
+  Overpayments are returned first; any remaining refund reduces the effective
+  booking price without rewriting the original quote or payment evidence.
+  Pending/failed refunds do not change money totals. Success updates the receipt,
+  balance, payment history and audit log automatically. Booking attendance,
+  capacity and materials are not changed by this money-only action.
+  Duplicate/concurrent submissions, stale totals/status, pending collection,
+  permissions, CSRF and cross-school access are covered. Existing Stripe and
+  non-booking refund workflows retain their original rules. Cash/manual receipts
+  without a verified Square payment are not automatically refunded through Square.
+  Verification: 378 affected tests passed; the final 37 refund tests also passed
+  after adding a constant-query-count assertion. 151 JavaScript tests passed with
+  coverage gates. A real Square Sandbox $3 refund with a blank description succeeded
+  across three original payments on Terminal Amount QA Workshop. Automatic refresh
+  showed gross received $22, refunded $3, effective total/net $19, balance $0.
+  Receipt matched. No live funds moved.
+  Browser checks: desktop 1440x900, phone 390x844, tablet 768x1024 and 1024x768;
+  dialog opening/closing, typing/cancel, inline validation, automatic refresh and
+  receipt. Amount and action controls are at least 44px high, with no overflow.
+  Actual Android Chrome, physical device and virtual-keyboard checks remain pending.
+  Previous `booking-refunds-regression-20261106` run was deliberately stopped
+  before this redesign (application exit 2; migrations passed; source unchanged).
+  It is not passing release evidence. The subsequent
+  `refund-dialog-regression-20261106` was deliberately interrupted (migration
+  partition exit 2, unchanged source) before the refund-status correction below.
+- November 6 refund-status correction (local, not pushed): replaced separate
+  pending blocks for each original payment with one compact pending amount and
+  automatic refresh. Normal pending refunds have no repeated description or
+  manual-check buttons. Shared network-error feedback and genuine failed,
+  uncertain or paused recovery controls remain available. Statement, Receipt and
+  Refund have matching 44px minimum height and alignment. Removed an empty actions
+  wrapper; historical payment/refund evidence remains unchanged.
+  Verification: 212 affected refund, Terminal, existing payment recovery and
+  presentation tests passed, including the exact $33 split across $8.43, $13.45
+  and $11.12, partial settlement, failure recovery, retries and concurrent writes.
+  All 152 JavaScript tests and coverage gates passed. Real Square Sandbox $0.01
+  refund on Terminal Amount QA Workshop completed through automatic refresh;
+  gross received $22, refunded $3.01, effective total/net $18.99, balance $0.
+  No live funds moved. The user's previous $33 party refund was also verified
+  completed, with total refunds $34 including the earlier $1 refund.
+  Browser checks: desktop 1440x900, phone 390x844, tablet 768x1024 and 1024x768;
+  dialog open/close, typing/cancel, pending-to-completed refresh, 44px controls
+  and no horizontal overflow. These are responsive browser checks, not physical
+  Android or virtual-keyboard acceptance. `refund-status-regression-20261106`
+  was deliberately interrupted (migration partition exit 2, unchanged source)
+  before the action-lifecycle correction below; it is not passing release evidence.
+- November 6 refund action lifecycle/placement (local, not pushed): moved
+  Statement, Receipt and Refund together into the Payment header. Refund stays
+  visible while pending, disabled with an accessible pending explanation; it
+  re-enables after partial settlement and remains disabled when nothing is left
+  to refund. Completed ledger entries explicitly read "Refund completed";
+  pending/failed requests never get that label. This corrects the preceding UI
+  omission, not the already-verified refund accounting.
+  Verification: 214 affected tests and 152 JavaScript tests/coverage gates passed.
+  New assertions cover header placement, enabled/pending/completed/failed states,
+  full-refund exhaustion, and no premature confirmation. Real Square Sandbox
+  $0.01 refund verified visible-but-disabled action, automatic completion and
+  re-enabled action without a manual check or reload. Synthetic workshop totals:
+  gross $22, refunded $3.02, effective total/net $18.98, balance $0. The user's
+  $1 party refund is completed and appears first in history; cumulative party
+  refunds are $35. No live money moved. Browser checks passed at 1440x900,
+  390x844, 768x1024 and 1024x768, with all three actions aligned in a single row,
+  44px target heights, no horizontal overflow and usable dialog entry/cancel.
+  Physical Android Chrome and virtual-keyboard acceptance remain pending.
+  `refund-actions-regression-20261106` was deliberately stopped before the
+  following correction: migration checks passed, application partition exit 2,
+  source unchanged. It is not passing release evidence.
+- November 6 completed-refund history and processing feedback (local, not pushed):
+  group settled refund entries by the original staff request's durable audit key,
+  preserving every underlying ledger entry. The existing $3 and $33 split refunds
+  now each display as one completed history entry. Separate requests remain
+  separate; partial failures show only the verified returned amount and do not
+  claim the full request completed. Invalid or foreign grouping metadata falls
+  back to individual evidence rather than guessing by amount/date.
+  Added immediate submission feedback, pending payment/refund status beneath the
+  Payment header, and one Refresh status action. Refund refresh checks all active
+  parts of the same authorized booking without resubmitting requests. Automatic
+  polling, provider-call leases and duplicate-payment/refund safeguards remain.
+  Verification: 218 affected Python tests and all 154 JavaScript tests/coverage
+  gates passed. Real Square Sandbox $0.03 Terminal collection followed by a $0.04
+  refund spanning two payments verified submission feedback, pending state,
+  manual refresh and automatic completion as one history entry. Synthetic workshop
+  totals: gross $22.03, refunded $3.06, effective total/net $18.97, balance $0.
+  No live money moved. Desktop 1440x900, phone 390x844 and tablet 768x1024/1024x768
+  checks verified visible status, aligned 44px actions and no horizontal overflow.
+  Physical Android Chrome and virtual-keyboard acceptance remain pending.
+  `refund-history-regression-20261106` was deliberately stopped before the timing
+  change below (migration partition exit 2; source unchanged). It is not passing
+  release evidence.
+- November 6 faster Square confirmation checks (local, not pushed): recent
+  interactive Square booking refunds permit a provider read every 5 seconds for
+  their first two minutes, then return to the existing 30-second limit. Background
+  recovery, Stripe, leases and duplicate-request safeguards keep their existing
+  behavior. Automatic checks respect provider-error backoff; manual checks remain
+  available without bypassing the minimum interval or active lease.
+  The browser checks every 2 seconds for the first minute, 5 seconds for the second,
+  then 15 seconds. Age comes from the operation timestamp, so refreshing content
+  does not restart the fast period. Split refunds use one batch check, including
+  detection of non-anchor parts completed by a webhook. Hidden tabs, open dialogs,
+  paused requests and repeated network failures retain their existing safeguards.
+  Verification: 276 targeted Python tests passed (including webhook handling,
+  Stripe timing isolation, leases, failure backoff and batch settlement); all 156
+  JavaScript tests and coverage gates passed. Real Square Sandbox collection of
+  $0.03 was recorded in 4.36 seconds; a $0.04 refund split into $0.03/$0.01 was
+  recorded in 7.76/7.93 seconds and visibly completed automatically within 8.33
+  seconds of submission. These are single-run observations, not latency guarantees.
+  Final synthetic workshop totals: gross $22.06, refunded $3.10, effective total/net
+  $18.96, balance $0. No live funds or emails. Desktop 1440x900, phone 390x844 and
+  tablet 768x1024/1024x768 checked; dialog controls are at least 44px high, typing
+  and cancellation work, and no horizontal overflow was observed. Physical Android
+  Chrome and virtual-keyboard checks remain pending. Signed webhook handlers are
+  covered by local tests; actual hosted Square subscription/delivery still needs
+  deployment acceptance verification and is not proven by this local run.
+  Full regression: `payment-polling-regression-20261106` was deliberately stopped
+  before the dialog change below (migration partition exit 2; source unchanged).
+  It is not passing release evidence.
+- November 6 matching payment/refund dialogs (local, not pushed): Collect on
+  Terminal now uses the same amount, optional description and footer layout as
+  Refund. A single active Terminal is selected automatically; multiple active
+  Terminals require an explicit selector choice. Disabled devices remain rejected
+  by the server. Disabled only the local demo's cancellation-test device through
+  the existing audited Settings action; hosted settings and historical records
+  were not changed. Partial payments and explicit discount/credit treatment remain
+  available because those choices affect the remaining balance.
+  Ordinary Terminal descriptions now persist in the attempt, verified ledger and
+  audit log using existing fields. Migration 0016 narrowly permits descriptions
+  for staff-attributed Terminal attempts with no adjustment; online behavior and
+  existing evidence are preserved. Changed-description retries remain rejected.
+  Both submissions return to Payment with matching pending/Refresh status rows,
+  automatic updates and a completed history entry. No fabricated confirmation.
+  Verification: 280 focused Python tests, the Stripe-history migration upgrade
+  test, migration-drift check and all 157 JavaScript tests/coverage gates passed.
+  Real Square Sandbox $0.01 collection and $0.01 refund completed automatically;
+  both descriptions appeared in history. Final synthetic workshop gross $22.07,
+  refunded $3.11, effective total/net $18.96, balance $0. No live funds or emails.
+  In-app Chromium checks covered 1440x900, 390x844, 768x1024 and 1024x768;
+  dialogs fit, amount/description entry and cancellation work, and checked touch
+  controls are at least 44px high. Physical Android Chrome, virtual keyboard and
+  physical Terminal acceptance remain pending. Evidence and detached full-suite
+  status: `payment-dialog-regression-20261106` in the local visualization directory.
+  The full run passed all 23 migration tests, then stopped at one older Square
+  UI assertion after 4,303 application passes. The assertion still expected the
+  removed Check refund status label. Updated it to require Refresh status,
+  automatic polling, the pending amount and failed-refund feedback for Square,
+  while retaining the Stripe expectation. All 112 manual-payment tests pass.
+  No application or migration code changed after the migration partition passed;
+  the release runner verifies source hashes before reusing that coverage partition.
+  Full application regression and coverage/JavaScript gates are rerun in
+  `terminal-release-regression-20261106`, with durable status and fingerprints.
+  Require passing local and GitHub checks before merge. Hosted verification and
+  release results belong in the release PR/evidence; physical acceptance is separate.
+- Future promo/gift-card/credit integration must validate entitlement and reserve
+  redemption atomically against the same payment attempt/idempotency key, consume
+  it only after verified settlement, and release it on confirmed cancellation.
+  Manual credit here is a staff-authorized adjustment, NOT a stored-value wallet,
+  Wix redemption or automatic promo validation. Credit-only/zero-dollar settlement
+  is separate from charging a Terminal. Adjustment amounts are staff-entered final
+  amounts; no tax rules or historical tax rates are inferred or recomputed.
 
 #### Square Workstream Status
 
@@ -75,7 +327,7 @@ Operational details live in the [production cutover runbook](workshop-production
 | Online deposits, remaining balances and refunds | Implemented with sandbox/automated evidence. Owner-authorized live charge/refund and webhook acceptance remain pending. |
 | Scheduled live-payment recovery | Required live-activation gate; see item 3 above. Not yet enabled/verified on the hosted job. |
 | Manual Terminal/cash recording and accessory extras | Implemented; staff currently take the payment separately and record it. Not automatic device collection. |
-| Pair Terminal and send a reservation amount to it | Approved pending implementation; item 7 above. Sandbox success will not substitute for physical-device acceptance. |
+| Pair Terminal and send a reservation amount to it | Implemented locally with real sandbox success/cancellation evidence; full regression, deployment and physical-device acceptance remain pending. See item 7. |
 | Formal Square invoices, Square gift-card redemption and Square analytics | Separate evaluation/backlog, not completed or launch-blocking. Pontora's receipt PDFs do not implement these Square products. |
 
 **Deferred until Plushie is in a good state (Ketan, November 4):** separate demo and

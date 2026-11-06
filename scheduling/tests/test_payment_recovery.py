@@ -183,6 +183,17 @@ def test_refund_pending_success_retry_failed_releases_allocation(inventory, merc
     assert service.totals(item.order)["refunded_cents"] == 1500
 
 
+def test_interactive_flag_does_not_accelerate_stripe_refunds(inventory, merchant, booking_member, monkeypatch):
+    item, attempt, refund = approved(inventory, booking_member)
+    assert attempt.account.provider == "stripe"
+    Refund.objects.filter(pk=refund.pk).update(checked_at=timezone.now() - timedelta(seconds=6))
+    create = MagicMock(side_effect=lambda r: refund_for(r, "pending"))
+    monkeypatch.setattr(gateway, "create_order_refund", create)
+    assert not refunds.process(refund, force=True, interactive=True)
+    assert not create.called
+    assert service.totals(item.order)["refunded_cents"] == 0
+
+
 def test_unknown_refund_is_never_blindly_created_again(inventory, merchant, booking_member, monkeypatch):
     item, attempt, refund = approved(inventory, booking_member)
     create = MagicMock(side_effect=TimeoutError)
@@ -295,7 +306,7 @@ def test_staff_recovery_and_refund_ui_no_provider_calls_on_get(inventory, mercha
     assert listing.context["attention_count"] == 1  # still $10 held after cancellation
 
 
-@pytest.mark.parametrize("action", ["check", "retry"])
+@pytest.mark.parametrize("action", ["check", "retry", "check_all"])
 def test_recovery_views_permissions_csrf_and_cross_order(inventory, merchant, booking_member, client, action):
     item, attempt, refund = approved(inventory, booking_member)
     urls = [path(booking_member, "payment_review", public_id=item.public_id),
@@ -309,7 +320,7 @@ def test_recovery_views_permissions_csrf_and_cross_order(inventory, merchant, bo
     for url in urls:
         assert csrf.post(url, {"action": action}).status_code == 403
     assert client.post(urls[2].replace(str(refund.public_id), str(uuid.uuid4())), {"action": action}).status_code == 404
-    if action == "retry":
+    if action in {"retry", "check_all"}:
         assert client.post(urls[2], {"action": action}).status_code == 400  # Stripe is unchanged.
     booking_member.role = "viewer"
     booking_member.save()

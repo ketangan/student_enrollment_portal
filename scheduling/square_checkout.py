@@ -40,7 +40,7 @@ def submit(attempt, source):
     with transaction.atomic():
         current = locked_attempt(attempt)
         validate_booking_checkout(Reservation.objects.select_related("profile", "order__account").get(order=current.order))
-        if (current.account.provider != "square" or current.state not in PaymentAttempt.ACTIVE
+        if (current.account.provider != "square" or current.collection_method != "online" or current.state not in PaymentAttempt.ACTIVE
                 or current.submitted_at or current.close_requested or current.expires_at <= timezone.now()):
             raise ValidationError("Check this payment's status before making another payment.")
         current.submitted_at, current.state = timezone.now(), "unknown"
@@ -61,6 +61,9 @@ def submit(attempt, source):
 
 
 def recover_square_attempt(attempt):
+    if attempt.collection_method == "terminal":
+        from .terminal_checkout import recover
+        return recover(attempt)
     # An unsubmitted local form can close atomically; once submitted, only Square can settle it.
     with transaction.atomic():
         current = locked_attempt(attempt)
@@ -80,7 +83,7 @@ def resolve_attempt(school_slug, token):
     try:
         public_id = signing.loads(token, salt="square-booking-checkout", max_age=86400)
         attempt = get_object_or_404(PaymentAttempt.objects.select_related("order__school", "order__account", "account__school"),
-            public_id=public_id, order__school__slug=school_slug, order__purpose="booking", account__provider="square")
+            public_id=public_id, order__school__slug=school_slug, order__purpose="booking", account__provider="square", collection_method="online")
         checkout.validate_account(attempt.order, new_payment=False)
     except (signing.BadSignature, ValueError, ValidationError):
         raise Http404("Payment link is no longer available.") from None
@@ -183,6 +186,9 @@ def square_webhook(request, environment):
         return HttpResponseBadRequest("Payload too large.")
     try:
         event = square.construct_event(request.body, request.headers.get("X-Square-Hmacsha256-Signature", ""), environment)
+        if event.get("type") in {"terminal.checkout.created", "terminal.checkout.updated"}:
+            from .terminal_checkout import webhook
+            return webhook(event, environment)
         if event.get("type") not in {"payment.created", "payment.updated", "refund.created", "refund.updated"}:
             return HttpResponse(status=200)
         data = event.get("data", {})
@@ -227,7 +233,13 @@ def square_webhook(request, environment):
             return HttpResponse(status=200)
         if event.get("merchant_id") != attempt.account.reference or payment.get("id") != payment_id:
             raise ValidationError("Square account mismatch.")
-        settle_event(attempt, event, payment)
+        if attempt.collection_method == "terminal":
+            # A payment event can arrive before the create response. Verify its
+            # Terminal checkout first; individual failed card taps are not final.
+            from .terminal_checkout import settle_terminal_event
+            settle_terminal_event(attempt, event, payment.get("terminal_checkout_id"))
+        else:
+            settle_event(attempt, event, payment)
     except ValidationError:
         # A signed event can arrive during a transient API outage. Ask Square to retry.
         return HttpResponse("Payment verification is pending.", status=503)

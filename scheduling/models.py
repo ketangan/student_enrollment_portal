@@ -695,7 +695,7 @@ from .family_models import FamilyScheduleGrant
 from .appointment_models import LessonBookingOffer, LessonBooking, LessonBookingNotice
 from .message_models import BookingMessage, BookingMessageAttempt
 from .integration_models import IntegrationConnection
-from .square_models import SquareConnection, SquareAuthorization, SquareLocationMapping
+from .square_models import SquareConnection, SquareAuthorization, SquareLocationMapping, SquareTerminal
 from .visit_models import VisitProgram, VisitSlot, VisitBooking
 from .visit_pilot_models import VisitPilotSettings, VisitAccessGrant, VisitScheduleBatch
 from .admission_models import AdmissionPolicy, AdmissionCase

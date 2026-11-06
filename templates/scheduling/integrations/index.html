@@ -1,4 +1,5 @@
 {% extends 'scheduling/base.html' %}
+{% load static %}
 {% block title %}Integrations{% endblock %}
 {% block content %}
 <section class="square-settings" aria-labelledby="square-heading">
@@ -58,6 +59,7 @@
 </form>
 {% endif %}
 </section>
+{% include 'scheduling/integrations/terminals.html' %}
 <div class="section-heading"><h2>Other integrations</h2><div class="actions">{% for provider in providers %}<a class="button" href="{% url 'scheduling:integration_new' school_slug=business.slug provider_key=provider.key %}">Add {{ provider.label }}</a>{% endfor %}</div></div>
 <p class="muted">These integrations are setup only and are not sending data.</p>
 <div class="connection-list">
@@ -66,3 +68,4 @@
 {% empty %}<p class="empty-state">No connections configured.</p>{% endfor %}
 </div>
 {% endblock %}
+{% block scripts %}<script defer src="{% static 'scheduling/terminal-collection.js' %}?v=20261106-payment-dialog"></script>{% endblock %}

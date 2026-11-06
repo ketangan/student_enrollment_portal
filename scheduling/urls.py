@@ -25,6 +25,7 @@ from . import views_appointments
 from . import views_messages
 from . import views_integrations
 from . import views_square_connection
+from . import views_terminal
 from . import views_visits
 from . import views_admissions
 from . import views_visit_pilot
@@ -41,6 +42,8 @@ urlpatterns = [
     path("<slug:school_slug>/preparation/<uuid:public_id>/", views_preparation.studio_preparation_update, name="studio_preparation_update"),
     path("square/oauth/callback/", views_square_connection.callback, name="square_oauth_callback"),
     path("<slug:school_slug>/integrations/square/update/", views_square_connection.update, name="square_connection_update"),
+    path("<slug:school_slug>/integrations/square/terminals/", views_terminal.settings_update, name="square_terminal_update"),
+    path("<slug:school_slug>/reservations/<uuid:public_id>/terminal/", views_terminal.collect, name="terminal_collect"),
     path("<slug:school_slug>/guest-communication/", views_guides.settings, name="guest_communication"),
     path("<slug:school_slug>/settings/email/", email_settings.settings, name="email_settings"),
     path("<slug:school_slug>/settings/email/templates/new/", email_settings.template_edit, name="email_template_new"),

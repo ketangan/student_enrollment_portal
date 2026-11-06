@@ -12,15 +12,24 @@ from .accounts import validate_scope
 
 
 def totals(order):
-    rows = list(order.entries.values("kind").annotate(amount=Sum("amount_cents"), extras=Sum("extra_charge_cents")))
+    rows = list(order.entries.values("kind").annotate(amount=Sum("amount_cents"), extras=Sum("extra_charge_cents"),
+        reductions=Sum("refund__reduction_cents")))
     amounts = {row["kind"]: row["amount"] for row in rows}
     extras = sum(row["extras"] * (-1 if row["kind"] == "void" else 1) for row in rows)
-    total = order.total_cents + extras
+    adjustments = dict(order.attempts.filter(state="paid").exclude(adjustment_cents=0)
+        .values("adjustment_kind").annotate(amount=Sum("adjustment_cents")).values_list("adjustment_kind", "amount"))
+    extras += adjustments.get("purchase", 0)
+    discount, credit = -adjustments.get("discount", 0), -adjustments.get("credit", 0)
+    reduction = sum(row["reductions"] or 0 for row in rows if row["kind"] == "refund")
+    total = order.total_cents + extras - discount - credit - reduction
     paid, refunded = amounts.get("payment", 0) - amounts.get("void", 0), amounts.get("refund", 0)
     net = paid - refunded
     return {"paid_cents": paid, "refunded_cents": refunded, "net_cents": net,
             "total_cents": total, "total": Decimal(total) / 100,
             "extras_cents": extras, "extras": Decimal(extras) / 100,
+            "discount_cents": discount, "discount": Decimal(discount) / 100,
+            "credit_cents": credit, "credit": Decimal(credit) / 100,
+            "refund_reduction_cents": reduction, "refund_reduction": Decimal(reduction) / 100,
             "outstanding_cents": max(0, total - net),
             "paid": Decimal(paid) / 100, "refunded": Decimal(refunded) / 100,
             "net": Decimal(net) / 100, "outstanding": Decimal(max(0, total - net)) / 100}

@@ -1,4 +1,5 @@
 from decimal import Decimal
+import uuid
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -16,13 +17,13 @@ from core.payments.service import totals
 from core.payments.models import PaymentAttempt, Refund
 from .access import get_staff_reservation, require_location_access, staff_locations
 from .models import PartyRequest
-from .reservation_forms import CancellationForm, QuoteForm, ReservationFilterForm
+from .reservation_forms import BookingRefundForm, CancellationForm, QuoteForm, ReservationFilterForm
 from .reservation_queries import ATTENTION, BALANCE_DUE, completion_filter_query, staff_reservations, filter_reservations, reservation_location, preparation_queue, hide_completed_reservations
 from .reservations import create_reservation, locked_profile
 from .views import _context
 from . import preparation, reservation_notes
 from .reservation_workspace import detail_context, prep_context, inline_selections
-from .reservation_audit import audit_page
+from .reservation_audit import audit_page, group_refund_history
 
 
 @never_cache
@@ -167,6 +168,7 @@ def _reservation_page(request, school_slug, public_id, tab="details"):
     email_form = None
     guest_form = None
     guest_index = None
+    refund_form = None
     if action == "send_email":
         require_location_access(request.user, school_slug, "sessions.edit", capability="reservations")
         if not (item.party_request_id or item.workshop_request_id):
@@ -176,6 +178,23 @@ def _reservation_page(request, school_slug, public_id, tab="details"):
             if notice.state in {"queued", "retry", "sending"}:
                 messages.success(request, "Email queued.")
             return redirect(request.path + "?audit_page=1#audit-title")
+    elif action == "refund_payment":
+        from .checkout import approve_booking_refund
+        from .views_recovery import process_refund
+        require_location_access(request.user, school_slug, "setup.edit", capability="reservations")
+        refund_form = BookingRefundForm(request.POST, prefix="refund")
+        if refund_form.is_valid():
+            data = refund_form.cleaned_data
+            try:
+                approved = approve_booking_refund(request.user, school_slug, public_id, key=data["key"],
+                    amount_cents=int(data["amount"] * 100), description=data["description"],
+                    expected_total=data["expected_total"], expected_net=data["expected_net"], expected_state=data["expected_state"])
+            except ValidationError as exc:
+                refund_form.add_error(None, exc)
+            else:
+                for refund in approved:
+                    process_refund(request.user, item, refund)
+                return redirect(request.path + "#money-title")
     elif action == "save_notes":
         notes_form = reservation_notes.update(request.user, school_slug, public_id, request.POST)
         if notes_form.is_valid():
@@ -271,13 +290,23 @@ def _reservation_page(request, school_slug, public_id, tab="details"):
         for index, section in enumerate(context["booking_navigation"]["section"]["tabs"]):
             section["active"] = index == 0
     context.update(amounts=totals(item.order), audit=audit_page(item, request.GET.get("audit_page")))
+    from .terminal_checkout import devices_for
+    from core.payments.square_terminal import enabled as terminal_enabled
+    if item.order.account_id and terminal_enabled(item.order.account) and item.state in {"confirmed", "completed"}:
+        context["collection_devices"] = list(devices_for(item))
+        context["collection_key"] = uuid.uuid4()
+        from core.payments.checkout import amount_due
+        minimum = amount_due(item.order)
+        if 0 < minimum < context["amounts"]["outstanding_cents"]:
+            context["terminal_deposit_due"] = Decimal(minimum) / 100
+            context["terminal_deposit_due_cents"] = minimum
     if item.order.account_id:
         from .checkout import payment_token
         from django.urls import reverse
         context["payment_url"] = reverse("scheduling:customer_payment", kwargs={"school_slug": school_slug, "token": payment_token(item)})
         if item.party_request_id and item.state in ("held", "confirmed") and context["amounts"]["outstanding_cents"]:
             context["share_payment_url"] = request.build_absolute_uri(context["payment_url"])
-        context["attempts"] = item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).order_by("-created_at")
+        context["attempts"] = item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).select_related("account").order_by("-created_at")
         context["checkout_pending"] = item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).exists()
         context["overpaid"] = context["amounts"]["net_cents"] > context["amounts"]["total_cents"]
         context["refunds"] = Refund.objects.filter(attempt__order=item.order, state__in=Refund.ACTIVE).order_by("-created_at")
@@ -286,7 +315,24 @@ def _reservation_page(request, school_slug, public_id, tab="details"):
             initial={"amount": context["amounts"]["outstanding"] or None, "expected_balance": context["amounts"]["outstanding_cents"],
                      "expected_total": context["amounts"]["total_cents"], "paid_on": terminal_payments.studio_today(item)}),
         terminal_entries=item.order.entries.filter(channel__in=["terminal", "cash"], kind="payment", reversal__isnull=True).select_related("actor", "reversal"),
-        payment_history=item.order.entries.exclude(kind="void").filter(reversal__isnull=True).select_related("actor", "reversal").order_by("-created_at"))
+        payment_history=item.order.entries.exclude(kind="void").filter(reversal__isnull=True).select_related("actor", "reversal", "paymentattempt").order_by("-created_at"))
+    from .checkout import refundable_payments, supports_refund_adjustment
+    context["adjustable_refunds"] = supports_refund_adjustment(item)
+    if context["adjustable_refunds"]:
+        booking_refunds = list(Refund.objects.filter(attempt__order=item.order).order_by("-created_at"))
+        active_refunds = [refund for refund in booking_refunds if refund.state in Refund.ACTIVE]
+        pending_refund = bool(active_refunds)
+        context["refund_in_progress"] = pending_refund
+        context["refunds"] = [refund for refund in booking_refunds if refund.state in (*Refund.ACTIVE, "failed")]
+        context["refund_check_id"] = active_refunds[0].public_id if active_refunds else None
+        context["payment_history"] = group_refund_history(item, context["payment_history"], booking_refunds)
+        context["refund_pending_amount"] = Decimal(sum(refund.amount_cents for refund in active_refunds)) / 100
+        maximum = max(0, min(context["amounts"]["net_cents"], sum(value for _, value in refundable_payments(item.order))))
+        context["can_refund"] = maximum > 0 and not pending_refund and not context.get("checkout_pending")
+        context["refund_form"] = refund_form if refund_form is not None else BookingRefundForm(prefix="refund", initial={
+            "expected_total": context["amounts"]["total_cents"], "expected_net": context["amounts"]["net_cents"], "expected_state": item.state})
+    elif refund_form is not None:
+        context["refund_form"] = refund_form
     editing_payment = str(request.POST.get("entry_id", "")) if action == "correct_terminal" else request.GET.get("edit_payment", "")
     query = request.GET.copy()
     query.pop("edit_payment", None)
@@ -305,7 +351,8 @@ def _reservation_page(request, school_slug, public_id, tab="details"):
             entry.correction_form = form
             context.update(payment_correction_form=form, payment_correction_entry=entry)
     return render(request, "scheduling/reservation_detail.html", context,
-        status=400 if error or (notes_form is not None and notes_form.errors) or (email_form is not None and email_form.errors) else 200)
+        status=400 if error or (notes_form is not None and notes_form.errors) or (email_form is not None and email_form.errors)
+        or (refund_form is not None and refund_form.errors) else 200)
 
 
 @never_cache

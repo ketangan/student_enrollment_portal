@@ -361,12 +361,22 @@ def test_only_unresolved_payment_controls_remain(paid_booking, booking_member, c
     attempt.save()
     refund = Refund.objects.create(attempt=paid_booking.order.attempts.get(state="paid"), key=uuid.uuid4(),
         amount_cents=100, reason="Return deposit", actor=booking_member.user)
-    assert b'Check refund status' in client.get(address).content
+    page = client.get(address)
+    if paid_booking.order.account.provider == "square":
+        assert b'Refresh status' in page.content
+        assert b'Refund pending &middot; $1.00' in page.content
+        assert b'data-refund-poll' in page.content
+        assert b'Check refund status' not in page.content
+    else:
+        assert b'Check refund status' in page.content
     refund.state = "failed"
     refund.save()
     page = client.get(address)
     assert b'Check refund status' not in page.content
     assert b'Check payment status' not in page.content
+    if paid_booking.order.account.provider == "square":
+        assert b'Refund of $1.00 failed.' in page.content
+        assert b'Refund pending' not in page.content
 
 
 @pytest.mark.parametrize("state", ["held", "review", "canceled"])

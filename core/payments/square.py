@@ -71,6 +71,9 @@ def request(method, path, payload=None, *, connection=None):
         root = API_ROOT if connection.environment == "test" else "https://connect.squareup.com/v2"
         if connection.environment == "live" and method == "POST" and path == "/payments" and not settings.PAYMENTS_SQUARE_LIVE_ENABLED:
             raise ValidationError("Live Square payments are not enabled.")
+        if connection.environment == "live" and method == "POST" and path == "/terminals/checkouts" and not (
+                settings.PAYMENTS_SQUARE_LIVE_ENABLED and settings.PAYMENTS_SQUARE_TERMINAL_LIVE_ENABLED):
+            raise ValidationError("Live Terminal payments are not enabled.")
     req = Request(root + path, method=method,
         data=json.dumps(payload).encode() if payload is not None else None,
         headers={"Authorization": "Bearer " + token,
@@ -159,6 +162,9 @@ def validate_payment(attempt, payment):
         raise ValidationError("Square payment does not match its reservation, account or amount.")
     if payment["status"] == "COMPLETED" and payment.get("total_money") != money:
         raise ValidationError("Square charged an unexpected total.")
+    if attempt.collection_method == "terminal" and (
+            not attempt.terminal_checkout_id or payment.get("terminal_checkout_id") != attempt.terminal_checkout_id):
+        raise ValidationError("Square payment does not belong to this Terminal checkout.")
 
 
 def snapshot(attempt, payment=None, *, expired=False):

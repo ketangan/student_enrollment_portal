@@ -334,6 +334,7 @@ PAYMENTS_SQUARE_LIVE_WEBHOOK_SECRET = os.getenv("PAYMENTS_SQUARE_LIVE_WEBHOOK_SE
 PAYMENTS_SQUARE_LIVE_WEBHOOK_URL = os.getenv("PAYMENTS_SQUARE_LIVE_WEBHOOK_URL", "").strip()
 # Rollout gate for new charges only; verification and refunds must remain available.
 PAYMENTS_SQUARE_LIVE_ENABLED = os.getenv("PAYMENTS_SQUARE_LIVE_ENABLED", "false").lower() == "true"
+PAYMENTS_SQUARE_TERMINAL_LIVE_ENABLED = os.getenv("PAYMENTS_SQUARE_TERMINAL_LIVE_ENABLED", "false").lower() == "true"
 
 # Absolute base URL — fallback for local dev. In production set all three explicitly.
 # APP_BASE_URL  → production app  (e.g. https://app.mypontora.com)

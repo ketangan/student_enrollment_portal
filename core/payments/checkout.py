@@ -31,30 +31,40 @@ def validate_account(order, *, new_payment=True):
 def amount_due(order):
     amounts = totals(order)
     net = amounts["net_cents"]
-    required = order.deposit_cents or order.total_cents
+    required = min(order.deposit_cents or order.total_cents, amounts["total_cents"])
     return max(0, required - net) if net < required else amounts["outstanding_cents"]
 
 
 @transaction.atomic
-def prepare_attempt(order, *, return_url, payment_option="due", cancel_url=None):
+def prepare_attempt(order, *, return_url, payment_option="due", cancel_url=None, device_reference="", terminal_amount=None):
     """Call inside the domain inventory lock; no mutable client amount or account input."""
     School.objects.select_for_update().get(pk=order.school_id)
     order = PaymentOrder.objects.select_for_update(of=("self",)).select_related("account").get(pk=order.pk)
     validate_account(order)
+    if device_reference and (order.account.provider != "square" or not square.identifier(device_reference)):
+        raise ValidationError("Choose a valid Square Terminal.")
     if payment_option not in {"due", "full"}:
         raise ValidationError("Choose the deposit or full payment option.")
     amount = totals(order)["outstanding_cents"] if payment_option == "full" else amount_due(order)
+    if terminal_amount is not None:
+        if not device_reference or type(terminal_amount) is not int or not 1 <= terminal_amount <= 99999999:
+            raise ValidationError("Enter a Terminal amount between $0.01 and $999,999.99.")
+        amount = terminal_amount
     existing = order.attempts.filter(state__in=PaymentAttempt.ACTIVE).first()
     if existing:
+        if existing.device_reference != device_reference:
+            raise ValidationError("Another payment is already in progress. Resolve it before starting a new payment.")
         if existing.amount_cents != amount:
             if existing.amount_cents in {amount_due(order), totals(order)["outstanding_cents"]}:
                 raise ValidationError(f"A checkout for ${existing.amount_cents / 100:.2f} is already open. Continue that checkout below; no new payment was started.")
             raise ValidationError("The balance changed while checkout was open. Provider review is required.")
         return existing
-    if amount < 50:
-        raise ValidationError("No payable balance of at least $0.50 remains.")
+    minimum = 1 if device_reference else 50
+    if amount < minimum:
+        raise ValidationError(f"No payable balance of at least ${minimum / 100:.2f} remains.")
     # 35 minutes leaves room for network latency within Stripe's 30-minute minimum.
     return PaymentAttempt.objects.create(order=order, account=order.account, amount_cents=amount,
+        collection_method="terminal" if device_reference else "online", device_reference=device_reference,
         success_url=return_url, cancel_url=cancel_url or return_url, expires_at=timezone.now() + timedelta(minutes=35))
 
 
@@ -86,6 +96,8 @@ def _validate_session(attempt, session):
 def open_checkout(attempt):
     """Timeouts keep the same attempt and capacity claim. Never invent a new payment."""
     attempt.refresh_from_db()
+    if attempt.collection_method == "terminal":
+        raise ValidationError("A Terminal payment is in progress. Please contact the studio.")
     if attempt.state == "paid":
         return ""
     validate_account(attempt.order)
@@ -207,7 +219,8 @@ def apply_snapshot(attempt, session):
             # Record verified money even if it arrived late. Domain code decides availability.
             attempt.entry = LedgerEntry.objects.create(order=attempt.order, school_id=attempt.order.school_id,
                 environment=attempt.order.environment, key=attempt.public_id, kind="payment", channel=attempt.account.provider,
-                amount_cents=attempt.amount_cents, reference=intent)
+                amount_cents=attempt.amount_cents, reference=intent,
+                note=attempt.adjustment_reason if attempt.collection_method == "terminal" else "")
         attempt.provider_intent, attempt.state = intent, "paid"
         from core.services.payment_notifications import queue_payment_notice
         queue_payment_notice(key=f"booking:{attempt.order.merchant_reference}:{intent}:paid",
