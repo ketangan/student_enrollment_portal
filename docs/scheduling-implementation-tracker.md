@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: November 6, 2026.
+Updated: November 7, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -9,7 +9,7 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
-### November 5 Active Plushie Todo List
+### November 6 Active Plushie Todo List
 
 This is the current action list. Dated entries below preserve implementation history;
 their earlier "pending" labels do not override the verified status recorded here.
@@ -63,7 +63,79 @@ Operational details live in the [production cutover runbook](workshop-production
    callback/recovery checks; physical Android Chrome in both orientations, keyboard
    and printing; production inbox delivery; backup/restore rehearsal and rollback;
    tenant/location isolation and SBMC regression smoke checks.
-7. **Square Terminal integration (implemented; release checks in progress, live activation pending).**
+7. **Square Terminal and refunds (deployed; physical-device/live acceptance pending).**
+   PR [#20](https://github.com/ketangan/student_enrollment_portal/pull/20) merged as
+   `51cf29b`. Release and post-merge checks passed, including main run `42294225225`.
+   Render deployment `dep-dbn43hnf3r2c73d9r50g` was verified Live November 6 at
+   21:10 UTC. Final local evidence: 5,407 application and 23 migration tests passed
+   (three skips), 157 JavaScript tests, 98.20% overall coverage and all module gates.
+   Hosted demo verification covered online payment, Terminal collection, refunds
+   spanning multiple original payments displayed as one refund, and accurate totals.
+   SBMC's registration page was unchanged in the read-only before/after comparison.
+   Local desktop, phone and both tablet emulations passed; hosted verification was
+   desktop only because the viewport tool failed during that run. Actual Android,
+   printing and real Terminal acceptance remain pending. Evidence:
+   `terminal-release-regression-20261106` in the local visualization directory.
+   No repeat Jasmine Sandbox test is required. Connect the live seller/device and
+   complete an owner-authorized small real charge/refund before customer use.
+8. **Staff party booking consent fix (local, not released).**
+   Fixes [#21](https://github.com/ketangan/student_enrollment_portal/issues/21): staff
+   can save a booking without hidden customer acknowledgment fields. The configured
+   policy is saved as unaccepted, without an acceptance timestamp; staff-submitted
+   checkbox values cannot impersonate customer consent. Customer forms still require
+   acknowledgment. 108 focused tests passed, including retries and invalid input.
+   A local browser booking saved successfully with all acknowledgments false and
+   no payment entries. Form controls/focus were checked at 1440x900, 390x844,
+   768x1024 and 1024x768 using desktop browser emulation; no page overflow and
+   visible form inputs/buttons at least 44px high. Physical Android/keyboard remains
+   pending. `staff-booking-readiness-20261106` subsequently passed with unchanged
+   source: 5,411 application tests, 23 migration tests, three skips, 157 JavaScript
+   tests and all coverage gates. This fix remains local, not released.
+9. **Operational readiness inspection (completed; launch gates still open).**
+   Read-only Render checks November 6 Pacific / November 7 UTC verified available
+   point-in-time recovery, six successful recent five-minute maintenance runs,
+   matching directly configured web/cron database connections, and inherited cron
+   failure-email notifications. The web service has no HTTP health-check path;
+   `/healthz/` responds but is liveness-only. Alert inbox delivery and an isolated
+   restore rehearsal are not verified. Live recovery remains deliberately disabled.
+   See the [dated operational evidence and gates](workshop-production-enablement.md#november-6-operational-readiness-inspection)
+   before activation; no infrastructure or live settings were changed.
+
+### November 7 Enrollment and Lessons Demo
+
+Local-only configuration of the existing Enrollment Request Demo now includes
+two teachers, current recurring lessons and customer teacher/time selection, with
+no inventory configuration. The initial configuration-only setup had 262 focused tests passed;
+manual booking/conflict and responsive checks completed with the limitations in the
+[repeatable setup guide](enrollment-lessons-setup.md). The fresh background suite is
+tracked in `enrollment-lessons-20261107/status.json` passed with unchanged source:
+5,411 application tests, 23 migration tests, three skips, 157 JavaScript tests and
+all coverage gates.
+Automatic enrollment-to-lesson student linking, production customer lesson booking
+and physical Android acceptance are not complete. No hosted changes or release.
+
+Navigation follow-up: an explicit school-layout setting now keeps the enrollment
+menu throughout scheduling, separates students/families from teacher setup, groups
+scheduling settings and defaults lessons to upcoming dates. Existing studio layouts
+and permissions remain unchanged. 397 targeted tests passed, including SBMC; 54
+discovered admin pages/form variants and six settings tabs were checked in desktop,
+phone and both tablet emulations. Teacher/student saves, filters and conflict/available
+previews were exercised. Actual Android remains pending. Fresh full-suite evidence:
+`school-navigation-20261107/status.json`: reviewed November 8, failed with one
+Studio Prep overlapping-starts test failure (5,455 application tests passed;
+23 migration tests passed). Source fingerprint stayed unchanged. Coverage and
+JavaScript gates were not reached; this is not release-ready. No push.
+
+November 8 product audit: owner approved enrollment, teacher-availability trial
+booking, and one-off classes/seasonal programs as the three demo journeys. Tours,
+playdates, make-up credits and recurring lesson administration should be optional
+and hidden. See the [screen-by-screen audit and configuration backlog](enrollment-demo-product-audit.md).
+Audit only: no application/configuration changes. It identifies the blocked public
+enrollment entry, locked availability, missing teacher self-service permissions,
+disconnected trial/enrollment records and school-navigation class/camp gap.
+
+#### November 4-5 Terminal Implementation History
+
    Added per-studio device pairing and Collect on Terminal for confirmed workshop
    and party reservations, using the existing Square mappings, ledger, receipts,
    refund service and recovery job. Verified real Square sandbox success ($25)
@@ -327,7 +399,7 @@ Operational details live in the [production cutover runbook](workshop-production
 | Online deposits, remaining balances and refunds | Implemented with sandbox/automated evidence. Owner-authorized live charge/refund and webhook acceptance remain pending. |
 | Scheduled live-payment recovery | Required live-activation gate; see item 3 above. Not yet enabled/verified on the hosted job. |
 | Manual Terminal/cash recording and accessory extras | Implemented; staff currently take the payment separately and record it. Not automatic device collection. |
-| Pair Terminal and send a reservation amount to it | Implemented locally with real sandbox success/cancellation evidence; full regression, deployment and physical-device acceptance remain pending. See item 7. |
+| Pair Terminal and send a reservation amount to it | Deployed in PR #20 with hosted Sandbox collection/refund verification. Live account/device acceptance remains pending. See item 7. |
 | Formal Square invoices, Square gift-card redemption and Square analytics | Separate evaluation/backlog, not completed or launch-blocking. Pontora's receipt PDFs do not implement these Square products. |
 
 **Deferred until Plushie is in a good state (Ketan, November 4):** separate demo and
@@ -337,7 +409,7 @@ demo, leaving the existing production database in place; address onboarding,
 credentials, files, links and jobs. Do not clone live customer data into demo or
 silently include this infrastructure project in the current release. Credits,
 gift-card/promo redemption and analytics remain separately tracked scope, not
-implicit launch blockers. Terminal collection is approved pending work above,
+implicit launch blockers. Terminal collection is deployed, pending live acceptance above,
 not deferred by the database-separation decision.
 
 ### November 3 Booking Statements and Receipts (Local, Not Pushed)

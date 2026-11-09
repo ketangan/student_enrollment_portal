@@ -314,6 +314,11 @@ def ratelimited_error_view(request, _exception=None):
 # -----------------------------
 
 def _get_or_create_school_from_config(school_slug: str, config, branding: dict) -> School:
+    from core.services.portal_environment import deployment_environment
+    environment = deployment_environment()
+    if environment:
+        # Hosted URLs must never provision a tenant that lives in the other database.
+        return get_object_or_404(School, slug=school_slug, is_demo=environment == "demo")
     school, _created = School.objects.get_or_create(
         slug=school_slug,
         defaults={
@@ -745,7 +750,9 @@ def apply_view(request, school_slug: str, form_key: str = "default"):
                         messages.success(request, "Draft saved. We recently sent you a resume link.")
                 else:
                     messages.info(request, "Draft saved. Fill in your email to receive a resume link.")
-                return redirect(request.path)
+                from scheduling.admissions import direct_enrollment
+                resume_query = "?resume=1" if getattr(request, "booking_admission", None) and direct_enrollment(school) else ""
+                return redirect(request.path + resume_query)
 
             # Normal full submit
             cleaned, errors = validate_submission(form_cfg, request.POST, request.FILES)
@@ -1390,6 +1397,7 @@ def apply_success_view(request, school_slug: str):
         request,
         "apply_success.html",
         {
+            "school": _school,
             "school_slug": school_slug,
             "school_name": config.display_name,
             "branding": branding,
@@ -1455,7 +1463,9 @@ def resume_draft_view(request, school_slug: str, token: str):
             raise Http404
         return redirect(reverse("apply_form", kwargs={"school_slug": school_slug, "form_key": target}))
 
-    return redirect(reverse("apply", kwargs={"school_slug": school_slug}))
+    from scheduling.admissions import direct_enrollment
+    resume_query = "?resume=1" if direct_enrollment(school) else ""
+    return redirect(reverse("apply", kwargs={"school_slug": school_slug}) + resume_query)
 
 
 # ---------------------------------------------------------------------------
@@ -1992,11 +2002,15 @@ def family_status_view(request, school_slug: str, token: str):
     from core.services.payment_preview import get_payment_preview
     payment_preview = get_payment_preview(getattr(config, "raw", {}), submission.status)
     booking_admissions = booking_family_context(submission)
-    if playdate or booking_admissions:
+    from scheduling.admissions import direct_enrollment
+    direct_application = direct_enrollment(school) and not booking_admissions
+    if direct_application and not (submission.data or {}).get("playdate_slot"):
+        playdate = None
+    if playdate or booking_admissions or direct_application:
         for item in student_info:
             if item["label"] == "Instrument":
                 item["label"] = "Program"
-    if booking_admissions:
+    if booking_admissions or direct_application:
         for section in (getattr(config, "raw", {}) or {}).get("form", {}).get("sections", []):
             for field in section.get("fields", []):
                 if field.get("key") == "enrollment_type":
@@ -2008,6 +2022,7 @@ def family_status_view(request, school_slug: str, token: str):
 
     return render(request, "family_status.html", {
         "booking_admissions": booking_admissions,
+        "direct_application": direct_application,
         "school": school,
         "school_name": school_name,
         "branding": branding,

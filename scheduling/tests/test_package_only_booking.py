@@ -8,7 +8,7 @@ from django.http import QueryDict
 from django.urls import reverse
 
 from core.payments.models import PaymentOrder
-from scheduling import party_policy, staff_parties
+from scheduling import booking_policies, party_policy, staff_parties
 from scheduling.models import PartyPackage, PartyRequest, Reservation, Session
 from scheduling.party_forms import PartyInquiryForm, PartyPackageForm
 from scheduling.tests.test_parties import party_offering, begin, send
@@ -32,6 +32,71 @@ def staff_data(member, slot, **changes):
         "organizer_name": "Phone guest", "organizer_email": "phone@example.com", "occasion": "Birthday",
         "group_size": "6", "participant_estimate": "7-9 guests", "age_range": "7-9", **changes})
     return data
+
+
+@pytest.fixture
+def acknowledgments(monkeypatch):
+    value = {"revision": "policy-v1", "waiver": "A signed guardian waiver is required.",
+        "attendance": "One seat per participant, with {observers} observers.",
+        "policy": "I accept the booking policy."}
+    monkeypatch.setattr(booking_policies, "load_school_config", lambda slug:
+        SimpleNamespace(raw={"scheduling": {"booking_policies": {
+            "source_url": "https://example.com/policy", "party_acknowledgments": value}}}))
+    return value
+
+
+@pytest.mark.parametrize("forged_consent", [False, True])
+def test_staff_booking_leaves_customer_acknowledgments_outstanding(
+        booking_member, direct_party, policy, acknowledgments, client, forged_consent):
+    from scheduling.customer_edits import party_initial
+    data = staff_data(booking_member, direct_party)
+    if forged_consent:
+        data.update({f"{kind}_acknowledged": "on" for kind in ("waiver", "attendance", "policy")})
+    client.force_login(booking_member.user)
+    url = reverse("scheduling:staff_party_create", kwargs={"school_slug": booking_member.profile.school.slug})
+    page = client.get(url, {"offering": direct_party.package.offering_id})
+    assert page.status_code == 200
+    assert page.context["form"].acknowledgment_fields == []
+    response = client.post(url, data)
+    assert response.status_code == 302
+    item = PartyRequest.objects.get()
+    reservation = item.reservation
+    assert response.url.endswith(f"/reservations/{reservation.public_id}/")
+    assert reservation.state == "confirmed" and reservation.snapshot["staff_managed"]
+    assert reservation.order.total_cents == 49500 and not reservation.order.entries.exists()
+    record = item.offering_snapshot["acknowledgments"]
+    assert record["revision"] == "policy-v1" and record["source_url"] == "https://example.com/policy"
+    assert "accepted_at" not in record
+    assert all(value["accepted"] is False for value in record["items"].values())
+    assert record["items"]["attendance"]["text"] == acknowledgments["attendance"].replace(
+        "{observers}", str(direct_party.package.included_observers))
+    assert all(party_initial(reservation)[f"{kind}_acknowledged"] is False for kind in record["items"])
+    assert client.post(url, data).status_code == 302
+    assert PartyRequest.objects.count() == Reservation.objects.count() == PaymentOrder.objects.count() == 1
+    item.refresh_from_db()
+    assert item.offering_snapshot["acknowledgments"] == record
+
+
+def test_customer_acknowledgments_still_required_and_recorded(client, direct_party, policy, acknowledgments):
+    data = package_data(client, direct_party.package)
+    data["party_slot"] = direct_party.pk
+    assert send(client, direct_party.package.offering, data).status_code == 400
+    assert not PartyRequest.objects.exists() and not PaymentOrder.objects.exists()
+    for kind in ("waiver", "attendance", "policy"):
+        data[f"{kind}_acknowledged"] = "on"
+    assert send(client, direct_party.package.offering, data).status_code == 302
+    record = PartyRequest.objects.get().offering_snapshot["acknowledgments"]
+    assert record["accepted_at"] and all(value["accepted"] for value in record["items"].values())
+
+
+def test_staff_required_field_errors_remain_actionable(client, booking_member, direct_party, policy, acknowledgments):
+    client.force_login(booking_member.user)
+    url = reverse("scheduling:staff_party_create", kwargs={"school_slug": booking_member.profile.school.slug})
+    response = client.post(url, staff_data(booking_member, direct_party, organizer_email="invalid"))
+    assert response.status_code == 400
+    assert set(response.context["form"].errors) == {"organizer_email"}
+    assert b"Enter a valid email address" in response.content
+    assert not Reservation.objects.exists()
 
 
 @pytest.mark.parametrize("field,value", [("package", ""), ("package", "999999"), ("party_slot", ""), ("party_slot", "999999")])

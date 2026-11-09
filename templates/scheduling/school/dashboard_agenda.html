@@ -1,0 +1,24 @@
+{% load tz %}
+{% if school_agenda_available %}
+<section class="dash-card" aria-labelledby="school-agenda-title">
+  <div class="dash-card-header">
+    <span class="dash-card-title" id="school-agenda-title">Coming up</span>
+    <a class="dash-card-link" href="{{ school_schedule_url }}">View schedule &rarr;</a>
+  </div>
+  {% if school_agenda_location_error %}
+    <div class="dash-no-data">Your saved location is no longer available. <a href="{{ school_schedule_url }}?location=">Choose a location</a></div>
+  {% else %}
+    {% for event in school_agenda %}
+    <a class="dash-activity-item" href="{{ event.url }}" style="color:inherit;text-decoration:none;min-height:44px;" aria-label="Open {{ event.title }} details">
+      <div class="dash-activity-body">
+        <div class="dash-activity-who" title="{{ event.title }}">{{ event.title }}</div>
+        <div class="dash-activity-what">{{ event.kind }} &middot; {{ event.location.name }}{% if event.person %} &middot; {{ event.person }}{% endif %}</div>
+        {% timezone event.location.timezone_name %}{% with start=event.starts_at|localtime end=event.ends_at|localtime %}
+        <div class="dash-activity-when"><time datetime="{{ start|date:'c' }}">{{ start|date:'D, M j, Y, g:i A' }}</time> to {% if start.date != end.date %}{{ end|date:'M j, Y' }} {% endif %}{{ end|date:'g:i A' }} &middot; {{ event.location.timezone_name }}</div>
+        {% endwith %}{% endtimezone %}
+      </div>
+    </a>
+    {% empty %}<div class="dash-no-data">No upcoming lessons or classes.</div>{% endfor %}
+  {% endif %}
+</section>
+{% endif %}

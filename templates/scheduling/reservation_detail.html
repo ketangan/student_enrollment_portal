@@ -6,7 +6,7 @@
 <div class="reservation-workspace" data-reservation-workspace>
   <div class="reservation-workspace-main">
     <div data-reservation-panel="details"{% if reservation_tab == 'preparation' %} hidden{% endif %}>{% include 'scheduling/reservation_detail_panel.html' %}</div>
-    <div data-reservation-panel="preparation"{% if reservation_tab != 'preparation' %} hidden{% endif %}>{% include 'scheduling/reservation_preparation_panel.html' %}</div>
+    {% if booking_navigation.section.tabs %}<div data-reservation-panel="preparation"{% if reservation_tab != 'preparation' %} hidden{% endif %}>{% include 'scheduling/reservation_preparation_panel.html' %}</div>{% endif %}
   </div>
   <aside class="reservation-notes-sidebar">{% if item.party_request_id %}{% include 'scheduling/customer_notes.html' with customer_notes=item.party_request.customer_notes %}{% endif %}{% include 'scheduling/reservation_notes.html' %}</aside>
 </div>

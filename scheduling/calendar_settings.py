@@ -21,10 +21,24 @@ class CalendarSettingsForm(forms.ModelForm):
         labels = {"calendar_enabled": "Enable booking calendar", "default_dashboard_view": "Default dashboard view"}
         widgets = {"default_dashboard_view": forms.Select(attrs={"class": "dash-select"})}
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .school_navigation import navigation_policy
+        self.policy = navigation_policy(self.instance.school)
+        if self.policy["simplified"]:
+            self.fields["calendar_enabled"].label = "Enable schedule calendar"
+            self.fields.pop("default_dashboard_view")
+
     def clean(self):
         data = super().clean()
-        if data.get("calendar_enabled") and not has_capability(self.instance, "workshops"):
-            self.add_error("calendar_enabled", "Enable workshops before enabling the booking calendar.")
+        if data.get("calendar_enabled"):
+            if self.policy["simplified"]:
+                supported = any(key in self.policy["features"] and has_capability(self.instance, key)
+                    and (key != "lessons" or self.instance.lessons_enabled) for key in ("lessons", "workshops", "camps"))
+                if not supported:
+                    self.add_error("calendar_enabled", "Enable lessons, classes or seasonal programs before enabling the calendar.")
+            elif not has_capability(self.instance, "workshops"):
+                self.add_error("calendar_enabled", "Enable workshops before enabling the booking calendar.")
         if data.get("default_dashboard_view") == "calendar" and not data.get("calendar_enabled"):
             self.add_error("default_dashboard_view", "Enable the calendar or choose Overview.")
         return data

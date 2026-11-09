@@ -1,4 +1,5 @@
 {% load static %}
+{% load public_school_navigation %}
 {% load form_extras %}
 <!doctype html>
 <html lang="en">
@@ -56,6 +57,7 @@
           {% endif %}
         </div>
 
+        {% school_public_navigation school %}
         {% if form.title %}
           <h1 class="form-page-title">{{ form.title }}</h1>
         {% endif %}

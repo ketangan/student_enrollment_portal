@@ -126,7 +126,7 @@ Post-merge main CI `41908101571` subsequently completed successfully.
 No real school was activated and the live-recovery job flag was not enabled.
 Hosted receipt delivery was separately verified in Ketan's inbox with its PDF.
 Current actions are maintained in the
-[active Plushie todo list](scheduling-implementation-tracker.md#november-4-active-plushie-todo-list).
+[active Plushie todo list](scheduling-implementation-tracker.md#november-6-active-plushie-todo-list).
 
 The existing launch command is a **workshop configuration check**, not a complete
 studio go-live certificate. It only inspects locations represented by upcoming
@@ -261,3 +261,56 @@ email content/triggers and physical-tablet acceptance still require the already
 requested customer inputs. Managed backup availability is not a completed restore
 drill. A restore rehearsal needs an approved isolated destination; do not overwrite
 the shared production database or download customer records for convenience.
+
+## November 6 Operational Readiness Inspection
+
+Read-only inspection on November 6 Pacific (November 7, approximately 06:10 UTC),
+against deployed `51cf29b`. No service, database, live flag, account or schedule was
+changed. This is evidence gathering, not approval to activate production.
+
+| Area | Verified evidence | Remaining gate |
+| --- | --- | --- |
+| Managed database | Render Postgres `student-enrollment-portal-db`, PostgreSQL 18, paid `basic_256mb`, available. Recovery API reports `AVAILABLE`, with `startsAt=2026-11-03T15:54:53Z`. | Actual isolated restore rehearsal and measured recovery time. Refresh the moving recovery window immediately before cutover. |
+| Scheduled maintenance | `pontora-party-notifications` runs `python manage.py process_booking_maintenance --limit 20`, `*/5 * * * *`. Six runs ending between 05:45 and 06:10 UTC succeeded. Directly configured web/cron database URLs match; no credential values were printed or saved. | Add and verify `--include-live-recovery` only at authorized live activation. A successful Sandbox-only run does not prove live recovery. |
+| Failure notifications | Workspace email notifications enabled for failures; cron override inherits the workspace default. Web service has a directly configured Sentry DSN; cron has no directly configured DSN. | Prove a failure notification reaches the responsible operator. Configuration is not inbox-delivery evidence. Environment-group inheritance was not inspected. |
+| HTTP health | Hosted `/healthz/` returned HTTP 200 with `{"status": "ok"}`. Render's configured HTTP health-check path is empty. | Evaluate/configure an HTTP health check in a separately reviewed shared-service change; the current endpoint does not verify database access. No health setting was changed in this inspection. |
+| Rollback | Intake-only pause, additive-schema preservation and original website-link restoration are documented above. | Rehearse against the intended live studio during the acceptance window. Do not roll the shared database back over newer payments or disturb SBMC. |
+
+The live-recovery command filters payment orders to `purpose=booking`,
+`environment=live`, connected Square accounts. Refunds use the original attempt's
+order/account binding. Stripe enrollment/subscription orders are excluded; there
+is no hardcoded school exception. The scheduler has no school argument, so confirm
+all eligible live Square booking accounts before enabling it. Use the existing
+`reconcile_booking_payments --school <slug> --environment live --provider square`
+only for separately authorized, bounded manual recovery. Do not run it as a
+readiness probe: it can settle pending money. The maintenance command exits nonzero
+when a subtask fails and continues the other bounded tasks; this behavior is covered
+by the focused maintenance tests.
+
+### Isolated Restore Rehearsal Gate
+
+Owner approval is required before creating a temporary paid database containing
+the shared production data, including SBMC records. Until approved, this gate is
+**pending**, not passed. `scripts/restore_demo_db.sh` seeds demo data; it is not a
+backup restore and must not be used for this rehearsal.
+
+1. Record the source database, recovery timestamp, deployed revision and migration
+   state. Choose an available point at least ten minutes old. Agree temporary cost,
+   access restrictions, retention and cleanup with the owner.
+2. Restore to a new, isolated Render database. Never repoint web/cron services or
+   change the source database. Review inherited IP access rules before using the
+   copy. Do not attach email senders, payment workers, webhooks or public booking
+   traffic to the restored data.
+3. Validate schema/migration state and read-only aggregate integrity checks for
+   school/location ownership, reservations, payment orders, ledger/refund totals
+   and inventory allocations. Compare to the selected recovery point, not a moving
+   production database. Do not export customer rows or credentials into evidence.
+4. Record duration, results and restore limitations. Keep the original service/DB
+   connections unchanged. Arrange owner-approved cleanup of the temporary database
+   and credentials; a rehearsal is not a production switchover.
+
+Provider references: [Render recovery and backups](https://render.com/docs/postgresql-backups)
+and [Render health checks](https://render.com/docs/health-checks). Render restores
+PITR into a new instance; an available backup does not prove the application can
+recover. An empty HTTP health path uses TCP checks, not an application/database
+readiness check.

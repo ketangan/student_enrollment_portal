@@ -10,6 +10,7 @@ from django_ratelimit.decorators import ratelimit
 
 from .access import require_location_access
 from .models import Reservation, WorkshopRequest
+from .public_school_context import public_school_context
 from .request_forms import request_forms
 from .requests import (accepts_requests, browser_key, catalog_for, choice_form, preparation_totals,
                        request_token, save_choice, scoped_requests, session_for_request, submit_request, withdraw_request)
@@ -41,6 +42,7 @@ def workshop_request(request, school_slug, pk):
     context = {"business": session.offering.location.profile.school, "session": session, "catalog": catalog,
                "purchaser": purchaser, "participants": participants, "error": error,
                "request_token": request.POST.get("request_token", "") if request.method == "POST" else request_token(session, catalog, browser)}
+    context.update(public_school_context(session.offering.location.profile))
     return render(request, "scheduling/workshop_request.html", context, status=400 if request.method == "POST" else 200)
 
 
@@ -53,7 +55,9 @@ def request_received(request, school_slug, public_id):
     item = get_object_or_404(WorkshopRequest.objects.select_related("session__offering__location__profile__school"),
         public_id=public_id, browser_digest=browser, session__offering__location__profile__school__slug=school_slug,
         session__offering__location__profile__enabled=True)
-    return render(request, "scheduling/request_received.html", {"business": item.session.offering.location.profile.school, "item": item})
+    profile = item.session.offering.location.profile
+    return render(request, "scheduling/request_received.html", {
+        "business": profile.school, "item": item, **public_school_context(profile)})
 
 
 @never_cache

@@ -54,6 +54,10 @@ def demo_reverse(viewname: str, args=None, kwargs=None) -> str:
 def request_reverse(request, viewname: str, args=None, kwargs=None) -> str:
     """Keep enrollment links in a trusted request environment; default to app."""
     path = _reverse(viewname, args=args, kwargs=kwargs)
+    from core.services.portal_environment import deployment_environment
+    environment = deployment_environment()
+    if environment:
+        return (demo_url if environment == "demo" else app_url)(path)
     if request is not None:
         host = request.get_host().lower()
         for attr in ("DEMO_BASE_URL", "APP_BASE_URL"):

@@ -6,6 +6,7 @@ from django.db.models import Q
 from scheduling.models import SchedulingProfile
 from scheduling.party_notifications import capture_for_reservation, process, live_enabled
 from scheduling.reservation_email import demo_delivery_enabled
+from core.services.portal_environment import scope_deployment_schools
 
 
 class Command(BaseCommand):
@@ -24,6 +25,7 @@ class Command(BaseCommand):
         profiles = SchedulingProfile.objects.select_related("school").filter(
             Q(party_notifications_enabled=True) | Q(workshop_notifications_enabled=True)
             | Q(school__is_demo=True, school__slug__in=demo_slugs), enabled=True)
+        profiles = scope_deployment_schools(profiles, "school__")
         if options["all_schools"]:
             if settings.DEBUG or not (settings.BOOKINGS_PARTY_EMAIL_ENABLED or
                     demo_slugs and getattr(settings, "BOOKING_HOSTED_DEMO_HOSTS", ())):

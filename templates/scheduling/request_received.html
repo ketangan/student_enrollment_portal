@@ -1,6 +1,6 @@
-{% extends 'scheduling/public_base.html' %}
+{% extends 'scheduling/request_camp_public_base.html' %}
 {% block title %}Request received{% endblock %}
-{% block content %}<h1>{% if item.status == 'withdrawn' %}Request withdrawn{% else %}Request received{% endif %}</h1>
+{% block request_content %}<h1>{% if item.status == 'withdrawn' %}Request withdrawn{% else %}Request received{% endif %}</h1>
 <p class="notice">{% if item.reservation %}This is your original request receipt, not a booking or payment confirmation. Contact the team for the current booking status.{% else %}{{ item.get_status_display }}. No place has been reserved and no payment has been collected.{% endif %}</p>
-<dl class="details"><div><dt>Workshop</dt><dd>{{ item.session_snapshot.workshop }}</dd></div><div><dt>Reference</dt><dd>{{ item.public_id }}</dd></div></dl>
-<p><a href="{% url 'scheduling:public_schedule' school_slug=business.slug %}">Return to workshops</a></p>{% endblock %}
+<dl class="details"><div><dt>{% if simplified_school %}Class{% else %}Workshop{% endif %}</dt><dd>{{ item.session_snapshot.workshop }}</dd></div><div><dt>Reference</dt><dd>{{ item.public_id }}</dd></div></dl>
+<p>{% if simplified_school %}<a class="button" href="{% url 'scheduling:school_classes' school_slug=business.slug %}">Classes &amp; programs</a>{% else %}<a href="{% url 'scheduling:public_schedule' school_slug=business.slug %}">Return to workshops</a>{% endif %}</p>{% endblock %}

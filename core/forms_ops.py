@@ -121,6 +121,10 @@ class OpsSchoolEditForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        from core.services.portal_environment import deployment_environment
+        if deployment_environment():
+            self.fields["is_demo"].disabled = True
+            self.fields["is_demo"].initial = deployment_environment() == "demo"
         flags = getattr(self.instance, "feature_flags", None) or {}
         self.fields["founder_pricing_enabled"].initial = bool(flags.get(FOUNDER_PRICING_FLAG))
         self.fields["plan"].help_text = "Controls plan defaults and feature access, not the amount charged in Stripe."
@@ -164,8 +168,14 @@ class OpsSchoolEditForm(forms.ModelForm):
 
     def clean(self):
         from core.forms_trial import validate_deferred_trial_edit
+        from core.services.portal_environment import validate_deployment_stripe_key
         values = super().clean()
         validate_deferred_trial_edit(self.instance, values)
+        for field, public in (("app_fee_stripe_secret_key", False), ("app_fee_stripe_public_key", True)):
+            try:
+                validate_deployment_stripe_key(values.get(field), publishable=public)
+            except forms.ValidationError as exc:
+                self.add_error(field, exc)
         return values
 
     def save(self, commit=True):

@@ -33,6 +33,7 @@
 
   <form method="post" action="{{ form_action }}">
     {% csrf_token %}
+    {% include 'scheduling/enrollment_creation_fields.html' %}
     {% if is_multi %}
     <input type="hidden" name="_form_key" value="{{ form_key }}">
     {% endif %}

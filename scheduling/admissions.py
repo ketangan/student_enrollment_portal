@@ -15,6 +15,24 @@ def policy_for(school_id):
     return AdmissionPolicy.objects.select_related("profile__school").filter(profile__school_id=school_id, enabled=True).first()
 
 
+def direct_enrollment(school):
+    from .school_navigation import workflow_policy
+    return workflow_policy(school)["direct_enrollment"]
+
+
+def has_staged_history(policy, *, lead=None, draft=None):
+    """Existing case and tour identities retain their original application gates."""
+    if draft is not None:
+        if cases(policy).filter(draft=draft).exists():
+            return True
+        lead = draft.lead if draft.lead_id else None
+    if lead is None:
+        return False
+    return (cases(policy).filter(lead=lead).exists()
+        or VisitBooking.objects.filter(lead=lead, slot__program__kind="tour",
+            slot__program__offering__location__profile=policy.profile).exists())
+
+
 def cases(policy):
     return AdmissionCase.objects.filter(policy=policy).select_related("policy__profile__school", "lead", "tour", "draft", "submission")
 
@@ -72,6 +90,8 @@ def case_for_lead(policy, lead, *, create=False):
 def lead_context(lead):
     policy = policy_for(lead.school_id)
     if not policy:
+        return None
+    if direct_enrollment(policy.profile.school) and not has_staged_history(policy, lead=lead):
         return None
     case = case_for_lead(policy, lead)
     reason = application_reason(case)

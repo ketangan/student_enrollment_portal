@@ -1,0 +1,60 @@
+{% extends 'scheduling/school/base.html' %}
+{% load static %}
+{% block title %}Schedule{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'vendor/event-calendar/event-calendar.min.css' %}">
+<link rel="stylesheet" href="{% static 'scheduling/calendar.css' %}">
+{% endblock %}
+{% block content %}
+<div class="school-journeys">
+  <header class="section-heading booking-page-heading">
+    <h1>Schedule</h1>
+    <div class="actions">
+      {% if journey_features.workshops %}<a class="button" href="{% url 'scheduling:requests' school_slug=business.slug %}">Class requests</a>{% endif %}
+      {% if journey_features.lessons %}<a class="button" href="{% url 'scheduling:lesson_setup' school_slug=business.slug %}?section=teachers">Teachers &amp; availability</a>{% endif %}
+      {% if trial_booking_available %}<a class="button primary" href="{% url 'scheduling:staff_lesson_trials' school_slug=business.slug %}"><i data-lucide="plus" aria-hidden="true"></i>Book a trial</a>{% endif %}
+    </div>
+  </header>
+  {% if calendar_available %}<nav class="calendar-segment school-schedule-views" aria-label="Schedule view">
+    <a href="{{ schedule_calendar_url }}"{% if schedule_view == 'calendar' %} aria-current="page"{% endif %}><i data-lucide="calendar-days" aria-hidden="true"></i>Calendar</a>
+    <a href="{{ schedule_list_url }}"{% if schedule_view == 'list' %} aria-current="page"{% endif %}><i data-lucide="list" aria-hidden="true"></i>List</a>
+  </nav>{% endif %}
+  <form method="get" class="lesson-toolbar">
+    <input type="hidden" name="view" value="{{ schedule_view|default:'list' }}">
+    {% if schedule_range %}<input type="hidden" name="range" value="{{ schedule_range }}">{% endif %}
+    <div class="form-field"><label for="{{ schedule_filter.date.id_for_label }}">Date</label>{{ schedule_filter.date }}{{ schedule_filter.date.errors }}</div>
+    {% if journey_features.lessons %}<div class="form-field"><label for="{{ schedule_filter.teacher.id_for_label }}">Teacher</label>{{ schedule_filter.teacher }}{{ schedule_filter.teacher.errors }}</div>{% else %}{{ schedule_filter.teacher }}{{ schedule_filter.teacher.errors }}{% endif %}
+    {% if show_location_filter %}<div class="form-field"><label for="{{ location_filter.location.id_for_label }}">Location</label>{{ location_filter.location }}{{ location_filter.location.errors }}</div>{% else %}{{ location_filter.location }}{% endif %}
+    <button class="button" type="submit"><i data-lucide="filter" aria-hidden="true"></i>Filter</button>
+    <a class="button icon-button" href="{% url 'scheduling:school_schedule' school_slug=business.slug %}?location={% if schedule_view == 'calendar' %}&amp;view=calendar{% endif %}" aria-label="Reset filters" title="Reset filters"><i data-lucide="rotate-ccw" aria-hidden="true"></i></a>
+  </form>
+  {% if schedule_filter.errors or location_filter.errors %}<div class="journey-notice" role="alert">Correct the filters to see your schedule.{{ schedule_filter.non_field_errors }}</div>{% else %}
+  {% if schedule_range %}
+  <div class="calendar-toolbar school-schedule-toolbar">
+    <a class="button" href="{{ schedule_today }}">Today</a>
+    {% if schedule_previous %}<a class="button icon-button" href="{{ schedule_previous }}" aria-label="Previous {{ schedule_range }}" title="Previous {{ schedule_range }}"><i data-lucide="chevron-left" aria-hidden="true"></i></a>{% endif %}
+    {% if schedule_next %}<a class="button icon-button" href="{{ schedule_next }}" aria-label="Next {{ schedule_range }}" title="Next {{ schedule_range }}"><i data-lucide="chevron-right" aria-hidden="true"></i></a>{% endif %}
+    <h2>{% if schedule_range == 'month' %}{{ schedule_day|date:'F Y' }}{% else %}{{ schedule_start|date:'M j, Y' }}{% if schedule_start != schedule_end %} &ndash; {{ schedule_end|date:'M j, Y' }}{% endif %}{% endif %}</h2>
+    <nav class="calendar-segment" aria-label="Schedule date range">{% for range in schedule_ranges %}<a href="{{ range.url }}"{% if range.active %} aria-current="page"{% endif %}>{{ range.label }}</a>{% endfor %}</nav>
+  </div>
+  {% endif %}
+  {% if schedule_view == 'calendar' %}
+  <section class="booking-calendar school-calendar" aria-label="Scheduled lessons and classes">
+    <div class="calendar-context">{% if schedule_timezone %}{{ schedule_timezone }}{% else %}Times shown in each location's time zone{% endif %}</div>
+    <div class="calendar-viewport" tabindex="0" role="region" aria-label="Calendar grid"><div id="school-calendar" data-range="{{ schedule_range }}"></div></div>
+    <p id="school-calendar-error" class="notice error" role="alert" hidden>Could not display the calendar. <a href="{{ schedule_list_url }}">Open List</a></p>
+    <noscript><p><a href="{{ schedule_list_url }}">Open List</a></p></noscript>
+  </section>
+  {{ schedule_calendar_config|json_script:'school-calendar-config' }}
+  {% else %}
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Scheduled lessons and classes">
+    {% include 'scheduling/school/agenda.html' with agenda=agenda %}
+  </div>
+  {% include 'scheduling/school/pagination.html' with pagination=pagination label='Schedule pages' %}
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+{% if schedule_calendar_config %}<script defer src="{% static 'vendor/event-calendar/event-calendar.min.js' %}"></script><script defer src="{% static 'scheduling/school-calendar.js' %}"></script>{% endif %}
+{% endblock %}

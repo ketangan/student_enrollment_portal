@@ -1,7 +1,8 @@
 {% extends 'scheduling/base.html' %}
 {% block title %}Camp setup{% endblock %}
+{% block page_heading %}{% if not simplified_school %}{{ block.super }}{% endif %}{% endblock %}
 {% block content %}
-<a class="back-link" href="{% url 'scheduling:camps' school_slug=business.slug %}">All camps</a>
+<a class="back-link" href="{% url 'scheduling:camps' school_slug=business.slug %}">{% if simplified_school %}<i data-lucide="arrow-left" aria-hidden="true"></i>{% endif %}All camps</a>
 <div class="section-heading"><div><h2>{% if form.instance.pk %}Edit camp{% else %}Create camp{% endif %}</h2><p>{{ offering.name }} &middot; {{ offering.location.name }}</p></div><a href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=offering.pk %}">Manage sessions &amp; choices</a></div>
 <form method="post" class="setup-form">{% csrf_token %}{{ form.non_field_errors }}
 {% include 'scheduling/form_hidden_fields.html' %}

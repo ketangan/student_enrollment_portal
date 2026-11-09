@@ -57,15 +57,27 @@ def settings(request, school_slug):
 @require_GET
 def home(request, school_slug):
     profile, role = lesson_access(request.user, school_slug)
+    from .school_navigation import navigation_policy
+    if navigation_policy(profile.school)["simplified"]:
+        return redirect("scheduling:school_schedule", school_slug=school_slug)
     items = LessonOccurrence.objects.filter(series__profile=profile).exclude(state="rescheduled").select_related("series__student__household", "series__location")
     family = request.GET.get("family", "")
     if family:
+        from .school_navigation import require_optional_feature
+        require_optional_feature(profile, "family_management")
         household = get_object_or_404(lesson_records(profile, "households"), pk=family if family.isdigit() else 0)
         items = items.filter(series__student__household=household)
     context = _context(request, profile, role, "lessons")
     items = context["location_filter"].filter(items, "series__location")
+    period = request.GET.get("period", "upcoming") if context["school_layout"] else "all"
+    if period not in {"upcoming", "past", "all"}:
+        period = "upcoming"
+    if period == "upcoming":
+        items = items.filter(ends_at__gte=timezone.now())
+    elif period == "past":
+        items = items.filter(ends_at__lt=timezone.now()).order_by("-starts_at", "pk")
     context.update(items=Paginator(items, 50).get_page(request.GET.get("page")),
-                   households=lesson_records(profile, "households"), family=family)
+                   households=lesson_records(profile, "households"), family=family, period=period)
     return render(request, "scheduling/lessons.html", context)
 
 
@@ -75,12 +87,30 @@ def home(request, school_slug):
 def setup(request, school_slug):
     profile, role = lesson_access(request.user, school_slug)
     context = _context(request, profile, role, "lessons")
+    section = request.GET.get("section", "teachers")
+    if section == "students":
+        from .school_navigation import require_optional_feature
+        require_optional_feature(profile, "family_management")
+    sections = {"teachers", "students", "services"} if context["simplified_school"] else {"teachers", "students"}
+    context["setup_section"] = section if section in sections else "teachers"
     for kind in LABELS:
         context[kind] = lesson_records(profile, kind)
     context["teachers"] = context["teachers"].prefetch_related("services")
     context["availability"] = context["availability"].select_related("teacher", "location")
     context["closures"] = context["closures"].select_related("teacher", "location")
     context["students"] = context["students"].select_related("household")
+    if context["simplified_school"] and context["setup_section"] in {"teachers", "services"}:
+        teacher_id = request.GET.get("teacher", "")
+        teacher = get_object_or_404(context["teachers"], pk=teacher_id if teacher_id.isdigit() else 0) if teacher_id else None
+        context["selected_teacher"] = teacher
+        if teacher:
+            context["availability"] = context["availability"].filter(teacher=teacher)
+            from django.db.models import Q
+            context["closures"] = context["closures"].filter(Q(teacher=teacher) | Q(teacher=None))
+        elif context["setup_section"] == "teachers" and request.GET.get("view", "week") != "list":
+            from .teacher_overview import weekly_overview
+            context.update(weekly_overview(request, profile, context))
+        return render(request, "scheduling/school_teacher_setup.html", context)
     return render(request, "scheduling/lesson_setup.html", context)
 
 
@@ -93,11 +123,41 @@ def edit_setup(request, school_slug, kind, pk=None):
         form = save_lesson_setup(request.user, school_slug, kind, request.POST, pk)
         if form.is_valid():
             messages.success(request, "Saved.")
-            return redirect("scheduling:lesson_setup", school_slug=school_slug)
+            from django.urls import reverse
+            from .school_navigation import navigation_policy
+            url = reverse("scheduling:lesson_setup", kwargs={"school_slug": school_slug})
+            policy = navigation_policy(profile.school)
+            if policy["layout"] == "school":
+                url += "?section=" + ("students" if kind in {"students", "households"} else "services" if kind == "services" and policy["simplified"] else "teachers")
+                if kind == "teachers" and policy["simplified"]:
+                    url += "&view=list"
+                if kind in {"availability", "closures"} and form.instance.teacher_id:
+                    url += "&teacher=" + str(form.instance.teacher_id)
+            return redirect(url)
     else:
         form = setup_form(profile, kind, pk=pk)
+        teacher_id = request.GET.get("teacher", "")
+        if not pk and kind in {"availability", "closures"} and teacher_id:
+            teacher = get_object_or_404(lesson_records(profile, "teachers"), pk=teacher_id if teacher_id.isdigit() else 0)
+            form.initial["teacher"] = teacher.pk
     context = _context(request, profile, role, "lessons")
-    context.update(form=form, title=f'{"Edit" if pk else "Add"} {LABELS[kind]}', submit_label="Save")
+    context.update(form=form, title=f'{"Edit" if pk else "Add"} {LABELS[kind]}', submit_label="Save",
+        setup_section="students" if kind in {"students", "households"} else "teachers")
+    if context["simplified_school"] and kind in {"services", "teachers"}:
+        from django.urls import reverse
+        context["setup_kind"] = kind
+        context["setup_return_url"] = reverse("scheduling:lesson_setup", kwargs={"school_slug": school_slug}) + (
+            "?section=services" if kind == "services" else "?view=list")
+        context["setup_return_label"] = "Lesson types" if kind == "services" else "Teachers & availability"
+        if kind == "services":
+            context["title"] = f'{"Edit" if pk else "Add"} lesson type'
+    if context["simplified_school"] and kind in {"availability", "closures"}:
+        from django.urls import reverse
+        label = "hours" if kind == "availability" else "time off"
+        context["title"] = f'{"Edit" if pk else "Add"} {label}'
+        teacher_id = form.instance.teacher_id or form.initial.get("teacher")
+        if teacher_id:
+            context["teacher_return_url"] = reverse("scheduling:lesson_setup", kwargs={"school_slug": school_slug}) + f"?teacher={teacher_id}"
     return render(request, "scheduling/lesson_form.html", context, status=400 if form.errors else 200)
 
 
@@ -106,6 +166,10 @@ def edit_setup(request, school_slug, kind, pk=None):
 @require_http_methods(["GET", "POST"])
 def series_new(request, school_slug):
     profile, role = lesson_access(request.user, school_slug, "sessions.edit")
+    from .school_navigation import workflow_policy
+    from django.http import Http404
+    if "recurring_lessons" not in workflow_policy(profile.school)["optional_features"]:
+        raise Http404
     form = SeriesForm(request.POST if request.method == "POST" else None, profile=profile)
     context = _context(request, profile, role, "lessons")
     context.update(form=form)
@@ -132,7 +196,14 @@ def series_detail(request, school_slug, public_id):
     profile, role = lesson_access(request.user, school_slug)
     series = get_object_or_404(LessonSeries.objects.select_related("student__household"), profile=profile, public_id=public_id)
     context = _context(request, profile, role, "lessons")
-    context.update(series=series, items=series.occurrences.select_related("replacement__series", "replaces__series", "cancellation", "issued_credit", "redeemed_credit"), now=timezone.now(), booking=source_booking(series))
+    booking = source_booking(series)
+    if context["simplified_school"] and booking:
+        response = redirect("scheduling:lesson_booking_detail", school_slug=school_slug, public_id=booking.public_id)
+        if context["school_schedule_return"]:
+            from urllib.parse import urlencode
+            response["Location"] += "?" + urlencode({"schedule": context["school_schedule_return"]})
+        return response
+    context.update(series=series, items=series.occurrences.select_related("replacement__series", "replaces__series", "cancellation", "issued_credit", "redeemed_credit"), now=timezone.now(), booking=booking)
     with timezone.override(ZoneInfo(series.snapshot["timezone"])):
         return render(request, "scheduling/lesson_series.html", context)
 
@@ -142,8 +213,9 @@ def series_detail(request, school_slug, public_id):
 @require_http_methods(["GET", "POST"])
 def cancel(request, school_slug, pk):
     profile, role = lesson_access(request.user, school_slug, "sessions.edit")
-    item = get_object_or_404(LessonOccurrence.objects.select_related("series"), pk=pk, series__profile=profile)
-    form = CancelLessonForm(request.POST if request.method == "POST" else None, initial={"origin": "family"})
+    item = get_object_or_404(LessonOccurrence.objects.select_related("series__profile__school", "redeemed_credit"), pk=pk, series__profile=profile)
+    form = CancelLessonForm(request.POST if request.method == "POST" else None,
+        occurrence=item, initial={"origin": "family", "scope": "one"})
     context = _context(request, profile, role, "lessons")
     if request.method == "POST" and form.is_valid():
         try:
@@ -151,12 +223,17 @@ def cancel(request, school_slug, pk):
             if request.POST.get("action") == "confirm":
                 series = cancel_lessons(request.user, school_slug, pk, data["scope"], data["reason"],
                                         data["origin"], request.POST.get("preview_token", ""))
-                messages.success(request, "Lessons canceled. Make-up outcomes are recorded; billing is unchanged.")
+                messages.success(request, "Booking canceled. Billing is unchanged." if context["simplified_school"]
+                    else "Lessons canceled. Make-up outcomes are recorded; billing is unchanged.")
                 return redirect("scheduling:lesson_series", school_slug=school_slug, public_id=series.public_id)
             rows, revision = cancellation_plan(item, data["scope"], data["origin"])
             context.update(rows=rows, token=cancellation_token(request.user, item, data, revision))
         except ValidationError as exc:
             form.add_error(None, "; ".join(exc.messages))
-    context.update(form=form, title="Cancel lessons", submit_label="Cancel lessons", occurrence=item)
+    from .appointments import source_booking
+    context.update(form=form, title="Cancel booking" if context["simplified_school"] else "Cancel lessons",
+        submit_label="Cancel booking", occurrence=item,
+        booking=source_booking(item.series) if context["simplified_school"] else None,
+        show_credit_outcomes=not form.fields["origin"].widget.is_hidden)
     with timezone.override(ZoneInfo(item.series.snapshot["timezone"])):
         return render(request, "scheduling/lesson_cancel.html", context, status=400 if form.errors else 200)

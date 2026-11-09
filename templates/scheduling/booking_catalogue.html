@@ -1,7 +1,16 @@
-{% extends 'scheduling/family_base.html' %}
+{% extends booking_base %}
 {% block title %}{% if family %}Book a lesson{% else %}Trial lessons{% endif %}{% endblock %}
 {% block content %}
+{% if staff_trial %}{% url 'scheduling:school_schedule' school_slug=business.slug as back_url %}{% include 'scheduling/school/back_link.html' with back_label='Schedule' %}
+{% elif simplified_trial %}<a class="back-link" href="{% url 'scheduling:school_public' school_slug=business.slug %}">Back to {{ business.display_name }}</a>{% endif %}
 {% if family %}<a class="back-link" href="{% url 'scheduling:family_schedule' school_slug=business.slug %}">Family schedule</a>{% endif %}
-<h1>{% if family %}Book a lesson{% else %}Trial lessons{% endif %}</h1>
+<h1>{% if family %}Book a lesson{% elif simplified_trial %}Book a trial{% else %}Trial lessons{% endif %}</h1>
+{% if staff_trial %}
+<div class="table-wrap trial-offers"><table class="dash-table"><thead><tr><th>Lesson</th><th>Teacher</th><th>Duration</th><th>Fee</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody>
+{% for offer in offers %}<tr><th scope="row">{{ offer.service.name }}</th><td>{{ offer.teacher }}</td><td>{{ offer.service.duration_minutes }} min</td><td>{% if offer.fee_cents %}${{ offer.price|floatformat:2 }}{% else %}Free{% endif %}</td><td><a class="button primary" href="{% url 'scheduling:staff_lesson_trial_book' school_slug=business.slug public_id=offer.public_id %}">Choose a time</a></td></tr>{% empty %}<tr><td colspan="5">No trial lessons available.</td></tr>{% endfor %}
+</tbody></table></div>
+{% else %}
+{% if simplified_trial %}<p class="notice">Local booking preview. No online payment is taken and confirmation emails are not sent.</p>{% endif %}
 {% for offer in offers %}<article class="family-lesson"><div><h2>{{ offer.title }}</h2><p>{{ offer.service.subject }} &middot; {{ offer.service.duration_minutes }} minutes</p></div><div><strong>{{ offer.teacher }}</strong><p>{{ offer.location }}{% if offer.room %} &middot; {{ offer.room.name }}{% endif %}</p><p>{% if offer.fee_cents %}${{ offer.price|floatformat:2 }} &middot; Pay at studio{% else %}Free{% endif %}</p></div><div><a class="button primary" href="{% if family %}{% url 'scheduling:family_lesson_book' school_slug=business.slug public_id=offer.public_id %}{% else %}{% url 'scheduling:lesson_trial_book' school_slug=business.slug public_id=offer.public_id %}{% endif %}">Choose a time</a></div></article>{% empty %}<p>No lessons are available for online booking. Please contact the studio.</p>{% endfor %}
+{% endif %}
 {% endblock %}

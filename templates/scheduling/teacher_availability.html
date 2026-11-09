@@ -1,0 +1,37 @@
+{% extends 'scheduling/teacher_base.html' %}
+{% block title %}My availability{% endblock %}
+{% block content %}
+<div class="booking-page-heading section-heading">
+  <h1>My availability</h1>
+  <div class="actions"><a class="button primary" href="{% url 'scheduling:teacher_availability_new' school_slug=business.slug %}">Add availability</a><a class="button" href="{% url 'scheduling:teacher_time_off' school_slug=business.slug %}">Add time off</a></div>
+</div>
+<h2 id="weekly-availability">Weekly availability</h2>
+<div class="table-wrap" role="region" aria-labelledby="weekly-availability" tabindex="0">
+  <table class="dash-table">
+    <thead><tr><th scope="col">Day</th><th scope="col">Time</th><th scope="col">Location</th><th scope="col">Effective dates</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+    <tbody>
+      {% for day in days %}
+      {% for item in day.windows %}
+      <tr>
+        <th scope="row">{{ day.label }}</th>
+        <td>{{ item.start_time|time:'g:i A' }} - {{ item.end_time|time:'g:i A' }}</td>
+        <td>{{ item.location }}<p>{{ item.location.timezone_name }}</p></td>
+        <td>{% if item.effective_from %}From {{ item.effective_from|date:'M j, Y' }}{% endif %}{% if item.effective_until %}<p>Through {{ item.effective_until|date:'M j, Y' }}</p>{% endif %}{% if not item.effective_from and not item.effective_until %}Ongoing{% endif %}</td>
+        <td><a class="button" href="{% url 'scheduling:teacher_availability_edit' school_slug=business.slug pk=item.pk %}">Edit<span class="sr-only"> {{ day.label }} availability</span></a></td>
+      </tr>
+      {% empty %}<tr><th scope="row">{{ day.label }}</th><td colspan="4">Not available</td></tr>{% endfor %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<h2 id="teacher-closures">Time off and school closures</h2>
+<div class="table-wrap" role="region" aria-labelledby="teacher-closures" tabindex="0">
+  <table class="dash-table">
+    <thead><tr><th scope="col">Dates</th><th scope="col">Location</th><th scope="col">Reason</th></tr></thead>
+    <tbody>
+      {% for item in closures %}<tr><th scope="row">{{ item.first_date|date:'M j, Y' }} - {{ item.last_date|date:'M j, Y' }}</th><td>{{ item.location }}</td><td>{{ item.reason }}{% if not item.teacher_id %}<p>School closure</p>{% endif %}</td></tr>
+      {% empty %}<tr><td colspan="3">No upcoming time off.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

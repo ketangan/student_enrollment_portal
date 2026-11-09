@@ -26,7 +26,7 @@
        class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;" target="_blank">
       Open School Admin ↗
     </a>
-    {% if school.is_demo %}
+    {% if school.is_demo and can_convert_in_place %}
     <a href="{% url 'ops_school_convert' school.slug %}"
        class="dash-action-btn dash-action-btn--primary" style="font-size:12px;background:#16a34a;border-color:#16a34a;">
       Convert to Customer →

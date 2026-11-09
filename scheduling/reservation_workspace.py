@@ -121,6 +121,10 @@ def detail_context(request, context, item, tab="details"):
         {"label": "Reservation", "url": reverse("scheduling:reservation_detail", kwargs={"school_slug": slug, "public_id": item.public_id}), "active": tab == "details"},
         {"label": "Party Prep" if item.party_request_id else "Workshop Prep", "url": reverse("scheduling:reservation_preparation", kwargs={"school_slug": slug, "public_id": item.public_id}), "active": tab == "preparation"},
     ]
+    if not {"inventory", "participant_choices"}.intersection(
+            context["school_workflows"]["optional_features"]):
+        context["booking_navigation"]["section"]["tabs"] = []
+        context["reservation_tab"] = "details"
     # Header location changes leave this record and return to the scoped list.
     context["location_action"] = reverse("scheduling:reservations", kwargs={"school_slug": slug})
     context["location_query_fields"] = []

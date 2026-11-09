@@ -20,6 +20,7 @@ from .family_models import FamilyScheduleGrant
 from .lesson_models import LessonHousehold, LessonOccurrence
 from .lessons import lesson_access
 from .views import _context
+from .school_navigation import require_optional_feature
 
 
 def private_page(view):
@@ -44,6 +45,7 @@ def private_page(view):
 @require_GET
 def access_list(request, school_slug):
     profile, role = lesson_access(request.user, school_slug, "setup.edit")
+    require_optional_feature(profile, "family_management")
     context = _context(request, profile, role, "lessons")
     context.update(households=LessonHousehold.objects.filter(profile=profile),
         grants=Paginator(FamilyScheduleGrant.objects.filter(household__profile=profile)
@@ -57,6 +59,7 @@ def access_list(request, school_slug):
 @sensitive_variables()
 def invite(request, school_slug, pk):
     profile, role = lesson_access(request.user, school_slug, "setup.edit")
+    require_optional_feature(profile, "family_management")
     household = get_object_or_404(LessonHousehold, profile=profile, pk=pk)
     form = InviteForm(request.POST if request.method == "POST" else None, user=request.user, household=household,
         initial={"recipient_name": household.name, "recipient_email": household.email})
@@ -79,6 +82,7 @@ def invite(request, school_slug, pk):
 @require_http_methods(["GET", "POST"])
 def revoke(request, school_slug, public_id):
     profile, role = lesson_access(request.user, school_slug, "setup.edit")
+    require_optional_feature(profile, "family_management")
     grant = get_object_or_404(FamilyScheduleGrant, household__profile=profile, public_id=public_id)
     form = RevokeForm(request.POST if request.method == "POST" else None)
     if request.method == "POST" and form.is_valid():
@@ -97,6 +101,7 @@ def revoke(request, school_slug, public_id):
 def entry(request, school_slug):
     try:
         profile = public_profile(school_slug)
+        require_optional_feature(profile, "family_management")
     except Http404:
         return render(request, "scheduling/family_unavailable.html", status=404)
     error = ""
@@ -122,12 +127,14 @@ def schedule(request, school_slug):
 @require_GET
 def preview(request, school_slug, public_id):
     profile, _ = lesson_access(request.user, school_slug, "setup.edit")
+    require_optional_feature(profile, "family_management")
     grant = get_object_or_404(FamilyScheduleGrant, household__profile=profile, public_id=public_id)
     return render_schedule(request, profile, grant, preview=True)
 
 
 def render_schedule(request, profile, grant, preview=False):
     from .appointments import preview_enabled
+    from .school_navigation import workflow_policy
     students = authorized_students(grant)
     selected = request.GET.get("student", "")
     visible = students
@@ -139,6 +146,7 @@ def render_schedule(request, profile, grant, preview=False):
     lessons = lessons.filter(ends_at__lte=timezone.now()).order_by("-starts_at", "-pk") if past else lessons.filter(ends_at__gt=timezone.now())
     credits = credit_query(profile).filter(source__series__student__in=visible)
     context = {"business": profile.school, "grant": grant, "students": students, "selected": selected, "preview": preview,
+        "attendance_enabled": "attendance" in workflow_policy(profile.school)["optional_features"],
         "booking_preview_enabled": preview_enabled(),
         "period": "past" if past else "upcoming", "now": timezone.now(),
         "items": Paginator(lessons.select_related("series"), 25).get_page(request.GET.get("page")),

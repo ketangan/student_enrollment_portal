@@ -76,7 +76,28 @@ def _context(request, profile, role, active_nav):
         demo_config = {}
     context["branded_admin_demo"] = demo_config.get("admin_branding") is True
     context["demo_admin_logo"] = demo_config.get("logo", "")
-    context["booking_navigation"] = workspace_navigation(context)
+    from .school_navigation import school_policy, school_navigation, schedule_return
+    from .visits import enrollment_access
+    policies = school_policy(profile.school)
+    policy = policies["navigation"]
+    context["school_policy"] = policy
+    context["school_workflows"] = policies["workflows"]
+    context["attendance_enabled"] = "attendance" in policies["workflows"]["optional_features"]
+    context["family_management_enabled"] = "family_management" in policies["workflows"]["optional_features"]
+    context["simplified_school"] = policy["simplified"]
+    context["school_layout"] = policy["layout"] == "school"
+    if policy["simplified"]:
+        context["school_schedule_return"] = schedule_return(request, profile.school)
+    if context["school_layout"]:
+        context["features"] = {key: value and key in policy["features"] for key, value in context["features"].items()}
+        if enrollment_access(request.user, profile):
+            from core.views_school_common import _school_admin_base_context
+            context["school_shell"] = _school_admin_base_context(request, profile.school, "scheduling")
+        context["booking_navigation"] = school_navigation(request, context)
+        if context.get("school_shell") and context["booking_navigation"]["section"]["key"] in {"programs", "settings"}:
+            context["school_shell"]["active_nav"] = context["booking_navigation"]["section"]["key"]
+    else:
+        context["booking_navigation"] = workspace_navigation(context)
     if context["experience_demo_available"]:
         context["customer_demo_url"] = customer_demo_url(profile)
     from .location_filters import staff_location
@@ -98,6 +119,10 @@ def _context(request, profile, role, active_nav):
 def workspace(request, school_slug):
     profile, role = require_location_access(request.user, school_slug)
     context = _context(request, profile, role, "overview")
+    if context["simplified_school"]:
+        return redirect("scheduling:school_schedule", school_slug=school_slug)
+    if context["school_layout"] and context["features"]["lessons"] and profile.lessons_enabled:
+        return redirect("scheduling:lessons", school_slug=school_slug)
     from .calendar import calendar_available, offerings
     context["calendar_available"] = calendar_available(profile)
     selected_view = request.GET.get("view", profile.default_dashboard_view if context["calendar_available"] else "overview")
@@ -271,6 +296,15 @@ def setup_edit(request, school_slug, kind, pk=None, offering_pk=None):
     if return_to_parties:
         context["parties_return_url"] = f"{parties_url}?location={form.instance.location_id}"
     context.update(form=form, kind=kind, editing=bool(pk), party_setup=kind == "party_packages", entity_label={"locations": "location", "rooms": "room", "workshops": "workshop", "sessions": "session", "party_packages": "party package"}[kind])
+    if context["simplified_school"]:
+        route, kwargs, label = "locations", {"school_slug": school_slug}, "Rooms"
+        if kind == "workshops":
+            route, label = "school_programs", "Programs"
+            context["entity_label"] = "class"
+        elif kind == "sessions":
+            route, label = "workshop_detail", form.instance.offering.name
+            kwargs["pk"] = form.instance.offering_id
+        context.update(setup_return_url=reverse("scheduling:" + route, kwargs=kwargs), setup_return_label=label)
     context["hide_setup_tabs"] = kind in {"workshops", "sessions"}
     if kind == "party_packages" and not pk:
         from .party_forms import package_editor_context

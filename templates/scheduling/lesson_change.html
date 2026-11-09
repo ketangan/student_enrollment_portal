@@ -1,11 +1,27 @@
 {% extends 'scheduling/base.html' %}{% load tz %}
-{% block title %}Reschedule lessons{% endblock %}
+{% block title %}{% if simplified_school %}Reschedule booking{% else %}Reschedule lessons{% endif %}{% endblock %}
+{% block page_heading %}{% if not simplified_school %}{{ block.super }}{% endif %}{% endblock %}
 {% block content %}
-<a class="back-link" href="{% url 'scheduling:lesson_series' school_slug=business.slug public_id=occurrence.series.public_id %}">Lesson schedule</a>
-<h2>Reschedule lessons</h2>
+{% if booking %}<a class="back-link" href="{% url 'scheduling:lesson_booking_detail' school_slug=business.slug public_id=booking.public_id %}">{% if simplified_school %}<i data-lucide="arrow-left" aria-hidden="true"></i>{% endif %}Back to booking</a>{% else %}<a class="back-link" href="{% url 'scheduling:lesson_series' school_slug=business.slug public_id=occurrence.series.public_id %}">{% if simplified_school %}<i data-lucide="arrow-left" aria-hidden="true"></i>{% endif %}Lesson schedule</a>{% endif %}
+<section data-inline-editor>
+<h2>{% if simplified_school %}Reschedule booking{% else %}Reschedule lessons{% endif %}</h2>
 <p>{{ occurrence.series.snapshot.student }} &middot; {{ occurrence.series.snapshot.service }}</p>
 <form method="post" novalidate>{% csrf_token %}
-<div class="setup-form">{% include 'scheduling/lesson_fields.html' %}</div>
+{% if simplified_school %}
+{{ form.non_field_errors }}{% include 'scheduling/form_hidden_fields.html' %}
+<div class="setup-form">
+{% for field in form.visible_fields %}{% if field.name != 'teacher' and field.name != 'location' and field.name != 'room' %}
+<div class="form-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>
+{% endif %}{% endfor %}
+</div>
+<details class="lesson-change-details"{% if form.teacher.errors or form.location.errors or form.room.errors or form.non_field_errors or can_confirm %} open{% endif %}>
+<summary>Teacher &amp; room</summary>
+<div class="setup-form">
+{% for field in form.visible_fields %}{% if field.name == 'teacher' or field.name == 'location' or field.name == 'room' %}
+<div class="form-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>
+{% endif %}{% endfor %}
+</div></details>
+{% else %}<div class="setup-form">{% include 'scheduling/lesson_fields.html' %}</div>{% endif %}
 {% if rows %}
 <h3>Change preview</h3>
 <div class="table-wrap lesson-table"><table><thead><tr><th>Original date / time</th><th>Replacement date / time</th><th>Outcome</th></tr></thead><tbody>
@@ -14,6 +30,7 @@
 <td>{% if row.state == 'scheduled' %}<span class="status">Available</span>{% else %}<span class="status inactive">Conflict</span><p>{{ row.reason }}</p>{% endif %}</td></tr>{% endfor %}
 </tbody></table></div><input type="hidden" name="preview_token" value="{{ token }}">
 {% endif %}
-<div class="actions form-actions"><button type="submit" name="action" value="preview">Preview changes</button>{% if can_confirm %}<button class="primary" type="submit" name="action" value="confirm">Confirm changes</button>{% endif %}</div>
+<div class="actions form-actions"><button{% if simplified_school and not can_confirm %} class="primary"{% endif %} type="submit" name="action" value="preview">Preview changes</button>{% if can_confirm %}<button class="primary" type="submit" name="action" value="confirm">Confirm changes</button>{% endif %}</div>
 </form>
+</section>
 {% endblock %}

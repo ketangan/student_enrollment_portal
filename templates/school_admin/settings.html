@@ -11,6 +11,11 @@
   </div>
 
   <style>
+    .scheduling-settings-groups { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:24px 40px; }
+    .scheduling-settings-group h3 { font-size:16px; margin:0 0 8px; }
+    .scheduling-settings-group ul { list-style:none; padding:0; margin:0; }
+    .scheduling-settings-group a { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:44px; padding:10px 0; border-bottom:1px solid var(--dash-border); font-size:14px; color:var(--dash-primary, #2563eb); text-decoration:none; }
+    .scheduling-settings-group a:hover { text-decoration:underline; }
     /* Form Content override slots */
     .slot-badge { display:inline-block; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; text-transform:uppercase; letter-spacing:.04em; flex-shrink:0; }
     .slot-badge--modified { background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; }
@@ -48,11 +53,32 @@
     <button type="button" class="settings-tab" data-tab="billing">Billing</button>
     {% endif %}
     <button type="button" class="settings-tab" data-tab="forms">Forms</button>
+    {% if scheduling_entry.simplified %}<a class="settings-tab" href="{{ scheduling_entry.programs_url }}">Programs</a>{% endif %}
     {% if scheduling_entry %}<button type="button" class="settings-tab" data-tab="scheduling">Scheduling</button>{% endif %}
   </div>
 
   {% if scheduling_entry %}
   <section class="settings-panel" data-tab="scheduling" aria-label="Scheduling settings">
+    {% if scheduling_entry.simplified %}
+    <div class="dash-card">
+      <div class="dash-card-header"><h2 class="dash-card-title">Scheduling settings</h2></div>
+      <table class="dash-table school-settings-table">
+        <tbody>{% for item in scheduling_entry.links %}
+          <tr><th scope="row">{{ item.label }}</th><td><a class="dash-action-btn dash-action-btn--secondary" href="{{ item.url }}">{{ item.action }}</a></td></tr>
+        {% empty %}<tr><td>No scheduling settings available for your role.</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+    {% elif scheduling_entry.school_layout %}
+    <h2 style="font-size:16px;margin:0 0 16px;">Scheduling</h2>
+    <div class="scheduling-settings-groups">
+      {% for group in scheduling_entry.groups %}
+      <section class="scheduling-settings-group">
+        <h3>{{ group.label }}</h3>
+        <ul>{% for item in group.links %}<li><a href="{{ item.url }}">{{ item.label }} <span aria-hidden="true">&rarr;</span></a></li>{% endfor %}</ul>
+      </section>
+      {% endfor %}
+    </div>
+    {% else %}
     <h2 style="font-size:16px;margin:0 0 16px;">Scheduling</h2>
     <ul style="list-style:none;padding:0;margin:0;max-width:680px;">
       {% for item in scheduling_entry.links %}
@@ -61,6 +87,7 @@
       </li>
       {% endfor %}
     </ul>
+    {% endif %}
   </section>
   {% endif %}
 
@@ -782,7 +809,7 @@
   <div class="settings-panel" data-tab="forms">
 
     <!-- ── Programs ──────────────────────────────────────────────────────── -->
-    {% if program_field_key %}
+    {% if program_field_key and not scheduling_entry.simplified %}
     <div class="dash-card" style="padding:24px;margin-bottom:20px;" id="programs">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
         <h2 style="font-size:15px;font-weight:700;margin:0;">Programs</h2>
@@ -1155,7 +1182,7 @@ if (new URLSearchParams(window.location.search).get('smtp_saved') === '1') {
 
   activateTab(activeTab);
 
-  document.querySelectorAll('.settings-tab').forEach(function(btn) {
+  document.querySelectorAll('.settings-tab[data-tab]').forEach(function(btn) {
     btn.addEventListener('click', function() {
       activateTab(btn.getAttribute('data-tab'));
     });

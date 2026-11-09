@@ -9,7 +9,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from .lesson_change_forms import AttendanceForm, RescheduleForm
+from .lesson_change_forms import AttendanceForm, RescheduleForm, validate_change_scope
 from .lesson_models import LessonOccurrence, LessonSeries
 from .lessons import audit, digest, lesson_access, plan_dates, preview_revision
 
@@ -28,6 +28,7 @@ def change_payload(data):
 
 def plan_change(item, cleaned):
     from .credits import validate_makeup_change
+    validate_change_scope(item.series.profile, cleaned["scope"])
     if item.state != "scheduled" or item.starts_at <= timezone.now():
         raise ValidationError("Only future scheduled lessons can be moved. Refresh the schedule.")
     source = item.series
@@ -68,6 +69,7 @@ def change_token(user, item, data, revision):
 def reschedule(user, slug, pk, data, token):
     from .credits import move_redemption
     profile, _ = lesson_access(user, slug, "sessions.edit", locked=True)
+    validate_change_scope(profile, data.get("scope"))
     item = get_occurrence(profile, pk)
     try:
         signed = signing.loads(token, salt=CHANGE_SALT, max_age=3600)
@@ -118,6 +120,8 @@ def attendance_token(user, item):
 @transaction.atomic
 def record_attendance(user, slug, pk, data):
     profile, _ = lesson_access(user, slug, "sessions.edit", locked=True)
+    from .school_navigation import require_optional_feature
+    require_optional_feature(profile, "attendance")
     item = get_occurrence(profile, pk)
     form = AttendanceForm(data)
     if not form.is_valid():

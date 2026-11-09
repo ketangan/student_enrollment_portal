@@ -21,6 +21,12 @@ from scheduling.navigation import enrollment_url, school_entry
 pytestmark = pytest.mark.django_db
 
 
+@pytest.fixture(autouse=True)
+def full_feature_demo_navigation(monkeypatch):
+    """The original seed remains a full-feature fixture, independent of demo presentation."""
+    monkeypatch.setattr("scheduling.school_navigation.load_school_config", lambda slug: None)
+
+
 @pytest.fixture
 def demo_environment(monkeypatch, settings):
     monkeypatch.setattr(seed, "settings", SimpleNamespace(DEBUG=True, DATABASES={"default": {
@@ -123,7 +129,7 @@ def test_school_settings_and_all_booking_entry_points(integrated, client):
         assert result.status_code == 200, (link, result.status_code)
     for name in ["workspace", "visits", "workshops", "requests", "parties", "camps", "lessons", "reservations",
                  "family_access", "lesson_credits", "lesson_bookings", "messages"]:
-        result = client.get(path(name))
+        result = client.get(path(name), follow=True)
         assert result.status_code == 200, name
         assert b"Enrollment admin" in result.content
     assert client.get(path("features")).status_code == 404  # Owner is not an operator.

@@ -1,0 +1,24 @@
+{% load tz %}
+<table class="dash-table school-agenda-table">
+  <thead><tr><th scope="col">Date &amp; time</th><th scope="col">Session</th><th scope="col">{% if show_location_filter %}Location{% else %}Room{% endif %}</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+  <tbody>
+  {% for event in agenda %}
+  <tr><td>
+    {% timezone event.location.timezone_name %}
+    {% with start=event.starts_at|localtime end=event.ends_at|localtime %}
+      <strong>{{ start|date:'D, M j, Y' }}</strong>
+      <p><time datetime="{{ event.starts_at|date:'c' }}">{{ start|date:'g:i A' }}</time> to {% if start.date != end.date %}{{ end|date:'M j, Y' }} {% endif %}{{ end|date:'g:i A' }}</p>
+      <p>{{ event.location.timezone_name }}</p>
+    {% endwith %}
+    {% endtimezone %}
+    </td><th scope="row">
+      <a href="{{ event.url }}">{{ event.title }}</a><p>{{ event.kind }}</p>
+      {% if event.person %}<p>{{ event.person }}{% if event.teacher %} with {{ event.teacher }}{% endif %}</p>{% endif %}
+    </th>
+    <td>{% if show_location_filter %}{{ event.location.name }}{% endif %}{% if event.room %}<p>{{ event.room.name }}</p>{% endif %}</td>
+    <td><span class="status">{{ event.status }}</span></td>
+    <td><a class="button" href="{{ event.url }}" aria-label="Open {{ event.title }} details">Details</a></td>
+  </tr>
+  {% empty %}<tr><td colspan="5">No upcoming lessons or classes match this schedule.</td></tr>{% endfor %}
+  </tbody>
+</table>

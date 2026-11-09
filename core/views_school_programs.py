@@ -38,16 +38,19 @@ def _next_display_order(school) -> int:
     return (result["display_order__max"] or 0) + 1
 
 
-def _settings_url(school_slug: str) -> str:
-    return reverse("school_settings", kwargs={"school_slug": school_slug})
+def _settings_url(school) -> str:
+    from scheduling.school_navigation import navigation_policy
+    if navigation_policy(school)["simplified"]:
+        return reverse("scheduling:school_programs", kwargs={"school_slug": school.slug})
+    return reverse("school_settings", kwargs={"school_slug": school.slug})
 
 
 @login_required
 @require_http_methods(["GET"])
 def school_programs_list_view(request, school_slug: str):
     # Programs are now embedded in the Settings page.
-    _get_accessible_school_for_admin(request, school_slug)
-    return redirect(_settings_url(school_slug))
+    school = _get_accessible_school_for_admin(request, school_slug)
+    return redirect(_settings_url(school))
 
 
 @login_required
@@ -55,7 +58,7 @@ def school_programs_list_view(request, school_slug: str):
 def school_program_create_view(request, school_slug: str):
     school = _get_accessible_school_for_admin(request, school_slug)
     require_school_role(request, school, "editor")
-    settings_url = _settings_url(school_slug)
+    settings_url = _settings_url(school)
 
     errors = {}
     values = {"name": "", "capacity": "", "auto_enroll": False, "waitlist_enabled": False}
@@ -132,7 +135,7 @@ def school_program_edit_view(request, school_slug: str, program_id: int):
     school = _get_accessible_school_for_admin(request, school_slug)
     require_school_role(request, school, "editor")
     program = get_object_or_404(SchoolProgram, id=program_id, school=school, is_deleted=False)
-    settings_url = _settings_url(school_slug)
+    settings_url = _settings_url(school)
 
     errors = {}
     values = {
@@ -301,7 +304,7 @@ def school_program_activate_view(request, school_slug: str, program_id: int):
         )
         messages.success(request, f"Program '{program.name}' reactivated.")
 
-    return redirect(_settings_url(school_slug))
+    return redirect(_settings_url(school))
 
 
 @login_required
@@ -331,7 +334,7 @@ def school_program_deactivate_view(request, school_slug: str, program_id: int):
         else:
             messages.success(request, f"Program '{program.name}' deactivated.")
 
-    return redirect(_settings_url(school_slug))
+    return redirect(_settings_url(school))
 
 
 @login_required
@@ -343,11 +346,11 @@ def school_program_delete_view(request, school_slug: str, program_id: int):
 
     if program.is_active:
         messages.error(request, f"Cannot delete '{program.name}' — deactivate it first.")
-        return redirect(_settings_url(school_slug))
+        return redirect(_settings_url(school))
 
     if program.has_submissions():
         messages.error(request, f"Cannot delete '{program.name}' — it has associated submissions.")
-        return redirect(_settings_url(school_slug))
+        return redirect(_settings_url(school))
 
     name = program.name
     code = program.code
@@ -361,7 +364,7 @@ def school_program_delete_view(request, school_slug: str, program_id: int):
         extra={"name": "program_deleted", "code": code, "program_name": name},
     )
     messages.success(request, f"Program '{name}' removed.")
-    return redirect(_settings_url(school_slug))
+    return redirect(_settings_url(school))
 
 
 # ---------------------------------------------------------------------------

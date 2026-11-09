@@ -1,0 +1,7 @@
+{% if pagination.page.has_other_pages %}
+<nav class="journey-pagination" aria-label="{{ label }}">
+  {% if pagination.previous %}<a href="{{ pagination.previous }}">Previous</a>{% endif %}
+  <span>Page {{ pagination.page.number }} of {{ pagination.page.paginator.num_pages }}</span>
+  {% if pagination.next %}<a href="{{ pagination.next }}">Next</a>{% endif %}
+</nav>
+{% endif %}

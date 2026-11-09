@@ -4,6 +4,16 @@ from .lesson_models import LessonOccurrence, LessonTeacher
 from .models import Location, Room
 
 
+def single_lesson_changes(profile):
+    from .school_navigation import workflow_policy
+    return workflow_policy(profile.school)["lesson_changes"] == "single"
+
+
+def validate_change_scope(profile, scope):
+    if single_lesson_changes(profile) and scope != "one":
+        raise forms.ValidationError("Change only the selected lesson in this workspace.")
+
+
 class RescheduleForm(forms.Form):
     scope = forms.ChoiceField(choices=[("one", "Only this lesson"), ("future", "This and later scheduled lessons")])
     first_date = forms.DateField(label="New date for this lesson", widget=forms.DateInput(attrs={"type": "date"}))
@@ -17,6 +27,14 @@ class RescheduleForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.occurrence = occurrence
         profile = occurrence.series.profile
+        from .school_navigation import workflow_policy
+        if not workflow_policy(profile.school)["reschedule_reason_required"]:
+            self.fields["reason"].required = False
+            self.fields["reason"].label = "Note (optional)"
+        if single_lesson_changes(profile):
+            self.fields["scope"].choices = [("one", "Only this lesson")]
+            self.fields["scope"].widget = forms.HiddenInput()
+            self.fields["scope"].initial = "one"
         self.fields["teacher"].queryset = LessonTeacher.objects.filter(profile=profile, is_active=True)
         self.fields["location"].queryset = Location.objects.filter(profile=profile)
         self.fields["room"].queryset = Room.objects.filter(location__profile=profile).select_related("location")

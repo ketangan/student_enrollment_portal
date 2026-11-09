@@ -1036,14 +1036,18 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
         messages.error(request, "Enter a valid email address.")
         return redirect(redirect_url)
 
-    new_phone = request.POST.get("phone", "").strip()
-    new_interested_in_value = request.POST.get("interested_in_value", "").strip()
+    # The follow-up and contact editors submit different subsets of this record.
+    # Missing fields retain their values; an explicit blank still clears them.
+    new_phone = request.POST.get("phone", lead.phone or "").strip()
+    new_interested_in_value = request.POST.get("interested_in_value", lead.interested_in_value or "").strip()
 
     # Resolve label for interested_in from config program options.
     config = _safe_load_school_config(school_slug)
     program_options = get_db_program_options(school) if school.program_field_key else (get_program_options(config) if config else [])
     label_map = {opt["value"]: opt["label"] for opt in program_options}
     new_interested_in_label = label_map.get(new_interested_in_value, new_interested_in_value)
+    if "interested_in_value" not in request.POST:
+        new_interested_in_label = lead.interested_in_label
 
     # Custom YAML form fields — read posted field__<key> values and build diff.
     _config_raw = getattr(config, "raw", {}) or {}
@@ -1125,7 +1129,7 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
     follow_up_date_raw = request.POST.get("next_follow_up_at", "").strip()
 
     # Validate and parse follow-up — must succeed before any DB write.
-    new_follow_up = None
+    new_follow_up = None if "next_follow_up_at" in request.POST else lead.next_follow_up_at
     if follow_up_delta_raw:
         try:
             delta = int(follow_up_delta_raw)

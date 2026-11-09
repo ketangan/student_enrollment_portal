@@ -2,6 +2,12 @@
 
 Updated: October 5, 2026. Local demonstration only.
 
+November 7 update: see [Enrollment and teacher booking setup](enrollment-lessons-setup.md)
+for the current future lesson dates, second teacher and repeatable setup guide.
+Taylor's tour has now been marked attended; start the enrollment walkthrough from
+the lead's **Start Enrollment** link. The October fixture descriptions below are
+historical and do not override that update.
+
 ## Start Here
 
 Open [the school admin](http://127.0.0.1:8002/schools/enrollment-request-demo/admin/).

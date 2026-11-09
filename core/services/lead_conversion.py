@@ -48,6 +48,9 @@ def try_convert_lead(
                 return None
         else:
             # Email-match path: self-service form submission.
+            from scheduling.admissions import direct_enrollment
+            if direct_enrollment(school):
+                return None
             applicant_email = _find_applicant_email(submission.data or {}, config_raw or {})
             if not applicant_email:
                 logger.info("No applicant email found for submission %s", submission.public_id)

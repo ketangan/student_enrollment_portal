@@ -1,0 +1,25 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ business.display_name }}{% endblock %}</title>
+  <link rel="icon" href="{% static 'favicon.png' %}">
+  <link rel="stylesheet" href="{% static 'scheduling/workspace.css' %}">
+  <link rel="stylesheet" href="{% static 'scheduling/school-journeys.css' %}?v=20261108-theme">
+  {% block extra_css %}{% endblock %}
+</head>
+<body class="school-public school-journeys">
+<a class="skip-link" href="#content">Skip to content</a>
+<header class="journey-public-header">
+  <a class="journey-brand" href="{% url 'scheduling:school_public' school_slug=business.slug %}">{% if business.logo_url %}<img src="{{ business.logo_url }}" alt="" width="44" height="44">{% endif %}<span>{{ business.display_name }}</span></a>
+  <nav class="journey-actions" aria-label="School public pages">
+    <a href="{% url 'apply' school_slug=business.slug %}">Enroll</a>
+    {% if trial_booking_available or simplified_trial %}<a href="{% url 'scheduling:lesson_trials' school_slug=business.slug %}">Book a trial</a>{% endif %}
+    {% if journey_features.workshops or journey_features.camps or trial_classes_enabled %}<a href="{% url 'scheduling:school_classes' school_slug=business.slug %}">Classes &amp; programs</a>{% endif %}
+  </nav>
+</header>
+<main id="content">{% block content %}{% endblock %}</main>
+{% block scripts %}{% endblock %}
+</body>
+</html>

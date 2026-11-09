@@ -5,6 +5,7 @@ from datetime import timedelta
 
 from scheduling.integrations.square_connection import due, maintain
 from scheduling.models import SquareAuthorization
+from core.services.portal_environment import scope_deployment_schools
 
 
 class Command(BaseCommand):
@@ -24,7 +25,8 @@ class Command(BaseCommand):
                 maintain(pk)
             except ValidationError:
                 failed += 1
-        SquareAuthorization.objects.filter(expires_at__lt=timezone.now() - timedelta(days=1)).delete()
+        scope_deployment_schools(SquareAuthorization.objects.all(), "connection__profile__school__").filter(
+            expires_at__lt=timezone.now() - timedelta(days=1)).delete()
         self.stdout.write(f"Checked {checked} Square connections; {failed} need attention.")
         if failed:
             raise CommandError("Some Square connections need attention. Review Integrations.")

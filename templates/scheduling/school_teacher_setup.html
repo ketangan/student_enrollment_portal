@@ -1,0 +1,44 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Teachers & availability{% endblock %}
+{% block page_heading %}{% endblock %}
+{% block content %}
+<div class="teacher-setup">
+{% if selected_teacher %}{% url 'scheduling:lesson_setup' school_slug=business.slug as back_url %}{% include 'scheduling/school/back_link.html' with back_label='Teachers & availability' %}{% else %}{% url 'scheduling:school_schedule' school_slug=business.slug as back_url %}{% include 'scheduling/school/back_link.html' with back_label='Schedule' %}{% endif %}
+<div class="section-heading"><h1>{% if selected_teacher %}{{ selected_teacher.name }}{% else %}Teachers &amp; availability{% endif %}</h1>
+{% if can_edit_setup %}<div class="actions">
+{% if selected_teacher %}<a class="button primary" data-inline-edit href="{% url 'scheduling:lesson_setup_edit' school_slug=business.slug kind='teachers' pk=selected_teacher.pk %}">Edit teacher</a>
+{% elif setup_section == 'services' %}<a class="button primary" data-inline-edit data-inline-target="#lesson-types" href="{% url 'scheduling:lesson_setup_new' school_slug=business.slug kind='services' %}"><i data-lucide="plus" aria-hidden="true"></i>Add lesson type</a>
+{% elif not overview %}<a class="button primary" data-inline-edit data-inline-target="#teachers" href="{% url 'scheduling:lesson_setup_new' school_slug=business.slug kind='teachers' %}"><i data-lucide="plus" aria-hidden="true"></i>Add teacher</a>{% endif %}
+</div>{% endif %}</div>
+{% if not selected_teacher %}
+<nav class="settings-tabs" aria-label="Teacher setup">
+<a href="?view=week" class="settings-tab{% if overview %} active{% endif %}" {% if overview %}aria-current="page"{% endif %}>Weekly overview</a>
+<a href="?view=list" class="settings-tab{% if not overview and setup_section != 'services' %} active{% endif %}" {% if not overview and setup_section != 'services' %}aria-current="page"{% endif %}>Teachers</a>
+<a href="?section=services" class="settings-tab{% if setup_section == 'services' %} active{% endif %}" {% if setup_section == 'services' %}aria-current="page"{% endif %}>Lesson types</a>
+</nav>
+{% endif %}
+{% if selected_teacher %}
+<section class="location-section"><div class="section-heading"><h2>Weekly hours</h2>{% if can_edit_setup %}<a class="button primary" data-inline-edit data-inline-target="#teacher-hours" href="{% url 'scheduling:lesson_setup_new' school_slug=business.slug kind='availability' %}?teacher={{ selected_teacher.pk }}">Add hours</a>{% endif %}</div>
+<div class="table-wrap"><table class="dash-table"><thead><tr><th>Day</th><th>Hours</th><th>Location</th><th>Effective dates</th><th>Actions</th></tr></thead><tbody id="teacher-hours">
+{% for window in availability %}<tr><th scope="row">{{ window.get_weekday_display }}</th><td>{{ window.start_time|time:'g:i A' }} &ndash; {{ window.end_time|time:'g:i A' }}</td><td>{{ window.location }}</td><td>{% if window.effective_from %}{{ window.effective_from|date:'M j, Y' }}{% else %}Current{% endif %}{% if window.effective_until %} &ndash; {{ window.effective_until|date:'M j, Y' }}{% endif %}</td><td>{% if can_edit_setup %}<a class="button" data-inline-edit href="{% url 'scheduling:lesson_setup_edit' school_slug=business.slug kind='availability' pk=window.pk %}" aria-label="Edit {{ window.get_weekday_display }} hours"><i data-lucide="pencil" aria-hidden="true"></i>Edit</a>{% endif %}</td></tr>{% empty %}<tr><td colspan="5">No hours added.</td></tr>{% endfor %}
+</tbody></table></div></section>
+<section class="location-section"><div class="section-heading"><h2>Time off</h2>{% if can_edit_setup %}<a class="button primary" data-inline-edit data-inline-target="#teacher-time-off" href="{% url 'scheduling:lesson_setup_new' school_slug=business.slug kind='closures' %}?teacher={{ selected_teacher.pk }}">Add time off</a>{% endif %}</div>
+<div class="table-wrap"><table class="dash-table"><thead><tr><th>Dates</th><th>Reason</th><th>Location</th><th>Actions</th></tr></thead><tbody id="teacher-time-off">
+{% for item in closures %}<tr><td>{{ item.first_date|date:'M j, Y' }} &ndash; {{ item.last_date|date:'M j, Y' }}</td><td>{{ item.reason }}{% if not item.teacher_id %} (all teachers){% endif %}</td><td>{{ item.location }}</td><td>{% if can_edit_setup %}<a class="button" data-inline-edit href="{% url 'scheduling:lesson_setup_edit' school_slug=business.slug kind='closures' pk=item.pk %}">Edit</a>{% endif %}</td></tr>{% empty %}<tr><td colspan="4">No time off scheduled.</td></tr>{% endfor %}</tbody></table></div></section>
+{% elif setup_section == 'services' %}
+<div class="table-wrap"><table class="dash-table"><thead><tr><th>Lesson type</th><th>Instrument / subject</th><th>Duration</th><th>Status</th><th>Actions</th></tr></thead><tbody id="lesson-types">
+{% for service in services %}<tr><th scope="row">{{ service.name }}</th><td>{{ service.subject }}</td><td>{{ service.duration_minutes }} min</td><td>{% if service.is_active %}Active{% else %}Inactive{% endif %}</td><td>{% if can_edit_setup %}<a class="button" data-inline-edit href="{% url 'scheduling:lesson_setup_edit' school_slug=business.slug kind='services' pk=service.pk %}" aria-label="Edit {{ service.name }}"><i data-lucide="pencil" aria-hidden="true"></i>Edit</a>{% endif %}</td></tr>{% empty %}<tr><td colspan="5">No lesson types added.</td></tr>{% endfor %}</tbody></table></div>
+{% elif overview %}
+<form method="get" class="lesson-toolbar"><input type="hidden" name="view" value="week">
+{% for field in overview_filter %}<div class="form-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>{% endfor %}<button type="submit" class="primary">Apply</button></form>
+{% if overview_days %}<div class="section-heading"><div class="actions"><a class="button" href="{{ previous_week }}" aria-label="Previous week" title="Previous week"><i data-lucide="chevron-left" aria-hidden="true"></i></a><strong>{{ overview_days.0|date:'M j' }} &ndash; {{ overview_days.6|date:'M j, Y' }}</strong><a class="button" href="{{ next_week }}" aria-label="Next week" title="Next week"><i data-lucide="chevron-right" aria-hidden="true"></i></a></div><span class="muted">{{ overview_zone }}</span></div>
+<div class="table-wrap teacher-week-scroll" role="region" aria-label="Teacher weekly hours and bookings" tabindex="0"><table class="dash-table teacher-week"><thead><tr><th>Teacher</th>{% for day in overview_days %}<th>{{ day|date:'D' }}<br>{{ day|date:'M j' }}</th>{% endfor %}</tr></thead><tbody>
+{% for row in overview_rows %}<tr><th scope="row"><a href="?teacher={{ row.teacher.pk }}">{{ row.teacher.name }}</a>{% if not row.teacher.is_active %}<span class="muted">Inactive</span>{% endif %}</th>{% for cell in row.cells %}<td>{% for block in cell.blocks %}<div class="teacher-week-block teacher-week-{{ block.kind }}"><strong>{% if block.kind == 'booked' %}Booked: {% elif block.kind == 'off' %}Time off: {% endif %}{{ block.label }}</strong>{% if block.start != None %}<span>{{ block.start|time:'g:i A' }} &ndash; {{ block.end|time:'g:i A' }}</span>{% endif %}{% if overview_show_location %}<span>{{ block.location.name }} ({{ block.location.timezone_name }})</span>{% endif %}</div>{% empty %}<span class="muted">No hours</span>{% endfor %}</td>{% endfor %}</tr>{% empty %}<tr><td colspan="8">No teachers match these filters.</td></tr>{% endfor %}
+</tbody></table></div>{% endif %}
+{% else %}
+<div class="table-wrap"><table class="dash-table"><thead><tr><th>Teacher</th><th>Lesson types</th><th>Status</th><th>Actions</th></tr></thead><tbody id="teachers">
+{% for teacher in teachers %}<tr><th scope="row">{{ teacher.name }}</th><td>{% for service in teacher.services.all %}{{ service.name }}{% if not forloop.last %}, {% endif %}{% empty %}None assigned{% endfor %}</td><td>{% if teacher.is_active %}Active{% else %}Inactive{% endif %}</td><td><div class="teacher-row-actions"><a class="button" href="?teacher={{ teacher.pk }}"><i data-lucide="calendar-days" aria-hidden="true"></i>Hours &amp; time off</a>{% if can_edit_setup %}<a class="button" data-inline-edit href="{% url 'scheduling:lesson_setup_edit' school_slug=business.slug kind='teachers' pk=teacher.pk %}" aria-label="Edit {{ teacher.name }}"><i data-lucide="pencil" aria-hidden="true"></i>Edit</a>{% endif %}</div></td></tr>{% empty %}<tr><td colspan="4">No teachers added.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endif %}
+</div>
+{% endblock %}

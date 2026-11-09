@@ -52,10 +52,17 @@ class LessonBooking(models.Model):
     series = models.OneToOneField("scheduling.LessonSeries", on_delete=models.PROTECT, related_name="self_booking")
     grant = models.ForeignKey("scheduling.FamilyScheduleGrant", null=True, on_delete=models.PROTECT)
     order = models.OneToOneField("payments.PaymentOrder", null=True, on_delete=models.PROTECT)
+    enrollment_submission = models.ForeignKey("core.Submission", null=True, blank=True,
+        on_delete=models.PROTECT, related_name="lesson_bookings")
     contact_name = models.CharField(max_length=100)
     contact_email = models.EmailField()
     browser_hash = models.CharField(max_length=64, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        if (self.enrollment_submission_id and self.series_id
+                and self.enrollment_submission.school_id != self.series.profile.school_id):
+            raise ValidationError({"enrollment_submission": "Choose an application in this school."})
 
 
 class LessonBookingNotice(models.Model):

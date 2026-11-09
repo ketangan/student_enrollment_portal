@@ -1,0 +1,127 @@
+.school-journeys { --journey-line: var(--dash-border, #e5e7eb); --journey-muted: var(--dash-muted, #6b7280); --journey-accent: var(--dash-primary, #2563eb); color: var(--dash-text, #111827); letter-spacing: 0; overflow-wrap: anywhere; }
+.school-journeys *, .school-journeys *::before, .school-journeys *::after { box-sizing: border-box; }
+.school-enrollment .dash-nav-link, .school-scheduling .dash-nav-link { min-height: 44px; display: inline-flex; align-items: center; box-sizing: border-box; }
+.school-enrollment #mobile-nav-btn, .school-enrollment #user-menu-btn,
+.school-scheduling #mobile-nav-btn, .school-scheduling #user-menu-btn { min-width: 44px; min-height: 44px; }
+/* One header geometry for both existing admin template families. */
+html:has(.school-shell) { scrollbar-gutter: stable; }
+.school-shell .dash-header { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 20px; height: 60px; padding: 0 24px; box-sizing: content-box; }
+.school-shell .dash-header-left { min-width: 0; }
+.school-shell .dash-header-right { justify-self: end; }
+.school-shell .dash-nav-link { font-weight: 600; white-space: nowrap; }
+.school-shell .dash-mobile-menu-btn { width: 44px; height: 44px; padding: 0; font-size: 20px; }
+.school-shell .school-settings-table th { font-size: 13px; text-transform: none; letter-spacing: 0; }
+.school-shell .school-settings-table td { text-align: right; }
+.school-shell .school-settings-table tbody tr:last-child th { border-bottom: 0; }
+.school-shell .school-report-scroll { max-width: 100%; overflow-x: auto; }
+.school-shell .settings-tab { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; box-sizing: border-box; }
+.school-shell .back-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-bottom: 12px; }
+.school-shell .back-link { font-size: 14px; color: var(--dash-primary); text-underline-offset: 3px; }
+.school-shell .back-link svg { width: 16px; height: 16px; flex-shrink: 0; }
+.school-shell .school-record-header { margin-bottom: 28px; }
+.school-shell .school-record-header h1 { font-size: 24px; line-height: 1.3; margin: 0; }
+.school-shell .dash-main h1 { font-size: 24px; line-height: 1.3; }
+.school-shell .school-record-header .back-link { margin-bottom: 0; }
+.school-shell .school-record-header .dash-action-btn { min-width: 44px; gap: 8px; }
+.school-shell .record-contact { padding: 0 0 16px !important; border-bottom: 1px solid var(--dash-border); }
+.school-shell .record-contact .snapshot-table td:first-child { width: 100px; }
+.school-shell .record-contact .snapshot-table td { vertical-align: middle; }
+.school-shell .record-contact .snapshot-table td:nth-child(2) { display: flex; align-items: center; gap: 8px; }
+.school-shell .record-contact .snapshot-table a { min-width: 0; overflow-wrap: anywhere; }
+.school-shell .record-contact .copy-btn { flex: 0 0 44px; }
+.school-shell #resume-link, .school-shell #status-link { min-height: 44px; }
+.school-shell .record-primary-action { margin-left: auto; }
+.school-shell .record-disclosure { padding: 0 22px !important; border-bottom: 1px solid var(--dash-border); }
+.school-shell .record-details > summary { font-size: 14px; font-weight: 600; min-height: 44px; padding: 12px 0; box-sizing: border-box; cursor: pointer; }
+.school-shell .record-details[open] > summary { margin-bottom: 12px; }
+.school-shell .record-details input:not([type=checkbox]):not([type=hidden]) { min-height: 44px; box-sizing: border-box; max-width: 100%; }
+.school-shell .record-details select { min-height: 44px; max-width: 100%; }
+.school-shell details.full-app > summary { min-height: 44px; padding: 12px 0; box-sizing: border-box; }
+@media (max-width: 600px) {
+  .school-shell .record-edit-grid { grid-template-columns: minmax(0, 1fr) !important; }
+  .school-shell .record-contact .snapshot-table tr { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .school-shell .record-contact .snapshot-table td:first-child { width: auto; padding: 8px 0 0; }
+}
+.school-shell .school-schedule-views a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; box-sizing: border-box; }
+.school-shell .school-schedule-views svg { width: 16px; height: 16px; }
+.school-shell .school-schedule-toolbar { padding: 12px 0; border: 0; }
+.school-shell .school-schedule-toolbar a { min-height: 44px; display: inline-flex; align-items: center; box-sizing: border-box; }
+.school-shell #school-calendar { min-width: 840px; font-size: 13px; }
+.school-shell #school-calendar[data-range=day], .school-shell #school-calendar[data-range=month] { min-width: 0; }
+.school-shell .school-calendar .ec-event { min-height: 44px; box-sizing: border-box; }
+.school-shell .school-calendar .calendar-event-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.school-shell #school-calendar-error[hidden] { display: none; }
+.school-shell .button, .school-shell .lesson-toolbar input, .school-shell .lesson-toolbar select { min-height: 44px; box-sizing: border-box; }
+.school-shell .icon-button { min-width: 44px; justify-content: center; }
+.school-shell .dash-action-btn, .school-shell .setup-form button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
+.school-shell .dash-main button { min-width: 44px; min-height: 44px; box-sizing: border-box; }
+.school-shell .dash-main .copy-btn { display: inline-flex; align-items: center; justify-content: center; }
+.school-shell .dash-main .dash-action-btn--primary { border: 1px solid var(--dash-primary); }
+.school-shell .school-status-change { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.school-shell .school-status-change select { font: inherit; min-height: 44px; max-width: 100%; padding: 8px 12px; background: var(--dash-card); color: var(--dash-text); border: 1px solid var(--dash-border); border-radius: 6px; }
+.school-shell .dash-main input[type=date] { min-height: 44px; box-sizing: border-box; }
+@media (max-width: 1199px) {
+  .school-shell .dash-header { display: flex; justify-content: space-between; padding: 0 16px; gap: 12px; }
+  .school-shell .dash-nav { display: none; }
+  .school-shell .dash-mobile-menu-btn { display: flex; align-items: center; justify-content: center; }
+  .school-shell .dash-nav--mobile-open { display: flex; flex-direction: column; align-items: stretch; position: fixed; top: 60px; left: 0; right: 0; padding: 8px 16px 12px; gap: 2px; background: var(--dash-card); border-bottom: 1px solid var(--dash-border); box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+  .school-shell .dash-nav-link { padding: 12px; }
+}
+.school-public h1 { font-size: 28px; line-height: 1.2; margin: 0; letter-spacing: 0; }
+.school-public h2 { font-size: 20px; line-height: 1.3; margin: 0; letter-spacing: 0; }
+.school-public h3 { font-size: 16px; line-height: 1.4; margin: 0; letter-spacing: 0; }
+.school-public p { margin: 6px 0; }
+.school-public a { color: var(--journey-accent); text-underline-offset: 3px; }
+.school-journeys a:focus-visible, .school-journeys button:focus-visible, .school-journeys input:focus-visible, .school-journeys select:focus-visible, .school-journeys summary:focus-visible { outline: 3px solid var(--journey-accent); outline-offset: 3px; }
+.journey-heading, .journey-actions, .journey-section-links, .journey-pagination { display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; }
+.journey-heading { justify-content: space-between; margin-bottom: 20px; }
+.journey-heading > *, .journey-actions > *, .journey-records li > *, .journey-agenda-row > * { min-width: 0; max-width: 100%; }
+.journey-actions a, .journey-heading > a, .journey-section-links a, .journey-pagination a, .journey-filters > a, .journey-title { display: inline-flex; align-items: center; min-height: 44px; }
+.school-public .button { min-height: 44px; padding: 10px 16px; border-radius: 6px; white-space: normal; text-align: center; justify-content: center; flex-shrink: 0; line-height: 1.35; }
+.school-public .primary { background: var(--journey-accent); color: #fff; border-color: var(--journey-accent); }
+.school-public .primary:hover { background: var(--journey-accent); filter: brightness(.92); }
+.journey-filters { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin: 0 0 20px; }
+.journey-filters > div { flex: 1 1 180px; min-width: 0; }
+.journey-filters label { display: block; margin-bottom: 6px; }
+.journey-filters input, .journey-filters select { width: 100%; max-width: 100%; min-width: 0; }
+.journey-filters .errorlist { color: #9d2525; padding-left: 20px; }
+.journey-records, .journey-choices { list-style: none; margin: 0; padding: 0; }
+.journey-muted { color: var(--journey-muted); }
+.journey-kind { font-size: 12px; font-weight: 650; color: var(--journey-muted); display: block; }
+.journey-title { font-size: 17px; font-weight: 650; }
+.journey-status { font-size: 13px; color: var(--journey-muted); }
+.journey-empty { color: var(--journey-muted); padding: 32px 0; }
+.journey-section { padding: 24px 0; border-top: 1px solid var(--journey-line); }
+.journey-section-links { margin-bottom: 24px; }
+.journey-records > li { display: flex; align-items: center; gap: 16px 24px; padding: 20px 0; border-bottom: 1px solid var(--journey-line); }
+.journey-records > li > div:first-child { flex: 1; }
+.journey-records h3 a { display: inline-flex; align-items: center; min-height: 44px; }
+.journey-records .journey-actions { justify-content: flex-end; }
+.journey-notice { padding: 12px 16px; border-left: 3px solid var(--journey-accent); background: var(--dash-bg, #f9fafb); line-height: 1.6; }
+.journey-pagination { justify-content: flex-end; margin-top: 16px; }
+.journey-pagination a { padding: 8px 12px; }
+.school-public { margin: 0; background: #fff; font-family: system-ui, sans-serif; font-size: 16px; line-height: 1.5; }
+.journey-public-header { padding: 20px 24px; border-bottom: 1px solid var(--journey-line); display: flex; align-items: center; justify-content: space-between; gap: 16px 32px; flex-wrap: wrap; }
+.journey-brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 20px; min-width: 0; min-height: 44px; text-decoration: none; }
+.journey-brand img { object-fit: contain; flex: 0 0 44px; }
+.school-public main { max-width: 1120px; padding: 32px 24px; margin: 0 auto; }
+.journey-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 32px; }
+.journey-choices > li { border-top: 3px solid var(--journey-line); padding: 24px 0; display: flex; align-items: start; flex-direction: column; gap: 20px; }
+.school-journeys summary { min-height: 44px; padding: 10px 0; cursor: pointer; }
+.school-journeys details ul { padding-left: 20px; }
+.school-journeys details li { padding: 6px 0; }
+@media (max-width: 900px) {
+  .journey-records > li { flex-wrap: wrap; }
+  .journey-records .journey-actions { justify-content: flex-start; }
+  .journey-choices { gap: 20px; }
+}
+@media (max-width: 600px) {
+  .school-public h1 { font-size: 25px; }
+  .journey-public-header { padding: 16px; }
+  .school-public main { padding: 24px 16px; }
+  .journey-records > li > div:first-child { flex-basis: 100%; }
+  .journey-filters > div { flex-basis: 100%; }
+  .journey-choices { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .journey-heading { gap: 16px; }
+  .journey-actions { gap: 8px 16px; }
+}

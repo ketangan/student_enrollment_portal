@@ -86,6 +86,9 @@ def convert_demo_to_customer(
     Returns:
         dict with keys: user, magic_token, deleted_submissions, deleted_leads, user_created
     """
+    from core.services.portal_environment import deployment_environment
+    if deployment_environment() == "demo":
+        raise ValidationError("Create the customer workspace in production. Demo data cannot be converted in this database.")
     with transaction.atomic():
         now = timezone.now()
         school = School.objects.select_for_update().get(pk=school.pk)

@@ -23,8 +23,14 @@ class PolicyForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.instance.profile = profile
         statuses, _ = get_submission_status_choices(load_school_config(profile.school.slug).raw)
+        preserve_history = self.instance.pk and self.instance.cases.exists()
         for name in ("eligible_statuses", "scheduled_status", "completed_status"):
-            self.fields[name].choices = [(status, status) for status in statuses]
+            choices = list(statuses)
+            if preserve_history:
+                saved = getattr(self.instance, name)
+                choices.extend(value for value in (saved if isinstance(saved, list) else [saved])
+                    if value and value not in choices)
+            self.fields[name].choices = [(status, status) for status in choices]
         if self.instance._state.adding:
             for name in ("scheduled_status", "completed_status"):
                 self.fields[name].initial = getattr(self.instance, name)

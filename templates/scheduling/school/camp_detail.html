@@ -1,0 +1,35 @@
+{% load tz %}
+{% url 'scheduling:school_schedule' school_slug=business.slug as back_url %}
+{% include 'scheduling/school/back_link.html' with back_label='Schedule' %}
+<div class="workshop-heading">
+  <div><h1>{{ camp.name }}</h1><p>{{ camp.offering.location.name }}</p></div>
+  <div class="actions">
+    <span class="status{% if not camp.is_open %} inactive{% endif %}">{% if camp.is_open %}Registration open{% else %}Registration closed{% endif %}</span>
+    {% if can_edit_setup %}<a class="button" href="{% url 'scheduling:camp_edit' school_slug=business.slug offering_pk=camp.offering_id pk=camp.pk %}"><i data-lucide="pencil" aria-hidden="true"></i>Edit details</a>{% endif %}
+  </div>
+</div>
+<section class="workshop-materials workshop-payment-summary">
+  <dl><dt>Price per participant</dt><dd>${{ camp.price|floatformat:2 }}</dd></dl>
+  <dl><dt>Deposit per participant</dt><dd>{% if camp.deposit %}${{ camp.deposit|floatformat:2 }}{% else %}Full payment{% endif %}</dd></dl>
+  <dl><dt>Places left</dt><dd>{{ remaining }}</dd></dl>
+  <dl><dt>Payment</dt><dd>{% if camp.online %}Online{% else %}At the studio{% endif %}</dd></dl>
+</section>
+{% if camp.description %}<p>{{ camp.description|linebreaksbr }}</p>{% endif %}
+{% if registration_error %}<p class="notice">{{ registration_error }}</p>{% endif %}
+<section class="workshop-sessions" aria-labelledby="sessions-heading">
+  <div class="section-heading"><h2 id="sessions-heading">Sessions</h2>
+    {% if can_edit_setup %}<a class="button primary" href="{% url 'scheduling:camp_edit' school_slug=business.slug offering_pk=camp.offering_id pk=camp.pk %}"><i data-lucide="calendar-days" aria-hidden="true"></i>Edit dates</a>{% endif %}
+  </div>
+  <div class="dash-card workshop-session-table"><div class="dash-table-scroll" role="region" aria-label="Program sessions" tabindex="0">
+    <table class="dash-table"><thead><tr><th>Date</th><th>Time</th><th>Room</th><th>Capacity</th><th>Status</th></tr></thead><tbody>
+    {% timezone camp.offering.location.timezone_name %}
+    {% for session in dates %}<tr>
+      <td><strong>{{ session.starts_at|date:'D, M j, Y' }}</strong></td>
+      <td>{{ session.starts_at|time:'g:i A' }} &ndash; {{ session.ends_at|time:'g:i A' }}</td>
+      <td>{{ session.room.name|default:'-' }}</td><td>{{ session.capacity }}</td>
+      <td><span class="status{% if not session.is_published %} inactive{% endif %}">{% if session.is_published %}Published{% else %}Draft{% endif %}</span></td>
+    </tr>{% endfor %}
+    {% endtimezone %}
+    </tbody></table>
+  </div></div>
+</section>

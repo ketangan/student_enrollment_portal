@@ -1,0 +1,9 @@
+{% extends 'scheduling/school/public_base.html' %}
+{% block content %}
+<header class="journey-heading"><h1>{{ business.display_name }}</h1></header>
+<ul class="journey-choices">
+  <li><h2>Enroll</h2><a class="button primary" href="{% url 'apply' school_slug=business.slug %}">Start an application</a></li>
+  {% if journey_features.lessons %}<li><h2>Book a trial</h2>{% if trial_booking_available %}<a class="button primary" href="{% url 'scheduling:lesson_trials' school_slug=business.slug %}">Choose a teacher &amp; time</a><p class="journey-muted">Local booking preview. No live payment or email delivery.</p>{% else %}<p>Online trial booking is not currently available.</p>{% endif %}</li>{% endif %}
+  {% if journey_features.workshops or journey_features.camps %}<li><h2>Classes &amp; programs</h2><a class="button primary" href="{% url 'scheduling:school_classes' school_slug=business.slug %}">See upcoming dates</a></li>{% endif %}
+</ul>
+{% endblock %}

@@ -47,6 +47,14 @@ def lesson_records(profile, kind):
 
 
 def setup_form(profile, kind, data=None, pk=None):
+    if kind in {"households", "students"}:
+        from .school_navigation import require_optional_feature
+        require_optional_feature(profile, "family_management")
+    if kind == "availability":
+        from .school_navigation import workflow_policy
+        if workflow_policy(profile.school)["teacher_self_service"]:
+            from .teacher_availability import availability_form
+            return availability_form(profile, data=data, pk=pk)
     objects = lesson_records(profile, kind)
     instance = get_object_or_404(objects, pk=pk) if pk else objects.model()
     if hasattr(instance, "profile_id"):
@@ -58,8 +66,8 @@ def setup_form(profile, kind, data=None, pk=None):
         if field in form.fields:
             form.fields[field].queryset = model.objects.filter(**{path: profile})
     frozen = []
-    if pk and kind == "teachers" and LessonSeries.objects.filter(teacher=instance).exists():
-        frozen = ["buffer_minutes", "travel_minutes"]
+    # Teacher gaps are defaults for new bookings. Conflict checks also honor the
+    # immutable gaps saved on existing series, so changing defaults is safe.
     if pk and kind == "students" and LessonSeries.objects.filter(student=instance).exists():
         frozen = ["household"]
     if pk and kind == "availability" and LessonSeries.objects.filter(teacher=instance.teacher, location=instance.location).exists():
@@ -78,7 +86,13 @@ def audit(user, profile, instance, action, details):
 @transaction.atomic
 def save_lesson_setup(user, slug, kind, data, pk=None):
     profile, _ = lesson_access(user, slug, "setup.edit", locked=True)
+    if kind == "availability":
+        from .school_navigation import workflow_policy
+        if workflow_policy(profile.school)["teacher_self_service"]:
+            from .teacher_availability import save_availability
+            return save_availability(user, profile, data=data, pk=pk)
     form = setup_form(profile, kind, data, pk)
+    previous_login = form.instance.login_user_id if kind == "teachers" else None
     if form.is_valid():
         try:
             form.instance.full_clean()
@@ -99,7 +113,10 @@ def save_lesson_setup(user, slug, kind, data, pk=None):
             form.add_error(None, "; ".join(exc.messages))
         else:
             instance = form.save()
-            audit(user, profile, instance, "change" if pk else "add", {"fields": sorted(form.changed_data)})
+            details = {"fields": sorted(form.changed_data)}
+            if kind == "teachers" and instance.login_user_id != previous_login:
+                details["login_user"] = {"from": previous_login, "to": instance.login_user_id}
+            audit(user, profile, instance, "change" if pk else "add", details)
     return form
 
 
@@ -124,7 +141,10 @@ class SlotCalendar:
     def __init__(self, data, start, end, exclude_ids=()):
         from .reservations import active_claims, studio_claims
         teacher, student, room = (data[k] for k in ["teacher", "student", "room"])
-        self.windows = list(teacher.availability.filter(location=data["location"]))
+        zone = ZoneInfo(data["location"].timezone_name)
+        self.windows = list(teacher.availability.filter(location=data["location"])
+            .filter(Q(effective_from=None) | Q(effective_from__lte=end.astimezone(zone).date()))
+            .filter(Q(effective_until=None) | Q(effective_until__gte=start.astimezone(zone).date())))
         self.closures = list(LessonClosure.objects.filter(location=data["location"]).filter(Q(teacher=teacher) | Q(teacher=None)))
         # Include historical buffer snapshots, not only the teacher's current value.
         gap = timedelta(minutes=240)
@@ -185,6 +205,15 @@ def plan_series(data):
     return plan_dates(data, dates)
 
 
+def availability_covers(windows, wall, end_wall):
+    return end_wall.date() == wall.date() and any(
+        window.weekday == wall.weekday() and window.start_time <= wall.time()
+        and window.end_time >= end_wall.time()
+        and (window.effective_from is None or window.effective_from <= wall.date())
+        and (window.effective_until is None or window.effective_until >= wall.date())
+        for window in windows)
+
+
 def plan_dates(data, dates, duration_minutes=None, exclude_ids=(), calendar=None):
     service, teacher, location = (data[k] for k in ["service", "teacher", "location"])
     zone = ZoneInfo(location.timezone_name)
@@ -203,7 +232,7 @@ def plan_dates(data, dates, duration_minutes=None, exclude_ids=(), calendar=None
         state, reason = "scheduled", ""
         if closure:
             state, reason = "skipped", closure.reason
-        elif end_wall.date() != wall.date() or not any(w.weekday == wall.weekday() and w.start_time <= wall.time() and w.end_time >= end_wall.time() for w in windows):
+        elif not availability_covers(windows, wall, end_wall):
             state, reason = "conflict", "Outside teacher availability at this location."
         else:
             reason = calendar.conflict(data, start, end) if calendar is not None else slot_conflict(data, start, end, exclude_ids)
@@ -269,7 +298,9 @@ def create_series(user, slug, data, token):
 @transaction.atomic
 def cancel_lessons(user, slug, pk, scope, reason, origin="family", token=None):
     from .credits import apply_cancellation, cancellation_plan, policy_for, validate_cancellation
+    from .lesson_change_forms import validate_change_scope
     profile, _ = lesson_access(user, slug, "sessions.edit", locked=True)
+    validate_change_scope(profile, scope)
     occurrence = get_object_or_404(LessonOccurrence, pk=pk, series__profile=profile)
     if scope not in {"one", "future"} or not reason.strip() or len(reason) > 200:
         raise ValidationError("Choose a cancellation scope and a short reason.")

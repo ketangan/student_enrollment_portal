@@ -4,6 +4,7 @@ from django import forms
 
 from .models import Location
 from .access import staff_locations, scope_locations, location_restricted
+from .school_navigation import navigation_policy
 
 
 class LocationFilterForm(forms.Form):
@@ -18,6 +19,14 @@ class LocationFilterForm(forms.Form):
         if location_restricted(profile):
             self.fields["location"].empty_label = "All assigned locations"
         self.fields["location"].queryset = staff_locations(profile).order_by("name", "pk")
+        # Hide presentation only; submitted/stale locations still pass the same
+        # membership-scoped validation. A second location restores the selector.
+        self.show_location_filter = not (
+            navigation_policy(profile.school)["single_location"]
+            and self.fields["location"].queryset.count() == 1
+        )
+        if not self.show_location_filter:
+            self.fields["location"].widget = forms.HiddenInput()
 
     @property
     def selected(self):
@@ -45,7 +54,9 @@ def staff_location(request, profile):
             value = str(form.selected.pk) if form.selected else ""
             if request.session.get(key, "") != value:
                 request.session[key] = value
-        cache[profile.pk] = {"location_filter": form, "dashboard_location_form": form,
+        cache[profile.pk] = {"location_filter": form,
+            "dashboard_location_form": form if form.show_location_filter else None,
+            "show_location_filter": form.show_location_filter,
             "selected_location": form.selected, "location_query": data}
         request._booking_location_context = cache
     return cache[profile.pk]

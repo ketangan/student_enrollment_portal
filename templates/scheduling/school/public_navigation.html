@@ -1,0 +1,8 @@
+{% if simplified_school %}
+<nav aria-label="School public pages" style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:0 0 20px;align-items:center;">
+  <a href="{% url 'scheduling:school_public' school_slug=business.slug %}" style="display:inline-flex;align-items:center;min-height:44px;max-width:100%;overflow-wrap:anywhere;">School home</a>
+  <a href="{% url 'apply' school_slug=business.slug %}" style="display:inline-flex;align-items:center;min-height:44px;">Enroll</a>
+  {% if trial_booking_available %}<a href="{% url 'scheduling:lesson_trials' school_slug=business.slug %}" style="display:inline-flex;align-items:center;min-height:44px;">Book a trial</a>{% endif %}
+  {% if journey_features.workshops or journey_features.camps %}<a href="{% url 'scheduling:school_classes' school_slug=business.slug %}" style="display:inline-flex;align-items:center;min-height:44px;">Classes &amp; programs</a>{% endif %}
+</nav>
+{% endif %}

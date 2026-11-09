@@ -1,15 +1,47 @@
-"""Demo and production share storage, but not their portal views."""
+"""Tenant boundaries for dedicated deployments and combined local development."""
 from contextvars import ContextVar
 from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.db.models import Q
+from django.core.exceptions import ValidationError
 
 
 current_environment = ContextVar("portal_environment", default="unknown")
 
 
+def deployment_environment():
+    value = getattr(settings, "PORTAL_DEPLOYMENT_ENV", "shared")
+    if value not in {"shared", "demo", "production"}:
+        raise ValidationError("Invalid portal deployment environment.")
+    return None if value == "shared" else value
+
+
+def scope_deployment_schools(queryset, prefix=""):
+    """Background jobs must use the deployment boundary, not an HTTP hostname."""
+    environment = deployment_environment()
+    if environment:
+        return queryset.filter(**{prefix + "is_demo": environment == "demo"})
+    return queryset
+
+
+def require_deployment_school(school):
+    environment = deployment_environment()
+    if environment and school_environment(school) != environment:
+        raise ValidationError("This school belongs to a different portal environment.")
+
+
+def validate_deployment_stripe_key(key, *, publishable=False):
+    """Dedicated demo credentials must be positively identified as sandbox keys."""
+    prefixes = ("pk_test_",) if publishable else ("sk_test_", "rk_test_")
+    if deployment_environment() == "demo" and key and not key.strip().startswith(prefixes):
+        raise ValidationError("The demo portal accepts Stripe test keys only.")
+
+
 def request_environment(request):
+    environment = deployment_environment()
+    if environment:
+        return environment
     production = urlsplit(settings.APP_BASE_URL).hostname
     demo = urlsplit(settings.DEMO_BASE_URL).hostname
     if not production or not demo or production == demo:

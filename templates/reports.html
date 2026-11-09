@@ -66,6 +66,7 @@
       <span class="rp-card-title">This Period vs Previous</span>
       <span class="rp-scope-chip">{{ range_label }} vs prior {{ range_days }}-day period</span>
     </div>
+    {% if scheduling_entry.simplified %}<div class="school-report-scroll" role="region" aria-label="Period comparison" tabindex="0">{% endif %}
     <table class="rp-table">
       <thead>
         <tr>
@@ -92,6 +93,7 @@
         {% endfor %}
       </tbody>
     </table>
+    {% if scheduling_entry.simplified %}</div>{% endif %}
   </div>
 
   {# ── §4.3 Time Series ───────────────────────────────────────────────────── #}
@@ -346,6 +348,7 @@
     </div>
     {% endif %}
 
+    {% if scheduling_entry.simplified %}<div class="school-report-scroll" role="region" aria-label="Program enrollment breakdown" tabindex="0">{% endif %}
     <table class="rp-table" style="margin-top:16px;">
       <thead>
         <tr>
@@ -407,6 +410,7 @@
         {% endfor %}
       </tbody>
     </table>
+    {% if scheduling_entry.simplified %}</div>{% endif %}
     <p class="rp-card-note">Conv. Rate = Enrolled / Submitted &middot; {{ range_label }}</p>
   </div>
   {% endif %}

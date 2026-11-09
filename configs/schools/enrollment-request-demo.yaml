@@ -1,3 +1,18 @@
+scheduling:
+  navigation:
+    layout: school
+    features: [lessons, workshops, camps, reservations]
+    simplified: true
+    single_location: true
+  workflows:
+    teacher_self_service: true
+    direct_enrollment: true
+    enrollment_linking: false
+    optional_features: []
+    lesson_changes: single
+    reschedule_reason_required: false
+    class_setup: requests
+
 school:
   slug: "enrollment-request-demo"
   display_name: "Riverside Learning Academy"
@@ -48,8 +63,6 @@ form:
           options:
             - label: "Enroll now"
               value: enroll_now
-            - label: "Request trial / evaluation"
-              value: trial
             - label: "Returning student"
               value: returning
 
@@ -67,61 +80,13 @@ form:
             - label: "Not sure yet"
               value: unsure
 
-    - title: "Schedule Preferences"
-      fields:
-        - key: preferred_days
-          label: "Preferred Days"
-          type: multiselect
-          required: false
-          options:
-            - label: "Monday"
-              value: mon
-            - label: "Tuesday"
-              value: tue
-            - label: "Wednesday"
-              value: wed
-            - label: "Thursday"
-              value: thu
-            - label: "Friday"
-              value: fri
-            - label: "Saturday"
-              value: sat
-            - label: "Sunday"
-              value: sun
-
-        - key: preferred_time
-          label: "Preferred Time of Day"
-          type: select
-          required: false
-          options:
-            - label: "Morning"
-              value: morning
-            - label: "Afternoon"
-              value: afternoon
-            - label: "Evening"
-              value: evening
-            - label: "Flexible"
-              value: flexible
-
-    - title: "Parent / Guardian Information (if applicable)"
+    - title: "Contact Information"
       fields:
         - key: guardian_name
           label: "Parent / Guardian Full Name"
           type: text
           required: false
 
-        - key: guardian_email
-          label: "Parent / Guardian Email"
-          type: email
-          required: false
-
-        - key: guardian_phone
-          label: "Parent / Guardian Phone Number"
-          type: tel
-          required: false
-
-    - title: "Contact Information"
-      fields:
         - key: contact_email
           label: "Primary Email Address"
           type: email
@@ -131,16 +96,6 @@ form:
           label: "Primary Phone Number"
           type: tel
           required: false
-
-    - title: "File Uploads"
-      fields:
-        - key: id_document
-          label: "ID Document"
-          type: file
-          required: false
-          accept: ".pdf,.jpg,.jpeg,.png"
-          max_mb: 10
-          help_text: "Upload a PDF or image (max 10MB)."
 
     - title: "Additional Notes"
       fields:
@@ -188,8 +143,6 @@ admin:
   submission_statuses:
     - New
     - In Review
-    - Playdate Scheduled
-    - Playdate Completed
     - Contacted
     - Needs Follow Up
     - Archived
@@ -198,8 +151,8 @@ admin:
   default_submission_status: New
   lead_workflow:
     status_labels:
-      trial_scheduled: Tour Scheduled
-      trial_completed: Tour Completed
+      trial_scheduled: Trial Scheduled
+      trial_completed: Trial Completed
     filters:
       new_leads:
         label: "New"
@@ -221,7 +174,7 @@ admin:
         - label: "Lost"
           status: lost
       contacted:
-        - label: "Schedule Tour"
+        - label: "Trial Scheduled"
           status: trial_scheduled
         - label: "Lost"
           status: lost
@@ -239,46 +192,9 @@ leads:
   confirmation_enabled: true
   notify_to: ""
 
-# Enrollment capacity limits (soft caps per program).
-# Submissions are always accepted; families see a waitlist message when a program is full.
 capacity:
-  waitlist_message: "Our Beginner Program is currently full. You've been added to our waitlist — we'll contact you as spots open up."
+  waitlist_message: "This program is currently full. We will contact you when a place becomes available."
   excluded_statuses:
     - Declined
     - Archived
-  programs:
-    beginner: 5        # low cap for easy demo testing
-    intermediate: 20
-    advanced: 10
-
-# scheduling:
-#   url: "https://calendly.com/your-school/30min"
-#   label: "Book a free trial class"  # optional, defaults to "Book a time"
-
-# Generic CSV export profiles.
-# Each named profile adds an "Export → <Name> CSV" action to the admin Submissions list.
-# New profile = add a block here. No code changes required.
-#
-# Field spec rules:
-#   source: key          — looks up submission.data["key"]; missing → blank + warning
-#   value: "literal"     — hardcoded string, never looked up
-#   source_any: [k1, k2] — first key with a non-empty value wins; none found → blank + warning
-exports:
-  brightwheel:
-    field_map:
-      first_name:
-        source: student_first_name
-      last_name:
-        source: student_last_name
-      birthdate:
-        source_any:           # tries each in order; first non-empty value wins
-          - date_of_birth
-          - dob
-      homeroom:
-        value: "Riverside Learning Academy"   # literal — written as-is regardless of submission data
-      parent_email:
-        source_any:
-          - guardian_email
-          - contact_email
-      enrollment_status:
-        value: "Applied"
+exports: {}

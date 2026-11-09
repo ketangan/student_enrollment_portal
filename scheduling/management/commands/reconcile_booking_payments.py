@@ -3,6 +3,7 @@ from django.core.management.base import BaseCommand, CommandError
 from core.payments import recovery, refunds
 from core.payments.models import PaymentAttempt, Refund
 from scheduling.checkout import recover_attempt
+from core.services.portal_environment import deployment_environment, scope_deployment_schools
 
 
 class Command(BaseCommand):
@@ -15,6 +16,8 @@ class Command(BaseCommand):
         parser.add_argument("--provider", choices=["stripe", "square"], help="Limit recovery to one payment provider.")
 
     def handle(self, *args, **options):
+        if deployment_environment() == "demo" and options["environment"] == "live":
+            raise CommandError("Live payment recovery is not allowed on the demo deployment.")
         limit = options["limit"]
         if not 1 <= limit <= 100:
             raise CommandError("Limit must be between 1 and 100.")
@@ -32,7 +35,8 @@ class Command(BaseCommand):
                 scope[f"{prefix}__account__scope"] = "connected"
             if options["school"]:
                 scope[f"{prefix}__school__slug"] = options["school"]
-            for record in recovery.due_records(model, active=active).filter(**scope)[:max(1, limit // 2)]:
+            records = scope_deployment_schools(recovery.due_records(model, active=active), prefix + "__school__")
+            for record in records.filter(**scope)[:max(1, limit // 2)]:
                 if checked >= limit:
                     break
                 succeeded += bool(operation(record))

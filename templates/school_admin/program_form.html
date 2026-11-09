@@ -5,7 +5,7 @@
 <main class="dash-main">
 
   <div style="margin-bottom:20px;">
-    <a href="{{ back_url }}" style="font-size:13px;color:var(--dash-muted);text-decoration:none;">← Settings</a>
+    <a class="back-link" href="{{ back_url }}" style="font-size:13px;color:var(--dash-muted);text-decoration:none;">&larr; {% if scheduling_entry.simplified %}Programs{% else %}Settings{% endif %}</a>
     <h1 style="font-size:18px;font-weight:700;margin:8px 0 0;">{{ form_heading }}</h1>
   </div>
 

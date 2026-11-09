@@ -1,0 +1,18 @@
+{% if billing_only %}
+<a href="{% url 'scheduling:workspace' school_slug=school.slug %}" class="dash-nav-link">Scheduling</a>
+{% elif scheduling_entry.simplified %}
+<a href="{% url 'school_dashboard' school.slug %}" class="dash-nav-link{% if active_nav == 'dashboard' %} dash-nav-link--active{% endif %}"{% if active_nav == 'dashboard' %} aria-current="page"{% endif %}>Dashboard</a>
+<a href="{% url 'school_submissions' school.slug %}" class="dash-nav-link{% if active_nav == 'submissions' %} dash-nav-link--active{% endif %}"{% if active_nav == 'submissions' %} aria-current="page"{% endif %}>Enrollment</a>
+{% if leads_enabled %}<a href="{% url 'school_leads' school.slug %}" class="dash-nav-link{% if active_nav == 'leads' %} dash-nav-link--active{% endif %}"{% if active_nav == 'leads' %} aria-current="page"{% endif %}>Leads</a>{% endif %}
+<a href="{{ scheduling_entry.url }}" class="dash-nav-link{% if active_nav == 'scheduling' %} dash-nav-link--active{% endif %}"{% if active_nav == 'scheduling' %} aria-current="page"{% endif %}>Schedule</a>
+<a href="{% url 'school_reports' school.slug %}" class="dash-nav-link{% if active_nav == 'reports' %} dash-nav-link--active{% endif %}"{% if active_nav == 'reports' %} aria-current="page"{% endif %}>Reports</a>
+{% if is_editor %}<a href="{% url 'school_settings' school.slug %}" class="dash-nav-link{% if active_nav == 'settings' or active_nav == 'programs' %} dash-nav-link--active{% endif %}"{% if active_nav == 'settings' or active_nav == 'programs' %} aria-current="page"{% endif %}>Settings</a>{% endif %}
+{% else %}
+<a href="{% url 'school_dashboard' school.slug %}" class="dash-nav-link{% if active_nav == 'dashboard' %} dash-nav-link--active{% endif %}"{% if active_nav == 'dashboard' %} aria-current="page"{% endif %}>Dashboard</a>
+<a href="{% url 'school_submissions' school.slug %}" class="dash-nav-link{% if active_nav == 'submissions' %} dash-nav-link--active{% endif %}"{% if active_nav == 'submissions' %} aria-current="page"{% endif %}>Submissions</a>
+{% if leads_enabled %}<a href="{% url 'school_leads' school.slug %}" class="dash-nav-link{% if active_nav == 'leads' %} dash-nav-link--active{% endif %}"{% if active_nav == 'leads' %} aria-current="page"{% endif %}>Leads</a>{% endif %}
+<a href="{% url 'school_reports' school.slug %}" class="dash-nav-link{% if active_nav == 'reports' %} dash-nav-link--active{% endif %}"{% if active_nav == 'reports' %} aria-current="page"{% endif %}>Reports</a>
+{% if broadcast_enabled %}<a href="{% url 'school_broadcast' school.slug %}" class="dash-nav-link{% if active_nav == 'broadcast' %} dash-nav-link--active{% endif %}">Broadcast</a>{% endif %}
+{% if is_editor %}<a href="{% url 'school_settings' school.slug %}" class="dash-nav-link{% if active_nav == 'settings' or active_nav == 'programs' %} dash-nav-link--active{% endif %}"{% if active_nav == 'settings' or active_nav == 'programs' %} aria-current="page"{% endif %}>Settings</a>{% endif %}
+{% if scheduling_entry %}<a href="{{ scheduling_entry.url }}" class="dash-nav-link{% if active_nav == 'scheduling' %} dash-nav-link--active{% endif %}"{% if active_nav == 'scheduling' %} aria-current="page"{% endif %}>Scheduling</a>{% endif %}
+{% endif %}

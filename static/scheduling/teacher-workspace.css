@@ -1,0 +1,23 @@
+/* Teacher-only layout and touch sizing; colors and typography come from the admin theme. */
+.teacher-workspace .dash-header { height: auto; min-height: 60px; }
+.teacher-workspace .dash-header-left > div { min-width: 0; }
+.teacher-workspace .dash-school-name { white-space: normal; overflow-wrap: anywhere; }
+.teacher-workspace .teacher-name { margin: 4px 0; overflow-wrap: anywhere; }
+.teacher-workspace .dash-nav { display: flex; flex-wrap: wrap; }
+.teacher-workspace .dash-nav-link { display: inline-flex; align-items: center; min-height: 44px; }
+.teacher-workspace .section-heading { flex-wrap: wrap; }
+.teacher-workspace .table-wrap { max-width: 100%; }
+.teacher-workspace .dash-table tbody th { text-transform: none; letter-spacing: 0; }
+.teacher-workspace .form-field { min-width: 0; }
+.teacher-workspace .form-field.check-field { min-height: 44px; }
+.teacher-workspace .form-field.check-field label { display: flex; align-items: center; min-height: 44px; }
+.teacher-workspace .actions a { display: inline-flex; align-items: center; min-height: 44px; }
+.teacher-workspace .actions .button { white-space: normal; }
+.teacher-workspace.booking-admin .dash-main :is(button, .button, select, input:not([type=checkbox]):not([type=radio]):not([type=hidden])) { min-height: 44px; }
+.teacher-workspace.dash-body .dash-account .dash-account-avatar { width: 44px; height: 44px; min-height: 44px; }
+.teacher-workspace.dash-body .dash-account .dash-menu-item { min-height: 44px; }
+@media (max-width: 900px) {
+  .teacher-workspace.booking-admin .dash-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 12px 16px; }
+  .teacher-workspace .dash-nav { grid-column: 1 / -1; grid-row: 2; }
+  .teacher-workspace .dash-header-right { grid-column: 2; grid-row: 1; }
+}

@@ -1,0 +1,7 @@
+{% if enrollment_booking %}
+<section style="margin-bottom:20px;">
+<p>{{ enrollment_booking.series.snapshot.student }} &middot; {{ enrollment_booking.contact_name }} &middot; {{ enrollment_booking.contact_email }}</p>
+<label style="display:flex;align-items:center;gap:12px;min-height:44px;"><input type="checkbox" name="_booking_identity_verified" required {% if booking_identity_verified %}checked{% endif %}> <span>I have verified this new application is for the student in this booking.</span></label>
+{% if booking_identity_error %}<p role="alert">{{ booking_identity_error }}</p>{% endif %}
+</section>
+{% endif %}

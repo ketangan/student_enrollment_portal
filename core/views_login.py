@@ -28,6 +28,10 @@ def _post_login_redirect(request, next_url=""):
     from scheduling.access import accessible_profiles
     if scope_schools(accessible_profiles(request.user), request, "school__").exists():
         return redirect("scheduling:index")
+    from scheduling.teacher_availability import teacher_login_profile
+    teacher_profile = teacher_login_profile(request.user, request)
+    if teacher_profile:
+        return redirect("scheduling:teacher_schedule", school_slug=teacher_profile.school.slug)
     logout(request)
     return redirect("login")
 

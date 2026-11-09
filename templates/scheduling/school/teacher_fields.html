@@ -1,0 +1,14 @@
+{{ form.non_field_errors }}
+{% include 'scheduling/form_hidden_fields.html' %}
+{% for field in form.visible_fields %}
+{% if field.name != 'login_username' and field.name != 'login_verified' %}
+<div class="form-field {% if field.name == 'services' %}teacher-services{% elif field.field.widget.input_type == 'checkbox' %}check-field{% endif %}">
+{% if field.name == 'services' %}<fieldset><legend>Lesson types</legend>{{ field }}{{ field.errors }}</fieldset>
+{% else %}<label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}{% endif %}
+</div>{% endif %}{% endfor %}
+{% if form.login_username %}
+<details class="teacher-access"{% if form.login_username.errors or form.login_verified.errors %} open{% endif %}><summary>Teacher login{% if form.login_username.value %}: {{ form.login_username.value }}{% endif %}</summary>
+<div class="form-field"><label for="{{ form.login_username.id_for_label }}">Existing account username</label>{{ form.login_username }}{{ form.login_username.errors }}<p class="muted">Access to this teacher's own schedule, hours and time off.</p></div>
+<div class="form-field check-field"><label for="{{ form.login_verified.id_for_label }}">{{ form.login_verified.label }}</label>{{ form.login_verified }}{{ form.login_verified.errors }}</div>
+</details>
+{% endif %}

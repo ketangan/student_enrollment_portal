@@ -1,0 +1,17 @@
+{% if setup_return_url %}
+  {% include 'scheduling/school/form_return.html' with back_url=setup_return_url back_label=setup_return_label %}
+{% elif occurrence %}
+  {% url 'scheduling:lesson_series' school_slug=business.slug public_id=occurrence.series.public_id as return_url %}
+  {% include 'scheduling/school/form_return.html' with back_url=return_url back_label='Lesson schedule' %}
+{% elif request.resolver_match.url_name == 'lesson_booking_offer_new' or request.resolver_match.url_name == 'lesson_booking_offer_edit' %}
+  {% url 'scheduling:school_programs' school_slug=business.slug as return_url %}
+  {% include 'scheduling/school/form_return.html' with back_url=return_url back_label='Programs' %}
+{% elif request.resolver_match.url_name == 'lesson_settings' %}
+  {% url 'school_settings' business.slug as return_url %}
+  {% include 'scheduling/school/form_return.html' with back_url=return_url|add:'?tab=scheduling' back_label='Settings' %}
+{% elif teacher_return_url %}
+  {% include 'scheduling/school/form_return.html' with back_url=teacher_return_url back_label='Teacher availability' %}
+{% else %}
+  {% url 'scheduling:lesson_setup' school_slug=business.slug as return_url %}
+  {% include 'scheduling/school/form_return.html' with back_url=return_url back_label='Teachers & availability' %}
+{% endif %}

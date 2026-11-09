@@ -1,6 +1,7 @@
 """Private, staff-assigned lesson schedules. Billing is deliberately separate."""
 import uuid
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -34,6 +35,8 @@ class LessonTeacher(models.Model):
     is_active = models.BooleanField(default=True)
     booking_host = models.OneToOneField("scheduling.SchedulingMembership", null=True, blank=True,
         on_delete=models.PROTECT, related_name="lesson_teacher")
+    login_user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="lesson_teacher_accounts")
 
     def clean(self):
         if self.booking_host_id:
@@ -46,6 +49,7 @@ class LessonTeacher(models.Model):
         ordering = ["name", "pk"]
         constraints = [
             models.UniqueConstraint(Lower("name"), "profile", name="lesson_teacher_name_unique"),
+            models.UniqueConstraint(fields=["profile", "login_user"], name="lesson_teacher_login_unique"),
             models.CheckConstraint(condition=models.Q(buffer_minutes__lte=120, travel_minutes__lte=240), name="lesson_teacher_buffers_valid"),
         ]
 
@@ -59,12 +63,16 @@ class LessonAvailability(models.Model):
     weekday = models.PositiveSmallIntegerField(choices=list(enumerate(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"])))
     start_time = models.TimeField()
     end_time = models.TimeField()
+    effective_from = models.DateField(null=True, blank=True)
+    effective_until = models.DateField(null=True, blank=True)
 
     class Meta:
         ordering = ["teacher__name", "weekday", "start_time", "pk"]
         constraints = [
             models.CheckConstraint(condition=models.Q(weekday__lte=6), name="lesson_availability_day_valid"),
             models.CheckConstraint(condition=models.Q(end_time__gt=models.F("start_time")), name="lesson_availability_time_valid"),
+            models.CheckConstraint(condition=models.Q(effective_from__isnull=True) | models.Q(effective_until__isnull=True)
+                | models.Q(effective_until__gte=models.F("effective_from")), name="lesson_availability_dates_valid"),
         ]
 
     def clean(self):

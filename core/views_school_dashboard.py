@@ -106,6 +106,9 @@ def school_dashboard_view(request, school_slug: str):
     school = _get_accessible_school_for_admin(request, school_slug)
     _log_page_view(request, school, "dashboard")
 
+    from scheduling.school_workspace import school_dashboard_agenda
+    agenda_context = school_dashboard_agenda(request, school)
+
     config = _safe_load_school_config(school_slug)
     label_map = build_option_label_map(config.form) if config else {}
 
@@ -417,6 +420,7 @@ def school_dashboard_view(request, school_slug: str):
         request,
         "dashboard.html",
         {
+            **agenda_context,
             "school": school,
             "school_slug": school_slug,
             "total_submissions": total_submissions,
@@ -644,6 +648,14 @@ def school_settings_view(request, school_slug: str):
         new_sec = request.POST.get("app_fee_stripe_secret_key", "").strip()
         if not new_pub:
             messages.error(request, "Publishable key is required.")
+            return redirect(_settings_url(school_slug, "billing"))
+        from django.core.exceptions import ValidationError
+        from core.services.portal_environment import validate_deployment_stripe_key
+        try:
+            validate_deployment_stripe_key(new_pub, publishable=True)
+            validate_deployment_stripe_key(new_sec or school.app_fee_stripe_secret_key)
+        except ValidationError as exc:
+            messages.error(request, exc.messages[0])
             return redirect(_settings_url(school_slug, "billing"))
         update_fields = ["app_fee_stripe_public_key"]
         school.app_fee_stripe_public_key = new_pub

@@ -40,6 +40,10 @@ class StaffPartyForm(PartyInquiryForm):
         selected = (data if data is not None else kwargs.get("initial", {})).get("offering")
         offering = offerings.filter(pk=selected).first() if str(selected or "").isdecimal() else None
         super().__init__(*args, offering=offering if packages_only else None, **kwargs)
+        # Staff can reserve a place, but cannot accept customer policies for them.
+        for name in self.acknowledgment_names:
+            self.fields.pop(name)
+        self.acknowledgment_names = []
         self.packages_only = packages_only
         self.selected_offering = offering
         if packages_only:
@@ -110,7 +114,8 @@ def create(user, slug, data):
     item = PartyRequest(offering=offering, **values, submission_key=key,
         submission_digest=stamp, browser_digest=digest({"staff": user.pk, "profile": profile.pk}),
         offering_snapshot={"workshop": offering.name, "location": offering.location.name,
-            "timezone": offering.location.timezone_name})
+            "timezone": offering.location.timezone_name,
+            "acknowledgments": form.acknowledgment_record()})
     item.full_clean()
     item.save()
     if form.packages_only:

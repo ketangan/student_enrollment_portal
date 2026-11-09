@@ -37,6 +37,24 @@ def application_gate(view):
             token = kwargs.get("token") or kwargs.get("draft_token") or request.POST.get("_draft_token")
             draft = DraftSubmission.objects.filter(school_id=policy.profile.school_id)
             draft = draft.filter(token=token).first() if token else draft.filter(pk=request.session.get(f"apply_draft_id:{school_slug}")).first()
+            if admissions.direct_enrollment(policy.profile.school):
+                if (view.__name__ == "apply_view" and request.method == "GET" and not token
+                        and kwargs.get("form_key", "default") == "default"
+                        and request.GET.get("resume") != "1"
+                        and admissions.has_staged_history(policy, draft=draft)):
+                    # The advertised application entry starts a new journey. Only an
+                    # intentional resume may inherit an old staged draft in this browser.
+                    request.session.pop(f"apply_draft_id:{school_slug}", None)
+                    draft = None
+                # The public submit path resolves the session draft independently.
+                # A forged hidden token must not bypass that draft's historical gate.
+                session_draft = DraftSubmission.objects.filter(school_id=policy.profile.school_id,
+                    pk=request.session.get(f"apply_draft_id:{school_slug}")).first() if token else draft
+                if not (admissions.has_staged_history(policy, draft=draft)
+                        or admissions.has_staged_history(policy, draft=session_draft)):
+                    response = view(request, school_slug, *args, **kwargs)
+                    add_never_cache_headers(response)
+                    return response
             case = None
             reason = "Please use the application link provided after your tour."
             if draft and draft.lead_id:

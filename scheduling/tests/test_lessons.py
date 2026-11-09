@@ -300,7 +300,7 @@ def test_setup_creation_validation_and_freeze(music):
         form=lessons.save_lesson_setup(m["user"],m["slug"],kind,data)
         assert form.is_valid(),form.errors
     book(m)
-    assert lessons.setup_form(m["profile"],"teachers",pk=m["teacher"].pk).fields["buffer_minutes"].disabled
+    assert not lessons.setup_form(m["profile"],"teachers",pk=m["teacher"].pk).fields["buffer_minutes"].disabled
     assert lessons.setup_form(m["profile"],"students",pk=m["student"].pk).fields["household"].disabled
     window=LessonAvailability.objects.filter(teacher=m["teacher"]).first()
     assert all(f.field.disabled for f in lessons.setup_form(m["profile"],"availability",pk=window.pk).visible_fields())

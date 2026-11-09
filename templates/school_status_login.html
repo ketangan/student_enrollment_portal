@@ -1,4 +1,4 @@
-{% load static %}
+{% load static public_school_navigation %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -95,6 +95,7 @@
       {% endif %}
     </div>
 
+    {% school_public_navigation school %}
     <div class="login-card">
       <h1 class="login-title">Check Application Status</h1>
       <p class="login-subtitle">Enter your Application ID and student last name to view your application.</p>

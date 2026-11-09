@@ -28,6 +28,11 @@ class PortalScopedAdminMixin:
             def __init__(self, *args, **form_kwargs):
                 super().__init__(*args, **form_kwargs)
                 scope_form_choices(self, request)
+                from core.models import School
+                from core.services.portal_environment import deployment_environment
+                if self._meta.model == School and deployment_environment() and "is_demo" in self.fields:
+                    self.fields["is_demo"].disabled = True
+                    self.fields["is_demo"].initial = deployment_environment() == "demo"
 
         return ScopedForm
 

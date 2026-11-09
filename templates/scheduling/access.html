@@ -1,8 +1,10 @@
 {% extends 'scheduling/base.html' %}
 {% load static %}
 {% block title %}Team access{% endblock %}
+{% block page_heading %}{% if not simplified_school %}{{ block.super }}{% endif %}{% endblock %}
 {% block workspace_notice %}{% endblock %}
 {% block content %}
+{% if simplified_school %}{% url 'school_settings' business.slug as back_url %}{% include 'scheduling/school/back_link.html' with back_url=back_url|add:'?tab=scheduling' back_label='Settings' %}{% endif %}
 <section class="booking-team" aria-label="Team">
 {% if member_form.errors %}<div role="alert" class="errorlist">
 {% for field in member_form %}{% for error in field.errors %}<p>{{ field.label }}: {{ error }}</p>{% endfor %}{% endfor %}

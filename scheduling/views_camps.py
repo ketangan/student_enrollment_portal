@@ -14,6 +14,7 @@ from .camps import (camp_dates, camp_form, check_registration, places_left, publ
                     register_camp, registration_token, save_camp, scoped_camps)
 from .checkout import payment_token
 from .models import CampRegistration
+from .public_school_context import public_school_context
 from .request_forms import participant_forms
 from .requests import browser_key, catalog_for
 from .setup import records
@@ -95,6 +96,7 @@ def camp_register(request, school_slug, pk):
                "business": camp.offering.location.profile.school, "purchaser": purchaser,
                "participants": participants, "error": error,
                "request_token": request.POST.get("request_token", "") if request.method == "POST" else registration_token(camp, dates, catalog, browser)}
+    context.update(public_school_context(camp.offering.location.profile))
     return render(request, "scheduling/camp_register.html", context, status=400 if request.method == "POST" else 200)
 
 
@@ -109,6 +111,7 @@ def camp_received(request, school_slug, public_id):
         camp__offering__location__profile__enabled=True)
     item = registration.reservation
     context = {"item": item, "registration": registration, "business": registration.camp.offering.location.profile.school}
+    context.update(public_school_context(registration.camp.offering.location.profile))
     if item.order.account_id:
         context["payment_url"] = reverse("scheduling:customer_payment", kwargs={"school_slug": school_slug, "token": payment_token(item)})
     return render(request, "scheduling/camp_received.html", context)

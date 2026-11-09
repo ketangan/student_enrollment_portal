@@ -1,4 +1,5 @@
 {% load static booking_navigation account_menu %}
+{% booking_school_entry school as scheduling_entry %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -8,10 +9,11 @@
   <link rel="icon" type="image/png" href="{% static 'favicon.png' %}">
   {% include 'partials/pwa_head.html' %}
   <link rel="stylesheet" href="{% static 'admin/dashboard.css' %}?v=20261022-shared-team">
+  {% if scheduling_entry.school_layout %}<link rel="stylesheet" href="{% static 'scheduling/school-workspace.css' %}?v=20261109-session-grids">{% endif %}
+  {% if scheduling_entry.simplified %}<link rel="stylesheet" href="{% static 'scheduling/school-journeys.css' %}?v=20261109-session-controls">{% endif %}
   {% block extra_css %}{% endblock %}
 </head>
-<body class="dash-body">
-  {% booking_school_entry school as scheduling_entry %}
+<body class="dash-body{% if scheduling_entry.school_layout %} school-enrollment{% endif %}{% if scheduling_entry.simplified %} school-shell{% endif %}">
 
   <!-- Top navigation -->
   <header class="dash-header">
@@ -22,36 +24,12 @@
       <div class="dash-school-name">{{ school.display_name|default:school.slug }}</div>
     </div>
 
-    <nav class="dash-nav">
-      {% if billing_only %}
-      <a href="{% url 'scheduling:workspace' school_slug=school.slug %}" class="dash-nav-link">Scheduling</a>
-      {% else %}
-      <a href="{% url 'school_dashboard' school.slug %}"
-         class="dash-nav-link{% if active_nav == 'dashboard' %} dash-nav-link--active{% endif %}">Dashboard</a>
-      <a href="{% url 'school_submissions' school.slug %}"
-         class="dash-nav-link{% if active_nav == 'submissions' %} dash-nav-link--active{% endif %}">Submissions</a>
-      {% if leads_enabled %}
-        <a href="{% url 'school_leads' school.slug %}"
-           class="dash-nav-link{% if active_nav == 'leads' %} dash-nav-link--active{% endif %}">Leads</a>
-      {% endif %}
-      <a href="{% url 'school_reports' school.slug %}"
-         class="dash-nav-link{% if active_nav == 'reports' %} dash-nav-link--active{% endif %}">Reports</a>
-      {% if broadcast_enabled %}
-        <a href="{% url 'school_broadcast' school.slug %}"
-           class="dash-nav-link{% if active_nav == 'broadcast' %} dash-nav-link--active{% endif %}">Broadcast</a>
-      {% endif %}
-      {% if is_editor %}
-      <a href="{% url 'school_settings' school.slug %}"
-         class="dash-nav-link{% if active_nav == 'settings' or active_nav == 'programs' %} dash-nav-link--active{% endif %}">Settings</a>
-      {% endif %}
-      {% if scheduling_entry %}
-      <a href="{{ scheduling_entry.url }}" class="dash-nav-link">Scheduling</a>
-      {% endif %}
-      {% endif %}
+    <nav class="dash-nav" aria-label="School">
+      {% include 'school_admin/navigation_links.html' %}
     </nav>
 
     <div class="dash-header-right">
-      <span class="dash-date">{{ now|date:"M j, Y" }}</span>
+      {% if not scheduling_entry.simplified %}<span class="dash-date">{{ now|date:"M j, Y" }}</span>{% endif %}
       <!-- Hamburger (mobile only) -->
       <button id="mobile-nav-btn"
               type="button"
@@ -150,6 +128,11 @@
   {% block content %}{% endblock %}
 
   {% block extra_js %}{% endblock %}
+
+  {% if scheduling_entry.simplified %}
+  <script defer src="{% static 'demo/plushumi/assets/lucide.js' %}"></script>
+  <script>document.addEventListener('DOMContentLoaded', function () { window.lucide?.createIcons(); });</script>
+  {% endif %}
 
   <script>
   // visibilitychange reload is in partials/pwa_head.html (covers all PWA templates)

@@ -19,6 +19,7 @@ from .family_models import FamilyScheduleGrant
 from .lesson_models import LessonHousehold, LessonStudent
 from .lessons import audit, lesson_access
 from .models import SchedulingProfile
+from .school_navigation import require_optional_feature
 
 SALT = "scheduling.family-invite.v1"
 SESSION_KEY = "bookings_family_access"
@@ -57,6 +58,7 @@ class RevokeForm(forms.Form):
 @transaction.atomic
 def issue_invitation(user, slug, household_pk, data):
     profile, _ = lesson_access(user, slug, "setup.edit", locked=True)
+    require_optional_feature(profile, "family_management")
     household = get_object_or_404(LessonHousehold, profile=profile, pk=household_pk)
     form = InviteForm(data, user=user, household=household)
     if not form.is_valid():
@@ -122,6 +124,7 @@ def authorized_students(grant):
 @transaction.atomic
 def redeem_invitation(slug, secret, session):
     profile = public_profile(slug, locked=True)
+    require_optional_feature(profile, "family_management")
     if not TOKEN_PATTERN.fullmatch(secret):
         raise ValidationError(ACCESS_ERROR)
     now = timezone.now()
@@ -142,6 +145,7 @@ def redeem_invitation(slug, secret, session):
 @sensitive_variables()
 def family_grant(slug, session):
     profile = public_profile(slug)
+    require_optional_feature(profile, "family_management")
     secret = session.get(SESSION_KEY, {}).get(str(profile.pk), "")
     if not TOKEN_PATTERN.fullmatch(secret):
         raise Http404

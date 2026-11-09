@@ -2,7 +2,7 @@
 {% load tz %}
 {% block title %}{{ offering.name }}{% endblock %}
 {% block page_heading %}
-<a class="back-link" href="{% url 'scheduling:workshops' school_slug=business.slug %}"><i data-lucide="arrow-left" aria-hidden="true"></i> Workshops</a>
+{% if simplified_school %}{% url 'scheduling:school_schedule' school_slug=business.slug as schedule_url %}{% include 'scheduling/school/back_link.html' with back_url=school_schedule_return|default:schedule_url back_label='Schedule' %}{% else %}<a class="back-link" href="{% url 'scheduling:workshops' school_slug=business.slug %}"><i data-lucide="arrow-left" aria-hidden="true"></i> Workshops</a>{% endif %}
 <div class="workshop-heading">
   <div><h1>{{ offering.name }}</h1><p>{{ offering.location.name }}</p></div>
   <div class="actions">
@@ -17,9 +17,10 @@
 {% block content %}
 <section class="workshop-materials workshop-payment-summary" aria-label="Workshop payments">
   <dl><dt>Price per participant</dt><dd>{% if offering.price_per_participant != None %}${{ offering.price_per_participant|floatformat:2 }}{% else %}Not set{% endif %}</dd></dl>
-  <dl><dt>Payment at booking</dt><dd>{% if offering.deposit_per_participant %}${{ offering.deposit_per_participant|floatformat:2 }} deposit per participant{% else %}Full payment{% endif %}</dd></dl>
-  {% if offering.deposit_per_participant %}<dl><dt>Remaining balance</dt><dd>Due on the workshop day</dd></dl>{% endif %}
+  {% if simplified_school %}<dl><dt>Registration requests</dt><dd>{% if offering.accepts_requests %}Enabled{% else %}Closed{% endif %}</dd></dl>{% else %}<dl><dt>Payment at booking</dt><dd>{% if offering.deposit_per_participant %}${{ offering.deposit_per_participant|floatformat:2 }} deposit per participant{% else %}Full payment{% endif %}</dd></dl>
+  {% if offering.deposit_per_participant %}<dl><dt>Remaining balance</dt><dd>Due on the workshop day</dd></dl>{% endif %}{% endif %}
 </section>
+{% if 'participant_choices' in school_workflows.optional_features %}
 {% if offering.inventory_catalog_id %}
 <section class="workshop-materials" aria-label="Workshop inventory">
   <dl><dt>Materials Catalog</dt><dd>{{ offering.inventory_catalog.name }}</dd></dl>
@@ -34,6 +35,7 @@
   <ul class="option-list">{% for option in group.options.all %}<li>{% if option.swatch %}<span class="color-swatch" style="background-color:{{ option.swatch }}" aria-hidden="true"></span>{% endif %}<span>{{ option.label }}</span>{% if not option.is_active %}<span class="status inactive">Hidden</span>{% endif %}{% if can_edit_setup %}<a href="{% url 'scheduling:option_edit' school_slug=business.slug offering_pk=offering.pk group_pk=group.pk option_pk=option.pk %}" aria-label="Edit {{ option.label }}">Edit</a>{% endif %}</li>{% empty %}<li>No options yet.</li>{% endfor %}</ul></section>
   {% empty %}<p class="muted">No booking options configured.</p>{% endfor %}
 </details>
+{% endif %}
 {% endif %}
 <section class="workshop-sessions" aria-labelledby="sessions-heading">
   <div class="section-heading"><h2 id="sessions-heading">Sessions</h2>{% if can_edit_sessions %}<a class="button primary" href="?edit_session=new#session-new"><i data-lucide="plus" aria-hidden="true"></i> Add session</a>{% endif %}</div>

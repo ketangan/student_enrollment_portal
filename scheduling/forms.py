@@ -47,7 +47,7 @@ class OfferingForm(forms.ModelForm):
 
     class Meta:
         model = Offering
-        fields = ["name", "location", "description", "inventory_catalog", "allow_deferred_selections", "price_per_participant", "payment_at_booking", "deposit_per_participant"]
+        fields = ["name", "location", "description", "inventory_catalog", "allow_deferred_selections", "price_per_participant", "payment_at_booking", "deposit_per_participant", "accepts_requests"]
         labels = {"name": "Workshop name", "inventory_catalog": "Catalog",
                   "price_per_participant": "Price per participant (USD)",
                   "deposit_per_participant": "Deposit per participant (USD)",
@@ -77,9 +77,26 @@ class OfferingForm(forms.ModelForm):
             del self.fields["inventory_catalog"]
         else:
             self.fields["inventory_catalog"].required = True
+        from .school_navigation import school_policy
+        policies = school_policy(profile.school)
+        workflow = policies["workflows"]
+        if policies["navigation"]["simplified"]:
+            self.fields["name"].label = "Class name"
+        if workflow["class_setup"] == "requests":
+            self.fields["accepts_requests"].label = "Accept registration requests"
+            self.fields.pop("payment_at_booking", None)
+            self.fields.pop("deposit_per_participant", None)
+        else:
+            self.fields.pop("accepts_requests", None)
+        if "inventory" not in workflow["optional_features"]:
+            self.fields.pop("inventory_catalog", None)
+        if "participant_choices" not in workflow["optional_features"]:
+            self.fields.pop("allow_deferred_selections", None)
 
     def clean(self):
         data = super().clean()
+        if "payment_at_booking" not in self.fields:
+            return data
         if "payment_at_booking" not in self.data and "deposit_per_participant" not in self.data:
             data["deposit_per_participant"] = self.instance.deposit_per_participant
             return data

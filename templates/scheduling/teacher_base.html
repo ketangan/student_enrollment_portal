@@ -1,0 +1,32 @@
+{% load static account_menu %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Teacher schedule{% endblock %} | {{ business }}</title>
+  <link rel="icon" href="{% static 'favicon.png' %}">
+  <link rel="stylesheet" href="{% static 'scheduling/workspace.css' %}">
+  <link rel="stylesheet" href="{% static 'admin/dashboard.css' %}">
+  <link rel="stylesheet" href="{% static 'scheduling/admin-theme.css' %}">
+  <link rel="stylesheet" href="{% static 'scheduling/teacher-workspace.css' %}">
+</head>
+<body class="dash-body booking-admin teacher-workspace">
+  <a class="skip-link" href="#content">Skip to content</a>
+  <header class="dash-header">
+    <div class="dash-header-left">
+      {% if business.logo_url %}<img src="{{ business.logo_url }}" alt="" class="dash-logo">{% endif %}
+      <div><div class="dash-school-name">{{ business }}</div><p class="muted teacher-name">{{ teacher.name }}</p></div>
+    </div>
+    <nav class="dash-nav" aria-label="Teacher">
+      <a class="dash-nav-link{% if teacher_active == 'schedule' %} dash-nav-link--active{% endif %}" href="{% url 'scheduling:teacher_schedule' school_slug=business.slug %}"{% if teacher_active == 'schedule' %} aria-current="page"{% endif %}>My schedule</a>
+      <a class="dash-nav-link{% if teacher_active == 'availability' %} dash-nav-link--active{% endif %}" href="{% url 'scheduling:teacher_availability' school_slug=business.slug %}"{% if teacher_active == 'availability' %} aria-current="page"{% endif %}>My availability</a>
+    </nav>
+    <div class="dash-header-right">{% with business=None school=None %}{% account_menu %}{% endwith %}</div>
+  </header>
+  <main class="dash-main" id="content">
+    {% for message in messages %}<div class="notice {{ message.tags }}" role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">{{ message }}</div>{% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

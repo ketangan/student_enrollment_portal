@@ -131,6 +131,8 @@ def verified_location():
 
 
 def validate_account(account):
+    from core.services.portal_environment import require_deployment_school
+    require_deployment_school(account.school)
     if account.scope == "connected":
         from scheduling.integrations.square_connection import credential, payment_connection
         if (account.provider != "square" or account.environment not in {"test", "live"}

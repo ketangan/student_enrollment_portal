@@ -1,6 +1,7 @@
 """Participant intake for unpaid requests and checkout; intake alone never reserves seats."""
 
 from collections import Counter
+from copy import copy
 import hashlib
 import json
 import uuid
@@ -8,7 +9,7 @@ import uuid
 from django.core import signing
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -32,17 +33,38 @@ def browser_key(request, create=False):
     return hashlib.sha256(key.encode()).hexdigest() if key else ""
 
 
-def catalog_for(offering):
+def catalog_for(offering, *, prefetched_groups=None):
     from .participant_policy import age_policy, eligible_label
-    groups = offering.inventory_catalog.choice_groups if offering.inventory_catalog_id else offering.choice_groups
-    catalog = list(groups.filter(is_active=True).prefetch_related(
-        Prefetch("options", queryset=ChoiceOption.objects.filter(is_active=True), to_attr="active_options")))
+    if prefetched_groups is None:
+        groups = offering.inventory_catalog.choice_groups if offering.inventory_catalog_id else offering.choice_groups
+        catalog = list(groups.filter(is_active=True).prefetch_related(
+            Prefetch("options", queryset=ChoiceOption.objects.filter(is_active=True), to_attr="active_options")))
+    else:
+        # Shared inventory groups must not retain another offering's age filtering.
+        catalog = [copy(group) for group in prefetched_groups]
     policy = age_policy(offering.location.profile.school)
     for group in catalog:
         group.is_participant_age = bool(policy and group.name == policy["choice_group"] and not group.tracks_stock)
         if group.is_participant_age:
             group.active_options = [option for option in group.active_options if eligible_label(option.label, policy)]
     return catalog
+
+
+def catalogs_for(offerings):
+    """Batch active choices, retaining catalog_for's school-specific policy."""
+    offerings = {offering.pk: offering for offering in offerings}
+    catalog_ids = {item.inventory_catalog_id for item in offerings.values() if item.inventory_catalog_id}
+    offering_ids = {item.pk for item in offerings.values() if not item.inventory_catalog_id}
+    groups = ChoiceGroup.objects.filter(
+        Q(catalog_id__in=catalog_ids) | Q(offering_id__in=offering_ids), is_active=True,
+    ).prefetch_related(Prefetch(
+        "options", queryset=ChoiceOption.objects.filter(is_active=True), to_attr="active_options"))
+    grouped = {}
+    for group in groups:
+        grouped.setdefault((group.catalog_id, group.offering_id), []).append(group)
+    return {pk: catalog_for(item, prefetched_groups=grouped.get(
+        (item.inventory_catalog_id, None) if item.inventory_catalog_id else (None, pk), []))
+        for pk, item in offerings.items()}
 
 
 def session_for_request(slug, pk):

@@ -77,6 +77,7 @@
     </div>
 
     {% if total_submissions == 0 %}
+      {% if school_agenda_available %}<div class="dash-grid"><div class="dash-grid-main">{% endif %}
       <!-- Empty state -->
       <div class="dash-card">
         <div class="dash-empty">
@@ -92,6 +93,11 @@
           <div class="dash-copy-confirm" id="dash-copy-confirm">Copied!</div>
         </div>
       </div>
+      {% if school_agenda_available %}
+        </div><div class="dash-grid-side">
+          {% include "scheduling/school/dashboard_agenda.html" %}
+        </div></div>
+      {% endif %}
     {% else %}
       <!-- Two-column layout: work queue + activity sidebar -->
       <div class="dash-grid">
@@ -99,6 +105,7 @@
           {% include "dashboard/_submissions_inbox.html" %}
         </div>
         <div class="dash-grid-side">
+          {% if school_agenda_available %}{% include "scheduling/school/dashboard_agenda.html" %}{% endif %}
           {% include "dashboard/_activity.html" %}
         </div>
       </div>

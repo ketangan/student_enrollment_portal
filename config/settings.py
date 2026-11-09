@@ -36,6 +36,9 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-default-secret")
 DEBUG = os.getenv("DJANGO_DEBUG", "False") == "True"
 
 DJANGO_ENV = os.getenv("DJANGO_ENV", "local").lower()
+PORTAL_DEPLOYMENT_ENV = os.getenv("PORTAL_DEPLOYMENT_ENV", "shared").lower()
+if PORTAL_DEPLOYMENT_ENV not in {"shared", "demo", "production"}:
+    raise RuntimeError("PORTAL_DEPLOYMENT_ENV must be shared, demo or production")
 IS_PROD = DJANGO_ENV == "production"
 
 IS_PROD = DJANGO_ENV in ("prod", "production")

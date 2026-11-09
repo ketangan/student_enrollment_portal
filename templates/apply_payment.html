@@ -1,4 +1,5 @@
 {% load static %}
+{% load public_school_navigation %}
 <!doctype html>
 <html lang="en">
   <head>
@@ -151,6 +152,7 @@
         </div>
         {% endif %}
 
+        {% school_public_navigation school %}
         {% if back_url and not embed_mode %}
         <a href="{{ back_url }}" class="payment-back">
           ← Back to form

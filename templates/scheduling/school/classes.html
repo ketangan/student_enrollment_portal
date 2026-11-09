@@ -1,0 +1,36 @@
+{% extends 'scheduling/school/public_base.html' %}
+{% load tz %}
+{% block title %}Classes &amp; programs | {{ business.display_name }}{% endblock %}
+{% block content %}
+<header class="journey-heading"><h1>Classes &amp; programs</h1></header>
+{% if journey_features.workshops %}
+<section class="journey-section" aria-labelledby="public-classes-title">
+  <h2 id="public-classes-title">Upcoming classes</h2>
+  <p class="journey-notice">Request places for your group. A request is not a confirmed booking; the school will review it before confirming.</p>
+  <ul class="journey-records">
+    {% for session in classes %}
+    <li><div><h3>{{ session.offering.name }}</h3>{% if session.offering.description %}<p>{{ session.offering.description|linebreaksbr }}</p>{% endif %}
+      {% timezone session.offering.location.timezone_name %}{% with start=session.starts_at|localtime end=session.ends_at|localtime %}<p><time datetime="{{ start|date:'c' }}">{{ start|date:'D, M j, Y' }}, {{ start|date:'g:i A' }}</time> to {% if start.date != end.date %}{{ end|date:'M j, Y' }} {% endif %}{{ end|date:'g:i A' }}</p>{% endwith %}{% endtimezone %}
+      <p class="journey-muted">{{ session.offering.location.name }} &middot; {{ session.offering.location.timezone_name }}{% if session.room %} &middot; {{ session.room.name }}{% endif %}</p>
+      {% if session.offering.price_per_participant != None %}<p>${{ session.offering.price_per_participant|floatformat:2 }} per participant</p>{% endif %}
+    </div>{% if session.requests_available %}<a class="button primary" href="{% url 'scheduling:workshop_request' school_slug=business.slug pk=session.pk %}" aria-label="Request places for {{ session.offering.name }}">Request places</a>{% else %}<span class="journey-status">Requests closed</span>{% endif %}</li>
+    {% empty %}<li class="journey-empty">No upcoming classes published.</li>{% endfor %}
+  </ul>
+  {% include 'scheduling/school/pagination.html' with pagination=classes_pagination label='Upcoming class pages' %}
+</section>
+{% endif %}
+{% if journey_features.camps %}
+<section class="journey-section" aria-labelledby="public-programs-title">
+  <h2 id="public-programs-title">Seasonal programs</h2>
+  <ul class="journey-records">
+    {% for camp in public_camps %}<li><div><h3>{{ camp.name }}</h3>{% if camp.description %}<p>{{ camp.description|linebreaksbr }}</p>{% endif %}<p>{{ camp.offering.location.name }} &middot; {{ camp.offering.location.timezone_name }}</p><p>${{ camp.price|floatformat:2 }} per participant for all {{ camp.journey_dates|length }} dates</p>
+      {% timezone camp.offering.location.timezone_name %}<details><summary>{{ camp.journey_dates.0.starts_at|date:'M j, Y' }} &middot; {{ camp.journey_dates|length }} dates</summary><ul>{% for session in camp.journey_dates %}{% with start=session.starts_at|localtime end=session.ends_at|localtime %}<li>{{ start|date:'D, M j, Y, g:i A' }} to {% if start.date != end.date %}{{ end|date:'M j, Y' }} {% endif %}{{ end|date:'g:i A' }}</li>{% endwith %}{% endfor %}</ul></details>{% endtimezone %}
+    </div><a class="button primary" href="{% url 'scheduling:camp_register' school_slug=business.slug pk=camp.pk %}" aria-label="View registration for {{ camp.name }}">View registration</a></li>{% empty %}<li class="journey-empty">{% if camps_pagination.next %}No available programs in these results. Continue to check more programs.{% elif camps_pagination.first %}No more seasonal programs are currently available for registration.{% else %}No seasonal programs are currently available for registration.{% endif %}</li>{% endfor %}
+  </ul>
+  {% if camps_pagination.first or camps_pagination.next %}<nav class="journey-pagination" aria-label="Seasonal registration pages">
+    {% if camps_pagination.first %}<a class="button secondary" href="{{ camps_pagination.first }}">First programs</a>{% endif %}
+    {% if camps_pagination.next %}<a class="button secondary" href="{{ camps_pagination.next }}">More programs</a>{% endif %}
+  </nav>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

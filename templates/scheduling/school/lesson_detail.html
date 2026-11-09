@@ -1,0 +1,48 @@
+{% load tz %}
+{% url 'scheduling:school_schedule' school_slug=business.slug as back_url %}
+{% include 'scheduling/school/back_link.html' with back_url=school_schedule_return|default:back_url back_label='Schedule' %}
+<div class="workshop-heading">
+  <div><h1>{% if booking and not booking.grant_id %}Trial: {% endif %}{{ series.snapshot.service }}</h1><p>{{ series.snapshot.location }}</p></div>
+</div>
+<section class="workshop-materials workshop-payment-summary" aria-label="Lesson details">
+  <dl><dt>Student</dt><dd>{{ series.snapshot.student }}</dd></dl>
+  <dl><dt>Teacher</dt><dd>{{ series.snapshot.teacher }}</dd></dl>
+  {% if booking %}<dl><dt>Contact</dt><dd>{{ booking.contact_name }}<br><a href="mailto:{{ booking.contact_email }}">{{ booking.contact_email }}</a></dd></dl>{% endif %}
+</section>
+<section class="workshop-sessions" aria-labelledby="sessions-heading">
+  <div class="section-heading"><h2 id="sessions-heading">Sessions</h2><span class="muted">{{ series.snapshot.timezone }}</span></div>
+  <div class="dash-card workshop-session-table lesson-session-grid">
+    <div class="dash-table-scroll" role="region" aria-label="Lesson sessions" tabindex="0">
+      <table class="dash-table">
+        <thead><tr><th>Date</th><th>Time</th><th>Room</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>
+        {% timezone series.snapshot.timezone %}
+        {% for lesson in items %}
+          <tr id="lesson-{{ lesson.pk }}">
+            <td><strong>{{ lesson.starts_at|date:'D, M j, Y' }}</strong></td>
+            <td>{{ lesson.starts_at|time:'g:i A' }} &ndash; {{ lesson.ends_at|time:'g:i A' }}</td>
+            <td>{{ series.snapshot.room|default:'-' }}</td>
+            <td><span class="status {% if lesson.state != 'scheduled' %}inactive{% endif %}">{{ lesson.get_state_display }}</span>
+              {% if lesson.reason %}<p class="muted">{{ lesson.reason }}</p>{% endif %}
+              {% if lesson.replacement_id %}<p><a href="{% url 'scheduling:lesson_series' school_slug=business.slug public_id=lesson.replacement.series.public_id %}#lesson-{{ lesson.replacement_id }}">View new time</a></p>{% endif %}
+              {% if lesson.issued_credit %}<p><a href="{% url 'scheduling:lesson_credit' school_slug=business.slug public_id=lesson.issued_credit.public_id %}">Make-up credit</a></p>{% endif %}
+              {% if attendance_enabled and lesson.ends_at <= now %}<p>{{ lesson.get_attendance_display }}</p>{% endif %}
+            </td>
+            <td><div class="session-actions">
+              {% if can_edit_sessions and lesson.state == 'scheduled' %}
+                {% if lesson.starts_at > now %}
+                  <a class="dash-action-btn dash-action-btn--secondary" data-inline-edit href="{% url 'scheduling:lesson_change' school_slug=business.slug pk=lesson.pk %}" aria-label="Reschedule lesson on {{ lesson.starts_at|date:'M j' }}" title="Reschedule"><i data-lucide="calendar-clock" aria-hidden="true"></i></a>
+                  <a class="dash-action-btn dash-action-btn--secondary" data-inline-edit href="{% url 'scheduling:lesson_cancel' school_slug=business.slug pk=lesson.pk %}" aria-label="Cancel lesson on {{ lesson.starts_at|date:'M j' }}" title="Cancel booking"><i data-lucide="calendar-x" aria-hidden="true"></i></a>
+                {% elif attendance_enabled and lesson.ends_at <= now %}
+                  <a class="dash-action-btn dash-action-btn--secondary" data-inline-edit href="{% url 'scheduling:lesson_attendance' school_slug=business.slug pk=lesson.pk %}" aria-label="Record attendance" title="Record attendance"><i data-lucide="user-check" aria-hidden="true"></i></a>
+                {% endif %}
+              {% endif %}
+            </div></td>
+          </tr>
+        {% endfor %}
+        {% endtimezone %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>

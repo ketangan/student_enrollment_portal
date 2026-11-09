@@ -1,0 +1,108 @@
+.school-scheduling .booking-page-heading { margin-bottom: 20px; }
+.school-scheduling .booking-page-heading p { display: none; }
+.school-scheduling .lesson-toolbar { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; margin: 20px 0; }
+.school-scheduling .lesson-toolbar .form-field { margin: 0; min-width: 200px; max-width: 320px; flex: 1; }
+.school-scheduling .lesson-toolbar label { display: block; margin-bottom: 6px; }
+.school-scheduling .lesson-toolbar select { width: 100%; }
+.school-scheduling .lesson-tools { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0 24px; }
+.school-scheduling .lesson-tools a, .school-scheduling .back-link,
+.school-scheduling .session-row > a, .school-scheduling .section-heading > a { min-height: 44px; display: inline-flex; align-items: center; }
+.school-scheduling .setup-form { max-width: 760px; }
+.school-scheduling .setup-form input:not([type=checkbox]):not([type=radio]),
+.school-scheduling .setup-form select, .school-scheduling button { min-height: 44px; }
+.school-scheduling .location-section { margin: 20px 0; padding: 20px 0; }
+.school-scheduling .session-row { padding: 14px 0; }
+.school-scheduling .dash-table tbody th { text-transform: none; letter-spacing: 0; }
+.school-scheduling .school-agenda-table td:first-child { min-width: 160px; }
+.school-scheduling .school-agenda-table th[scope=row] { min-width: 220px; }
+.school-scheduling .school-agenda-table .status { white-space: nowrap; }
+.school-scheduling .school-agenda-table .button { white-space: nowrap; min-width: 72px; box-sizing: border-box; }
+@media (max-width: 1024px) {
+  .school-enrollment :is(.dash-action-btn, .dash-card-link, .dash-wq-tab, .dash-kpi-action) {
+    display: inline-flex; align-items: center; justify-content: center; min-height: 44px; box-sizing: border-box;
+  }
+  .school-scheduling td a, .school-scheduling .session-row a,
+  .school-scheduling .actions a, .school-scheduling .pagination a {
+    display: inline-flex; align-items: center; min-height: 44px;
+  }
+}
+@media (min-width: 768px) {
+  .school-scheduling .setup-form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px 20px; }
+  .school-scheduling .setup-form .actions, .school-scheduling .setup-form .errorlist { grid-column: 1 / -1; }
+}
+@media (max-width: 767px) {
+  .school-enrollment .dash-card { min-width: 0 !important; max-width: 100%; box-sizing: border-box; }
+  .school-scheduling .lesson-toolbar .form-field { min-width: 160px; }
+  .school-scheduling .section-heading { flex-wrap: wrap; gap: 12px; }
+}
+.school-enrollment .dash-grid-main, .school-enrollment .dash-grid-side { min-width: 0; }
+.school-enrollment .dash-table-scroll { max-width: 100%; overflow-x: auto; }
+.school-enrollment .dash-card-header { flex-wrap: wrap; gap: 8px; }
+.school-scheduling .teacher-row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.school-scheduling .teacher-week-scroll { overflow-x: auto; }
+.school-scheduling .teacher-week { min-width: 1080px; table-layout: fixed; }
+.school-scheduling .teacher-week th:first-child { width: 160px; }
+.school-scheduling .teacher-week th[scope=row] { vertical-align: top; }
+.school-scheduling .teacher-week th:first-child { position: sticky; left: 0; z-index: 1; background: var(--dash-card, #fff); }
+.school-scheduling .teacher-setup table .button, .school-scheduling .teacher-setup .lesson-toolbar button { min-height: 44px; }
+.school-scheduling .teacher-week td { vertical-align: top; padding: 12px 8px; }
+.school-scheduling .teacher-week th[scope=row] a { display: inline-flex; align-items: center; min-height: 44px; }
+.school-scheduling .teacher-week-block { border-left: 3px solid #2563eb; padding: 6px 8px; margin-bottom: 8px; background: #eff6ff; overflow-wrap: anywhere; }
+.school-scheduling .teacher-week-block strong, .school-scheduling .teacher-week-block span { display: block; font-size: 13px; line-height: 1.5; }
+.school-scheduling .teacher-week-booked { border-color: #7c3aed; background: #f5f3ff; }
+.school-scheduling .teacher-week-off { border-color: #b45309; background: #fffbeb; }
+.school-scheduling .teacher-services fieldset, .school-scheduling .teacher-access { border: 0; padding: 0; margin: 0; min-width: 0; }
+.school-scheduling .teacher-services label { display: flex; align-items: center; gap: 10px; min-height: 44px; text-transform: none; }
+.school-scheduling .teacher-services input[type=checkbox] { flex-shrink: 0; }
+.school-scheduling .teacher-access { grid-column: 1 / -1; border-top: 1px solid var(--dash-border, #e5e7eb); padding-top: 16px; }
+.school-scheduling :is(.teacher-access, .lesson-change-details) > summary { display: list-item; min-height: 44px; padding: 12px 0; box-sizing: border-box; font-size: 14px; font-weight: 600; cursor: pointer; }
+.school-scheduling .teacher-access[open] { display: block; }
+.school-scheduling .teacher-access > .form-field { margin-top: 12px; }
+.school-scheduling .teacher-access input[type=text] { max-width: 360px; }
+.school-scheduling .teacher-editor .form-field { margin: 0 0 12px; }
+.school-scheduling .teacher-editor .teacher-services .back-link { margin-bottom: 0; }
+.lesson-row-actions { display: flex; gap: 8px; flex-wrap: nowrap; }
+.lesson-row-actions .button { min-width: 44px; min-height: 44px; }
+.inline-editor { padding: 16px 0; min-width: 0; text-align: left; }
+.inline-editor h2 { font-size: 20px; padding-right: 76px; }
+.inline-editor > [role="status"]:empty { display: none; }
+.inline-editor-close { float: right; min-height: 44px; }
+.inline-editor .setup-form { max-width: 100%; }
+.inline-editor .form-actions { flex-wrap: wrap; }
+.school-scheduling .inline-editor { color: var(--dash-text, #111827); }
+.school-scheduling .inline-editor .form-field { margin-bottom: 12px; }
+.school-scheduling .inline-editor button { min-height: 44px; }
+.school-shell .session-actions :is(a, button) { min-width: 44px; width: 44px; min-height: 44px; height: 44px; }
+.school-shell .inline-editor .setup-form { gap: 12px 20px; }
+.school-shell .inline-editor label { font-size: 13px; text-transform: none; letter-spacing: 0; }
+.school-shell .inline-editor h2 { margin: 0 0 12px; }
+.school-shell .inline-editor [data-inline-editor] > p { margin-bottom: 16px; }
+.school-shell .inline-editor .form-actions { margin-top: 16px; }
+.school-shell .inline-editor td { white-space: normal; }
+.school-shell .inline-editor-close { min-width: 44px; width: 44px; padding: 10px; }
+.school-shell .inline-editor-close svg { width: 18px; height: 18px; }
+@media (min-width: 1024px) {
+  .school-shell .inline-editor .lesson-type-editor { grid-template-columns: minmax(140px, 1.5fr) minmax(120px, 1.2fr) minmax(100px, .7fr) auto auto; align-items: end; }
+  .school-shell .inline-editor .lesson-type-editor .form-field { margin: 0; }
+  .school-shell .inline-editor .lesson-type-editor .actions { grid-column: auto; margin: 0; }
+}
+.school-scheduling .trial-offers { margin-top: 24px; }
+.school-scheduling .trial-dates, .school-scheduling .booking-slots { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.school-scheduling .trial-dates a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; }
+.school-scheduling .trial-dates [aria-current] { font-weight: 700; border-bottom: 2px solid var(--dash-primary); }
+.school-scheduling .slot-fieldset { padding: 0; border: 0; margin: 20px 0; }
+.school-scheduling .booking-slots label { display: flex; gap: 8px; align-items: center; min-height: 44px; padding: 8px 12px; border: 1px solid var(--dash-border); border-radius: 6px; box-sizing: border-box; }
+.school-scheduling .booking-slots label:has(input:checked) { border-color: var(--dash-primary); background: #eff6ff; }
+.school-scheduling .family-filters { align-items: end; margin: 16px 0 24px; }
+.school-scheduling .family-filters label { display: block; margin-bottom: 6px; }
+.school-scheduling .family-filters input { min-height: 44px; box-sizing: border-box; }
+.school-scheduling .lesson-booking-form .setup-form { margin-bottom: 20px; }
+.school-shell .lesson-booking-form .form-field { margin-bottom: 12px; }
+.school-scheduling .session-payment-totals { display: flex; flex-wrap: wrap; gap: 20px 48px; max-width: none; }
+.school-scheduling .session-payment-totals > div { display: block; padding: 12px 0; border: 0; }
+.school-scheduling .session-payment-totals dt { color: var(--dash-muted); font-size: 11px; text-transform: uppercase; margin-bottom: 6px; }
+.school-scheduling .session-payment-totals dd { font-size: 14px; font-weight: 600; margin: 0; }
+.school-shell .location-section h2 { font-size: 20px; margin: 0 0 16px; }
+.school-shell .booking-notice { border-bottom: 1px solid var(--dash-border); padding: 8px 0; }
+.school-shell .booking-notice > summary { min-height: 44px; padding: 12px 0; box-sizing: border-box; cursor: pointer; }
+.school-shell .lesson-session-grid table { width: 100%; min-width: 640px; table-layout: auto; }

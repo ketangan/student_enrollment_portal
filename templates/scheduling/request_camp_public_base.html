@@ -1,0 +1,5 @@
+{% extends request_public_base|default:'scheduling/public_base.html' %}
+{% block content %}
+{% if simplified_school %}{% include 'scheduling/date_picker_assets.html' %}{% endif %}
+{% block request_content %}{% endblock %}
+{% endblock %}

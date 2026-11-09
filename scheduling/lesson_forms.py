@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 
 from django import forms
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 from zoneinfo import ZoneInfo
 
@@ -17,10 +18,52 @@ class ServiceForm(forms.ModelForm):
 
 
 class TeacherForm(forms.ModelForm):
+    login_username = forms.CharField(required=False, max_length=150, label="Teacher login username",
+        help_text="Assign an existing active account. This grants access only to this teacher's self-service pages.")
+    login_verified = forms.BooleanField(required=False,
+        label="I have verified that this login belongs to this teacher")
+
     class Meta:
         model = LessonTeacher
         fields = ["name", "services", "buffer_minutes", "travel_minutes", "is_active", "booking_host"]
         labels = {"buffer_minutes": "Gap between lessons (minutes)", "travel_minutes": "Gap when changing locations (minutes)", "booking_host": "Same person as visit host (optional)"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .school_navigation import school_policy
+        policy = school_policy(self.instance.profile.school)
+        if policy["navigation"]["simplified"]:
+            self.fields["services"].widget = forms.CheckboxSelectMultiple()
+            self.fields["services"].label = "Lesson types"
+            self.fields["is_active"].label = "Active"
+            if policy["navigation"]["single_location"]:
+                # Omitted settings retain the instance/default value on save.
+                self.fields.pop("travel_minutes")
+        if "visits" not in policy["navigation"]["features"]:
+            self.fields.pop("booking_host")
+        if not policy["workflows"]["teacher_self_service"]:
+            self.fields.pop("login_username")
+            self.fields.pop("login_verified")
+        elif self.instance.login_user_id:
+            self.initial["login_username"] = self.instance.login_user.get_username()
+
+    def clean(self):
+        data = super().clean()
+        if "login_username" not in self.fields:
+            return data
+        username = data.get("login_username", "")
+        account = None
+        if username:
+            account = get_user_model().objects.filter(username=username, is_active=True).first()
+            if account is None or LessonTeacher.objects.filter(profile=self.instance.profile,
+                    login_user=account).exclude(pk=self.instance.pk).exists():
+                self.add_error("login_username", "Choose an active account not already assigned to another teacher in this school.")
+                return data
+            if account.pk != self.instance.login_user_id and not data.get("login_verified"):
+                self.add_error("login_verified", "Verify the account holder before granting teacher access.")
+                return data
+        self.instance.login_user = account
+        return data
 
 
 class AvailabilityForm(forms.ModelForm):
@@ -98,3 +141,17 @@ class CancelLessonForm(forms.Form):
     scope = forms.ChoiceField(choices=[("one", "Only this lesson"), ("future", "This and future lessons")])
     origin = forms.ChoiceField(label="Requested by", choices=[("family", "Family"), ("studio", "Studio")])
     reason = forms.CharField(max_length=200)
+
+    def __init__(self, *args, occurrence=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if occurrence is not None:
+            from .lesson_change_forms import single_lesson_changes
+            if single_lesson_changes(occurrence.series.profile):
+                self.fields["scope"].choices = [("one", "Only this lesson")]
+                self.fields["scope"].widget = forms.HiddenInput()
+                self.fields["scope"].initial = "one"
+                snapshot = occurrence.series.snapshot
+                if ("booking_offer" in snapshot and not snapshot.get("makeup_eligible", False)
+                        and not hasattr(occurrence, "redeemed_credit")):
+                    self.fields["origin"].widget = forms.HiddenInput()
+                    self.fields["origin"].initial = "family"

@@ -820,12 +820,14 @@ def school_submission_detail_view(request, school_slug: str, submission_id: int)
     })
 
     from scheduling.admissions import family_context as booking_family_context
+    from scheduling.enrollment_links import related_trials
     ctx = _school_admin_base_context(request, school, "submissions")
     ctx.update({
         "submission": submission,
         "yaml_sections": yaml_sections,
         "linked_lead": linked_lead,
         "booking_admissions": booking_family_context(submission),
+        "related_trials": related_trials(request, submission),
         "audit_log": audit_log,
         "status_choices": status_choices,
         "yaml_status_choices": yaml_status_choices,
@@ -919,8 +921,8 @@ def school_submission_create_view(request, school_slug: str):
     school = _get_accessible_school_for_admin(request, school_slug)
     require_school_role(request, school, "editor")
 
-    from scheduling.admissions import policy_for
-    if policy_for(school.pk):
+    from scheduling.admissions import direct_enrollment, policy_for
+    if policy_for(school.pk) and not direct_enrollment(school):
         messages.error(request, "Start this application from its lead after admissions approval.")
         return redirect("school_leads", school_slug=school_slug)
 
@@ -935,6 +937,8 @@ def school_submission_create_view(request, school_slug: str):
 
     submissions_url = reverse("school_submissions", kwargs={"school_slug": school_slug})
     is_multi = len(available_forms) > 1
+    enrollment_booking = getattr(request, "lesson_enrollment_booking", None)
+    booking_context = {"enrollment_booking": enrollment_booking}
 
     if request.method == "GET":
         yaml_sections = build_yaml_sections(config, existing_data={}, form=raw_form_cfg, school=school)
@@ -942,6 +946,7 @@ def school_submission_create_view(request, school_slug: str):
             for field in section.get("fields", []):
                 field["error"] = ""
         ctx = _school_admin_base_context(request, school, "submissions")
+        ctx.update(booking_context)
         ctx.update({
             "form_heading": "New Submission",
             "form_action": request.path,
@@ -957,6 +962,14 @@ def school_submission_create_view(request, school_slug: str):
 
     # POST
     cleaned, errors = validate_submission(form_cfg, request.POST, files_data={})
+    if enrollment_booking:
+        from scheduling.enrollment_links import VerificationForm
+        verification = VerificationForm({"verified": request.POST.get("_booking_identity_verified", "")})
+        if not verification.is_valid():
+            errors["_booking_identity_verified"] = "Verify the student before creating this application."
+            booking_context["booking_identity_error"] = errors["_booking_identity_verified"]
+        else:
+            booking_context["booking_identity_verified"] = True
 
     if errors:
         post_values = _plain_post_values(request.POST, raw_form_cfg)
@@ -965,6 +978,7 @@ def school_submission_create_view(request, school_slug: str):
             for field in section.get("fields", []):
                 field["error"] = errors.get(field.get("key", ""), "")
         ctx = _school_admin_base_context(request, school, "submissions")
+        ctx.update(booking_context)
         ctx.update({
             "form_heading": "New Submission",
             "form_action": request.path,
@@ -984,6 +998,9 @@ def school_submission_create_view(request, school_slug: str):
             form_key=form_key,
             data=cleaned,
         )
+        if enrollment_booking:
+            from scheduling.enrollment_links import attach
+            attach(request, request.lesson_enrollment_profile, enrollment_booking, submission)
         log_admin_audit(
             request=request,
             action="add",

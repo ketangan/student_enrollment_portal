@@ -11,10 +11,12 @@
   <link rel="stylesheet" href="{% static 'scheduling/admin-theme.css' %}?v=20261106-payment-dialog">
   <link rel="stylesheet" href="{% static 'school_admin/column-filters.css' %}">
 <link rel="stylesheet" href="{% static 'scheduling/materials.css' %}?v=20261006-color-settings">
+{% if school_layout %}<link rel="stylesheet" href="{% static 'scheduling/school-workspace.css' %}?v=20261109-session-grids">{% endif %}
+{% if simplified_school %}<link rel="stylesheet" href="{% static 'scheduling/school-journeys.css' %}?v=20261109-session-controls">{% endif %}
 {% include 'scheduling/date_picker_assets.html' %}
 {% block extra_css %}{% endblock %}
 </head>
-<body class="dash-body booking-admin">
+<body class="dash-body booking-admin{% if school_layout %} school-scheduling{% endif %}{% if simplified_school %} school-shell{% endif %}">
   <a class="skip-link" href="#content">Skip to content</a>
   <header class="dash-header{% if dashboard_location_form %} has-location-filter{% endif %}">
     <div class="dash-header-left">
@@ -26,10 +28,14 @@
       {% endif %}
     </div>
     {% if business %}
-    <nav class="dash-nav" id="booking-nav" aria-label="Bookings">
+    <nav class="dash-nav" id="booking-nav" aria-label="{% if school_shell %}School{% else %}Bookings{% endif %}">
+      {% if school_shell %}
+      {% include 'school_admin/navigation_links.html' with school=school_shell.school active_nav=school_shell.active_nav leads_enabled=school_shell.leads_enabled broadcast_enabled=school_shell.broadcast_enabled is_editor=school_shell.is_editor billing_only=school_shell.billing_only scheduling_entry=school_shell.scheduling_entry %}
+      {% else %}
       {% for item in booking_navigation.sections %}
       <a href="{{ item.url }}" class="dash-nav-link{% if item.active %} dash-nav-link--active{% endif %}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }}</a>
       {% endfor %}
+      {% endif %}
     </nav>
     {% endif %}
     <div class="dash-header-right">
@@ -51,7 +57,7 @@
     <a href="{% url 'scheduling:school_billing' business.slug %}">Review billing</a>
   </div>
   {% endif %}
-  <main id="content" class="dash-main">
+  <main id="content" class="dash-main" data-inline-workspace>
     {% if business %}
     {% block page_heading %}<div class="booking-page-heading">
       <h1>{{ booking_navigation.section.label }}</h1>
@@ -69,6 +75,7 @@
   <script defer src="{% static 'demo/plushumi/assets/lucide.js' %}"></script>
   <script defer src="{% static 'scheduling/admin.js' %}?v=20261027-reservation-workspace"></script>
   <script defer src="{% static 'school_admin/column-filters.js' %}"></script>
+  {% if simplified_school %}<script defer src="{% static 'scheduling/inline-editor.js' %}?v=20261109-grid-targets"></script>{% endif %}
   {% block scripts %}{% endblock %}
 </body>
 </html>

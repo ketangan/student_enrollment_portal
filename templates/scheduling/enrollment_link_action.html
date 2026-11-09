@@ -1,0 +1,3 @@
+{% if enrollment_link %}
+<p><a href="{{ enrollment_link.url }}">{% if enrollment_link.linked %}Linked application{% else %}Connect application{% endif %}</a></p>
+{% endif %}

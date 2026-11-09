@@ -231,12 +231,14 @@ class PartyInquiryForm(forms.Form):
             return {}
         package = self.cleaned_data.get("package")
         observers = package.included_observers if package else 0
-        return {"revision": self.acknowledgments["revision"],
+        record = {"revision": self.acknowledgments["revision"],
                 "source_url": self.acknowledgments["source_url"],
-                "accepted_at": timezone.now().isoformat(),
-                "items": {kind: {"accepted": bool(self.cleaned_data[f"{kind}_acknowledged"]),
+                "items": {kind: {"accepted": bool(self.cleaned_data.get(f"{kind}_acknowledged", False)),
                     "text": self.acknowledgments[kind].replace("{observers}", str(observers))}
                     for kind in ("waiver", "attendance", "policy")}}
+        if all(item["accepted"] for item in record["items"].values()):
+            record["accepted_at"] = timezone.now().isoformat()
+        return record
 
 
 class PartySlotForm(forms.ModelForm):

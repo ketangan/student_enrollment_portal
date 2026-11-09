@@ -62,8 +62,15 @@ def test_only_confirmed_bookings(stock, state):
     assert not stock.client.get(url(stock, "studio_preparation"), query(item)).context["studios"]
 
 
-def test_overlapping_half_hour_starts_stay_in_separate_ordered_groups(stock):
+@pytest.mark.parametrize("hour, minute, day_counts", [(10, 0, [3]), (23, 30, [1, 2])])
+def test_overlapping_half_hour_starts_stay_in_separate_ordered_groups(stock, hour, minute, day_counts):
     s = stock
+    zone = ZoneInfo(s.location.timezone_name)
+    day = timezone.localdate(timezone=zone) + timedelta(days=30)
+    day += timedelta(days=(7 - day.weekday()) % 7)
+    s.session.starts_at = datetime(day.year, day.month, day.day, hour, minute, tzinfo=zone)
+    s.session.ends_at = s.session.starts_at + timedelta(hours=1)
+    s.session.save(update_fields=["starts_at", "ends_at"])
     first = reserve(s); confirm(s, first)
     original = s.session
     items = [first]
@@ -74,7 +81,9 @@ def test_overlapping_half_hour_starts_stay_in_separate_ordered_groups(stock):
         item = reserve(s); confirm(s, item)
         items.append(item)
     page = s.client.get(url(s, "studio_preparation"), query(first))
-    slots = page.context["studios"][0]["days"][0]["slots"]
+    days = page.context["studios"][0]["days"]
+    assert [len(day["slots"]) for day in days] == day_counts
+    slots = [slot for day in days for slot in day["slots"]]
     assert [[entry["item"].pk for entry in slot["entries"]] for slot in slots] == [[item.pk] for item in items]
     assert [slot["start"] for slot in slots] == [item.starts_at for item in items]
 

@@ -1,4 +1,5 @@
 {% extends "school_admin/base.html" %}
+{% load audit_labels %}
 
 {% block extra_css %}
 <style>
@@ -73,16 +74,16 @@
 <main class="dash-main">
 
   <!-- ── Header ────────────────────────────────────────────────── -->
-  <div class="dash-card" style="padding:10px 20px 14px;margin-bottom:12px;">
+  <div{% if scheduling_entry.simplified %} class="school-record-header"{% else %} class="dash-card" style="padding:10px 20px 14px;margin-bottom:12px;"{% endif %}>
     <!-- Nav row: back + prev/next -->
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;
                 margin-bottom:10px;padding-bottom:10px;
                 border-bottom:1px solid var(--dash-border,#e2e8f0);">
-      <a href="{{ leads_url }}"
+      {% if scheduling_entry.simplified %}{% include 'scheduling/school/back_link.html' with back_url=leads_url back_label='Leads' %}{% else %}<a href="{{ leads_url }}"
          style="font-size:12px;color:var(--dash-muted);text-decoration:none;
                 display:flex;align-items:center;gap:4px;">
         &larr; All Leads
-      </a>
+      </a>{% endif %}
       <div style="display:flex;align-items:center;gap:6px;" class="no-print">
         {% if prev_url %}
         <a href="{{ prev_url }}"
@@ -103,11 +104,12 @@
     <!-- Name + status -->
     <div style="min-width:0;">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;">
-        <h1 style="font-size:18px;font-weight:700;margin:0;">{{ lead.name }}</h1>
+        <h1{% if not scheduling_entry.simplified %} style="font-size:18px;font-weight:700;margin:0;"{% endif %}>{{ lead.name }}</h1>
         <span class="dash-badge {{ status_css }}" style="font-size:11px;">
           {{ lead_status_label }}
         </span>
-        <span style="font-size:12px;color:var(--dash-muted);">{{ lead.public_id }}</span>
+        {% if not scheduling_entry.simplified %}<span style="font-size:12px;color:var(--dash-muted);">{{ lead.public_id }}</span>{% endif %}
+        {% if scheduling_entry.simplified and converted_submission_url %}<a href="{{ converted_submission_url }}" class="dash-action-btn dash-action-btn--primary record-primary-action">View application</a>{% endif %}
       </div>
       <p style="font-size:12px;color:var(--dash-muted);margin:0;">
         Added {{ lead.created_at|date:"M j, Y" }}
@@ -120,6 +122,16 @@
             action="{% url 'school_lead_status_update' school_slug=school_slug lead_id=lead.id %}">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ detail_url }}">
+        {% if scheduling_entry.simplified %}
+        <div class="school-status-change"><label for="inquiry-status">Status</label>
+          <select id="inquiry-status" name="new_status" required>
+            <option value="">Choose status</option>
+            {% for step in lead_pipeline %}{% if step.value != 'enrolled' and step.value != 'application_submitted' %}
+            <option value="{{ step.value }}"{% if step.value == lead_status_value %} selected{% endif %}>{{ step.label }}</option>
+            {% endif %}{% endfor %}
+          </select><button type="submit" class="dash-action-btn dash-action-btn--primary">Update</button>
+        </div>
+        {% else %}
         <div class="sub-pipeline">
           {% for step in lead_pipeline %}
             {% if not forloop.first %}<span class="sub-pipeline__arrow">›</span>{% endif %}
@@ -134,8 +146,10 @@
             {% endif %}
           {% endfor %}
         </div>
+        {% endif %}
       </form>
       {% else %}
+      {% if not scheduling_entry.simplified %}
       <div class="sub-pipeline">
         {% for step in lead_pipeline %}
           {% if not forloop.first %}<span class="sub-pipeline__arrow">›</span>{% endif %}
@@ -146,6 +160,7 @@
           {% endif %}
         {% endfor %}
       </div>
+      {% endif %}
       {% endif %}
       {% endif %}
     </div>
@@ -179,7 +194,7 @@
     <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
 
       <!-- Contact snapshot -->
-      <div class="dash-card" style="padding:18px 22px;">
+      <div class="{% if scheduling_entry.simplified %}record-contact{% else %}dash-card{% endif %}" style="padding:18px 22px;">
         <h2 class="sidebar-label">Contact</h2>
         <table class="snapshot-table">
           {% if lead.email %}
@@ -238,39 +253,39 @@
       <!-- Edit Details — hidden once lead is converted (submission exists) -->
       {% if can_mutate and not lead.converted_submission_id %}
       <div class="dash-card" style="padding:18px 22px;">
-        <h2 class="sidebar-label">Edit Details</h2>
+        {% if scheduling_entry.simplified %}<details class="record-details"><summary>Edit contact details</summary>{% else %}<h2 class="sidebar-label">Edit Details</h2>{% endif %}
         <form method="post"
               action="{% url 'school_lead_update' school_slug=school_slug lead_id=lead.id %}">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ detail_url }}">
 
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-bottom:10px;">
+          <div class="record-edit-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-bottom:10px;">
             <div>
-              <label style="display:block;font-size:11px;color:var(--dash-muted);margin-bottom:3px;">
+              <label for="lead-name" style="display:block;font-size:11px;color:var(--dash-muted);margin-bottom:3px;">
                 Name <span style="color:#dc2626;">*</span>
               </label>
-              <input type="text" name="name" value="{{ lead.name|default:'' }}" required
+              <input id="lead-name" type="text" name="name" value="{{ lead.name|default:'' }}" required
                      style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
                             border-radius:6px;font-size:13px;box-sizing:border-box;">
             </div>
             <div>
-              <label style="display:block;font-size:11px;color:var(--dash-muted);margin-bottom:3px;">
+              <label for="lead-email" style="display:block;font-size:11px;color:var(--dash-muted);margin-bottom:3px;">
                 Email <span style="color:#dc2626;">*</span>
               </label>
-              <input type="email" name="email" value="{{ lead.email|default:'' }}" required
+              <input id="lead-email" type="email" name="email" value="{{ lead.email|default:'' }}" required
                      style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
                             border-radius:6px;font-size:13px;box-sizing:border-box;">
             </div>
             <div>
-              <label style="display:block;font-size:11px;color:var(--dash-muted);margin-bottom:3px;">Phone</label>
-              <input type="text" name="phone" value="{{ lead.phone|default:'' }}"
+              <label for="lead-phone" style="display:block;font-size:11px;color:var(--dash-muted);margin-bottom:3px;">Phone</label>
+              <input id="lead-phone" type="text" name="phone" value="{{ lead.phone|default:'' }}"
                      style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
                             border-radius:6px;font-size:13px;box-sizing:border-box;">
             </div>
             {% if program_options and not redirect_url_field %}
             <div>
-              <label style="display:block;font-size:11px;color:var(--dash-muted);margin-bottom:3px;">Program Interest</label>
-              <select name="interested_in_value"
+              <label for="lead-interest" style="display:block;font-size:11px;color:var(--dash-muted);margin-bottom:3px;">Program Interest</label>
+              <select id="lead-interest" name="interested_in_value"
                       style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
                              border-radius:6px;font-size:13px;background:#fff;box-sizing:border-box;">
                 <option value="">— Select —</option>
@@ -284,14 +299,14 @@
 
           {% if form_fields_editable %}
           <div style="margin-top:10px;margin-bottom:10px;">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;">
+            <div class="record-edit-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;">
               {% for field in form_fields_editable %}
               <div{% if lead_appointment_field and field.key == lead_appointment_field.key %} style="grid-column:1 / -1;min-width:0;"{% endif %}>
-                <label style="display:block;font-size:11px;color:var(--dash-muted);margin-bottom:3px;">
+                <label for="lead-field-{{ field.key }}" style="display:block;font-size:11px;color:var(--dash-muted);margin-bottom:3px;">
                   {{ field.label }}{% if field.required %} <span style="color:#dc2626;">*</span>{% endif %}
                 </label>
                 {% if field.type == "select" %}
-                <select name="field__{{ field.key }}"
+                <select id="lead-field-{{ field.key }}" name="field__{{ field.key }}"
                         style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
                                border-radius:6px;font-size:13px;background:#fff;box-sizing:border-box;">
                   <option value="">— Select —</option>
@@ -300,7 +315,7 @@
                   {% endfor %}
                 </select>
                 {% else %}
-                <input type="text" name="field__{{ field.key }}" value="{{ field.value|default:'' }}"
+                <input id="lead-field-{{ field.key }}" type="text" name="field__{{ field.key }}" value="{{ field.value|default:'' }}"
                        {% if field.required %}required{% endif %}
                        style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
                               border-radius:6px;font-size:13px;box-sizing:border-box;">
@@ -320,8 +335,8 @@
                       max-height:140px;overflow-y:auto;">{{ lead.notes }}</pre>
           {% endif %}
           <div style="margin-bottom:12px;">
-            <label style="display:block;font-size:11px;color:var(--dash-muted);margin-bottom:3px;">Add note</label>
-            <textarea name="new_note" rows="2" placeholder="Enter a new note…"
+            <label for="lead-note" style="display:block;font-size:11px;color:var(--dash-muted);margin-bottom:3px;">Add note</label>
+            <textarea id="lead-note" name="new_note" rows="2" placeholder="Enter a new note…"
                       style="width:100%;padding:6px 8px;border:1px solid var(--dash-border,#e2e8f0);
                              border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;
                              box-sizing:border-box;"></textarea>
@@ -332,24 +347,26 @@
             Save
           </button>
         </form>
+        {% if scheduling_entry.simplified %}</details>{% endif %}
       </div>
       {% endif %}{# can_mutate — Edit Details #}
 
       <!-- Enrollment -->
+      {% if not scheduling_entry.simplified or not lead.converted_submission_id %}
       {% if can_mutate %}
       <div class="dash-card" style="padding:18px 22px;">
         <h2 class="sidebar-label">Enrollment</h2>
-        {% if booking_admissions %}
+        {% if booking_admissions and not scheduling_entry.simplified %}
         <p>{{ booking_admissions.message }}</p>
         <p><a href="{{ booking_admissions.url }}">Admissions progress &amp; approvals &rarr;</a></p>
         {% endif %}
         {% if lead.converted_submission_id %}
           {% if converted_submission_url %}
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-            <span style="font-size:13px;color:var(--dash-muted);">Converted — linked to a submission.</span>
+            {% if not scheduling_entry.simplified %}<span style="font-size:13px;color:var(--dash-muted);">Converted — linked to a submission.</span>{% endif %}
             <a href="{{ converted_submission_url }}"
-               class="dash-action-btn dash-action-btn--secondary" style="font-size:13px;">
-              View Submission &rarr;
+               class="dash-action-btn dash-action-btn--{% if scheduling_entry.simplified %}primary{% else %}secondary{% endif %}" style="font-size:13px;">
+              {% if scheduling_entry.simplified %}View application{% else %}View Submission &rarr;{% endif %}
             </a>
           </div>
           {% else %}
@@ -357,7 +374,7 @@
           {% endif %}
         {% elif lead.status == "lost" %}
           <p style="font-size:13px;color:var(--dash-muted);margin:0;">This lead is marked as lost. No enrollment action needed.</p>
-        {% elif form_url %}
+        {% elif can_mutate and form_url %}
           {# Draft always pre-created on page load — URL is immediately available #}
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
             <a href="{{ form_url }}" target="_blank"
@@ -401,10 +418,12 @@
         {% endif %}
       </div>
       {% endif %}{# can_mutate — Enrollment #}
+      {% endif %}
 
       <!-- Send Message -->
       {% if can_mutate and email_enabled and lead.email %}
       {% if lead.converted_submission_id %}
+      {% if not scheduling_entry.simplified %}
       <div class="dash-card no-print" style="padding:18px 22px;opacity:0.6;">
         <h2 class="sidebar-label">Send Message</h2>
         <p style="font-size:13px;color:var(--dash-muted);margin:0;">
@@ -412,6 +431,7 @@
           {% if converted_submission_url %}<a href="{{ converted_submission_url }}" style="color:var(--dash-primary,#4f46e5);font-weight:600;">submission →</a>{% else %}submission screen{% endif %}
         </p>
       </div>
+      {% endif %}
       {% else %}
       <div class="dash-card no-print" style="padding:18px 22px;">
         <h2 class="sidebar-label">Send Message</h2>
@@ -718,6 +738,8 @@
                 sent resume link{% if entry.extra.to %} &rarr; {{ entry.extra.to }}{% endif %}
               {% elif entry.extra.name == "manual_message_sent" %}
                 sent message{% if entry.extra.to %} ({{ entry.extra.to }}){% endif %}
+              {% elif scheduling_entry.simplified %}
+                {{ entry|record_audit_summary:'lead' }}
               {% elif entry.extra.name %}
                 &mdash; {{ entry.extra.name|title }}
               {% else %}
@@ -763,17 +785,20 @@
             <input type="hidden" name="name" value="{{ lead.name|default:'' }}">
             <input type="hidden" name="email" value="{{ lead.email|default:'' }}">
             <input type="date" name="next_follow_up_at"
+                   aria-label="Follow-up date"
                    value="{{ lead.next_follow_up_at|date:'Y-m-d' }}"
                    style="font-size:12px;padding:4px 6px;border:1px solid var(--dash-border,#e2e8f0);
-                          border-radius:4px;flex:1;min-width:90px;">
-            <button type="submit" class="dash-action-btn dash-action-btn--secondary"
-                    style="font-size:11px;padding:4px 8px;">Set</button>
+                          border-radius:4px;flex:1;min-width:{% if scheduling_entry.simplified %}140{% else %}90{% endif %}px;">
+            <button type="submit" class="dash-action-btn dash-action-btn--{% if scheduling_entry.simplified %}primary{% else %}secondary{% endif %}"
+                    style="{% if scheduling_entry.simplified %}font-size:13px;padding:8px 12px;{% else %}font-size:11px;padding:4px 8px;{% endif %}">{% if scheduling_entry.simplified %}Save{% else %}Set{% endif %}</button>
+            {% if not scheduling_entry.simplified %}
             <button type="submit" name="follow_up_delta" value="2"
                     class="dash-action-btn dash-action-btn--secondary"
                     style="font-size:11px;padding:4px 8px;">+2d</button>
             <button type="submit" name="follow_up_delta" value="7"
                     class="dash-action-btn dash-action-btn--secondary"
                     style="font-size:11px;padding:4px 8px;">+7d</button>
+            {% endif %}
           </form>
           {% elif not lead.next_follow_up_at %}
           <span style="font-size:12px;color:var(--dash-muted);">None set</span>
@@ -810,6 +835,7 @@
         {% endif %}
 
         <!-- Metadata -->
+        {% if scheduling_entry.simplified %}<details class="record-details"><summary>Record details</summary>{% endif %}
         <div style="padding-top:12px;border-top:1px solid var(--dash-border,#e2e8f0);
                     display:flex;flex-direction:column;gap:6px;">
           <div>
@@ -827,6 +853,7 @@
             <span style="font-family:monospace;font-size:11px;color:var(--dash-muted);">{{ lead.public_id }}</span>
           </div>
         </div>
+        {% if scheduling_entry.simplified %}</details>{% endif %}
       </div>
 
       {% if lead_appointment_field %}

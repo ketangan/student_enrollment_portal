@@ -22,6 +22,9 @@ from . import views_lesson_changes
 from . import views_credits
 from . import views_family
 from . import views_appointments
+from . import school_workspace
+from . import views_teacher
+from . import views_enrollment_links
 from . import views_messages
 from . import views_integrations
 from . import views_square_connection
@@ -35,6 +38,17 @@ from . import views_inventory as inventory
 app_name = "scheduling"
 
 urlpatterns = [
+    path("<slug:school_slug>/school/schedule/", school_workspace.school_schedule, name="school_schedule"),
+    path("<slug:school_slug>/school/programs/", school_workspace.school_programs, name="school_programs"),
+    path("<slug:school_slug>/school/", school_workspace.school_public, name="school_public"),
+    path("<slug:school_slug>/classes/", school_workspace.school_classes, name="school_classes"),
+    path("<slug:school_slug>/teacher/", views_teacher.schedule, name="teacher_schedule"),
+    path("<slug:school_slug>/teacher/availability/", views_teacher.availability, name="teacher_availability"),
+    path("<slug:school_slug>/teacher/availability/new/", views_teacher.availability_edit, name="teacher_availability_new"),
+    path("<slug:school_slug>/teacher/availability/<int:pk>/", views_teacher.availability_edit, name="teacher_availability_edit"),
+    path("<slug:school_slug>/teacher/time-off/", views_teacher.time_off, name="teacher_time_off"),
+    path("<slug:school_slug>/lessons/bookings/<uuid:public_id>/enrollment/", views_enrollment_links.link, name="lesson_enrollment_link"),
+    path("<slug:school_slug>/lessons/bookings/<uuid:public_id>/enrollment/new/", views_enrollment_links.create_application, name="lesson_enrollment_create"),
     path("<slug:school_slug>/reservations/<uuid:public_id>/documents/<slug:kind>/", views_booking_documents.booking_document, name="booking_document"),
     path("<slug:school_slug>/parties/new/", views_staff_parties.create, name="staff_party_create"),
     path("<slug:school_slug>/workshop-selections/<str:token>/", views_workshop_followup.selections, name="workshop_selections"),
@@ -117,6 +131,8 @@ urlpatterns = [
     path("<slug:school_slug>/lessons/booking-offers/new/", views_appointments.edit_offer, name="lesson_booking_offer_new"),
     path("<slug:school_slug>/lessons/booking-offers/<int:pk>/", views_appointments.edit_offer, name="lesson_booking_offer_edit"),
     path("<slug:school_slug>/trials/", views_appointments.catalogue, name="lesson_trials"),
+    path("<slug:school_slug>/lessons/trials/new/", views_appointments.staff_catalogue, name="staff_lesson_trials"),
+    path("<slug:school_slug>/lessons/trials/new/<uuid:public_id>/", views_appointments.staff_select_slot, name="staff_lesson_trial_book"),
     path("<slug:school_slug>/trials/<uuid:public_id>/", views_appointments.select_slot, name="lesson_trial_book"),
     path("<slug:school_slug>/family/book/", views_appointments.catalogue, {"family": True}, name="family_booking"),
     path("<slug:school_slug>/family/book/<uuid:public_id>/", views_appointments.select_slot, {"family": True}, name="family_lesson_book"),

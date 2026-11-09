@@ -259,6 +259,8 @@ def context(request, profile):
 
 @sensitive_variables()
 def credential(connection):
+    from core.services.portal_environment import require_deployment_school
+    require_deployment_school(connection.profile.school)
     if (connection.environment != environment(connection.profile) or connection.status != "connected"
             or not connection.expires_at or connection.expires_at <= timezone.now()):
         raise ValidationError("Reconnect Square in Settings > Integrations before taking payments.")
@@ -376,8 +378,10 @@ def rename(request, slug, connection_id, revision, label):
 
 
 def due(limit, school=None):
+    from core.services.portal_environment import scope_deployment_schools
     records = SquareConnection.objects.exclude(credential_ciphertext="").filter(
         next_check_at__lte=timezone.now()).filter(Q(operation_until=None) | Q(operation_until__lte=timezone.now()))
+    records = scope_deployment_schools(records, "profile__school__")
     if school:
         records = records.filter(profile__school__slug=school)
     return list(records.order_by("next_check_at", "pk").values_list("pk", flat=True)[:limit])

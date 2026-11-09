@@ -1,0 +1,96 @@
+{% extends 'scheduling/school/base.html' %}
+{% block title %}Programs{% endblock %}
+{% block content %}
+<div class="school-journeys">
+  {% url 'school_settings' business.slug as settings_url %}
+  {% include 'scheduling/school/back_link.html' with back_url=settings_url back_label='Settings' %}
+  <header class="section-heading booking-page-heading"><h1>Programs</h1></header>
+  {% if location_filter.errors %}<p class="notice" role="alert">Choose a valid location. <a href="?location=">Reset location</a></p>{% else %}
+  {% if enrollment_available %}
+  <section class="location-section" id="enrollment-programs" aria-labelledby="enrollment-title">
+    <header class="section-heading"><h2 id="enrollment-title">Enrollment programs</h2>{% if can_edit_enrollment %}<a class="button primary" href="{% url 'school_program_create' school_slug=business.slug %}">Add enrollment program</a>{% endif %}</header>
+    <div class="table-wrap" role="region" aria-labelledby="enrollment-title" tabindex="0">
+      <table class="dash-table">
+        <thead><tr><th scope="col">Program</th><th scope="col" class="number">Capacity</th><th scope="col">Status</th>{% if can_edit_enrollment %}<th scope="col"><span class="sr-only">Actions</span></th>{% endif %}</tr></thead>
+        <tbody>
+          {% for program in enrollment_programs %}
+          <tr>
+            <td><strong>{{ program.name }}</strong></td>
+            <td class="number">{% if program.capacity %}{{ program.capacity }}{% else %}&mdash;{% endif %}</td>
+            <td><span class="status {% if not program.is_active %}inactive{% endif %}">{% if program.is_active %}Active{% else %}Inactive{% endif %}</span></td>
+            {% if can_edit_enrollment %}<td><a class="dash-action-btn dash-action-btn--secondary" href="{% url 'school_program_edit' school_slug=business.slug program_id=program.pk %}" aria-label="Edit {{ program.name }}">Edit</a></td>{% endif %}
+          </tr>
+          {% empty %}<tr><td colspan="{% if can_edit_enrollment %}4{% else %}3{% endif %}" class="empty-state">No enrollment programs yet.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'scheduling/school/pagination.html' with pagination=enrollment_programs_pagination label='Enrollment program pages' %}
+  </section>
+  {% endif %}
+  {% if journey_features.lessons %}
+  <section class="location-section" id="lesson-offers" aria-labelledby="lesson-title">
+    <header class="section-heading"><h2 id="lesson-title">Trial lessons</h2>{% if can_edit_setup %}<a class="button primary" href="{% url 'scheduling:lesson_booking_offer_new' school_slug=business.slug %}">Add trial lesson</a>{% endif %}</header>
+    {% if not trial_booking_available %}<p class="notice">Public trial booking is not enabled in this environment.</p>{% endif %}
+    <div class="table-wrap" role="region" aria-labelledby="lesson-title" tabindex="0">
+      <table class="dash-table">
+        <thead><tr><th scope="col">Lesson</th><th scope="col">Teacher{% if show_location_filter %} / location{% endif %}</th><th scope="col">Status</th>{% if can_edit_setup %}<th scope="col"><span class="sr-only">Actions</span></th>{% endif %}</tr></thead>
+        <tbody>
+          {% for offer in lesson_offers %}
+          <tr>
+            <td><strong>{{ offer.title }}</strong><br><span class="muted">{{ offer.service.name }}</span></td>
+            <td>{{ offer.teacher.name }}{% if show_location_filter %}<br><span class="muted">{{ offer.location.name }}</span>{% endif %}</td>
+            <td><span class="status {% if not offer.published %}draft{% endif %}">{% if offer.published %}Published{% else %}Draft{% endif %}</span>{% if offer.public_trials %}<br><span class="muted">Public trials</span>{% endif %}</td>
+            {% if can_edit_setup %}<td><a class="dash-action-btn dash-action-btn--secondary" href="{% url 'scheduling:lesson_booking_offer_edit' school_slug=business.slug pk=offer.pk %}" aria-label="Edit {{ offer.title }}">Edit</a></td>{% endif %}
+          </tr>
+          {% empty %}<tr><td colspan="{% if can_edit_setup %}4{% else %}3{% endif %}" class="empty-state">No trial lessons yet.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'scheduling/school/pagination.html' with pagination=lesson_offers_pagination label='Lesson offer pages' %}
+  </section>
+  {% endif %}
+  {% if journey_features.workshops %}
+  <section class="location-section" id="classes" aria-labelledby="classes-title">
+    <header class="section-heading"><h2 id="classes-title">One-time classes</h2>{% if can_edit_setup %}<a class="button primary" href="{% url 'scheduling:workshop_new' school_slug=business.slug %}">Add class</a>{% endif %}</header>
+    <div class="table-wrap" role="region" aria-labelledby="classes-title" tabindex="0">
+      <table class="dash-table">
+        <thead><tr><th scope="col">Class</th><th scope="col">Location</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>
+          {% for offering in workshops %}
+          <tr>
+            <td><a class="dash-student-name" href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=offering.pk %}">{{ offering.name }}</a></td>
+            <td>{{ offering.location.name }}</td>
+            <td><span class="status {% if not offering.is_published %}draft{% endif %}">{% if offering.is_published %}Published{% else %}Draft{% endif %}</span></td>
+            <td><div class="actions"><a class="dash-action-btn dash-action-btn--secondary" href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=offering.pk %}">Sessions</a>{% if can_edit_setup %}<a class="dash-action-btn dash-action-btn--secondary" href="{% url 'scheduling:workshop_edit' school_slug=business.slug pk=offering.pk %}" aria-label="Edit {{ offering.name }}">Edit</a>{% endif %}</div></td>
+          </tr>
+          {% empty %}<tr><td colspan="4" class="empty-state">No classes yet.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'scheduling/school/pagination.html' with pagination=workshops_pagination label='Class pages' %}
+  </section>
+  {% endif %}
+  {% if journey_features.camps %}
+  <section class="location-section" id="seasonal-programs" aria-labelledby="seasonal-title">
+    <header class="section-heading"><h2 id="seasonal-title">Camps &amp; seasonal programs</h2>{% if can_edit_setup %}<a class="button" href="{% url 'scheduling:camps' school_slug=business.slug %}">Manage camps</a>{% endif %}</header>
+    <div class="table-wrap" role="region" aria-labelledby="seasonal-title" tabindex="0">
+      <table class="dash-table">
+        <thead><tr><th scope="col">Program</th><th scope="col">Location</th><th scope="col">Registration</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>
+          {% for camp in camps %}
+          <tr>
+            <td><a class="dash-student-name" href="{% url 'scheduling:camp_detail' school_slug=business.slug pk=camp.pk %}">{{ camp.name }}</a></td>
+            <td>{{ camp.offering.location.name }}</td>
+            <td><span class="status {% if not camp.last_session_end %}draft{% elif camp.last_session_end <= now or not camp.is_open %}inactive{% endif %}">{% if not camp.last_session_end %}No dates{% elif camp.last_session_end <= now %}Ended{% elif camp.is_open %}Registration enabled{% else %}Registration closed{% endif %}</span></td>
+            <td><div class="actions"><a class="dash-action-btn dash-action-btn--secondary" href="{% url 'scheduling:camp_detail' school_slug=business.slug pk=camp.pk %}">Dates &amp; registrations</a>{% if can_edit_setup %}<a class="dash-action-btn dash-action-btn--secondary" href="{% url 'scheduling:camp_edit' school_slug=business.slug offering_pk=camp.offering_id pk=camp.pk %}" aria-label="Edit {{ camp.name }}">Edit</a>{% endif %}</div></td>
+          </tr>
+          {% empty %}<tr><td colspan="4" class="empty-state">No seasonal programs yet.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'scheduling/school/pagination.html' with pagination=camps_pagination label='Seasonal program pages' %}
+  </section>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

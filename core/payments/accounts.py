@@ -6,6 +6,10 @@ from .models import PaymentAccount
 
 
 def validate_scope(account):
+    from core.services.portal_environment import deployment_environment, require_deployment_school
+    require_deployment_school(account.school)
+    if deployment_environment() == "demo" and account.environment != "test":
+        raise ValidationError("The demo portal accepts sandbox payment accounts only.")
     if account.provider == "square":
         from .square import validate_account
         return validate_account(account)

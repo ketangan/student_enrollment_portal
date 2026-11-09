@@ -1,4 +1,5 @@
 {% extends "school_admin/base.html" %}
+{% load audit_labels %}
 
 {% block extra_css %}
 <style>
@@ -155,16 +156,16 @@
   </div>
 
   <!-- ── Header (screen only) ──────────────────────────────────── -->
-  <div class="dash-card no-print" style="padding:10px 20px 14px;margin-bottom:12px;">
+  <div{% if scheduling_entry.simplified %} class="school-record-header no-print"{% else %} class="dash-card no-print" style="padding:10px 20px 14px;margin-bottom:12px;"{% endif %}>
     <!-- Nav row: back + prev/next -->
     <div class="no-print" style="display:flex;align-items:center;justify-content:space-between;
                 margin-bottom:10px;padding-bottom:10px;
                 border-bottom:1px solid var(--dash-border,#e2e8f0);">
-      <a href="{{ submissions_url }}"
+      {% if scheduling_entry.simplified %}{% include 'scheduling/school/back_link.html' with back_url=submissions_url back_label='Enrollment' %}{% else %}<a href="{{ submissions_url }}"
          style="font-size:12px;color:var(--dash-muted);text-decoration:none;
                 display:flex;align-items:center;gap:4px;">
         &larr; All Submissions
-      </a>
+      </a>{% endif %}
       <div style="display:flex;align-items:center;gap:6px;" class="no-print">
         {% if prev_url %}
         <a href="{{ prev_url }}"
@@ -186,7 +187,7 @@
     <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;">
       <div style="min-width:0;flex:1;">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;">
-          <h1 style="font-size:18px;font-weight:700;margin:0;">
+          <h1{% if not scheduling_entry.simplified %} style="font-size:18px;font-weight:700;margin:0;"{% endif %}>
             {{ submission.student_display_name|default:"—" }}
           </h1>
           <span class="dash-badge {{ status_css }}" style="font-size:11px;">
@@ -201,7 +202,7 @@
         </p>
         {% if status_choices or status_is_system %}
         <div style="margin-top:10px;">
-        {% if status_is_system %}
+        {% if status_is_system and not scheduling_entry.simplified %}
         <div style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;
                     background:#eff6ff;border:1px solid #bfdbfe;border-radius:5px;
                     font-size:11px;color:#1d4ed8;margin-bottom:6px;">
@@ -215,6 +216,16 @@
               action="{% url 'school_submission_status_update' school_slug=school_slug submission_id=submission.id %}">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ detail_url }}">
+          {% if scheduling_entry.simplified %}
+          <div class="school-status-change">
+            <label for="application-status">Status</label>
+            <select id="application-status" name="new_status" required>
+              <option value="">Choose status</option>
+              {% for s in status_choices %}<option value="{{ s }}"{% if s == submission.status %} selected{% endif %}>{{ s }}</option>{% endfor %}
+            </select>
+            <button type="submit" class="dash-action-btn dash-action-btn--primary">Update</button>
+          </div>
+          {% else %}
           <div class="sub-pipeline">
             {% if status_is_system %}
               <span class="sub-pipeline__step sub-pipeline__step--active"
@@ -232,8 +243,10 @@
               {% endif %}
             {% endfor %}
           </div>
+          {% endif %}
         </form>
         {% else %}
+        {% if not scheduling_entry.simplified %}
         <div class="sub-pipeline">
           {% for s in status_choices %}
             {% if not forloop.first %}<span class="sub-pipeline__arrow">›</span>{% endif %}
@@ -244,6 +257,7 @@
             {% endif %}
           {% endfor %}
         </div>
+        {% endif %}
         {% endif %}
         {% endif %}
         </div>
@@ -257,6 +271,17 @@
 
     <!-- ── LEFT: AI Summary + Application + Activity ─────────── -->
     <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
+
+      {% if related_trials %}
+      <section aria-labelledby="related-trials-heading">
+        <h2 id="related-trials-heading" class="sidebar-label" style="margin:0;">Related trials</h2>
+        {% for trial in related_trials %}
+        <a href="{{ trial.url }}" style="display:flex;align-items:center;min-height:44px;overflow-wrap:anywhere;">
+          {{ trial.student }}{% if trial.service %} &middot; {{ trial.service }}{% endif %} &middot; {{ trial.reference }}
+        </a>
+        {% endfor %}
+      </section>
+      {% endif %}
 
       <!-- AI Summary -->
       {% if ai_summary_enabled %}
@@ -844,7 +869,8 @@
 
       <!-- Family Status Page (family_portal_enabled) -->
       {% if family_portal_enabled %}
-      <div class="dash-card no-print" style="padding:18px 22px;">
+      <div class="{% if scheduling_entry.simplified %}record-disclosure{% else %}dash-card{% endif %} no-print" style="padding:18px 22px;">
+        {% if scheduling_entry.simplified %}<details class="record-details"><summary>Family status page</summary>{% endif %}
         <h2 class="sidebar-label" style="display:flex;align-items:center;justify-content:space-between;">
           <span>Family Status Page</span>
           <a href="{{ family_status_url }}" target="_blank" rel="noopener noreferrer"
@@ -913,6 +939,7 @@
           </form>
           {% endif %}
         </div>
+        {% if scheduling_entry.simplified %}</details>{% endif %}
       </div>
       {% endif %}
 
@@ -986,7 +1013,7 @@
                 <span style="color:var(--dash-muted);">{{ entry.extra.from }}</span> &rarr;
                 <strong>{{ entry.extra.to }}</strong>
               {% elif entry.extra.name == "submission_update" %}
-                added an internal note
+                {% if scheduling_entry.simplified %}{{ entry|record_audit_summary:'application' }}{% else %}added an internal note{% endif %}
               {% elif entry.extra.name == "playdate_scheduled" %}
                 {% if entry.extra.old_slot %}rescheduled{% else %}scheduled{% endif %} a playdate{% if entry.extra.slot_label %}: {{ entry.extra.slot_label }}{% endif %}
               {% elif entry.extra.name == "generate_ai_summary" %}
@@ -1017,6 +1044,8 @@
                 set follow-up (bulk){% if entry.extra.date %}: <strong>{{ entry.extra.date }}</strong>{% endif %}
               {% elif entry.extra.name == "submission_edit" %}
                 edited application data
+              {% elif scheduling_entry.simplified %}
+                {{ entry|record_audit_summary:'application' }}
               {% elif entry.extra.name %}
                 — {{ entry.extra.name }}
               {% elif entry.action == "change" and entry.changes %}
@@ -1067,17 +1096,20 @@
             {% csrf_token %}
             <input type="hidden" name="next" value="{{ detail_url }}">
             <input type="date" name="next_follow_up_at"
+                   aria-label="Follow-up date"
                    {% if submission.next_follow_up_at %}value="{{ submission.next_follow_up_at|date:'Y-m-d' }}"{% endif %}
                    style="font-size:12px;padding:4px 6px;border:1px solid var(--dash-border,#e2e8f0);
-                          border-radius:4px;flex:1;min-width:90px;">
-            <button type="submit" class="dash-action-btn dash-action-btn--secondary"
-                    style="font-size:11px;padding:4px 8px;">Set</button>
+                          border-radius:4px;flex:1;min-width:{% if scheduling_entry.simplified %}140{% else %}90{% endif %}px;">
+            <button type="submit" class="dash-action-btn dash-action-btn--{% if scheduling_entry.simplified %}primary{% else %}secondary{% endif %}"
+                    style="{% if scheduling_entry.simplified %}font-size:13px;padding:8px 12px;{% else %}font-size:11px;padding:4px 8px;{% endif %}">{% if scheduling_entry.simplified %}Save{% else %}Set{% endif %}</button>
+            {% if not scheduling_entry.simplified %}
             <button type="submit" name="follow_up_delta" value="2"
                     class="dash-action-btn dash-action-btn--secondary"
                     style="font-size:11px;padding:4px 8px;">+2d</button>
             <button type="submit" name="follow_up_delta" value="7"
                     class="dash-action-btn dash-action-btn--secondary"
                     style="font-size:11px;padding:4px 8px;">+7d</button>
+            {% endif %}
           </form>
           {% elif not submission.next_follow_up_at %}
           <span style="font-size:12px;color:var(--dash-muted);">None set</span>
@@ -1131,6 +1163,7 @@
         {% endif %}
 
         <!-- Metadata -->
+        {% if scheduling_entry.simplified %}<details class="record-details"><summary>Record details</summary>{% endif %}
         <div style="padding-top:12px;border-top:1px solid var(--dash-border,#e2e8f0);
                     display:flex;flex-direction:column;gap:6px;">
           <div>
@@ -1148,10 +1181,12 @@
             <span style="font-family:monospace;font-size:11px;color:var(--dash-muted);">{{ submission.public_id }}</span>
           </div>
         </div>
+        {% if scheduling_entry.simplified %}</details>{% endif %}
       </div>
 
       {% if booking_admissions %}
       <section class="dash-card" style="padding:18px 22px;">
+        {% if scheduling_entry.simplified %}<details class="record-details"><summary>Visit details</summary>{% endif %}
         <h2 class="sidebar-label">Playdate</h2>
         {% if booking_admissions.booking %}
         <p>{{ booking_admissions.booking.get_state_display }} &middot; {{ booking_admissions.booking.child_name }}</p>
@@ -1160,6 +1195,7 @@
         <p>{{ booking_admissions.message|default:'Ready for the family to choose a playdate.' }}</p>
         {% if linked_lead %}<p><a href="{% url 'scheduling:admission_case' school_slug=school_slug lead_pk=linked_lead.pk %}">Admissions progress</a></p>{% endif %}
         <a href="{{ booking_admissions.url }}">Parent playdate page</a>
+        {% if scheduling_entry.simplified %}</details>{% endif %}
       </section>
       {% elif playdate %}
       <section class="dash-card" id="playdate-schedule" aria-labelledby="playdate-heading" style="padding:18px 22px;">
@@ -1210,7 +1246,7 @@
                            border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;
                            box-sizing:border-box;margin-bottom:6px;"></textarea>
           <p style="font-size:10px;color:var(--dash-muted);margin:0 0 8px;">Visible to school staff only.</p>
-          <button type="submit" class="dash-action-btn dash-action-btn--secondary" style="font-size:12px;">
+          <button type="submit" class="dash-action-btn dash-action-btn--{% if scheduling_entry.simplified %}primary{% else %}secondary{% endif %}" style="font-size:12px;">
             Add Note
           </button>
         </form>
@@ -1221,12 +1257,14 @@
   </div><!-- /grid -->
 
   <!-- Back navigation -->
+  {% if not scheduling_entry.simplified %}
   <div style="padding:6px 0 32px;" class="no-print">
     <a href="{{ submissions_url }}"
        style="font-size:13px;color:var(--dash-muted);text-decoration:none;">
       &larr; All Submissions
     </a>
   </div>
+  {% endif %}
 
 </main>
 

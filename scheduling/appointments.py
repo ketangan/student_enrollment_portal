@@ -149,7 +149,9 @@ def booking_contact(grant, student, raw):
 
 
 @transaction.atomic
-def confirm_booking(slug, session, token, raw, family=False, expected_offer=None):
+def confirm_booking(slug, session, token, raw, family=False, expected_offer=None, *, actor=None):
+    if actor is not None:
+        lesson_access(actor, slug, "sessions.edit")
     profile, grant = booking_scope(slug, session, family, locked=True)
     browser = browser_secret(session)
     signed = read_quote(token, profile, browser, grant)
@@ -191,7 +193,7 @@ def confirm_booking(slug, session, token, raw, family=False, expected_offer=None
     booking = LessonBooking.objects.create(offer=offer, series=series, order=order, grant=grant,
         contact_name=contact["contact_name"], contact_email=contact["contact_email"], browser_hash=secret_hash(browser))
     save_notice(booking, "confirmed", "Lesson booked")
-    audit(None, profile, booking, "add", {"lesson_booking": "family" if grant else "public_trial", "grant_id": grant.pk if grant else None})
+    audit(actor, profile, booking, "add", {"lesson_booking": "staff_trial" if actor else "family" if grant else "public_trial", "grant_id": grant.pk if grant else None})
     return booking
 
 

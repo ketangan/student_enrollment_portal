@@ -26,12 +26,15 @@ def change(request, school_slug, pk):
         initial={"scope": "one", "first_date": local.date(), "start_time": local.time(), "teacher": item.series.teacher_id,
                  "location": item.series.location_id, "room": item.series.room_id})
     context = _context(request, profile, role, "lessons")
-    context.update(form=form, occurrence=item)
+    from .appointments import source_booking
+    context.update(form=form, occurrence=item,
+        booking=source_booking(item.series) if context["simplified_school"] else None)
     if request.method == "POST" and form.is_valid():
         try:
             if request.POST.get("action") == "confirm":
                 result = reschedule(request.user, school_slug, pk, request.POST, request.POST.get("preview_token", ""))
-                messages.success(request, "Lessons moved. Billing is unchanged; no notifications were sent.")
+                messages.success(request, "Booking moved. Billing is unchanged; no notifications were sent."
+                    if context["simplified_school"] else "Lessons moved. Billing is unchanged; no notifications were sent.")
                 return redirect("scheduling:lesson_series", school_slug=school_slug, public_id=result.public_id)
             rows, revision = plan_change(item, form.cleaned_data)
             context.update(rows=rows, token=change_token(request.user, item, request.POST, revision),
@@ -47,6 +50,8 @@ def change(request, school_slug, pk):
 @require_http_methods(["GET", "POST"])
 def attendance(request, school_slug, pk):
     profile, role = lesson_access(request.user, school_slug, "sessions.edit")
+    from .school_navigation import require_optional_feature
+    require_optional_feature(profile, "attendance")
     item = get_occurrence(profile, pk)
     form = AttendanceForm(request.POST if request.method == "POST" else None,
         initial={"attendance": item.attendance, "reason": item.attendance_note, "revision": attendance_token(request.user, item)})

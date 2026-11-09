@@ -72,25 +72,42 @@ def school_entry(user, school):
         profile, role = require_location_access(user, school.slug)
     except Http404:
         return None
+    from .school_navigation import navigation_policy
+    policy = navigation_policy(school)
+    school_layout = policy["layout"] == "school"
+    if policy["simplified"]:
+        def destination(name):
+            return reverse("scheduling:" + name, kwargs={"school_slug": school.slug})
+        resources = []
+        if has_permission(role, "setup.edit") and not location_restricted(profile):
+            resources = [{"label": "Rooms" if policy["single_location"] else "Locations and rooms", "action": "Manage rooms", "url": destination("locations")},
+                         {"label": "Staff access", "action": "Manage access", "url": destination("access")}]
+        return {"url": destination("school_schedule"), "programs_url": destination("school_programs"),
+            "public_url": destination("school_public"), "school_layout": True, "simplified": True,
+            "links": resources, "groups": [{"label": "Resources", "links": resources}] if resources else []}
     links = []
+
+    def enabled(key):
+        return has_capability(profile, key) and (not school_layout or key in policy["features"])
 
     def add(label, name):
         links.append({"label": label, "url": reverse("scheduling:" + name, kwargs={"school_slug": school.slug})})
 
-    add("Open scheduling", "workspace")
+    landing = "lessons" if school_layout and enabled("lessons") and profile.lessons_enabled else "workspace"
+    add("Open scheduling", landing)
     if has_permission(role, "setup.edit") and not location_restricted(profile):
         add("Locations and rooms", "locations")
-        if has_capability(profile, "visits"):
+        if enabled("visits"):
             add("Tours and playdates", "visits")
             if preview_enabled():
                 add("Visit settings and closures", "visit_setup")
             if enrollment_access(user, profile, owner=True):
                 add("Tour-to-enrollment rules", "admission_policy")
-        if has_capability(profile, "workshops"):
+        if enabled("workshops"):
             add("Workshops and participant choices", "workshops")
-        if has_capability(profile, "camps"):
+        if enabled("camps"):
             add("Camps", "camps")
-        if has_capability(profile, "lessons"):
+        if enabled("lessons"):
             add("Lesson scheduling settings", "lesson_settings")
             if profile.lessons_enabled:
                 add("Teachers, subjects and availability", "lesson_setup")
@@ -98,12 +115,22 @@ def school_entry(user, school):
                 from .appointments import preview_enabled as booking_preview_enabled
                 if booking_preview_enabled():
                     add("Trial and family booking offers", "lesson_booking_setup")
-        if has_capability(profile, "reservations"):
+        if enabled("reservations"):
             add("Reservation settings", "reservations")
-        if has_capability(profile, "integrations"):
+        if enabled("integrations"):
             add("Integrations", "integrations")
         add("Scheduling team access", "access")
-    return {"url": links[0]["url"], "links": links}
+    groups = []
+    if school_layout:
+        for title, names in (
+            ("Lessons", {"Lesson scheduling settings", "Teachers, subjects and availability", "Make-up rules", "Trial and family booking offers"}),
+            ("Admissions visits", {"Tours and playdates", "Visit settings and closures", "Tour-to-enrollment rules"}),
+            ("School resources", {"Locations and rooms", "Scheduling team access"}),
+        ):
+            items = [item for item in links[1:] if item["label"] in names]
+            if items:
+                groups.append({"label": title, "links": items})
+    return {"url": links[0]["url"], "links": links, "groups": groups, "school_layout": school_layout}
 
 
 def enrollment_url(user, profile):

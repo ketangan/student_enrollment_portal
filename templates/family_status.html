@@ -1,4 +1,4 @@
-{% load static %}
+{% load static public_school_navigation %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -137,6 +137,7 @@
   </div>
 
   <!-- Status card -->
+  {% school_public_navigation school %}
   <div class="card">
     <div class="card__title">Application Status</div>
     <div class="status-badge">{{ status_label }}</div>
@@ -187,7 +188,7 @@
   {% include "scheduling/admissions/family_panel.html" %}
   {% elif playdate %}
   {% include "partials/playdate_schedule.html" %}
-  {% else %}
+  {% elif not direct_application %}
   <div class="card">
     <div class="card__title">Lesson Scheduling Preferences</div>
 

@@ -295,6 +295,7 @@ def ops_school_detail_view(request, slug):
     from core.services.demo_access import eligible_members
     demo_destinations = [(key, label) for key, label in (("enrollment", "Enrollment"), ("scheduling", "Scheduling"))
         if school.is_demo and eligible_members(school, key).exists()]
+    from core.services.portal_environment import deployment_environment
     return render(request, "ops/school_detail.html", {
         "active_nav": "schools",
         "school": school,
@@ -308,6 +309,7 @@ def ops_school_detail_view(request, slug):
         "lead_count": lead_count,
         "demo_token": demo_token,
         "demo_destinations": demo_destinations,
+        "can_convert_in_place": deployment_environment() != "demo",
         "school_admin_url": _school_admin_url(school, bool(members)),
         "demo_link": demo_link,
         "onboarding_link": onboarding_link,

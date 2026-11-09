@@ -620,6 +620,16 @@ def handle_subscription_deleted(subscription_data: dict) -> None:
 # These use the school's OWN Stripe keys, not the platform keys.
 # ---------------------------------------------------------------------------
 
+def _application_fee_key(school):
+    from core.services.portal_environment import require_deployment_school, validate_deployment_stripe_key
+    require_deployment_school(school)
+    secret_key = (school.app_fee_stripe_secret_key or "").strip()
+    if not secret_key:
+        raise ValueError(f"School {school.slug} has no app_fee_stripe_secret_key configured")
+    validate_deployment_stripe_key(secret_key)
+    return secret_key
+
+
 def create_application_fee_intent(
     *,
     school,
@@ -637,9 +647,7 @@ def create_application_fee_intent(
     except ImportError:
         raise ImportError("stripe package not installed — pip install stripe")
 
-    secret_key = (school.app_fee_stripe_secret_key or "").strip()
-    if not secret_key:
-        raise ValueError(f"School {school.slug} has no app_fee_stripe_secret_key configured")
+    secret_key = _application_fee_key(school)
 
     intent = stripe.PaymentIntent.create(
         amount=amount_cents,
@@ -662,8 +670,6 @@ def retrieve_application_fee_intent(*, school, payment_intent_id: str):
     except ImportError:
         raise ImportError("stripe package not installed — pip install stripe")
 
-    secret_key = (school.app_fee_stripe_secret_key or "").strip()
-    if not secret_key:
-        raise ValueError(f"School {school.slug} has no app_fee_stripe_secret_key configured")
+    secret_key = _application_fee_key(school)
 
     return stripe.PaymentIntent.retrieve(payment_intent_id, api_key=secret_key)
