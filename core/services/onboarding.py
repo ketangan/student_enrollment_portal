@@ -215,7 +215,7 @@ def _derive_username(email: str) -> str:
 # ── Checklist ─────────────────────────────────────────────────────────────────
 
 def get_or_create_checklist(school: School) -> list[OnboardingChecklistItem]:
-    """Ensure all 15 fixed checklist items exist for the school. Returns ordered list."""
+    """Keep checklist history, including steps not needed by the current configuration."""
     existing_keys = set(
         OnboardingChecklistItem.objects.filter(school=school).values_list("item", flat=True)
     )
@@ -232,6 +232,44 @@ def get_or_create_checklist(school: School) -> list[OnboardingChecklistItem]:
         for obj in OnboardingChecklistItem.objects.filter(school=school).select_related("completed_by")
     }
     return [by_key[key] for key, _ in OnboardingChecklistItem.ITEMS if key in by_key]
+
+
+def checklist_context(school: School) -> dict:
+    from core.services.go_live import checklist_steps
+
+    groups, excluded = [], []
+    by_key = {item.item: item for item in get_or_create_checklist(school)}
+    for title, steps in checklist_steps(school):
+        group = {"title": title, "steps": []}
+        for key, guidance, not_needed, production_only in steps:
+            entry = {"record": by_key[key], "guidance": guidance,
+                     "not_needed": not_needed, "production_only": production_only,
+                     "blocked": bool(school.is_demo and production_only)}
+            if not_needed:
+                excluded.append(entry)
+            else:
+                group["steps"].append(entry)
+        if group["steps"]:
+            groups.append(group)
+    applicable = [step for group in groups for step in group["steps"]]
+    return {"checklist_groups": groups, "checklist_excluded": excluded,
+            "checklist_total": len(applicable),
+            "checklist_done": sum(bool(step["record"].completed_at) and not step["blocked"]
+                                  for step in applicable)}
+
+
+def validate_checklist_update(school: School, item_key: str) -> None:
+    from core.services.go_live import checklist_steps
+
+    for _, steps in checklist_steps(school):
+        for key, _, not_needed, production_only in steps:
+            if key == item_key:
+                if not_needed:
+                    raise ValidationError("This step is not required for the school's current setup.")
+                if school.is_demo and production_only:
+                    raise ValidationError("Record this check in the production school, not its demo.")
+                return
+    raise ValidationError("Unknown checklist item.")
 
 
 def mark_checklist_item(school: School, item_key: str, actor: User) -> None:

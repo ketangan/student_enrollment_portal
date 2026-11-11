@@ -1,4 +1,5 @@
 {% extends "ops/base.html" %}
+{% load static %}
 {% block page_title %}{{ school.display_name|default:school.slug }}{% endblock %}
 {% block extra_css %}
 {{ block.super }}
@@ -8,6 +9,30 @@
   .school-edit-description { font-size:12px; color:var(--dash-muted); margin:0 0 16px; line-height:1.5; }
   .school-edit-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 24px; }
   .school-edit-fields > div { min-width:0; }
+  .launch-checklist { margin:24px 0; border-top:1px solid var(--dash-border); padding-top:24px; }
+  .launch-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  .launch-heading h2 { font-size:18px; margin:0; }
+  .launch-checklist progress { appearance:none; border:0; width:100%; height:6px; accent-color:#16a34a; background:var(--dash-border); margin:16px 0; border-radius:3px; overflow:hidden; }
+  .launch-checklist progress::-webkit-progress-bar { background:var(--dash-border); }
+  .launch-checklist progress::-webkit-progress-value { background:#16a34a; }
+  .launch-checklist progress::-moz-progress-bar { background:#16a34a; }
+  .launch-checklist h3 { font-size:14px; margin:24px 0 8px; }
+  .launch-step { display:grid; grid-template-columns:44px minmax(0,1fr); align-items:start; gap:8px; border-bottom:1px solid var(--dash-border); padding:6px 0; }
+  .launch-step form { margin:0; }
+  .launch-check { width:44px; height:44px; display:grid; place-items:center; border:0; border-radius:4px; color:var(--dash-text); background:transparent; cursor:pointer; }
+  .launch-check:hover { background:var(--dash-bg); }
+  .launch-check:disabled { cursor:default; opacity:.45; }
+  .launch-check svg { width:22px; height:22px; }
+  .launch-check[aria-pressed="true"] { color:#15803d; }
+  .launch-step summary { min-height:44px; display:flex; align-items:center; gap:8px; cursor:pointer; font-size:14px; }
+  .launch-step summary svg { width:16px; height:16px; flex-shrink:0; }
+  .launch-step details[open] summary svg { transform:rotate(90deg); }
+  .launch-step p, .launch-guide p, .launch-guide li { font-size:13px; line-height:1.6; margin:0 0 12px; }
+  .launch-muted { font-size:12px; color:var(--dash-muted); }
+  .launch-guide summary, .launch-excluded summary { min-height:44px; cursor:pointer; display:flex; align-items:center; gap:8px; }
+  .launch-guide svg, .launch-excluded svg { width:16px; height:16px; }
+  .launch-excluded { margin-top:16px; font-size:13px; color:var(--dash-muted); }
+  .launch-excluded li { margin:8px 0; }
   @media(max-width:640px) { .school-edit-fields { grid-template-columns:minmax(0,1fr); } }
 </style>
 {% endblock %}
@@ -106,42 +131,56 @@
     </div>
   </div>
 
-  {# ── Onboarding Checklist ─────────────────────────────────────────────────── #}
-  <div class="dash-card" style="padding:24px;margin-bottom:16px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-      <h2 style="font-size:14px;font-weight:700;margin:0;">Onboarding Checklist</h2>
-      <span style="font-size:13px;color:var(--dash-muted);">{{ checklist_done }}/{{ checklist_total }} complete</span>
+  {% endif %}
+
+  <section class="launch-checklist" id="go-live-checklist" aria-labelledby="go-live-title">
+    <div class="launch-heading">
+      <h2 id="go-live-title">Go-live checklist</h2>
+      <span class="launch-muted">{{ checklist_done }}/{{ checklist_total }} complete</span>
     </div>
-    <!-- Progress bar -->
-    <div style="height:4px;background:var(--dash-border);border-radius:2px;margin-bottom:18px;overflow:hidden;">
-      <div style="height:100%;background:#16a34a;border-radius:2px;width:{% widthratio checklist_done checklist_total 100 %}%;transition:width .3s;"></div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-      {% for item in checklist_items %}
-      <form method="post" action="{% url 'ops_checklist_toggle' school.slug item.item %}" style="margin:0;">
+    {% if school.is_demo %}
+    <p class="launch-muted">Demo preparation only. Production checks must be completed in the real school's app workspace.</p>
+    {% endif %}
+    <progress value="{{ checklist_done }}" max="{{ checklist_total }}" aria-label="Go-live checklist completion"></progress>
+    <details class="launch-guide">
+      <summary><i data-lucide="book-open" aria-hidden="true"></i>Demo to production process</summary>
+      <ol>
+        <li>Develop and test locally. Deploy the tested commit to demo and obtain acceptance.</li>
+        <li>Create the customer separately in app. Apply approved configuration and verified real-data imports, never the demo database or demo access credentials.</li>
+        <li>Connect production email, payment accounts and website links for the enabled workflows. Keep demo payments in sandbox.</li>
+        <li>Promote the same tested commit to app. Verify migrations, backups, scoped background jobs, monitoring and rollback before opening intake.</li>
+        <li>Record customer approval and any required written go-live notice. Start the agreed trial only through its explicit activation action, then verify the first real activity.</li>
+      </ol>
+      <p>These are operator checks, not automatic activation. Completing a checkbox does not publish a program, start billing or certify a payment integration.</p>
+    </details>
+    {% for group in checklist_groups %}
+    <h3>{{ group.title }}</h3>
+    {% for step in group.steps %}
+    <div class="launch-step">
+      <form method="post" action="{% url 'ops_checklist_toggle' school.slug step.record.item %}">
         {% csrf_token %}
-        <button type="submit"
-                style="width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;
-                       background:{% if item.completed_at %}#f0fdf4{% else %}var(--dash-surface){% endif %};
-                       border:1px solid {% if item.completed_at %}#bbf7d0{% else %}var(--dash-border){% endif %};
-                       border-radius:6px;cursor:pointer;text-align:left;font-size:13px;color:var(--dash-text);">
-          <span style="flex-shrink:0;width:18px;height:18px;border-radius:50%;
-                       background:{% if item.completed_at %}#16a34a{% else %}var(--dash-border){% endif %};
-                       display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;">
-            {% if item.completed_at %}✓{% endif %}
-          </span>
-          <span style="flex:1;{% if item.completed_at %}color:#166534;{% endif %}">
-            {{ item.get_item_display }}
-          </span>
-          {% if item.completed_at %}
-          <span style="font-size:10px;color:#6b7280;white-space:nowrap;">{{ item.completed_at|date:"M j" }}</span>
-          {% endif %}
+        <button class="launch-check" type="submit" {% if step.blocked %}disabled{% endif %}
+                aria-label="{{ step.record.get_item_display }}" title="{{ step.record.get_item_display }}"
+                aria-pressed="{% if step.record.completed_at and not step.blocked %}true{% else %}false{% endif %}">
+          <i data-lucide="{% if step.record.completed_at and not step.blocked %}square-check{% else %}square{% endif %}" aria-hidden="true"></i>
         </button>
       </form>
-      {% endfor %}
+      <details>
+        <summary><i data-lucide="chevron-right" aria-hidden="true"></i>{{ step.record.get_item_display }}</summary>
+        <p>{{ step.guidance }}</p>
+        {% if step.blocked %}<p class="launch-muted">Complete in production.</p>
+        {% elif step.record.completed_at %}<p class="launch-muted">Completed {{ step.record.completed_at|date:"M j, Y" }}{% if step.record.completed_by %} by {{ step.record.completed_by.get_username }}{% endif %}.</p>{% endif %}
+      </details>
     </div>
-  </div>
-  {% endif %}
+    {% endfor %}
+    {% endfor %}
+    {% if checklist_excluded %}
+    <details class="launch-excluded">
+      <summary><i data-lucide="chevron-right" aria-hidden="true"></i>Not required for this setup ({{ checklist_excluded|length }})</summary>
+      <ul>{% for step in checklist_excluded %}<li><strong>{{ step.record.get_item_display }}</strong>: {{ step.not_needed }}</li>{% endfor %}</ul>
+    </details>
+    {% endif %}
+  </section>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
 
@@ -472,4 +511,10 @@
   </div>
 
 </main>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script defer src="{% static 'demo/plushumi/assets/lucide.js' %}"></script>
+<script>document.addEventListener('DOMContentLoaded', function () { window.lucide?.createIcons(); });</script>
 {% endblock %}

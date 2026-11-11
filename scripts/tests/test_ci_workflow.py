@@ -36,3 +36,13 @@ def test_required_gate_cannot_pass_on_failed_partitions_or_partial_coverage():
 
 def test_only_superseded_pull_request_runs_are_cancelled():
     assert workflow()["concurrency"]["cancel-in-progress"] == "${{ github.event_name == 'pull_request' }}"
+
+
+def test_main_runs_checks_and_launch_services_have_coverage_gates():
+    config = workflow()
+    # PyYAML's YAML 1.1 loader interprets the GitHub Actions 'on' key as True.
+    assert "main" in config.get("on", config.get(True))["push"]["branches"]
+    steps = config["jobs"]["python-tests"]["steps"]
+    command = next(s["run"] for s in steps if s.get("name") == "Test with local-only providers")
+    source = command.split("--source=", 1)[1].split()[0].split(",")
+    assert {"core.services.go_live", "core.services.onboarding", "core.views_health"} <= set(source)

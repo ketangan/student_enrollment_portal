@@ -61,7 +61,7 @@ jobs:
       - name: Test with local-only providers
         env:
           TEST_SELECTION: ${{ matrix.selection }}
-        run: python -m coverage run --data-file=coverage-part --source=scheduling,core.payments,testing,core.services.portal_environment,core.services.audit_environment,core.services.demo_access,core.templatetags.account_menu,core.admin.portal_scope,core.management.commands.maintain_demo_account,core.services.school_pricing,core.forms_school_pricing,core.views_school_pricing,core.services.email_content -m pytest -k "$TEST_SELECTION"
+        run: python -m coverage run --data-file=coverage-part --source=scheduling,core.payments,testing,core.services.portal_environment,core.services.audit_environment,core.services.demo_access,core.templatetags.account_menu,core.admin.portal_scope,core.management.commands.maintain_demo_account,core.services.school_pricing,core.forms_school_pricing,core.views_school_pricing,core.services.email_content,core.services.go_live,core.services.onboarding,core.views_health -m pytest -k "$TEST_SELECTION"
       - name: Upload coverage partition
         uses: actions/upload-artifact@v4
         with:

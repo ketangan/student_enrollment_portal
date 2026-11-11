@@ -23,6 +23,7 @@ from core.services.onboarding import (
     mark_checklist_item,
     unmark_checklist_item,
     qr_base64,
+    send_welcome_email,
 )
 
 
@@ -509,7 +510,7 @@ def test_school_detail_shows_checklist_for_non_demo(client, ops_user):
     client.force_login(ops_user)
     resp = client.get(f"/ops/schools/{school.slug}/")
     assert resp.status_code == 200
-    assert b"Onboarding Checklist" in resp.content
+    assert b"Go-live checklist" in resp.content
 
 
 # ── demo_access_view with converted school ────────────────────────────────────
@@ -553,3 +554,90 @@ def test_qr_base64_returns_nonempty_string():
     import base64
     decoded = base64.b64decode(result)
     assert decoded[:4] == b"\x89PNG"  # PNG magic bytes
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("with_trial_and_qr", [True, False])
+def test_welcome_email_targets_school_admin_with_production_links(
+    demo_school, demo_admin, ops_user, settings, mailoutbox, monkeypatch,
+    with_trial_and_qr,
+):
+    settings.APP_BASE_URL = "https://app.example.com"
+    settings.DEMO_BASE_URL = "https://demo.example.com"
+    demo_school.is_demo = False
+    demo_school.trial_started_at = timezone.now() if with_trial_and_qr else None
+    demo_school.plan = "trial" if with_trial_and_qr else "starter"
+    demo_school.save()
+    other_school = School.objects.create(slug="another-customer", is_active=True)
+    SchoolAdminMembership.objects.create(school=other_school, user=ops_user)
+    monkeypatch.setattr("core.services.onboarding.qr_base64", lambda url: "qr-image" if with_trial_and_qr else "")
+    before = timezone.now()
+
+    assert send_welcome_email(demo_school, ops_user) is True
+
+    assert len(mailoutbox) == 1
+    message = mailoutbox[0]
+    assert message.to == [demo_admin.email]
+    assert demo_school.display_name in message.subject
+    token = DemoAccessToken.objects.get(school=demo_school)
+    assert token.recipient == demo_admin
+    assert token.created_by == ops_user
+    assert token.purpose == DemoAccessToken.PURPOSE_ONBOARDING
+    assert before + timedelta(days=7) <= token.expires_at <= timezone.now() + timedelta(days=7)
+    assert not DemoAccessToken.objects.filter(school=other_school).exists()
+    from django.urls import reverse
+    for path in ("/login/", reverse("demo_access", kwargs={"token": token.token}),
+                 reverse("apply", kwargs={"school_slug": demo_school.slug})):
+        assert "https://app.example.com" + path in message.body
+        assert "https://app.example.com" + path in message.alternatives[0][0]
+    assert "demo.example.com" not in message.body
+    html, mimetype = message.alternatives[0]
+    assert mimetype == "text/html"
+    assert ("Trial ends" in html) is with_trial_and_qr
+    assert ("data:image/png;base64,qr-image" in html) is with_trial_and_qr
+    audit = AdminAuditLog.objects.get(extra__name="customer_welcome_email_sent")
+    assert audit.actor == ops_user
+    assert audit.object_id == str(demo_school.pk)
+    assert audit.extra["to"] == demo_admin.email
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("blocked_by", ["demo", "deferred_trial", "no_admin", "no_email"])
+def test_welcome_email_does_not_claim_unready_school_is_live(
+    demo_school, demo_admin, ops_user, mailoutbox, blocked_by,
+):
+    demo_school.is_demo = blocked_by == "demo"
+    demo_school.trial_requires_activation = blocked_by == "deferred_trial"
+    demo_school.save()
+    if blocked_by == "no_admin":
+        demo_school.admin_memberships.all().delete()
+    if blocked_by == "no_email":
+        demo_admin.email = ""
+        demo_admin.save()
+
+    assert send_welcome_email(demo_school, ops_user) is False
+    assert not mailoutbox
+    assert not DemoAccessToken.objects.exists()
+    assert not AdminAuditLog.objects.filter(extra__name="customer_welcome_email_sent").exists()
+
+
+@pytest.mark.django_db
+def test_welcome_email_delivery_failure_is_not_audited_as_sent(
+    demo_school, demo_admin, ops_user, mailoutbox, monkeypatch,
+):
+    demo_school.is_demo = False
+    demo_school.save()
+
+    def fail_send(*args, **kwargs):
+        raise OSError("Email service unavailable")
+
+    monkeypatch.setattr("django.core.mail.EmailMultiAlternatives.send", fail_send)
+    assert send_welcome_email(demo_school, ops_user) is False
+    assert not mailoutbox
+    assert not AdminAuditLog.objects.filter(extra__name="customer_welcome_email_sent").exists()
+
+
+def test_missing_optional_qr_library_does_not_block_onboarding(monkeypatch):
+    import sys
+    monkeypatch.setitem(sys.modules, "segno", None)
+    assert qr_base64("https://app.example.com/apply/school/") == ""

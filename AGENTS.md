@@ -66,8 +66,25 @@ These are the project owner's standing requirements for all work in this reposit
 - Keep a durable log, completion/exit status, and code revision plus working-tree
   fingerprint for each run. Report full-suite verification as pending until checked;
   never attribute an earlier passing run to newer or concurrently modified code.
+- On macOS, attach bounded idle-sleep prevention to a detached test runner
+  (`caffeinate -i -t 7200 -w <runner-pid>`). It must end with the runner or timeout;
+  never change permanent power settings. Lid closure can still suspend execution.
+  For an unexpectedly long run, inspect log modification times, child-process CPU
+  time and sleep/wake history before calling it active, stalled or slow. GitHub CI
+  remains the laptop-independent release check.
 - Do not overlap test runs against the same test database. If the prior run is still
   active, coordinate its completion or cancellation before starting another run or
   changing the code it is testing. Do not create extra databases as a workaround.
 - Before an approved release or push, verify the final code has passed the required
   full-suite checks. Background testing is an iteration shortcut, not a release waiver.
+
+## Release Tracking
+
+- Maintain `docs/release-tracker.md` for changes awaiting demo review, production
+  approval or activation; do not rely on chat history as the release record.
+- Pushes to main automatically deploy demo web and maintenance after CI passes.
+  Production web and maintenance remain manual, pinned to an approved revision.
+- Before production promotion, review every intervening change and its migration
+  dependencies. Keep unapproved workflows disabled using scoped configuration;
+  if the code itself must be excluded, follow the release-branch procedure in
+  `docs/demo-production-separation.md` and test the exact resulting revision.

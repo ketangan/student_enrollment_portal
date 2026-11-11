@@ -24,10 +24,24 @@ class Elements(HTMLParser):
     def __init__(self, html):
         super().__init__()
         self.tags = []
+        self.active_steps = []
+        self.current_step = None
         self.feed(html)
 
     def handle_starttag(self, tag, attrs):
-        self.tags.append((tag, dict(attrs)))
+        attrs = dict(attrs)
+        self.tags.append((tag, attrs))
+        if tag == "span" and "sub-pipeline__step--active" in attrs.get("class", "").split():
+            self.current_step = {"attrs": attrs, "text": ""}
+            self.active_steps.append(self.current_step)
+
+    def handle_data(self, data):
+        if self.current_step is not None:
+            self.current_step["text"] += data
+
+    def handle_endtag(self, tag):
+        if tag == "span":
+            self.current_step = None
 
 
 @pytest.fixture
@@ -72,9 +86,12 @@ def test_list_detail_and_csv_agree_without_writing(client, school, status, expec
     assert detail.context["lead_status_label"] == label
     assert b"This lead has been enrolled" not in detail.content
     html = detail.content.decode()
-    assert f'class="sub-pipeline__step sub-pipeline__step--active">{label}</span>' in html
-    assert not any(tag == "button" and attrs.get("value") == "application_submitted" for tag, attrs in Elements(html).tags)
-    assert not any(tag == "button" and attrs.get("name") == "new_status" for tag, attrs in Elements(html).tags)
+    elements = Elements(html)
+    active_step, = elements.active_steps
+    assert active_step["text"].strip() == label
+    assert active_step["attrs"]["aria-current"] == "step"
+    assert not any(tag == "button" and attrs.get("value") == "application_submitted" for tag, attrs in elements.tags)
+    assert not any(tag == "button" and attrs.get("name") == "new_status" for tag, attrs in elements.tags)
     export = client.get(url("school_lead_export", school), {"status": expected})
     rows = list(csv.DictReader(io.StringIO(export.content.decode())))
     assert len(rows) == 1 and rows[0]["Status"] == expected

@@ -1072,11 +1072,11 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
         _fk = _ff["key"]
         if _fk == _yaml_name_field_key:
             continue
+        post_key = f"field__{_fk}"
+        # Contact, follow-up and note forms submit different subsets of answers.
+        if post_key not in request.POST:
+            continue
         if appointment_field and _fk == appointment_field["key"]:
-            post_key = f"field__{_fk}"
-            # Follow-up and notes forms omit appointment fields; keep the booking.
-            if post_key not in request.POST:
-                continue
             value = request.POST.get(post_key, "").strip()
             if value != _current_form_fields.get(_fk, "") and not can_schedule_lead_appointment(lead):
                 messages.error(request, "This lead is past tour scheduling. Its tour was not changed.")
@@ -1084,7 +1084,7 @@ def school_lead_update_view(request, school_slug: str, lead_id: int):
             if value != _current_form_fields.get(_fk, "") and not appointment_value_is_valid(appointment_field, value):
                 messages.error(request, "Please select one of the available tour times.")
                 return redirect(redirect_url)
-        _new_form_fields[_fk] = request.POST.get(f"field__{_fk}", "").strip()
+        _new_form_fields[_fk] = request.POST.get(post_key, "").strip()
 
     # If redirect_url_field is configured, override interested_in from that custom field
     # so lead.interested_in_value/label stay in sync with the YAML instrument field.

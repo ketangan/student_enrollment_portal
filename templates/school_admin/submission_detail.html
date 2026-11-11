@@ -134,7 +134,7 @@
 {% block page_title %}{{ submission.student_display_name|default:"Application" }} — Submission{% endblock %}
 
 {% block content %}
-<main class="dash-main">
+<main class="dash-main record-page">
 
   <!-- ── Print-only application header ────────────────────────── -->
   <div class="print-only" style="padding:0 0 14px;margin-bottom:16px;
@@ -156,16 +156,16 @@
   </div>
 
   <!-- ── Header (screen only) ──────────────────────────────────── -->
-  <div{% if scheduling_entry.simplified %} class="school-record-header no-print"{% else %} class="dash-card no-print" style="padding:10px 20px 14px;margin-bottom:12px;"{% endif %}>
+  <div class="dash-card record-header no-print" style="padding:10px 20px 14px;margin-bottom:12px;">
     <!-- Nav row: back + prev/next -->
     <div class="no-print" style="display:flex;align-items:center;justify-content:space-between;
                 margin-bottom:10px;padding-bottom:10px;
                 border-bottom:1px solid var(--dash-border,#e2e8f0);">
-      {% if scheduling_entry.simplified %}{% include 'scheduling/school/back_link.html' with back_url=submissions_url back_label='Enrollment' %}{% else %}<a href="{{ submissions_url }}"
+      <a href="{{ submissions_url }}" class="record-back-link"
          style="font-size:12px;color:var(--dash-muted);text-decoration:none;
                 display:flex;align-items:center;gap:4px;">
         &larr; All Submissions
-      </a>{% endif %}
+      </a>
       <div style="display:flex;align-items:center;gap:6px;" class="no-print">
         {% if prev_url %}
         <a href="{{ prev_url }}"
@@ -187,7 +187,7 @@
     <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;">
       <div style="min-width:0;flex:1;">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;">
-          <h1{% if not scheduling_entry.simplified %} style="font-size:18px;font-weight:700;margin:0;"{% endif %}>
+          <h1 style="font-size:18px;font-weight:700;margin:0;">
             {{ submission.student_display_name|default:"—" }}
           </h1>
           <span class="dash-badge {{ status_css }}" style="font-size:11px;">
@@ -216,19 +216,9 @@
               action="{% url 'school_submission_status_update' school_slug=school_slug submission_id=submission.id %}">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ detail_url }}">
-          {% if scheduling_entry.simplified %}
-          <div class="school-status-change">
-            <label for="application-status">Status</label>
-            <select id="application-status" name="new_status" required>
-              <option value="">Choose status</option>
-              {% for s in status_choices %}<option value="{{ s }}"{% if s == submission.status %} selected{% endif %}>{{ s }}</option>{% endfor %}
-            </select>
-            <button type="submit" class="dash-action-btn dash-action-btn--primary">Update</button>
-          </div>
-          {% else %}
           <div class="sub-pipeline">
             {% if status_is_system %}
-              <span class="sub-pipeline__step sub-pipeline__step--active"
+              <span class="sub-pipeline__step sub-pipeline__step--active" aria-current="step"
                     style="background:#dbeafe;color:#1d4ed8;border-color:#93c5fd;font-size:11px;">
                 {{ submission.status }} (system)
               </span>
@@ -236,28 +226,28 @@
             {% for s in status_choices %}
               {% if not forloop.first or status_is_system %}<span class="sub-pipeline__arrow">›</span>{% endif %}
               {% if s == submission.status %}
-                <span class="sub-pipeline__step sub-pipeline__step--active">{{ s }}</span>
+                <span class="sub-pipeline__step sub-pipeline__step--active" aria-current="step">{{ s }}</span>
               {% else %}
                 <button type="submit" name="new_status" value="{{ s }}"
                         class="sub-pipeline__step--clickable" title="Move to {{ s }}">{{ s }}</button>
               {% endif %}
             {% endfor %}
           </div>
-          {% endif %}
         </form>
         {% else %}
-        {% if not scheduling_entry.simplified %}
         <div class="sub-pipeline">
+          {% if status_is_system %}
+            <span class="sub-pipeline__step sub-pipeline__step--active" aria-current="step">{{ submission.status }}</span>
+          {% endif %}
           {% for s in status_choices %}
-            {% if not forloop.first %}<span class="sub-pipeline__arrow">›</span>{% endif %}
+            {% if not forloop.first or status_is_system %}<span class="sub-pipeline__arrow">›</span>{% endif %}
             {% if s == submission.status %}
-              <span class="sub-pipeline__step sub-pipeline__step--active">{{ s }}</span>
+              <span class="sub-pipeline__step sub-pipeline__step--active" aria-current="step">{{ s }}</span>
             {% else %}
               <span class="sub-pipeline__step" style="opacity:0.35;cursor:default;">{{ s }}</span>
             {% endif %}
           {% endfor %}
         </div>
-        {% endif %}
         {% endif %}
         {% endif %}
         </div>
@@ -311,7 +301,7 @@
       {% endif %}
 
       <!-- Application Snapshot (view + inline edit) -->
-      <div class="dash-card" style="padding:18px 22px;">
+      <div class="dash-card record-contact" style="padding:18px 22px;">
 
         <!-- VIEW MODE -->
         <div id="snap-view">
@@ -869,7 +859,7 @@
 
       <!-- Family Status Page (family_portal_enabled) -->
       {% if family_portal_enabled %}
-      <div class="{% if scheduling_entry.simplified %}record-disclosure{% else %}dash-card{% endif %} no-print" style="padding:18px 22px;">
+      <div class="dash-card no-print" style="padding:18px 22px;">
         {% if scheduling_entry.simplified %}<details class="record-details"><summary>Family status page</summary>{% endif %}
         <h2 class="sidebar-label" style="display:flex;align-items:center;justify-content:space-between;">
           <span>Family Status Page</span>
@@ -1029,7 +1019,7 @@
               {% elif entry.extra.name == "mark_contacted" %}
                 marked as contacted{% if entry.extra.follow_up_date %} &mdash; follow-up set for {{ entry.extra.follow_up_date }}{% endif %}
               {% elif entry.extra.name == "follow_up_set" %}
-                set a follow-up{% if entry.extra.date %}: <strong>{{ entry.extra.date }}</strong>{% endif %}
+                {% if entry.extra.date %}set a follow-up: <strong>{{ entry.extra.date }}</strong>{% else %}cleared the follow-up date{% endif %}
               {% elif entry.extra.name == "export_csv" %}
                 exported to CSV
               {% elif entry.extra.name == "bulk_status_update" %}

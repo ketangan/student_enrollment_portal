@@ -104,7 +104,7 @@ def test_staff_trial_requires_school_permission(music, offer, school_layout, cli
 
 
 @pytest.mark.parametrize("simplified", [True, False])
-def test_lead_and_enrollment_headers_share_icons_only_when_opted_in(integrated, client, monkeypatch, simplified):
+def test_record_headers_keep_established_navigation_in_both_layouts(integrated, client, monkeypatch, simplified):
     from core.tests.factories import LeadFactory, SubmissionFactory
     profile, user = integrated
     monkeypatch.setattr("scheduling.school_navigation.load_school_config", lambda slug: SimpleNamespace(raw={
@@ -116,6 +116,8 @@ def test_lead_and_enrollment_headers_share_icons_only_when_opted_in(integrated, 
                           ("school_submission_detail", {"submission_id": submission.pk})]:
         page = client.get(reverse(route, kwargs={"school_slug": profile.school.slug, **kwargs}))
         assert page.status_code == 200
-        assert (b'data-lucide="arrow-left"' in page.content) is simplified
         assert (b'assets/lucide.js' in page.content) is simplified
-        assert (b'class="school-record-header' in page.content) is simplified
+        assert b'class="record-back-link"' in page.content
+        assert (b'All Leads' if route == "school_lead_detail" else b'All Submissions') in page.content
+        assert b'class="dash-card record-header' in page.content
+        assert b'class="school-record-header' not in page.content

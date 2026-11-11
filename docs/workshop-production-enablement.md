@@ -126,7 +126,7 @@ Post-merge main CI `41908101571` subsequently completed successfully.
 No real school was activated and the live-recovery job flag was not enabled.
 Hosted receipt delivery was separately verified in Ketan's inbox with its PDF.
 Current actions are maintained in the
-[active Plushie todo list](scheduling-implementation-tracker.md#november-6-active-plushie-todo-list).
+[active Plushie todo list](scheduling-implementation-tracker.md#november-10-active-plushie-todo-list).
 
 The existing launch command is a **workshop configuration check**, not a complete
 studio go-live certificate. It only inspects locations represented by upcoming
@@ -261,6 +261,40 @@ email content/triggers and physical-tablet acceptance still require the already
 requested customer inputs. Managed backup availability is not a completed restore
 drill. A restore rehearsal needs an approved isolated destination; do not overwrite
 the shared production database or download customer records for convenience.
+
+## November 10 Operational Readiness Follow-Up
+
+Inspection performed November 10 Pacific / November 11 UTC against `6ebf7fe`.
+This supersedes the older health-check/configuration observations below, not the
+still-open customer acceptance gates.
+
+| Area | Verified evidence | Remaining gate |
+| --- | --- | --- |
+| Deployed revision | Both web services and both maintenance jobs run `6ebf7fe08bb3e0ba9c459c3a34380d7e5bcc547c`. Demo automatically follows passing main CI; production auto-deployment is off. | Local launch-checklist and database-aware health changes still require release. |
+| Isolation | Production web/job use `PORTAL_DEPLOYMENT_ENV=production`, demo web/job use `demo`. Database URLs differ between environments and match within each environment, as do signing/encryption keys. | Preserve these boundaries on every promotion. |
+| Database access | Owner approved private-network-only production access. On November 11 at 07:20:33 UTC, production's external allowlist changed from `0.0.0.0/0` to `[]`, after verifying both consumers already use its internal URL. Demo already has `[]`. Production DB remains available. | Do not reopen external access for routine administration or the restore drill. |
+| Scheduled jobs | Both run every five minutes and first execute `check_portal_deployment`. Six recent runs per environment succeeded. A newly started production run completed successfully at 07:25:48 UTC after the network restriction. Read-only production Schools and Audit pages also loaded successfully. | Add `--include-live-recovery` only at the approved live launch; both online and Terminal Square live flags remain false. |
+| Monitoring | Workspace email alerts are enabled for failures; all four service notification overrides inherit defaults. An owner-approved, customer-data-free Sentry test event at 07:41:55 UTC reached the operator's Gmail inbox at 07:42 UTC, with matching event ID `62f571b3e3d14ebf9cdfb6f8a4fdc4c4`, issue `7841635784`. | This proves Sentry delivery, not a Render cron-failure email. Production cron has no direct Sentry DSN; its Render failure notifications are configured but were not deliberately triggered. |
+| HTTP readiness | Both Render web services already target `/healthz/`. Local code now performs one read-only `SELECT 1`, returns 503 on a database error without exposing details, and disables caching. GET/HEAD and unsafe-method behavior are tested. | Deploy and verify this endpoint; the currently hosted endpoint still checks liveness only. |
+| Recovery rehearsal | Owner-approved PITR copy created at 07:34:29 UTC for the 07:23:59 UTC production snapshot; observed available at 07:42:06 UTC. All 102 public tables matched row counts and content checksums; one production school, zero demos, zero unvalidated foreign keys. Copy stayed private with no app/jobs attached and was deleted at 07:43:31 UTC. | Refresh the moving recovery window before cutover. This is database recovery evidence, not live payment reconciliation or a complete application failover rehearsal. |
+
+The restore used the same small paid tier as the source and existed for about nine
+minutes, below the approved $1 ceiling at published prorated rates; the final
+provider invoice was not inspected. No production connection or data was changed.
+The restored database retained the source username/password but had a different
+database name; validation used that name over Render's private network, in a
+read-only repeatable-read transaction. No credentials or customer rows were exported.
+The combined table-checksum digest was
+`898ec5bb7bac8158c741555754bd2e047fb39546ceba0213b063e842c300d135`.
+Local evidence is in `plushie-launch-readiness-20261110`, including `restore.json`,
+the validation summary and monitoring event record. The approved Sentry test was
+clearly labelled planned and did not cause an application failure.
+
+The failed nine-case admissions test group has been repaired to inspect the active
+status and accessibility attributes instead of matching a complete HTML string.
+116 focused health/admissions/checklist/onboarding tests and 504 focused Plushie
+booking, payment, refund, recovery, consent and preparation tests passed. These
+results are not a substitute for the final full-suite release gate.
 
 ## November 6 Operational Readiness Inspection
 

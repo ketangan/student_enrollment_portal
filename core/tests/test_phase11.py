@@ -201,6 +201,22 @@ def test_submission_follow_up_set_invalid_date(client):
     assert submission.next_follow_up_at is None   # unchanged
 
 
+@pytest.mark.django_db
+def test_missing_follow_up_field_does_not_clear_existing_date(client):
+    school = SchoolFactory()
+    user = _make_admin(school)
+    original = timezone.now()
+    submission = SubmissionFactory(school=school, next_follow_up_at=original)
+    client.force_login(user)
+    response = client.post(_submission_follow_up_set_url(school, submission.pk), {})
+    assert response.status_code == 302
+    submission.refresh_from_db()
+    assert submission.next_follow_up_at == original
+    assert not AdminAuditLog.objects.filter(
+        model_label="core.submission", object_id=str(submission.pk), extra__name="follow_up_set",
+    ).exists()
+
+
 # ---------------------------------------------------------------------------
 # Part 2 — Smart Filters
 # ---------------------------------------------------------------------------

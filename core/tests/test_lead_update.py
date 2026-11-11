@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 from datetime import date, timedelta
+from types import SimpleNamespace
 from django.urls import reverse
 from django.utils import timezone
 
@@ -251,3 +252,42 @@ def test_invalid_delta_does_not_save(client):
     assert response.status_code == 200
     lead.refresh_from_db()
     assert lead.notes == "original"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("change", [
+    {"next_follow_up_at": "2030-02-03"},
+    {"new_note": "Called the parent"},
+    {"phone": "5550100999"},
+])
+def test_partial_edits_preserve_custom_answers_and_instrument(client, monkeypatch, change):
+    school = SchoolFactory()
+    user = _school_admin_user(school)
+    answers = {"instrument": "piano", "experience": "Beginner", "student_age": "8"}
+    lead = LeadFactory(school=school, interested_in_value="piano", interested_in_label="Piano",
+        data={"form_fields": answers, "source_metadata": "preserve"})
+    config = SimpleNamespace(raw={"leads": {
+        "redirect_url_field": "instrument",
+        "fields": [
+            {"key": "instrument", "label": "Instrument", "type": "select",
+             "options": [{"value": "piano", "label": "Piano"}]},
+            {"key": "experience", "label": "Experience", "type": "text"},
+            {"key": "student_age", "label": "Student age", "type": "text"},
+        ],
+    }})
+    monkeypatch.setattr("core.views_school_leads._safe_load_school_config", lambda slug: config)
+    client.force_login(user)
+    response = client.post(_update_url(school, lead.pk), {"name": lead.name, "email": lead.email, **change})
+    assert response.status_code == 302
+    lead.refresh_from_db()
+    assert lead.data == {"form_fields": answers, "source_metadata": "preserve"}
+    assert (lead.interested_in_value, lead.interested_in_label) == ("piano", "Piano")
+    audit = AdminAuditLog.objects.filter(model_label="core.lead", object_id=str(lead.pk)).latest("id")
+    assert "Instrument" not in str(audit.extra)
+
+    # Omitting an answer preserves it; explicitly clearing one still works.
+    client.post(_update_url(school, lead.pk), {
+        "name": lead.name, "email": lead.email, "field__experience": "",
+    })
+    lead.refresh_from_db()
+    assert lead.data["form_fields"] == {**answers, "experience": ""}

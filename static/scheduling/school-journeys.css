@@ -18,20 +18,26 @@ html:has(.school-shell) { scrollbar-gutter: stable; }
 .school-shell .back-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-bottom: 12px; }
 .school-shell .back-link { font-size: 14px; color: var(--dash-primary); text-underline-offset: 3px; }
 .school-shell .back-link svg { width: 16px; height: 16px; flex-shrink: 0; }
-.school-shell .school-record-header { margin-bottom: 28px; }
-.school-shell .school-record-header h1 { font-size: 24px; line-height: 1.3; margin: 0; }
 .school-shell .dash-main h1 { font-size: 24px; line-height: 1.3; }
-.school-shell .school-record-header .back-link { margin-bottom: 0; }
-.school-shell .school-record-header .dash-action-btn { min-width: 44px; gap: 8px; }
-.school-shell .record-contact { padding: 0 0 16px !important; border-bottom: 1px solid var(--dash-border); }
-.school-shell .record-contact .snapshot-table td:first-child { width: 100px; }
+.school-shell .record-header .dash-action-btn,
+.school-shell .dash-main .record-header button { min-width: 0; min-height: 0; }
+/* Keep the established compact header on desktop, with touch-sized controls on smaller screens. */
+@media (pointer: coarse), (max-width: 1199px) {
+  .school-shell .record-header .dash-action-btn,
+  .school-shell .dash-main .record-header button,
+  .school-shell .record-header .record-back-link,
+  .school-shell .record-header .sub-pipeline__step { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; }
+  .school-shell .record-header .sub-pipeline { row-gap: 8px; }
+}
+.school-shell .record-contact .snapshot-table { table-layout: fixed; }
+.school-shell .record-contact .snapshot-table td:first-child { width: 130px; }
 .school-shell .record-contact .snapshot-table td { vertical-align: middle; }
-.school-shell .record-contact .snapshot-table td:nth-child(2) { display: flex; align-items: center; gap: 8px; }
-.school-shell .record-contact .snapshot-table a { min-width: 0; overflow-wrap: anywhere; }
-.school-shell .record-contact .copy-btn { flex: 0 0 44px; }
+.school-shell .record-contact .snapshot-table td:nth-child(2) { overflow-wrap: anywhere; }
+.school-shell .record-contact .copy-btn { margin-left: 4px; }
+.school-shell .record-page input:not([type=checkbox]):not([type=radio]):not([type=hidden]),
+.school-shell .record-page select { min-height: 44px; max-width: 100%; box-sizing: border-box; }
 .school-shell #resume-link, .school-shell #status-link { min-height: 44px; }
 .school-shell .record-primary-action { margin-left: auto; }
-.school-shell .record-disclosure { padding: 0 22px !important; border-bottom: 1px solid var(--dash-border); }
 .school-shell .record-details > summary { font-size: 14px; font-weight: 600; min-height: 44px; padding: 12px 0; box-sizing: border-box; cursor: pointer; }
 .school-shell .record-details[open] > summary { margin-bottom: 12px; }
 .school-shell .record-details input:not([type=checkbox]):not([type=hidden]) { min-height: 44px; box-sizing: border-box; max-width: 100%; }
@@ -57,8 +63,6 @@ html:has(.school-shell) { scrollbar-gutter: stable; }
 .school-shell .dash-main button { min-width: 44px; min-height: 44px; box-sizing: border-box; }
 .school-shell .dash-main .copy-btn { display: inline-flex; align-items: center; justify-content: center; }
 .school-shell .dash-main .dash-action-btn--primary { border: 1px solid var(--dash-primary); }
-.school-shell .school-status-change { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.school-shell .school-status-change select { font: inherit; min-height: 44px; max-width: 100%; padding: 8px 12px; background: var(--dash-card); color: var(--dash-text); border: 1px solid var(--dash-border); border-radius: 6px; }
 .school-shell .dash-main input[type=date] { min-height: 44px; box-sizing: border-box; }
 @media (max-width: 1199px) {
   .school-shell .dash-header { display: flex; justify-content: space-between; padding: 0 16px; gap: 12px; }

@@ -1254,7 +1254,7 @@ def school_submission_follow_up_set_view(request, school_slug: str, submission_i
     POST /schools/<slug>/admin/submissions/<id>/follow-up/
 
     Accepts:
-      next_follow_up_at — date string YYYY-MM-DD
+      next_follow_up_at — date string YYYY-MM-DD, or blank to clear
       follow_up_delta   — int days from today (takes priority)
       next              — redirect target
     """
@@ -1291,7 +1291,7 @@ def school_submission_follow_up_set_view(request, school_slug: str, submission_i
         except ValueError:
             messages.error(request, "Invalid follow-up date. Use YYYY-MM-DD format.")
             return redirect(redirect_url)
-    else:
+    elif "next_follow_up_at" not in request.POST:
         messages.error(request, "No follow-up date provided.")
         return redirect(redirect_url)
 
@@ -1303,10 +1303,10 @@ def school_submission_follow_up_set_view(request, school_slug: str, submission_i
             action="action",
             obj=submission,
             changes={},
-            extra={"name": "follow_up_set", "date": new_follow_up.date().isoformat()},
+            extra={"name": "follow_up_set", "date": new_follow_up.date().isoformat() if new_follow_up else None},
         )
 
-    messages.success(request, "Follow-up date set.")
+    messages.success(request, "Follow-up date set." if new_follow_up else "Follow-up date cleared.")
     return redirect(redirect_url)
 
 

@@ -81,7 +81,7 @@ def test_opted_school_has_consistent_top_level_destinations(integrated, client):
         page = client.get(endpoint)
         assert page.status_code == 200
         nav = NavigationParser(page.content).groups["School"]
-        assert [item["text"] for item in nav] == ["Dashboard", "Enrollment", "Leads", "Schedule", "Reports", "Settings"]
+        assert [item["text"] for item in nav] == ["Dashboard", "Submissions", "Leads", "Schedule", "Reports", "Settings"]
         assert b"Studio Prep" not in page.content and b"Make-up credits" not in page.content
         assert b'class="school-enrollment-tabs"' not in page.content
         assert b'school-shell' in page.content
@@ -89,6 +89,9 @@ def test_opted_school_has_consistent_top_level_destinations(integrated, client):
         assert b'Public school page' not in page.content
         if endpoint.endswith("/reports/"):
             assert b'class="school-report-scroll"' in page.content
+        if endpoint.endswith("/submissions/"):
+            assert b'>Submissions</h1>' in page.content
+            assert b'>Applications</h1>' not in page.content
 
 
 @pytest.mark.django_db

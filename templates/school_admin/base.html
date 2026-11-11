@@ -10,7 +10,7 @@
   {% include 'partials/pwa_head.html' %}
   <link rel="stylesheet" href="{% static 'admin/dashboard.css' %}?v=20261022-shared-team">
   {% if scheduling_entry.school_layout %}<link rel="stylesheet" href="{% static 'scheduling/school-workspace.css' %}?v=20261109-session-grids">{% endif %}
-  {% if scheduling_entry.simplified %}<link rel="stylesheet" href="{% static 'scheduling/school-journeys.css' %}?v=20261109-session-controls">{% endif %}
+  {% if scheduling_entry.simplified %}<link rel="stylesheet" href="{% static 'scheduling/school-journeys.css' %}?v=20261110-record-status">{% endif %}
   {% block extra_css %}{% endblock %}
 </head>
 <body class="dash-body{% if scheduling_entry.school_layout %} school-enrollment{% endif %}{% if scheduling_entry.simplified %} school-shell{% endif %}">

@@ -1,6 +1,6 @@
 # Pontora Bookings Implementation Tracker
 
-Updated: November 7, 2026.
+Updated: November 11, 2026.
 
 Browser view (local only): [Status overview](http://127.0.0.1:8003/) ·
 [Readable tracker](http://127.0.0.1:8003/tracker). Start with
@@ -9,7 +9,7 @@ This Markdown file remains the source of truth; the viewer does not edit milesto
 
 ## Current Status
 
-### November 6 Active Plushie Todo List
+### November 10 Active Plushie Todo List
 
 This is the current action list. Dated entries below preserve implementation history;
 their earlier "pending" labels do not override the verified status recorded here.
@@ -41,27 +41,30 @@ Operational details live in the [production cutover runbook](workshop-production
    checks passed after deployment. No school was activated or payment settings
    changed. Runbook preparation is not a restore drill or live merchant acceptance.
 3. **Required before live payments: enable and verify scheduled live-payment recovery.**
-   The hosted job currently runs `python manage.py process_booking_maintenance --limit 20`
-   every five minutes. At live activation, the operator must add
+   The production job first runs `check_portal_deployment`, then
+   `python manage.py process_booking_maintenance --limit 20` every five minutes.
+   At live activation, the operator must add
    `--include-live-recovery`, confirm the job targets the correct production database
    and intended Square accounts, and verify successful runs, failure monitoring and
    idempotent reconciliation of uncertain payments/refunds. Preserve pending payment
    processing even when new intake is paused. Do not change SBMC Stripe billing or
    enable live recovery merely for demo testing. This gate remains OPEN until hosted
    configuration and recovery evidence are recorded.
-4. **Jasmine's email content and triggers (waiting on input).** Import approved
-   school-scoped templates/triggers, confirm sender choice and verify delivery,
-   private links, PDF attachments and retry safety. Existing template infrastructure
-   is not acceptance of content/triggers she has not supplied.
+4. **Email launch defaults and sender choice (acceptance pending).** Custom templates
+   are deferred, not a prerequisite for starting launch preparation. Obtain approval
+   for the existing templates/triggers and sender, then verify delivery, private
+   links, PDF attachments and retry safety. Import Jasmine's school-scoped custom
+   content when supplied; do not treat missing content as approved.
 5. **Live studio setup and website handover (pending).** Verify each studio's
    payment mapping, schedules/packages, taxes, capacity, inventory, staff access,
-   guide and policies; reconcile existing Wix bookings/deposits before switching
-   website buttons. Carry forward the waiver process and resolve the recorded
+   guide and policies; agree which system owns existing bookings/deposits before
+   switching website buttons. Historical-data import is not a launch commitment;
+   agree a separate scope if requested. Carry forward the waiver process and resolve the recorded
    seven-day and New York configuration acceptance points below without inventing
    policies or sending repeat questions without Ketan's agreement.
 6. **Final launch acceptance (pending).** Owner-approved live payment/refund and
    callback/recovery checks; physical Android Chrome in both orientations, keyboard
-   and printing; production inbox delivery; backup/restore rehearsal and rollback;
+   and printing; production booking-email delivery; intake pause/rollback;
    tenant/location isolation and SBMC regression smoke checks.
 7. **Square Terminal and refunds (deployed; physical-device/live acceptance pending).**
    PR [#20](https://github.com/ketangan/student_enrollment_portal/pull/20) merged as
@@ -78,7 +81,7 @@ Operational details live in the [production cutover runbook](workshop-production
    `terminal-release-regression-20261106` in the local visualization directory.
    No repeat Jasmine Sandbox test is required. Connect the live seller/device and
    complete an owner-authorized small real charge/refund before customer use.
-8. **Staff party booking consent fix (local, not released).**
+8. **Staff party booking consent fix (deployed).**
    Fixes [#21](https://github.com/ketangan/student_enrollment_portal/issues/21): staff
    can save a booking without hidden customer acknowledgment fields. The configured
    policy is saved as unaccepted, without an acceptance timestamp; staff-submitted
@@ -90,16 +93,32 @@ Operational details live in the [production cutover runbook](workshop-production
    visible form inputs/buttons at least 44px high. Physical Android/keyboard remains
    pending. `staff-booking-readiness-20261106` subsequently passed with unchanged
    source: 5,411 application tests, 23 migration tests, three skips, 157 JavaScript
-   tests and all coverage gates. This fix remains local, not released.
-9. **Operational readiness inspection (completed; launch gates still open).**
-   Read-only Render checks November 6 Pacific / November 7 UTC verified available
-   point-in-time recovery, six successful recent five-minute maintenance runs,
-   matching directly configured web/cron database connections, and inherited cron
-   failure-email notifications. The web service has no HTTP health-check path;
-   `/healthz/` responds but is liveness-only. Alert inbox delivery and an isolated
-   restore rehearsal are not verified. Live recovery remains deliberately disabled.
-   See the [dated operational evidence and gates](workshop-production-enablement.md#november-6-operational-readiness-inspection)
-   before activation; no infrastructure or live settings were changed.
+   tests and all coverage gates. Included in hosted baseline `6ebf7fe`, verified on
+   both web services and maintenance jobs November 10. The earlier local-only label
+   was stale; no additional release of this fix is needed.
+9. **Operational readiness (in progress).** November 10 inspection reconfirmed
+   separate demo/production databases, matching web/job connections and encryption
+   keys, available recovery windows and successful five-minute maintenance runs.
+   Both web services now use `/healthz/`; the locally updated endpoint also checks
+   database connectivity and returns a generic 503 on failure. It is not deployed.
+   With owner approval, production's external database allowlist was cleared;
+   services already use the internal connection, and a later maintenance run and
+   production admin read checks passed. An approved planned Sentry event reached
+   the operator's inbox; Render cron-failure delivery was not deliberately triggered.
+   The isolated restore matched all 102 tables by count/checksum and was deleted
+   after read-only verification, within the $1 ceiling. Live payment/recovery flags remain
+   disabled. See the [current operational evidence](workshop-production-enablement.md#november-10-operational-readiness-follow-up).
+10. **Release current launch checklist and readiness changes (demo release authorized).** The
+    school-specific Super Admin checklist, onboarding guards and health check need
+    demo deployment/review and deliberate production promotion after full regression.
+    The nine preceding regression failures were one stale status-markup assertion;
+    the repaired group passes 37 tests without weakening read-only status checks.
+    Track exact candidate evidence and release scope in [the release tracker](release-tracker.md).
+    November 11: final local regression passed with unchanged source: 5,991
+    application tests, 24 migration tests, three skips, 167 JavaScript tests and
+    all coverage gates (98.12% measured Python coverage). Demo release is authorized;
+    production promotion is not. Hosted verification is recorded on the release
+    commit after automatic deployment.
 
 ### November 7 Enrollment and Lessons Demo
 
@@ -2603,7 +2622,7 @@ completion is not production acceptance. Earlier milestone notes remain historic
 | Negotiated Pontora subscription pricing | **Deployed October 14 (P03).** Supports agreed base/location prices and next-renewal price changes without proration. | Configure the client's agreed live prices and location quantities; notify them of later billing changes. Pontora subscriptions remain on Stripe. |
 | Final workshop/customer journey and studio policies | **Partially confirmed October 17.** Party details at booking, deferred guest selections, observer rules and shared/private-space distinction are specified below. | Obtain actual policy text, package details and design guide; settle remaining decisions and get acceptance. |
 | Superadmin-only creation of additional locations | **Deferred; not a go-live blocker.** | Restrict operational location creation separately from the already implemented subscription billing quantities. |
-| Separate production and demo databases | **Deferred; not a go-live blocker.** | Plan and test the split. Until then retain existing demo/production isolation safeguards; shared storage is not physical separation. |
+| Separate production and demo databases | **Completed November 9, 2026.** | Independent services, databases and scheduled jobs verified. Customer go-live and code promotion now follow [Demo and Production Separation](demo-production-separation.md); do not restore demo data into production. |
 | One school using both enrollment and scheduling | **Deferred; not a go-live blocker.** | Configure a combined local test school and verify navigation, permissions, billing and workflows together. |
 
 ### Jasmine Response and Launch Checklist (October 17)

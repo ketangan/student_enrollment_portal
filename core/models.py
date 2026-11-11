@@ -1395,6 +1395,13 @@ class OnboardingChecklistItem(models.Model):
         ("test_submission_completed", "Test submission completed"),
         ("email_delivery_verified", "Email delivery verified"),
         ("reports_verified", "Reports verified"),
+        ("production_workspace_verified", "Production workspace verified"),
+        ("capabilities_reviewed", "Enabled features and launch data reviewed"),
+        ("scheduling_verified", "Booking schedule and policies verified"),
+        ("live_payment_verified", "Payment launch verified"),
+        ("recovery_verified", "Payment recovery and webhooks verified"),
+        ("release_verified", "Tested release and rollback verified"),
+        ("customer_approved", "Customer launch approval recorded"),
         ("school_marked_live", "School marked Live"),
     ]
     ITEM_LABELS = dict(ITEMS)

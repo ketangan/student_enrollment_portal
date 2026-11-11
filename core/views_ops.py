@@ -276,10 +276,8 @@ def ops_school_detail_view(request, slug):
         if demo_token and demo_token.purpose == DemoAccessToken.PURPOSE_ONBOARDING else None
     )
 
-    from core.services.onboarding import get_or_create_checklist, qr_base64
-    checklist_items = get_or_create_checklist(school)
-    checklist_done = sum(1 for i in checklist_items if i.completed_at)
-    checklist_total = len(checklist_items)
+    from core.services.onboarding import checklist_context, qr_base64
+    launch_checklist = checklist_context(school)
 
     enrollment_url = app_reverse("apply", kwargs={"school_slug": school.slug})
     iframe_snippet = (
@@ -313,9 +311,7 @@ def ops_school_detail_view(request, slug):
         "school_admin_url": _school_admin_url(school, bool(members)),
         "demo_link": demo_link,
         "onboarding_link": onboarding_link,
-        "checklist_items": checklist_items,
-        "checklist_done": checklist_done,
-        "checklist_total": checklist_total,
+        **launch_checklist,
         "enrollment_url": enrollment_url,
         "iframe_snippet": iframe_snippet,
         "welcome_sent": welcome_sent,
@@ -827,14 +823,20 @@ def ops_checklist_toggle_view(request, slug, item):
         messages.error(request, f"Unknown checklist item '{item}'.")
         return redirect("ops_school_detail", slug=slug)
 
-    from core.services.onboarding import mark_checklist_item, unmark_checklist_item
+    from core.services.onboarding import mark_checklist_item, unmark_checklist_item, validate_checklist_update
+    from django.core.exceptions import ValidationError
+    try:
+        validate_checklist_update(school, item)
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0])
+        return redirect("ops_school_detail", slug=slug)
     obj, _ = OnboardingChecklistItem.objects.get_or_create(school=school, item=item)
     if obj.completed_at:
         unmark_checklist_item(school, item, request.user)
     else:
         mark_checklist_item(school, item, request.user)
 
-    return redirect("ops_school_detail", slug=slug)
+    return redirect(reverse("ops_school_detail", kwargs={"slug": slug}) + "#go-live-checklist")
 
 
 # ── Onboarding: Welcome Email ─────────────────────────────────────────────────
