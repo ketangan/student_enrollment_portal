@@ -34,6 +34,15 @@ def demo_delivery_enabled(profile):
     return hosted_demo(profile.school.slug) and available(profile)
 
 
+def demo_confirmation_allowed(item):
+    """New test bookings only; never backfill confirmations from copied records."""
+    profile = item.profile
+    return (profile.school.is_demo and demo_delivery_enabled(profile)
+        and item.order.environment == "test" and item.created_at >= profile.demo_notifications_since
+        and ((item.party_request_id and profile.party_notifications_enabled and has_capability(profile, "parties"))
+             or (item.workshop_request_id and workshop_notifications.enabled(profile))))
+
+
 def external_delivery_allowed(item):
     if not enabled(item):
         return False

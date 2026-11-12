@@ -18,6 +18,7 @@
     <strong>{% if entry.item.party_request_id %}Party{% elif entry.item.camp_registration_id %}Camp{% else %}Workshop{% endif %}</strong>
     <header class="booking-heading"><div><strong>{{ entry.starts_at|date:'g:i A' }} &ndash; {{ entry.ends_at|date:'g:i A' }}</strong> <b>{{ entry.item.snapshot.name }}</b> &middot; {{ entry.item.quantity }} participant{{ entry.item.quantity|pluralize }}<div>{{ entry.item.snapshot.workshop }}{% if entry.item.room %} &middot; {{ entry.item.room.name }}{% endif %}</div></div><span class="prep-state">{% if entry.item.state == 'completed' %}Completed{% elif entry.materials_used %}Materials used{% else %}<span class="check-box">{% if entry.item.prepared_at %}&#10003;{% endif %}</span> Prepared{% endif %}</span></header>
     <p class="staff-note"><strong>Staff:</strong> {{ entry.staff_names|default:'Not assigned' }}</p>
+    {% if entry.phone %}<p class="staff-note"><strong>Phone:</strong> {{ entry.phone }}</p>{% endif %}
     {% for note in entry.notes %}<p class="staff-note"><strong>Internal note:</strong> {{ note }}</p>{% endfor %}
     {% if entry.customer_notes %}<p class="staff-note"><strong>Customer note:</strong> {{ entry.customer_notes }}</p>{% endif %}
     <table class="participants"><thead><tr><th>Participant</th>{% for column in entry.print_columns %}<th>{{ column }}</th>{% empty %}<th>Selections (write in)</th>{% endfor %}</tr></thead><tbody>

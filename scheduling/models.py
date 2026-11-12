@@ -28,6 +28,7 @@ class SchedulingProfile(models.Model):
     message_preview_enabled = models.BooleanField(default=False)
     party_notifications_enabled = models.BooleanField(default=False)
     workshop_notifications_enabled = models.BooleanField(default=False)
+    demo_notifications_since = models.DateTimeField(default=timezone.now, editable=False)
     calendar_enabled = models.BooleanField(default=False)
     default_dashboard_view = models.CharField(max_length=8, default="overview",
         choices=[("overview", "Overview"), ("calendar", "Calendar")])
@@ -645,7 +646,7 @@ class Reservation(models.Model):
 
 
 class ReservationNote(models.Model):
-    """Append-only staff comments, separate from customer-facing booking snapshots."""
+    """Staff comments, with edits retained in the scoped admin audit log."""
     reservation = models.ForeignKey(Reservation, null=True, blank=True, on_delete=models.PROTECT, related_name="notes")
     party_request = models.ForeignKey(PartyRequest, null=True, blank=True, on_delete=models.PROTECT, related_name="staff_notes")
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)

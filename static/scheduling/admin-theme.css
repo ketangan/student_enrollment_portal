@@ -580,6 +580,7 @@
 .booking-admin .prep-overview { display:grid; grid-template-columns:1fr 1fr 2fr; gap:24px; padding:20px 0; margin:0; border-bottom:1px solid var(--dash-border); }
 .booking-admin .prep-overview dt { color:var(--dash-muted); font-size:14px; margin-bottom:6px; }
 .booking-admin .prep-overview dd { margin:0; font-weight:600; overflow-wrap:anywhere; }
+.booking-admin .prep-overview--contact > div:last-child { grid-column:1/-1; }
 .booking-admin .prep-edit-selections { display:inline-block; margin-top:16px; }
 .booking-admin .reservation-payment { margin:28px 0; border:1px solid var(--dash-border); border-radius:8px; background:var(--dash-card,#fff); overflow:hidden; }
 .booking-admin .reservation-payment > header { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; padding:18px 22px; border-bottom:1px solid var(--dash-border); }

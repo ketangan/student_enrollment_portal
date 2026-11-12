@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage
 from django.core.mail.backends.locmem import EmailBackend
 from django.db import transaction
-from django.db.models import Exists, OuterRef
+from django.db.models import Exists, OuterRef, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -130,7 +130,8 @@ def claim(profile_id, *, party_delivery=False):
     if party_delivery:
         candidates = candidates.filter(reservation__isnull=False, reservation__order__environment="live" if live else "test")
         if not live:
-            candidates = candidates.filter(notice_kind__in=MANUAL_KINDS, created_by__isnull=False)
+            candidates = candidates.filter(Q(notice_kind__in=MANUAL_KINDS, created_by__isnull=False)
+                | Q(notice_kind="confirmation", reservation__created_at__gte=profile.demo_notifications_since))
     message = candidates.annotate(blocked=Exists(blocked)).filter(blocked=False).order_by("pk").first()
     if not message:
         return None

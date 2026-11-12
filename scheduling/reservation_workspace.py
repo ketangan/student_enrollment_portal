@@ -1,9 +1,20 @@
 """Read models for one reservation; no customer-specific preparation assumptions."""
 from django.urls import reverse
+from django.utils import timezone
 from urllib.parse import urlencode, urlsplit
 from . import preparation
 from .calendar import calendar_available
 from .models import PartyRequest
+
+
+def online_payment_status(attempt):
+    if attempt.close_requested:
+        return "Checkout closure awaiting verification"
+    if attempt.account.provider == "square" and not attempt.submitted_at:
+        return "Unused checkout expired" if attempt.expires_at <= timezone.now() else "Awaiting customer payment"
+    if attempt.state == "open" and attempt.expires_at > timezone.now():
+        return "Awaiting customer payment"
+    return "Payment status needs verification"
 
 
 def participant_table(participants, catalog=()):
@@ -92,7 +103,8 @@ def detail_context(request, context, item, tab="details"):
     slug = context["business"].slug
     source = item.workshop_request or item.party_request or item.camp_registration
     context.update(item=item, reservation_tab=tab,
-        contact_email=getattr(source, "purchaser_email", getattr(source, "organizer_email", "")))
+        contact_email=getattr(source, "purchaser_email", getattr(source, "organizer_email", "")),
+        contact_phone=getattr(source, "purchaser_phone", getattr(source, "organizer_phone", "")))
     offering = source.session.offering if item.workshop_request_id else source.camp.offering if item.camp_registration_id else source.offering
     context.update(participant_context(item))
     if item.workshop_request_id:

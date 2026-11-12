@@ -229,6 +229,10 @@ def calendar(request, school_slug, public_id):
     item = service.customer_booking(profile, public_id, requests.browser_key(request))
     if item.reservation.state not in ("confirmed", "completed"):
         raise Http404
+    if request.GET.get("provider"):
+        response = redirect(service.calendar_url(item, request.GET["provider"]))
+        response["Referrer-Policy"] = "no-referrer"
+        return response
     response = HttpResponse(service.calendar(item), content_type="text/calendar; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="workshop.ics"'
     return response

@@ -15,6 +15,6 @@
 <button name="action" value="checkout" class="button">{% if editing_booking %}Save and continue{% elif stripe_checkout %}Continue to payment{% else %}Simulate booking{% endif %} <i data-lucide="arrow-right" aria-hidden="true"></i></button>
 </div></form>
 </section><aside class="summary"><h2>Your workshop</h2><h3>{{ session.offering.name }}</h3><p>{{ session.offering.location.name }}<br>{{ session.starts_at|date:'D, M j, Y' }} at {{ session.starts_at|date:'g:i A' }}</p>
-<p>{{ rows|length }} participant{{ rows|pluralize }} &times; ${{ unit_price }}</p><p class="total">Subtotal <strong>${{ subtotal|floatformat:2 }}</strong></p><p class="total">Tax <strong>${{ tax|floatformat:2 }}</strong></p><p class="total">Total <strong>${{ total|floatformat:2 }}</strong></p>
+<p>{{ rows|length }} participant{{ rows|pluralize }} &times; ${{ unit_price|floatformat:2 }}</p><p class="total">Subtotal <strong>${{ subtotal|floatformat:2 }}</strong></p><p class="total">Tax <strong>${{ tax|floatformat:2 }}</strong></p><p class="total">Total <strong>${{ total|floatformat:2 }}</strong></p>
 {% if due_later %}<p>{% if stripe_checkout %}Pay in full or pay a ${{ due_now|floatformat:2 }} deposit, with ${{ due_later|floatformat:2 }} due on {{ session.starts_at|date:'M j, Y' }}.{% else %}Pay ${{ due_now|floatformat:2 }} today. ${{ due_later|floatformat:2 }} is due on {{ session.starts_at|date:'M j, Y' }}.{% endif %}</p>{% endif %}
 </aside></div>{% endblock %}

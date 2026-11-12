@@ -2,6 +2,7 @@ from collections import Counter
 from datetime import timedelta, timezone as utc_timezone
 from decimal import Decimal
 from zoneinfo import ZoneInfo
+from urllib.parse import urlencode
 import uuid
 
 from django import forms
@@ -324,6 +325,22 @@ def roster(profile, config, session_pk=None, *, location=None):
         "missing_count": missing, "prepared_count": sum(bool(item.reservation.prepared_at) and not item.materials_used for item in items)}
 
 
+def calendar_url(item, provider):
+    start = item.reservation.starts_at.astimezone(utc_timezone.utc)
+    end = item.reservation.ends_at.astimezone(utc_timezone.utc)
+    title, location = item.session_snapshot["workshop"], item.session_snapshot["location"]
+    # Never include private booking links, contact details or internal notes.
+    if provider == "google":
+        return "https://calendar.google.com/calendar/render?" + urlencode({"action": "TEMPLATE",
+            "text": title, "location": location,
+            "dates": f"{start:%Y%m%dT%H%M%SZ}/{end:%Y%m%dT%H%M%SZ}"})
+    if provider == "outlook":
+        return "https://outlook.live.com/calendar/0/deeplink/compose?" + urlencode({
+            "path": "/calendar/action/compose", "rru": "addevent", "subject": title,
+            "location": location, "startdt": start.isoformat(), "enddt": end.isoformat()})
+    raise Http404
+
+
 def calendar(item):
     def escape(value):
         return str(value).replace("\\", "\\\\").replace("\r", "").replace("\n", "\\n").replace(";", "\\;").replace(",", "\\,")
@@ -334,7 +351,7 @@ def calendar(item):
     demo = item.session.offering.location.profile.school.is_demo
     lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Pontora//Workshop booking//EN", "BEGIN:VEVENT",
         f"UID:{item.public_id}@{'demo.pontora' if demo else 'pontora'}", f"DTSTAMP:{stamp(item.created_at)}",
-        f"DTSTART:{stamp(item.requested_start)}", f"DTEND:{stamp(item.requested_end)}",
+        f"DTSTART:{stamp(item.reservation.starts_at)}", f"DTEND:{stamp(item.reservation.ends_at)}",
         f"SUMMARY:{escape(item.session_snapshot['workshop'])}", f"LOCATION:{escape(item.session_snapshot['location'])}",
         "DESCRIPTION:" + ("Local demonstration booking. Not a real reservation." if demo else "Workshop reservation."),
         "END:VEVENT", "END:VCALENDAR"]

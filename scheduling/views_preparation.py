@@ -15,7 +15,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .access import get_staff_reservation, require_location_access, staff_locations
 from .studio_preparation import PreparationRangeForm, summary
 from .views import _context
-from . import preparation
+from . import preparation, reservation_notes
 from .models import SchedulingProfile
 
 
@@ -65,6 +65,7 @@ def studio_preparation(request, school_slug):
     nav_query = request.GET.copy()
     nav_query.pop("edit", None)
     nav_query.pop("staff", None)
+    nav_query.pop("note", None)
     nav_query.pop("print", None)
     def link(**changes):
         values = nav_query.copy()
@@ -91,6 +92,16 @@ def studio_preparation(request, school_slug):
             entry["revision"] = preparation.form_for(item, profile)["edit_revision"].value() if entry["writable"] else ""
             entry["action_url"] = reverse("scheduling:studio_preparation_update", kwargs={"school_slug": school_slug, "public_id": item.public_id})
             entry["staff_edit_url"] = link(staff=str(item.public_id)) + f'#booking-{item.pk}'
+            entry["notes_writable"] = context.get("can_edit_sessions")
+            entry["note_add_url"] = link(note=f"{item.public_id}:new") + f'#booking-{item.pk}'
+            for note in entry["staff_notes"]:
+                note["edit_url"] = link(note=f'{item.public_id}:{note["key"]}') + f'#booking-{item.pk}'
+            note_key = request.GET.get("note", "").removeprefix(f"{item.public_id}:")
+            if entry["notes_writable"] and request.GET.get("note", "").startswith(f"{item.public_id}:"):
+                selected_note = next((note for note in entry["staff_notes"] if note["key"] == note_key), None)
+                if selected_note or note_key == "new":
+                    entry["note_form"] = reservation_notes.form_for(item, profile, note=selected_note)
+                    entry["editing_note"] = bool(selected_note)
             if entry["writable"] and request.GET.get("staff") == str(item.public_id):
                 entry["staff_form"] = preparation.staff_form_for(item, profile)
             party_rows = []
@@ -138,6 +149,13 @@ def studio_preparation_update(request, school_slug, public_id):
     profile, _ = require_location_access(request.user, school_slug, "sessions.edit", capability="reservations")
     item = get_staff_reservation(profile, public_id, exclude_visits=True)
     try:
+        if request.POST.get("action") == "note":
+            form = reservation_notes.update(request.user, school_slug, public_id, request.POST)
+            if form.errors:
+                raise ValidationError([str(message) for errors in form.errors.values() for message in errors])
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return JsonResponse({"saved": True})
+            return redirect("scheduling:studio_preparation", school_slug=school_slug)
         revision = preparation.form_for(item, profile, {**request.POST.dict(), "action": "prepare"})
         if not revision.is_valid():
             raise ValidationError("This booking changed in another window. Reload before saving.")

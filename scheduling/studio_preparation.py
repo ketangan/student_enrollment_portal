@@ -11,6 +11,7 @@ from .models import ChoiceGroup, Reservation, StockAllocation
 from .reservation_queries import reservation_location
 from .reservation_workspace import participant_context, participant_table, preparation_materials, selection_summary
 from .participant_preparation import rows_for, remaining_materials
+from .reservation_notes import editable_notes
 
 
 class PreparationRangeForm(forms.Form):
@@ -61,12 +62,8 @@ def summary(profile, locations, start, days, *, for_print=False, offering_ids=No
         allocations = preparation_materials(item)
         used = any(row.consumed_at for row in allocations)
         participants = participant_context(item)
-        notes = [item.internal_notes] if item.internal_notes else []
-        if item.party_request_id and source.preparation_notes:
-            notes.append(source.preparation_notes)
-        notes.extend(note.body for note in item.notes.all())
-        if item.party_request_id:
-            notes.extend(note.body for note in source.staff_notes.all())
+        staff_notes = editable_notes(item)
+        phone = getattr(source, "organizer_phone" if item.party_request_id else "purchaser_phone", "")
         prep_rows = rows_for(item)
         table = participants["participant_table"]
         choices = "; ".join(f'{group["label"]}: {group["value"]}'
@@ -91,7 +88,8 @@ def summary(profile, locations, start, days, *, for_print=False, offering_ids=No
                 studio["entries"].append({"item": item, **participants,
                     "starts_at": occurrence.starts_at, "ends_at": occurrence.ends_at,
                     "is_past": occurrence.ends_at < now,
-                    "materials_used": used, "notes": notes,
+                    "materials_used": used, "notes": [note["body"] for note in staff_notes],
+                    "staff_notes": staff_notes, "phone": phone,
                     "customer_notes": getattr(source, "customer_notes", ""),
                     "staff_names": item.staff_names,
                     "prep_rows": prep_rows, "prepared_count": sum(row["prepared"] for row in prep_rows),

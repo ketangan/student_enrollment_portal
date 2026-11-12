@@ -23,7 +23,7 @@ function page({error, refreshError, missing, hidden, noButton, noRow, network} =
   class FormData { constructor(form) {this.form = form;} }
   const window = {scrollBy(x, y) {this.offset = y;}, lucide: {createIcons() {}}};
   vm.runInNewContext(source, {document, window, URL, FormData, DOMParser,
-    location: {href: 'http://localhost/prep/?date=2026-10-26&edit=1:2&staff=booking'},
+    location: {href: 'http://localhost/prep/?date=2026-10-26&edit=1:2&staff=booking&note=booking:new'},
     history: {replaceState(a, b, url) {urls.push(url);}},
     fetch: async (url, options) => {
       calls.push({url, options});
@@ -63,6 +63,7 @@ test('prep saves use the HTML action URL, ignore duplicate clicks and preserve p
   assert.equal(p.calls[0].options.body.form, p.form);
   assert.equal(p.urls.at(-1).searchParams.has('edit'), false);
   assert.equal(p.urls.at(-1).searchParams.has('staff'), false);
+  assert.equal(p.urls.at(-1).searchParams.has('note'), false);
   assert.equal(p.window.offset, 0);
   assert.equal(p.button.focused, true);
   assert.equal(p.button.disabled, false);

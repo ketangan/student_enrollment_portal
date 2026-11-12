@@ -274,7 +274,8 @@ def test_staff_recovery_and_refund_ui_no_provider_calls_on_get(inventory, mercha
     monkeypatch.setattr(gateway, "retrieve_order_checkout", fetch)
     detail = path(booking_member, "reservation_detail", public_id=item.public_id)
     page = client.get(detail)
-    assert b"is being verified" in page.content
+    assert b"Payment status needs verification" in page.content
+    assert b'class="payment-spinner"' not in page.content
     for label in (b"Check payment status", b"Stop this checkout", b"Close checkout"):
         assert label not in page.content
     removed_url = f"{detail}payments/{attempt.public_id}/check/"

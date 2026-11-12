@@ -39,7 +39,8 @@ def capture(item):
         subject=subject, body=body)
     message.reservation, message.notice_kind, message.notice_signature = item, "confirmation", stamp
     from .party_notifications import live_enabled
-    if live_enabled(item.profile) and item.order.environment == "live":
+    from .reservation_email import demo_confirmation_allowed
+    if (live_enabled(item.profile) and item.order.environment == "live") or demo_confirmation_allowed(item):
         message.state = "queued"
     message.save()
     return message
@@ -48,7 +49,8 @@ def capture(item):
 def contents(item, *, include_guest_link=True):
     source, school = item.workshop_request, item.profile.school
     when = timezone.localtime(item.starts_at, ZoneInfo(source.session.offering.location.timezone_name))
-    subject = f"{school.display_name or school.slug}: Your workshop is confirmed"[:200]
+    prefix = "[Demo] " if school.is_demo else ""
+    subject = f"{prefix}{school.display_name or school.slug}: Your workshop is confirmed"[:200]
     body = [f"Hi {source.purchaser_name},", "", "Your workshop is confirmed.",
         source.session.offering.name, source.session.offering.location.name,
         f"{when:%B %d, %Y at %I:%M %p %Z}", f"{item.quantity} participant{'s' if item.quantity != 1 else ''}", ""]
@@ -58,4 +60,6 @@ def contents(item, *, include_guest_link=True):
             "school_slug": school.slug, "token": workshop_followup.token_for(item)}),
             "You can choose before your visit or at the studio, subject to availability.", ""])
     body.append("Thank you!")
+    if school.is_demo:
+        body.extend(["", "This is a test booking, not a real reservation."])
     return subject, "\n".join(body)

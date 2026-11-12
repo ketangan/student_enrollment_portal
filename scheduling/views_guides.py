@@ -59,11 +59,13 @@ def settings(request, school_slug):
     context = _context(request, profile, role, "guest_communication")
     from .message_models import BookingMessage
     from .party_notifications import live_enabled
+    from .reservation_email import demo_delivery_enabled
     context.update(form=form, notification_form=notification_form, live_delivery=live_enabled(profile),
+                   demo_delivery=profile.school.is_demo and demo_delivery_enabled(profile),
                    recent_messages=BookingMessage.objects.filter(profile=profile, reservation__isnull=False)[:20],
                    current_guide=current, guide_versions=profile.design_guides.select_related("uploaded_by")[:20],
                    uploads_enabled=uploads_enabled())
-    return render(request, "scheduling/guest_communication.html", context, status=400 if form.errors else 200)
+    return render(request, "scheduling/guest_communication.html", context, status=400 if form.errors or notification_form.errors else 200)
 
 
 @never_cache

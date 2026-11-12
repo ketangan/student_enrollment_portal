@@ -57,6 +57,7 @@ def staff_reservations(profile):
     return scope_reservations(Reservation.objects.filter(profile=profile, visit_booking__isnull=True), profile).select_related("order").annotate(
         location_name=Coalesce("workshop_request__session__offering__location__name", "party_request__offering__location__name",
             "camp_registration__camp__offering__location__name", Value(""), output_field=CharField()),
+        contact_phone=Coalesce("workshop_request__purchaser_phone", "party_request__organizer_phone", Value(""), output_field=CharField()),
         net_received=Coalesce(Subquery(net), 0),
         effective_total=F("order__total_cents") + Coalesce(Subquery(extras), 0) + Coalesce(Subquery(adjustments), 0) - Coalesce(Subquery(reductions), 0),
         payment_pending=Exists(PaymentAttempt.objects.filter(order_id=OuterRef("order_id"), state__in=PaymentAttempt.ACTIVE)),

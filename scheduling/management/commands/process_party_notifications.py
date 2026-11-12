@@ -43,12 +43,11 @@ class Command(BaseCommand):
             if options["all_schools"] and not (live_enabled(profile) or demo_delivery_enabled(profile)):
                 continue
             try:
-                if profile.school.is_demo and demo_delivery_enabled(profile):
-                    count += process(profile.pk, options["limit"])
-                    continue
                 reservations = profile.reservations.filter(Q(party_request__isnull=False) | Q(workshop_request__isnull=False),
                     state="confirmed", starts_at__gt=timezone.now())
-                if options["all_schools"]:
+                if profile.school.is_demo:
+                    reservations = reservations.filter(order__environment="test", created_at__gte=profile.demo_notifications_since)
+                elif options["all_schools"]:
                     reservations = reservations.filter(order__environment="live")
                 for pk in reservations.values_list("pk", flat=True).iterator(chunk_size=200):
                     capture_for_reservation(pk)

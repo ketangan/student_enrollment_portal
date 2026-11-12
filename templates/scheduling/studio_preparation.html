@@ -1,6 +1,6 @@
 {% extends 'scheduling/base.html' %}{% load static tz %}
 {% block title %}Studio Prep{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'scheduling/studio-preparation.css' %}?v=20261102-week-print">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'scheduling/studio-preparation.css' %}?v=20261111-compact-contact">{% endblock %}
 {% block page_heading %}{% endblock %}
 {% block content %}
 <section class="studio-prep{% if hide_prepared %} hide-prepared{% endif %}" data-clean-url="{{ clean_url }}">
@@ -46,4 +46,4 @@
   <a class="prep-completed-link" href="{{ completed_url }}">{% if show_completed %}Hide{% else %}Show{% endif %} completed bookings</a>
 </section>
 {% endblock %}
-{% block scripts %}<script defer src="{% static 'scheduling/studio-preparation.js' %}?v=20261102-week-print"></script>{% endblock %}
+{% block scripts %}<script defer src="{% static 'scheduling/studio-preparation.js' %}?v=20261111-inline-notes"></script>{% endblock %}

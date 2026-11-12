@@ -1,9 +1,9 @@
 <article class="prep-booking{% if entry.item.prepared_at %} booking-prepared{% endif %}" id="booking-{{ entry.item.pk }}">
   <header class="prep-booking-heading">
-    <div class="prep-booking-title"><a href="{% url 'scheduling:reservation_preparation' school_slug=business.slug public_id=entry.item.public_id %}?prep={{ preparation_return_path|urlencode }}">{{ entry.item.snapshot.name }}</a>
+    <div class="prep-booking-contact"><div class="prep-booking-title"><a href="{% url 'scheduling:reservation_preparation' school_slug=business.slug public_id=entry.item.public_id %}?prep={{ preparation_return_path|urlencode }}">{{ entry.item.snapshot.name }}</a>
       {% if entry.item.party_request_id %}<span class="prep-party"><i data-lucide="party-popper"></i> Party</span>{% endif %}
       <span>{{ entry.item.snapshot.workshop }} &middot; {{ entry.item.quantity }} maker{{ entry.item.quantity|pluralize }}</span>
-    </div>
+    </div>{% if entry.phone %}<span class="prep-phone"><i data-lucide="phone" aria-hidden="true"></i><span class="sr-only">Phone: </span>{{ entry.phone }}</span>{% endif %}</div>
     {% if entry.staff_form %}
     <form method="post" action="{{ entry.action_url }}" class="prep-action prep-staff-editor">{% csrf_token %}
       <input type="hidden" name="edit_revision" value="{{ entry.revision }}"><input type="hidden" name="action" value="staff">
@@ -14,8 +14,6 @@
     {% else %}
     <div class="prep-staff"><span><strong>Staff:</strong> {{ entry.staff_names|default:'Not assigned' }}</span>{% if entry.writable %}<a class="prep-edit" href="{{ entry.staff_edit_url }}" aria-label="Edit staff for {{ entry.item.snapshot.name }}" title="Edit staff"><i data-lucide="pencil"></i></a>{% endif %}</div>
     {% endif %}
-    {% if entry.customer_notes %}<p class="prep-note"><strong>Customer:</strong> {{ entry.customer_notes }}</p>{% endif %}
-    {% for note in entry.notes %}<p class="prep-note"><strong>Internal:</strong> {{ note }}</p>{% endfor %}
     {% if entry.materials_used %}<p class="prep-note">Materials used</p>{% endif %}
   </header>
   {% if not entry.participants %}<p class="prep-missing">Participant details not provided.</p>{% endif %}
@@ -36,4 +34,18 @@
     {% endif %}
   </div>
   {% endfor %}
+  {% if entry.customer_notes or entry.staff_notes or entry.notes_writable %}
+  <section class="prep-booking-notes" aria-label="Notes for {{ entry.item.snapshot.name }}">
+    <div class="prep-notes-heading"><strong>Notes</strong>{% if entry.notes_writable and not entry.note_form %}<a class="prep-edit prep-add-note" href="{{ entry.note_add_url }}" aria-label="Add note" title="Add note"><i data-lucide="plus" aria-hidden="true"></i></a>{% endif %}</div>
+    {% if entry.customer_notes %}<p class="prep-note prep-customer-note"><strong>Customer:</strong> {{ entry.customer_notes }}</p>{% endif %}
+    {% for note in entry.staff_notes %}{% if note.key != entry.note_form.note_key.value %}<div class="prep-note-row"><p class="prep-note">{{ note.body }}</p>{% if entry.notes_writable %}<a class="prep-edit" href="{{ note.edit_url }}" aria-label="Edit internal note" title="Edit internal note"><i data-lucide="pencil"></i></a>{% endif %}</div>{% endif %}{% endfor %}
+    {% if entry.note_form %}
+    <form method="post" action="{{ entry.action_url }}" class="prep-action prep-note-editor">{% csrf_token %}<input type="hidden" name="action" value="note">
+      {% for field in entry.note_form.hidden_fields %}{{ field }}{% endfor %}
+      <label for="{{ entry.note_form.body.id_for_label }}">{% if entry.editing_note %}Edit internal note{% else %}Add internal note{% endif %}</label>{{ entry.note_form.body }}
+      <div class="prep-inline-actions"><button type="submit" class="primary" aria-label="Save note" title="Save note"><i data-lucide="check"></i></button><a class="button quiet" href="{{ clean_url }}#booking-{{ entry.item.pk }}" aria-label="Cancel note editing" title="Cancel note editing"><i data-lucide="x"></i></a></div>
+    </form>
+    {% endif %}
+  </section>
+  {% endif %}
 </article>

@@ -236,3 +236,8 @@ td{overflow-wrap:anywhere}
 @media(max-width:850px){.party-experience .split{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:600px){.party-experience .party-time-picker,.party-review-list{grid-template-columns:minmax(0,1fr)}.party-experience .fields{grid-template-columns:1fr}}
 .choice-timing input[type=radio]{width:18px;height:18px;min-height:18px;flex:0 0 18px;margin:0 10px 0 0;padding:0}#later-count-field{max-width:160px}
+.calendar-choices { margin: 16px 0; max-width: 340px; }
+.calendar-choices summary { list-style: none; cursor: pointer; }
+.calendar-choices summary::-webkit-details-marker { display: none; }
+.calendar-choices nav { display: flex; flex-direction: column; padding: 6px 0; }
+.calendar-choices nav a { display: flex; align-items: center; min-height: 44px; padding: 10px 12px; }

@@ -1,6 +1,7 @@
-<dl class="prep-overview">
+<dl class="prep-overview{% if contact_phone %} prep-overview--contact{% endif %}">
   <div><dt>Room</dt><dd>{{ item.room.name|default:"Not assigned" }}</dd></div>
   <div><dt>Participants</dt><dd>{{ item.quantity }}</dd></div>
+  {% if contact_phone %}<div><dt>Phone</dt><dd>{{ contact_phone }}</dd></div>{% endif %}
   <div><dt>Selections</dt><dd>{% for group in preparation_selections %}<span class="prep-selection-group">{{ group.label }}: {{ group.value }}</span>{% empty %}Selections pending{% endfor %}</dd></div>
 </dl>
 {% if selection_forms %}<a class="prep-edit-selections" href="{{ booking_navigation.section.tabs.0.url }}#participants-title" data-reservation-switch="details">Edit participant selections</a>{% endif %}

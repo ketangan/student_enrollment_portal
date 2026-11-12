@@ -87,6 +87,9 @@ def test_demo_delivery_fails_closed(demo, booking, settings, change):
 
 @pytest.mark.parametrize("live_enabled", [False, True])
 def test_revoked_staff_and_automatic_demo_messages_never_send(demo, booking, settings, monkeypatch, live_enabled):
+    from datetime import timedelta
+    from scheduling.models import Reservation
+    Reservation.objects.filter(pk=booking.pk).update(created_at=demo.profile.demo_notifications_since - timedelta(days=1))
     settings.BOOKINGS_PARTY_EMAIL_ENABLED = live_enabled
     demo.profile.party_notifications_enabled = True
     demo.profile.save()

@@ -8,17 +8,21 @@
 {% endif %}
 {% if payment_message %}<p class="boundary" role="status">{{ payment_message }} <a href="?checkout_return=1">Check payment status</a></p>{% endif %}
 {% if customer_edit_url %}<p><a class="quiet" href="{{ customer_edit_url }}">Edit booking details</a></p>{% endif %}
-<div class="confirmation-layout"><section>{% if demo.photo %}<img class="workshop-photo" src="{{ demo.photo }}" alt="Workshop participants">{% endif %}<div class="details"><h2>{{ item.session_snapshot.workshop }}</h2><p>{{ item.session_snapshot.location }}<br>{{ item.requested_start|date:'D, M j, Y' }} at {{ item.requested_start|date:'g:i A' }}</p><p class="total">{{ people|length }} participant{{ people|pluralize }} <strong>${{ total }}</strong></p><p class="reference">Reference: {{ item.public_id }}</p></div>
-{% if item.reservation.state == 'confirmed' %}<a class="button" href="{% url 'scheduling:experience_calendar' school_slug=business.slug public_id=item.public_id %}"><i data-lucide="calendar-plus" aria-hidden="true"></i> Add to calendar</a>{% endif %}
+<div class="confirmation-layout"><section>{% if demo.photo %}<img class="workshop-photo" src="{{ demo.photo }}" alt="Workshop participants">{% endif %}<div class="details"><h2>{{ item.session_snapshot.workshop }}</h2><p>{{ item.session_snapshot.location }}<br>{{ item.reservation.starts_at|date:'D, M j, Y' }} at {{ item.reservation.starts_at|date:'g:i A' }}</p><p class="total">{{ people|length }} participant{{ people|pluralize }} <strong>${{ total|floatformat:2 }}</strong></p><p class="reference">Reference: {{ item.public_id }}</p></div>
+{% if item.reservation.state == 'confirmed' %}
+{% url 'scheduling:experience_calendar' school_slug=business.slug public_id=item.public_id as calendar_url %}
+<details class="calendar-choices"><summary class="button"><i data-lucide="calendar-plus" aria-hidden="true"></i> Add to calendar <i data-lucide="chevron-down" aria-hidden="true"></i></summary>
+<nav aria-label="Calendar options"><a href="{{ calendar_url }}?provider=google" target="_blank" rel="noopener noreferrer">Google Calendar</a><a href="{{ calendar_url }}?provider=outlook" target="_blank" rel="noopener noreferrer">Outlook</a><a href="{{ calendar_url }}">Apple / other calendar (.ics)</a></nav></details>
+{% endif %}
 {% if item.reservation.state != 'canceled' %}
 <div class="details"><h2>Payment summary</h2><p class="total">Paid <strong>${{ amounts.net|floatformat:2 }}</strong></p>
 {% if item.reservation.state == 'confirmed' or item.reservation.state == 'completed' %}
-{% if amounts.outstanding_cents %}<p class="total">Balance due <strong>${{ amounts.outstanding|floatformat:2 }}</strong></p><p>Due on {{ item.requested_start|date:'M j, Y' }}.</p>
+{% if amounts.outstanding_cents %}<p class="total">Balance due <strong>${{ amounts.outstanding|floatformat:2 }}</strong></p><p>Due on {{ item.reservation.starts_at|date:'M j, Y' }}.</p>
 {% if stripe_checkout %}<form method="post" target="_top">{% csrf_token %}<button class="button" name="action" value="payment_checkout">Pay remaining balance: ${{ amounts.outstanding|floatformat:2 }}</button></form>{% endif %}
 {% else %}<p class="success">Paid in full</p>{% endif %}
 {% elif item.reservation.state == 'held' %}
 {% if stripe_checkout %}<form method="post" target="_top">{% csrf_token %}{% include 'scheduling/payment_choice.html' %}{% if not payment_has_choice and not payment_active_amount %}<p class="total">Pay today <strong>${{ due_now|floatformat:2 }}</strong></p>{% endif %}<button class="button" name="action" value="payment_checkout">Continue to {{ payment_provider_name }} Checkout <i data-lucide="arrow-up-right" aria-hidden="true"></i></button></form>
-{% else %}<p class="total">Pay today <strong>${{ due_now|floatformat:2 }}</strong></p>{% if due_later %}<p>Due on {{ item.requested_start|date:'M j, Y' }}: <strong>${{ due_later|floatformat:2 }}</strong></p>{% endif %}{% endif %}{% endif %}
+{% else %}<p class="total">Pay today <strong>${{ due_now|floatformat:2 }}</strong></p>{% if due_later %}<p>Due on {{ item.reservation.starts_at|date:'M j, Y' }}: <strong>${{ due_later|floatformat:2 }}</strong></p>{% endif %}{% endif %}{% endif %}
 </div>{% endif %}
 </section><section><h2>{{ demo.participant_heading|default:"Your plushie crew" }}</h2>
 {% if followup_token %}<p><a href="{% url 'scheduling:workshop_selections' school_slug=business.slug token=followup_token %}">Choose your designs</a></p>{% endif %}

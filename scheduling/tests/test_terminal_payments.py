@@ -350,11 +350,13 @@ def test_only_unresolved_payment_controls_remain(paid_booking, booking_member, c
     client.force_login(booking_member.user)
     address = url(booking_member, paid_booking)
     attempt = PaymentAttempt.objects.create(order=paid_booking.order, account=paid_booking.order.account,
-        amount_cents=4000, state="unknown", expires_at=timezone.now(),
+        amount_cents=4000, state="unknown", expires_at=timezone.now(), submitted_at=timezone.now(),
         success_url="https://example.invalid/", cancel_url="https://example.invalid/")
     page = client.get(address)
     assert list(page.context["attempts"]) == [attempt]
-    assert b'is being verified' in page.content
+    assert b'Payment status needs verification' in page.content
+    assert b'class="payment-spinner"' not in page.content
+    assert page.context["checkout_pending"]
     assert b'Check payment status' not in page.content and b'Close checkout' not in page.content
     assert b'Payment &amp; refund status' not in page.content
     attempt.state = "expired"

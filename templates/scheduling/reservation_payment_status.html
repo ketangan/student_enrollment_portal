@@ -1,13 +1,12 @@
 {% for attempt in attempts %}
 <div class="booking-refund-status payment-processing">
   {% if attempt.attention %}<p class="notice error" role="alert">{{ attempt.attention }}</p>{% endif %}
-  {% if attempt.close_requested and attempt.collection_method != 'terminal' %}<p>Checkout closure requested. Waiting for verification.</p>{% endif %}
   {% if attempt.collection_method == 'terminal' %}
   <form method="post" action="{% url 'scheduling:terminal_collect' school_slug=business.slug public_id=item.public_id %}" data-terminal-poll data-poll-started="{{ attempt.created_at|date:'U' }}" data-state="{{ attempt.state }}" data-status="{{ attempt.terminal_status }}" data-attention="{{ attempt.attention }}" data-paused="{% if attempt.recovery_failures >= 6 %}true{% else %}false{% endif %}">
     {% csrf_token %}<input type="hidden" name="attempt" value="{{ attempt.public_id }}">
     <div class="refund-status-actions"><p class="muted" role="status"><i data-lucide="loader-circle" class="payment-spinner" aria-hidden="true"></i>{% if attempt.close_requested %}Canceling payment{% else %}Payment pending{% endif %} &middot; ${{ attempt.amount|floatformat:2 }}</p><div class="actions"><button name="action" value="check"><i data-lucide="refresh-cw" aria-hidden="true"></i>Refresh status</button>{% if not attempt.close_requested %}{% if attempt.state == 'unknown' and not attempt.terminal_checkout_id %}<button name="action" value="retry">Retry same payment</button>{% endif %}<button name="action" value="cancel">Cancel payment</button>{% endif %}</div></div>
     <p data-payment-progress role="status" hidden></p><p data-terminal-message class="notice error" role="alert" hidden></p>
   </form>
-  {% else %}<p class="muted" role="status"><i data-lucide="loader-circle" class="payment-spinner" aria-hidden="true"></i>Online payment of ${{ attempt.amount|floatformat:2 }} is being verified.</p>{% endif %}
+  {% else %}<p class="muted" role="status">{{ attempt.online_status }} &middot; ${{ attempt.amount|floatformat:2 }}</p>{% endif %}
 </div>
 {% endfor %}

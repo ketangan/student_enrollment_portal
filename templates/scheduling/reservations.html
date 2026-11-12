@@ -31,7 +31,7 @@
     <tbody>
     {% for item in items %}
       <tr>
-        <td><div class="dash-student-cell"><a class="dash-student-name" href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.public_id %}">{{ item.snapshot.name }}</a></div><span class="reservation-kind{% if item.party_request_id %} reservation-kind--party{% endif %}">{% if item.party_request_id %}<i data-lucide="party-popper" aria-hidden="true"></i>Party{% else %}<i data-lucide="ticket" aria-hidden="true"></i>Workshop{% endif %}</span></td>
+        <td><div class="dash-student-cell"><a class="dash-student-name" href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.public_id %}">{{ item.snapshot.name }}</a></div>{% if item.contact_phone %}<span class="reservation-cell-secondary">{{ item.contact_phone }}</span>{% endif %}<span class="reservation-kind{% if item.party_request_id %} reservation-kind--party{% endif %}">{% if item.party_request_id %}<i data-lucide="party-popper" aria-hidden="true"></i>Party{% else %}<i data-lucide="ticket" aria-hidden="true"></i>Workshop{% endif %}</span></td>
         <td><span class="reservation-cell-primary">{{ item.snapshot.workshop }}</span>{% if item.location_name %}<span class="reservation-cell-secondary">{{ item.location_name }}</span>{% endif %}</td>
         <td class="reservation-date-cell">{% timezone item.snapshot.timezone %}<span class="reservation-cell-primary">{{ item.starts_at|date:"M j, Y" }}</span><span class="reservation-cell-secondary">{{ item.starts_at|date:"g:i A" }}</span>{% endtimezone %}</td>
         <td class="number">{{ item.quantity }}</td>

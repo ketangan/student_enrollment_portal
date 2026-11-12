@@ -37,6 +37,7 @@
       const url = new URL(location.href);
       url.searchParams.delete('edit');
       url.searchParams.delete('staff');
+      url.searchParams.delete('note');
       url.hash = '';
       const refresh = await fetch(url);
       if (!refresh.ok) throw new Error('Saved, but the page could not refresh. Please reload.');

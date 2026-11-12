@@ -20,7 +20,7 @@
 <label style="display:flex;align-items:center;gap:10px;margin:16px 0">{{ notification_form.party_notifications_enabled }} {{ notification_form.party_notifications_enabled.label }}</label>
 <label style="display:flex;align-items:center;gap:10px;margin:16px 0">{{ notification_form.workshop_notifications_enabled }} {{ notification_form.workshop_notifications_enabled.label }}</label>
 <p class="muted">Applies to confirmed upcoming parties. Reminders stop once guest selections are submitted.</p>
-{% if not live_delivery %}<p class="muted">External delivery is disabled for this environment or has not been activated by Pontora.</p>{% endif %}
+{% if demo_delivery %}<p class="muted">New demo bookings receive confirmations at the booking email address. Older bookings and automatic reminders are excluded.</p>{% elif not live_delivery %}<p class="muted">External delivery is disabled for this environment or has not been activated by Pontora.</p>{% endif %}
 <button type="submit" class="primary">Save notifications</button></form></section>
 {% if recent_messages %}<section class="location-section"><h2>Recent notifications</h2>
 <div class="table-wrap"><table><thead><tr><th>Message</th><th>Recipient</th><th>Status</th></tr></thead><tbody>

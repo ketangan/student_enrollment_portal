@@ -22,7 +22,7 @@ from .reservation_queries import ATTENTION, BALANCE_DUE, completion_filter_query
 from .reservations import create_reservation, locked_profile
 from .views import _context
 from . import preparation, reservation_notes
-from .reservation_workspace import detail_context, prep_context, inline_selections
+from .reservation_workspace import detail_context, prep_context, inline_selections, online_payment_status
 from .reservation_audit import audit_page, group_refund_history
 
 
@@ -306,8 +306,10 @@ def _reservation_page(request, school_slug, public_id, tab="details"):
         context["payment_url"] = reverse("scheduling:customer_payment", kwargs={"school_slug": school_slug, "token": payment_token(item)})
         if item.party_request_id and item.state in ("held", "confirmed") and context["amounts"]["outstanding_cents"]:
             context["share_payment_url"] = request.build_absolute_uri(context["payment_url"])
-        context["attempts"] = item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).select_related("account").order_by("-created_at")
-        context["checkout_pending"] = item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).exists()
+        context["attempts"] = list(item.order.attempts.filter(state__in=PaymentAttempt.ACTIVE).select_related("account").order_by("-created_at"))
+        for attempt in context["attempts"]:
+            attempt.online_status = online_payment_status(attempt)
+        context["checkout_pending"] = bool(context["attempts"])
         context["overpaid"] = context["amounts"]["net_cents"] > context["amounts"]["total_cents"]
         context["refunds"] = Refund.objects.filter(attempt__order=item.order, state__in=Refund.ACTIVE).order_by("-created_at")
     context.update(terminal_error=error if action not in {"save_selections", "save_guest"} else "",

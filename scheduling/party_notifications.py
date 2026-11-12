@@ -99,7 +99,10 @@ def contents(item, kind, *, include_guest_link=True):
     if item.profile.design_guides.exists():
         lines.extend(["Design guide:", reverse("scheduling:design_guide", kwargs=kwargs), ""])
     lines.append("Thank you!")
-    return f"{school.display_name or school.slug}: {title}"[:200], "\n".join(lines)
+    prefix = "[Demo] " if school.is_demo else ""
+    if school.is_demo:
+        lines.extend(["", "This is a test booking, not a real reservation."])
+    return f"{prefix}{school.display_name or school.slug}: {title}"[:200], "\n".join(lines)
 
 
 @transaction.atomic
@@ -128,7 +131,9 @@ def capture_for_reservation(pk):
         message = messaging.capture(profile, event_key=event_key, group_key=f"party:{item.public_id}:{kind}",
             recipient=item.party_request.organizer_email, subject=subject, body=body)
         message.reservation, message.notice_kind, message.notice_signature = item, kind, stamp
-        if live_enabled(profile) and item.order.environment == "live":
+        from .reservation_email import demo_confirmation_allowed
+        if (live_enabled(profile) and item.order.environment == "live"
+                or kind == "confirmation" and demo_confirmation_allowed(item)):
             message.state = "queued"
         message.save()
         return message
@@ -153,9 +158,10 @@ def process(profile_id, limit=20):
                 count += messaging.finish(message, "suppressed")
                 continue
             profile = SchedulingProfile.objects.select_related("school").get(pk=profile_id)
-            from .reservation_email import external_delivery_allowed, MANUAL_KINDS
+            from .reservation_email import external_delivery_allowed, demo_confirmation_allowed, MANUAL_KINDS
             allowed = (external_delivery_allowed(message.reservation)
-                if message.notice_kind in MANUAL_KINDS else live_enabled(profile))
+                if message.notice_kind in MANUAL_KINDS else
+                live_enabled(profile) or message.notice_kind == "confirmation" and demo_confirmation_allowed(message.reservation))
             if not allowed:
                 count += messaging.finish(message, "suppressed")
                 continue
