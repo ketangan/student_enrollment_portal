@@ -103,6 +103,17 @@ test('uncertain save cannot be blindly retried; login redirects and missing form
   }
 });
 
+test('session impact review stays open and only confirmed save refreshes the calendar', async () => {
+  const p = page(), initial = p.html();
+  p.replies.push(initial.reply); p.open(); await tick();
+  const review = p.html(); review.section['[data-session-review]'] = new Element('div');
+  p.replies.push(review.reply); initial.form.fire('submit'); await tick();
+  assert.equal(p.status.textContent, '');
+  assert.equal(p.dialog.open, true); assert.equal(p.saves, 0);
+  p.replies.push(p.json({saved: true})); review.form.fire('submit'); await tick();
+  assert.equal(p.dialog.open, false); assert.equal(p.saves, 1);
+});
+
 test('chooser prefills selected date, handles empty list and recovers from failed GET', async () => {
   const p = page(); p.open({url: null, choices: [], initialStart: '2026-12-12T14:30'});
   assert.match(p.status.textContent, /No workshops/); p.nodes['calendar-editor-close'].fire('click');

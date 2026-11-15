@@ -99,13 +99,13 @@ def validate_room_capacity(room):
         raise ValidationError({"capacity": "Capacity cannot be lower than the room's active reservations."})
 
 
-def validate_session_edit(session):
+def validate_session_edit(session, *, allow_booked_move=False):
     if session.is_published and session.offering_id and session.starts_at and session.ends_at:
         ensure_studio_available(session.offering.location_id, session.starts_at, session.ends_at)
     claims = active_claims().filter(Q(session=session.pk) | Q(occurrences__session=session.pk)).distinct()
     if session.pk and (claims.exists() or session.camp_occurrences.exists()):
         old = Session.objects.get(pk=session.pk)
-        if (old.starts_at, old.ends_at, old.room_id) != (session.starts_at, session.ends_at, session.room_id):
+        if (not allow_booked_move or session.camps.exists()) and (old.starts_at, old.ends_at, old.room_id) != (session.starts_at, session.ends_at, session.room_id):
             raise ValidationError({"starts_at": "This session has reservations. Its time and room cannot be changed here; create a new session instead."})
         quantity = claims.aggregate(total=Sum("quantity"))["total"] or 0
         if session.capacity is not None and session.capacity < quantity:
@@ -128,6 +128,8 @@ def session_places_taken(session, exclude=None):
 
 def ensure_session_capacity(item, session, starts_at, ends_at, room_id):
     ensure_studio_available(session.offering.location_id, starts_at, ends_at, item.pk)
+    if session.canceled_at:
+        raise ValidationError("This session was canceled. Choose another workshop time.")
     if (not session.is_published and not item.snapshot.get("staff_workshop")) or not session.offering.is_published:
         raise ValidationError("This session is no longer published.")
     if (session.starts_at, session.ends_at, session.room_id) != (starts_at, ends_at, room_id):

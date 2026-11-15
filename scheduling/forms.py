@@ -143,19 +143,24 @@ class WorkshopSessionForm(SessionForm):
 
     def clean(self):
         cleaned = super().clean()
-        start, duration = cleaned.get("starts_at"), cleaned.get("duration_minutes")
-        # A minute-resolution editor must not alter legacy seconds on a capacity-only edit.
-        unchanged_start = start and self._original_start and start == self._original_start.replace(second=0, microsecond=0)
-        if unchanged_start:
-            start = cleaned["starts_at"] = self._original_start
-        self.instance.ends_at = self._original_end if unchanged_start else None
-        if start and duration:
-            if unchanged_start and duration == self._original_duration:
-                self.instance.ends_at = self._original_end
-            else:
-                try:
-                    # Duration is elapsed time, including sessions spanning a DST transition.
-                    self.instance.ends_at = start.astimezone(datetime_timezone.utc) + timedelta(minutes=duration)
-                except OverflowError:
-                    self.add_error("duration_minutes", "Enter a shorter duration.")
-        return cleaned
+        return clean_session_time(self, cleaned)
+
+
+def clean_session_time(self, cleaned):
+    """Shared elapsed-time calculation for setup and reviewed session changes."""
+    start, duration = cleaned.get("starts_at"), cleaned.get("duration_minutes")
+    # A minute-resolution editor must not alter legacy seconds on a capacity-only edit.
+    unchanged_start = start and self._original_start and start == self._original_start.replace(second=0, microsecond=0)
+    if unchanged_start:
+        start = cleaned["starts_at"] = self._original_start
+    self.instance.ends_at = self._original_end if unchanged_start else None
+    if start and duration:
+        if unchanged_start and duration == self._original_duration:
+            self.instance.ends_at = self._original_end
+        else:
+            try:
+                # Duration is elapsed time, including sessions spanning a DST transition.
+                self.instance.ends_at = start.astimezone(datetime_timezone.utc) + timedelta(minutes=duration)
+            except OverflowError:
+                self.add_error("duration_minutes", "Enter a shorter duration.")
+    return cleaned

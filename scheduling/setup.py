@@ -37,7 +37,8 @@ def records(profile, kind):
     if kind == "workshops":
         return Offering.objects.filter(location__in=staff_locations(profile), visit_program__isnull=True).select_related("location")
     if kind == "sessions":
-        return Session.objects.filter(offering__location__in=staff_locations(profile), offering__visit_program__isnull=True).select_related("offering__location", "room")
+        return Session.objects.filter(offering__location__in=staff_locations(profile), offering__visit_program__isnull=True,
+            canceled_at__isnull=True).select_related("offering__location", "room")
     raise Http404("Page not found")
 
 

@@ -44,6 +44,9 @@ def detail(request, school_slug, kind, pk):
         from .models import Session
         from .staff_workshops import booking_available
         session = Session.objects.select_related("offering").get(pk=pk)
+        from .session_changes import available
+        if has_permission(role, "setup.edit") and available(profile, session) and not session.canceled_at and session.starts_at > timezone.now():
+            data["cancel_session_url"] = reverse("scheduling:session_cancel", kwargs={"school_slug": school_slug, "pk": pk})
         if session.starts_at > timezone.now() and booking_available(profile, session.offering) and not session.camps.exists():
             data["booking_url"] = reverse("scheduling:staff_workshop_create", kwargs={
                 "school_slug": school_slug, "offering_pk": session.offering_id}) + f"?session={pk}"

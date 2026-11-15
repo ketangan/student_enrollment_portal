@@ -159,9 +159,10 @@ def process(profile_id, limit=20):
                 continue
             profile = SchedulingProfile.objects.select_related("school").get(pk=profile_id)
             from .reservation_email import external_delivery_allowed, demo_confirmation_allowed, MANUAL_KINDS
+            from .session_notifications import KINDS
             allowed = (external_delivery_allowed(message.reservation)
                 if message.notice_kind in MANUAL_KINDS else
-                live_enabled(profile) or message.notice_kind == "confirmation" and demo_confirmation_allowed(message.reservation))
+                live_enabled(profile) or message.notice_kind in {"confirmation", *KINDS} and demo_confirmation_allowed(message.reservation))
             if not allowed:
                 count += messaging.finish(message, "suppressed")
                 continue

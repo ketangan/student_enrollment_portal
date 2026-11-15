@@ -175,7 +175,7 @@
         const row = document.createElement('div'); row.className = 'group-person';
         const exactPhoto = config.base_images_only ? null : recipe(person)?.image_url;
         const picture = document.createElement('div'); picture.className = 'plushie-image group-photo'; photo(picture, exactPhoto ? {...design, image_url: exactPhoto} : design);
-        if (color && !exactPhoto && !config.base_images_only) {
+        if (color && !exactPhoto && !config.base_images_only && config.tint_fallback !== false) {
           const tint = document.createElement('span'); tint.className = 'tint'; tint.style.setProperty('--color', color.swatch); picture.append(tint);
         }
         picture.setAttribute('aria-hidden', 'true');

@@ -51,6 +51,8 @@ def customer_payment(request, school_slug, token):
                "confirmed": item.state in ("confirmed", "completed"),
                "payment_requirement_met": payment_requirement_met}
     context["payment_requested"] = payment_requested
+    if item.party_request_id and item.state == "confirmed" and item.profile.enabled:
+        context["calendar_url"] = reverse("scheduling:customer_calendar", kwargs={"school_slug": school_slug, "token": token})
     if context["payment_requested"]:
         context["payment_form_url"] += "?action=payment"
     if item.party_request_id and item.party_request.offering.inventory_catalog_id:
@@ -91,6 +93,28 @@ def customer_payment(request, school_slug, token):
         template = "scheduling/experience/review.html"
     response = render(request, template, context, status=400 if error else 200)
     response["Referrer-Policy"] = "same-origin"
+    return response
+
+
+@never_cache
+@require_http_methods(["GET"])
+def customer_calendar(request, school_slug, token):
+    from .customer_calendar import calendar_url, calendar_file
+    item = customer_reservation(school_slug, token)
+    if not item.party_request_id or item.state != "confirmed" or not item.profile.enabled:
+        raise Http404
+    source = item.party_request
+    details = {"start": item.starts_at, "end": item.ends_at,
+        "title": source.offering_snapshot.get("workshop", source.offering.name),
+        "location": source.offering_snapshot.get("location", source.offering.location.name)}
+    if "provider" in request.GET:
+        response = redirect(calendar_url(provider=request.GET["provider"], **details))
+    else:
+        response = HttpResponse(calendar_file(public_id=item.public_id, created_at=source.created_at,
+            demo=item.profile.school.is_demo, **details), content_type="text/calendar; charset=utf-8")
+        response["Content-Disposition"] = 'attachment; filename="reservation.ics"'
+    response["Referrer-Policy"] = "no-referrer"
+    response["X-Robots-Tag"] = "noindex, nofollow"
     return response
 
 

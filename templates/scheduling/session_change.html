@@ -1,0 +1,42 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}{% if canceling %}Cancel{% else %}Edit{% endif %} session{% endblock %}
+{% block page_heading %}{% if not calendar_editor %}
+<a class="back-link" href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=session.offering_id %}"><i data-lucide="arrow-left" aria-hidden="true"></i>{{ session.offering.name }}</a>
+<h1>{% if canceling %}Cancel{% else %}Edit{% endif %} session</h1>
+{% endif %}{% endblock %}
+{% block content %}
+<section data-calendar-editor>
+{% if calendar_editor %}<h2>{% if canceling %}Cancel{% else %}Edit{% endif %} session</h2>{% endif %}
+<p class="muted">{{ session.offering.name }} &middot; {{ session.offering.location.name }}</p>
+{% if not preview %}{% include 'scheduling/session_schedule_links.html' %}{% endif %}
+{% if canceling %}<p>{{ session.starts_at|date:'D, M j, Y, g:i A T' }}</p>{% endif %}
+<form method="post" class="setup-form booking-editor">{% csrf_token %}
+{{ form.non_field_errors }}{% for field in form.hidden_fields %}{{ field }}{{ field.errors }}{% endfor %}
+<div class="booking-fields">
+{% for field in form.visible_fields %}<div class="form-field{% if field.name == 'resolution' %} session-payment-options cancellation-options{% endif %}">{% if field.name == 'email_customers' %}<label class="session-email-choice calendar-check">{{ field }} {{ field.label }}</label>{% else %}{{ field.label_tag }}{{ field }}{% endif %}{{ field.errors }}</div>{% endfor %}
+</div>
+{% if preview %}<div class="session-change-review" data-session-review>
+<h3>{{ preview.count }} booking{{ preview.count|pluralize }} affected</h3>
+{% if canceling %}
+<p>Cancel this session and all bookings listed below.{% if preview.refund %} Request refunds for payments collected through Pontora.{% elif preview.show_payments %} No refunds will be issued.{% endif %}</p>
+{% else %}
+{% if preview.before.starts_at != preview.after.starts_at %}
+<p>{{ preview.before.starts_at|date:'M j, Y, g:i A' }} &rarr; <strong>{{ preview.after.starts_at|date:'M j, Y, g:i A T' }}</strong></p>
+{% elif preview.before.ends_at != preview.after.ends_at %}
+<p>Ends {{ preview.before.ends_at|date:'M j, Y, g:i A' }} &rarr; <strong>{{ preview.after.ends_at|date:'M j, Y, g:i A T' }}</strong></p>
+{% endif %}
+{% if preview.before.room_id != preview.after.room_id %}
+<p>{{ preview.before.room.name|default:'Unassigned' }} &rarr; <strong>{{ preview.after.room.name|default:'Unassigned' }}</strong></p>
+{% endif %}
+{% endif %}
+{% if preview.rows %}<div class="session-impact-table"><table><thead><tr><th>Customer</th><th>Phone</th><th>Participants</th>{% if preview.show_payments %}<th>Payment received</th>{% endif %}</tr></thead><tbody>
+{% for row in preview.rows %}<tr><td><strong>{{ row.name }}</strong></td><td data-label="Phone">{% if row.phone %}{{ row.phone }}{% else %}&mdash;{% endif %}</td><td data-label="Participants">{{ row.quantity }}</td>{% if preview.show_payments %}<td data-label="Payment received">{{ row.currency }} {{ row.paid|floatformat:2 }}</td>{% endif %}</tr>{% endfor %}
+</tbody></table></div>
+{% if preview.email_unavailable %}<p class="muted" role="status">Email updates unavailable for {{ preview.email_unavailable }} booking{{ preview.email_unavailable|pluralize }}.</p>{% endif %}
+{% endif %}
+</div>{% endif %}
+<div class="actions">{% if calendar_editor %}<button type="button" data-calendar-close>{% if canceling %}Keep session{% else %}Cancel{% endif %}</button>{% else %}<a class="button" href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=session.offering_id %}">{% if canceling %}Keep session{% else %}Cancel{% endif %}</a>{% endif %}
+<button type="submit" class="{% if canceling and preview %}booking-danger booking-danger-solid{% else %}primary{% endif %}">{% if preview %}{% if canceling %}Confirm cancellation{% else %}Confirm changes{% endif %}{% else %}{% if canceling %}Review cancellation{% else %}Save session{% endif %}{% endif %}</button></div>
+</form>
+</section>
+{% endblock %}

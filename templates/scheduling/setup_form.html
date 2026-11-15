@@ -17,6 +17,7 @@
 {% if party_setup %}<a class="back-link" href="{% url 'scheduling:party_setup' school_slug=business.slug %}">Back to parties</a>{% endif %}
 {% if kind != 'workshops' %}<h2>{% if editing %}Edit{% else %}Add{% endif %} {{ entity_label }}</h2>{% endif %}
 {% if session_location %}<p class="muted">{{ form.instance.offering.name }} &middot; {{ session_location.name }} &middot; {{ session_location.timezone_name }}</p>{% endif %}
+{% if session_batch_available %}{% include 'scheduling/session_schedule_links.html' with session=form.instance %}{% endif %}
 <form method="post" class="setup-form{% if kind == 'locations' %} location-settings-form{% endif %}{% if kind == 'workshops' or party_setup %} workshop-settings-form{% endif %}" novalidate>
   {% csrf_token %}
   {% if form.errors and not form.edit_revision.errors %}<div class="notice error" role="alert">Please correct the fields below.{{ form.non_field_errors }}</div>{% endif %}

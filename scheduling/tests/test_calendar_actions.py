@@ -54,6 +54,7 @@ def session_data(s, response, **changes):
     form = response.context["form"]
     return {"starts_at": s.session.starts_at.astimezone(ZoneInfo(s.location.timezone_name)).strftime("%Y-%m-%dT%H:%M"),
         "duration_minutes": 60, "room": s.room.pk, "capacity": 50,
+        "change_token": form["change_token"].value() if "change_token" in form.fields else "",
         "edit_revision": form["edit_revision"].value() if "edit_revision" in form.fields else "", **changes}
 
 
@@ -91,7 +92,10 @@ def test_booked_session_time_and_capacity_stay_protected(stock):
     path = url(s, "session_edit", pk=s.session.pk)
     response = s.client.get(path, **HEADER)
     data = session_data(s, response, starts_at=(s.session.starts_at + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M"))
-    assert s.client.post(path, data, **HEADER).status_code == 400
+    review = s.client.post(path, data, **HEADER)
+    assert review.status_code == 200 and review.context["preview"]
+    item.refresh_from_db()
+    assert item.starts_at == s.session.starts_at
     data = session_data(s, response, capacity=1)
     assert s.client.post(path, data, **HEADER).status_code == 400
     updated = s.client.post(path, session_data(s, response), **HEADER)

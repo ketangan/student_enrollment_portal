@@ -282,6 +282,12 @@ def workshop_detail(request, school_slug, pk):
 @require_http_methods(["GET", "POST"])
 def setup_edit(request, school_slug, kind, pk=None, offering_pk=None):
     profile, role = require_location_access(request.user, school_slug, edit_permission(kind))
+    if kind == "sessions" and pk:
+        from . import session_changes
+        session = get_object_or_404(records(profile, kind), pk=pk)
+        if session_changes.available(profile, session) and session.reservations.exists():
+            from .views_session_changes import change
+            return change(request, school_slug, pk)
     from .calendar import editor_request
     calendar_editor = editor_request(request, profile)
     if calendar_editor and kind != "sessions":
@@ -332,6 +338,8 @@ def setup_edit(request, school_slug, kind, pk=None, offering_pk=None):
             status=400 if request.method == "POST" else 200)
     zone = form.instance.offering.location.timezone_name if kind == "sessions" else timezone.get_default_timezone_name()
     context["session_location"] = form.instance.offering.location if kind == "sessions" else None
+    if kind == "sessions" and pk:
+        context["session_batch_available"] = session_changes.available(profile, form.instance)
     with timezone.override(ZoneInfo(zone)):
         return render(request, "scheduling/setup_form.html", context, status=400 if calendar_editor and form.errors else 200)
 

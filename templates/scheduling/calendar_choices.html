@@ -1,0 +1,2 @@
+{% if calendar_url %}<details class="calendar-choices"><summary class="button"><i data-lucide="calendar-plus" aria-hidden="true"></i> Add to calendar <i data-lucide="chevron-down" aria-hidden="true"></i></summary>
+<nav aria-label="Calendar options"><a href="{{ calendar_url }}?provider=google" target="_blank" rel="noopener noreferrer">Google Calendar</a><a href="{{ calendar_url }}?provider=outlook" target="_blank" rel="noopener noreferrer">Outlook</a><a href="{{ calendar_url }}">Apple / other calendar (.ics)</a></nav></details>{% endif %}

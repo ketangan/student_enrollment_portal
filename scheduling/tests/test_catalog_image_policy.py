@@ -37,3 +37,26 @@ def test_selection_pages_share_school_image_policy(stock, booking, client, monke
     assert catalog["designs"][0]["image_url"] == stock.cat.image_url
     assert catalog["variants"][0]["image_url"] == stock.item.image_url
     assert catalog["variants"][0]["options"] == stock.item.option_ids
+
+
+@pytest.mark.parametrize("photo", ["", "https://example.invalid/blue-cat.jpg"])
+def test_photo_fallback_is_shared_by_review_and_selection_data(stock, monkeypatch, photo):
+    from scheduling.customer_experience import image_policy
+    from scheduling.experience_demo.service import selection_previews
+    from scheduling.inventory_forms import party_catalog_data
+    from scheduling.tests.test_inventory import selections
+    monkeypatch.setattr(customer_experience, "load_school_config", lambda slug: SimpleNamespace(raw={
+        "scheduling": {"customer_experience": {"base_images_only": False, "tint_fallback": False}}}))
+    stock.cat.image_url = "https://example.invalid/cat.jpg"
+    stock.cat.save()
+    stock.item.image_url = photo
+    stock.item.save()
+    choices = selections(stock)
+    choices[0]["image_url"] = stock.cat.image_url
+    rows = [{"selections": choices}]
+    selection_previews(rows, stock.offering, {"design_group": "Design", "color_group": "Color", "designs": [], "colors": []})
+    assert rows[0]["preview"]["image"] == (photo or stock.cat.image_url)
+    assert not rows[0]["preview"]["tint_fallback"]
+    assert rows[0]["preview"]["exact"] is bool(photo)
+    assert party_catalog_data(stock.offering)["tint_fallback"] is False
+    assert image_policy(stock.school) == {"base_images_only": False, "tint_fallback": False}

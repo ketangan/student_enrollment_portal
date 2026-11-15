@@ -60,7 +60,7 @@ def start(request, school_slug):
 
 
 def choice_context(request, session, config, purchaser, participants, policy, catalog, browser, *, exclude=None):
-    from scheduling.customer_experience import customer_copy
+    from scheduling.customer_experience import image_policy
     from scheduling.guest_lists import deadline_days
     empty_participant = participants.empty_form
     for form in [*participants, empty_participant]:
@@ -85,7 +85,7 @@ def choice_context(request, session, config, purchaser, participants, policy, ca
         "selection_deadline_days": deadline_days(session.offering.location.profile.school),
         "request_token": request.POST.get("request_token") or requests.request_token(session, catalog, browser),
         "catalog_data": {"options": options, "designs": designs, "colors": config["colors"],
-            "base_images_only": customer_copy(session.offering.location.profile.school).get("base_images_only", False),
+            **image_policy(session.offering.location.profile.school),
             "deferred_groups": [g.name for g in catalog if g.tracks_stock],
             "age_required": any(getattr(g, "is_participant_age", False) for g in catalog),
             "inventory": stock, "tracks_stock": bool(session.offering.inventory_catalog_id),

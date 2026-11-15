@@ -130,8 +130,9 @@ def claim(profile_id, *, party_delivery=False):
     if party_delivery:
         candidates = candidates.filter(reservation__isnull=False, reservation__order__environment="live" if live else "test")
         if not live:
+            from .session_notifications import KINDS
             candidates = candidates.filter(Q(notice_kind__in=MANUAL_KINDS, created_by__isnull=False)
-                | Q(notice_kind="confirmation", reservation__created_at__gte=profile.demo_notifications_since))
+                | Q(notice_kind__in={"confirmation", *KINDS}, reservation__created_at__gte=profile.demo_notifications_since))
     message = candidates.annotate(blocked=Exists(blocked)).filter(blocked=False).order_by("pk").first()
     if not message:
         return None

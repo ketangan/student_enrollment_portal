@@ -85,10 +85,12 @@
         });
         form.querySelectorAll("[data-calendar-close]").forEach(button => button.addEventListener("click", close));
       }
-      status.textContent = fragment.querySelector("[data-booking-review]") ? "Review the revised price before confirming."
+      status.textContent = fragment.querySelector("[data-session-review]") ? ""
+        : fragment.querySelector("[data-booking-review]") ? "Review the revised price before confirming."
         : response.ok ? "" : "Please correct the highlighted fields.";
       const focus = fragment.querySelector(".errorlist") || fragment.querySelector("input:not([type=hidden]), select, textarea");
-      if (focus) {focus.tabIndex = focus.tabIndex < 0 ? -1 : focus.tabIndex; focus.focus();}
+      if (focus) {focus.tabIndex = focus.tabIndex < 0 ? -1 : focus.tabIndex; focus.focus({preventScroll:true});}
+      dialog.scrollTop = 0;
       if (window.lucide) window.lucide.createIcons();
     } catch (_) {
       if (current !== sequence || !dialog.open) return;

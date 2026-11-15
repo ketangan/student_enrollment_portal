@@ -175,9 +175,9 @@ test('sidebar and header follow studio and chosen time, including cleared select
   assert.equal(p['summary-session'].textContent, 'Choose your date and time');
 });
 
-function choicesPage({customPhoto = false, variantPhoto = '', bookingMode = false, ageRequired = false, baseImagesOnly = false} = {}) {
+function choicesPage({customPhoto = false, variantPhoto = '', bookingMode = false, ageRequired = false, baseImagesOnly = false, tintFallback = true} = {}) {
   const config = {design_group: 'Design', color_group: 'Color', age_group: 'Age', price: 6500, limit: 8,
-    initial_count: 1, image: '/designs.jpg', tracks_stock: true, deferred_groups: ['Design', 'Color'], age_required: ageRequired, base_images_only: baseImagesOnly,
+    initial_count: 1, image: '/designs.jpg', tracks_stock: true, deferred_groups: ['Design', 'Color'], age_required: ageRequired, base_images_only: baseImagesOnly, tint_fallback: tintFallback,
     options: {Design: [{id: '1', name: 'Bear'}, {id: '2', name: 'Bunny'}],
       Color: [{id: '3', name: 'Blue', swatch: '#abc'}, {id: '4', name: 'Grey', swatch: '#ccc'}]},
     designs: [{name: 'Bear', x: '50%', y: '50%', image_url: customPhoto ? '/bear.jpg' : ''},
@@ -290,6 +290,18 @@ test('base-image policy suppresses tinting and variant photo replacement', () =>
   assert.equal(first.fields.Color.value, '3');
   assert.equal(first.parts['.selection-label'].textContent, 'Blue Bear');
   assert.equal(first.parts['.plushie-image'].children[0].style.backgroundImage, 'url("/bear.jpg")');
+});
+
+test('photo-only fallback keeps the default image when a color has no photo', () => {
+  const p = choicesPage({tintFallback:false, variantPhoto:'/blue-bear.jpg', customPhoto:true});
+  const person = p['participant-list'].children[0];
+  person.fields.Design.value = '1'; person.fields.Color.value = '3'; person.fields.Design.listeners.change();
+  assert.equal(person.parts['.plushie-image'].children[0].style.backgroundImage, 'url("/blue-bear.jpg")');
+  assert.equal(person.parts['.tint'].hidden, true);
+  person.fields.Color.value = '4'; person.fields.Color.listeners.change();
+  assert.equal(person.parts['.plushie-image'].children[0].style.backgroundImage, 'url("/bear.jpg")');
+  assert.equal(person.parts['.tint'].hidden, true);
+  assert.equal(p['group-summary-list'].children[0].children[0].querySelector('.tint'), undefined);
 });
 
 test('live group summary shows names, age and choices without counting incomplete participants', () => {

@@ -20,6 +20,9 @@ def signature(item):
 
 
 def deliverable(message, item):
+    from . import session_notifications
+    if message.notice_kind in session_notifications.KINDS:
+        return session_notifications.deliverable(message, item)
     return (enabled(item.profile) and item.profile_id == message.profile_id
         and item.state == "confirmed" and item.starts_at > timezone.now()
         and message.notice_kind == "confirmation" and message.recipient == item.workshop_request.purchaser_email
@@ -30,6 +33,8 @@ def capture(item):
     if not enabled(item.profile) or item.state != "confirmed" or item.starts_at <= timezone.now():
         return
     stamp = signature(item)
+    if item.snapshot.get("workshop_update_signature") == stamp:
+        return
     key = f"workshop:{item.public_id}:confirmation:{stamp}"
     if BookingMessage.objects.filter(profile=item.profile, event_key=key).exists():
         return

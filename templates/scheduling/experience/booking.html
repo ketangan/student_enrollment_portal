@@ -11,8 +11,7 @@
 <div class="confirmation-layout"><section>{% if demo.photo %}<img class="workshop-photo" src="{{ demo.photo }}" alt="Workshop participants">{% endif %}<div class="details"><h2>{{ item.session_snapshot.workshop }}</h2><p>{{ item.session_snapshot.location }}<br>{{ item.reservation.starts_at|date:'D, M j, Y' }} at {{ item.reservation.starts_at|date:'g:i A' }}</p><p class="total">{{ people|length }} participant{{ people|pluralize }} <strong>${{ total|floatformat:2 }}</strong></p><p class="reference">Reference: {{ item.public_id }}</p></div>
 {% if item.reservation.state == 'confirmed' %}
 {% url 'scheduling:experience_calendar' school_slug=business.slug public_id=item.public_id as calendar_url %}
-<details class="calendar-choices"><summary class="button"><i data-lucide="calendar-plus" aria-hidden="true"></i> Add to calendar <i data-lucide="chevron-down" aria-hidden="true"></i></summary>
-<nav aria-label="Calendar options"><a href="{{ calendar_url }}?provider=google" target="_blank" rel="noopener noreferrer">Google Calendar</a><a href="{{ calendar_url }}?provider=outlook" target="_blank" rel="noopener noreferrer">Outlook</a><a href="{{ calendar_url }}">Apple / other calendar (.ics)</a></nav></details>
+{% include 'scheduling/calendar_choices.html' %}
 {% endif %}
 {% if item.reservation.state != 'canceled' %}
 <div class="details"><h2>Payment summary</h2><p class="total">Paid <strong>${{ amounts.net|floatformat:2 }}</strong></p>

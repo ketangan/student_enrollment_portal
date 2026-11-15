@@ -93,6 +93,13 @@
         edit.append(icon, node("span", "Edit session"));
         edit.addEventListener("click", () => editInCalendar(data.edit_url, "Edit session"));
         actions.append(edit); detailBody.append(actions);
+        if (data.cancel_session_url) {
+          const cancel = node("button", undefined, "button"); cancel.type = "button";
+          const cancelIcon = node("i"); cancelIcon.setAttribute("data-lucide", "calendar-x"); cancelIcon.setAttribute("aria-hidden", "true");
+          cancel.append(cancelIcon, node("span", "Cancel session"));
+          cancel.addEventListener("click", () => editInCalendar(data.cancel_session_url, "Cancel session"));
+          actions.append(cancel);
+        }
         if (data.booking_url) {
           const book = node("button", "Add booking", "button primary"); book.type = "button";
           book.disabled = data.summary.open <= 0;

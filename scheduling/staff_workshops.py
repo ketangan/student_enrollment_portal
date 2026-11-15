@@ -40,7 +40,7 @@ def configuration(offering):
 
 def token_for(user, profile, offering, *, new=False, session=None):
     sessions = {str(s.pk): session_revision(s) for s in offering.sessions.filter(
-        starts_at__gt=timezone.now(), camps__isnull=True)}
+        starts_at__gt=timezone.now(), camps__isnull=True, canceled_at__isnull=True)}
     return signing.dumps({"user": user.pk, "profile": profile.pk, "offering": offering.pk,
         "configuration": configuration(offering), "sessions": sessions, "key": str(uuid.uuid4()),
         "new": new, "session": session}, salt=SALT, compress=True)
@@ -77,6 +77,17 @@ def check_room(session, *, exclude=None):
         raise ValidationError("This room is already booked at that time. Choose another room or workshop time.")
 
 
+def validate_new_session(session):
+    if session.offering.sessions.filter(starts_at=session.starts_at, canceled_at__isnull=True).exists():
+        raise ValidationError("A workshop session already starts at this time. Open it on the calendar to add a booking.")
+    session.is_published = True
+    session.full_clean()
+    check_room(session)
+    reservations.ensure_studio_available(session.offering.location_id, session.starts_at, session.ends_at)
+    if session.starts_at <= timezone.now():
+        raise ValidationError("Choose a future workshop time.")
+
+
 class StaffWorkshopForm(PurchaserForm):
     session = forms.ModelChoiceField(label="Workshop time", queryset=None,
         empty_label="Choose a workshop time")
@@ -90,7 +101,8 @@ class StaffWorkshopForm(PurchaserForm):
         self.new = new
         self.can_book = booking_available(profile, offering)
         self.fields["purchaser_name"].label = "Customer name"
-        self.fields["session"].queryset = offering.sessions.filter(starts_at__gt=timezone.now(), camps__isnull=True).select_related("room").order_by("starts_at", "pk")
+        self.fields["session"].queryset = offering.sessions.filter(starts_at__gt=timezone.now(), camps__isnull=True,
+            canceled_at__isnull=True).select_related("room").order_by("starts_at", "pk")
         self.fields["session"].label_from_instance = lambda s: session_label(s, offering.location.timezone_name)
         self.has_times = self.fields["session"].queryset.exists()
         self.fixed_session = self.fields["session"].queryset.filter(pk=fixed_session).first() if fixed_session else None
@@ -167,14 +179,7 @@ def create(user, slug, offering_pk, data):
     session = values.get("session")
     if form.new:
         session = form.session_form.instance
-        if offering.sessions.filter(starts_at=session.starts_at).exists():
-            raise ValidationError("A workshop session already starts at this time. Open it on the calendar to add a booking.")
-        session.is_published = True
-        session.full_clean()
-        check_room(session)
-        reservations.ensure_studio_available(offering.location_id, session.starts_at, session.ends_at)
-        if session.starts_at <= timezone.now():
-            raise ValidationError("Choose a future workshop time.")
+        validate_new_session(session)
         session.save()
         if not form.with_customer:
             AdminAuditLog.objects.create(actor=user, action="add", model_label="scheduling.session",

@@ -6,6 +6,7 @@
 <form method="post" class="setup-form booking-editor" data-workshop-booking>{% csrf_token %}
 {{ form.non_field_errors }}{{ form.request_token }}{{ form.request_token.errors }}
 {% if form.new %}
+<p><a data-calendar-load href="{% url 'scheduling:workshop_schedule' school_slug=business.slug offering_pk=offering.pk action='create' %}">Repeat weekly</a></p>
 {{ form.session_form.non_field_errors }}
 <div class="booking-fields">{% for field in form.session_form %}{% if field.is_hidden %}{{ field }}{{ field.errors }}{% else %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}</div>
 {% elif form.fixed_session %}<p>{{ form.fixed_session.starts_at|date:'D, M j, Y' }} at {{ form.fixed_session.starts_at|time:'g:i A' }}</p>{{ form.session }}{{ form.session.errors }}

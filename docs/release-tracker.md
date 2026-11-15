@@ -1,6 +1,117 @@
 # Release Tracker
 
-Last hosted revision/configuration check: November 11, 2026.
+Last hosted revision/configuration check: November 14, 2026.
+
+## November 14 Recurring Schedule Batch (Demo Release)
+
+- Re-read Jasmine's November 11 and 14 emails and the October 28 meeting recap.
+  Requirements audit is saved in visualization artifact `jasmine-requirements-audit-20261114.json`.
+  The agreed behavior is reviewed whole-session/bulk moves with automatic update
+  emails; cancellation communication is staff-controlled, with a personal message.
+- Repeat weekly or every two weeks within a finite 180-day date window. New sessions
+  publish automatically. Existing room, lesson, private-party and capacity checks
+  are reused. No perpetual recurrence worker or competing reservation writer.
+- Change/cancel matching future sessions by workshop/location, day, current start
+  time and date window. Preview lists each session, affected bookings and phones.
+  A moved individual exception at another time is not silently included. Duration,
+  room, agreed prices and payment evidence are preserved by bulk time changes.
+- Reuses the single-session writer, signed reviews, profile/school/order locks and
+  outbox. Conflicts, stale booking/payment evidence, pending activity and retries
+  cannot partially apply a batch. Cancellations offer both refund choices; refunds
+  remain approved requests until the existing provider/recovery path confirms them.
+- Cancellation emails now require staff to choose Email customers. Optional personal
+  message is separate from the internal note. Move notices remain automatic when
+  delivery is configured/eligible; no test-recipient allowlist was introduced.
+- Party confirmations now reuse workshop Google/Outlook/ICS controls and export code.
+  Exports use current reservation times and exclude private links, contacts and notes.
+- Catalog photo policy now independently controls variant photos and tint fallback.
+  Plushie's config allows an exact uploaded color photo, otherwise the default image,
+  without synthetic tinting. Other schools retain their existing defaults. Actual
+  replacement photos remain an input from Jasmine; none were invented or uploaded.
+- Self-review/manual fixes: empty-session editors also expose recurring/bulk links;
+  repeat-from-session starts the following week; contextual cancellation retains the
+  selected session; radio/checkbox labels reuse existing aligned controls; dialog
+  focus no longer scrolls the heading out of view on initial load.
+- Focused verification: 127 backend tests and 53 JS tests passed; all 25 recurring
+  schedule tests then passed after the final date-specific conflict messages/retry
+  guard (these runs overlap). New shared module combined statement/branch coverage
+  before that final guard was 95.06%; full-batch coverage remains pending below.
+- Chrome manual verification: desktop 1470x797, tablet 768x1024 and 1024x768,
+  phone 390x844. Created two local weekly sessions, added a synthetic customer,
+  moved both together, verified calendar stayed open, unchanged $144.30 balance and
+  revised-time outbox content. Cancellation preview/Cancel preserved the bookings.
+  No sideways dialog overflow; phone buttons and checkbox/radio labels are 44px.
+  Party calendar menu checked on landscape tablet and phone (44px links).
+  Physical Android/virtual keyboard, real inbox delivery and live Square remain
+  separate checks; browser emulation is not actual-device evidence.
+- Local review data: Pasadena, Nov 30 and Dec 7 at 11 AM, eight places each.
+  Nov 30 contains "Recurring schedule review", two participants, synthetic phone,
+  example.invalid email. These are local-only and no customer email was sent.
+- Full-batch regression passed November 14 at 10:40 PM Pacific: 6,221 application
+  tests (three skipped), 26 migration tests, 185 JavaScript tests, migration drift,
+  97.95% combined statement/branch coverage and every measured module above 90%.
+  Artifact `bulk-recurring-20261114/status.json` records unchanged fingerprint
+  `389cfe67f7c13ce688882d32875e0f8fcd7c08c48f7c88e7b574abf037134214`.
+  Only release documentation changed after that verified snapshot. User approved
+  the main/demo release; GitHub CI and automatic demo web/maintenance deployment
+  verification follow the push. Production approval/promotion remains separate.
+- Remaining launch inputs/checks: Jasmine's optional replacement photos/templates,
+  Wix placement/theme review and approved upcoming-booking import, launch decisions,
+  real Square connection/small-charge verification. Hosted demo inbox/link checks
+  and new admin-flow acceptance follow deployment; do not claim them completed locally.
+
+## November 14 Whole-Session Changes (Included In Demo Release Above)
+
+- Calendar session Edit now reviews all affected customers before changing time,
+  duration or room. Confirmation updates the session and its reservations together;
+  agreed quotes, payments, participant selections and preparation evidence remain.
+- Cancel session offers refund/no-refund when money was collected, with an optional
+  note. Unpaid sessions do not show irrelevant payment choices. Cancellation hides
+  the session, releases reservations and keeps historical booking/payment records.
+  Refunds use the existing approval/recovery worker, never a new payment service.
+  External payments cannot silently be marked refunded. Approved means requested,
+  not provider-confirmed completion.
+- Signed impact review detects changed customers, counts, payments, capacity and
+  reservations. Existing profile/school/order locks serialize writes. Duplicate
+  confirmation is idempotent; failure on any reservation rolls back the operation.
+  Conflicting rooms, insufficient capacity, pending checkout/refund, consumed
+  materials, completed reservations, in-flight email and stale review are blocked.
+- Schedule/cancellation email uses the existing outbox, environment restrictions and
+  delivery worker. Superseded pending notices are replaced; the confirmation sweep
+  does not send a duplicate after a move. Local simulated-email notices are hidden
+  in the review; hosted bookings without delivery eligibility retain a concise notice.
+- Review cleanup: affected customer name, phone and participant count; no repeated
+  status/email/payment detail for moves. Paid cancellations retain payment amounts.
+  Only changed times/rooms are summarized. Cancellation reuses the established red
+  confirmation button, and unpaid cancellation omits irrelevant refund wording.
+  No email transport or eligibility policy was changed by this UI cleanup.
+- Scoped to native workshop reservations, excluding camps. Existing enrollment,
+  lesson and SBMC defaults remain unchanged. No customer-name branches. Migration
+  0060 adds nullable Session.canceled_at; old sessions remain unchanged.
+- Verification: 193 targeted backend tests passed, followed by 99 final session,
+  calendar and school-workflow tests; these runs overlap. New migration upgrade/
+  rollback test passed; migration drift check passed. All 184 JavaScript tests
+  passed (coverage gates passed). New module statement/branch coverage: 97.38%.
+- Manual Chrome: desktop 1440x900, phone 390x844, tablet 768x1024 and 1024x768.
+  Created two synthetic local bookings, moved them together, checked unchanged
+  amounts, canceled the session, verified it disappeared and retained canceled
+  reservation history. Phone review overflow was found and fixed; final dialog
+  scrollWidth equals clientWidth, and input/button targets are at least 44px.
+  Physical Android, virtual keyboard and printing remain unverified.
+- Follow-up verification: 53 session/calendar backend tests and 29 calendar JS tests
+  passed. Seven new cases cover contact rendering, payment-column relevance,
+  real versus local email notices and duration/room-only changes. Chrome desktop
+  1440x900, phone 390x844, tablets 768x1024 and 1024x768 inspected; populated and
+  missing phone values checked, Cancel/Keep session left bookings unchanged.
+  Phone dialog had no horizontal overflow; action targets were at least 44px high.
+- Prior full run `session-changes-20261114` was intentionally interrupted before
+  these edits: 4,279 tests passed, no test failures, exit 2 from KeyboardInterrupt.
+  It is not a completed regression and is not release evidence for this version.
+- Replacement full regression `session-review-compact-20261114` PASSED: 6,190
+  application tests (3 skipped), 26 migration tests, and JavaScript/coverage gates.
+  Exit 0; source unchanged, fingerprint
+  `19f0269d35fd80b9c1a9dea207fc55aa29e8136c2f0c6ab1064c66c2b03071d9`.
+  This baseline does not verify the newer recurring batch above.
 
 ## November 14 Calendar And Paid Party Release
 
@@ -14,15 +125,30 @@ Last hosted revision/configuration check: November 11, 2026.
 - Tested base revision `133f1ac63e259bfd9d91e195b10ae325b4be31ac`, working-tree
   fingerprint `dd6659cccb713132def0a38af4c8401ad18cb994cd7a92e6381b7a450a4c26c0`.
   This release-status documentation is the only subsequent change before commit.
-- Remote main matches that base. Render demo web and maintenance are both set to
-  After CI Checks Pass. Production web remains manual at `6ebf7fe`; no production
-  deployment is being performed. GitHub and hosted verification pending push.
+- Pushed commit `a87f820941131d35549af5bdb600937c71def9cf` to main. GitHub run
+  `43675825169` PASSED. Render demo web and maintenance automatically deployed that
+  exact revision after CI; web deploy took 1m19s. Production remains manual at
+  `6ebf7fe`; no production deployment was performed.
+- Hosted Chrome checks: booking picker/party intake, calendar customer roster,
+  refund/no-refund cancellation form without submission, empty session creation,
+  staff booking into that session, same-calendar return and correct balance.
+  Tablet 768x1024 and 1024x768, phone 390x844 and desktop were inspected.
+- Found and corrected an existing Pasadena demo configuration mismatch:
+  `allow_deferred_selections` was false, preventing calendar customer intake.
+  Enabled its existing "Allow participants to choose designs at the studio"
+  setting without changing price/tax/payment terms or production. Other location
+  configurations were not changed; review those before activating their intake.
+- Left a synthetic demo session on Nov 22, 10 AM-noon, Pasadena, 12 seats, with
+  one "Release verification Nov 14" booking (one participant, $72.15 due), email
+  ketan@mypontora.com, reservation `758e840f-f368-42b0-bad6-7f245bcb0e54`.
+  No card charge or refund was made. Inbox receipt was not independently verified.
+  Existing upcoming demo slots had expired; this new session provides review data.
 - Next: whole workshop-session move/cancel, affected-customer review and automatic
   notifications. Whole-session cancellation must offer both refund and no-refund
   choices; external payments still require a separate provider refund. Recurring
   schedule changes follow this shared operation, not a competing implementation.
 
-## November 14 Party Review Clarity (Local, Unpushed)
+## November 14 Party Review Clarity (Released To Demo)
 
 - Paid-party review now shows only Total and Balance due by default. The optional
   Price breakdown retains tax, payments, refunds and existing ledger adjustments;
@@ -56,7 +182,7 @@ Last hosted revision/configuration check: November 11, 2026.
   disposable test database before migrations, records revision/fingerprint and
   exit status, and uses bounded idle-sleep protection. See the release entry above.
 
-## November 14 Paid Party Amendments (Local, Unpushed)
+## November 14 Paid Party Amendments (Released To Demo)
 
 - The existing Edit booking form now supports package changes, participant count
   and an optional signed price adjustment. It works both on the reservation and
@@ -105,7 +231,7 @@ Last hosted revision/configuration check: November 11, 2026.
   Next implementation priority remains whole-session move/cancel with affected-
   customer review and notifications, followed by recurring/bulk schedule changes.
 
-## November 14 Staff Intake Simplification (Local, Unpushed)
+## November 14 Staff Intake Simplification (Released To Demo)
 
 - Staff party intake has one numeric participant count, no estimate field and no
   summary sidebar. The unused staff-summary script and its test were removed.
@@ -136,7 +262,7 @@ Last hosted revision/configuration check: November 11, 2026.
 - Current scenario audit and remaining launch work:
   [Staff intake and scenario audit](calendar-checkout-testing.md#staff-intake-simplification-and-current-scenario-audit).
 
-## November 14 Calendar UX Corrections (Local, Unpushed)
+## November 14 Calendar UX Corrections (Released To Demo)
 
 - One Add booking entry opens workshop or party intake in the same calendar dialog.
   Session, reservation and party saves refresh the calendar without navigating away.
@@ -166,7 +292,7 @@ Last hosted revision/configuration check: November 11, 2026.
   fingerprint and bounded sleep prevention accompany it. Do not push until the exact source passes. Demo and
   production remain untouched. Review instructions: [Calendar UX checks](calendar-checkout-testing.md#november-14-calendar-ux-follow-up).
 
-## November 14 Calendar Intake And Individual Edits (Local, Unpushed)
+## November 14 Calendar Intake And Individual Edits (Released To Demo)
 
 - Implemented priorities 1 and 2 below. Fixed the lesson-settings Cancel destination
   rather than weakening the navigation test; 85 focused navigation tests passed.

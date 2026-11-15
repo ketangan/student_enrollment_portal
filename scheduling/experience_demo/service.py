@@ -1,8 +1,7 @@
 from collections import Counter
-from datetime import timedelta, timezone as utc_timezone
+from datetime import timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
-from urllib.parse import urlencode
 import uuid
 
 from django import forms
@@ -240,8 +239,9 @@ def refund_simulated_payment(user, profile, reservation, key):
 
 def selection_previews(rows, offering, config):
     """Resolve images once per page, scoped to this workshop's catalog."""
-    from scheduling.customer_experience import customer_copy
-    base_only = customer_copy(offering.location.profile.school).get("base_images_only", False)
+    from scheduling.customer_experience import image_policy
+    policy = image_policy(offering.location.profile.school)
+    base_only = policy["base_images_only"]
     variants = list(offering.inventory_catalog.items.all()) if offering.inventory_catalog_id and not base_only else []
     for row in rows:
         choices = row["selections"]
@@ -258,6 +258,7 @@ def selection_previews(rows, offering, config):
             next((entry for entry in config["designs"] if entry["name"] == design.get("option")), {}))
         row["preview"] = {
             "image": exact or design.get("image_url") or legacy.get("image_url", ""), "exact": bool(exact), "base_only": base_only,
+            "tint_fallback": policy["tint_fallback"],
             "x": legacy.get("x", ""), "y": legacy.get("y", "0%"),
             "swatch": color.get("swatch") or next((c["hex"] for c in config["colors"]
                 if c["name"] == color.get("option")), "#ffffff"),
@@ -326,43 +327,14 @@ def roster(profile, config, session_pk=None, *, location=None):
 
 
 def calendar_url(item, provider):
-    start = item.reservation.starts_at.astimezone(utc_timezone.utc)
-    end = item.reservation.ends_at.astimezone(utc_timezone.utc)
-    title, location = item.session_snapshot["workshop"], item.session_snapshot["location"]
-    # Never include private booking links, contact details or internal notes.
-    if provider == "google":
-        return "https://calendar.google.com/calendar/render?" + urlencode({"action": "TEMPLATE",
-            "text": title, "location": location,
-            "dates": f"{start:%Y%m%dT%H%M%SZ}/{end:%Y%m%dT%H%M%SZ}"})
-    if provider == "outlook":
-        return "https://outlook.live.com/calendar/0/deeplink/compose?" + urlencode({
-            "path": "/calendar/action/compose", "rru": "addevent", "subject": title,
-            "location": location, "startdt": start.isoformat(), "enddt": end.isoformat()})
-    raise Http404
+    from scheduling.customer_calendar import calendar_url as build
+    return build(provider=provider, start=item.reservation.starts_at, end=item.reservation.ends_at,
+        title=item.session_snapshot["workshop"], location=item.session_snapshot["location"])
 
 
 def calendar(item):
-    def escape(value):
-        return str(value).replace("\\", "\\\\").replace("\r", "").replace("\n", "\\n").replace(";", "\\;").replace(",", "\\,")
-
-    def stamp(value):
-        return value.astimezone(utc_timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-
-    demo = item.session.offering.location.profile.school.is_demo
-    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Pontora//Workshop booking//EN", "BEGIN:VEVENT",
-        f"UID:{item.public_id}@{'demo.pontora' if demo else 'pontora'}", f"DTSTAMP:{stamp(item.created_at)}",
-        f"DTSTART:{stamp(item.reservation.starts_at)}", f"DTEND:{stamp(item.reservation.ends_at)}",
-        f"SUMMARY:{escape(item.session_snapshot['workshop'])}", f"LOCATION:{escape(item.session_snapshot['location'])}",
-        "DESCRIPTION:" + ("Local demonstration booking. Not a real reservation." if demo else "Workshop reservation."),
-        "END:VEVENT", "END:VCALENDAR"]
-    # RFC 5545 folding counts UTF-8 octets and never splits a code point.
-    folded = []
-    for line in lines:
-        part = ""
-        for char in line:
-            if len((part + char).encode()) > 75:
-                folded.append(part)
-                part = " "
-            part += char
-        folded.append(part)
-    return "\r\n".join(folded) + "\r\n"
+    from scheduling.customer_calendar import calendar_file
+    return calendar_file(public_id=item.public_id, created_at=item.created_at,
+        start=item.reservation.starts_at, end=item.reservation.ends_at,
+        title=item.session_snapshot["workshop"], location=item.session_snapshot["location"],
+        demo=item.session.offering.location.profile.school.is_demo)

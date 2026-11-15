@@ -10,6 +10,35 @@ from core.models import School
 
 
 @pytest.mark.django_db(transaction=True)
+def test_session_cancellation_upgrade_preserves_existing_sessions():
+    from datetime import timedelta
+    from django.utils import timezone
+
+    executor = MigrationExecutor(connection)
+    latest = executor.loader.graph.leaf_nodes()
+    old = [("scheduling", "0059_demo_notifications_since")]
+    try:
+        executor.migrate(old)
+        apps = executor.loader.project_state(old).apps
+        school = apps.get_model("core", "School").objects.create(slug="session-upgrade")
+        profile = apps.get_model("scheduling", "SchedulingProfile").objects.create(school=school)
+        location = apps.get_model("scheduling", "Location").objects.create(profile=profile, name="Studio")
+        offering = apps.get_model("scheduling", "Offering").objects.create(location=location, name="Workshop")
+        start = timezone.now() + timedelta(days=1)
+        session = apps.get_model("scheduling", "Session").objects.create(offering=offering,
+            starts_at=start, ends_at=start + timedelta(hours=1), capacity=12, is_published=True)
+        MigrationExecutor(connection).migrate(latest)
+        from scheduling.models import Session
+        saved = Session.objects.get(pk=session.pk)
+        assert saved.canceled_at is None and saved.is_published and saved.capacity == 12
+        assert saved.starts_at == start
+        MigrationExecutor(connection).migrate(old)
+        assert apps.get_model("scheduling", "Session").objects.get(pk=session.pk).is_published
+    finally:
+        MigrationExecutor(connection).migrate(latest)
+
+
+@pytest.mark.django_db(transaction=True)
 def test_square_and_deposit_upgrade_preserves_existing_stripe_payments():
     import uuid
     from django.utils import timezone

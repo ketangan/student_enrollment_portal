@@ -15,6 +15,7 @@
 {% if item.party_request.customer_notes %}<div><dt>Anything we should know?</dt><dd>{{ item.party_request.customer_notes|linebreaksbr }}</dd></div>{% endif %}
 </dl>
 {% if guest_list_url %}<p><a href="{{ guest_list_url }}">Add or update guest details</a></p>{% endif %}
+{% include 'scheduling/calendar_choices.html' %}
 {% if item.state == 'review' %}<p role="status">Please contact the studio to confirm your reservation.</p>{% endif %}
 {% if hold_expired %}<p role="status">Your hold has expired. We will check availability again before payment.</p>{% endif %}
 {% if payment_requested or not confirmed or not payment_requirement_met %}

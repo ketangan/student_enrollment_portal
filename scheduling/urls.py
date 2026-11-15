@@ -3,6 +3,7 @@ from core import views_school_dashboard as shared_billing
 
 from . import views
 from . import views_calendar
+from . import views_session_changes
 from . import views_guides
 from . import email_settings
 from . import views_workshop_followup
@@ -40,8 +41,10 @@ from . import views_inventory as inventory
 app_name = "scheduling"
 
 urlpatterns = [
+    path("<slug:school_slug>/payment/<str:token>/calendar/", views_checkout.customer_calendar, name="customer_calendar"),
     path("<slug:school_slug>/reservations/<uuid:public_id>/edit/", views_booking_edits.edit, name="staff_booking_edit"),
     path("<slug:school_slug>/calendar/book/<int:offering_pk>/", views_staff_workshops.create, name="staff_workshop_create"),
+    path("<slug:school_slug>/workshops/<int:offering_pk>/schedule/<str:action>/", views_session_changes.schedule, name="workshop_schedule"),
     path("<slug:school_slug>/school/schedule/", school_workspace.school_schedule, name="school_schedule"),
     path("<slug:school_slug>/school/programs/", school_workspace.school_programs, name="school_programs"),
     path("<slug:school_slug>/school/", school_workspace.school_public, name="school_public"),
@@ -202,6 +205,7 @@ urlpatterns = [
     path("<slug:school_slug>/workshops/<int:pk>/publish/", views.publication, {"kind": "workshops"}, name="workshop_publish"),
     path("<slug:school_slug>/workshops/<int:offering_pk>/sessions/new/", views.setup_edit, {"kind": "sessions"}, name="session_new"),
     path("<slug:school_slug>/sessions/<int:pk>/edit/", views.setup_edit, {"kind": "sessions"}, name="session_edit"),
+    path("<slug:school_slug>/sessions/<int:pk>/cancel/", views_session_changes.change, {"action": "cancel"}, name="session_cancel"),
     path("<slug:school_slug>/sessions/<int:pk>/publish/", views.publication, {"kind": "sessions"}, name="session_publish"),
     path("<slug:school_slug>/schedule/", views.public_schedule, name="public_schedule"),
     path("<slug:school_slug>/workshops/<int:pk>/party/", views_parties.party_inquiry, name="party_inquiry"),

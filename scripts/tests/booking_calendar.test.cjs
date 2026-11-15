@@ -69,7 +69,7 @@ test('calendar writes use permission-filtered endpoints and preserve calendar co
   p.options.datesSet({view:{title:'Week',currentStart:new Date('2026-10-18T00:00:00Z')}});
   await new Promise(resolve => setImmediate(resolve));
   const pending = p.options.eventClick({event:{title:'Session',extendedProps:{detailUrl:'/details/'}}});
-  p.requests[0].resolve({ok:true,json:async()=>({title:'Workshop',time:'Saturday',location:'Studio',edit_url:'/session/edit/',booking_url:'/booking/create/',summary:detailSummary,
+  p.requests[0].resolve({ok:true,json:async()=>({title:'Workshop',time:'Saturday',location:'Studio',edit_url:'/session/edit/',cancel_session_url:'/session/cancel/',booking_url:'/booking/create/',summary:detailSummary,
     reservations:[{name:'Guest',quantity:1,payment_status:'Unpaid',received:0,total:100,currency:'usd',url:'/reservation/',cancel_url:'/reservation/cancel/',edit_url:'/reservation/edit/'}]})});
   await pending;
   const all = item => [item, ...item.children.flatMap(all)];
@@ -86,6 +86,8 @@ test('calendar writes use permission-filtered endpoints and preserve calendar co
   assert.equal(p.editors[4].url, '/reservation/edit/');
   p.editors[4].onSaved({session_created:true});
   assert.equal(p.nodes['calendar-hide-empty'].checked, false);
+  controls.find(item => item.tag === 'button' && item.children.some(child => child.textContent === 'Cancel session')).listeners.click();
+  assert.equal(p.editors[5].url, '/session/cancel/');
 });
 
 test('saved customer bookings refresh the calendar without navigating away', () => {

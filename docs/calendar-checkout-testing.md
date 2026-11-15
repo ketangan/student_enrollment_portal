@@ -1,6 +1,93 @@
 # Calendar And Checkout Review
 
-Status: local review only. Demo and production have not received this change.
+Status: calendar intake and paid-party amendments are on demo at `a87f820`.
+Whole-session and recurring changes below passed the combined full regression
+(6,221 application, 26 migration and 185 JavaScript tests) and are approved for
+main/demo release. Hosted verification follows GitHub CI and automatic deployment.
+Production has not received either release.
+
+## Recurring And Bulk Changes
+
+Open `http://localhost:8002/bookings/plushumi-demo/?range=week&date=2026-11-29`.
+Choose Pasadena. Local sample sessions are Nov 30 and Dec 7 at 11 AM; the first
+contains "Recurring schedule review" (two participants, $144.30 unpaid).
+
+1. Open Nov 30, **Edit session > Change multiple sessions**. Choose Through Dec 7,
+   keep Monday/current time 11 AM, set New start time to noon. **Review sessions**
+   must show two dates and one customer booking with phone and participant count.
+   Cancel once: nothing changes. Repeat and confirm; both dates and the reservation
+   move, the balance stays $144.30, and you remain on the calendar.
+2. Open either session, **Edit session > Repeat session**. Set a future end date,
+   weekly/every-two-weeks, duration, room and capacity. Review the dates, confirm,
+   and verify published empty sessions on the calendar. A room conflict must name
+   the conflicting date and save none of the batch.
+3. Open **Change multiple sessions > Cancel multiple sessions** on disposable
+   test dates. Review before confirming. Choose refund/no-refund for paid bookings;
+   cash/external payments cannot be refunded through Pontora. Email customers is
+   optional and off by default; selecting it reveals an optional personal message.
+   Confirming removes the sessions from the calendar but retains booking/payment history.
+4. Preview a move, then change a matching booking in another tab. The old confirmation
+   must be rejected without partial updates. Unrelated weekdays/times/locations must
+   remain untouched. An individual date moved outside the filter is an exception,
+   not silently pulled into the batch.
+5. Repeat the dialogs on tablet portrait/landscape and phone. Scroll to the review
+   and final action, check aligned radio/checkbox labels and readable customer rows.
+
+Local messages use the preview outbox, not real inboxes. Time changes enqueue an
+updated notice with old/new times; totals and payments do not change. Hosted delivery
+still requires the configured mail worker and a delivery-eligible booking.
+
+## Party Calendars And Photos
+
+- On a confirmed party payment/confirmation page, expand **Add to calendar**.
+  Google and Outlook open prefilled events; Apple/other downloads an ICS file.
+  Canceling in the external calendar must not change the Pontora booking.
+- In catalog design editing, give one color a real photo URL and leave another
+  blank. On workshop selection, party guest selection and review, the first uses
+  its photo and the second keeps the default design image without tinting it.
+  Do not replace approved catalog data merely to test this on a hosted school.
+
+## Whole-Session Move And Cancellation
+
+Use `http://localhost:8002/bookings/plushumi-demo/?range=week&date=2026-11-15`.
+Only use synthetic local bookings. Local email is not externally delivered.
+
+1. Open an upcoming workshop with two customer bookings and choose **Edit session**.
+   Change its start time to a free slot, then **Save session**. Review both customer
+   names, phone numbers, participant counts and old/new time. Missing phones show
+   a dash. Local preview does not show the simulated-email warning; hosted bookings
+   without email delivery retain a short notice. **Cancel**
+   must leave everything unchanged. Repeat and **Confirm changes**.
+2. Check that you stay on the same calendar week. Open both reservations: their
+   times should match the session; totals, deposits, balances and selections must
+   be unchanged. Try a room conflict or capacity below booked participants: saving
+   must be rejected with no partial changes.
+3. Choose **Cancel session** on a different test session. Review the affected
+   customers. **Keep session** must make no changes. Confirm cancellation: the
+   session disappears, bookings show Canceled and payment history remains intact.
+   Email customers is optional and unchecked initially; a personal message is optional.
+4. For a paid test workshop, verify both **Cancel without refund** and **Cancel and
+   refund remaining payment** are offered. A note is optional. The former retains
+   payment; the latter requests the remaining supported payment refund. It must not
+   claim completion until the provider confirms. Recorded cash/external payments
+   require returning money through the original method; they cannot be auto-refunded.
+5. Open a review in two tabs. Confirm in one, then submit the stale other review:
+   it must not apply changed details blindly or issue a duplicate refund.
+6. Repeat on tablet portrait/landscape. Customer rows, controls and final confirmation
+   must remain readable and reachable by scrolling, without sideways dialog overflow.
+
+The automated tests cover refund approval rollback, concurrent confirmations,
+stale payment evidence, email deduplication and isolation. Physical Square testing
+still needs the connected live account/device and a separately approved small charge.
+Local simulated/automated tests are not evidence of a real-world refund completing.
+
+## Hosted Review Sample
+
+On demo, open Calendar for **November 22, Pasadena, 10 AM**. The test session has
+one "Release verification Nov 14" booking and 11 remaining places. It uses
+ketan@mypontora.com. The new whole-session move/cancel feature is not deployed yet.
+Pasadena's existing deferred-design setting was enabled during hosted verification;
+other location settings were left unchanged.
 
 ## Paid Party Amendments
 

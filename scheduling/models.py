@@ -216,6 +216,7 @@ class Session(models.Model):
     ends_at = models.DateTimeField()
     capacity = models.PositiveIntegerField(validators=CAPACITY_VALIDATORS)
     is_published = models.BooleanField(default=False)
+    canceled_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["starts_at", "pk"]
@@ -228,10 +229,12 @@ class Session(models.Model):
     def __str__(self):
         return f"{self.offering.name}: {self.starts_at}"
 
-    def clean(self):
+    def clean(self, *, allow_booked_move=False):
         errors = {}
         from .reservations import validate_session_edit
-        validate_session_edit(self)
+        validate_session_edit(self, allow_booked_move=allow_booked_move)
+        if self.canceled_at and self.is_published:
+            errors["is_published"] = "A canceled session cannot accept bookings. Create a new session instead."
         if self.room_id and self.offering_id:
             if self.room.location_id != self.offering.location_id:
                 errors["room"] = "Choose a room at this workshop's location."
@@ -245,7 +248,10 @@ class Session(models.Model):
             else:
                 previous = Session.objects.filter(pk=self.pk).first() if self.pk else None
                 if previous and self.requests.filter(status="pending").exists():
-                    if (previous.starts_at, previous.ends_at, previous.room_id) != (self.starts_at, self.ends_at, self.room_id):
+                    pending = self.requests.filter(status="pending")
+                    if allow_booked_move:
+                        pending = pending.filter(reservation__isnull=True)
+                    if pending.exists() and (previous.starts_at, previous.ends_at, previous.room_id) != (self.starts_at, self.ends_at, self.room_id):
                         errors["starts_at"] = "Withdraw pending requests before changing this session's time or room."
                     if self.capacity is not None and self.requests.filter(status="pending").annotate(total=models.Count("participants")).filter(total__gt=self.capacity).exists():
                         errors["capacity"] = "Capacity cannot be smaller than a pending request's group size."

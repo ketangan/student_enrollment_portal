@@ -1,0 +1,20 @@
+{% extends 'scheduling/base.html' %}
+{% block content %}<section data-calendar-editor>
+<h2>{% if schedule_action == 'create' %}Repeat sessions{% elif schedule_action == 'cancel' %}Cancel multiple sessions{% else %}Change multiple sessions{% endif %}</h2>
+<p class="muted">{{ offering.name }} &middot; {{ offering.location.name }}</p>
+{% if schedule_action != 'create' and not rows %}<p>{% if schedule_action == 'edit' %}<a data-calendar-load href="{% url 'scheduling:workshop_schedule' school_slug=business.slug offering_pk=offering.pk action='cancel' %}{% if schedule_seed %}?session={{ schedule_seed }}{% endif %}">Cancel multiple sessions</a>{% else %}<a data-calendar-load href="{% url 'scheduling:workshop_schedule' school_slug=business.slug offering_pk=offering.pk action='edit' %}{% if schedule_seed %}?session={{ schedule_seed }}{% endif %}">Change session times</a>{% endif %}</p>{% endif %}
+<form method="post" class="setup-form booking-editor">{% csrf_token %}
+{{ form.non_field_errors }}{% for field in form.hidden_fields %}{{ field }}{{ field.errors }}{% endfor %}
+<div class="booking-fields">{% for field in form.visible_fields %}<div class="form-field{% if field.name == 'resolution' %} session-payment-options cancellation-options{% endif %}">{% if field.name == 'email_customers' %}<label class="session-email-choice calendar-check">{{ field }} {{ field.label }}</label>{% else %}{{ field.label_tag }}{{ field }}{% endif %}{{ field.errors }}</div>{% endfor %}</div>
+{% if rows %}<div class="session-change-review" data-session-review>
+<h3>{{ rows|length }} session{{ rows|length|pluralize }}{% if schedule_action != 'create' %} &middot; {{ booking_count }} booking{{ booking_count|pluralize }} affected{% endif %}</h3>
+{% for row in rows %}<section class="schedule-impact-row">
+<h4>{% if schedule_action == 'create' %}{{ row.after.starts_at|date:'D, M j, Y, g:i A T' }}{% elif schedule_action == 'cancel' %}{{ row.before.starts_at|date:'D, M j, Y, g:i A T' }}{% else %}{{ row.before.starts_at|date:'D, M j, Y, g:i A' }} &rarr; {{ row.after.starts_at|date:'g:i A T' }}{% endif %}</h4>
+{% if schedule_action != 'create' %}<p class="muted">{{ row.count }} booking{{ row.count|pluralize }}</p>{% endif %}
+{% if row.rows %}<div class="session-impact-table"><table><thead><tr><th>Customer</th><th>Phone</th><th>Participants</th>{% if row.show_payments %}<th>Payment received</th>{% endif %}</tr></thead><tbody>{% for customer in row.rows %}<tr><td>{{ customer.name }}</td><td data-label="Phone">{{ customer.phone|default:'—' }}</td><td data-label="Participants">{{ customer.quantity }}</td>{% if row.show_payments %}<td data-label="Payment received">{{ customer.currency }} {{ customer.paid|floatformat:2 }}</td>{% endif %}</tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if row.email_unavailable %}<p class="muted">Email updates unavailable for {{ row.email_unavailable }} booking{{ row.email_unavailable|pluralize }}.</p>{% endif %}
+</section>{% endfor %}
+</div>{% endif %}
+<div class="actions">{% if calendar_editor %}<button type="button" data-calendar-close>Cancel</button>{% else %}<a class="button" href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=offering.pk %}">Cancel</a>{% endif %}
+<button type="submit" class="{% if schedule_action == 'cancel' and rows %}booking-danger booking-danger-solid{% else %}primary{% endif %}">{% if rows %}{% if schedule_action == 'cancel' %}Confirm cancellation{% else %}Confirm schedule{% endif %}{% else %}Review sessions{% endif %}</button></div>
+</form></section>{% endblock %}

@@ -10,7 +10,8 @@ scheduling:
     accessories_note: 'Accessories are available to choose and purchase at the studio for $10-$18, while supplies last.'
     party_note: 'Celebrate a birthday or another special occasion with a guided plushie-making experience. Materials are included, and each maker takes home their creation.'
     waiver_note: 'A signed waiver is required before participation. A parent or guardian must sign for minors; contact the studio in advance if they will not be present.'
-    base_images_only: true
+    base_images_only: false
+    tint_fallback: false
   party_booking:
     packages_only: true
     maximum_participants: 30

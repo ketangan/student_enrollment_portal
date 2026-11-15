@@ -7,7 +7,13 @@ def customer_copy(school):
     raw = (config.raw if config else {}).get("scheduling", {}).get("customer_experience", {})
     return {key: value for key, value in raw.items()
             if key in {"logo", "photo", "participant_note", "sharing_note", "accessories_note",
-                       "party_note", "waiver_note", "base_images_only"}}
+                       "party_note", "waiver_note", "base_images_only", "tint_fallback"}}
+
+
+def image_policy(school):
+    copy = customer_copy(school)
+    return {"base_images_only": copy.get("base_images_only") is True,
+            "tint_fallback": copy.get("tint_fallback", True) is True}
 
 
 def checkout_presentation(item, review_url):

@@ -13,6 +13,24 @@ from .access import get_staff_reservation
 from .reservations import _audit, cancel_reservation, locked_profile
 
 
+def refund_plan(profile, item):
+    from .experience_demo.service import has_simulated_payment
+    simulated = has_simulated_payment(profile, item)
+    if Refund.objects.filter(attempt__order=item.order, state__in=Refund.ACTIVE).exists():
+        raise ValidationError("A refund is already in progress. Check its status before canceling with a refund.")
+    planned = []
+    for attempt in item.order.attempts.filter(state="paid").select_related("order"):
+        allocated = attempt.refunds.exclude(state__in=["failed", "canceled"]).aggregate(total=Sum("amount_cents"))["total"] or 0
+        if attempt.amount_cents > allocated:
+            planned.append((attempt, attempt.amount_cents - allocated))
+    net = totals(item.order)["net_cents"]
+    if net <= 0:
+        raise ValidationError("There is no remaining payment to refund. Choose cancel without refund.")
+    if not simulated and sum(amount for _, amount in planned) != net:
+        raise ValidationError("This payment was recorded outside Pontora. Refund it through the original payment provider; Pontora cannot return it automatically.")
+    return planned, simulated
+
+
 @transaction.atomic
 def cancel(user, slug, public_id, *, key, resolution, reason):
     profile = locked_profile(user, slug)
@@ -30,19 +48,7 @@ def cancel(user, slug, public_id, *, key, resolution, reason):
     planned = []
     simulated = False
     if resolution == "with_refund":
-        from .experience_demo.service import has_simulated_payment
-        simulated = has_simulated_payment(profile, item)
-        if Refund.objects.filter(attempt__order=item.order, state__in=Refund.ACTIVE).exists():
-            raise ValidationError("A refund is already in progress. Check its status before canceling with a refund.")
-        for attempt in item.order.attempts.filter(state="paid").select_related("order"):
-            allocated = attempt.refunds.exclude(state__in=["failed", "canceled"]).aggregate(total=Sum("amount_cents"))["total"] or 0
-            if attempt.amount_cents > allocated:
-                planned.append((attempt, attempt.amount_cents - allocated))
-        net = totals(item.order)["net_cents"]
-        if net <= 0:
-            raise ValidationError("There is no remaining payment to refund. Choose cancel without refund.")
-        if not simulated and sum(amount for _, amount in planned) != net:
-            raise ValidationError("This payment was recorded outside Pontora. Refund it through the original payment provider; Pontora cannot return it automatically.")
+        planned, simulated = refund_plan(profile, item)
     item = cancel_reservation(user, slug, public_id)
     if simulated:
         from .experience_demo.service import refund_simulated_payment

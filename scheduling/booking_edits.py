@@ -58,7 +58,7 @@ def evidence(item):
 def token_for(user, item):
     from .parties import inquiry_digest
     sessions = {str(s.pk): session_revision(s) for s in offering_for(item).sessions.filter(
-        starts_at__gt=timezone.now(), camps__isnull=True)} if item.workshop_request_id else {}
+        starts_at__gt=timezone.now(), camps__isnull=True, canceled_at__isnull=True)} if item.workshop_request_id else {}
     return signing.dumps({"user": user.pk, "item": str(item.public_id), "revision": digest(evidence(item)),
         "sessions": sessions,
         "party_config": inquiry_digest(offering_for(item)) if item.party_request_id else None}, salt=SALT, compress=True)
@@ -80,7 +80,8 @@ class BookingEditForm(PurchaserForm):
         self.removal_count = item.quantity
         if item.workshop_request_id:
             self.fields["session"] = forms.ModelChoiceField(label="Workshop time", initial=item.session_id,
-                queryset=self.offering.sessions.filter(starts_at__gt=timezone.now(), camps__isnull=True).select_related("room"))
+                queryset=self.offering.sessions.filter(starts_at__gt=timezone.now(), camps__isnull=True,
+                    canceled_at__isnull=True).select_related("room"))
             self.fields["session"].label_from_instance = lambda s: session_label(s, self.offering.location.timezone_name)
             self.fields["quantity"] = forms.IntegerField(label="Participants", min_value=1,
                 max_value=max(MAX_PARTICIPANTS, item.quantity), initial=item.quantity)

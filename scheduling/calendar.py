@@ -90,7 +90,7 @@ def calendar_events(profile, params, location=None):
     # UTC padding captures all location-local date boundaries, including DST.
     lower = datetime.combine(start - timedelta(days=1), time.min, timezone.utc)
     upper = datetime.combine(end + timedelta(days=1), time.min, timezone.utc)
-    sessions = list(Session.objects.filter(offering__in=selected, starts_at__lt=upper, ends_at__gt=lower)
+    sessions = list(Session.objects.filter(offering__in=selected, starts_at__lt=upper, ends_at__gt=lower, canceled_at__isnull=True)
         .select_related("offering__location", "room").prefetch_related("camps")[:MAX_EVENTS + 1])
     if len(sessions) > MAX_EVENTS:
         raise ValidationError("Too many sessions. Select a location or a shorter date range.")
@@ -152,7 +152,7 @@ def calendar_detail(profile, kind, pk):
         raise Http404
     if kind == "session":
         try:
-            session = Session.objects.select_related("offering__location", "room").get(pk=int(pk), offering__in=offerings(profile))
+            session = Session.objects.select_related("offering__location", "room").get(pk=int(pk), offering__in=offerings(profile), canceled_at__isnull=True)
         except (ValueError, Session.DoesNotExist):
             raise Http404
         title, start, end, location = session.offering.name, session.starts_at, session.ends_at, session.offering.location

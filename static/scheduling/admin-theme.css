@@ -1,4 +1,14 @@
 /* Scheduling-only adapter to the enrollment dashboard's existing design tokens. */
+.booking-admin .session-impact-table table { width: 100%; min-width: 0; table-layout: fixed; }
+.booking-admin .session-impact-table td { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .booking-admin .session-impact-table thead { display: none; }
+  .booking-admin .session-impact-table tbody { display: block; }
+  .booking-admin .session-impact-table tr { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--dash-border); padding: 10px 0; }
+  .booking-admin .session-impact-table td { display: block; border: 0; padding: 6px 0; white-space: normal; }
+  .booking-admin .session-impact-table td:first-child { grid-column: 1 / -1; }
+  .booking-admin .session-impact-table td[data-label]::before { content: attr(data-label); display: block; color: var(--dash-muted); font-size: 12px; margin-bottom: 4px; }
+}
 .booking-admin { font-size: 14px; letter-spacing: 0; --booking-row-border: #f3f4f6; --booking-row-hover: #fafafa; --booking-action-text: #374151; }
 .booking-admin.dash-midnight { --booking-row-border: var(--dash-border); --booking-row-hover: var(--dash-bg); --booking-action-text: var(--dash-text); }
 .booking-admin main { box-sizing: content-box; max-width: 1200px; padding: 28px 24px 60px; }
@@ -814,3 +824,17 @@
     box-sizing: border-box;
   }
 }
+.session-payment-options { grid-column: 1 / -1; }
+.session-payment-options label:has(input[type="radio"]) { display: flex; align-items: center; gap: .65rem; min-height: 44px; }
+.session-payment-options input[type="radio"] { width: 20px; height: 20px; flex: 0 0 20px; margin: 0; }
+.session-change-review { border-top: 1px solid var(--border, #e5e7eb); padding-top: 16px; }
+.session-change-review h3 { font-size: 18px; }
+.booking-admin .session-change-review + .actions { margin-top: 16px; }
+.booking-admin .form-field .session-email-choice { display: flex; align-items: center; gap: 10px; min-height: 44px; text-transform: none; font-size: 13px; color: var(--dash-text); }
+.booking-admin .form-field.cancellation-options label:has(input) { text-transform: none; font-size: 13px; color: var(--dash-text); }
+.booking-admin .session-email-choice input { width: 20px; height: 20px; flex: 0 0 20px; margin: 0; }
+.schedule-impact-row { padding: 12px 0; border-bottom: 1px solid var(--border, #e5e7eb); }
+.schedule-impact-row h4 { font-size: 16px; margin: 0 0 8px; }
+.booking-editor:not(:has([name="email_customers"]:checked)) .form-field:has([name="customer_message"]) { display: none; }
+[data-calendar-editor] > p:has(a[data-calendar-load]) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+[data-calendar-editor] > p > a[data-calendar-load] { display: inline-flex; align-items: center; min-height: 44px; }
