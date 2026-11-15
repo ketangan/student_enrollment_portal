@@ -21,6 +21,6 @@
 <div class="form-field {% if field.field.widget.input_type == 'checkbox' %}check-field{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}</div>
 {% endif %}
 {% endfor %}
-<div class="actions"><button class="primary">Save workflow</button><a href="{% url 'scheduling:visits' school_slug=business.slug %}">Cancel</a></div>
+<div class="actions"><button class="primary">Save workflow</button><a class="button" href="{% url 'scheduling:visits' school_slug=business.slug %}">Cancel</a></div>
 </form>
 {% endblock %}

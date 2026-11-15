@@ -54,9 +54,15 @@ def contents(item, *, include_guest_link=True):
     body = [f"Hi {source.purchaser_name},", "", "Your workshop is confirmed.",
         source.session.offering.name, source.session.offering.location.name,
         f"{when:%B %d, %Y at %I:%M %p %Z}", f"{item.quantity} participant{'s' if item.quantity != 1 else ''}", ""]
+    if item.snapshot.get("staff_workshop"):
+        from core.payments.service import totals
+        money = totals(item.order)
+        body.extend([f"Total: {item.order.currency.upper()} {money['total']:.2f}",
+            f"Balance due: {item.order.currency.upper()} {money['outstanding']:.2f}",
+            "Your places are reserved. Please arrange any outstanding payment with the studio.", ""])
     if include_guest_link and source.session.offering.inventory_catalog_id:
         reverse = demo_reverse if school.is_demo else app_reverse
-        body.extend(["Choose your designs:", reverse("scheduling:workshop_selections", kwargs={
+        body.extend(["Complete participant details and choose your designs:" if item.snapshot.get("staff_workshop") else "Choose your designs:", reverse("scheduling:workshop_selections", kwargs={
             "school_slug": school.slug, "token": workshop_followup.token_for(item)}),
             "You can choose before your visit or at the studio, subject to availability.", ""])
     body.append("Thank you!")

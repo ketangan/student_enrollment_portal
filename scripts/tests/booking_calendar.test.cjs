@@ -16,24 +16,28 @@ function element(tag = 'div') {
   };
 }
 
-function page({focused=false, form=false, search='?view=calendar'} = {}) {
+function page({focused=false, form=false, editable=false, search='?view=calendar'} = {}) {
   const ids = ['booking-calendar', 'calendar-config', 'calendar-error', 'calendar-count',
     'calendar-hide-empty', 'calendar-detail', 'calendar-detail-body', 'calendar-detail-title',
     'calendar-detail-close', 'calendar-range', 'calendar-offerings', 'calendar-retry',
-    'calendar-unpaid', 'calendar-balances', 'calendar-empty', 'calendar-detail-badges', 'calendar-detail-print'];
+    'calendar-unpaid', 'calendar-balances', 'calendar-empty', 'calendar-detail-badges', 'calendar-detail-print', 'calendar-save-status'];
   const nodes = Object.fromEntries(ids.map(id => [id, element()]));
+  if (editable) {
+    nodes['calendar-add-session'] = element('button');
+    nodes['calendar-add-party'] = Object.assign(element('a'), {href: '/parties/new/'});
+  }
   nodes['calendar-error'].append(element('span'));
   if (form) {
     nodes['dashboard-location-filter']=element('form');
     nodes['dashboard-location-filter'].querySelector=selector=>nodes['dashboard-location-filter'].children.find(child=>selector===`input[name="${child.name}"]`) || null;
   }
   nodes['calendar-config'].textContent = JSON.stringify({location:focused?'1':'',today:'2026-10-20',
-    eventsUrl:'/calendar/events/',resources:[{id:'2',title:'East',zone:'America/New_York'}],offerings:[{id:'1',title:'<script>not markup</script>'},{id:'2',title:'Workshop'}]});
+    eventsUrl:'/calendar/events/',resources:[{id:'2',title:'East',zone:'America/New_York'}],offerings:[{id:'1',locationId:'1',title:'<script>not markup</script>'},{id:'2',locationId:'2',title:'Workshop',createUrl: editable ? '/sessions/new/' : ''}]});
   const ranges = ['day','week','month'].map(value => Object.assign(element('button'),{dataset:{calendarRange:value}}));
   const actions = ['prev','next','today'].map(value => Object.assign(element('button'),{dataset:{calendarAction:value}}));
   const filters = ['all','none'].map(value => Object.assign(element('button'),{dataset:{calendarFilter:value}}));
   const requests = [];
-  const opened = [];
+  const opened = [], editors = [];
   let options, refetches=0, prints=0;
   const location = {href:`http://localhost/bookings/test/${search}`,origin:'http://localhost',search,assign(url){this.href=String(url);}};
   const calendar = {setOption(key,value) {options[key]=value;},getOption(key) {return key==='date'?new Date(options.date):options[key];},
@@ -46,14 +50,109 @@ function page({focused=false, form=false, search='?view=calendar'} = {}) {
       if(selector==='#calendar-offerings input')return nodes['calendar-offerings'].children.map(label=>label.children[0]);
       return [];
     }};
-  vm.runInNewContext(source,{document,location,URL,URLSearchParams,AbortController,Intl,window:{print(){prints++;},open(...args){opened.push(args);}},
+  vm.runInNewContext(source,{document,location,URL,URLSearchParams,AbortController,Intl,window:{BookingCalendarEditor:{open(options){editors.push(options);}},print(){prints++;},open(...args){opened.push(args);}},
     history:{replaceState(_a,_b,url){location.href=String(url);}},queueMicrotask,
     fetch:(url,opts)=>new Promise((resolve,reject)=>requests.push({url,opts,resolve,reject})),
     EventCalendar:{create(_root,opts){options=opts;return calendar;}}}, {filename});
-  return {nodes,ranges,actions,filters,requests,calendar,location,opened,get prints(){return prints;},get options(){return options;},get refetches(){return refetches;}};
+  return {nodes,ranges,actions,filters,requests,calendar,location,opened,editors,get prints(){return prints;},get options(){return options;},get refetches(){return refetches;}};
 }
 
+test('calendar writes use permission-filtered endpoints and preserve calendar context', async () => {
+  const p = page({editable: true});
+  assert.equal(p.options.slotEventOverlap, false);
+  p.nodes['calendar-add-session'].listeners.click();
+  assert.equal(p.editors[0].choices.length, 1);
+  assert.equal(p.editors[0].choices[0].createUrl, '/sessions/new/');
+  p.nodes['calendar-hide-empty'].checked = true;
+  p.editors[0].onSaved();
+  assert.equal(p.nodes['calendar-hide-empty'].checked, true);
+  p.options.datesSet({view:{title:'Week',currentStart:new Date('2026-10-18T00:00:00Z')}});
+  await new Promise(resolve => setImmediate(resolve));
+  const pending = p.options.eventClick({event:{title:'Session',extendedProps:{detailUrl:'/details/'}}});
+  p.requests[0].resolve({ok:true,json:async()=>({title:'Workshop',time:'Saturday',location:'Studio',edit_url:'/session/edit/',booking_url:'/booking/create/',summary:detailSummary,
+    reservations:[{name:'Guest',quantity:1,payment_status:'Unpaid',received:0,total:100,currency:'usd',url:'/reservation/',cancel_url:'/reservation/cancel/',edit_url:'/reservation/edit/'}]})});
+  await pending;
+  const all = item => [item, ...item.children.flatMap(all)];
+  const controls = all(p.nodes['calendar-detail-body']);
+  controls.find(item => item.tag === 'button' && item.children.some(child => child.textContent === 'Edit session')).listeners.click();
+  assert.equal(p.editors[1].url, '/session/edit/'); assert.equal(p.nodes['calendar-detail'].open, false);
+  controls.find(item => item.attrs['aria-label'] === 'Cancel reservation for Guest').listeners.click();
+  assert.equal(p.editors[2].url, '/reservation/cancel/');
+  const before = p.refetches;
+  p.editors[2].onSaved(); assert.equal(p.refetches, before + 1);
+  controls.find(item => item.tag === 'button' && item.textContent === 'Add booking').listeners.click();
+  assert.equal(p.editors[3].url, '/booking/create/');
+  controls.find(item => item.attrs['aria-label'] === 'Edit booking for Guest').listeners.click();
+  assert.equal(p.editors[4].url, '/reservation/edit/');
+  p.editors[4].onSaved({session_created:true});
+  assert.equal(p.nodes['calendar-hide-empty'].checked, false);
+});
+
+test('saved customer bookings refresh the calendar without navigating away', () => {
+  const p = page({editable: true});
+  const original = p.location.href;
+  const before = p.refetches;
+  p.nodes['calendar-add-session'].listeners.click();
+  p.editors[0].onSaved({reservation_url:'/reservation/new/'});
+  assert.equal(p.location.href, original);
+  assert.equal(p.refetches, before + 1);
+  assert.equal(p.nodes['calendar-save-status'].hidden, false);
+  p.editors[0].onSaved({message:'Review quote',review_url:'/party/review/'});
+  assert.match(p.nodes['calendar-save-status'].children[1].href, /calendar=/);
+});
+
+test('unconfirmed bookings explain their disabled edit action without a hover dependency', async () => {
+  const p = page();
+  const pending = p.options.eventClick({event:{title:'Party',extendedProps:{detailUrl:'/details/'}}});
+  const reason = 'Check payment and confirm this booking before editing.';
+  p.requests[0].resolve({ok:true,json:async()=>({title:'Party',availability:'Held - checkout needs verification',summary:detailSummary,
+    reservations:[{name:'Guest',quantity:1,payment_status:'Unpaid',received:0,total:100,currency:'usd',url:'/reservation/',edit_unavailable:reason}]})});
+  await pending;
+  const all = item => [item, ...item.children.flatMap(all)];
+  const controls = all(p.nodes['calendar-detail-body']);
+  const edit = controls.find(item => item.attrs['aria-label'] === 'Edit booking for Guest');
+  assert.equal(edit.disabled, true);
+  assert.equal(edit.listeners.click, undefined);
+  assert(controls.some(item => item.tag === 'small' && item.textContent === reason));
+  assert(controls.some(item => item.attrs['aria-label'] === 'View reservation for Guest'));
+});
+
+test('empty timed cells open the shared editor with venue wall time and location scope', () => {
+  for (const range of ['day', 'week']) {
+    const p = page({editable:true, search:`?range=${range}`});
+    p.options.dateClick({date:new Date('2026-12-14T22:30:00Z'),dateStr:'2026-12-14T14:30:00',allDay:false,resource:{id:2}});
+    assert.equal(p.editors.length, 1);
+    assert.equal(p.editors[0].initialStart, '2026-12-14T14:30');
+    assert.equal(p.editors[0].choices.length, 1);
+    assert.equal(p.editors[0].choices[0].locationId, '2');
+    assert.equal(p.options.snapDuration, '00:30:00');
+    p.options.dateClick({dateStr:'2026-12-14T14:30:00',resource:{id:'another-location'}});
+    assert.equal(p.editors[1].choices.length, 0);
+    p.options.dateClick({dateStr:'invalid'}); assert.equal(p.editors.length, 2);
+  }
+  const selectedLocation = page({editable:true, focused:true});
+  selectedLocation.options.dateClick({dateStr:'2026-12-14T14:30:00'});
+  assert.equal(selectedLocation.editors[0].choices.length, 0, 'Never offer a different location.');
+  const all = page({editable:true}); all.options.dateClick({dateStr:'2026-12-14T14:30:00'});
+  assert.equal(all.editors[0].choices.length, 1);
+  all.filters[1].listeners.click(); all.options.dateClick({dateStr:'2026-12-14T14:30:00'});
+  assert.equal(all.editors[1].choices.length, 0);
+});
+
+test('month and read-only calendar clicks navigate, never open a writer', () => {
+  for (const options of [{editable:true,search:'?range=month'}, {editable:false}]) {
+    const p = page(options);
+    p.options.dateClick({dateStr:'2026-12-14T00:00:00', date:new Date('2026-12-15T08:00:00Z')});
+    assert.equal(p.options.date, '2026-12-14'); assert.equal(p.editors.length, 0);
+  }
+});
+
 const interval = {startStr:'2026-10-18T00:00:00',endStr:'2026-10-25T00:00:00'};
+function loadEvents(p, callback) {
+  assert.equal(p.options.eventSources[0].events(interval, callback), undefined,
+    'Callback sources must not also return a promise to the calendar library.');
+  return new Promise(resolve => setImmediate(resolve));
+}
 test('compact calendar roster includes portrait tablets, keeping View beside the customer', () => {
   const css = fs.readFileSync('static/scheduling/calendar.css', 'utf8');
   const roster = css.split('@media screen and (max-width:800px) {')[1]?.split('@media print')[0];
@@ -115,15 +214,15 @@ test('overflow links drill into the day without opening the vendor popup',()=>{
 
 test('none filter does not accidentally fetch all workshops',async()=>{
   const p=page();p.filters[1].listeners.click();let events;
-  await p.options.eventSources[0].events(interval,value=>{events=value;});
+  await loadEvents(p,value=>{events=value;});
   assert.equal(events.length,0);assert.equal(p.requests.length,0);
   assert.equal(p.nodes['calendar-count'].textContent,'No workshops selected');
 });
 
 test('stale network responses cannot replace a newer date range',async()=>{
   const p=page(),received=[];
-  const first=p.options.eventSources[0].events(interval,value=>received.push(value));
-  const second=p.options.eventSources[0].events(interval,value=>received.push(value));
+  const first=loadEvents(p,value=>received.push(value));
+  const second=loadEvents(p,value=>received.push(value));
   resolve(p.requests[1]);await second;resolve(p.requests[0]);await first;
   assert.equal(received.length,1);assert.equal(p.requests[0].opts.signal.aborted,true);
   assert.equal(p.nodes['calendar-balances'].textContent,2);
@@ -131,7 +230,7 @@ test('stale network responses cannot replace a newer date range',async()=>{
 
 test('failed loads clear stale events and expose retry',async()=>{
   const p=page();let events;
-  const pending=p.options.eventSources[0].events(interval,value=>{events=value;});
+  const pending=loadEvents(p,value=>{events=value;});
   p.requests[0].resolve({ok:false,json:async()=>({error:'Unavailable'})});await pending;
   assert.equal(events.length,0);assert.equal(p.nodes['calendar-error'].hidden,false);
   const before=p.refetches;p.nodes['calendar-retry'].listeners.click();assert.ok(p.refetches>before);
@@ -139,10 +238,10 @@ test('failed loads clear stale events and expose retry',async()=>{
 
 test('crowded simultaneous sessions collapse into a day-view link',async()=>{
   const p=page();let events;
-  const pending=p.options.eventSources[0].events(interval,value=>{events=value;});
+  const pending=loadEvents(p,value=>{events=value;});
   resolve(p.requests[0],[1,2,3].map(id=>({id:`session-${id}`,title:'Workshop',start:'2026-10-24T10:00:00',end:'2026-10-24T12:00:00',extendedProps:{kind:'session',location:`Studio ${id}`,seats:1,capacity:6}})));
   await pending;assert.equal(events.length,1);assert.equal(events[0].extendedProps.seats,3);
-  assert.equal(p.options.eventContent({event:events[0],timeText:'10 AM'}).domNodes[0].textContent,'3 sessions');
+  assert.equal(p.options.eventContent({event:events[0],timeText:'10 AM'}).domNodes[0].textContent,'0 bookings · 3 sessions');
   assert.equal(events[0].extendedProps.location,'3 locations');
   assert.equal(p.options.eventContent({event:events[0],timeText:'10 AM'}).domNodes[1].textContent,'3 locations');
   assert.match(p.options.eventContent({event:events[0],timeText:'10 AM'}).domNodes[3].textContent,/3\/18 participants/);
@@ -153,7 +252,8 @@ test('untrusted event titles use text nodes, not HTML',()=>{
   const p=page();
   const event={title:'<img onerror=alert(1)>',extendedProps:{location:'<script>x</script>',seats:1,capacity:6,published:true}};
   const content=p.options.eventContent({event,timeText:'10 AM'});
-  assert.equal(content.domNodes[0].textContent,'1 session');
+  assert.equal(content.domNodes[0].textContent,'0 bookings · <img onerror=alert(1)>');
+  assert.equal(content.domNodes[0].innerHTML,undefined);
   assert.equal(content.domNodes[1].textContent,'<script>x</script>');
   assert.equal(content.domNodes[1].innerHTML,undefined);
   assert.equal(content.domNodes[3].textContent,'1/6 participants');
@@ -173,8 +273,8 @@ test('session details render verified totals and existing reservation links',asy
   assert.equal(row.children[0].children[0].children[0].textContent,'<img>');
   assert.match(row.children[2].children[1].textContent,/\$40.00 balance/);
   assert.deepEqual(Array.from(row.children, cell => cell.attrs['data-label']), ['Customer', 'Participants', 'Payment', '']);
-  assert.equal(row.children[3].children[0].attrs['aria-label'], 'View reservation for <img>');
-  const reservationLink = new URL(row.children[3].children[0].href, 'http://localhost');
+  assert.equal(row.children[3].children[0].children[0].attrs['aria-label'], 'View reservation for <img>');
+  const reservationLink = new URL(row.children[3].children[0].children[0].href, 'http://localhost');
   assert.equal(reservationLink.pathname, '/reservation/');
   assert.match(reservationLink.searchParams.get('calendar'), /^\/bookings\/test\/\?view=calendar/);
   assert.equal(p.nodes['calendar-detail-body'].children.some(child => child.tag === 'a'), false);
@@ -215,7 +315,7 @@ test('single location, workshop checkbox and keyboard event controls work',async
   const p=page({focused:true});p.ranges[0].listeners.click();assert.equal(p.options.view,'timeGridDay');
   const input=p.nodes['calendar-offerings'].children[0].children[0];input.checked=false;input.listeners.change();
   p.nodes['calendar-hide-empty'].checked=true;p.nodes['calendar-hide-empty'].listeners.change();
-  const pending=p.options.eventSources[0].events(interval,()=>{});
+  const pending=loadEvents(p,()=>{});
   assert.equal(p.requests[0].url.searchParams.get('offering'),'2');
   assert.equal(p.requests[0].url.searchParams.get('hide_empty'),'1');
   resolve(p.requests[0],[{id:'session-1',extendedProps:{kind:'session'}}]);await pending;
@@ -238,10 +338,10 @@ test('invalid deep-link dates fall back, valid dates persist, unrelated pages ar
 
 test('connection and aborted requests handle their distinct failure states',async()=>{
   const p=page();
-  const failed=p.options.eventSources[0].events(interval,()=>{});
+  const failed=loadEvents(p,()=>{});
   p.requests[0].reject(new Error('Failed to fetch'));await failed;
   assert.match(p.nodes['calendar-error'].children[0].textContent,/connection/);
-  const aborted=p.options.eventSources[0].events(interval,()=>{assert.fail('Aborted request must not publish data');});
+  const aborted=loadEvents(p,()=>{assert.fail('Aborted request must not publish data');});
   p.requests[1].reject(Object.assign(new Error('Canceled'),{name:'AbortError'}));await aborted;
   assert.equal(p.nodes['calendar-error'].hidden,true);
 });

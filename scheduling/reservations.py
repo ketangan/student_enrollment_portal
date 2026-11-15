@@ -1,5 +1,6 @@
 """Native reservations. All inventory writers lock the tenant profile."""
 
+from collections import defaultdict
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
@@ -68,6 +69,28 @@ def peak_quantity(intervals):
     return peak
 
 
+def party_slot_remaining(slots):
+    """Read remaining room places in one batch; writes still lock and recheck."""
+    slots = list(slots.select_related("package__room"))
+    if not slots:
+        return {}
+    start = min(slot.starts_at for slot in slots)
+    end = max(slot.starts_at + timedelta(minutes=slot.package.duration_minutes) for slot in slots)
+    by_room = defaultdict(list)
+    for room_id, begins, ends, quantity in active_claims().filter(
+            room_id__in={slot.package.room_id for slot in slots}, starts_at__lt=end,
+            ends_at__gt=start).values_list("room_id", "starts_at", "ends_at", "quantity"):
+        by_room[room_id].append((begins, ends, quantity))
+    result = {}
+    for slot in slots:
+        ends = slot.starts_at + timedelta(minutes=slot.package.duration_minutes)
+        intervals = [(max(begins, slot.starts_at), min(finish, ends), quantity)
+            for begins, finish, quantity in by_room[slot.package.room_id]
+            if begins < ends and finish > slot.starts_at]
+        result[str(slot.pk)] = max(0, slot.package.room.capacity - peak_quantity(intervals)) if slot.package.room_id else 0
+    return result
+
+
 def validate_room_capacity(room):
     if not room.pk or room.capacity is None:
         return
@@ -83,7 +106,7 @@ def validate_session_edit(session):
     if session.pk and (claims.exists() or session.camp_occurrences.exists()):
         old = Session.objects.get(pk=session.pk)
         if (old.starts_at, old.ends_at, old.room_id) != (session.starts_at, session.ends_at, session.room_id):
-            raise ValidationError({"starts_at": "This session has reservations. Camp dates stay fixed after registration; create a new session instead."})
+            raise ValidationError({"starts_at": "This session has reservations. Its time and room cannot be changed here; create a new session instead."})
         quantity = claims.aggregate(total=Sum("quantity"))["total"] or 0
         if session.capacity is not None and session.capacity < quantity:
             raise ValidationError({"capacity": "Capacity cannot be lower than active reserved places."})
@@ -105,7 +128,7 @@ def session_places_taken(session, exclude=None):
 
 def ensure_session_capacity(item, session, starts_at, ends_at, room_id):
     ensure_studio_available(session.offering.location_id, starts_at, ends_at, item.pk)
-    if not session.is_published or not session.offering.is_published:
+    if (not session.is_published and not item.snapshot.get("staff_workshop")) or not session.offering.is_published:
         raise ValidationError("This session is no longer published.")
     if (session.starts_at, session.ends_at, session.room_id) != (starts_at, ends_at, room_id):
         raise ValidationError("This session has changed since the quote was created.")

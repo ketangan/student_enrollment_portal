@@ -111,7 +111,7 @@
         {{ submit_label }}
       </button>
       <a href="{% if incident %}{% url 'ops_incident_detail' incident.pk %}{% else %}{% url 'ops_incidents_list' %}{% endif %}"
-         style="padding:9px 18px;border:1px solid var(--dash-border,#e2e8f0);border-radius:8px;font-size:13px;color:var(--dash-text,#0f172a);text-decoration:none;display:inline-flex;align-items:center;">
+         class="dash-action-btn dash-action-btn--secondary">
         Cancel
       </a>
     </div>

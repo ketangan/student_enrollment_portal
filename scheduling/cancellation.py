@@ -17,8 +17,8 @@ from .reservations import _audit, cancel_reservation, locked_profile
 def cancel(user, slug, public_id, *, key, resolution, reason):
     profile = locked_profile(user, slug)
     item = get_staff_reservation(profile, public_id, exclude_visits=True)
-    if resolution not in {"without_refund", "with_refund"} or not reason.strip() or len(reason.strip()) > 240:
-        raise ValidationError("Choose how to handle payment and enter a cancellation reason.")
+    if resolution not in {"without_refund", "with_refund"} or len(reason.strip()) > 240:
+        raise ValidationError("Choose how to handle payment and keep the note under 240 characters.")
     previous = AdminAuditLog.objects.filter(model_label="scheduling.reservation", object_id=str(item.pk),
         changes__action="cancellation_decision", extra__cancellation_key=str(key)).first()
     if previous:
@@ -48,7 +48,7 @@ def cancel(user, slug, public_id, *, key, resolution, reason):
         from .experience_demo.service import refund_simulated_payment
         refund_simulated_payment(user, profile, item, key)
     approved = [approve_refund(user, slug, public_id, attempt.public_id,
-        key=uuid.uuid5(key, str(attempt.public_id)), amount_cents=amount, reason=reason.strip())
+        key=uuid.uuid5(key, str(attempt.public_id)), amount_cents=amount, reason=reason.strip() or "Reservation canceled")
         for attempt, amount in planned]
     _audit(user, item, "cancellation_decision", cancellation_key=str(key), resolution=resolution,
         reason=reason.strip(), refunds=[str(refund.public_id) for refund in approved])

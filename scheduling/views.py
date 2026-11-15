@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Prefetch, Q
-from django.http import Http404, HttpResponseBadRequest
+from django.http import Http404, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -138,9 +138,20 @@ def workspace(request, school_slug):
             "eventsUrl": reverse("scheduling:calendar_events", kwargs={"school_slug": school_slug}),
             "location": str(location.pk) if location else "",
             "resources": [{"id": str(item.pk), "title": item.name, "zone": item.timezone_name} for item in locations],
-            "offerings": [{"id": str(item.pk), "title": f"{item.name} ({item.location.name})"} for item in items],
+            "offerings": [{"id": str(item.pk), "locationId": str(item.location_id), "title": f"{item.name} ({item.location.name})",
+                "createUrl": reverse("scheduling:staff_workshop_create", kwargs={"school_slug": school_slug, "offering_pk": item.pk})
+                    if context["can_edit_sessions"] else ""} for item in items],
             "today": timezone.localdate(timezone=ZoneInfo(location.timezone_name) if location else timezone.get_default_timezone()).isoformat(),
         }
+        if context["can_edit_sessions"] and context["features"].get("parties"):
+            from .staff_parties import StaffPartyForm
+            party_offerings = StaffPartyForm(profile=profile).fields["offering"].queryset
+            if location:
+                party_offerings = party_offerings.filter(location=location)
+            context["calendar_config"]["parties"] = [{"id": str(item.pk), "locationId": str(item.location_id),
+                "title": f"Party: {item.name} ({item.location.name})", "createUrl": reverse(
+                    "scheduling:staff_party_create", kwargs={"school_slug": school_slug}) + f"?offering={item.pk}"}
+                for item in party_offerings]
         return render(request, "scheduling/calendar.html", context, status=200 if context["location_filter"].is_valid() else 400)
     from .workspace import overview
     form = context["location_filter"]
@@ -271,6 +282,10 @@ def workshop_detail(request, school_slug, pk):
 @require_http_methods(["GET", "POST"])
 def setup_edit(request, school_slug, kind, pk=None, offering_pk=None):
     profile, role = require_location_access(request.user, school_slug, edit_permission(kind))
+    from .calendar import editor_request
+    calendar_editor = editor_request(request, profile)
+    if calendar_editor and kind != "sessions":
+        raise Http404
     return_to_parties = kind == "workshops" and bool(pk) and request.GET.get("return_to") == "parties"
     parties_url = reverse("scheduling:party_setup", kwargs={"school_slug": school_slug})
     if kind == "party_packages" and pk and request.method == "GET":
@@ -280,6 +295,8 @@ def setup_edit(request, school_slug, kind, pk=None, offering_pk=None):
     if request.method == "POST":
         form = save_setup(request.user, school_slug, kind, request.POST, pk, offering_pk)
         if form.is_valid():
+            if calendar_editor:
+                return JsonResponse({"saved": True})
             messages.success(request, "Changes saved." if pk else "Created successfully.")
             if return_to_parties:
                 return redirect(f"{parties_url}?location={form.instance.location_id}")
@@ -296,6 +313,7 @@ def setup_edit(request, school_slug, kind, pk=None, offering_pk=None):
     if return_to_parties:
         context["parties_return_url"] = f"{parties_url}?location={form.instance.location_id}"
     context.update(form=form, kind=kind, editing=bool(pk), party_setup=kind == "party_packages", entity_label={"locations": "location", "rooms": "room", "workshops": "workshop", "sessions": "session", "party_packages": "party package"}[kind])
+    context["calendar_editor"] = calendar_editor
     if context["simplified_school"]:
         route, kwargs, label = "locations", {"school_slug": school_slug}, "Rooms"
         if kind == "workshops":
@@ -315,7 +333,7 @@ def setup_edit(request, school_slug, kind, pk=None, offering_pk=None):
     zone = form.instance.offering.location.timezone_name if kind == "sessions" else timezone.get_default_timezone_name()
     context["session_location"] = form.instance.offering.location if kind == "sessions" else None
     with timezone.override(ZoneInfo(zone)):
-        return render(request, "scheduling/setup_form.html", context)
+        return render(request, "scheduling/setup_form.html", context, status=400 if calendar_editor and form.errors else 200)
 
 
 @never_cache
@@ -323,6 +341,10 @@ def setup_edit(request, school_slug, kind, pk=None, offering_pk=None):
 @require_POST
 def publication(request, school_slug, kind, pk):
     profile, _ = require_location_access(request.user, school_slug, edit_permission(kind))
+    from .calendar import editor_request
+    calendar_editor = editor_request(request, profile)
+    if calendar_editor and kind != "sessions":
+        raise Http404
     instance = get_object_or_404(records(profile, kind), pk=pk)
     action = request.POST.get("action")
     if action not in {"publish", "unpublish"}:
@@ -330,8 +352,12 @@ def publication(request, school_slug, kind, pk):
     try:
         set_publication(request.user, school_slug, kind, pk, action == "publish")
     except ValidationError as exc:
+        if calendar_editor:
+            return JsonResponse({"error": " ".join(exc.messages)}, status=400)
         messages.error(request, " ".join(exc.messages))
     else:
+        if calendar_editor:
+            return JsonResponse({"saved": True})
         messages.success(request, "Published." if action == "publish" else "Unpublished.")
     offering_id = instance.pk if kind == "workshops" else instance.offering_id
     return redirect("scheduling:workshop_detail", school_slug=school_slug, pk=offering_id)

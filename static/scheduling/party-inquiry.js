@@ -108,6 +108,25 @@
     });
   }
   function setup() {
+    const capacity = read('party-slot-capacity');
+    const capacityNotice = document.getElementById('party-capacity-notice');
+    const updateCapacity = () => {
+      if (!capacity || !capacityNotice) return;
+      const slots = document.getElementById('id_party_slot');
+      const group = document.getElementById('id_group_size');
+      const available = capacity[slots.value];
+      capacityNotice.hidden = available === undefined;
+      if (available === undefined) {group.removeAttribute('max'); return;}
+      const tooMany = Number(group.value) > available;
+      capacityNotice.textContent = available === 0 ? 'This party time is full. Choose another time.'
+        : `${available} place${available === 1 ? '' : 's'} available.${tooMany ? ' Choose another time or reduce the group size.' : ''}`;
+      group.max = String(available);
+      document.getElementById('party-submit').disabled = available === 0 || tooMany;
+    };
+    if (capacity && capacityNotice) {
+      document.getElementById('id_party_slot').addEventListener('change', updateCapacity);
+      document.getElementById('id_group_size').addEventListener('input', updateCapacity);
+    }
     const occasion = document.getElementById('id_occasion');
     if (occasion) {
       const updateBirthday = () => {
@@ -126,7 +145,8 @@
     if (select && details) {
       const update = () => {
         const selected = details[select.value];
-        document.getElementById('party-package-summary').textContent = selected ? selected.text : '';
+        const summary = document.getElementById('party-package-summary');
+        if (summary) summary.textContent = selected ? selected.text : '';
         const packageOnly = document.getElementById('party-request-form')?.dataset.packagesOnly === 'true';
         const staff = document.getElementById('party-request-form')?.dataset.staff === 'true';
         const direct = packageOnly || Boolean(selected?.direct);
@@ -151,6 +171,7 @@
           document.getElementById('party-submit').disabled = noTimes;
           if (noTimes) document.getElementById('party-next-step').textContent = select.value ? 'No party times are currently offered. Choose another package or location.' : 'Choose a package to see available times.';
           setupPartyTimes(slots, direct);
+          updateCapacity();
         }
         document.querySelectorAll('[data-custom-party-field]').forEach(field => {
           field.hidden = packageOnly || Boolean(selected);
@@ -162,6 +183,7 @@
     setupMaterials();
     updateGuests();
   }
+  window.PontoraPartyForm = {mount: setup};
   setup();
   document.addEventListener('party-material-added', setupMaterials);
   const location = document.getElementById('party-location'), form = document.getElementById('party-request-form');

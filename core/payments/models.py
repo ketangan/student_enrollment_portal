@@ -37,9 +37,9 @@ class PaymentAccount(models.Model):
 
 
 class PaymentOrder(models.Model):
-    """Commercial quote; unpaid booking amendments are audited before any new checkout.
+    """Current commercial quote; booking amendments retain before/after audit evidence.
 
-    Settled orders and individual payment attempts are immutable.
+    Individual payment attempts and ledger entries remain immutable evidence.
     """
 
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)

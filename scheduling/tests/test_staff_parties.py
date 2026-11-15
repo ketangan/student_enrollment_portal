@@ -52,6 +52,20 @@ def test_participant_count_is_whole_number_with_numeric_control(booking_member, 
     assert form.fields["group_size"].widget.attrs["inputmode"] == "numeric"
 
 
+def test_staff_custom_intake_uses_one_count_without_summary(booking_member, studio, client):
+    client.force_login(booking_member.user)
+    page = client.get(route(booking_member))
+    assert page.status_code == 200
+    assert b'name="group_size"' in page.content
+    assert b'name="participant_estimate"' not in page.content
+    assert b'aria-label="Party summary"' not in page.content
+    assert b"party-request.js" not in page.content
+    item, form = staff_parties.create(booking_member.user, booking_member.profile.school.slug,
+        data_for(booking_member, studio, participant_estimate="20-30"))
+    assert item is not None, form.errors
+    assert item.group_size == 24 and item.participant_estimate == ""
+
+
 def test_staff_entry_reuses_inquiry_review_and_online_payment_link(booking_member, studio, client, settings):
     profile = booking_member.profile
     profile.native_reservations_enabled = True

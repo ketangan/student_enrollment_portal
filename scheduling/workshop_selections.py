@@ -24,9 +24,9 @@ def revision(person):
     return digest({"id": person.pk, "name": person.name, "selections": person.selections, "pending": person.selections_deferred})
 
 
-def form_for(person, catalog, data=None, *, edit_name=False):
+def form_for(person, catalog, data=None, *, edit_name=False, include_details=False):
     initial = {"name": person.name, **{f"choice_{s['group_id']}": str(s["option_id"]) for s in person.selections}}
-    form = ParticipantForm(data, catalog=[g for g in catalog if g.tracks_stock], initial=initial, auto_id=f"participant_{person.pk}_%s")
+    form = ParticipantForm(data, catalog=[g for g in catalog if g.tracks_stock or include_details], initial=initial, auto_id=f"participant_{person.pk}_%s")
     form.fields["selection_revision"] = forms.CharField(required=False, widget=forms.HiddenInput(), initial=revision(person))
     if not edit_name:
         form.fields["name"].disabled = True
@@ -61,7 +61,8 @@ def complete(item, person, data, *, actor=None):
     if (offering.inventory_catalog_id != item.snapshot.get("material_catalog_id")
             or offering.location_id != item.snapshot.get("material_location_id")):
         raise ValidationError("This booking's catalog or studio has changed. Contact support before editing its designs.")
-    form = form_for(person, catalog_for(offering), data, edit_name=actor is not None and "name" in data)
+    form = form_for(person, catalog_for(offering), data, edit_name=actor is not None and "name" in data,
+        include_details=actor is not None or bool(item.snapshot.get("staff_workshop")))
     if not form.is_valid():
         raise ValidationError([message for errors in form.errors.values() for message in errors])
     validate_allocations(item, allow_pending=True)

@@ -12,12 +12,11 @@
 <div class="actions"><button class="primary" type="submit">{{ submit_label }}</button>
 {% if simplified_school %}{% include 'scheduling/school/lesson_form_back.html' with cancel=True %}
 {% elif occurrence %}<a href="{% url 'scheduling:lesson_series' school_slug=business.slug public_id=occurrence.series.public_id %}">Back to lessons</a>
-{% elif school_layout and credit %}<a href="{% url 'scheduling:lesson_credit' school_slug=business.slug public_id=credit.public_id %}">Cancel</a>
-{% elif school_layout and request.resolver_match.url_name == 'lesson_booking_offer_new' or school_layout and request.resolver_match.url_name == 'lesson_booking_offer_edit' %}<a href="{% url 'scheduling:lesson_booking_setup' school_slug=business.slug %}">Cancel</a>
-{% elif school_layout and request.resolver_match.url_name == 'lesson_credit_policy' %}<a href="{% url 'scheduling:lesson_credits' school_slug=business.slug %}">Cancel</a>
-{% elif simplified_school and request.resolver_match.url_name == 'lesson_settings' %}<a href="{% url 'scheduling:school_schedule' school_slug=business.slug %}">Cancel</a>
-{% elif school_layout and request.resolver_match.url_name == 'lesson_settings' %}<a href="{{ booking_navigation.section.tabs.0.url }}">Cancel</a>
-{% elif profile.lessons_enabled %}<a href="{% url 'scheduling:lesson_setup' school_slug=business.slug %}{% if school_layout %}?section={{ setup_section|default:'teachers' }}{% endif %}">{% if school_layout %}Cancel{% else %}Back to setup{% endif %}</a>{% endif %}</div>
+{% elif school_layout and credit %}<a class="button" href="{% url 'scheduling:lesson_credit' school_slug=business.slug public_id=credit.public_id %}">Cancel</a>
+{% elif school_layout and request.resolver_match.url_name == 'lesson_booking_offer_new' or school_layout and request.resolver_match.url_name == 'lesson_booking_offer_edit' %}<a class="button" href="{% url 'scheduling:lesson_booking_setup' school_slug=business.slug %}">Cancel</a>
+{% elif school_layout and request.resolver_match.url_name == 'lesson_credit_policy' %}<a class="button" href="{% url 'scheduling:lesson_credits' school_slug=business.slug %}">Cancel</a>
+{% elif school_layout and request.resolver_match.url_name == 'lesson_settings' %}<a class="button" href="{% url 'scheduling:lessons' school_slug=business.slug %}">Cancel</a>
+{% elif profile.lessons_enabled %}<a class="button" href="{% url 'scheduling:lesson_setup' school_slug=business.slug %}{% if school_layout %}?section={{ setup_section|default:'teachers' }}{% endif %}">{% if school_layout %}Cancel{% else %}Back to setup{% endif %}</a>{% endif %}</div>
 </form>
 </section>
 {% endblock %}

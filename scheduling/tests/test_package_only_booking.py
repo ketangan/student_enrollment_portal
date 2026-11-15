@@ -1,6 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 from types import SimpleNamespace
+from urllib.parse import urlencode
 
 import pytest
 from django.core.exceptions import ValidationError
@@ -159,6 +160,73 @@ def test_staff_uses_same_package_and_time_and_retry_preserves_snapshot(booking_m
     assert client.post(url, data).url.endswith(f"/reservations/{reservation.public_id}/")
 
 
+def test_staff_party_calendar_return_preserves_context_and_existing_writer(booking_member, direct_party, policy, client):
+    member = booking_member
+    member.profile.calendar_enabled = True
+    member.profile.save(update_fields=["calendar_enabled"])
+    client.force_login(member.user)
+    kwargs = {"school_slug": member.profile.school.slug}
+    calendar = reverse("scheduling:workspace", kwargs=kwargs) + "?view=calendar&range=week&date=2026-12-01"
+    path = reverse("scheduling:staff_party_create", kwargs=kwargs) + "?" + urlencode({"calendar": calendar})
+    response = client.get(path + "&" + urlencode({"offering": direct_party.package.offering_id}))
+    assert response.context["calendar_return"] == calendar
+    data = staff_data(member, direct_party)
+    saved = client.post(path, data)
+    assert saved.status_code == 302 and saved.url == calendar
+    assert client.post(path, data).url == calendar
+    assert Reservation.objects.count() == 1
+    reservation = Reservation.objects.get()
+    assert reservation.order.total_cents == 49500 and not reservation.order.entries.exists()
+
+
+def test_calendar_party_editor_prefills_available_time_and_saves_once(booking_member, direct_party, policy, client):
+    member = booking_member
+    member.profile.calendar_enabled = True
+    member.profile.save(update_fields=["calendar_enabled"])
+    client.force_login(member.user)
+    path = reverse("scheduling:staff_party_create", kwargs={"school_slug": member.profile.school.slug})
+    params = {"offering": direct_party.package.offering_id, "starts_at": direct_party.starts_at.isoformat()}
+    response = client.get(path, params, HTTP_X_CALENDAR_EDITOR="1")
+    assert response.status_code == 200 and response.context["calendar_editor"]
+    assert response.context["form"].initial["party_slot"] == direct_party.pk
+    assert response.context["form"].slot_capacity[str(direct_party.pk)] == direct_party.package.room.capacity
+    assert b"data-calendar-editor" in response.content
+    params["starts_at"] = (direct_party.starts_at + timedelta(minutes=15)).isoformat()
+    unavailable = client.get(path, params, HTTP_X_CALENDAR_EDITOR="1")
+    assert b"No party is offered at the selected time" in unavailable.content
+    assert not unavailable.context["form"].initial.get("party_slot")
+    params["starts_at"] = "invalid"
+    assert client.get(path, params, HTTP_X_CALENDAR_EDITOR="1").status_code == 200
+    data = staff_data(member, direct_party)
+    for _ in range(2):
+        saved = client.post(path, data, HTTP_X_CALENDAR_EDITOR="1")
+        assert saved.status_code == 200 and saved.json() == {"saved": True}
+    assert Reservation.objects.count() == 1
+    assert Reservation.objects.get().order.total_cents == 49500
+    member.profile.calendar_enabled = False
+    member.profile.save(update_fields=["calendar_enabled"])
+    assert client.get(path, params, HTTP_X_CALENDAR_EDITOR="1").status_code == 404
+
+
+def test_party_remaining_places_use_peak_overlap_and_bounded_queries(booking_member, direct_party, policy, django_assert_num_queries):
+    from scheduling.reservations import party_slot_remaining
+    from scheduling.models import PartySlot
+    direct_party.package.space = "shared"
+    direct_party.package.save(update_fields=["space"])
+    item, form = staff_parties.create(booking_member.user, booking_member.profile.school.slug,
+        staff_data(booking_member, direct_party, group_size="2"))
+    assert item, form.errors
+    reservation = item.reservation
+    reservation.ends_at = reservation.starts_at + timedelta(minutes=30)
+    reservation.save(update_fields=["ends_at"])
+    later = PartySlot.objects.create(package=direct_party.package, starts_at=reservation.ends_at)
+    with django_assert_num_queries(2):
+        remaining = party_slot_remaining(PartySlot.objects.filter(pk__in=[direct_party.pk, later.pk]))
+    assert remaining[str(direct_party.pk)] == direct_party.package.room.capacity - 2
+    assert remaining[str(later.pk)] == direct_party.package.room.capacity
+    assert party_slot_remaining(PartySlot.objects.none()) == {}
+
+
 @pytest.mark.parametrize("changes", [{"package": ""}, {"party_slot": ""}, {"offering": "999999"}, {"request_token": "bad"}])
 def test_staff_rejects_custom_or_invalid_booking(booking_member, direct_party, policy, changes):
     item, form = staff_parties.create(booking_member.user, booking_member.profile.school.slug,
@@ -247,7 +315,19 @@ def test_staff_and_customer_pages_exclude_custom_controls(client, booking_member
     page = client.get(reverse("scheduling:staff_party_create", kwargs={"school_slug": booking_member.profile.school.slug}), {"offering": offering.pk})
     assert page.status_code == 200 and b"Create booking" in page.content
     assert b'name="duration_minutes"' not in page.content
-    assert b"Package summary" in page.content
+    assert b"Package summary" not in page.content
+    assert b'name="participant_estimate"' not in page.content
+    assert b'name="group_size"' in page.content
+    assert "participant_estimate" not in page.context["form"].fields
+
+
+def test_staff_count_is_authoritative_and_ignores_legacy_estimate(booking_member, direct_party, policy):
+    item, form = staff_parties.create(booking_member.user, booking_member.profile.school.slug,
+        staff_data(booking_member, direct_party, participant_estimate="not even a range"))
+    assert item is not None, form.errors
+    assert item.group_size == item.reservation.quantity == 6
+    assert item.participant_estimate == ""
+    assert item.reservation.snapshot["participant_estimate"] == ""
 
 
 @pytest.mark.django_db(transaction=True)

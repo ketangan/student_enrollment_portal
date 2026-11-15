@@ -44,6 +44,7 @@ class StaffPartyForm(PartyInquiryForm):
         for name in self.acknowledgment_names:
             self.fields.pop(name)
         self.acknowledgment_names = []
+        self.fields.pop("participant_estimate")
         self.packages_only = packages_only
         self.selected_offering = offering
         if packages_only:
@@ -58,7 +59,7 @@ class StaffPartyForm(PartyInquiryForm):
         self.fields["starts_at"].label = "Preferred date and time (studio time)"
         self.fields["customer_notes"].label = "Customer requests"
         self.order_fields(["offering", "starts_at", "duration_minutes", "organizer_name", "organizer_email",
-            "organizer_phone", "group_size", "participant_estimate", "space", "occasion", "age_range", "customer_notes", "request_token"])
+            "organizer_phone", "group_size", "space", "occasion", "age_range", "customer_notes", "request_token"])
 
     def full_clean(self):
         # Parse the entered wall-clock time at the authorized studio, not the server timezone.

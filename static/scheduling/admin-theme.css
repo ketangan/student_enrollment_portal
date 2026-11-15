@@ -161,6 +161,25 @@
 .booking-admin .status.info { background: #eff6ff; color: #1d4ed8; }
 .booking-admin .form-field label { font-size: 11px; margin-bottom: 6px; color: var(--dash-muted); text-transform: uppercase; letter-spacing: 0; }
 .booking-admin .form-field:is(.check-field, .checkbox-field) label { font-size: 13px; color: var(--dash-text); text-transform: none; }
+.booking-admin .setup-form.booking-editor { display:block; }
+.booking-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 16px; }
+.booking-review { border-top:1px solid var(--dash-border); margin:16px 0; padding-top:16px; }
+.booking-review-totals { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin:0; }
+.booking-review-totals dt { color:var(--dash-muted); font-size:13px; }
+.booking-review-totals dd { margin:4px 0 0; font-size:18px; font-weight:700; overflow-wrap:anywhere; }
+.booking-review-breakdown summary { display:list-item; min-height:44px; padding:12px 0; cursor:pointer; box-sizing:border-box; }
+.booking-review-breakdown dl { margin:0 0 12px; }
+.booking-review-breakdown dl > div { display:flex; justify-content:space-between; gap:16px; padding:4px 0; }
+.booking-review-breakdown dd { margin:0; text-align:right; overflow-wrap:anywhere; }
+.booking-editor .check-field, .booking-editor .check-field label, .booking-removals summary { min-height:44px; }
+.booking-editor .check-field label { display:flex; align-items:center; }
+.booking-removals { margin:8px 0 16px; }
+.booking-removals label { display:flex; align-items:center; gap:12px; min-height:44px; }
+.booking-removals input { width:20px; min-height:20px; }
+.booking-removals {border:0;padding:0;}
+.booking-removals[hidden] {display:none;}
+.booking-removals legend {font-size:14px;font-weight:600;}
+@media (max-width:540px) { .booking-fields { grid-template-columns:minmax(0,1fr); } }
 .booking-admin :is(.stock-filter, .prep-filter) label { font-size: 12px; color: var(--dash-muted); }
 .booking-admin :is(input, select, textarea) { font-size: 13px; min-height: 38px; padding: 8px 10px; background-color: var(--dash-card); border: 1px solid var(--dash-border); border-radius: 6px; }
 .booking-admin :is(input, select, textarea):focus { outline: 2px solid var(--dash-primary); outline-offset: 2px; }
@@ -200,8 +219,8 @@
 .booking-admin .workshop-settings-form { max-width: 960px; }
 .booking-admin .workshop-settings-section { min-width: 0; padding: 20px 0 24px; margin: 0 0 24px; border: 0; border-bottom: 1px solid var(--dash-border); }
 .booking-admin .workshop-settings-section legend { padding: 0; font-size: 15px; font-weight: 700; color: var(--dash-text); }
-.booking-admin :is(.party-rules-dialog, .reservation-payment-dialog, #calendar-detail) { box-sizing: border-box; width: min(var(--booking-dialog-width, 680px), calc(100vw - 32px)); max-height: calc(100dvh - 32px); margin: auto; overflow: auto; padding: 24px; border: 1px solid var(--dash-border); border-radius: 8px; background: var(--dash-card); color: var(--dash-text); box-shadow: 0 16px 48px #0003; }
-.booking-admin :is(.party-rules-dialog, .reservation-payment-dialog, #calendar-detail)::backdrop { background: #0006; }
+.booking-admin :is(.party-rules-dialog, .reservation-payment-dialog, #calendar-detail, #calendar-editor) { box-sizing: border-box; width: min(var(--booking-dialog-width, 680px), calc(100vw - 32px)); max-height: calc(100dvh - 32px); margin: auto; overflow: auto; padding: 24px; border: 1px solid var(--dash-border); border-radius: 8px; background: var(--dash-card); color: var(--dash-text); box-shadow: 0 16px 48px #0003; }
+.booking-admin :is(.party-rules-dialog, .reservation-payment-dialog, #calendar-detail, #calendar-editor)::backdrop { background: #0006; }
 .booking-admin :is(.party-rules-dialog h3, .reservation-payment-dialog h2, #calendar-detail h2) { margin: 0; font-size: 18px; }
 .booking-admin :is([data-close-setup-dialog][aria-label], .payment-dialog-close, #calendar-detail-close) { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 38px; width: 38px; height: 38px; min-height: 38px; padding: 0; border: 0; background: transparent; color: var(--dash-muted); }
 .booking-admin :is([data-close-setup-dialog][aria-label], .payment-dialog-close, #calendar-detail-close):hover { background: var(--dash-bg); }
@@ -710,8 +729,7 @@
 .booking-admin [data-staff="true"] :is(input:not([type=hidden]), select, button, a.button) { min-height:44px; }
 .booking-admin .package-booking-location { margin-bottom:28px; }
 .booking-admin .package-booking-location :is(select, button) { min-height:44px; }
-.booking-admin [data-staff="true"] .party-request-summary { top:96px; }
-.booking-admin [data-staff="true"] .party-request-summary p { line-height:1.5; }
+.booking-admin .staff-party-form.party-request-layout { grid-template-columns: minmax(0, 1fr); }
 .party-request-fields, .party-field-pair > * { min-width: 0; }
 .party-request-fields .reservation-section { padding: 24px 0; border-bottom: 1px solid var(--border-color, #dfe3e8); }
 .party-request-fields .reservation-section:first-child { padding-top: 0; }

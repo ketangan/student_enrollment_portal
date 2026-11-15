@@ -64,6 +64,7 @@
       const locations = [...new Set(group.map(event => event.extendedProps.location))];
       return [{...group[0],id:`group-${group[0].id}`,title:`${group.length} sessions`,
         extendedProps:{kind:"group",size:group.length,location:locations.length === 1 ? locations[0] : `${locations.length} locations`,published:true,
+          bookings:group.reduce((sum,event)=>sum+(event.extendedProps.bookings || 0),0),
           seats:group.reduce((sum,event)=>sum+event.extendedProps.seats,0),
           capacity:group.reduce((sum,event)=>sum+event.extendedProps.capacity,0)}}];
     });
@@ -83,8 +84,25 @@
       if (current !== detailNumber || !dialog.open) return;
       document.getElementById("calendar-detail-title").textContent = data.title;
       detailBadges.replaceChildren(node("span",data.category,"calendar-detail-badge"));
+      detailBadges.append(node("span",data.availability,"calendar-detail-badge"));
       detailBody.replaceChildren(node("p", data.time), node("p", [data.location,data.room].filter(Boolean).join(" · "), "muted"));
+      if (data.edit_url) {
+        const actions = node("div", undefined, "actions calendar-session-actions");
+        const edit = node("button", undefined, "button"); edit.type = "button";
+        const icon = node("i"); icon.setAttribute("data-lucide", "pencil"); icon.setAttribute("aria-hidden", "true");
+        edit.append(icon, node("span", "Edit session"));
+        edit.addEventListener("click", () => editInCalendar(data.edit_url, "Edit session"));
+        actions.append(edit); detailBody.append(actions);
+        if (data.booking_url) {
+          const book = node("button", "Add booking", "button primary"); book.type = "button";
+          book.disabled = data.summary.open <= 0;
+          if (book.disabled) book.title = "This session is full";
+          book.addEventListener("click", () => editInCalendar(data.booking_url, "Add booking"));
+          actions.append(book);
+        }
+      }
       const summary = data.summary;
+      if (summary.open <= 0 && data.booking_url) detailBody.append(node("p", "This session is full. No places are available.", "notice warning"));
       const metrics = node("div",undefined,"calendar-detail-metrics");
       function metric(label,value,caption) {
         const item=node("div",undefined,"calendar-detail-metric");
@@ -96,7 +114,7 @@
       metric("Open",summary.open,"seats left");
       metric("Collected",summary.payments.length ? summary.payments.map(p=>money(p.received,p.order__currency)).join(" + ") : "—",
         summary.payments.length ? `of ${summary.payments.map(p=>money(p.expected,p.order__currency)).join(" + ")} expected` : "No payments");
-      metric("Needs action",summary.needs_action,summary.needs_action ? "payment review" : "No payment issues");
+      if (summary.needs_action) metric("Needs action",summary.needs_action,"payment review");
       detailBody.append(metrics,node("h3",`${summary.reservation_count} reservation${summary.reservation_count === 1 ? "" : "s"}`));
       if (data.reservations.length) {
         const wrap = node("div", undefined, "calendar-roster"), table = node("table"), head = node("tr");
@@ -108,7 +126,27 @@
           identity.append(node("span",row.name));customer.append(identity);tr.append(customer,node("td",`${row.quantity} ${row.quantity === 1 ? "seat" : "seats"}`));
           const payment=node("td"), status=node("span",row.payment_status,`calendar-payment-status ${row.payment_status === "Paid" ? "paid" : "pending"}`);
           payment.append(status,node("small",`${money(row.received,row.currency)} received · ${money(Math.max(0,row.total-row.received),row.currency)} balance`,"calendar-payment-amount"));tr.append(payment);
-          const cell = node("td"), link = node("a","View","dash-action-btn dash-action-btn--secondary"); link.href = detailLink(row.url);link.setAttribute("aria-label",`View reservation for ${row.name}`); cell.append(link); tr.append(cell);
+          const cell = node("td"), actions = node("div", undefined, "calendar-row-actions"), link = node("a", undefined, "button icon-button"); link.href = detailLink(row.url);link.setAttribute("aria-label",`View reservation for ${row.name}`); link.title = "View reservation";
+          const viewIcon = node("i"); viewIcon.setAttribute("data-lucide", "eye"); viewIcon.setAttribute("aria-hidden", "true"); link.append(viewIcon); actions.append(link); cell.append(actions); tr.append(cell);
+          if (row.edit_url || row.edit_unavailable) {
+            const edit = node("button", undefined, "button icon-button"); edit.type = "button"; edit.title = "Edit booking";
+            edit.setAttribute("aria-label", `Edit booking for ${row.name}`);
+            const icon = node("i"); icon.setAttribute("data-lucide", "pencil"); icon.setAttribute("aria-hidden", "true");
+            edit.append(icon);
+            if (row.edit_url) {
+              edit.addEventListener("click", () => editInCalendar(row.edit_url, "Edit booking"));
+            } else {
+              edit.disabled = true; edit.title = row.edit_unavailable;
+              customer.append(node("small", row.edit_unavailable, "calendar-edit-unavailable"));
+            }
+            actions.append(edit);
+          }
+          if (row.cancel_url) {
+            const cancel = node("button", undefined, "button icon-button"); cancel.type = "button";
+            cancel.setAttribute("aria-label", `Cancel reservation for ${row.name}`); cancel.title = "Cancel reservation";
+            const icon = node("i"); icon.setAttribute("data-lucide", "calendar-x"); icon.setAttribute("aria-hidden", "true"); cancel.append(icon);
+            cancel.addEventListener("click", () => editInCalendar(row.cancel_url, "Cancel reservation")); actions.append(cancel);
+          }
           ["Customer", "Participants", "Payment", ""].forEach((label, index) => tr.children[index].setAttribute("data-label", label));
           body.append(tr);
         }
@@ -116,6 +154,7 @@
       } else detailBody.append(node("p","No active reservations."));
       if (data.truncated) detailBody.append(node("p","Showing the first 500 reservations."));
       printButton.disabled = false;
+      if (window.lucide) window.lucide.createIcons();
     } catch (_) {
       if (current === detailNumber && dialog.open) {
         const retry = node("button", "Retry"); retry.type="button"; retry.addEventListener("click", () => openDetail(event));
@@ -128,38 +167,41 @@
   dialog.addEventListener("close", () => {detailNumber++;});
   const calendar = EventCalendar.create(root, {
     view:viewName(), date:anchorDate,
-    timeZone:"UTC", headerToolbar:false, height:"680px", allDaySlot:false, nowIndicator:false, dayMaxEvents:true,
+    timeZone:"UTC", headerToolbar:false, height:"680px", allDaySlot:false, nowIndicator:false, dayMaxEvents:true, slotEventOverlap:false,
     editable:false, selectable:false, eventStartEditable:false, eventDurationEditable:false,
     scrollTime:"09:00:00", slotMinTime:"09:00:00", slotMaxTime:"19:00:00", flexibleSlotTimeLimits:true,
-    slotDuration:"01:00:00", slotHeight:48, slotLabelInterval:"01:00:00",
+    slotDuration:"01:00:00", snapDuration:"00:30:00", slotHeight:48, slotLabelInterval:"01:00:00",
     slotWidth:Math.max(88,Math.floor((root.clientWidth-180)/10)), resources:config.resources,
     datesSet(info) {
       if (pendingNavigation) {anchorDate=info.view.currentStart.toISOString().slice(0,10);pendingNavigation=false;}
       document.getElementById("calendar-range").textContent = info.view.title;
       queueMicrotask(syncUrl);
     },
-    eventSources:[{events:async (info, success) => {
-      const current = ++requestNumber;
-      if (controller) controller.abort(); controller = new AbortController();
-      error.hidden = true; count.textContent = "Loading..."; updateSummary({unpaid:"...",balance:"...",empty:"..."});
-      if (!selected.size) {success([]); updateSummary(); count.textContent="No workshops selected"; return;}
-      const url = new URL(config.eventsUrl, location.origin);
-      url.searchParams.set("start",info.startStr.slice(0,10)); url.searchParams.set("end",info.endStr.slice(0,10));
-      url.searchParams.set("location",config.location);
-      if (selected.size !== config.offerings.length) for (const id of selected) url.searchParams.append("offering",id);
-      if (hideEmpty.checked) url.searchParams.set("hide_empty","1");
-      try {
-        const response = await fetch(url,{signal:controller.signal,headers:{Accept:"application/json"}});
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error || "Could not load the calendar.");
-        if (current !== requestNumber) return;
-        success(displayEvents(data.events)); count.textContent = `${data.events.length} events`;
-        updateSummary(data.summary);
-      } catch (failure) {
-        if (current !== requestNumber || failure.name === "AbortError") return;
-        success([]); updateSummary({unpaid:"?",balance:"?",empty:"?"}); count.textContent=""; error.hidden=false;
-        error.querySelector("span").textContent = failure.message === "Failed to fetch" ? "Could not load the calendar. Check your connection." : "Could not load the calendar. Please try again or select a shorter date range.";
-      }
+    eventSources:[{events:(info, success) => {
+      // Use only the callback contract: returning a promise also delivers its result.
+      void (async () => {
+        const current = ++requestNumber;
+        if (controller) controller.abort(); controller = new AbortController();
+        error.hidden = true; count.textContent = "Loading..."; updateSummary({unpaid:"...",balance:"...",empty:"..."});
+        if (!selected.size) {success([]); updateSummary(); count.textContent="No workshops selected"; return;}
+        const url = new URL(config.eventsUrl, location.origin);
+        url.searchParams.set("start",info.startStr.slice(0,10)); url.searchParams.set("end",info.endStr.slice(0,10));
+        url.searchParams.set("location",config.location);
+        if (selected.size !== config.offerings.length) for (const id of selected) url.searchParams.append("offering",id);
+        if (hideEmpty.checked) url.searchParams.set("hide_empty","1");
+        try {
+          const response = await fetch(url,{signal:controller.signal,headers:{Accept:"application/json"}});
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Could not load the calendar.");
+          if (current !== requestNumber) return;
+          success(displayEvents(data.events)); count.textContent = `${data.events.length} events`;
+          updateSummary(data.summary);
+        } catch (failure) {
+          if (current !== requestNumber || failure.name === "AbortError") return;
+          success([]); updateSummary({unpaid:"?",balance:"?",empty:"?"}); count.textContent=""; error.hidden=false;
+          error.querySelector("span").textContent = failure.message === "Failed to fetch" ? "Could not load the calendar. Check your connection." : "Could not load the calendar. Please try again or select a shorter date range.";
+        }
+      })();
     }}],
     eventClassNames({event}) {
       const p=event.extendedProps;
@@ -167,25 +209,35 @@
     },
     eventContent({event,timeText}) {
       const p=event.extendedProps;
+      const bookings = `${p.bookings || 0} booking${p.bookings === 1 ? "" : "s"}`;
       if (range === "week") {
         const size=p.kind === "group" ? p.size : 1;
         return {domNodes:[
-          node("strong",`${size} session${size === 1 ? "" : "s"}`,"calendar-event-title"),
+          node("strong",`${bookings} · ${p.kind === "group" ? `${size} sessions` : event.title}`,"calendar-event-title"),
           node("span",p.location,"calendar-event-location"),
           node("span",timeText,"calendar-event-meta"),
           node("span",`${p.seats}/${p.capacity} participants${p.published ? "" : " · Draft"}`,"calendar-event-meta")
         ]};
       }
-      const title=node("strong",config.location || range === "day" ? event.title : p.location,"calendar-event-title");
+      const title=node("strong",`${bookings} · ${config.location || range === "day" ? event.title : p.location}`,"calendar-event-title");
       const detail=node("span",`${timeText} · ${p.seats}/${p.capacity} participants${p.published ? "" : " · Draft"}`,"calendar-event-meta");
       return {domNodes:[title,detail]};
     },
     eventClick:({event}) => openDetail(event),
     eventDidMount({el,event}) {
-      el.tabIndex=0; el.setAttribute("role","button"); el.setAttribute("aria-label",`${event.title}, ${event.extendedProps.location}, ${event.extendedProps.seats} of ${event.extendedProps.capacity} participants`);
+      el.tabIndex=0; el.setAttribute("role","button"); el.setAttribute("aria-label",`${event.title}, ${event.extendedProps.location}, ${event.extendedProps.seats} of ${event.extendedProps.capacity} participants, ${event.extendedProps.bookings || 0} booking${event.extendedProps.bookings === 1 ? "" : "s"}`);
       el.addEventListener("keydown",e=>{if(e.key==="Enter" || e.key===" "){e.preventDefault();openDetail(event);}});
     },
-    dateClick(info) {openDay(info.date);},
+    dateClick(info) {
+      if (range === "month" || info.allDay || !document.getElementById("calendar-add-session")) {
+        openDay(info.dateStr || info.date);
+        return;
+      }
+      // dateStr is the venue wall clock; converting date to UTC would shift it.
+      const start = info.dateStr?.slice(0,16);
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(start || "")) return;
+      addInCalendar(start, String(info.resource?.id || config.location || ""));
+    },
     dayCellContent({date}) {
       if (range !== "month") return;
       const button=node("button",String(date.getUTCDate()),"calendar-day-heading");button.type="button";
@@ -209,6 +261,30 @@
       return {domNodes:[button,zone]};
     },
   });
+  function savedInCalendar(result) {
+    if (dialog.open) dialog.close();
+    if (result?.session_created) document.getElementById("calendar-hide-empty").checked = false;
+    calendar.refetchEvents();
+    count.textContent = "Saved. Updating calendar...";
+    const notice = document.getElementById("calendar-save-status");
+    notice.hidden = false;
+    notice.replaceChildren(node("span", result?.message || "Saved."));
+    if (result?.review_url) {
+      const review = node("a", "Review party request"); review.href = detailLink(result.review_url); notice.append(review);
+    }
+  }
+  function editInCalendar(url, title) {
+    if (dialog.open) dialog.close();
+    window.BookingCalendarEditor.open({url, title, onSaved: savedInCalendar});
+  }
+  const addSession = document.getElementById("calendar-add-session");
+  function addInCalendar(initialStart, locationId = config.location) {
+    const choices = config.offerings.filter(item => item.createUrl && selected.has(item.id) && (!locationId || item.locationId === locationId));
+    choices.push(...(config.parties || []).filter(item => !locationId || item.locationId === locationId));
+    window.BookingCalendarEditor.open({title: "Add booking", choices,
+      initialStart, onSaved: savedInCalendar});
+  }
+  if (addSession) addSession.addEventListener("click", () => addInCalendar());
   // The bundled calendar exposes overflow content, but no more-link click hook.
   // Capture its native trigger before the library opens the month popover.
   function openOverflow(event) {

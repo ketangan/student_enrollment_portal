@@ -6,16 +6,44 @@
   const status = document.getElementById("square-status");
   const button = document.getElementById("square-pay");
   const options = JSON.parse(document.getElementById("square-options").textContent);
+  const reload = document.getElementById("square-reload");
+  const sdk = document.getElementById("square-sdk");
+  reload.addEventListener("click", () => window.location.reload());
   let card;
+  let stopped = false;
+  let timer;
+  let sdkLoaded, sdkFailed;
   try {
-    const payments = window.Square.payments(options.applicationId, options.locationId);
-    card = await payments.card();
-    await card.attach("#square-card");
+    // A blocked script or unresolved provider iframe must not leave checkout spinning forever.
+    const initialize = async () => {
+      if (!window.Square) await new Promise((resolve, reject) => {
+        sdkLoaded = resolve;
+        sdkFailed = () => reject(new Error("Secure form unavailable"));
+        sdk.addEventListener("load", sdkLoaded);
+        sdk.addEventListener("error", sdkFailed);
+      });
+      if (stopped) return;
+      const payments = window.Square.payments(options.applicationId, options.locationId);
+      card = await payments.card();
+      if (stopped) {await card.destroy(); return;}
+      await card.attach("#square-card");
+    };
+    await Promise.race([initialize(), new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error("Secure form timed out")), 20000);
+    })]);
     status.textContent = "";
     button.disabled = false;
   } catch (_) {
-    status.textContent = "The secure card form could not load. Refresh this page to try again.";
+    stopped = true;
+    form.hidden = true;
+    status.textContent = "The secure card form could not load. No payment was submitted. Reload to try again, or use another browser.";
+    reload.hidden = false;
+    if (card) card.destroy().catch(() => {});
     return;
+  } finally {
+    clearTimeout(timer);
+    sdk.removeEventListener("load", sdkLoaded);
+    sdk.removeEventListener("error", sdkFailed);
   }
   form.addEventListener("submit", async function (event) {
     event.preventDefault();

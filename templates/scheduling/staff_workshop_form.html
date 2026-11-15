@@ -1,0 +1,22 @@
+{% extends 'scheduling/base.html' %}
+{% block content %}<section data-calendar-editor>
+<h2>{% if form.new %}New session{% else %}Add booking{% endif %}</h2><p class="muted">{{ offering.name }} &middot; {{ offering.location.name }}</p>
+{% if not form.can_book and not form.new %}<p role="status">Customer bookings are not enabled for this workshop.</p>
+{% else %}
+<form method="post" class="setup-form booking-editor" data-workshop-booking>{% csrf_token %}
+{{ form.non_field_errors }}{{ form.request_token }}{{ form.request_token.errors }}
+{% if form.new %}
+{{ form.session_form.non_field_errors }}
+<div class="booking-fields">{% for field in form.session_form %}{% if field.is_hidden %}{{ field }}{{ field.errors }}{% else %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}</div>
+{% elif form.fixed_session %}<p>{{ form.fixed_session.starts_at|date:'D, M j, Y' }} at {{ form.fixed_session.starts_at|time:'g:i A' }}</p>{{ form.session }}{{ form.session.errors }}
+{% else %}<div class="form-field"{% if calendar_editor %} data-calendar-session-url="{% url 'scheduling:staff_workshop_create' school_slug=business.slug offering_pk=offering.pk %}"{% endif %}>{{ form.session.label_tag }}{{ form.session }}{{ form.session.errors }}</div>
+<a class="button" data-calendar-load href="{% url 'scheduling:staff_workshop_create' school_slug=business.slug offering_pk=offering.pk %}?new=1"><i data-lucide="plus" aria-hidden="true"></i> New session</a>{% endif %}
+{% if form.remaining == 0 %}<p class="notice warning" role="status">This session is full. Choose another time or change the session capacity before adding a booking.</p>
+{% elif form.fixed_session %}<p class="muted">{{ form.remaining }} place{{ form.remaining|pluralize }} available.</p>{% endif %}
+{% if form.can_book and form.remaining != 0 %}{% if form.new or form.fixed_session or not calendar_editor %}<h3>Customer{% if form.new %} (optional){% endif %}</h3>
+<div class="booking-fields">
+{% for field in form %}{% if field.name == 'quantity' or field.name == 'purchaser_name' or field.name == 'purchaser_email' or field.name == 'purchaser_phone' %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}
+</div>
+{% endif %}{% endif %}
+<div class="actions">{% if form.remaining == 0 %}<a class="button primary" data-calendar-load href="{% url 'scheduling:staff_workshop_create' school_slug=business.slug offering_pk=offering.pk %}">Choose another time</a>{% else %}{% if form.new or form.fixed_session or not calendar_editor %}<button class="primary" type="submit">{% if form.new %}Save{% else %}Save booking{% endif %}</button>{% endif %}{% endif %}{% if calendar_editor %}<button type="button" data-calendar-close>Cancel</button>{% else %}<a class="button" href="{% url 'scheduling:workspace' school_slug=business.slug %}">Cancel</a>{% endif %}</div>
+</form>{% endif %}</section>{% endblock %}

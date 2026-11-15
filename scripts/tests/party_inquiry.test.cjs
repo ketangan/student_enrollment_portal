@@ -4,11 +4,11 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('static/scheduling/party-inquiry.js', 'utf8');
 
-function mount({packageOnly = true, staff = false, calendar = false} = {}) {
+function mount({packageOnly = true, staff = false, calendar = false, capacity = null, summary = true} = {}) {
   const events = {};
   const wrappers = {};
   const field = id => ({value:'', closest:() => wrappers[id] ||= {hidden:false},
-    addEventListener:(event, fn) => { events[`${id}:${event}`] = fn; }});
+    removeAttribute(name) {delete this[name];}, addEventListener:(event, fn) => { events[`${id}:${event}`] = fn; }});
   const nodes = {
     'party-package-details':{textContent:JSON.stringify({'1':{direct:true,text:'Package price $450'},'2':{direct:false,text:'Review package'}})},
     'party-slot-packages':{textContent:'{"3":"1"}'},
@@ -17,9 +17,15 @@ function mount({packageOnly = true, staff = false, calendar = false} = {}) {
     id_starts_at:field('starts'), 'party-package-summary':{}, 'party-next-step':{}, 'party-submit':{},
   };
   const customInput = {};
+  if (!summary) delete nodes['party-package-summary'];
   const custom = {querySelectorAll:() => [customInput]};
   let pickerOptions;
   const window = {};
+  if (capacity) {
+    nodes['party-slot-capacity'] = {textContent:JSON.stringify(capacity)};
+    nodes['party-capacity-notice'] = {};
+    nodes.id_group_size = field('group');
+  }
   if (calendar) {
     nodes['party-time-picker'] = {};
     nodes['party-date'] = {};
@@ -39,8 +45,28 @@ function mount({packageOnly = true, staff = false, calendar = false} = {}) {
     querySelectorAll:selector => selector === '[data-custom-party-field]' ? [custom] : [],
     addEventListener:() => {},
   }});
-  return {nodes,wrappers,custom,customInput,choose:value => {nodes.id_package.value=value;events['package:change']();}, date:day => pickerOptions.onChange([],day)};
+  return {nodes,wrappers,custom,customInput,events,choose:value => {nodes.id_package.value=value;events['package:change']();}, date:day => pickerOptions.onChange([],day)};
 }
+
+test('calendar party capacity warns before customer submission and resets between packages', () => {
+  const ui = mount({staff:true,capacity:{3:2,4:0,5:1}});
+  ui.choose('1');
+  ui.nodes.id_party_slot.value='3'; ui.events['slots:change']();
+  assert.match(ui.nodes['party-capacity-notice'].textContent,/2 places available/);
+  ui.nodes.id_group_size.value='3'; ui.events['group:input']();
+  assert.equal(ui.nodes['party-submit'].disabled,true);
+  assert.match(ui.nodes['party-capacity-notice'].textContent,/reduce the group/);
+  ui.nodes.id_group_size.value='1'; ui.events['group:input']();
+  assert.equal(ui.nodes['party-submit'].disabled,false);
+  ui.nodes.id_party_slot.value='4'; ui.events['slots:change']();
+  assert.match(ui.nodes['party-capacity-notice'].textContent,/full/);
+  assert.equal(ui.nodes['party-submit'].disabled,true);
+  ui.nodes.id_party_slot.value='5'; ui.events['slots:change']();
+  assert.match(ui.nodes['party-capacity-notice'].textContent,/1 place available/);
+  ui.choose('');
+  assert.equal(ui.nodes['party-capacity-notice'].hidden,true);
+  assert.equal(ui.nodes.id_group_size.max,undefined);
+});
 
 test('package-only intake never offers a custom fallback, including before package selection', () => {
   const ui = mount();
@@ -60,10 +86,20 @@ test('package-only intake never offers a custom fallback, including before packa
 });
 
 test('staff shares package times without implying an online charge', () => {
-  const ui = mount({staff:true});
+  const ui = mount({staff:true,summary:false});
   ui.choose('1');
   assert.equal(ui.nodes['party-submit'].textContent,'Create booking');
   assert.equal(ui.nodes['party-next-step'].textContent,'Payment is recorded separately on the reservation.');
+  assert.equal(ui.nodes.id_party_slot.disabled,false);
+  assert.equal(ui.nodes.id_party_slot.options[1].disabled,false);
+  ui.choose('');
+  assert.equal(ui.nodes['party-submit'].disabled,true);
+});
+
+test('customer package summary remains available', () => {
+  const ui = mount();
+  ui.choose('1');
+  assert.equal(ui.nodes['party-package-summary'].textContent,'Package price $450');
 });
 
 test('other schools retain custom review behavior', () => {

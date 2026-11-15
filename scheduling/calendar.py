@@ -3,6 +3,7 @@
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
+from urllib.parse import urlsplit
 
 from django.core.exceptions import ValidationError
 from django.db.models import Count, F, Q, Sum
@@ -19,6 +20,26 @@ MAX_EVENTS = 1500
 
 def calendar_available(profile):
     return profile.calendar_enabled and has_capability(profile, "workshops")
+
+
+def editor_request(request, profile):
+    if request.headers.get("X-Calendar-Editor") != "1":
+        return False
+    if not calendar_available(profile):
+        raise Http404
+    return True
+
+
+def return_url(request, profile):
+    value = request.GET.get("calendar", "")
+    if not value or len(value) > 2048 or not calendar_available(profile):
+        return ""
+    try:
+        target = urlsplit(value)
+    except ValueError:
+        return ""
+    expected = reverse("scheduling:workspace", kwargs={"school_slug": profile.school.slug})
+    return value if not target.scheme and not target.netloc and target.path == expected else ""
 
 
 def offerings(profile):
@@ -48,7 +69,7 @@ def event_payload(profile, kind, pk, title, start, end, location, room, seats, c
         "start": local_start.replace(tzinfo=None).isoformat(),
         "end": local_end.replace(tzinfo=None).isoformat(), "resourceIds": [str(location.pk)],
         "extendedProps": {"kind": kind, "location": location.name, "zone": location.timezone_name,
-            "room": room or "", "seats": seats, "capacity": capacity, "published": published,
+            "room": room or "", "seats": seats, "capacity": capacity, "published": published, "bookings": 1 if kind == "party" else 0,
             "detailUrl": reverse("scheduling:calendar_detail", kwargs={"school_slug": profile.school.slug, "kind": kind, "pk": str(pk)})},
     }
 
@@ -76,18 +97,22 @@ def calendar_events(profile, params, location=None):
     session_ids = [item.pk for item in sessions]
     claims = active_claims().filter(profile=profile)
     counts = defaultdict(int)
+    bookings = defaultdict(int)
     if has_capability(profile, "reservations"):
-        for row in claims.filter(session_id__in=session_ids).values("session_id").annotate(seats=Sum("quantity")):
+        for row in claims.filter(session_id__in=session_ids).values("session_id").annotate(seats=Sum("quantity"), bookings=Count("pk")):
             counts[row["session_id"]] += row["seats"]
+            bookings[row["session_id"]] += row["bookings"]
         if has_capability(profile, "camps"):
-            for row in ReservationOccurrence.objects.filter(session_id__in=session_ids, reservation__in=claims).values("session_id").annotate(seats=Sum("reservation__quantity")):
+            for row in ReservationOccurrence.objects.filter(session_id__in=session_ids, reservation__in=claims).values("session_id").annotate(seats=Sum("reservation__quantity"), bookings=Count("reservation_id", distinct=True)):
                 counts[row["session_id"]] += row["seats"]
+                bookings[row["session_id"]] += row["bookings"]
     events = []
     for item in sessions:
         camps = list(item.camps.all()) if has_capability(profile, "camps") else []
         event = event_payload(profile, "session", item.pk, item.offering.name, item.starts_at, item.ends_at,
             item.offering.location, str(item.room.name) if item.room else "", counts[item.pk], item.capacity, item.is_published)
         event["extendedProps"]["camp"] = bool(camps)
+        event["extendedProps"]["bookings"] = bookings[item.pk]
         events.append(event)
     if has_capability(profile, "parties") and has_capability(profile, "reservations"):
         parties = list(claims.filter(party_request__offering__in=selected, starts_at__lt=upper, ends_at__gt=lower)
@@ -138,6 +163,7 @@ def calendar_detail(profile, kind, pk):
         room = session.room.name if session.room else ""
         capacity, published = session.capacity, session.is_published
         category = "Camp" if has_capability(profile, "camps") and session.camps.exists() else "Group workshop"
+        availability = "Published" if published else "Unpublished"
     elif kind == "party" and has_capability(profile, "parties") and has_capability(profile, "reservations"):
         try:
             item = active_claims().select_related("party_request__offering__location", "room").get(pk=pk, profile=profile, party_request__offering__in=offerings(profile))
@@ -147,6 +173,7 @@ def calendar_detail(profile, kind, pk):
         predicate, room = Q(pk=item.pk), item.room.name if item.room else ""
         url = reverse("scheduling:reservation_detail", kwargs={"school_slug": profile.school.slug, "public_id": item.public_id})
         capacity, published, category = item.quantity, False, "Party"
+        availability = "Reserved" if item.state == "confirmed" else item.state_label
     else:
         raise Http404
     rows = []
@@ -158,15 +185,20 @@ def calendar_detail(profile, kind, pk):
         summary["open"] = max(0, capacity - summary["booked"])
         summary["payments"] = list(reservations.order_by().values("order__currency").annotate(
             received=Sum("net_received"), expected=Sum("effective_total")))
+        from .booking_edits import editable, unavailable_reason
         for item in reservations[:501]:
+            can_edit = editable(item)
             rows.append({"name": item.snapshot.get("name", "Guest"), "quantity": item.quantity,
-                "state": item.get_state_display(), "received": item.net_received, "total": item.effective_total,
+                "state": item.get_state_display(), "cancelable": item.state != "completed",
+                "editable": can_edit,
+                "edit_unavailable": unavailable_reason(item) if not can_edit and item.state in {"held", "review"} else "",
+                "received": item.net_received, "total": item.effective_total,
                 "payment_status": "Paid" if item.net_received >= item.effective_total else "Part paid" if item.net_received > 0 else "Unpaid",
                 "currency": item.order.currency, "url": reverse("scheduling:reservation_detail", kwargs={"school_slug": profile.school.slug, "public_id": item.public_id})})
     local_start, local_end = local_times(start, end, location)
     return {"title": title, "location": location.name, "room": room,
         "time": detail_time(local_start, local_end),
-        "url": url, "category": category, "availability": "Reserved" if kind == "party" else "Published" if published else "Unpublished",
+        "url": url, "category": category, "availability": availability,
         "summary": summary, "reservations": rows[:500], "truncated": len(rows) > 500}
 
 

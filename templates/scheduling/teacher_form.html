@@ -14,6 +14,6 @@
   {% if field.help_text %}<p class="muted" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</p>{% endif %}
 </div>
 {% endfor %}
-<div class="actions form-actions"><button class="primary" type="submit">Save</button><a href="{% url 'scheduling:teacher_availability' school_slug=business.slug %}">Cancel</a></div>
+<div class="actions form-actions"><button class="primary" type="submit">Save</button><a class="button" href="{% url 'scheduling:teacher_availability' school_slug=business.slug %}">Cancel</a></div>
 </form>
 {% endblock %}

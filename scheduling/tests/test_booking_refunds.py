@@ -27,10 +27,15 @@ pytestmark = pytest.mark.django_db
 
 
 def pay(item, terminal, member, monkeypatch, amount="100.00"):
-    attempt = custom(member, item, terminal, amount, balance=totals(item.order)["outstanding_cents"])
-    transport(attempt, monkeypatch)
-    terminal_checkout.submit(attempt)
+    # Refund tests need settled evidence, not a wall-clock race with laptop sleep.
+    now = timezone.now()
+    with monkeypatch.context() as clock:
+        clock.setattr(timezone, "now", lambda: now)
+        attempt = custom(member, item, terminal, amount, balance=totals(item.order)["outstanding_cents"])
+        transport(attempt, monkeypatch)
+        terminal_checkout.submit(attempt)
     attempt.refresh_from_db()
+    assert attempt.state == "paid"
     return attempt
 
 

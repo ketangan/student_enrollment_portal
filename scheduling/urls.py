@@ -11,6 +11,8 @@ from . import views_parties
 from . import views_staff_parties
 from . import views_reservations
 from . import views_booking_documents
+from . import views_staff_workshops
+from . import views_booking_edits
 from . import views_preparation
 from . import views_checkout
 from . import views_customer_edits
@@ -38,6 +40,8 @@ from . import views_inventory as inventory
 app_name = "scheduling"
 
 urlpatterns = [
+    path("<slug:school_slug>/reservations/<uuid:public_id>/edit/", views_booking_edits.edit, name="staff_booking_edit"),
+    path("<slug:school_slug>/calendar/book/<int:offering_pk>/", views_staff_workshops.create, name="staff_workshop_create"),
     path("<slug:school_slug>/school/schedule/", school_workspace.school_schedule, name="school_schedule"),
     path("<slug:school_slug>/school/programs/", school_workspace.school_programs, name="school_programs"),
     path("<slug:school_slug>/school/", school_workspace.school_public, name="school_public"),

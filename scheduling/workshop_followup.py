@@ -43,6 +43,14 @@ def form_for(item, person, data=None):
     form.fields["selection_revision"] = forms.CharField(required=False, widget=forms.HiddenInput(), initial=workshop_selections.revision(person))
     # Workshop age choices can be catalog values, not necessarily numerical ages.
     form.fields.pop("guest_age")
+    if item.snapshot.get("staff_workshop"):
+        from .requests import catalog_for
+        details = workshop_selections.form_for(person, catalog_for(offering), include_details=True)
+        for group in details.catalog:
+            if not group.tracks_stock:
+                name = f"choice_{group.pk}"
+                form.fields[name] = details.fields[name]
+                form.initial[name] = details.initial.get(name, "")
     return form
 
 
@@ -63,6 +71,8 @@ def save(slug, token, participant_id, data):
         for group in catalog_for(item.workshop_request.session.offering) if group.tracks_stock
         for option in group.active_options if option.pk in variant.option_ids}
     fields["selection_revision"] = form.cleaned_data["selection_revision"]
+    if item.snapshot.get("staff_workshop"):
+        fields.update({key: value for key, value in form.cleaned_data.items() if key.startswith("choice_")})
     workshop_selections.complete(item, person, fields)
     if form.cleaned_data["guest_name"] and form.cleaned_data["guest_name"] != person.name:
         from .reservations import _audit

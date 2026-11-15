@@ -53,8 +53,19 @@ class CancellationForm(forms.Form):
     key = forms.UUIDField(widget=forms.HiddenInput, initial=uuid.uuid4)
     resolution = forms.ChoiceField(label="Payment handling", widget=forms.RadioSelect,
         choices=[("without_refund", "Cancel without refund"), ("with_refund", "Cancel and refund remaining payment")])
-    reason = forms.CharField(label="Reason for cancellation", max_length=240,
+    reason = forms.CharField(label="Note (optional)", max_length=240, required=False,
         widget=forms.Textarea(attrs={"rows": 2}))
+
+    def __init__(self, *args, unpaid=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        if unpaid:
+            self.fields["resolution"].widget = forms.HiddenInput()
+            self.fields["resolution"].initial = "without_refund"
+            self.fields["resolution"].required = False
+
+    def clean_resolution(self):
+        # Preserve explicit choices on retries, even after a refund reduces the balance to zero.
+        return self.cleaned_data["resolution"] or "without_refund"
 
 
 class RefundForm(forms.Form):

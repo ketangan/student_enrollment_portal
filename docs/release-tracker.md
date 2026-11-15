@@ -2,6 +2,419 @@
 
 Last hosted revision/configuration check: November 11, 2026.
 
+## November 14 Calendar And Paid Party Release
+
+- Approved for main/demo; production promotion is NOT approved. Includes the
+  calendar intake/individual booking work, paid-party amendments, compact review,
+  cancellation/UI consistency and Chrome checkout fixes recorded below.
+- Final local regression `party-review-clarity-20261114` PASSED: 6,154 application
+  tests (3 skipped), 25 migration tests and 183 JavaScript tests. Combined Python
+  statement/branch coverage 97.99%; aggregate and every-module gates passed.
+  No migration drift. Runner exit 0, source unchanged throughout.
+- Tested base revision `133f1ac63e259bfd9d91e195b10ae325b4be31ac`, working-tree
+  fingerprint `dd6659cccb713132def0a38af4c8401ad18cb994cd7a92e6381b7a450a4c26c0`.
+  This release-status documentation is the only subsequent change before commit.
+- Remote main matches that base. Render demo web and maintenance are both set to
+  After CI Checks Pass. Production web remains manual at `6ebf7fe`; no production
+  deployment is being performed. GitHub and hosted verification pending push.
+- Next: whole workshop-session move/cancel, affected-customer review and automatic
+  notifications. Whole-session cancellation must offer both refund and no-refund
+  choices; external payments still require a separate provider refund. Recurring
+  schedule changes follow this shared operation, not a competing implementation.
+
+## November 14 Party Review Clarity (Local, Unpushed)
+
+- Paid-party review now shows only Total and Balance due by default. The optional
+  Price breakdown retains tax, payments, refunds and existing ledger adjustments;
+  unchanged totals are not repeated. Changed time/room and excess-payment warnings
+  remain visible. No pricing, payment, refund or school-policy rules were changed.
+- Calendar parties no longer label every hold as Reserved. Unconfirmed bookings
+  show their actual state and a disabled Edit icon with a visible explanation;
+  the existing View action leads to payment verification. Confirmed party edits
+  remain available. No per-reservation provider call or new permission was added.
+- The reported 7-person Nov 24 local party is an expired hold with an unresolved
+  Oct 29 test checkout, not a confirmed booking. Its payment state was not forced,
+  its quote was not changed, and editing safeguards remain in place.
+- Verified the reported quote: 885.00 subtotal + 97.35 saved/configured tax =
+  982.35 total; less 150.00 received = 832.35 due. Tests cover tax rounding, package
+  changes, included/excess participants, credits/refund reductions, retry and
+  concurrent-write protection, and immutable payment evidence.
+- 301 focused backend tests passed (including SBMC workflows); 29 calendar/editor
+  JavaScript tests passed. Manual desktop Chrome checks: 1440x900, 390x844,
+  768x1024 and 1024x768, including disclosure interaction, excess warning, pending
+  state, action sizing, and a synthetic calendar save from 3 to 4 participants.
+  No horizontal overflow; tablet/phone actions measured 44px. Physical Android,
+  virtual keyboard and printing remain unverified. Browser inspection caught stale
+  assets; existing stylesheet/script versioning was updated and rechecked.
+- Prior run `paid-party-amendments-20261114` passed 6,144 application tests (3
+  skipped) but failed migrations after repeated reuse exhausted PostgreSQL's
+  dropped-column slots in the disposable test DB. Rebuilding that same test DB
+  resolved the problem: all 25 migration tests passed in 530.83s. Neither hosted
+  data nor the local demo DB was rebuilt.
+- New full regression PASSED in `party-review-clarity-20261114/status.json`
+  under the task visualization workspace. The runner refreshes the existing
+  disposable test database before migrations, records revision/fingerprint and
+  exit status, and uses bounded idle-sleep protection. See the release entry above.
+
+## November 14 Paid Party Amendments (Local, Unpushed)
+
+- The existing Edit booking form now supports package changes, participant count
+  and an optional signed price adjustment. It works both on the reservation and
+  in the existing calendar dialog; no separate billing/editor flow was introduced.
+- Same-package edits use the saved agreed package terms. Changing packages uses
+  the selected published package's current terms, retaining any explicitly saved
+  price adjustment. New adjustments are incremental and applied before package
+  tax; custom parties without a package retain their agreed flat total plus the
+  adjustment, with no guessed tax or per-person rate.
+- Commercial changes require review even when the price stays unchanged. Room,
+  time, package capacity, materials, permissions, stale previews and unsettled
+  payments/refunds remain guarded. Guest removal preserves the chosen survivors,
+  their frozen material recipes and preparation marks. Existing payment/refund
+  entries are never rewritten; an excess payment is displayed, not auto-refunded.
+- Existing statement/receipt and Email actions use the revised quote and balance.
+  Payment-request templates reject stale amounts. Sending an updated request is
+  explicit, not an automatic email on every edit. Account-less offline orders
+  cannot offer an online payment button; statement attachments remain available.
+- No migration, school configuration change, production activation or push. Shared
+  enrollment/SBMC/Stripe/subscription logic was not changed. The package quote
+  helper's optional adjustment defaults to zero for existing callers.
+- Previous full run `calendar-intake-simplification-20261114` was deliberately
+  interrupted before edits: 5,035 passed and one failed, exit 2, source unchanged.
+  The failure was the old staff-estimate persistence expectation, corrected to
+  match the approved removal (customer estimates remain supported). It is not a
+  passing release run.
+- Final focused verification: **508 backend tests passed**, including 27 new
+  paid-party cases and the SBMC workflow suite; **28 calendar/editor JavaScript
+  tests passed**. Paid-party tests cover immutable payments, retries, concurrent
+  writers, quote drift, credits/refunds, excess payments, guest/material retention,
+  stale payment emails and school/location/role scoping. Browser checks covered
+  1440x900, 390x844, 768x1024 and 1024x768 in desktop Chrome, including real local
+  save/cancel, capacity rejection, calendar return and statement-email capture.
+  Tablet editor actions/inputs measured 44px high; no horizontal overflow.
+  Physical Android, virtual keyboard, hardware payments and printing remain pending.
+- Self-review retained the existing transaction/lock and retry protection, kept
+  contact-only corrections independent of capacity revalidation, and verified
+  price adjustments do not absorb prior ledger credits or refund reductions.
+  Focused combined statement/branch coverage: shared booking edits **96.91%**,
+  party amendment helper **90.76%**. `git diff --check` passed.
+- Full regression `paid-party-amendments-20261114/status.json` passed application
+  tests but failed on the repeatedly reused migration-test database. See the
+  Party Review Clarity entry above for the successful fresh-DB migration rerun
+  and the superseding full regression. This is not a passing release run.
+- Review steps: [Paid party amendments](calendar-checkout-testing.md#paid-party-amendments).
+  Next implementation priority remains whole-session move/cancel with affected-
+  customer review and notifications, followed by recurring/bulk schedule changes.
+
+## November 14 Staff Intake Simplification (Local, Unpushed)
+
+- Staff party intake has one numeric participant count, no estimate field and no
+  summary sidebar. The unused staff-summary script and its test were removed.
+  Customer inquiry estimates and customer package summaries remain unchanged.
+- New sessions created through calendar intake publish automatically, with or
+  without a customer. The publication checkbox is removed. Existing draft records,
+  Setup's draft workflow, public intake eligibility and Close to new bookings are
+  unchanged. No migration or school-specific conditional was added.
+- The prior `calendar-ux-20261114` full run FAILED: 6,109 application tests passed,
+  three failed, three skipped. Unpaid-form normalization overwrote an explicit
+  refund choice, breaking retries and unpaid-refund rejection. Fixed the form to
+  default only an omitted choice; explicit choices reach the existing audited
+  cancellation service. All three regressions now pass, including concurrent
+  cancellation and duplicate-refund protection.
+- Focused backend run: 351 passed, including staff parties/workshops, booking
+  edits, customer package flows, calendar permissions, cancellation and SBMC.
+  A final 76-test rerun also passed after adding the omitted-choice regression
+  (overlapping coverage; 352 distinct focused tests across these runs).
+  All 182 JavaScript tests and aggregate coverage gates passed. Chrome responsive
+  checks covered 1440x900, 768x1024, 1024x768 and 390x844.
+  Verified capacity blocking/recovery, single participant field, party submission
+  staying on Calendar, and a customer-free session saving as Published. No live
+  charge or outbound email was sent. Physical Android/keyboard/printing unverified.
+- Full regression INTERRUPTED in `calendar-intake-simplification-20261114/status.json`
+  under the task visualization workspace. Exact revision/fingerprint and durable
+  logs accompany the detached run. See the newer paid-party record for its failure
+  and replacement run. Nothing pushed or deployed.
+- Current scenario audit and remaining launch work:
+  [Staff intake and scenario audit](calendar-checkout-testing.md#staff-intake-simplification-and-current-scenario-audit).
+
+## November 14 Calendar UX Corrections (Local, Unpushed)
+
+- One Add booking entry opens workshop or party intake in the same calendar dialog.
+  Session, reservation and party saves refresh the calendar without navigating away.
+  Custom-party requests retain their existing review requirement and a review link.
+- Fixed checkbox/radio alignment, consistent 44px roster actions and compact metrics.
+  Customer booking counts are visible at the beginning of calendar event labels.
+  Jasmine's November 11 Wix screenshot shows participant occupancy, not a separate
+  customer booking count; the count is an added operational improvement.
+- Full workshop times warn before customer entry; party times display remaining
+  shared-room capacity with a two-query batch read using the existing peak-capacity
+  calculation. Server-side locked capacity validation remains authoritative.
+- Participant removal choices appear only when reducing the count. Cancellation
+  keeps a short confirmation, optional note and refund choices only when paid.
+  Payment evidence, refund safeguards and permissions remain unchanged. No new
+  customer-specific branches, schema changes or SBMC configuration changes.
+- 310 targeted backend checks passed, including SBMC, calendar permissions, party
+  booking retries, capacity/concurrency, cancellation and refunds. All 182 JavaScript
+  tests passed with aggregate coverage gates. Chrome responsive checks covered
+  1440x900, 768x1024, 1024x768 and 390x844 with actual create/edit/cancel actions.
+  Physical Android, virtual keyboard and printing remain explicitly pending.
+- The preceding `calendar-individual-bookings-20261114` full run finished with
+  6,107 application and 25 migration tests passing, but FAILED its module coverage
+  gate (booking-edit view 88.68%). Added stale-submit/JSON-save regression coverage;
+  focused coverage is now 96.23%. That earlier run is not a release pass.
+- That full regression FAILED in `calendar-ux-20261114/status.json`; the three
+  cancellation regressions and their fixes are recorded above. Logs, revision,
+  fingerprint and bounded sleep prevention accompany it. Do not push until the exact source passes. Demo and
+  production remain untouched. Review instructions: [Calendar UX checks](calendar-checkout-testing.md#november-14-calendar-ux-follow-up).
+
+## November 14 Calendar Intake And Individual Edits (Local, Unpushed)
+
+- Implemented priorities 1 and 2 below. Fixed the lesson-settings Cancel destination
+  rather than weakening the navigation test; 85 focused navigation tests passed.
+- Empty calendar times create a session with optional customer details. Existing
+  session intake fixes its time. Shared session forms, reservation creation,
+  participant choices, inventory, payment ledger and notification services remain
+  authoritative. No customer-name branches or new school configuration flags.
+- Individual workshop bookings support contact/time/count edits; party bookings
+  support contact/time edits while preserving their paid quote and duration. Party
+  package/count/price amendments remain priority 3, not implicitly completed here.
+  Existing individual cancellation is accessible from the calendar roster.
+- Count changes require a financial preview using agreed prices, explicit selection
+  of removed participants, and confirmation. Surviving participants/materials and
+  immutable payment evidence remain intact. No automatic charge/refund or credit.
+  Missing legacy price evidence blocks count changes only, not contact/time edits.
+- Role/location restrictions, stale booking and destination-session checks,
+  payment/refund-in-progress blocks, capacity/room validation, retry protection and
+  audit before/after snapshots are covered. Self-review also refreshed the locked
+  order before evaluating its quote and removed duplicate standalone edit headings.
+- Final targeted run: 376 backend tests passed (including SBMC, customer edits,
+  participant selections, payment requests and documents). All 179 JavaScript tests
+  passed with coverage gates (99.24% lines, 95.66% branches, 98.37% functions).
+  `git diff --check` passed. No new migration.
+- Manual Chrome: 1440x900 desktop, 768x1024 tablet portrait, 1024x768 landscape and
+  390x844 phone. Created empty and customer-filled sessions, added to an existing
+  time, previewed/confirmed count increase, moved an individual booking and canceled
+  it without altering the other customer or deleting the session. Checked reachable
+  actions and no horizontal dialog overflow. Physical Android/keyboard remain pending.
+- That implementation's full-suite verification completed with a coverage failure in
+  `calendar-individual-bookings-20261114/status.json` under this task's visualization
+  workspace. The detached runner records HEAD, working-tree fingerprint, logs and
+  exit status with bounded sleep prevention. See the follow-up correction above;
+  this earlier run does not establish release readiness.
+- [Local test steps](calendar-checkout-testing.md#individual-booking-edits-november-14).
+  Individual reschedule emails remain staff-triggered through the existing Email
+  action. Whole-session/bulk updates and their automatic notices remain priorities
+  4 and 5. Production remains pinned; no push or hosted change in this pass.
+
+## November 14 Jasmine Requirements Reconciliation (Planning, Not Implemented)
+
+Evidence re-read from the Gmail recap thread: Jasmine's November 11 message
+`1a1cbd6e1492f3fc`, November 14 reply `1a1db0c83ce2d572`, and the October 28
+meeting recap `1a18573ab29b3bb4`. November 14 supersedes the existing-times-only
+calendar restriction below. Paid-party amendments are normal operational scope
+we missed, not merely an optional enhancement. No product changes in this audit.
+
+Priority order and acceptance boundaries:
+
+1. Repair the known navigation regression and establish a passing baseline.
+   The November 12 cleanup full run FAILED: 6,084 passed, one failed, three
+   skipped; migration/coverage/JS stages after application tests did not run.
+   Failure: `test_cancel_returns_to_related_section[lesson_settings-lessons]`.
+   Inspect intended navigation before changing the test. Targeted passing checks
+   do not make this revision releasable.
+2. Calendar intake and individual booking management: create sessions with or
+   without customers from a selected empty time; add customers to existing times
+   without asking them to reselect that time; create/edit/move/cancel individual
+   workshop and party bookings. Use contextual dialogs and existing reservation
+   details, no added toolbar clutter or hover/right-click-only controls. Include
+   customer contact/count edits, participant data and capacity/material handling.
+3. Paid-party amendments in reservation details: package upgrade/downgrade,
+   participant count, other details and explicit price adjustments; preview tax,
+   revised total, payments/refunds and balance. Preserve reservation identity and
+   immutable payment evidence; audit revisions and refresh existing payment
+   requests/documents. Do not silently refund or create credit for an overpayment.
+4. Whole-session edits/moves/cancellation: list affected customers and counts
+   before any change affecting reservations; validate rooms/capacity/exclusive
+   parties, apply consistent changes, preserve audit/financial records, and remove
+   canceled availability from public intake. Closing intake is not cancellation.
+5. Recurring creation and bulk changes: explicit location/date range/series scope,
+   single-occurrence exceptions, affected sessions/customers/bookings and conflict
+   preview; revalidate on confirmation. Confirmed time changes move all selected
+   affected bookings and automatically queue updated reservation emails. This is
+   not a manual customer-by-customer reschedule. Preserve past/completed records.
+6. Finish/verify November 11 requests: actual-recipient confirmation delivery and
+   working links; inline Studio Prep staff notes and phone across workshops and
+   parties; Google/Outlook/ICS choices including party parity; supplied design/color
+   photos with default fallback. Existing implemented features need regression and
+   hosted checks, not duplicate implementations. Photo files and final wording
+   remain external inputs. Customer-authored notes remain distinct from staff notes.
+7. Launch data/site preparation: inspect Wix access and export, rehearse upcoming
+   workshop/party import with participant details, payments/refunds/balances and
+   source identity; reconcile totals and avoid duplicate reservations/emails.
+   Imported bookings must support the same amendments without fabricating provider
+   payment evidence. Verify website styling and workshop/party booking links;
+   coordinate final data delta and stop duplicate intake at cutover.
+8. Release gates: exact-revision full suite/CI and migration checks; SBMC and
+   enrollment regressions, role/location isolation; desktop/phone/tablet portrait
+   and landscape actions plus Jasmine's actual-device acceptance for new flows.
+   Verify demo before separately approved production promotion; configure approved
+   sender/templates, live account/location/terminal mapping, webhooks, scheduled
+   live-payment recovery and reminders; approved small live charge/refund, rollback
+   and monitoring. No production activation inferred from a demo pass.
+
+Required supporting behavior (engineering work, not extra customer questionnaires):
+- Retain participant selections, staff notes/assignments, usable customer links and
+  correct Studio Prep/print/document/calendar dates after edits. Recompute reminders
+  and affected preparation/material requirements without needlessly resetting work.
+- Prevent races between public bookings, staff changes and payments. Stale impact
+  previews, active/uncertain payments and obsolete checkout amounts must be handled
+  before committing; retry safely and expose failed notification delivery.
+- Ordinary time moves must not silently adopt today's prices/policies. Explicit
+  package/count/price edits show their financial effect, retain collected money and
+  flag excess payment. Package changes may alter duration, observers and exclusive
+  room use as well as price; check all of them.
+- Automatic email is explicitly required for confirmed recurring schedule moves.
+  Staff-controlled cancellation messages from October 28 still stand; do not infer
+  automatic refunds or automatic cancellation emails from November 14.
+- Customer calendar links are add-to-calendar actions, not a promised background
+  Google/Outlook synchronization. Updating Pontora does not prove an already saved
+  personal calendar event has changed.
+
+Keep previously deferred promo/gift-card/non-expiring-credit systems and customer
+self-service rescheduling separate. Do not introduce mandatory drag-and-drop,
+calendar synchronization or a new Square invoicing subsystem to satisfy this scope.
+Do not promise a launch date until amendment tests, data reconciliation and live
+payment checks pass. Track any deliberate deferral with owner/Jasmine agreement.
+
+## November 12 Booking Popup Simplification (Local, Unpushed)
+
+- Checked the preceding full run before editing: 6,079 application tests, 25
+  migration tests, three skips, 178 JavaScript tests and coverage gates passed,
+  unchanged fingerprint `76fcb392b365b05519a1da7ef7b7ba42ba19e277da0865642825ef21b0abc4a8`.
+- Removed Schedule time only, price/tax copy and session creation from Add booking.
+  The existing toolbar button and empty-slot clicks book into existing times;
+  exact times are preselected, otherwise the user must choose. Empty availability
+  has an explicit Setup link, not a silent new-session fallback. Session creation
+  remains in Setup and editing remains available on calendar events. No extra
+  toolbar buttons or changes to school configuration.
+- Visible Cancel action in each eligible customer roster row, usable by tap.
+  Cancellation uses the existing confirmation/refund flow, releases only that
+  customer's places and keeps the session and financial history. Completed
+  reservations no longer advertise an action that the service rejects.
+- Cancel controls standardized across 17 templates, with a regression guard for
+  unstyled Cancel links. Calendar-dialog Cancel/Keep reservation are real buttons;
+  navigation links use the established button style. Shared SBMC forms receive
+  only the Cancel appearance change, no enrollment/status/payment behavior changes.
+- Manual Chrome: added a second booking to an existing session, canceled only the
+  new synthetic booking and verified the first remained and capacity was released.
+  Desktop 1440x900, portrait 768x1024, landscape 1024x768 and phone 390x844 verified.
+  Real Android/virtual keyboard remain untested; no live payment or email sent.
+- The detailed [use-case audit](calendar-checkout-testing.md#november-12-simplification-and-practical-use-cases)
+  records both supported paths and genuine gaps: workshop reservation moves,
+  group-size/contact changes, whole-session changes, recurring/bulk scheduling,
+  cancellation/reschedule notices and removal of accidental empty sessions.
+  Do not mark Jasmine's entire appointment-management request complete yet.
+- Final full regression failed (see November 14 reconciliation above), recorded in
+  `calendar-booking-cleanup-20261112/status.json` under the task visualization workspace.
+  No push, demo deployment or production
+  promotion in this task. Previous full passes do not verify these later edits.
+- Final targeted checks passed: 211 backend tests (staff workshop bookings,
+  calendar actions/read models, refunds and SBMC), all 178 JavaScript tests with
+  coverage gates, and `git diff --check`.
+
+## November 11 Calendar Actions And Checkout Recovery (Local, Unpushed)
+
+- Approved scope: create/edit workshop sessions from calendar dialogs, publish or
+  close sessions to new bookings, cancel individual reservations from the roster,
+  and enter the existing party-booking flow from the calendar. Party saves and
+  cancellation return to the selected calendar context. No bulk/recurring changes,
+  drag-and-drop, or moving already-booked sessions in this release.
+- Existing forms, services, CSRF, role/location restrictions, stale-edit protection,
+  capacity checks, cancellation/refund handling and audit records are reused.
+  No migration, school configuration, enrollment/lead or Stripe writer changed.
+  Calendar controls require the existing calendar capability and writer permission.
+  SBMC's local school has no scheduling profile; this work does not enable one.
+- Square card initialization now has a 20-second deadline and reload recovery;
+  initialization failure cannot submit a payment or enable Pay after a late result.
+  The SDK loads asynchronously so a blocked script cannot indefinitely block the
+  recovery code. Existing charge/tokenization/verification behavior is unchanged.
+  Regular Chrome and private Chrome both loaded the sandbox card fields. Empty-card
+  validation was exercised; no live card was charged. The original profile-specific
+  cause was not conclusively identified, so do not claim a specific extension caused it.
+- Manual verification: local in-app browser at desktop 1440x900, phone 390x844,
+  tablet portrait 768x1024 and landscape 1024x768. Created a draft, published it,
+  edited its time, closed new bookings, rejected a booked-session move, created a
+  synthetic party and canceled it from the calendar. Active-checkout cancellation
+  was correctly rejected. Dialog actions, Escape/Cancel and horizontal calendar
+  scrolling remain usable. Turned off vendor event overlap after mobile taps could
+  select the neighboring event. Actual Android hardware/keyboard and printing are
+  still unverified.
+- Targeted results: 198 calendar/party/SBMC/lead/submission tests, 180 Square/setup/
+  inventory tests, and 121 calendar/reservation/payment-request tests passed (some
+  overlap). All 174 JavaScript tests passed the aggregate coverage gates. The last
+  JS-only change reveals a newly created session when Hide empty sessions was set.
+- November 12 follow-up: empty Day/Week slots open the same session editor with
+  venue date/time prefilled at half-hour precision. Location rows and filters
+  constrain workshop choices. Month clicks still open Day. Chooser spacing fixed.
+  Browser inspection also caught an existing callback-plus-promise event-loader
+  double completion; the loader now uses only callbacks, with regression coverage.
+- Follow-up verification: 182 backend tests (calendar, refund and SBMC), 23
+  calendar/editor JavaScript tests; all 176 JavaScript tests and aggregate coverage
+  gates passed (99.23% lines, 95.79% branches, 98.35% functions). Local desktop,
+  phone and both tablet viewports checked.
+  Verified click/prefill, location choices, save/refresh, navigation and cancellation
+  of the editor. No new browser console errors after the event-loader fix.
+- Previous `calendar-checkout-20261112` full run failed: 6,055 passed, one refund
+  fixture failed, three skipped. macOS sleep overlapped the run; the fixture's
+  simulated payment could expire before settlement. Its setup clock is now frozen
+  and paid evidence asserted; the refund module rerun passed all 54 tests.
+  Live expiry behavior is unchanged.
+- Full regression passed on November 12: 6,056 application tests, 25 migration
+  tests, three skips, 176 JavaScript tests, migration drift and coverage gates.
+  `calendar-click-create-20261112/status.json` records unchanged source fingerprint
+  `a2e2910b50f56637c3f9cd69daafa85d645457dffd861b16dfc0679a0d23a191`.
+  Only documentation was updated after that run in the phone-workflow audit.
+  No hosted deployment or production promotion performed in this task.
+- Review instructions: [Calendar and checkout checks](calendar-checkout-testing.md).
+
+### Calendar Customer Bookings (November 12 Initial Pass, Superseded Above)
+
+- Owner approved customer contact and participant count in the same calendar
+  dialog. Add booking selects an existing workshop time or creates a draft time
+  and reservation atomically. Empty-slot location/time is preselected; existing
+  roster Add booking preselects its session. Schedule time only remains available
+  for new availability. Customer contact belongs to the request, not the session.
+- Confirmed reservations reserve capacity, retain the quoted price/tax/policy and
+  leave payment outstanding. Shared reservation, stock, ledger, audit and outbox
+  services are reused. Signed submissions prevent duplicate bookings and reject
+  changed details/prices/times. Room and capacity checks remain enforced. No
+  customer consent is asserted; the existing workshop policy is an informational
+  notice, stored with the reservation and shown on its customer details page.
+- Participant placeholders can be completed inline by staff or through the existing
+  private confirmation link, including configured non-stock choices such as age.
+  Emails respect existing settings and go to the entered customer address. No new
+  notification switch, allowlist, cron or recipient routing was added.
+- Booking availability uses existing capabilities, price, catalog and deferred-
+  selection settings. Real studios require their configured payment account;
+  missing configuration cannot create a test ledger. No migration, school-specific
+  branch or SBMC/enrollment configuration change. Public bookings still cannot
+  reserve unpublished sessions; the draft exception is explicit staff-booking data.
+- Manual local end-to-end: calendar intake, staff/customer participant editing,
+  synthetic offline payment, preparation and completion. Tested existing/new
+  times and over-capacity rejection. Chrome verified at 1440x900, 768x1024,
+  1024x768 and 390x844, including scrollable inline grid controls. In-app viewport
+  overrides did not actually resize in this follow-up; those screenshots establish
+  desktop behavior only. Physical Android/keyboard and live email remain untested.
+- Backend targeted batches: 144 and 335 passed (overlapping), including preparation,
+  inventory and SBMC regressions. Final staff/email/calendar batch: 44 passed;
+  includes actual-recipient single delivery using the existing worker with mocked
+  transport. All 178 JavaScript tests and aggregate coverage gates passed
+  (99.25% lines, 95.57% branches, 98.37% functions). Its full regression passed in
+  `calendar-customer-booking-20261112/status.json` under the task visualization
+  workspace, with revision/fingerprint/logs: 6,079 application tests, 25 migration
+  tests and three skips. This pass does not verify the later simplification above.
+  No push, hosted demo activation or production promotion yet.
+- Review steps: [Calendar and checkout checks](calendar-checkout-testing.md).
+
 ## November 11 Jasmine Demo Release
 
 - Owner approved pushing all pending work to main after the full suite passes,

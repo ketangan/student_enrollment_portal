@@ -1,0 +1,43 @@
+{% extends 'scheduling/base.html' %}{% load static %}
+{% block title %}Edit booking{% endblock %}
+{% block page_heading %}{% if not calendar_editor %}
+<a class="back-link" href="{{ return_url }}"><i data-lucide="arrow-left" aria-hidden="true"></i>Reservation</a>
+<h1>Edit booking</h1>
+{% endif %}{% endblock %}
+{% block content %}
+<section data-calendar-editor>
+{% if calendar_editor %}<h2>Edit booking</h2>{% endif %}
+<p class="muted">{{ item.snapshot.workshop }}</p>
+{% if can_edit_booking %}
+<form method="post" class="setup-form booking-editor">{% csrf_token %}
+{{ form.non_field_errors }}{% for field in form.hidden_fields %}{{ field }}{{ field.errors }}{% endfor %}
+<div class="booking-fields">
+{% for field in form.visible_fields %}{% if field.name != 'remove' %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}
+</div>
+{% if form.remove %}<fieldset class="booking-removals" data-original-count="{{ form.removal_count }}"><legend>Who is no longer attending?</legend><p data-removal-count></p>{{ form.remove.errors }}{{ form.remove }}</fieldset>{% endif %}
+{% if preview %}<div class="booking-review" data-booking-review>
+<dl class="booking-review-totals" role="status">
+<div><dt>Total</dt><dd>{{ preview.currency }} {{ preview.total|floatformat:2 }}</dd></div>
+<div><dt>Balance due</dt><dd>{{ preview.currency }} {{ preview.balance|floatformat:2 }}</dd></div>
+</dl>
+{% if preview.schedule_changed %}<p>Updated time: {{ preview.starts_at|date:'M j, Y, g:i A' }} &ndash; {{ preview.ends_at|date:'g:i A T' }}</p>{% endif %}
+{% if preview.room_changed %}<p>Updated room: {{ preview.party.room.name }}</p>{% endif %}
+{% if preview.excess %}<p class="notice warning" role="alert">Excess payment: {{ preview.currency }} {{ preview.excess|floatformat:2 }}. No refund will be issued by saving.</p>{% endif %}
+<details class="booking-review-breakdown"><summary>Price breakdown</summary><dl>
+{% if preview.previous != preview.total %}<div><dt>Previous total</dt><dd>{{ preview.currency }} {{ preview.previous|floatformat:2 }}</dd></div>{% endif %}
+{% if preview.party.quote %}<div><dt>Subtotal</dt><dd>{{ preview.currency }} {{ preview.party.quote.subtotal|floatformat:2 }}</dd></div><div><dt>Tax</dt><dd>{{ preview.currency }} {{ preview.party.quote.tax|floatformat:2 }}</dd></div>
+{% else %}<div><dt>Booking amount</dt><dd>{{ preview.currency }} {{ preview.base_total|floatformat:2 }}</dd></div>{% endif %}
+{% if preview.money.extras %}<div><dt>Additional purchases</dt><dd>{{ preview.currency }} {{ preview.money.extras|floatformat:2 }}</dd></div>{% endif %}
+{% if preview.money.discount %}<div><dt>Discount</dt><dd>-{{ preview.currency }} {{ preview.money.discount|floatformat:2 }}</dd></div>{% endif %}
+{% if preview.money.credit %}<div><dt>Manual credit</dt><dd>-{{ preview.currency }} {{ preview.money.credit|floatformat:2 }}</dd></div>{% endif %}
+{% if preview.money.refund_reduction %}<div><dt>Refund price adjustment</dt><dd>-{{ preview.currency }} {{ preview.money.refund_reduction|floatformat:2 }}</dd></div>{% endif %}
+<div><dt>Payments received</dt><dd>{{ preview.currency }} {{ preview.paid|floatformat:2 }}</dd></div>
+{% if preview.refunded %}<div><dt>Refunded</dt><dd>{{ preview.currency }} {{ preview.refunded|floatformat:2 }}</dd></div><div><dt>Net received</dt><dd>{{ preview.currency }} {{ preview.money.net|floatformat:2 }}</dd></div>{% endif %}
+</dl></details>
+</div>{% endif %}
+<div class="actions">{% if calendar_editor %}<button type="button" data-calendar-close>Cancel</button>{% else %}<a class="button" href="{{ return_url }}">Cancel</a>{% endif %}<button class="primary" type="submit">{% if preview %}Confirm changes{% else %}Save changes{% endif %}</button></div>
+</form>
+{% else %}<p role="status">{{ edit_unavailable }}</p><a class="button" href="{{ return_url }}">View reservation</a>{% endif %}
+</section>
+{% endblock %}
+{% block scripts %}<script defer src="{% static 'scheduling/booking-edit-fields.js' %}"></script>{% endblock %}

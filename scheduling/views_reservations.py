@@ -7,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Count
-from django.http import HttpResponseBadRequest
+from django.http import HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
@@ -270,7 +270,8 @@ def _reservation_page(request, school_slug, public_id, tab="details"):
         for entry in context.get("selection_forms", []):
             if entry["person"].pk == participant_id:
                 entry["form"] = workshop_selections.form_for(entry["person"],
-                    catalog_for(item.workshop_request.session.offering), request.POST)
+                    catalog_for(item.workshop_request.session.offering), request.POST,
+                    edit_name=bool(item.snapshot.get("staff_workshop")), include_details=bool(item.snapshot.get("staff_workshop")))
                 entry["error"] = error
     context["notes_form"] = notes_form if notes_form is not None else reservation_notes.form_for(item, profile)
     if context["can_edit_sessions"]:
@@ -414,8 +415,11 @@ def reservation_cancel(request, school_slug, public_id):
     from .cancellation import cancel
     from .views_recovery import process_refund
     profile, role = require_location_access(request.user, school_slug, "setup.edit", capability="reservations")
+    from .calendar import editor_request
+    calendar_editor = editor_request(request, profile)
     item = get_staff_reservation(profile, public_id, exclude_visits=True)
-    form = CancellationForm(request.POST if request.method == "POST" else None)
+    amounts = totals(item.order)
+    form = CancellationForm(request.POST if request.method == "POST" else None, unpaid=amounts["net_cents"] <= 0)
     if request.method == "POST" and form.is_valid():
         try:
             _, approved = cancel(request.user, school_slug, public_id, **form.cleaned_data)
@@ -424,6 +428,8 @@ def reservation_cancel(request, school_slug, public_id):
         else:
             for refund in approved:
                 process_refund(request.user, item, refund)
+            if calendar_editor:
+                return JsonResponse({"saved": True})
             if form.cleaned_data["resolution"] == "with_refund":
                 messages.success(request, "Reservation canceled. Refund requests saved; check their status below." if approved else
                     "Reservation canceled and simulated payment refunded.")
@@ -431,5 +437,5 @@ def reservation_cancel(request, school_slug, public_id):
                 messages.success(request, "Reservation canceled without a refund. Payments remain recorded.")
             return redirect("scheduling:reservation_detail", school_slug=school_slug, public_id=public_id)
     context = detail_context(request, _context(request, profile, role, "reservations"), item)
-    context.update(form=form, amounts=totals(item.order), cancellation_review=True)
+    context.update(form=form, amounts=amounts, cancellation_review=True, calendar_editor=calendar_editor)
     return render(request, "scheduling/reservation_cancel.html", context, status=400 if request.method == "POST" else 200)

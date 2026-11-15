@@ -9,7 +9,7 @@
 {% for row in rows %}<tr class="recipe-row" {% if row.DELETE.value %}hidden{% endif %}><td>{{ row.id }}{{ row.material }}{{ row.material.errors }}{{ row.non_field_errors }}</td><td>{{ row.quantity }}{{ row.quantity.errors }}</td><td>{{ row.DELETE.as_hidden }}<button type="button" class="icon-button recipe-delete" aria-label="Remove material row" title="Remove material row"><i data-lucide="trash-2" aria-hidden="true"></i></button></td></tr>{% endfor %}
 </tbody></table></div>
 <template id="recipe-empty"><tr class="recipe-row"><td>{{ rows.empty_form.id }}{{ rows.empty_form.material }}</td><td>{{ rows.empty_form.quantity }}</td><td>{{ rows.empty_form.DELETE.as_hidden }}<button type="button" class="icon-button recipe-delete" aria-label="Remove material row" title="Remove material row"><i data-lucide="trash-2" aria-hidden="true"></i></button></td></tr></template>
-<div class="actions recipe-actions"><button type="button" id="add-recipe-row"><i data-lucide="plus" aria-hidden="true"></i> Add material row</button><button class="primary" type="submit">Save recipe</button><a href="{% url 'scheduling:inventory_catalog' school_slug=business.slug catalog_pk=catalog.pk %}">Cancel</a></div>
+<div class="actions recipe-actions"><button type="button" id="add-recipe-row"><i data-lucide="plus" aria-hidden="true"></i> Add material row</button><button class="primary" type="submit">Save recipe</button><a class="button" href="{% url 'scheduling:inventory_catalog' school_slug=business.slug catalog_pk=catalog.pk %}">Cancel</a></div>
 </form>
 <script src="{% static 'scheduling/recipes.js' %}" defer></script>
 {% endblock %}

@@ -132,7 +132,8 @@ def participant_form(item, key, data=None):
         person = next((p for p in item.workshop_request.participants.all() if str(p.pk) == key), None)
         if person is None:
             raise Http404
-        form = form_for(person, catalog_for(item.workshop_request.session.offering), data, edit_name=True)
+        form = form_for(person, catalog_for(item.workshop_request.session.offering), data, edit_name=True,
+            include_details=bool(item.snapshot.get("staff_workshop")))
         from .legacy_materials import add_confirmation
         add_confirmation(form, item)
         return form

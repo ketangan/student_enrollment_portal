@@ -125,7 +125,7 @@ def test_customer_party_rejects_invalid_values_before_booking(client, direct_par
     assert not PartyRequest.objects.exists() and not Reservation.objects.exists()
 
 
-def test_staff_age_validation_and_estimate_persistence(booking_member, studio, policy):
+def test_staff_age_validation_ignores_removed_estimate_field(booking_member, studio, policy):
     from scheduling import staff_parties
     data = data_for(booking_member, studio, group_size="8", age_range="6-8", participant_estimate="7-9 guests")
     item, form = staff_parties.create(booking_member.user, booking_member.profile.school.slug, data)
@@ -134,7 +134,7 @@ def test_staff_age_validation_and_estimate_persistence(booking_member, studio, p
     item, form = staff_parties.create(booking_member.user, booking_member.profile.school.slug, data)
     assert not form.errors
     item.refresh_from_db()
-    assert (item.group_size, item.participant_estimate, item.age_range) == (8, "7-9 guests", "Adults")
+    assert (item.group_size, item.participant_estimate, item.age_range) == (8, "", "Adults")
 
 
 @pytest.mark.parametrize("minimum", [True, "7", -1, 131])

@@ -18,6 +18,7 @@
     <button id="square-pay" class="{% if checkout_base %}button{% else %}primary{% endif %}" type="submit" disabled>Pay ${{ attempt.amount|floatformat:2 }}</button>
   </form>
   <noscript><p>Enable JavaScript to use the secure payment form.</p></noscript>
+  <button id="square-reload" class="secondary" type="button" hidden>Reload secure form</button>
   {{ square_options|json_script:'square-options' }}
   {% endif %}
   <form id="square-check-form" method="post" {% if ready %}hidden{% endif %}>{% csrf_token %}<button class="secondary" name="action" value="check">Check payment status</button></form>
@@ -25,6 +26,6 @@
 </section>
 {% endblock %}
 {% block scripts %}{% if ready %}
-{% if attempt.account.environment == 'live' %}<script src="https://web.squarecdn.com/v1/square.js" defer></script>{% else %}<script src="https://sandbox.web.squarecdn.com/v1/square.js" defer></script>{% endif %}
-<script src="{% static 'scheduling/square_checkout.js' %}" defer></script>
+{% if attempt.account.environment == 'live' %}<script id="square-sdk" src="https://web.squarecdn.com/v1/square.js" async></script>{% else %}<script id="square-sdk" src="https://sandbox.web.squarecdn.com/v1/square.js" async></script>{% endif %}
+<script src="{% static 'scheduling/square_checkout.js' %}?v=20261112-load-recovery" defer></script>
 {% endif %}{% endblock %}

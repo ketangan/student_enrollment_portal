@@ -1,9 +1,12 @@
 {% extends 'scheduling/base.html' %}{% load static %}
 {% block title %}New party request{% endblock %}
 {% block content %}
-<a class="back-link" href="{% url 'scheduling:parties' school_slug=business.slug %}"><i data-lucide="arrow-left" aria-hidden="true"></i> Party inquiries</a>
+<section data-calendar-editor>
+{% if not calendar_editor %}
+<a class="back-link" href="{% if calendar_return %}{{ calendar_return }}{% else %}{% url 'scheduling:parties' school_slug=business.slug %}{% endif %}"><i data-lucide="arrow-left" aria-hidden="true"></i> {% if calendar_return %}Calendar{% else %}Party inquiries{% endif %}</a>
+{% endif %}
 <h2>New party request</h2>
-<form method="post" class="setup-form staff-party-form party-request-layout" novalidate data-party-request>
+<form method="post" class="setup-form staff-party-form party-request-layout" novalidate>
   {% csrf_token %}
   {% if form.errors %}<div class="notice error" role="alert">Please correct the fields below.{{ form.non_field_errors }}</div>{% endif %}
   {% include 'scheduling/form_hidden_fields.html' %}
@@ -15,7 +18,6 @@
     </section>
     <section class="reservation-section"><h2><span class="party-step">2</span> The party</h2>
       <div class="party-field-pair">{% include 'scheduling/party_form_field.html' with field=form.group_size %}{% include 'scheduling/party_form_field.html' with field=form.age_range %}</div>
-      <div class="party-field-pair">{% include 'scheduling/party_form_field.html' with field=form.participant_estimate %}</div>
       {% include 'scheduling/party_form_field.html' with field=form.occasion %}
       {% include 'scheduling/party_form_field.html' with field=form.customer_notes %}
     </section>
@@ -23,9 +25,8 @@
       {% include 'scheduling/party_form_field.html' with field=form.organizer_name %}
       <div class="party-field-pair">{% include 'scheduling/party_form_field.html' with field=form.organizer_email %}{% include 'scheduling/party_form_field.html' with field=form.organizer_phone %}</div>
     </section>
-    <div class="actions form-actions"><button type="submit" class="primary">Continue to review</button><a href="{% url 'scheduling:parties' school_slug=business.slug %}">Cancel</a></div>
+    <div class="actions form-actions"><button type="submit" class="primary">Continue to review</button><a class="button" href="{% if calendar_return %}{{ calendar_return }}{% else %}{% url 'scheduling:parties' school_slug=business.slug %}{% endif %}">Cancel</a></div>
   </div>
-  <aside class="party-request-summary" aria-label="Party summary"><h2>Summary</h2><strong data-summary="occasion">Custom party</strong><p data-summary="offering">Location not selected</p><p data-summary="starts_at">Date and time not selected</p><dl class="payment-totals"><div><dt>Participants</dt><dd data-summary="group_size">Not set</dd></div><div><dt>Space</dt><dd data-summary="space">Not selected</dd></div><div><dt>Customer</dt><dd data-summary="organizer_name">Not entered</dd></div><div><dt>Estimate</dt><dd>Not quoted</dd></div><div><dt>Deposit</dt><dd>Not quoted</dd></div></dl></aside>
 </form>
+</section>
 {% endblock %}
-{% block scripts %}<script defer src="{% static 'scheduling/party-request.js' %}"></script>{% endblock %}

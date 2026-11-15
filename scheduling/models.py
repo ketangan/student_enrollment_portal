@@ -421,19 +421,23 @@ class PartyPackage(models.Model):
     def effective_tax_rate(self):
         return self.tax_rate if self.tax_rate is not None else self.offering.location.default_tax_rate
 
-    def quote(self, quantity):
+    def quote(self, quantity, *, adjustment=Decimal("0")):
         maximum = self.participant_limit + self.additional_participant_limit
         if self.total is None:
             raise ValidationError("This package does not have a price yet. Please contact the studio.")
         if not 1 <= quantity <= maximum:
             raise ValidationError(f"This package allows a maximum of {maximum} participants. Enter a number or range between 1 and {maximum}.")
         extra = max(0, quantity - self.participant_limit)
-        subtotal = self.total + extra * self.additional_participant_price
+        if not adjustment.is_finite() or adjustment.as_tuple().exponent < -2:
+            raise ValidationError("Enter a price adjustment in whole cents.")
+        subtotal = self.total + extra * self.additional_participant_price + adjustment
+        if subtotal < 0:
+            raise ValidationError("The adjustment cannot make the party price negative.")
         rate = self.effective_tax_rate
         tax = (subtotal * (rate or Decimal(0)) / 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         if subtotal + tax > Decimal("999999.99"):
             raise ValidationError("This group's price exceeds the supported reservation amount.")
-        return {"name": self.name, "participant_limit": self.participant_limit,
+        result = {"name": self.name, "participant_limit": self.participant_limit,
             "duration_minutes": self.duration_minutes, "base_price": str(self.total),
             "additional_participants": extra, "additional_participant_limit": self.additional_participant_limit,
             "additional_participant_price": str(self.additional_participant_price),
@@ -441,6 +445,9 @@ class PartyPackage(models.Model):
             "tax": str(tax), "total": str(subtotal + tax), "deposit": str(self.deposit),
             "included_observers": self.included_observers, "space": self.space,
             "room_id": self.room_id, "booking_mode": self.booking_mode}
+        if adjustment:
+            result["price_adjustment"] = str(adjustment)
+        return result
 
 
 class PartySlot(models.Model):

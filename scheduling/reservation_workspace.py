@@ -17,8 +17,8 @@ def online_payment_status(attempt):
     return "Payment status needs verification"
 
 
-def participant_table(participants, catalog=()):
-    columns = {("id", str(group.pk)): group.name for group in catalog if group.tracks_stock}
+def participant_table(participants, catalog=(), *, include_details=False):
+    columns = {("id", str(group.pk)): group.name for group in catalog if group.tracks_stock or include_details}
     rows = []
     for person in participants:
         selections = {}
@@ -67,7 +67,8 @@ def inline_selections(request, context):
     if not entries:
         return
     catalog = entries[0]["form"].catalog
-    table = participant_table(context["participants"], catalog)
+    table = participant_table(context["participants"], catalog,
+        include_details=bool(context["item"].snapshot.get("staff_workshop")))
     context["participant_table"] = table
     query = request.GET.copy()
     query.pop("edit_participant", None)
@@ -91,6 +92,9 @@ def inline_selections(request, context):
         row["form_id"] = f'participant-form-{entry["person"].pk}'
         context["inline_selection"] = entry
         entry["form_id"] = row["form_id"]
+        if not entry["form"].fields["name"].disabled:
+            row["name_field"] = entry["form"]["name"]
+            row["name_field"].field.widget.attrs["form"] = row["form_id"]
         for key, cell in zip(table["keys"], row["cells"]):
             name = f"choice_{key[1]}"
             if key[0] == "id" and name in entry["form"].fields:
@@ -100,6 +104,8 @@ def inline_selections(request, context):
 
 
 def detail_context(request, context, item, tab="details"):
+    from .booking_edits import editable
+    context["can_edit_booking"] = context.get("can_edit_setup") and editable(item)
     slug = context["business"].slug
     source = item.workshop_request or item.party_request or item.camp_registration
     context.update(item=item, reservation_tab=tab,
@@ -114,7 +120,8 @@ def detail_context(request, context, item, tab="details"):
         context["deferred_participants"] = [p for p in people if p.selections_deferred]
         if people and offering.inventory_catalog_id and context.get("can_edit_sessions") and workshop_selections.editable(item, staff=True) and not item.stock_allocations.filter(consumed_at__isnull=False).exists():
             catalog = catalog_for(offering)
-            context["selection_forms"] = [{"person": p, "form": workshop_selections.form_for(p, catalog)} for p in people]
+            context["selection_forms"] = [{"person": p, "form": workshop_selections.form_for(p, catalog,
+                edit_name=True, include_details=True)} for p in people]
     if item.party_request_id:
         context["party_space_label"] = dict(PartyRequest.Space.choices).get(item.snapshot.get("space"), "")
         context["party_duration"] = int((item.ends_at - item.starts_at).total_seconds() // 60)
