@@ -129,6 +129,8 @@ def workspace(request, school_slug):
     if selected_view not in {"overview", "calendar"} or (selected_view == "calendar" and not context["calendar_available"]):
         raise Http404
     if selected_view == "calendar":
+        from .staff_workshops import booking_offerings
+        bookable_ids = {item.pk for item in booking_offerings(profile)}
         location = context["selected_location"]
         locations = staff_locations(profile).filter(pk=location.pk) if location else staff_locations(profile)
         items = offerings(profile)
@@ -141,7 +143,7 @@ def workspace(request, school_slug):
             "offerings": [{"id": str(item.pk), "locationId": str(item.location_id), "title": f"{item.name} ({item.location.name})",
                 "sessionUrl": reverse("scheduling:session_new", kwargs={"school_slug": school_slug, "offering_pk": item.pk}) if context["can_edit_sessions"] else "",
                 "createUrl": reverse("scheduling:staff_workshop_create", kwargs={"school_slug": school_slug, "offering_pk": item.pk})
-                    if context["can_edit_sessions"] else ""} for item in items],
+                    if context["can_edit_sessions"] and item.pk in bookable_ids else ""} for item in items],
             "today": timezone.localdate(timezone=ZoneInfo(location.timezone_name) if location else timezone.get_default_timezone()).isoformat(),
         }
         return render(request, "scheduling/calendar.html", context, status=200 if context["location_filter"].is_valid() else 400)

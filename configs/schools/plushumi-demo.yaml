@@ -14,6 +14,7 @@ scheduling:
     tint_fallback: false
   party_booking:
     packages_only: true
+    allow_approval_packages: true
     maximum_participants: 30
     default_extra_participants: 2
     default_extra_price: '65.00'

@@ -52,12 +52,22 @@
     const taxRateThousandths = Math.round(Number(p.tax_rate) * 1000);
     const tax = Math.floor((subtotal * taxRateThousandths + 50000) / 100000);
     const total = subtotal + tax, due = p.deposit_cents || total;
+    const reviewButton = form.querySelector('[data-party-next="3"]');
+    reviewButton.textContent = p.direct ? 'Review & pay' : 'Review request';
+    text('party-review-step', p.direct ? 'Review & pay' : 'Review request');
+    text('party-later-label', p.direct ? 'At the party' : 'After approval');
     text('party-summary-name', p.name);
     const date = slot ? new Date(`${slot.date}T12:00:00`).toLocaleDateString('en-US', {weekday:'short', month:'short', day:'numeric', year:'numeric'}) : '';
     const duration = [Math.floor(p.duration / 60) ? `${Math.floor(p.duration / 60)} hr` : '', p.duration % 60 ? `${p.duration % 60} min` : ''].filter(Boolean).join(' ');
-    text('party-summary-time', slot ? `${date}\n${slot.time.replace(/^0/, '')} · ${duration}` : 'Choose a date and time');
+    text('party-summary-time', p.direct
+      ? (slot ? `${date}\n${slot.time.replace(/^0/, '')} · ${duration}` : 'Choose a date and time')
+      : (form.elements.starts_at.value.replace('T', ' ') || 'Choose a preferred date and time'));
     text('party-summary-guests', [count ? `${count} plushie maker${count === 1 ? '' : 's'}` : '', p.observers ? `${p.observers} observers included` : ''].filter(Boolean).join(' · '));
     for (const [id, value] of Object.entries({subtotal,tax,total,due,later:total-due})) text(`party-${id}`, money(value));
+    if (!p.direct) {
+      text('party-due', money(0));
+      text('party-later', money(total));
+    }
     const review = document.getElementById('party-review-details');
     review.replaceChildren();
     for (const name of ['organizer_name','organizer_email','organizer_phone','group_size','participant_estimate','age_range','occasion','customer_notes']) {
@@ -85,7 +95,7 @@
     const fields = [...panel.querySelectorAll('input,select,textarea')].filter(input => !input.disabled && input.type !== 'hidden');
     const invalid = fields.find(input => !input.checkValidity());
     if (invalid) { show(Number(panel.dataset.partyPanel)); invalid.reportValidity(); return false; }
-    if (panel.dataset.partyPanel === '1' && !form.elements.party_slot.value) {
+    if (panel.dataset.partyPanel === '1' && packages[form.elements.package.value]?.direct && !form.elements.party_slot.value) {
       document.getElementById('party-time-date').textContent = 'Choose an available party time.';
       return false;
     }

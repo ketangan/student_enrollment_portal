@@ -6,7 +6,7 @@ from .access import has_permission, require_location_access, location_restricted
 from .capabilities import has_capability
 from .messaging import preview_enabled
 from .visits import enrollment_access
-from .party_policy import party_policy
+from .party_policy import party_policy, review_enabled
 
 
 def workspace_navigation(context):
@@ -23,7 +23,7 @@ def workspace_navigation(context):
     reservations = []
     if features["reservations"]:
         reservations.append(link("reservations", "Reservations", "reservations"))
-    if features["parties"] and not context["party_packages_only"]:
+    if features["parties"] and review_enabled(party_policy(context["business"])):
         reservations.append(link("party_inquiries", "Party inquiries", "parties"))
     if features["visits"]:
         reservations.append(link("visits", "Tours", "visits"))

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('static/scheduling/party-experience.js', 'utf8');
 
-function mount(response, {countModes = false} = {}) {
+function mount(response, {countModes = false, direct = true} = {}) {
   const node = () => ({dataset:{}, listeners:{}, children:[], value:'', labels:[],
     addEventListener(name, fn) { this.listeners[name] = fn; },
     setAttribute(name, value) { this[name] = value; },
@@ -18,7 +18,7 @@ function mount(response, {countModes = false} = {}) {
   const next = Object.assign(node(), {dataset:{partyNext:'3'}});
   const form = Object.assign(node(), {dataset:{customerSteps:'true'}, action:'/party/', elements:{}});
   const elements = form.elements;
-  for (const name of ['package','group_size','party_slot','organizer_name','organizer_email','organizer_phone','participant_estimate','age_range','occasion','birthday_name','birthday_age','customer_notes']) elements[name] = node();
+  for (const name of ['package','starts_at','group_size','party_slot','organizer_name','organizer_email','organizer_phone','participant_estimate','age_range','occasion','birthday_name','birthday_age','customer_notes']) elements[name] = node();
   elements.package.value = '1'; elements.group_size.value = '6'; elements.party_slot.value = '2';
   elements.namedItem = name => elements[name];
   if (countModes) {
@@ -30,7 +30,8 @@ function mount(response, {countModes = false} = {}) {
   const wrapper = node(); wrapper.closest = () => panels[1];
   elements.organizer_phone.closest = () => wrapper;
   form.querySelectorAll = selector => selector === '[data-party-panel]' ? panels : selector === '[data-party-next]' ? [next] : [];
-  const nodes = {'party-request-form':form, 'party-package-details':{textContent:JSON.stringify({1:{name:'Party',included:6,extra_limit:2,price_cents:45000,extra_cents:6500,tax_rate:'10',deposit_cents:15000}})},'party-slot-dates':{textContent:'{}'}};
+  form.querySelector = selector => selector === '[data-party-next="3"]' ? next : null;
+  const nodes = {'party-request-form':form, 'party-package-details':{textContent:JSON.stringify({1:{direct,name:'Party',included:6,extra_limit:2,price_cents:45000,extra_cents:6500,tax_rate:'10',deposit_cents:15000}})},'party-slot-dates':{textContent:'{}'}};
   const root = node();
   let calls = 0;
   vm.runInNewContext(source, {
@@ -48,6 +49,22 @@ test('server field errors prevent review and keep the relevant step editable', a
   assert.equal(ui.panels[2].hidden, true);
   assert.equal(ui.wrapper.children[0].children[0].textContent, 'Enter a valid phone.');
   assert.equal(ui.next.disabled, false);
+});
+
+test('approval packages review a preferred time without requesting payment or an offered slot', async () => {
+  const ui = mount(async () => ({ok:true,json:async () => ({errors:{}})}), {direct:false});
+  const form = ui.nodes['party-request-form'];
+  form.elements.party_slot.value = '';
+  form.elements.starts_at.value = '2027-01-20T14:00';
+  form.listeners.change();
+  assert.equal(ui.next.textContent, 'Review request');
+  assert.equal(ui.nodes['party-due'].textContent, '$0.00');
+  assert.equal(ui.nodes['party-later'].textContent, '$495.00');
+  assert.equal(ui.nodes['party-later-label'].textContent, 'After approval');
+  assert.equal(ui.nodes['party-review-step'].textContent, 'Review request');
+  assert.equal(ui.nodes['party-summary-time'].textContent, '2027-01-20 14:00');
+  await ui.click();
+  assert.equal(ui.root.dataset.step, 3);
 });
 
 test('valid details advance only after the server responds and prevent duplicate requests', async () => {

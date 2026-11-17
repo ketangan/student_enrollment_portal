@@ -31,6 +31,15 @@ def booking_available(profile, offering):
         and offering.price_per_participant is not None)
 
 
+def booking_offerings(profile):
+    """Only expose reservation intake for configured, non-camp workshops."""
+    from .capabilities import has_capability
+    if not profile.native_reservations_enabled or not has_capability(profile, "reservations"):
+        return []
+    return [offering for offering in setup.records(profile, "workshops").filter(camps__isnull=True)
+        if booking_available(profile, offering)]
+
+
 def configuration(offering):
     return digest({"price": format(offering.price_per_participant, ".2f") if offering.price_per_participant is not None else None,
         "deposit": format(offering.deposit_per_participant, ".2f"), "tax": str(Decimal(offering.location.default_tax_rate or 0).normalize()),

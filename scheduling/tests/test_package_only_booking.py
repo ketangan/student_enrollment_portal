@@ -35,6 +35,85 @@ def staff_data(member, slot, **changes):
     return data
 
 
+def test_approval_package_reuses_review_without_payment(client, package, policy, booking_member):
+    from scheduling.tests.test_parties import review_data
+    from scheduling.reservations import create_reservation
+    policy["allow_approval_packages"] = True
+    data = package_data(client, package)
+    response = send(client, package.offering, data)
+    assert response.status_code == 302 and "/party-received/" in response.url
+    item = PartyRequest.objects.get()
+    assert item.status == "pending" and item.package_id == package.pk
+    assert item.starts_at and item.ends_at and item.proposed_total == package.total
+    assert not Reservation.objects.exists() and not PaymentOrder.objects.exists()
+    assert send(client, package.offering, data).status_code == 302
+    assert PartyRequest.objects.count() == 1
+    client.force_login(booking_member.user)
+    kwargs = {"school_slug": booking_member.profile.school.slug}
+    assert client.get(reverse("scheduling:parties", kwargs=kwargs)).status_code == 200
+    detail = reverse("scheduling:party_detail", kwargs={**kwargs, "public_id": item.public_id})
+    assert client.get(detail).status_code == 200
+    assert client.post(detail, review_data(item)).status_code == 302
+    item.refresh_from_db()
+    assert item.status == "reviewed"
+    assert not Reservation.objects.exists() and not PaymentOrder.objects.exists()
+    booking_member.profile.native_reservations_enabled = True
+    booking_member.profile.save(update_fields=["native_reservations_enabled"])
+    reservation = create_reservation(booking_member.user, booking_member.profile.school.slug,
+        "party", item.public_id, 40000, 10000, source_revision=item.revision,
+        online=False, staff_managed=True)
+    assert reservation.state == "confirmed"
+    assert reservation.order.total_cents == 40000 and reservation.order.deposit_cents == 10000
+    assert not reservation.order.entries.exists()
+
+
+def test_approval_package_requires_preferred_time(client, package, policy):
+    policy["allow_approval_packages"] = True
+    data = package_data(client, package)
+    data["starts_at"] = ""
+    response = send(client, package.offering, data)
+    assert response.status_code == 400
+    assert "starts_at" in response.context["form"].errors
+    assert not PartyRequest.objects.exists()
+
+
+def test_staff_approval_package_does_not_reserve_or_charge(client, direct_party, policy, booking_member):
+    policy["allow_approval_packages"] = True
+    package = direct_party.package
+    package.booking_mode = "review"
+    package.save(update_fields=["booking_mode"])
+    data = staff_data(booking_member, direct_party, party_slot="",
+        starts_at=(direct_party.starts_at + timedelta(days=2)).isoformat())
+    item, form = staff_parties.create(booking_member.user, booking_member.profile.school.slug, data)
+    assert item, form.errors
+    assert item.status == "pending" and item.package_id == package.pk
+    assert not Reservation.objects.exists() and not PaymentOrder.objects.exists()
+    repeated, _ = staff_parties.create(booking_member.user, booking_member.profile.school.slug, data)
+    assert repeated.pk == item.pk
+
+
+def test_mixed_package_policy_keeps_direct_checkout(client, direct_party, policy):
+    policy["allow_approval_packages"] = True
+    data = package_data(client, direct_party.package)
+    data.update(party_slot=direct_party.pk, starts_at="")
+    response = send(client, direct_party.package.offering, data)
+    assert response.status_code == 302 and "/pay/" in response.url
+    assert Reservation.objects.count() == PaymentOrder.objects.count() == 1
+
+
+def test_package_editor_preserves_approval_choice(package, policy, booking_member):
+    policy["allow_approval_packages"] = True
+    form = PartyPackageForm(instance=package, profile=booking_member.profile)
+    assert not form.fields["booking_mode"].disabled
+    assert form["booking_mode"].value() == "review"
+
+
+def test_approval_policy_requires_boolean(policy):
+    policy["allow_approval_packages"] = "yes"
+    with pytest.raises(ValidationError, match="allow_approval_packages"):
+        party_policy.party_policy(SimpleNamespace(slug="test"))
+
+
 @pytest.fixture
 def acknowledgments(monkeypatch):
     value = {"revision": "policy-v1", "waiver": "A signed guardian waiver is required.",

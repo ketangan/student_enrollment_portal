@@ -91,12 +91,13 @@ def reservation_list(request, school_slug):
         tab_filters=tab_filters.urlencode(), sort_urls=sort_urls, sort=sort,
         total_url=total_url, balance_url="?" + balance_filters.urlencode(), preparation_url="?" + preparation_filters.urlencode(), attention_url="?" + metric_filters.urlencode(), hide_completed=hide_completed,
         has_filters=any(value for key, value in filters.items() if key not in {"location", "sort", "hide_completed", "show_completed"}))
-    from .calendar import calendar_available, offerings
+    from .calendar import calendar_available
     if context["can_edit_sessions"] and calendar_available(profile) and context["location_filter"].is_valid():
         from django.urls import reverse
-        workshops = offerings(profile)
+        from .staff_workshops import booking_offerings
+        workshops = booking_offerings(profile)
         if context["selected_location"]:
-            workshops = workshops.filter(location=context["selected_location"])
+            workshops = [item for item in workshops if item.location_id == context["selected_location"].pk]
         context["reservation_create_choices"] = [
             {"title": f"{item.name} ({item.location.name})", "createUrl": reverse(
                 "scheduling:staff_workshop_create", kwargs={"school_slug": school_slug, "offering_pk": item.pk})}

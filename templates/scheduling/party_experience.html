@@ -46,7 +46,7 @@
 <div id="party-materials"></div>
 <div class="bottom-actions"><button type="button" class="quiet" data-party-next="1">Back</button><button type="button" class="button" data-party-next="3">Review &amp; pay <i data-lucide="arrow-right" aria-hidden="true"></i></button></div>
 </fieldset>
-<fieldset data-party-panel="3"><legend class="skip">Review and pay</legend><h2>One last look before the party.</h2>
+<fieldset data-party-panel="3"><legend class="skip">Review party details</legend><h2>One last look before the party.</h2>
 <dl id="party-review-details" class="party-review-list"></dl>
 {% if form.acknowledgment_fields %}
 <section class="party-acknowledgments" aria-labelledby="party-acknowledgments-heading">
@@ -70,7 +70,7 @@
 <div><dt>Tax</dt><dd id="party-tax">—</dd></div>
 <div class="price-total"><dt>Total</dt><dd id="party-total">—</dd></div>
 <div class="price-due"><dt>Pay today</dt><dd id="party-due">—</dd></div>
-<div><dt>At the party</dt><dd id="party-later">—</dd></div>
+<div><dt id="party-later-label">At the party</dt><dd id="party-later">—</dd></div>
 </dl>
 </aside></div></div>
 {% endblock %}

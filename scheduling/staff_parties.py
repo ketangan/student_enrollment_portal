@@ -30,12 +30,15 @@ class StaffPartyForm(PartyInquiryForm):
     request_token = forms.CharField(widget=forms.HiddenInput)
 
     def __init__(self, *args, profile, **kwargs):
-        packages_only = party_policy(profile.school)["packages_only"]
+        policy = party_policy(profile.school)
+        packages_only = policy["packages_only"]
         offerings = Offering.objects.filter(location__in=staff_locations(profile), accepts_party_requests=True,
             visit_program__isnull=True).select_related("location__profile__school").order_by("location__name", "name", "pk")
         if packages_only:
-            offerings = offerings.filter(is_published=True, party_packages__is_published=True,
-                party_packages__booking_mode="direct").distinct()
+            offerings = offerings.filter(is_published=True, party_packages__is_published=True)
+            if not policy["allow_approval_packages"]:
+                offerings = offerings.filter(party_packages__booking_mode="direct")
+            offerings = offerings.distinct()
         data = args[0] if args else kwargs.get("data")
         selected = (data if data is not None else kwargs.get("initial", {})).get("offering")
         offering = offerings.filter(pk=selected).first() if str(selected or "").isdecimal() else None
@@ -119,7 +122,7 @@ def create(user, slug, data):
             "acknowledgments": form.acknowledgment_record()})
     item.full_clean()
     item.save()
-    if form.packages_only:
+    if form.packages_only and item.package.booking_mode == "direct":
         reserve_package(item, user=user)
     audit_party(user, profile, item, {"created_by_staff": True, "status": {"from": None, "to": item.status}}, created=True)
     return item, form

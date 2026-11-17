@@ -1,6 +1,87 @@
 # Release Tracker
 
-Last hosted revision/configuration check: November 14, 2026.
+Last hosted revision/configuration check: November 16, 2026 (PST).
+
+## November 16 Hosted Audit Corrections (Main/Demo Release)
+
+This follow-up supersedes the configuration gaps in the audit below, not its
+remaining acceptance checks. Do not send an "everything is complete" email yet.
+
+### Applied and Verified on Demo
+
+- Removed `camps` from Plushie's saved SchedulingProfile capabilities after
+  confirming it has no camp reservations. Preserved the legacy Camp/offering
+  records. Hosted Setup now has no Camps tab or camp workshop entry. This was a
+  saved demo configuration miss, not a failed code deployment.
+- Set only Plushie's `admin_theme_switching_enabled` flag to false, preserving
+  the other flags and recording an audit entry. The earlier Ops-form attempt did
+  not persist; a database read and fresh Chrome user menu now confirm it is off.
+- With owner approval, extended the existing scheduling demo token for the same
+  recipient (14), without replacing it or widening permissions. Persisted expiry
+  is December 1, 2026, 22:44:47 UTC. Do not publish its bearer URL in this file.
+- Added nine missing published party packages from the supplied package matrix,
+  keeping the existing Pasadena A package unchanged: A/B at Pasadena, Charlotte,
+  Dallas and Houston; reserved-table A and private-full-studio B in New York.
+  New York full-studio B remains `review`, not direct checkout, as explicitly
+  confirmed by the owner. Its public approval workflow requires the code below.
+- Added 18 synthetic direct-package time slots (IDs 3-20), two per direct package,
+  on December 1 and December 8 at 4 PM local time. Existing slots and reservations
+  were not rewritten. Hosted New York A showed a selectable December 1 slot,
+  $595 subtotal, $52.81 configured tax and $150 deposit.
+- Demo room capacities were enlarged only as needed for the synthetic package
+  examples (14 outside New York, 18 in New York). These are NOT verified physical
+  studio capacities. Existing configured tax rates were reused, not validated as
+  live tax advice. Both require production setup verification before activation.
+- No production/SBMC configuration, existing booking prices, live payments or
+  customer emails were changed by these setup operations. Package/slot changes
+  have a demo audit entry. Two failed operator shell commands (an incorrect model
+  field in a read query and shell quoting) emitted Sentry errors; both were
+  corrected, neither changed data, and they were not cron/application failures.
+
+### Code Verified for Main; Hosted Acceptance Pending
+
+- Reservation entry choices now use one shared bookability helper: no camps,
+  draft offerings, missing price/catalog, or disabled native reservations. This
+  prevents New > Reservation from opening a session-creation form. Lesson-only
+  schools return no workshop choices without a query or capability error.
+- Added validated operator policy `allow_approval_packages` (default false).
+  Plushie opts in; other schools retain their existing defaults. `packages_only`
+  still prevents custom requests, but no longer has to forbid published packages
+  that require staff approval. Package booking mode remains database-backed.
+- Reused the existing party request/review/reservation services, staff inbox and
+  public form. Approval requests create no reservation, payment order or charge;
+  direct packages retain checkout. Retry, required preferred time, approval then
+  reservation creation, and package-editor behavior are covered.
+- Customer review labels and totals distinguish approval requests from immediate
+  checkout. No payment-reminder feature or parallel booking implementation added.
+- Final focused checks: 371 Python tests passed across package-only booking,
+  admin parity, calendar, staff workshops, party packages/requests, location
+  dashboards and reservations; 16 party JavaScript tests passed; diff whitespace
+  checks passed. These are not a full-suite result.
+- Local Chrome: New > Reservation opened customer fields and saved reservation
+  `fda2d29b-6efd-42be-a906-63d8f4d5d220` (New entry verification), one seat at
+  $65 plus $7.15 tax, returning to the list. Synthetic `.invalid` email; preview
+  email provider is local-only. Approval package preferred-date picker, group
+  details, review/back navigation and zero-pay-today display checked manually.
+- Visual checks: desktop 1470x797, tablet 768x1024 and 1024x768, phone 390x844.
+  This time viewport dimensions were verified; no horizontal overflow in the
+  checked customer review layouts. Staff review-package controls were also
+  inspected. Physical Android keyboard/touch/printing checks remain pending.
+- Existing no-reload preview server restarted on the same port 8002/database so
+  browser checks actually used changed Python/templates. No extra database/server.
+- Full regression PASSED in 22m01s, with 6,306 application tests (3 skipped),
+  26 migration tests and 209 JavaScript tests. Migration drift, combined Python
+  coverage (97.90%), per-module gates and JavaScript coverage gates passed.
+  Logs: `/private/tmp/pontora-regression-20261116-demo-audit-fixes/`.
+- Before release, source matched tested base
+  `264130b0d3ee4af263d9c16e74a5bdbb781e9008` and unchanged fingerprint
+  `a8d1bcfad3ff4167bf9c4b3ab5b57ed4d3c8f514849ea4a32fc68927d37e1632`.
+  Only this release-status documentation was then updated.
+- Owner approved pushing this batch to main and deferring hosted verification
+  until the next morning. GitHub CI, automatic demo deployment and the remaining
+  hosted acceptance paths below must still be checked before emailing Jasmine
+  that everything is ready. No production promotion is approved; production
+  remains pinned. The unrelated agent worktree is excluded from this release.
 
 ## November 16 Release to Main/Demo
 
@@ -22,9 +103,126 @@ Last hosted revision/configuration check: November 14, 2026.
 - Hosted Plushie theme/camp configuration must be verified after deployment;
   the local scoped settings are not proof of hosted activation. No customer data
   or local database is included in the push. Unrelated agent worktree excluded.
-- GitHub CI and automatic demo web/maintenance deployment are pending for the
-  resulting commit. Hosted smoke tests and physical Android checks remain pending.
-  Production web and maintenance remain manual and unchanged.
+- Released commit: `264130b0d3ee4af263d9c16e74a5bdbb781e9008`.
+  GitHub CI run `44026604325` passed all three jobs, including migration and
+  coverage gates (about 12 minutes). Render demo web is Live on this revision;
+  automatic web deployment took 2m34s. Demo maintenance is on the same revision
+  with successful scheduled runs, including the November 16 10:30 PM PST run.
+- Hosted non-destructive Chrome smoke checks passed: Calendar New menu and
+  session form; workshop defaults; reservation detail and editing; $65 pretax
+  pricing and live tax totals; seat-limit control; selection preserved across
+  week navigation; collapsed Workshop Prep details; Setup session editor,
+  automatic highlighted change preview, and notification control below review.
+  Edited values were discarded. No customer booking writes, emails or payments
+  were performed, so this is not a fresh hosted end-to-end save/delivery test.
+- Outstanding hosted activation: Plushie still exposes Camps in Setup/calendar
+  and Clean/Midnight/Mint theme choices. Its published Creative plushie camp
+  also remains in workshop selectors. Apply the approved school-scoped settings
+  and review that demo offering without changing other schools or deleting data.
+  Code deployment alone did not apply the local database configuration.
+- Demo and production database-backed health endpoints returned status ok.
+  Render production web AND maintenance remain at
+  `6ebf7fe08bb3e0ba9c459c3a34380d7e5bcc547c`; no promotion was performed.
+- Hosted visual inspection was desktop Chrome at 1470x797. The browser viewport
+  override did not change the observed viewport and was reset; do not count this
+  as a new hosted tablet/phone verification. Prior local responsive checks remain
+  recorded below; hosted responsive and physical Android checks remain pending.
+  Browser logs included asynchronous extension-message-channel errors; no
+  corresponding failure was observed in the exercised application controls.
+
+## November 16 Jasmine Email and Hosted Acceptance Audit
+
+Status: NOT ready for an "all requested changes are complete" announcement.
+This follow-up audit tested the deployed revision above; no application source,
+production data, live payments or existing customer bookings were changed.
+
+### Confirmed on Demo
+
+- Calendar session > Add booking saved a synthetic customer reservation and
+  returned to the calendar. The total was $65 plus $7.15 tax for one participant.
+- Automatic confirmation reached ketan@mypontora.com, not merely the outbox:
+  Gmail message `1a1e841557dbb0e8`. The customer selection link saved a participant
+  name, age and Bear/Brown selection successfully.
+- Studio Prep showed phone/email, saved an inline internal note, and persisted
+  a participant's prepared state. Hide Prepared and weekly Print were present;
+  Still to Pull was absent. Physical printing was not exercised.
+- Setup created two published weekly sessions. Editing the series updated both
+  future occurrences. Moving the synthetic reservation to the first occurrence
+  saved successfully without changing its price or prepared selection.
+- A subsequent recurring edit showed the affected booking and Notify customers,
+  moved both sessions from 3:00 PM to 3:30 PM, and moved the reservation with them.
+  The update email reached ketan@mypontora.com with the correct old/new times:
+  Gmail message `1a1e8462f8f0c4fe`.
+- Synthetic records retained for review: reservation
+  `81279c7a-ff36-490b-bbe9-70cbac463354` (Demo verification Nov16), workshop 1
+  sessions 69 (November 24) and 70 (December 1), 3:30-5:30 PM, capacity eight.
+  No email was addressed to Jasmine or an existing customer during this audit.
+
+### Blocking Demo Gaps
+
+1. Reservations > New > Reservation defaulted to the published legacy Creative
+   plushie camp offering and opened a New session form instead of customer
+   reservation fields. Calendar > existing workshop > Add booking worked.
+   Investigate the shared entry routing and permitted/default offering selection;
+   do not treat hiding a menu item as proof that this path is fixed.
+2. Hosted Parties had only Pasadena Package A ($495, six participants, $150
+   deposit). No Package B or packages for Charlotte, Dallas, Houston or New York
+   were configured, and the public party page offered no future party times.
+   The supplied package matrix and suitable demo times must be configured before
+   claiming party checkout, paid package changes and updated payment requests
+   are fully demonstrated on the hosted environment.
+3. Approved school-scoped camp/theme settings are still unapplied on demo, as
+   recorded above. The legacy camp offering also requires review without data
+   deletion. Keep changes scoped to this school, preserving SBMC.
+4. The previously shared passwordless link expires November 17. Refresh access
+   before sending the final review invitation; it was not renewed in this audit.
+
+### Requirement Coverage and Remaining Verification
+
+Compared incoming emails dated September 30, October 17, October 20, October 29,
+November 2, November 11 and November 14 with outgoing commitments on October 28,
+November 3 and November 10. November 14 is the controlling calendar/party scope.
+
+| Requirement | Evidence / remaining work |
+| --- | --- |
+| Calendar individual bookings and empty sessions | Creation and reservation move/save passed on demo. Fresh hosted cancellation/refund and conflict-path acceptance checks remain. |
+| Recurring updates, affected-booking review and emails | Creation, multi-occurrence time update, reservation movement and actual update-email delivery passed. One-occurrence detachment and collision blocking have automated/local evidence but were not repeated end-to-end on demo in this audit. |
+| Paid party package/count/price edits and updated payment request | Released implementation exists; hosted package/time setup blocks a representative acceptance exercise. Do not mark hosted acceptance complete. |
+| Google/Outlook/Apple calendar choices | Shared provider-choice implementation exists; a fresh hosted confirmation-page provider-link check remains. |
+| Individual animal/color photos | Catalog variant images are supported. Actual replacement photos remain Jasmine's input; no new images were supplied in this audit. |
+| Confirmation email and customer selection link | Fresh hosted booking delivered and its selection link saved successfully. |
+| Studio Prep notes, contact details, Hide Prepared, no Still to Pull | Hosted checks above passed; selected-week printing and physical tablet behavior need their own acceptance checks. |
+| Upcoming Wix bookings imported | Not completed. Obtain/review export, map payments/balances and reconcile counts before import/cutover. Do not import card credentials. |
+| Original party rules | Recheck the configured A/B prices, location-specific capacities, deposits, two extra guests, age/observer rules, estimated guest range and NY private-studio inquiry/approval flow after completing party setup. |
+| Design guide, later guest selections and seven-day reminders | Guide is present (October 22 upload); reminder/selection services exist. Final guide/templates and production reminder activation/verification remain. Automatic copied-booking reminders are deliberately excluded in demo. |
+| Per-location staff access and tablet support | Automated/local evidence exists; this hosted audit used an all-access admin on desktop Chrome, not a location-limited login or physical Android tablet. |
+
+Not every earlier idea is an outstanding launch requirement: the accepted Studio
+Prep workflow superseded the proposed Notion integration; credits, gift cards,
+promo codes and expanded reporting were explicitly deferred in the October 28
+email. Square terminal/refund code has test-environment evidence, but physical
+terminal acceptance needs the connected live account/device and an agreed small
+real charge/refund. Do not equate sandbox coverage with physical-device testing.
+
+### Outstanding Inputs From Jasmine
+
+- Upcoming Wix bookings export, including customer/participant details, selections,
+  deposits, payments and outstanding balances; arrange secure transfer.
+- Labeled animal/color photos and the latest design-guide PDF if revised.
+- Email templates and the trigger/timing for each. As previously agreed, final
+  template copy need not block the other launch preparation.
+- Send customer emails from Pontora or her own domain/provider; confirm desired
+  sender address. Never request email or Square passwords by email.
+- Final review feedback and launch date, avoiding Thanksgiving week; connect
+  Square through Settings and arrange the physical-terminal charge/refund check.
+
+Already answered: Wix is the current platform, Wix access has been supplied,
+Square uses one account across locations with standalone Terminals, and Jasmine
+reported the customer flow worked on her tablet. Do not ask these again.
+
+This audit changed documentation and synthetic demo records only. Existing CI
+and regression results still apply to the unchanged application source; they do
+not erase the hosted configuration/entry-path gaps above.
 
 ## November 16 Regression Corrections (Local, Unpushed)
 

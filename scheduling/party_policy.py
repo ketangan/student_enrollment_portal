@@ -11,6 +11,8 @@ def party_policy(school):
     policy = (config.raw if config else {}).get("scheduling", {}).get("party_booking", {})
     if not isinstance(policy, dict) or type(policy.get("packages_only", False)) is not bool:
         raise ValidationError("Party booking policy needs a valid packages_only setting.")
+    if type(policy.get("allow_approval_packages", False)) is not bool:
+        raise ValidationError("Party booking policy needs a valid allow_approval_packages setting.")
     limit = policy.get("default_extra_participants", 0)
     maximum = policy.get("maximum_participants", 10000)
     if type(maximum) is not int or not 1 <= maximum <= 10000:
@@ -23,5 +25,10 @@ def party_policy(school):
             or not 0 <= price <= Decimal("999999.99") or price.as_tuple().exponent < -2):
         raise ValidationError("Party booking defaults need a valid participant limit and price.")
     return {"packages_only": policy.get("packages_only", False),
+            "allow_approval_packages": policy.get("allow_approval_packages", False),
             "maximum_participants": maximum,
             "default_extra_participants": limit, "default_extra_price": price}
+
+
+def review_enabled(policy):
+    return not policy["packages_only"] or policy.get("allow_approval_packages", False)

@@ -24,7 +24,7 @@ from .requests import browser_key
 from .views import _context
 from .setup import build_form, save_setup
 from .inventory_forms import party_catalog_data
-from .party_policy import party_policy
+from .party_policy import party_policy, review_enabled
 
 
 @never_cache
@@ -194,7 +194,8 @@ def party_setup(request, school_slug):
 def party_inquiry(request, school_slug, pk=None):
     profile = get_object_or_404(SchedulingProfile.objects.select_related("school"), school__slug=school_slug, enabled=True)
     require_capability(profile, "parties")
-    packages_only = party_policy(profile.school)["packages_only"]
+    policy = party_policy(profile.school)
+    packages_only = policy["packages_only"]
     from .customer_experience import customer_copy
     copy = customer_copy(profile.school)
     customer_template = "scheduling/party_experience.html" if packages_only else "scheduling/party_inquiry.html"
@@ -204,7 +205,10 @@ def party_inquiry(request, school_slug, pk=None):
     offerings = Offering.objects.filter(location__profile=profile, is_published=True,
         accepts_party_requests=True, visit_program__isnull=True).select_related("location").order_by("location__name", "name", "pk")
     if packages_only:
-        offerings = offerings.filter(party_packages__is_published=True, party_packages__booking_mode="direct").distinct()
+        offerings = offerings.filter(party_packages__is_published=True)
+        if not policy["allow_approval_packages"]:
+            offerings = offerings.filter(party_packages__booking_mode="direct")
+        offerings = offerings.distinct()
     offerings = list(offerings)
     preview = _admin_preview(request, school_slug)
     if pk is None:
@@ -283,7 +287,7 @@ def party_list(request, school_slug):
     from .party_status import FILTERS, label
     from .reservation_queries import completion_filter_query
     profile, role = require_location_access(request.user, school_slug)
-    if party_policy(profile.school)["packages_only"]:
+    if not review_enabled(party_policy(profile.school)):
         return redirect("scheduling:reservations", school_slug=school_slug)
     context = _context(request, profile, role, "party_inquiries")
     location_form = context["location_filter"]
@@ -335,7 +339,7 @@ def party_detail(request, school_slug, public_id):
     item = get_object_or_404(scoped_parties(profile), public_id=public_id)
     if request.method == "GET" and getattr(item, "reservation", None):
         return redirect("scheduling:reservation_detail", school_slug=school_slug, public_id=item.reservation.public_id)
-    if party_policy(profile.school)["packages_only"]:
+    if not review_enabled(party_policy(profile.school)):
         if request.method == "POST":
             raise Http404("The inquiry workflow is no longer available.")
         return redirect("scheduling:reservations", school_slug=school_slug)

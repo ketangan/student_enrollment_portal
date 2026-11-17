@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from core.models import AdminAuditLog, School
 from scheduling.dashboard_activity import EVENTS, recent_activity
-from scheduling.models import Location, SchedulingProfile, SchedulingMembership
+from scheduling.models import InventoryCatalog, Location, SchedulingProfile, SchedulingMembership
 from scheduling.reservation_queries import staff_reservations
 from scheduling.templatetags.booking_navigation import booking_initials
 from scheduling.workspace import overview
@@ -24,6 +24,9 @@ def test_reservation_list_reuses_editor_and_scopes_workshop_choices(client, inve
     profile = inventory[0]
     profile.calendar_enabled = True
     profile.save(update_fields=["calendar_enabled"])
+    second_studio[1].inventory_catalog = InventoryCatalog.objects.create(profile=profile, name="Selections")
+    second_studio[1].price_per_participant = 65
+    second_studio[1].save(update_fields=["inventory_catalog", "price_per_participant"])
     client.force_login(booking_member.user)
     page = client.get(url(profile, "reservations"), {"location": second_studio[1].location_id})
     assert page.status_code == 200
@@ -40,6 +43,54 @@ def test_reservation_list_reuses_editor_and_scopes_workshop_choices(client, inve
     profile.save(update_fields=["calendar_enabled"])
     page = client.get(url(profile, "reservations"))
     assert b'id="reservation-new"' not in page.content
+
+
+@pytest.mark.parametrize("route", ["workspace", "reservations"])
+@pytest.mark.parametrize("unavailable", ["camp", "draft", "no_price", "no_catalog", "disabled"])
+def test_reservation_entry_excludes_unbookable_offerings(stock, route, unavailable):
+    from scheduling.models import Camp
+    stock.profile.calendar_enabled = True
+    stock.profile.save(update_fields=["calendar_enabled"])
+    stock.offering.price_per_participant = 65
+    if unavailable == "camp":
+        Camp.objects.create(offering=stock.offering, name="Seasonal camp", price=65)
+    elif unavailable == "draft":
+        stock.offering.is_published = False
+    elif unavailable == "no_price":
+        stock.offering.price_per_participant = None
+    elif unavailable == "no_catalog":
+        stock.offering.inventory_catalog = None
+    else:
+        stock.profile.native_reservations_enabled = False
+        stock.profile.save(update_fields=["native_reservations_enabled"])
+    stock.offering.save()
+    page = stock.client.get(url(stock.profile, route), {"view": "calendar"})
+    assert page.status_code == 200
+    choices = (page.context["calendar_config"]["offerings"] if route == "workspace"
+        else page.context["reservation_create_choices"])
+    assert not any(choice["createUrl"] for choice in choices)
+
+
+def test_reservation_entry_opens_customer_form_not_session_form(stock):
+    stock.profile.calendar_enabled = True
+    stock.profile.save(update_fields=["calendar_enabled"])
+    stock.offering.price_per_participant = 65
+    stock.offering.save(update_fields=["price_per_participant"])
+    page = stock.client.get(url(stock.profile, "reservations"))
+    choices = page.context["reservation_create_choices"]
+    assert len(choices) == 1
+    form_page = stock.client.get(choices[0]["createUrl"])
+    assert not form_page.context["form"].new
+    assert form_page.context["form"].can_book
+    assert b"Add Reservation" in form_page.content
+    assert b"Customer name" in form_page.content
+
+
+def test_lesson_only_school_has_no_workshop_reservation_choices(stock, django_assert_num_queries):
+    from scheduling.staff_workshops import booking_offerings
+    stock.profile.capabilities = ["lessons"]
+    with django_assert_num_queries(0):
+        assert booking_offerings(stock.profile) == []
 
 
 @pytest.mark.parametrize("route", ["workspace", "reservations", "workshops", "parties", "camps", "settings", "locations", "access", "integrations"])

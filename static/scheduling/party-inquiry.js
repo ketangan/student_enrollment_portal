@@ -149,7 +149,7 @@
         if (summary) summary.textContent = selected ? selected.text : '';
         const packageOnly = document.getElementById('party-request-form')?.dataset.packagesOnly === 'true';
         const staff = document.getElementById('party-request-form')?.dataset.staff === 'true';
-        const direct = packageOnly || Boolean(selected?.direct);
+        const direct = selected ? Boolean(selected.direct) : packageOnly;
         const slots = document.getElementById('id_party_slot');
         if (slots) {
           const mapping = read('party-slot-packages') || {};

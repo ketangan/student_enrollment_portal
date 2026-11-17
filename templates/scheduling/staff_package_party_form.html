@@ -27,7 +27,7 @@
       <div data-party-field="package">{% include 'scheduling/party_form_field.html' with field=form.package %}</div>
       <div data-party-field="party_slot">{% include 'scheduling/party_form_field.html' with field=form.party_slot %}</div>
       </div>
-      <div data-party-field="starts_at" hidden>{{ form.starts_at }}</div>
+      <div data-party-field="starts_at" hidden>{% include 'scheduling/party_form_field.html' with field=form.starts_at %}</div>
       <div data-custom-party-field hidden>{{ form.space }}</div>
     </section>
     <section class="reservation-section"><h3>Party details</h3>

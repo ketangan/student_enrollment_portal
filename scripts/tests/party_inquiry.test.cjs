@@ -4,13 +4,13 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('static/scheduling/party-inquiry.js', 'utf8');
 
-function mount({packageOnly = true, staff = false, calendar = false, capacity = null, summary = true} = {}) {
+function mount({packageOnly = true, staff = false, calendar = false, capacity = null, summary = true, secondDirect = false} = {}) {
   const events = {};
   const wrappers = {};
   const field = id => ({value:'', closest:() => wrappers[id] ||= {hidden:false},
     removeAttribute(name) {delete this[name];}, addEventListener:(event, fn) => { events[`${id}:${event}`] = fn; }});
   const nodes = {
-    'party-package-details':{textContent:JSON.stringify({'1':{direct:true,text:'Package price $450'},'2':{direct:false,text:'Review package'}})},
+    'party-package-details':{textContent:JSON.stringify({'1':{direct:true,text:'Package price $450'},'2':{direct:secondDirect,text:'Review package'}})},
     'party-slot-packages':{textContent:'{"3":"1"}'},
     'party-request-form':{dataset:{packagesOnly:String(packageOnly),staff:String(staff)}},
     id_package:field('package'), id_party_slot:{...field('slots'),options:[{value:''},{value:'3'}]},
@@ -110,7 +110,7 @@ test('other schools retain custom review behavior', () => {
 });
 
 test('switching packages retains the selected date and immediately refreshes times', () => {
-  const ui = mount({calendar:true});
+  const ui = mount({calendar:true,secondDirect:true});
   ui.choose('1');
   ui.date('2030-11-10');
   ui.nodes.id_party_slot.value = '3';
@@ -119,4 +119,19 @@ test('switching packages retains the selected date and immediately refreshes tim
   assert.equal(ui.nodes['party-time-buttons'].children.length, 1);
   assert.equal(ui.nodes['party-time-buttons'].children[0].textContent, '5 PM');
   assert.equal(ui.nodes['party-submit'].disabled, true);
+});
+
+test('a package requiring approval shows preferred time and never offers payment', () => {
+  const ui = mount({calendar:true});
+  ui.choose('2');
+  assert.equal(ui.nodes.id_party_slot.disabled, true);
+  assert.equal(ui.nodes.id_starts_at.disabled, false);
+  assert.equal(ui.nodes.id_starts_at.required, true);
+  assert.equal(ui.nodes['party-submit'].textContent, 'Send party request');
+  assert.equal(ui.nodes['party-submit'].disabled, false);
+  assert.equal(ui.nodes['party-time-picker'].hidden, true);
+  assert.equal(ui.custom.hidden, true);
+  ui.choose('1');
+  assert.equal(ui.nodes.id_starts_at.disabled, true);
+  assert.equal(ui.nodes['party-submit'].textContent, 'Continue to payment');
 });

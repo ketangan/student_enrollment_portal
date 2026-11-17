@@ -50,6 +50,7 @@ class PartyInquiryForm(forms.Form):
         self.age_policy = age_policy(offering.location.profile.school) if offering else None
         policy = party_policy(offering.location.profile.school) if offering else {}
         self.packages_only = policy.get("packages_only", False)
+        self.allow_approval_packages = policy.get("allow_approval_packages", False)
         maximum = policy.get("maximum_participants", 10000)
         self.fields["participant_estimate"].validators = [
             validator for validator in self.fields["participant_estimate"].validators
@@ -89,7 +90,7 @@ class PartyInquiryForm(forms.Form):
         self.order_fields(["space", "starts_at", "organizer_name", "organizer_email", "organizer_phone", "group_size", "participant_estimate", "customer_notes"])
         if self.package_mode:
             packages = offering.party_packages.filter(is_published=True).select_related("offering__location")
-            if self.packages_only:
+            if self.packages_only and not self.allow_approval_packages:
                 packages = packages.filter(booking_mode="direct")
             self.fields["package"] = forms.ModelChoiceField(queryset=packages,
                 label="Party", required=self.packages_only,
@@ -125,7 +126,7 @@ class PartyInquiryForm(forms.Form):
             self.fields["space"].required = False
             self.fields["starts_at"].required = False
             if self.packages_only:
-                for name in ("space", "starts_at"):
+                for name in (("space",) if self.allow_approval_packages else ("space", "starts_at")):
                     self.fields[name].disabled = True
                     self.fields[name].widget = forms.HiddenInput()
             from django.db.models import DateTimeField, ExpressionWrapper, F
@@ -186,7 +187,7 @@ class PartyInquiryForm(forms.Form):
                 self.add_error("space", "Required for a custom group request.")
             if not package:
                 data["party_slot"] = None
-            if not self.packages_only and (not package or package.booking_mode != "direct") and not data.get("starts_at"):
+            if (not package or package.booking_mode != "direct") and not data.get("starts_at"):
                 self.add_error("starts_at", "Choose a preferred date and time.")
         if self.material_forms is not None:
             if not self.material_forms.is_valid():
@@ -273,7 +274,7 @@ class PartyPackageForm(forms.ModelForm):
         if not self.instance.pk:
             self.initial["additional_participant_limit"] = self.policy["default_extra_participants"]
             self.initial["additional_participant_price"] = self.policy["default_extra_price"]
-        if self.policy["packages_only"]:
+        if self.policy["packages_only"] and not self.policy["allow_approval_packages"]:
             self.initial["booking_mode"] = "direct"
             self.fields["booking_mode"].disabled = True
             self.fields["booking_mode"].widget = forms.HiddenInput()
