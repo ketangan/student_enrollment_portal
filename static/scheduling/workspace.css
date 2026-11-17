@@ -236,6 +236,7 @@ button:disabled { color: #7b857f; cursor: default; background: #f4f6f4; }
 .booking-admin .session-customer-seats {white-space:nowrap;color:var(--dash-muted);}
 .booking-admin [data-session-conflict]:not([hidden]) {padding:12px;border:1px solid #fca5a5;background:#fef2f2;color:#991b1b;border-radius:6px;}
 .booking-admin .session-notify {display:flex;gap:12px;align-items:center;min-height:44px;}
+.booking-admin .session-notify[hidden] {display:none!important;}
 .booking-admin [data-new-session] .booking-fields {display:grid;grid-template-columns:minmax(0,1fr) 120px 88px;gap:12px;align-items:start;}
 .booking-admin [data-new-session] .booking-fields .form-field {grid-column:1 / -1;margin:0;min-width:0;}
 .booking-admin [data-new-session] .booking-fields .form-field:has([name=starts_at]),

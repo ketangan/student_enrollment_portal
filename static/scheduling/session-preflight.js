@@ -9,6 +9,12 @@
     const review = form.querySelector('[data-session-live-review]');
     const reviewToken = form.querySelector('[name="review_token"], [name="preview_token"]');
     const customers = form.querySelector('.session-customers');
+    const notification = form.querySelector('.session-notify');
+    function updateNotification() {
+      if (notification) notification.hidden = !Boolean(review?.querySelector('.session-change-highlight') &&
+        review.querySelector('.session-customer-list, .recurring-recipients'));
+    }
+    updateNotification();
     const fingerprint = () => JSON.stringify(Array.from(new FormData(form).entries()).filter(([name]) => !['review_token', 'preview_token'].includes(name)));
     let timer, revision = 0, lastValues = fingerprint();
     function block(text) {
@@ -29,6 +35,7 @@
             review.innerHTML = result.review_html;
             reviewToken.value = result.review_token;
             if (customers) customers.hidden = Boolean(result.review_html);
+            updateNotification();
           }
           form.dataset.preflightBlocked = "false";
           submit.disabled = false;
@@ -36,6 +43,7 @@
           message.textContent = "";
         } else {
           if (review && typeof result.review_html === 'string') review.innerHTML = result.review_html;
+          updateNotification();
           const errors = Object.values(result.errors || {}).flat().map(error => error.message);
           block(errors.join(" ") || (result.review_html ? "Resolve the listed conflicts before saving." : "Could not check availability. Change the time to try again."));
         }
@@ -50,6 +58,7 @@
       lastValues = values;
       if (reviewToken) reviewToken.value = '';
       if (review) review.replaceChildren();
+      updateNotification();
       if (customers) customers.hidden = false;
       clearTimeout(timer);
       const version = ++revision;

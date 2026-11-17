@@ -7,10 +7,11 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 
 function page(live = false) {
   const message = {}, submit = {}, listeners = {}, timers = [], requests = [];
-  const review = {innerHTML:'', replaceChildren(){this.innerHTML='';}}, token = {value:''}, customers = {};
+  const notification = {};
+  const review = {innerHTML:'', querySelector(selector){return selector.includes('highlight') ? this.innerHTML.includes('changed') : this.innerHTML.includes('customers');}, replaceChildren(){this.innerHTML='';}}, token = {value:''}, customers = {};
   let value = 0;
   const form = {dataset:{}, isConnected:true, matches:() => true,
-    querySelector:s => s.includes('conflict') ? message : s.includes('live-review') ? (live ? review : null) : s.includes('review_token') ? token : s === '.session-customers' ? customers : submit,
+    querySelector:s => s === '.session-notify' ? notification : s.includes('conflict') ? message : s.includes('live-review') ? (live ? review : null) : s.includes('review_token') ? token : s === '.session-customers' ? customers : submit,
     addEventListener:(name, fn) => {listeners[name] = fn;}};
   const window = {};
   vm.runInNewContext(source, {window, document:{querySelectorAll:() => []},
@@ -18,8 +19,18 @@ function page(live = false) {
     FormData:class {constructor(form){this.form=form;} entries(){return [['duration', value], ['review_token',token.value]];}},
     fetch:(url, options) => new Promise((resolve,reject) => requests.push({url,options,resolve,reject}))});
   window.SessionPreflight.mount(form, '/sessions/1/edit/');
-  return {window,form,message,submit,review,token,customers,listeners:{...listeners,input(){value++;listeners.input();},change(){value++;listeners.change();}},rawListeners:listeners,timers,requests};
+  return {window,form,message,submit,review,token,customers,notification,listeners:{...listeners,input(){value++;listeners.input();},change(){value++;listeners.change();}},rawListeners:listeners,timers,requests};
 }
+
+test('notification requires both changed values and affected customers', async () => {
+  const p = page(true);
+  assert.equal(p.notification.hidden,true);
+  for (const [html,hidden] of [['changed',true],['customers',true],['changed customers',false],['customers',true]]) {
+    p.listeners.input(); assert.equal(p.notification.hidden,true); p.timers.pop()();
+    p.requests.at(-1).resolve({ok:true,json:async()=>({valid:true,review_token:'signed',review_html:html})});
+    await tick(); assert.equal(p.notification.hidden,hidden);
+  }
+});
 
 test('live review updates values and authorization without a Save click; edits invalidate it', async () => {
   const p = page(true); p.listeners.input(); p.timers.pop()();

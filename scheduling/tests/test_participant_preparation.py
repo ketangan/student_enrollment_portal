@@ -12,8 +12,34 @@ from scheduling.reservation_notes import update as add_note
 from .test_inventory import stock, reserve, confirm, url
 from .test_guest_lists import booking, payload
 from .test_studio_preparation import query
+from .test_participant_policy import policy
 
 pytestmark = pytest.mark.django_db
+
+
+def test_studio_prep_hides_configured_age_without_losing_it(stock, policy):
+    from scheduling.models import ChoiceGroup
+    from scheduling.views_preparation import participant_form
+    item = reserve(stock); confirm(stock, item)
+    item.snapshot["staff_workshop"] = True
+    item.save(update_fields=["snapshot"])
+    group = ChoiceGroup.objects.create(catalog=stock.catalog, name="Age")
+    option = ChoiceOption.objects.create(group=group, label="10")
+    person = item.workshop_request.participants.get()
+    person.selections.append({"group_id": group.pk, "group": "Age", "option_id": option.pk, "option": "10"})
+    person.save(update_fields=["selections"])
+    form = participant_form(item, str(person.pk))
+    field = form[f"choice_{group.pk}"]
+    assert field.is_hidden and str(field.value()) == str(option.pk)
+    page = stock.client.get(url(stock, "studio_preparation"), query(item, edit=f"{item.public_id}:{person.pk}"))
+    assert b'data-field="choice_' + str(group.pk).encode() + b'"' not in page.content
+    assert b'>Age</label>' not in page.content
+    data = {name: form[name].value() for name in form.fields}
+    data["name"] = "Renamed child"
+    assert post(stock, item, person.pk, "edit", **data).status_code == 200
+    person.refresh_from_db()
+    assert person.name == "Renamed child"
+    assert any(row["option_id"] == option.pk for row in person.selections)
 
 
 def post(s, item, key, action="ready", **extra):
@@ -322,6 +348,8 @@ def test_print_contains_partial_party_placeholders_and_both_note_types(stock, bo
     assert b"Reservation extras" not in page.content
     page = stock.client.get(url(stock, "studio_preparation"), query(booking, edit=f"{booking.public_id}:0"))
     assert b'guest_0_guest_name' in page.content
+    assert b'data-field="guest_age"' not in page.content
+    assert b'type="hidden" name="guest_age"' in page.content
 
 
 @pytest.mark.django_db(transaction=True)

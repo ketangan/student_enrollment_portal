@@ -1,6 +1,99 @@
 # Release Tracker
 
-Last hosted revision/configuration check: November 16, 2026 (PST).
+Last hosted revision/configuration check: November 17, 2026 (PST).
+
+## November 17 Booking Control Release
+
+- Session and recurring-session live previews show Notify customers only when
+  changes and affected customers exist. The shared hidden-state stylesheet also
+  covers calendar dialogs; asset versions updated to avoid stale browser code.
+- Reservation editing limits the seat stepper to the selected session's capacity
+  available to this reservation (existing seats plus remaining open seats), not
+  the maximum across other sessions. Server capacity validation remains in place.
+- Studio Prep view and inline edit omit age. Existing workshop age choices and
+  party ages remain stored and are preserved through hidden form fields.
+- Local Chrome checks: selected-session capacity cap; notification hidden before
+  changes and after reverting, visible after a duration change with a customer;
+  Studio Prep participant view/edit. Session editor checked at desktop,
+  768x1024, 1024x768 and 390x844. No changes saved to customer sessions during
+  browser checks. Physical Android and printing not tested in this pass.
+- Full regression requested after targeted checks, with durable logs/revision/
+  fingerprint under `/private/tmp/pontora-regression-20261117-booking-controls/`.
+  Completed successfully at 19:00 UTC: 6,307 application tests (3 skipped), 26
+  migration tests, all JavaScript tests and coverage gates; Python coverage
+  97.91%. Source fingerprint matched before release:
+  `588dc1c121f9041f8ef585e48359866ad63a089f5f659a989986cae1e95534ff`.
+  Only this release record was updated after the run. Demo deployment verification
+  pending; production promotion is not authorized by this release.
+- Targeted checks passed: 70 Python tests across Studio Prep, participant
+  preparation and reservation list controls; 14 JavaScript tests across session
+  preflight, reservation fields and session fields. `git diff --check` passed.
+
+## November 17 Hosted Acceptance Follow-up
+
+- Demo web and maintenance are both on
+  `7c6291d5142afd74e9824604f28c886e0e8de84a`. GitHub CI `44042224617`
+  passed all three jobs (12m54s); Render web deployment took 1m41s. Demo
+  maintenance has successful scheduled runs, including 09:00 PST November 17.
+  Production web AND maintenance remain pinned to
+  `6ebf7fe08bb3e0ba9c459c3a34380d7e5bcc547c`. No production promotion.
+- The preceding exact-source full regression passed: 6,306 application tests
+  (3 skipped), 26 migration tests, 209 JavaScript tests, 97.90% combined Python
+  coverage and all required gates. This follow-up changed no application code.
+- New > Reservation opened the complete customer/session form, defaulted to a
+  bookable workshop, saved, and returned to the list. Synthetic reservation
+  `3103ec9e-0005-440d-84ea-1c14e81a6041` was edited from one to two seats:
+  $130 subtotal + $14.30 tax = $144.30. The standalone edit route has an explicit
+  review/Confirm changes step; it did not silently fail. Later cancellation
+  succeeded with an optional note and released the reservation. No real charge.
+- New York full-studio package B shows a preferred-time approval request,
+  $1,295.61 proposed total and $0 due today. Public group/review/back navigation
+  passed; final public waiver acceptance/submission was not performed. Staff
+  request `9d686cfc-5b25-4c10-a775-beaf92044cb7` remained unbooked after review,
+  then explicit staff approval created reservation
+  `87796fde-a2d8-4119-a0a8-677f03f83272`.
+- Recorded a synthetic $300 cash deposit on that demo party (no money moved).
+  Increasing to 17 participants and adding a $10 pretax discount produced
+  $1,245 subtotal + $110.49 tax = $1,355.49; balance $1,055.49. Downgrading to
+  package A/eight participants preserved the existing discount and deposit:
+  $585 + $51.92 = $636.92; balance $336.92. Original payment history remained
+  $300. This was an offline-payment booking; online payment-request/refund
+  acceptance is not established by this check.
+- Synthetic recurring sessions 69/70 moved from 15:30 to 15:45; the linked
+  reservation time changed too. Capacity below three booked seats showed a
+  conflict and disabled Save. Editing only session 70 to 14:00 detached it;
+  reopening displayed the standalone editor while session 69 stayed at 15:45.
+  Moving session 70 onto session 69's occupied room/time was blocked with
+  "This room already has a published session at that time." Discarded conflict.
+- Fresh email delivery verified in the approved Ketan inbox: workshop
+  confirmation `1a1ea795aa8603a7`, party confirmation `1a1ea7df4905251d`, and
+  updated workshop time `1a1ea821dd951491`. No Jasmine/customer recipients used.
+- Camps absent from hosted Setup and workshop choices; theme choices absent
+  from the fresh Plushie user menu. Studio Prep displayed phone/email, persisted
+  internal note and prepared selection. Hide prepared worked. Print view
+  rendered the selected November 23-29 week, updated time, participant selection
+  and internal note; physical printer output was not tested.
+- Chrome desktop plus verified responsive viewports 768x1024, 1024x768 and
+  390x844: public approval review and Studio Prep had no horizontal overflow.
+  Prep switch interaction checked; viewport override reset. Do not treat this
+  as a full every-screen tablet pass, physical Android or virtual-keyboard test.
+  Screenshot evidence: `/private/tmp/pontora-demo-verification-20261117.png`.
+
+### Remaining Before Blanket Completion Claim
+
+- Two observed UI misses: all-location New Party workshop choices have identical
+  names without location labels; recurring capacity-conflict rows show blank
+  proposed values in the change summary. Save is correctly blocked, but the
+  preview must not render an empty time/capacity. These are not fixed in 7c6291d.
+- Fresh hosted online party payment-request/refund exercise, customer calendar
+  provider-link check and location-limited account verification remain. Prior
+  automated/local evidence is not a substitute for these hosted checks.
+- Physical terminal/small real charge and refund require the connected live
+  account/device. Physical Android/printing remain separate acceptance checks.
+- Wix data import, real variant photos, final email copy/triggers and production
+  location/capacity/tax verification still require launch inputs. Do not email
+  Jasmine that *everything* is complete or promote production based only on CI.
+
 
 ## November 16 Hosted Audit Corrections (Main/Demo Release)
 

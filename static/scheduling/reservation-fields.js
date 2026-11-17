@@ -33,7 +33,7 @@
           selectedSummary.textContent = chosen ? `Selected session: ${chosen.label}${tooMany ? ` · Fits up to ${seatLimit(chosen)} seats. Choose another session or reduce seats.` : ''}` : '';
         }
         if (select) {
-          quantity.max = String(Math.max(0, ...options.map(seatLimit)));
+          quantity.max = String(chosen ? seatLimit(chosen) : 0);
           quantity.dispatchEvent(new Event('seatlimit', {bubbles:true}));
         }
         const fits = !select || Boolean(chosen && Number(quantity.value) > 0 && Number(quantity.value) <= seatLimit(chosen));

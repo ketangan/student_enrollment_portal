@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ booking_navigation.section.label|default:'Bookings' }}{% endblock %} | Pontora</title>
   <link rel="icon" href="{% static 'favicon.png' %}">
-  <link rel="stylesheet" href="{% static 'scheduling/workspace.css' %}?v=20261116-selected-session">
+  <link rel="stylesheet" href="{% static 'scheduling/workspace.css' %}?v=20261117-notification-visibility">
   <link rel="stylesheet" href="{% static 'admin/dashboard.css' %}?v=20261115-select-controls">
   <link rel="stylesheet" href="{% static 'scheduling/admin-theme.css' %}?v=20261116-participant-fit">
   <link rel="stylesheet" href="{% static 'school_admin/column-filters.css' %}">
@@ -75,9 +75,9 @@
   <script defer src="{% static 'demo/plushumi/assets/lucide.js' %}"></script>
   <script defer src="{% static 'scheduling/admin.js' %}?v=20261115-workshop-schedule"></script>
   <script defer src="{% static 'school_admin/column-filters.js' %}"></script>
-  <script defer src="{% static 'scheduling/session-preflight.js' %}?v=20261116-compact-prep"></script>
+  <script defer src="{% static 'scheduling/session-preflight.js' %}?v=20261117-notify-changes"></script>
   <script defer src="{% static 'scheduling/session-fields.js' %}?v=20261116-session-review"></script>
-  <script defer src="{% static 'scheduling/reservation-fields.js' %}?v=20261116-workshop-seat-limit"></script>
+  <script defer src="{% static 'scheduling/reservation-fields.js' %}?v=20261117-selected-seat-limit"></script>
   {% if simplified_school %}<script defer src="{% static 'scheduling/inline-editor.js' %}?v=20261109-grid-targets"></script>{% endif %}
   {% block scripts %}{% endblock %}
 </body>

@@ -24,11 +24,11 @@
     </form>
     {% if person.form %}
     <form method="post" action="{{ entry.action_url }}" class="prep-inline prep-action">{% csrf_token %}<input type="hidden" name="edit_revision" value="{{ entry.revision }}"><input type="hidden" name="participant" value="{{ person.key }}"><input type="hidden" name="action" value="edit">
-      {% for field in person.form %}{% if field.is_hidden %}{{ field }}{% elif field.name == 'recalculate_materials' %}<label class="prep-material-confirm">{{ field }}<span>{{ field.label }}</span></label>{% else %}<div class="prep-field" data-field="{{ field.name }}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}</div>{% endif %}{% endfor %}
+      {% for field in person.form %}{% if field.name == 'guest_age' or field.name == 'age' %}{{ field.as_hidden }}{% elif field.is_hidden %}{{ field }}{% elif field.name == 'recalculate_materials' %}<label class="prep-material-confirm">{{ field }}<span>{{ field.label }}</span></label>{% else %}<div class="prep-field" data-field="{{ field.name }}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}</div>{% endif %}{% endfor %}
       <div class="prep-inline-actions"><button type="submit" aria-label="Save participant" title="Save participant"><i data-lucide="check"></i></button><a class="button quiet" href="{{ clean_url }}#prep-{{ entry.item.pk }}-{{ person.key }}" aria-label="Cancel editing" title="Cancel editing"><i data-lucide="x"></i></a></div>
     </form>
     {% else %}
-    <div class="prep-person-name"><strong>{{ person.name }}</strong>{% if person.age %}<span>{{ person.age }}</span>{% endif %}</div>
+    <div class="prep-person-name"><strong>{{ person.name }}</strong></div>
     <div class="prep-design">{% if person.swatch %}<span class="prep-swatch" style="background-color: {{ person.swatch }}"></span>{% endif %}<span>{{ person.design }}</span></div>
     {% if entry.writable and not entry.item.camp_registration_id %}<a class="prep-edit" href="{{ person.edit_url }}" aria-label="Edit {{ person.name }}" title="Edit participant"><i data-lucide="pencil"></i></a>{% endif %}
     {% endif %}

@@ -3,6 +3,7 @@ from calendar import monthrange
 from datetime import timedelta
 
 from django.core.exceptions import ValidationError
+from django.forms import HiddenInput
 from django.db import transaction
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -135,6 +136,9 @@ def participant_form(item, key, data=None):
             raise Http404
         form = form_for(person, catalog_for(item.workshop_request.session.offering), data, edit_name=True,
             include_details=bool(item.snapshot.get("staff_workshop")))
+        for group in form.catalog:
+            if getattr(group, "is_participant_age", False):
+                form.fields[f"choice_{group.pk}"].widget = HiddenInput()
         from .legacy_materials import add_confirmation
         add_confirmation(form, item)
         return form

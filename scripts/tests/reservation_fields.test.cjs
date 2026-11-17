@@ -29,7 +29,7 @@ function page(options) {
   return {requests,timers,events,quantityEvents,quantity,balance,submit,form,window,breakdown,unitPrice,container,select,weekButtons,summary};
 }
 
-test('workshop-wide seat limit permits larger groups but requires a session that fits', () => {
+test('seat limit follows selected session even while browsing another week', () => {
   const p = page([
     {id:'current',open:2,limit:5,date:'2026-11-17',label:'Tue, Nov 17 · 11:15 AM',name:'Workshop',duration:110},
     {id:'next',open:8,limit:8,date:'2026-11-23',label:'Mon, Nov 23 · 12:00 PM',name:'Workshop',duration:120},
@@ -39,7 +39,7 @@ test('workshop-wide seat limit permits larger groups but requires a session that
   assert.equal(p.summary.hidden,false);
   assert.equal(p.summary.textContent,'Selected session: Tue, Nov 17 · 11:15 AM');
   assert.equal(p.select.value,'current');
-  assert.equal(p.quantity.max,'8');
+  assert.equal(p.quantity.max,'5');
   p.quantity.value='6';p.quantityEvents.input();
   assert.equal(p.submit.disabled,true);
   assert.match(p.summary.textContent,/Fits up to 5 seats/);
