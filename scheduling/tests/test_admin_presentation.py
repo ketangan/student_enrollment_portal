@@ -37,7 +37,10 @@ def test_prep_and_details_share_workspace_but_materials_stay_visible(stock):
     confirm(stock, item)
     prep = stock.client.get(url(stock, "reservation_preparation", public_id=item.public_id))
     parsed = PrepSections(prep.content)
-    assert parsed.participants == [[]]
+    assert len(parsed.participants) == 1
+    assert len(parsed.participants[0]) == 1
+    disclosure = parsed.participants[0][0]
+    assert "data-prep-reservation-details" in disclosure and "open" not in disclosure
     assert b'data-reservation-panel="details" hidden' in prep.content
     assert parsed.materials == [[]]
     assert b"Design" in prep.content and b"Color" in prep.content

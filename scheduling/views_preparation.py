@@ -5,6 +5,7 @@ from datetime import timedelta
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.http import JsonResponse, Http404
 from django.urls import reverse
@@ -189,7 +190,12 @@ def studio_preparation_update(request, school_slug, public_id):
             raise ValidationError("Choose a preparation action.")
     except ValidationError as exc:
         transaction.set_rollback(True)
+        if request.POST.get("return_to") == "reservation":
+            messages.error(request, " ".join(exc.messages))
+            return redirect("scheduling:reservation_detail", school_slug=school_slug, public_id=public_id)
         return JsonResponse({"error": " ".join(exc.messages)}, status=400)
+    if request.POST.get("return_to") == "reservation":
+        return redirect("scheduling:reservation_detail", school_slug=school_slug, public_id=public_id)
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return JsonResponse({"saved": True})
     return redirect("scheduling:studio_preparation", school_slug=school_slug)

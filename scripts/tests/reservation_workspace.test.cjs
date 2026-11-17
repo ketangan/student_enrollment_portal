@@ -20,7 +20,7 @@ function page(inquiry = false, failRequest = false) {
   const replacement = element();
   const section = element({replaceWith(next) { this.replacement = next; }});
   const workspace = element({querySelectorAll: () => panels,
-    querySelector: selector => selector.startsWith('section') ? section : panels[1]});
+    querySelector: selector => selector.startsWith('section') ? section : selector === '[data-reservation-panel="preparation"]' ? panels[1] : null});
   const menu = element({open:true, contains: target => target === menu, querySelector: () => ({focus(){menu.focused=true;}})});
   const document = element({querySelector: selector => selector === '[data-reservation-workspace]' ? workspace : null,
     querySelectorAll: selector => selector === '.reservation-action-menu[open]' ? (menu.open ? [menu] : []) : tabs, getElementById: () => null});
@@ -36,6 +36,24 @@ function page(inquiry = false, failRequest = false) {
   return {panels, tabs, notes, workspace, window, section, replacement, pushes, calls, document, menu, location};
 }
 
+for (const kind of ['', 'guests']) {
+  test(`prepared checkbox refreshes ${kind || 'participants'} without navigating or losing notes`, async () => {
+    const p = page();
+    const form = {dataset: {preparationSection: kind}, elements: {action: {value: 'ready'}},
+      getAttribute: () => '/preparation/update/'};
+    let prevented = false;
+    p.workspace.listeners.submit({target: form, preventDefault() { prevented = true; }});
+    await new Promise(setImmediate);
+    assert.equal(prevented, true);
+    assert.equal(p.calls[0].url, '/preparation/update/');
+    assert.equal(p.calls[0].options.method, 'POST');
+    assert.equal(p.calls[0].options.preparation, undefined);
+    assert.equal(p.section.replacement, p.replacement);
+    assert.equal(p.notes.value, 'An unsaved note');
+    assert.equal(p.window.scrollY, 440);
+  });
+}
+
 test('inquiry tab history distinguishes panels on the same path and preserves draft notes', () => {
   const p = page(true);
   p.tabs[1].listeners.click({preventDefault() {}});
@@ -46,6 +64,24 @@ test('inquiry tab history distinguishes panels on the same path and preserves dr
   p.window.listeners.popstate();
   assert.equal(p.panels[0].hidden, false);
   assert.equal(p.notes.value, 'An unsaved note');
+});
+
+test('tabs move the same participant editor without cloning or losing unsaved values', () => {
+  const p = page();
+  const shared = {draftName: 'Unsaved participant'};
+  const targets = {details: {append(node) { this.child = node; }}, preparation: {append(node) { this.child = node; }}};
+  p.workspace.querySelector = selector => {
+    if (selector === '[data-reservation-shared]') return shared;
+    for (const name of Object.keys(targets)) {
+      if (selector === `[data-reservation-shared-target="${name}"]`) return targets[name];
+    }
+    return null;
+  };
+  p.tabs[1].listeners.click({preventDefault() {}});
+  assert.equal(targets.preparation.child, shared);
+  p.tabs[0].listeners.click({preventDefault() {}});
+  assert.equal(targets.details.child, shared);
+  assert.equal(shared.draftName, 'Unsaved participant');
 });
 
 test('switching tabs hides only panels, preserves notes and supports browser back', () => {

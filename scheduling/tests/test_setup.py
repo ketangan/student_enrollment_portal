@@ -394,7 +394,7 @@ def test_roles_enforced_on_form_and_publication_routes(client, booking_member, c
     listing = client.get(url("locations", profile))
     detail = client.get(url("workshop_detail", profile, pk=catalog[2].pk))
     assert (b"Add location" in listing.content) is (role == "owner")
-    assert (b"Add session" in detail.content) is (role != "viewer")
+    assert (b"New session" in detail.content) is (role != "viewer")
 
 
 def test_errors_are_visible_in_ui_and_publication_requires_post(client, booking_member, catalog, session):

@@ -191,6 +191,11 @@ def test_calendar_party_editor_prefills_available_time_and_saves_once(booking_me
     assert response.context["form"].initial["party_slot"] == direct_party.pk
     assert response.context["form"].slot_capacity[str(direct_party.pk)] == direct_party.package.room.capacity
     assert b"data-calendar-editor" in response.content
+    assert b"compact-party-editor" in response.content
+    assert b"data-calendar-close" in response.content
+    listing = client.get(reverse("scheduling:reservations", kwargs={"school_slug": member.profile.school.slug}))
+    assert b'data-calendar-new="party"' in listing.content
+    assert listing.context["party_create_choices"][0]["createUrl"] == path + f"?offering={direct_party.package.offering_id}"
     params["starts_at"] = (direct_party.starts_at + timedelta(minutes=15)).isoformat()
     unavailable = client.get(path, params, HTTP_X_CALENDAR_EDITOR="1")
     assert b"No party is offered at the selected time" in unavailable.content
@@ -313,7 +318,7 @@ def test_staff_and_customer_pages_exclude_custom_controls(client, booking_member
     assert page.status_code == 200 and b"Custom group / request a quote" not in page.content
     client.force_login(booking_member.user)
     page = client.get(reverse("scheduling:staff_party_create", kwargs={"school_slug": booking_member.profile.school.slug}), {"offering": offering.pk})
-    assert page.status_code == 200 and b"Create booking" in page.content
+    assert page.status_code == 200 and b'id="party-submit">Save</button>' in page.content
     assert b'name="duration_minutes"' not in page.content
     assert b"Package summary" not in page.content
     assert b'name="participant_estimate"' not in page.content

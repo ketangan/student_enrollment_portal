@@ -32,8 +32,21 @@ function setup({type = 'datetime-local', disabled = false, readOnly = false, lib
   vm.runInNewContext(source, {window,document:{querySelectorAll: () => [input], createElement:node},
     requestAnimationFrame:fn => fn(), Date}, {filename});
   if (picker.options) picker.calendarContainer.periods = picker.timeContainer.children[0]?.children || [];
-  return {input,picker};
+  return {input,picker,window};
 }
+
+test('shared picker mounts dynamic forms once without recreating an existing picker', () => {
+  const {input,picker,window} = setup();
+  input._flatpickr = picker;
+  const originalId = input.id;
+  window.BookingDatePicker.mount({querySelectorAll:()=>[input]});
+  assert.equal(input.id,originalId);
+  assert.equal(picker.calendarContainer.children.length,1);
+  const fresh = {...node(),type:'datetime-local',id:'new-start',closest:()=>({})};
+  window.BookingDatePicker.mount({querySelectorAll:()=>[fresh]});
+  assert.equal(fresh.id,'new-start__value');
+  assert.equal(picker.options.enableTime,true);
+});
 
 test('datetime picker preserves ISO transport and accessible labels', () => {
   const {input,picker:p} = setup();
@@ -50,9 +63,11 @@ test('datetime picker preserves ISO transport and accessible labels', () => {
 
 test('dialog calendar stays inside the modal instead of positioning behind it', () => {
   const {picker:p} = setup({type:'date',inDialog:true});
-  assert.equal(p.options.static,true);
+  assert.equal(p.options.static,false);
+  assert.ok(p.options.appendTo);
+  assert.equal(p.calendarContainer.style.position,'fixed');
   p.options.onOpen([], '', p);
-  assert.equal(p.calendarContainer.style.top,undefined);
+  assert.equal(p.calendarContainer.style.top,'242px');
   assert.equal(p.altInput.attrs['aria-expanded'],'true');
 });
 test('AM and PM preserve date and minutes, including midnight and noon', () => {

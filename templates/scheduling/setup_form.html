@@ -18,7 +18,7 @@
 {% if kind != 'workshops' %}<h2>{% if editing %}Edit{% else %}Add{% endif %} {{ entity_label }}</h2>{% endif %}
 {% if session_location %}<p class="muted">{{ form.instance.offering.name }} &middot; {{ session_location.name }} &middot; {{ session_location.timezone_name }}</p>{% endif %}
 {% if session_batch_available %}{% include 'scheduling/session_schedule_links.html' with session=form.instance %}{% endif %}
-<form method="post" class="setup-form{% if kind == 'locations' %} location-settings-form{% endif %}{% if kind == 'workshops' or party_setup %} workshop-settings-form{% endif %}" novalidate>
+<form method="post" class="setup-form{% if kind == 'locations' %} location-settings-form{% endif %}{% if kind == 'workshops' or party_setup %} workshop-settings-form{% endif %}{% if kind == 'workshops' %} setup-editor-surface{% endif %}" novalidate>
   {% csrf_token %}
   {% if form.errors and not form.edit_revision.errors %}<div class="notice error" role="alert">Please correct the fields below.{{ form.non_field_errors }}</div>{% endif %}
   {% include 'scheduling/form_hidden_fields.html' %}
@@ -30,6 +30,18 @@
   {% endfor %}
   {% if kind == 'workshops' %}</div></fieldset>{% endif %}
   {% if party_setup %}</div>{% endif %}
+  {% if form.schedule_form %}
+  <fieldset class="workshop-settings-section" data-workshop-schedule><legend>Schedule</legend>
+    {{ form.schedule_form.non_field_errors }}
+    <div class="workshop-settings-fields">
+    {% for field in form.schedule_form.visible_fields %}
+      <div class="form-field{% if field.name == 'mode' %} workshop-description-field{% endif %}" {% if field.name != 'mode' %}data-schedule-field="{% if field.name == 'last_date' or field.name == 'weekday' or field.name == 'interval' %}repeat{% else %}any{% endif %}"{% endif %}>
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{{ field.errors }}
+      </div>
+    {% endfor %}
+    </div>
+  </fieldset>
+  {% endif %}
   <div class="actions form-actions"><button class="primary" type="submit">Save {{ entity_label }}</button>
   {% if calendar_editor %}<button type="button" data-calendar-close>Cancel</button>{% elif simplified_school %}{% include 'scheduling/school/form_return.html' with back_url=setup_return_url cancel=True %}{% elif parties_return_url %}<a class="button" href="{{ parties_return_url }}">Cancel</a>{% elif party_setup %}<a class="button" href="{% url 'scheduling:party_setup' school_slug=business.slug %}">Cancel</a>{% elif kind == 'sessions' %}<a class="button" href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=form.instance.offering_id %}">Cancel</a>{% elif kind == 'workshops' and editing %}<a class="button" href="{% url 'scheduling:workshop_detail' school_slug=business.slug pk=form.instance.pk %}">Cancel</a>{% elif kind == 'workshops' %}<a class="button" href="{% url 'scheduling:workshops' school_slug=business.slug %}">Cancel</a>{% else %}<a class="button" href="{% url 'scheduling:locations' school_slug=business.slug %}">Cancel</a>{% endif %}</div>
 </form>

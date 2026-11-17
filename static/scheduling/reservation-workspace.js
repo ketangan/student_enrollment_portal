@@ -15,7 +15,13 @@
   });
   const tabs = [...document.querySelectorAll('.settings-tabs .settings-tab')];
   const names = ['details', 'preparation'];
+  const placeSharedDetails = name => {
+    const shared = workspace.querySelector('[data-reservation-shared]');
+    const target = workspace.querySelector(`[data-reservation-shared-target="${name}"]`);
+    if (shared && target) target.append(shared);
+  };
   const show = (name, url, push = true) => {
+    placeSharedDetails(name);
     workspace.querySelectorAll('[data-reservation-panel]').forEach(panel => {
       panel.hidden = panel.dataset.reservationPanel !== name;
     });
@@ -49,17 +55,30 @@
     const y = window.scrollY;
     const rowId = document.activeElement?.closest('tr')?.id;
     try {
-      const response = await fetch(url, {credentials: 'same-origin', ...options});
+      const {preparation, ...fetchOptions} = options;
+      const response = await fetch(url, {credentials: 'same-origin', ...fetchOptions});
       if (!response.ok && response.status !== 400) throw new Error();
       const page = new DOMParser().parseFromString(await response.text(), 'text/html');
       const replacement = page.querySelector(selector);
       if (!replacement) throw new Error();
+      const preparationError = page.querySelector('.notice.error');
+      if (preparation && preparationError) replacement.prepend(preparationError);
       section.replaceWith(replacement);
       // Preparation quantities and readiness may have changed with these selections.
       const prep = !silent && kind !== 'notes' && page.querySelector('[data-reservation-panel="preparation"]');
       if (prep) {
         const current = workspace.querySelector('[data-reservation-panel="preparation"]');
+        // Preserve the single live editor, including unsaved fields, across tab refreshes.
+        const shared = workspace.querySelector('[data-reservation-shared]');
+        const expanded = current.querySelector('[data-prep-reservation-details]')?.open;
+        shared?.remove();
+        prep.querySelector('[data-reservation-shared]')?.remove();
         current.innerHTML = prep.innerHTML;
+        if (shared) {
+          workspace.querySelector(`[data-reservation-shared-target="${current.hidden ? 'details' : 'preparation'}"]`)?.append(shared);
+        }
+        const disclosure = current.querySelector('[data-prep-reservation-details]');
+        if (disclosure) disclosure.open = Boolean(expanded);
       }
       for (const selector of (silent || kind === 'notes' ? [] : ['.reservation-heading', '.reservation-progress'])) {
         const fresh = page.querySelector(selector);
@@ -75,7 +94,7 @@
       window.lucide?.createIcons();
       if (document.dispatchEvent) document.dispatchEvent(new Event('booking:content-updated'));
       const focusRow = rowId ? document.getElementById(rowId) : replacement;
-      if (!silent) focusRow?.querySelector('textarea, select, input:not([type="hidden"]), .participant-actions a')?.focus({preventScroll: true});
+      if (!silent) focusRow?.querySelector(options.preparation ? '.prep-check' : 'textarea, select, input:not([type="hidden"]), .participant-actions a')?.focus({preventScroll: true});
       window.scrollTo({top: y, behavior: 'instant'});
       return true;
     } catch (_) {
@@ -116,9 +135,10 @@
   workspace.addEventListener('submit', event => {
     const form = event.target;
     if (['request_payment', 'void_terminal'].includes(form.elements.action?.value || event.submitter?.value)) form.setAttribute('action', tabs[0].href);
-    const kind = {save_selections: '', save_guest: 'guests', correct_terminal: 'payment', save_notes: 'notes'}[form.elements.action?.value];
+    const preparation = form.dataset?.preparationSection !== undefined;
+    const kind = preparation ? form.dataset.preparationSection : {save_selections: '', save_guest: 'guests', correct_terminal: 'payment', save_notes: 'notes'}[form.elements.action?.value];
     if (kind === undefined) return;
     event.preventDefault();
-    updateParticipants(form.getAttribute('action') || location.href, {method: 'POST', body: new FormData(form)}, kind);
+    updateParticipants(form.getAttribute('action') || location.href, {method: 'POST', body: new FormData(form), preparation}, kind);
   });
 })();

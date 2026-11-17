@@ -35,6 +35,21 @@ def quote_breakdown(item):
     return int(subtotal), int(tax)
 
 
+def pricing_rows(breakdown, *, total, net=0):
+    """Display known quote components without reconstructing historical taxes."""
+    rows = []
+    if breakdown is not None:
+        subtotal, tax = breakdown
+        rows.extend([{"label": "Subtotal", "cents": subtotal}, {"label": "Tax", "cents": tax}])
+        if total != subtotal + tax:
+            rows.append({"label": "Adjustments", "cents": total - subtotal - tax})
+    else:
+        rows.append({"label": "Total", "cents": total})
+    if net:
+        rows.append({"label": "Net payments received", "cents": net})
+    return rows
+
+
 def snapshot(item, kind):
     if kind not in KINDS or not (item.party_request_id or item.workshop_request_id):
         raise ValidationError("Choose a workshop or party booking document.")

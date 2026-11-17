@@ -30,14 +30,17 @@
 .prep-time small { font-size: 11px; background: #e7e9ed; border-radius: 8px; padding: 3px 6px; margin-top: 4px; }
 .prep-bookings { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .prep-booking { background: white; border: 1px solid #dce1e8; border-radius: 8px; overflow: hidden; }
-.prep-booking-heading { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px 16px; background: #f8f9fb; padding: 12px 16px; }
-.prep-booking-contact { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
+.prep-booking-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; background: #f8f9fb; padding: 8px 16px; }
+.prep-booking-contact { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width:0; }
+.prep-contact-links {display:flex;flex-wrap:wrap;gap:0 20px;max-width:100%;}
+.booking-admin .prep-contact-links a {display:inline-flex;align-items:center;gap:6px;min-height:44px;color:var(--dash-primary,#2563eb);font-size:14px;text-decoration:none;overflow-wrap:anywhere;min-width:0;}
+.prep-contact-links svg {width:16px;height:16px;flex:none;}
 .prep-booking-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .booking-admin .prep-booking-title > a { color: #18212f; font-weight: 700; text-decoration: none; overflow-wrap: anywhere; }
 .prep-booking-title > span:not(.prep-party) { font-size: 12px; color: #5d697a; }
 .prep-party { display: inline-flex; gap: 4px; align-items: center; background: #f3e9ff; color: #7a29ae; padding: 2px 7px; border-radius: 12px; font-size: 11px; font-weight: 600; }
 .prep-party svg { width: 13px; height: 13px; }
-.prep-staff { grid-column: 1 / -1; display: flex; align-items: center; gap: 4px; margin-top: -6px; margin-bottom: -6px; font-size: 12px; color: #4b5666; overflow-wrap: anywhere; }
+.prep-staff { display: flex; align-items: center; gap: 4px; max-width: 220px; font-size: 12px; color: #4b5666; overflow-wrap: anywhere; }
 .booking-admin .prep-staff-editor { grid-column: 1 / -1; display: flex; align-items: flex-end; gap: 8px; max-width: 500px; }
 .prep-staff-editor > div:first-of-type { flex: 1; min-width: 0; }
 .booking-admin .prep-staff-editor label { font-size: 12px; margin: 0 0 4px; }
@@ -57,11 +60,7 @@
 .prep-person { display: grid; grid-template-columns: 44px minmax(110px, .8fr) minmax(0, 1.4fr) 44px; align-items: center; gap: 8px; min-height: 52px; padding: 0 12px; border-top: 1px solid #f0f2f4; }
 .prep-person.person-prepared { background: #f3fcf7; }
 .booking-admin .prep-action { margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
-.booking-admin .prep-check, .booking-admin .prep-edit { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; box-shadow: none; color: #647185; }
-.prep-check > span { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: 2px solid #a8b2c0; border-radius: 50%; }
-.prep-check[aria-checked="true"] > span { background: #17a552; border-color: #17a552; color: white; }
-.prep-check svg { width: 16px; height: 16px; stroke-width: 3; }
-.booking-admin .prep-check:disabled { opacity: .6; cursor: not-allowed; }
+.booking-admin .prep-edit { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; box-shadow: none; color: #647185; }
 .prep-edit svg { width: 18px; height: 18px; }
 .prep-person-name, .prep-design { display: flex; align-items: center; gap: 5px; min-width: 0; overflow-wrap: anywhere; }
 .prep-person-name { flex-wrap: wrap; }
@@ -100,7 +99,7 @@
   .weekly-prep-overview { padding: 12px; }
   .prep-progress-row { gap: 8px; }
   .prep-progress-row progress { order: 3; flex-basis: 100%; }
-  .prep-booking-heading { padding: 10px 12px; gap: 8px; }
+  .prep-booking-heading { grid-template-columns: minmax(0, 1fr); padding: 8px 12px; gap: 0; }
   .prep-booking-notes { padding-right: 12px; padding-left: 12px; }
   .prep-person { grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 0 6px; padding: 4px 6px; }
   .prep-person > .prep-action:not(.prep-inline) { grid-row: 1 / 3; }

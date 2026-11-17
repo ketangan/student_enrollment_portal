@@ -1,1 +1,4 @@
-<p><a data-calendar-load href="{% url 'scheduling:workshop_schedule' school_slug=business.slug offering_pk=session.offering_id action='edit' %}?session={{ session.pk }}">Change multiple sessions</a> &middot; <a data-calendar-load href="{% url 'scheduling:workshop_schedule' school_slug=business.slug offering_pk=session.offering_id action='create' %}?session={{ session.pk }}">Repeat session</a></p>
+{% if session.series_id %}<nav class="booking-view-toggle session-scope" aria-label="{% if canceling %}Cancellation{% else %}Editing{% endif %} scope">
+  <a data-calendar-load {% if not multiple_sessions %}aria-current="page"{% endif %} href="{% if canceling %}{% url 'scheduling:session_cancel' school_slug=business.slug pk=session.pk %}{% else %}{% url 'scheduling:session_edit' school_slug=business.slug pk=session.pk %}{% endif %}">This session</a>
+  <a data-calendar-load {% if multiple_sessions %}aria-current="page"{% endif %} href="{% url 'scheduling:workshop_schedule' school_slug=business.slug offering_pk=session.offering_id action=scope_action|default:'edit' %}?session={{ session.pk }}">This and following sessions</a>
+</nav>{% endif %}

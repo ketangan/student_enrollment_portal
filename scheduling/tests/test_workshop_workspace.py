@@ -33,12 +33,13 @@ def test_workshop_workspace_removes_cross_feature_clutter(stock):
     page = s.client.get(url(s, "workshop_detail", pk=s.offering.pk))
     for unwanted in [s.offering.description, "Participant choices", "Party inquiries", "Requests:",
                      'aria-label="Setup sections"',
-                     url(s, "preparation", pk=s.session.pk), url(s, "session_edit", pk=s.session.pk)]:
+                     url(s, "preparation", pk=s.session.pk)]:
         assert unwanted.encode() not in page.content
     assert b"View Catalog" in page.content and b"View inventory" not in page.content
     assert url(s, "inventory_catalog", catalog_pk=s.catalog.pk).encode() in page.content
     assert b'class="dash-table"' in page.content
-    assert f'?edit_session={s.session.pk}#session-{s.session.pk}'.encode() in page.content
+    assert url(s, "session_edit", pk=s.session.pk).encode() in page.content
+    assert f'?edit_session={s.session.pk}#session-{s.session.pk}'.encode() not in page.content
 
 
 def test_materials_catalog_required_and_removed_controls_not_postable(stock):

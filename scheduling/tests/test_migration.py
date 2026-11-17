@@ -31,6 +31,7 @@ def test_session_cancellation_upgrade_preserves_existing_sessions():
         from scheduling.models import Session
         saved = Session.objects.get(pk=session.pk)
         assert saved.canceled_at is None and saved.is_published and saved.capacity == 12
+        assert saved.series_id is None
         assert saved.starts_at == start
         MigrationExecutor(connection).migrate(old)
         assert apps.get_model("scheduling", "Session").objects.get(pk=session.pk).is_published

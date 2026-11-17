@@ -20,7 +20,6 @@
 .booking-admin .party-package-table .booking-rules-link { width:auto; white-space:nowrap; padding:0 8px; }
 </style>{% endblock %}
 {% block content %}
-{% if party_packages_only %}<p class="notice">Customers and staff book published packages at offered times. Existing approval-based packages need a room and tax rate saved in Booking rules, then published times, before they become bookable.</p>{% endif %}
 {% if can_edit_setup %}<div class="section-heading package-list-actions"><a class="button primary" href="{% url 'scheduling:party_package_new' school_slug=business.slug %}{% if selected_location %}?location={{ selected_location.pk }}{% endif %}"><i data-lucide="plus" aria-hidden="true"></i> Add package</a></div>{% endif %}
 {% if editing_pk %}<form method="post" id="package-edit" novalidate>{% csrf_token %}<input type="hidden" name="package_id" value="{{ editing_pk }}">{% for field in package_form.hidden_fields %}{{ field }}{% endfor %}{% for field in preserved_package_fields %}{{ field.as_hidden }}{% endfor %}</form>{% endif %}
 {% for field in preserved_package_fields %}{% if field.errors %}<p>{{ field.label }}: {{ field.errors }}</p>{% endif %}{% endfor %}

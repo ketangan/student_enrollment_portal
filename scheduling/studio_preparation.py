@@ -64,6 +64,7 @@ def summary(profile, locations, start, days, *, for_print=False, offering_ids=No
         participants = participant_context(item)
         staff_notes = editable_notes(item)
         phone = getattr(source, "organizer_phone" if item.party_request_id else "purchaser_phone", "")
+        email = getattr(source, "organizer_email" if item.party_request_id else "purchaser_email", "")
         prep_rows = rows_for(item)
         table = participants["participant_table"]
         choices = "; ".join(f'{group["label"]}: {group["value"]}'
@@ -89,7 +90,7 @@ def summary(profile, locations, start, days, *, for_print=False, offering_ids=No
                     "starts_at": occurrence.starts_at, "ends_at": occurrence.ends_at,
                     "is_past": occurrence.ends_at < now,
                     "materials_used": used, "notes": [note["body"] for note in staff_notes],
-                    "staff_notes": staff_notes, "phone": phone,
+                    "staff_notes": staff_notes, "phone": phone, "email": email,
                     "customer_notes": getattr(source, "customer_notes", ""),
                     "staff_names": item.staff_names,
                     "prep_rows": prep_rows, "prepared_count": sum(row["prepared"] for row in prep_rows),

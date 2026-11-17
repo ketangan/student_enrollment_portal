@@ -29,7 +29,7 @@ def test_series_keeps_inline_actions_without_family_attendance_or_test_billing(m
     html = response.content.decode()
     assert response.status_code == 200
     assert '<table class="dash-table">' in html
-    assert "data-inline-edit" in html and "calendar-clock" in html and "calendar-x" in html
+    assert "data-inline-edit" in html and "calendar-clock" in html and "trash-2" in html
     assert all(text not in html for text in ["Attendance", "<dt>Family", "<dt>Billing", "Test quote"])
 
 

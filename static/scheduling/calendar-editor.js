@@ -6,7 +6,7 @@
   const content = document.getElementById("calendar-editor-body");
   const status = document.getElementById("calendar-editor-status");
   const closeButton = document.getElementById("calendar-editor-close");
-  let busy = false, uncertain = false, sequence = 0, saved;
+  let busy = false, uncertain = false, sequence = 0, saved, activeChoices = [], selectedTime;
   const disabledBefore = new WeakMap();
   function close() {if (!busy) dialog.close();}
   closeButton.addEventListener("click", close);
@@ -33,6 +33,11 @@
       const response = await fetch(url, {method: body ? "POST" : "GET", body, credentials: "same-origin",
         headers: {"X-Calendar-Editor": "1"}});
       if (current !== sequence || !dialog.open) return;
+      if (response.redirected || response.status === 401 || response.status === 403) {
+        uncertain = Boolean(body);
+        status.textContent = "Your login or form permissions have changed. Reload the page and sign in again before saving.";
+        return;
+      }
       if (response.headers.get("Content-Type")?.includes("application/json")) {
         const result = await response.json();
         if (response.ok && result.saved === true) {
@@ -52,10 +57,24 @@
       const fragment = doc.querySelector("[data-calendar-editor]");
       if (!fragment || response.redirected || (!response.ok && response.status !== 400)) throw new Error("Unavailable editor");
       content.replaceChildren(fragment);
+      const workshop = fragment.querySelector('#session-workshop');
+      if (workshop && activeChoices.length) {
+        workshop.disabled = false;
+        workshop.replaceChildren();
+        for (const item of activeChoices) {
+          const option = document.createElement('option'); option.value = item.createUrl; option.textContent = item.title;
+          option.selected = url.split('?')[0] === item.createUrl.split('?')[0]; workshop.append(option);
+        }
+        workshop.addEventListener('change', () => loadChoice(workshop.value));
+      }
       // Keep one accessible title in the dialog, rather than duplicate page headings.
       const heading = fragment.querySelector("h2");
       if (heading) {document.getElementById("calendar-editor-title").textContent = heading.textContent; heading.remove();}
       window.BookingEditFields?.mount(fragment);
+      window.SessionFields?.mount(fragment);
+      const sessionForm = fragment.querySelector('[data-session-preflight], [data-new-session]');
+      if (sessionForm) window.BookingDatePicker?.mount(sessionForm);
+      window.ReservationFields?.mount(fragment, url);
       window.PontoraPartyForm?.mount();
       const sessionField = fragment.querySelector('[data-calendar-session-url]');
       if (sessionField) {
@@ -73,9 +92,10 @@
       }
       for (const form of fragment.querySelectorAll("form")) {
         const action = form.getAttribute("action") || url;
+        window.SessionPreflight?.mount(form, action);
         form.addEventListener("submit", event => {
           event.preventDefault();
-          if (busy || uncertain) return;
+          if (busy || uncertain || form.dataset.preflightBlocked === "true" || form.dataset.reservationBlocked === "true") return;
           const data = new FormData(form);
           if (event.submitter?.name) data.append(event.submitter.name, event.submitter.value);
           load(action, data);
@@ -88,7 +108,7 @@
       status.textContent = fragment.querySelector("[data-session-review]") ? ""
         : fragment.querySelector("[data-booking-review]") ? "Review the revised price before confirming."
         : response.ok ? "" : "Please correct the highlighted fields.";
-      const focus = fragment.querySelector(".errorlist") || fragment.querySelector("input:not([type=hidden]), select, textarea");
+      const focus = fragment.querySelector(".errorlist") || (sessionForm ? document.getElementById("calendar-editor-close") : fragment.querySelector("input:not([type=hidden]), select, textarea"));
       if (focus) {focus.tabIndex = focus.tabIndex < 0 ? -1 : focus.tabIndex; focus.focus({preventScroll:true});}
       dialog.scrollTop = 0;
       if (window.lucide) window.lucide.createIcons();
@@ -101,10 +121,15 @@
       if (current === sequence) {busy = false; controls();}
     }
   }
+  function loadChoice(url) {
+    const target = url + (selectedTime ? `${url.includes('?') ? '&' : '?'}starts_at=${encodeURIComponent(selectedTime)}` : '');
+    load(target, undefined, selectedTime);
+  }
   window.BookingCalendarEditor = {
     open({url, title, choices, initialStart, onSaved}) {
       if (busy) return;
       saved = onSaved;
+      activeChoices = choices || []; selectedTime = initialStart;
       uncertain = false;
       content.replaceChildren();
       controls();
@@ -112,6 +137,8 @@
       document.getElementById("calendar-editor-title").textContent = title;
       dialog.showModal();
       if (url) {load(url); return;}
+      if (['New session', 'Add Reservation'].includes(title) && choices.length) {loadChoice(choices[0].createUrl); return;}
+      if (choices.length === 1) {loadChoice(choices[0].createUrl); return;}
       if (initialStart) {
         const time = document.createElement("p"); time.className = "calendar-editor-time";
         time.textContent = new Intl.DateTimeFormat(undefined, {dateStyle:"medium", timeStyle:"short", timeZone:"UTC"})
@@ -120,10 +147,10 @@
       }
       const label = document.createElement("label"), select = document.createElement("select");
       label.className = "calendar-workshop-field";
-      label.textContent = "Workshop or party";
-      select.setAttribute("aria-label", "Workshop or party");
+      label.textContent = "Workshop";
+      select.setAttribute("aria-label", "Workshop");
       const placeholder = document.createElement("option");
-      placeholder.textContent = "Choose a workshop or party"; placeholder.value = "";
+      placeholder.textContent = "Choose a workshop"; placeholder.value = "";
       select.append(placeholder);
       for (const item of choices) {
         const option = document.createElement("option");
@@ -131,8 +158,7 @@
       }
       select.addEventListener("change", () => {
         if (select.value) {
-          const target = select.value + (initialStart ? `${select.value.includes('?') ? '&' : '?'}starts_at=${encodeURIComponent(initialStart)}` : '');
-          load(target, undefined, initialStart);
+          loadChoice(select.value);
         }
       });
       label.append(select); content.append(label); select.focus();

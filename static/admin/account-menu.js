@@ -7,7 +7,7 @@
     button.setAttribute('aria-expanded', String(open));
   }
   function applyTheme(name) {
-    const selected = ['clean', 'midnight', 'mint'].includes(name) ? name : 'clean';
+    const selected = panel.dataset.themeSwitching !== 'false' && ['clean', 'midnight', 'mint'].includes(name) ? name : 'clean';
     document.body.classList.toggle('dash-midnight', selected === 'midnight');
     document.body.classList.toggle('dash-mint', selected === 'mint');
     themes.forEach(item => {

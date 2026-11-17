@@ -11,13 +11,17 @@
     requestAnimationFrame(() => {
       if (!picker.isOpen) return;
       const popup = picker.calendarContainer, rect = popup.getBoundingClientRect();
-      popup.style.top = `${window.scrollY + Math.max(8, Math.min(rect.top, window.innerHeight - rect.height - 8))}px`;
-      popup.style.left = `${window.scrollX + Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8))}px`;
+      const fixed = popup.style.position === 'fixed';
+      const anchor = fixed ? picker.altInput.getBoundingClientRect() : rect;
+      const top = fixed ? anchor.top + anchor.height + 4 : rect.top;
+      popup.style.top = `${(fixed ? 0 : window.scrollY) + Math.max(8, Math.min(top, window.innerHeight - rect.height - 8))}px`;
+      popup.style.left = `${(fixed ? 0 : window.scrollX) + Math.max(8, Math.min(anchor.left, window.innerWidth - rect.width - 8))}px`;
       popup.style.right = 'auto';
     });
   };
-  document.querySelectorAll('input[type="datetime-local"],input[type="date"]').forEach(input => {
-    if (input.disabled || input.readOnly) return;
+  function mount(root) {
+  root.querySelectorAll('input[type="datetime-local"],input[type="date"]').forEach(input => {
+    if (input.disabled || input.readOnly || input._flatpickr) return;
     const withTime = input.type === 'datetime-local';
     const sync = (_, __, picker) => {
       const pm = picker.amPM?.textContent === 'PM';
@@ -30,13 +34,14 @@
       dateFormat: withTime ? 'Y-m-d\\TH:i' : 'Y-m-d',
       enableTime: withTime, time_24hr: false, minuteIncrement: 1,
       disableMobile: true, monthSelectorType: 'static',
-      static: Boolean(input.closest('dialog')),
+      static: false, appendTo: input.closest('dialog') || undefined,
       minDate: input.min || undefined, maxDate: input.max || undefined,
       onDayCreate: (_, __, picker, day) => {
         if ([0, 6].includes(day.dateObj.getDay())) day.classList.add('weekend');
       },
       onReady: (_, __, picker) => {
         const popup = picker.calendarContainer;
+        if (input.closest('dialog')) popup.style.position = 'fixed';
         popup.classList.add('booking-calendar');
         popup.setAttribute('role', 'dialog');
         popup.setAttribute('aria-label', withTime ? 'Choose date and time' : 'Choose date');
@@ -83,4 +88,7 @@
       onChange: sync, onValueUpdate: sync,
     });
   });
+  }
+  window.BookingDatePicker = {mount};
+  mount(document);
 })();

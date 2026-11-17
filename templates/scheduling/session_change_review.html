@@ -1,0 +1,28 @@
+{% if preview %}<div class="session-change-review" data-session-review>
+{% if canceling %}
+<h3>{{ preview.count }} booking{{ preview.count|pluralize }} affected</h3>
+<p>Cancel this session and all bookings listed below.{% if preview.refund %} Request refunds for payments collected through Pontora.{% elif preview.show_payments %} No refunds will be issued.{% endif %}</p>
+{% else %}
+{% if preview.before.starts_at != preview.after.starts_at or preview.before.ends_at != preview.after.ends_at or preview.before.room_id != preview.after.room_id or preview.before.capacity != preview.after.capacity %}
+<div class="session-change-highlight"><h3>Your changes</h3>
+{% if preview.before.starts_at != preview.after.starts_at or preview.before.ends_at != preview.after.ends_at %}
+<p><span class="muted">Time</span><br><del>{{ preview.before.starts_at|date:'M j, g:i A' }} &ndash; {{ preview.before.ends_at|date:'g:i A' }}</del> &rarr; <strong>{{ preview.after.starts_at|date:'M j, g:i A' }} &ndash; {{ preview.after.ends_at|date:'g:i A T' }}</strong></p>
+{% endif %}
+{% if preview.before.room_id != preview.after.room_id %}
+<p>Room: <del>{{ preview.before.room.name|default:'Unassigned' }}</del> &rarr; <strong>{{ preview.after.room.name|default:'Unassigned' }}</strong></p>
+{% endif %}
+{% if preview.before.capacity != preview.after.capacity %}
+<p>Seats: <del>{{ preview.before.capacity }}</del> &rarr; <strong>{{ preview.after.capacity }}</strong></p>
+{% endif %}
+</div>{% endif %}
+<h3>{{ preview.count }} booking{{ preview.count|pluralize }} affected</h3>
+{% endif %}
+{% if preview.rows %}<ul class="session-customer-list" aria-label="Affected customers">
+{% for row in preview.rows %}<li>
+<div class="session-customer-contact"><strong>{{ row.name }}</strong><span>{{ row.email|default:'No email provided' }}</span>{% if preview.show_payments %}<span>Payment received: {{ row.currency }} {{ row.paid|floatformat:2 }}</span>{% endif %}</div>
+<span class="session-customer-seats">{{ row.quantity }} seat{{ row.quantity|pluralize }}</span>
+</li>{% endfor %}
+</ul>
+{% if preview.email_unavailable %}<p class="muted" role="status">Email updates unavailable for {{ preview.email_unavailable }} booking{{ preview.email_unavailable|pluralize }}.</p>{% endif %}
+{% endif %}
+</div>{% endif %}

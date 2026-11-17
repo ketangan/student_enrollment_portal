@@ -1,0 +1,18 @@
+{% extends 'scheduling/base.html' %}
+{% block title %}Edit session{% endblock %}
+{% block page_heading %}{% if not calendar_editor %}<a class="back-link" href="{{ setup_return_url }}"><i data-lucide="arrow-left" aria-hidden="true"></i>{{ offering.name }}</a>{% endif %}{% endblock %}
+{% block content %}
+<section data-calendar-editor{% if not calendar_editor %} class="setup-editor-surface session-editor-surface"{% endif %}>
+<h2>Edit session</h2><p class="muted">{{ offering.name }} &middot; Recurring sessions</p>
+<form method="post" action="{{ editor_action }}" class="setup-form booking-editor recurring-session-editor" data-session-preflight data-recurring-editor>
+{% csrf_token %}{{ form.non_field_errors }}{% for field in form.hidden_fields %}{{ field }}{{ field.errors }}{% endfor %}
+<fieldset class="recurring-scope"><legend>Apply changes to</legend>
+{% for choice in form.scope %}<label>{{ choice.tag }}<span><strong>{% if choice.data.value == 'one' %}Only {{ session.starts_at|date:'D, M j' }}{% else %}{{ session.starts_at|date:'M j' }} and every session after it{% endif %}</strong><small>{% if choice.data.value == 'one' %}This session becomes standalone. The rest of the series stays as it is.{% else %}Update the remaining sessions in this series.{% endif %}</small></span></label>{% endfor %}{{ form.scope.errors }}
+</fieldset><p class="muted recurring-past">Past sessions are never changed.</p>
+<div class="booking-fields recurring-time-fields"><div class="form-field"><label for="{{ form.start_time.id_for_label }}">Starts</label>{{ form.start_time }}{{ form.start_time.errors }}</div><div class="form-field">{{ form.duration_minutes.label_tag }}{{ form.duration_minutes }}{{ form.duration_minutes.errors }}</div></div>
+<div class="recurring-capacity"><label for="{{ form.capacity.id_for_label }}">Seats per session <small>Was {{ session.capacity }}</small></label>{{ form.capacity }}{{ form.capacity.errors }}</div>
+<div data-session-live-review aria-live="polite">{% include 'scheduling/recurring_session_review.html' %}</div>
+{% include 'scheduling/notify_customers.html' %}
+<p data-session-conflict role="status"{% if not conflict_count %} hidden{% endif %}>{% if conflict_count %}Resolve {{ conflict_count }} conflict{{ conflict_count|pluralize }} before saving.{% endif %}</p>
+<div class="actions">{% if calendar_editor %}<button type="button" data-calendar-close>Cancel</button>{% else %}<a class="button" href="{{ setup_return_url }}">Cancel</a>{% endif %}<button type="submit" class="primary"{% if conflict_count or form.errors %} disabled{% endif %}>Save</button></div>
+</form></section>{% endblock %}

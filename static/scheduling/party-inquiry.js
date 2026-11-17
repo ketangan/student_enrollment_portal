@@ -165,7 +165,7 @@
           preferred.disabled = direct;
           preferred.required = !direct;
           preferred.closest('[data-party-field]').hidden = direct;
-          document.getElementById('party-submit').textContent = staff ? 'Create booking' : direct ? 'Continue to payment' : 'Send party request';
+          document.getElementById('party-submit').textContent = staff ? 'Save' : direct ? 'Continue to payment' : 'Send party request';
           document.getElementById('party-next-step').textContent = staff ? 'Payment is recorded separately on the reservation.' : direct ? 'Your party is confirmed after payment.' : 'Subject to availability and staff confirmation.';
           const noTimes = direct && ![...slots.options].some(option => option.value && !option.disabled);
           document.getElementById('party-submit').disabled = noTimes;

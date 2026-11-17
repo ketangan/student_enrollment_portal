@@ -1,35 +1,35 @@
 # Calendar And Checkout Review
 
-Status: calendar intake and paid-party amendments are on demo at `a87f820`.
-Whole-session and recurring changes below passed the combined full regression
-(6,221 application, 26 migration and 185 JavaScript tests) and are approved for
-main/demo release. Hosted verification follows GitHub CI and automatic deployment.
-Production has not received either release.
+Status: previous whole-session/recurring batch is on demo at `fdb687e`.
+The simpler workshop-creation and linked-series flow below is local and unpushed;
+its replacement full regression is pending. Production has not been promoted.
 
 ## Recurring And Bulk Changes
 
-Open `http://localhost:8002/bookings/plushumi-demo/?range=week&date=2026-11-29`.
-Choose Pasadena. Local sample sessions are Nov 30 and Dec 7 at 11 AM; the first
-contains "Recurring schedule review" (two participants, $144.30 unpaid).
+Open `http://localhost:8002/bookings/plushumi-demo/workshops/new/`.
+Choose Pasadena. Local draft "Schedule review workshop" has linked Jan 4/11/18,
+2027 sessions. Jan 4 remains 10 AM; Jan 11/18 are 11 AM after the manual review.
 
-1. Open Nov 30, **Edit session > Change multiple sessions**. Choose Through Dec 7,
-   keep Monday/current time 11 AM, set New start time to noon. **Review sessions**
-   must show two dates and one customer booking with phone and participant count.
-   Cancel once: nothing changes. Repeat and confirm; both dates and the reservation
-   move, the balance stays $144.30, and you remain on the calendar.
-2. Open either session, **Edit session > Repeat session**. Set a future end date,
-   weekly/every-two-weeks, duration, room and capacity. Review the dates, confirm,
-   and verify published empty sessions on the calendar. A room conflict must name
-   the conflicting date and save none of the batch.
-3. Open **Change multiple sessions > Cancel multiple sessions** on disposable
+1. **Setup > Add workshop > Schedule > Repeating sessions**. Enter the first/end
+   dates, repeat interval in weeks, start time, duration, room and capacity. Save
+   once; the workshop and sessions must appear together. A conflict saves neither.
+   One session hides recurrence-only fields; Add times later creates no sessions.
+2. On the calendar open Jan 11, **Edit session > This and following sessions**.
+   Set a new time and review. Only Jan 11/18 should appear, not Jan 4 or unrelated
+   workshops. Cancel once, then repeat and confirm. The calendar stays open.
+   Add a synthetic booking and repeat: review must list the customer/phone, preserve
+   prices/payments and enqueue the updated reservation notice. Existing ungrouped
+   sessions deliberately have no following-sessions option.
+3. Open **Cancel session > This and following sessions** on disposable
    test dates. Review before confirming. Choose refund/no-refund for paid bookings;
    cash/external payments cannot be refunded through Pontora. Email customers is
    optional and off by default; selecting it reveals an optional personal message.
    Confirming removes the sessions from the calendar but retains booking/payment history.
 4. Preview a move, then change a matching booking in another tab. The old confirmation
    must be rejected without partial updates. Unrelated weekdays/times/locations must
-   remain untouched. An individual date moved outside the filter is an exception,
-   not silently pulled into the batch.
+   remain untouched. Selection follows the saved series and upcoming start times,
+   not merely matching weekdays. Setup > saved workshop > Add recurring sessions
+   remains available to create another batch without creating another workshop.
 5. Repeat the dialogs on tablet portrait/landscape and phone. Scroll to the review
    and final action, check aligned radio/checkbox labels and readable customer rows.
 
@@ -449,3 +449,35 @@ Verification for this simplification:
 - Final targeted verification passed: 211 backend tests covering staff workshop
   bookings, calendar actions/read models, refunds and SBMC workflows; 178 JavaScript
   tests passed with the existing coverage gates. `git diff --check` passed.
+# Calendar Editor Review - November 16
+
+Local review only; no hosted deployment in this change.
+
+1. Calendar > New must offer Session, Reservation and Party. Cancel each without
+   changing calendar date/location. Party uses the existing party booking form.
+2. Click an empty timed cell. Check the temporary slot highlight, choose Session,
+   and check its prefilled date/time. Cancel must clear the temporary selection.
+3. Setup > workshop > New session uses the same form with the workshop locked.
+   Test one session, recurring dates, published/draft and overlapping dates.
+4. Open a booked session > Edit session. Set it to overlap another session in the
+   same room: the error must appear and Save must remain disabled. Correct it:
+   Save should re-enable. Review affected customers before confirming.
+5. Leave Notify customers on to enqueue existing rescheduling email updates;
+   turn it off to deliberately suppress those updates. Prices/payments must stay
+   unchanged. Test unauthorized and stale submissions through regression tests.
+6. From the roster's available-seats action add a reservation. Change quantity;
+   compare balance with the saved booking. Verify capacity and customer errors.
+7. Edit a reservation and navigate weeks. Verify the selected time, seat count,
+   retained participants and collected-payment balance before saving.
+
+Manual responsive checks performed in desktop Chrome, 768x1024, 1024x768 and
+390x844. Physical Android/tablet keyboard testing is still required. Seat steppers
+are implemented; workshop payment reminders are excluded by the owner's decision.
+New session creation uses the shared writer with a signed retry token. Full-suite
+results are separate from manual review.
+
+Follow-up acceptance checks: open the roster overflow menu (labels must not wrap),
+click an empty calendar cell (menu must stay open with a highlighted slot), change
+seats (balance must update before Save enables), and enter a conflicting session
+time (Save must stay disabled until corrected). Review these actual open states,
+not only the initial page screenshot, at phone and both tablet sizes.

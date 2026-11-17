@@ -36,7 +36,7 @@ def test_party_calendar_edit_state_is_explicit_and_keeps_payment_guard(stock, bo
     assert data["availability"] == ("Reserved" if state == "confirmed" else booking.state_label)
     row = data["reservations"][0]
     assert ("edit_url" in row) == (state == "confirmed")
-    assert bool(row["edit_unavailable"]) == (state in {"held", "review"})
+    assert bool(row["edit_unavailable"]) == (state != "confirmed")
     if state != "confirmed":
         edit_path = url(stock, "staff_booking_edit", public_id=booking.public_id)
         response = stock.client.get(edit_path, **HEADER)
@@ -58,17 +58,51 @@ def session_data(s, response, **changes):
         "edit_revision": form["edit_revision"].value() if "edit_revision" in form.fields else "", **changes}
 
 
-def test_calendar_create_edit_publish_and_invalid_form(stock):
+@pytest.mark.parametrize("start", ["2027-01-25T10:30", "2027-99-25T10:30", "not-a-date"])
+def test_new_session_prefill_from_calendar_is_validated(stock, start):
+    enable(stock)
+    response = stock.client.get(url(stock, "session_new", offering_pk=stock.offering.pk), {"starts_at": start}, **HEADER)
+    assert response.status_code == 200
+    if start == "2027-01-25T10:30":
+        assert str(response.context["form"].initial["first_date"]) == "2027-01-25"
+        assert str(response.context["form"].initial["start_time"]) == "10:30:00"
+    else:
+        assert "start_time" not in response.context["form"].initial
+
+
+@pytest.mark.parametrize("combined", [False, True])
+def test_calendar_create_edit_publish_and_invalid_form(stock, combined):
     s = stock
     enable(s)
     path = url(s, "session_new", offering_pk=s.offering.pk)
     response = s.client.get(path, **HEADER)
     assert b"data-calendar-editor" in response.content
+    assert b'type="datetime-local"' in response.content
+    assert b'name="first_date"' not in response.content
+    assert b'name="start_time"' not in response.content
+    assert b"Customers can find and book it online" in response.content
+    assert b"Only staff can see it; you can still add bookings" in response.content
+    assert list(response.context["form"].fields)[:3] == ["starts_at", "duration_minutes", "capacity"]
     assert b'<button type="button" data-calendar-close>Cancel</button>' in response.content
-    data = session_data(s, response, starts_at=(s.session.starts_at + timedelta(days=2)).strftime("%Y-%m-%dT%H:%M"))
+    start = (s.session.starts_at + timedelta(days=2)).astimezone(ZoneInfo(s.location.timezone_name))
+    data = {"first_date": start.date().isoformat(), "start_time": start.strftime("%H:%M"),
+        "duration_minutes": 60, "capacity": 50, "room": s.room.pk, "mode": "once", "visibility": "draft",
+        "creation_token": response.context["form"]["creation_token"].value()}
+    if combined:
+        data.pop("first_date")
+        data.pop("start_time")
+        data["starts_at"] = start.strftime("%Y-%m-%dT%H:%M")
+        assert s.client.post(path, {**data, "starts_at": "invalid"}, **HEADER).status_code == 400
     assert s.client.post(path, {**data, "capacity": 0}, **HEADER).status_code == 400
-    assert s.client.post(path, data, **HEADER).json() == {"saved": True}
+    assert s.client.post(path, data, **HEADER).json() == {"saved": True, "session_created": True}
     created = Session.objects.latest("pk")
+    assert created.starts_at.astimezone(ZoneInfo(s.location.timezone_name)).strftime("%Y-%m-%dT%H:%M") == start.strftime("%Y-%m-%dT%H:%M")
+    count = Session.objects.count()
+    assert s.client.post(path, data, **HEADER).json()["saved"]
+    assert Session.objects.count() == count
+    assert s.client.post(path, {**data, "capacity": 40}, **HEADER).status_code == 400
+    assert s.client.post(path, {**data, "creation_token": "invalid"}, **HEADER).status_code == 400
+    assert Session.objects.count() == count
     assert not created.is_published
     publish = url(s, "session_publish", pk=created.pk)
     assert s.client.post(publish, {"action": "publish"}, **HEADER).json() == {"saved": True}
@@ -79,7 +113,9 @@ def test_calendar_create_edit_publish_and_invalid_form(stock):
     data = session_data(s, response, starts_at=(s.session.starts_at + timedelta(days=3)).strftime("%Y-%m-%dT%H:%M"))
     assert s.client.post(edit, data, **HEADER).json() == {"saved": True}
     stale = s.client.post(edit, data, **HEADER)
-    assert stale.status_code == 400 and b"changed" in stale.content
+    assert stale.json() == {"saved": True}  # Exact retry is idempotent.
+    created.refresh_from_db()
+    assert created.starts_at.astimezone(ZoneInfo(s.location.timezone_name)).strftime("%Y-%m-%dT%H:%M") == data["starts_at"]
     assert s.client.post(publish, {"action": "unpublish"}, **HEADER).json() == {"saved": True}
 
 

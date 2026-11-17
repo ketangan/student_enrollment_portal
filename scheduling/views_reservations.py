@@ -91,6 +91,25 @@ def reservation_list(request, school_slug):
         tab_filters=tab_filters.urlencode(), sort_urls=sort_urls, sort=sort,
         total_url=total_url, balance_url="?" + balance_filters.urlencode(), preparation_url="?" + preparation_filters.urlencode(), attention_url="?" + metric_filters.urlencode(), hide_completed=hide_completed,
         has_filters=any(value for key, value in filters.items() if key not in {"location", "sort", "hide_completed", "show_completed"}))
+    from .calendar import calendar_available, offerings
+    if context["can_edit_sessions"] and calendar_available(profile) and context["location_filter"].is_valid():
+        from django.urls import reverse
+        workshops = offerings(profile)
+        if context["selected_location"]:
+            workshops = workshops.filter(location=context["selected_location"])
+        context["reservation_create_choices"] = [
+            {"title": f"{item.name} ({item.location.name})", "createUrl": reverse(
+                "scheduling:staff_workshop_create", kwargs={"school_slug": school_slug, "offering_pk": item.pk})}
+            for item in workshops]
+        context["reservation_editor_enabled"] = True
+        if context["features"]["parties"] and context["party_packages_only"]:
+            from .staff_parties import StaffPartyForm
+            parties = StaffPartyForm(profile=profile).fields["offering"].queryset
+            if context["selected_location"]:
+                parties = parties.filter(location=context["selected_location"])
+            context["party_create_choices"] = [{"title": str(item), "createUrl": reverse(
+                "scheduling:staff_party_create", kwargs={"school_slug": school_slug}) + f"?offering={item.pk}"}
+                for item in parties]
     return render(request, "scheduling/reservations.html", context)
 
 
@@ -286,11 +305,26 @@ def _reservation_page(request, school_slug, public_id, tab="details"):
     from .reservation_workspace import selection_summary
     context["preparation_selections"] = selection_summary(context["participants"])
     inline_selections(request, context)
+    if item.workshop_request_id or (item.party_request_id and context.get("party_guest_rows")):
+        from .participant_preparation import rows_for
+        prepared_people = {person["key"]: person for person in rows_for(item)}
+        context["participant_preparation_enabled"] = True
+        context["participant_preparation_writable"] = (
+            context["can_edit_sessions"] and item.state == "confirmed" and not context["materials_used"])
+        for person in context.get("participant_table", {}).get("rows", []):
+            person["preparation"] = prepared_people.get(str(person.get("pending_id")))
+        for guest in context.get("party_guest_rows", []):
+            guest["preparation"] = prepared_people.get(str(guest["index"]))
     if context.get("inline_selection"):
         context["reservation_tab"] = "details"
         for index, section in enumerate(context["booking_navigation"]["section"]["tabs"]):
             section["active"] = index == 0
     context.update(amounts=totals(item.order), audit=audit_page(item, request.GET.get("audit_page")))
+    if item.party_request_id or item.workshop_request_id:
+        from .booking_documents import quote_breakdown, money
+        breakdown = quote_breakdown(item)
+        if breakdown is not None:
+            context["saved_price_breakdown"] = {"subtotal": money(breakdown[0]), "tax": money(breakdown[1])}
     from .terminal_checkout import devices_for
     from core.payments.square_terminal import enabled as terminal_enabled
     if item.order.account_id and terminal_enabled(item.order.account) and item.state in {"confirmed", "completed"}:

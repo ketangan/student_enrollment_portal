@@ -8,16 +8,17 @@ const source = fs.readFileSync(filename, 'utf8');
 
 function element() {
   const classes = new Set();
-  return {attrs: {}, listeners: {}, hidden: true, focused: false,
+  return {attrs: {}, dataset:{}, listeners: {}, hidden: true, focused: false,
     classList: {toggle(key, on) { on ? classes.add(key) : classes.delete(key); }, contains: key => classes.has(key)},
     addEventListener(name, fn) { this.listeners[name] = fn; },
     setAttribute(key, value) { this.attrs[key] = value; },
     contains(target) { return target === this; },
     focus() { this.focused = true; }};
 }
-function page(saved = null, blocked = false) {
+function page(saved = null, blocked = false, switching = true) {
   const document = element(), button = element(), panel = element();
   document.body = element();
+  panel.dataset.themeSwitching = String(switching);
   const themes = ['clean', 'midnight', 'mint'].map(name => {
     const item = element();
     item.dataset = {dashTheme: name};
@@ -25,7 +26,7 @@ function page(saved = null, blocked = false) {
     item.querySelector = () => item.span;
     return item;
   });
-  document.querySelectorAll = () => themes;
+  document.querySelectorAll = () => switching ? themes : [];
   document.getElementById = id => id === 'user-menu-btn' ? button : panel;
   const storage = {saved,
     getItem(key) { assert.equal(key, 'dash_theme'); if (blocked) throw Error('blocked'); return this.saved; },
@@ -52,6 +53,13 @@ test('shared menu toggles, stays open inside, closes outside and restores focus 
   button.listeners.click();
   document.listeners.click({target: {}});
   assert.equal(panel.hidden, true);
+});
+
+test('school theme lock ignores but preserves the preference for other schools', () => {
+  const locked = page('midnight', false, false);
+  assert.equal(locked.document.body.classList.contains('dash-midnight'), false);
+  assert.equal(locked.storage.saved, 'midnight');
+  assert.equal(page(locked.storage.saved).document.body.classList.contains('dash-midnight'), true);
 });
 test('both portals share theme preference, selected state and safe storage fallback', () => {
   for (const blocked of [false, true]) {

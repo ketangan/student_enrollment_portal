@@ -52,6 +52,23 @@ def create(s, values=None):
     return item
 
 
+def test_read_only_balance_quote_matches_saved_booking(intake):
+    s = intake
+    s.location.default_tax_rate = Decimal('11')
+    s.location.save()
+    s.offering.refresh_from_db()
+    response = s.client.get(s.path, {'quote_quantity': '3'})
+    assert response.status_code == 200
+    assert not Reservation.objects.exists()
+    item = create(s, data(s, quantity='3'))
+    assert response.json()['balance'] == item.order.total_cents
+    assert response.json()['unit_price'] == 6500
+    assert response.json()['rows'] == [{"label": "Subtotal", "cents": 19500}, {"label": "Tax", "cents": 2145}]
+    assert s.client.get(s.path, {'quote_quantity': '0'}).status_code == 400
+    s.client.logout()
+    assert s.client.get(s.path, {'quote_quantity': '3'}).status_code == 302
+
+
 def test_phone_booking_reserves_places_without_payment_or_consent(intake):
     s = intake
     s.location.default_tax_rate = Decimal("10")
@@ -151,8 +168,8 @@ def test_cancel_one_customer_releases_only_their_places_and_preserves_session(in
 def test_empty_calendar_time_opens_session_and_existing_time_is_fixed(intake):
     s = intake
     response = s.client.get(s.path, {"starts_at": (s.session.starts_at + timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M")}, **HEADER)
-    assert response.context["form"].new
-    assert b'Customer (optional)' in response.content
+    assert not response.context["form"].new
+    assert b'Customer (optional)' not in response.content
     response = s.client.get(s.path, {"session": s.session.pk}, **HEADER)
     assert response.context["form"].fields["session"].disabled
     assert response.context["form"].fixed_session == s.session
@@ -160,9 +177,10 @@ def test_empty_calendar_time_opens_session_and_existing_time_is_fixed(intake):
     s.session.ends_at -= timedelta(days=1000)
     s.session.save()
     response = s.client.get(s.path, **HEADER)
-    assert b'New session' in response.content
+    assert b'Add Reservation' in response.content
     roster = s.client.get(url(s, "calendar_detail", kind="session", pk=s.session.pk)).json()
     assert "booking_url" not in roster
+    assert roster["booking_unavailable"] == "This session has already started."
 
 
 def test_stale_price_time_and_invalid_token_require_review(intake):
@@ -195,7 +213,7 @@ def test_intake_permissions_and_csrf(intake, role, expected):
 
 def test_disabled_booking_and_disabled_calendar_are_inaccessible(intake):
     s = intake
-    s.offering.allow_deferred_selections = False
+    s.offering.is_published = False
     s.offering.save()
     response = s.client.get(s.path, **HEADER)
     assert b'New session' in response.content
@@ -205,6 +223,24 @@ def test_disabled_booking_and_disabled_calendar_are_inaccessible(intake):
     s.profile.save()
     assert s.client.get(s.path, **HEADER).status_code == 404
     assert s.client.get(s.path).status_code == 404
+
+
+@pytest.mark.parametrize("requests,deferred", [(False, False), (False, True), (True, False)])
+def test_staff_intake_is_independent_of_public_request_and_design_settings(intake, requests, deferred):
+    s = intake
+    s.offering.accepts_requests = requests
+    s.offering.allow_deferred_selections = deferred
+    s.offering.save()
+    roster = s.client.get(url(s, "calendar_detail", kind="session", pk=s.session.pk)).json()
+    assert roster["booking_url"].endswith(f"?session={s.session.pk}")
+    assert s.client.get(roster["booking_url"], **HEADER).status_code == 200
+    item = create(s)
+    assert item.quantity == 2 and item.session_id == s.session.pk
+    assert item.workshop_request.participants.filter(selections_deferred=True).count() == 2
+    assert totals(item.order)["total_cents"] == 13000
+    s.offering.refresh_from_db()
+    assert s.offering.accepts_requests is requests
+    assert s.offering.allow_deferred_selections is deferred
 
 
 def test_followup_and_inline_staff_edit_collect_names_and_age_without_repricing(intake):

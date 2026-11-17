@@ -38,7 +38,7 @@ def test_lesson_and_trial_share_session_grid(music, offer, school_layout, client
         assert '<div class="workshop-heading">' in html
         assert 'aria-label="Lesson sessions"' in html
         assert '<th>Date</th><th>Time</th><th>Room</th>' in html
-        assert 'data-lucide="calendar-clock"' in html and 'data-lucide="calendar-x"' in html
+        assert 'data-lucide="calendar-clock"' in html and 'data-lucide="trash-2"' in html
 
 
 def test_add_teacher_only_on_teacher_tab_and_add_targets_grid(music, school_layout, client):

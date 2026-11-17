@@ -139,19 +139,11 @@ def workspace(request, school_slug):
             "location": str(location.pk) if location else "",
             "resources": [{"id": str(item.pk), "title": item.name, "zone": item.timezone_name} for item in locations],
             "offerings": [{"id": str(item.pk), "locationId": str(item.location_id), "title": f"{item.name} ({item.location.name})",
+                "sessionUrl": reverse("scheduling:session_new", kwargs={"school_slug": school_slug, "offering_pk": item.pk}) if context["can_edit_sessions"] else "",
                 "createUrl": reverse("scheduling:staff_workshop_create", kwargs={"school_slug": school_slug, "offering_pk": item.pk})
                     if context["can_edit_sessions"] else ""} for item in items],
             "today": timezone.localdate(timezone=ZoneInfo(location.timezone_name) if location else timezone.get_default_timezone()).isoformat(),
         }
-        if context["can_edit_sessions"] and context["features"].get("parties"):
-            from .staff_parties import StaffPartyForm
-            party_offerings = StaffPartyForm(profile=profile).fields["offering"].queryset
-            if location:
-                party_offerings = party_offerings.filter(location=location)
-            context["calendar_config"]["parties"] = [{"id": str(item.pk), "locationId": str(item.location_id),
-                "title": f"Party: {item.name} ({item.location.name})", "createUrl": reverse(
-                    "scheduling:staff_party_create", kwargs={"school_slug": school_slug}) + f"?offering={item.pk}"}
-                for item in party_offerings]
         return render(request, "scheduling/calendar.html", context, status=200 if context["location_filter"].is_valid() else 400)
     from .workspace import overview
     form = context["location_filter"]
@@ -282,10 +274,13 @@ def workshop_detail(request, school_slug, pk):
 @require_http_methods(["GET", "POST"])
 def setup_edit(request, school_slug, kind, pk=None, offering_pk=None):
     profile, role = require_location_access(request.user, school_slug, edit_permission(kind))
+    if kind == "sessions" and not pk and profile.native_reservations_enabled and has_capability(profile, "reservations"):
+        from .views_session_changes import schedule
+        return schedule(request, school_slug, offering_pk, "create", session_editor=True)
     if kind == "sessions" and pk:
         from . import session_changes
         session = get_object_or_404(records(profile, kind), pk=pk)
-        if session_changes.available(profile, session) and session.reservations.exists():
+        if session_changes.available(profile, session):
             from .views_session_changes import change
             return change(request, school_slug, pk)
     from .calendar import editor_request
@@ -385,6 +380,8 @@ def public_schedule(request, school_slug):
     ).filter(Q(accepts_party_requests=True) | Q(sessions__is_published=True, sessions__starts_at__gt=timezone.now())).select_related("location").distinct().prefetch_related(Prefetch("sessions", queryset=sessions, to_attr="public_sessions"))
     from .requests import catalog_for
     from .camps import camp_dates, check_registration
+    if not has_capability(profile, "camps"):
+        offerings = offerings.filter(camps__isnull=True)
     for offering in offerings:
         offering.accepts_party_requests = offering.accepts_party_requests and has_capability(profile, "parties")
         catalog = catalog_for(offering)

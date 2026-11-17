@@ -54,6 +54,10 @@ class SchoolFeatures:
         return bool(self._flags().get("reports_enabled", False))
 
     @property
+    def admin_theme_switching_enabled(self) -> bool:
+        return bool(self._flags().get("admin_theme_switching_enabled", False))
+
+    @property
     def status_enabled(self) -> bool:
         return bool(self._flags().get("status_enabled", False))
 

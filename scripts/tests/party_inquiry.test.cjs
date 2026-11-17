@@ -88,7 +88,7 @@ test('package-only intake never offers a custom fallback, including before packa
 test('staff shares package times without implying an online charge', () => {
   const ui = mount({staff:true,summary:false});
   ui.choose('1');
-  assert.equal(ui.nodes['party-submit'].textContent,'Create booking');
+  assert.equal(ui.nodes['party-submit'].textContent,'Save');
   assert.equal(ui.nodes['party-next-step'].textContent,'Payment is recorded separately on the reservation.');
   assert.equal(ui.nodes.id_party_slot.disabled,false);
   assert.equal(ui.nodes.id_party_slot.options[1].disabled,false);

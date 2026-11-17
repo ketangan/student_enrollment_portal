@@ -7,7 +7,7 @@ const source = fs.readFileSync(filename, 'utf8');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
 class Element {
-  constructor(tag) {this.tag = tag; this.children = []; this.attrs = {}; this.listeners = {}; this.textContent = ''; this.value = '';}
+  constructor(tag) {this.tag = tag; this.dataset = {}; this.children = []; this.attrs = {}; this.listeners = {}; this.textContent = ''; this.value = '';}
   append(...items) {this.children.push(...items);}
   replaceChildren(...items) {this.children = items;}
   setAttribute(key, value) {this.attrs[key] = value;}
@@ -97,7 +97,7 @@ test('uncertain save cannot be blindly retried; login redirects and missing form
     const p = page(), initial = p.html(); p.replies.push(initial.reply); p.open(); await tick();
     p.replies.push(failed instanceof Error ? failed : p.html(failed).reply);
     initial.form.fire('submit'); await tick();
-    assert.match(p.status.textContent, /Refresh the calendar/); assert.equal(initial.submit.disabled, true);
+    assert.match(p.status.textContent, /Refresh the calendar|Reload the page/); assert.equal(initial.submit.disabled, true);
     initial.form.fire('submit'); assert.equal(p.requests.length, 2); assert.equal(p.saves, 0);
     assert.equal(p.nodes['calendar-editor-close'].disabled, false);
   }
@@ -117,7 +117,7 @@ test('session impact review stays open and only confirmed save refreshes the cal
 test('chooser prefills selected date, handles empty list and recovers from failed GET', async () => {
   const p = page(); p.open({url: null, choices: [], initialStart: '2026-12-12T14:30'});
   assert.match(p.status.textContent, /No workshops/); p.nodes['calendar-editor-close'].fire('click');
-  p.open({url: null, choices: [{title: 'Workshop', createUrl: '/new/'}], initialStart: '2026-12-12T14:30'});
+  p.open({url: null, choices: [{title: 'Workshop', createUrl: '/new/'}, {title:'Second',createUrl:'/second/'}], initialStart: '2026-12-12T14:30'});
   assert.match(p.nodes['calendar-editor-body'].children[0].textContent, /2026/);
   const select = p.nodes['calendar-editor-body'].children.find(child => child.tag === 'label').children[0];
   select.fire('change'); assert.equal(p.requests.length, 0);
@@ -157,5 +157,23 @@ test('loading party controls preserves domain-disabled submit and session select
   const next = p.html(); p.replies.push(next.reply);
   select.value = '42'; select.fire('change'); await tick();
   assert.equal(p.requests[1].url, '/booking/?session=42');
+  assert.equal(p.saves, 0);
+});
+
+test('Add Reservation loads first workshop immediately and changing it reloads the full form', async () => {
+  const p = page(), initial = p.html();
+  const workshop = new Element('select');
+  initial.section['#session-workshop'] = workshop;
+  p.replies.push(initial.reply);
+  p.open({url:null, title:'Add Reservation', choices:[
+    {title:'First workshop',createUrl:'/first/'}, {title:'Second workshop',createUrl:'/second/'}]});
+  await tick();
+  assert.equal(p.requests[0].url, '/first/');
+  assert.equal(workshop.disabled, false);
+  assert.equal(workshop.children.length, 2);
+  assert.equal(workshop.children[0].selected, true);
+  p.replies.push(p.html().reply);
+  workshop.value = '/second/'; workshop.fire('change'); await tick();
+  assert.equal(p.requests[1].url, '/second/');
   assert.equal(p.saves, 0);
 });

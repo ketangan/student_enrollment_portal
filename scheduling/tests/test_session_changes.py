@@ -93,6 +93,95 @@ def test_move_reviews_every_booking_preserves_money_and_notifies_once(notificati
     assert AdminAuditLog.objects.filter(model_label="scheduling.session", extra__session_change_key__isnull=False).count() == 1
 
 
+def test_availability_preview_blocks_conflict_without_writes(notifications):
+    s = notifications
+    item = booked(s)
+    data = edit_data(s)
+    start = s.session.starts_at + timedelta(days=1)
+    conflict = Session.objects.create(offering=s.offering, room=s.room,
+        starts_at=start, ends_at=start + timedelta(hours=1), capacity=10, is_published=True)
+    path = url(s, "session_edit", pk=s.session.pk)
+    response = s.client.post(path, data, HTTP_X_SESSION_PREFLIGHT="1")
+    assert response.status_code == 400
+    assert response.json()["valid"] is False
+    assert "This room already has a published session" in str(response.json()["errors"])
+    item.refresh_from_db()
+    assert item.starts_at == s.session.starts_at
+    assert not BookingMessage.objects.filter(notice_kind="rescheduled").exists()
+    conflict.delete()
+    response = s.client.post(path, data, HTTP_X_SESSION_PREFLIGHT="1")
+    result = response.json()
+    assert result['valid'] is True and result['errors'] == {}
+    assert result['review_token']
+    assert '1 booking affected' in result['review_html']
+    assert item.workshop_request.purchaser_email in result['review_html']
+    s.session.refresh_from_db()
+    assert s.session.starts_at == item.starts_at
+    assert not AdminAuditLog.objects.filter(extra__session_change_key__isnull=False).exists()
+    # The read-only live review authorizes one explicit Save, not another review.
+    accepted = {**data, 'review_token': result['review_token']}
+    assert s.client.post(path, accepted, **HEADER).json() == {'saved': True}
+    item.refresh_from_db()
+    assert item.starts_at == start.replace(second=0, microsecond=0)
+    assert s.client.post(path, accepted, **HEADER).json() == {'saved': True}
+
+
+def test_live_review_cannot_authorize_different_values(notifications):
+    s = notifications
+    item = booked(s)
+    data = edit_data(s)
+    path = url(s, 'session_edit', pk=s.session.pk)
+    result = s.client.post(path, data, HTTP_X_SESSION_PREFLIGHT='1').json()
+    response = s.client.post(path, {**data, 'duration_minutes': 90,
+        'review_token': result['review_token']}, **HEADER)
+    assert response.context['preview']
+    item.refresh_from_db()
+    assert item.starts_at == s.session.starts_at
+
+
+def test_notification_can_be_disabled_without_affecting_reservation_move(notifications):
+    s = notifications
+    item = booked(s)
+    path, data = review(s, "edit", edit_data(s, notify_customers="0"))
+    assert s.client.post(path, data, **HEADER).json() == {"saved": True}
+    item.refresh_from_db()
+    s.session.refresh_from_db()
+    assert item.starts_at == s.session.starts_at
+    assert not BookingMessage.objects.filter(notice_kind="rescheduled").exists()
+
+
+def test_unassigned_room_does_not_bypass_overlapping_workshop_check(notifications):
+    s = notifications
+    start = s.session.starts_at + timedelta(days=1)
+    Session.objects.create(offering=s.offering, starts_at=start,
+        ends_at=start + timedelta(hours=1), capacity=10, is_published=True)
+    response = s.client.post(url(s, 'session_edit', pk=s.session.pk), edit_data(s), HTTP_X_SESSION_PREFLIGHT='1')
+    assert response.status_code == 400
+    assert 'without a separate room' in str(response.json()['errors'])
+
+
+@pytest.mark.parametrize("headers", [{}, HEADER])
+def test_session_editor_shows_compact_customer_contacts(notifications, headers):
+    from django.utils.html import escape
+
+    s = notifications
+    item = booked(s, 2)
+    source = item.workshop_request
+    source.purchaser_name = "<script>Customer</script>"
+    source.purchaser_email = "customer@example.invalid"
+    source.purchaser_phone = "(626) 555-0100"
+    source.save()
+    response = s.client.get(url(s, "session_edit", pk=s.session.pk), **headers)
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert 'aria-label="Customers"' in html
+    assert escape(source.purchaser_name) in html
+    assert source.purchaser_name not in html
+    assert source.purchaser_email in html and source.purchaser_phone not in html
+    assert 'class="session-customer-seats">2 seats' in html
+    assert 'data-notify-customers checked' in html
+
+
 def test_move_review_shows_contacts_without_payment_or_local_email_noise(notifications):
     s = notifications
     first, second = booked(s, 2), booked(s)
@@ -103,9 +192,9 @@ def test_move_review_shows_contacts_without_payment_or_local_email_noise(notific
     response = s.client.post(url(s, "session_edit", pk=s.session.pk), edit_data(s), **HEADER)
     assert response.status_code == 200
     html = response.content.decode()
-    assert "2 bookings affected" in html and "(626) 555-0100" in html
-    assert '<th>Phone</th>' in html and '&mdash;' in html
-    assert first.workshop_request.purchaser_email not in html
+    assert "2 bookings affected" in html and "(626) 555-0100" not in html
+    assert 'aria-label="Affected customers"' in html
+    assert first.workshop_request.purchaser_email in html
     assert "Payment received" not in html and "Confirmed" not in html
     assert "Email updates unavailable" not in html and "No customer emails" not in html
     assert not response.context["preview"]["show_payments"]
@@ -151,7 +240,10 @@ def test_review_describes_duration_and_room_changes_without_identical_start_time
     response = s.client.post(url(s, "session_edit", pk=s.session.pk), edit_data(s, **values), **HEADER)
     assert response.status_code == 200 and response.context["preview"]
     html = response.content.decode().split('data-session-review>', 1)[1]
-    assert ("<p>Ends " in html) == (change == "duration")
+    assert 'class="session-change-highlight"' in html
+    assert '<del>' in html
+    assert ('<span class="muted">Time</span>' in html) == (change == "duration")
+    assert html.index('class="session-change-highlight"') < html.index('data-notify-customers')
     assert ("<strong>Unassigned</strong>" in html) == (change == "room")
 
 

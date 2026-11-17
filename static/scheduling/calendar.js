@@ -73,6 +73,7 @@
     if (range === "month" || event.extendedProps.kind === "group") {openDay(event.start); return;}
     const current = ++detailNumber;
     printButton.disabled = true;
+    document.getElementById('calendar-session-menu')?.replaceChildren();
     detailBadges.replaceChildren();
     document.getElementById("calendar-detail-title").textContent = event.title;
     detailBody.replaceChildren(node("p", "Loading session..."));
@@ -85,43 +86,53 @@
       document.getElementById("calendar-detail-title").textContent = data.title;
       detailBadges.replaceChildren(node("span",data.category,"calendar-detail-badge"));
       detailBadges.append(node("span",data.availability,"calendar-detail-badge"));
-      detailBody.replaceChildren(node("p", data.time), node("p", [data.location,data.room].filter(Boolean).join(" · "), "muted"));
-      if (data.edit_url) {
+      function detailLine(iconName, text) {
+        const line = node('p', undefined, 'calendar-detail-line'), icon = node('i');
+        icon.setAttribute('data-lucide', iconName); icon.setAttribute('aria-hidden', 'true');
+        line.append(icon, node('span', text)); return line;
+      }
+      detailBody.replaceChildren(detailLine('calendar', data.time), detailLine('map-pin', [data.location,data.room].filter(Boolean).join(" · ")));
+      if (data.edit_url || data.booking_url || data.booking_unavailable) {
         const actions = node("div", undefined, "actions calendar-session-actions");
-        const edit = node("button", undefined, "button"); edit.type = "button";
-        const icon = node("i"); icon.setAttribute("data-lucide", "pencil"); icon.setAttribute("aria-hidden", "true");
-        edit.append(icon, node("span", "Edit session"));
-        edit.addEventListener("click", () => editInCalendar(data.edit_url, "Edit session"));
-        actions.append(edit); detailBody.append(actions);
+        if (data.booking_url || data.booking_unavailable) {
+          const book = node('button', undefined, 'button primary calendar-primary-booking'); book.type = 'button';
+          const plus = node('i'); plus.setAttribute('data-lucide', 'plus'); plus.setAttribute('aria-hidden', 'true');
+          book.append(plus, node('span', 'Add booking'));
+          book.disabled = !data.booking_url || data.summary.open <= 0;
+          book.addEventListener('click', () => editInCalendar(data.booking_url, 'Add Reservation'));
+          actions.append(book);
+        }
+        if (data.edit_url) {
+          const edit = node("button", undefined, "button"); edit.type = "button";
+          edit.setAttribute('aria-label', 'Edit session');
+          const icon = node("i"); icon.setAttribute("data-lucide", "pencil"); icon.setAttribute("aria-hidden", "true");
+          edit.append(icon, node("span", "Edit"));
+          edit.addEventListener("click", () => editInCalendar(data.edit_url, "Edit session"));
+          actions.append(edit);
+        }
+        detailBody.append(actions);
         if (data.cancel_session_url) {
           const cancel = node("button", undefined, "button"); cancel.type = "button";
-          const cancelIcon = node("i"); cancelIcon.setAttribute("data-lucide", "calendar-x"); cancelIcon.setAttribute("aria-hidden", "true");
+          const cancelIcon = node("i"); cancelIcon.setAttribute("data-lucide", "trash-2"); cancelIcon.setAttribute("aria-hidden", "true");
           cancel.append(cancelIcon, node("span", "Cancel session"));
           cancel.addEventListener("click", () => editInCalendar(data.cancel_session_url, "Cancel session"));
-          actions.append(cancel);
-        }
-        if (data.booking_url) {
-          const book = node("button", "Add booking", "button primary"); book.type = "button";
-          book.disabled = data.summary.open <= 0;
-          if (book.disabled) book.title = "This session is full";
-          book.addEventListener("click", () => editInCalendar(data.booking_url, "Add booking"));
-          actions.append(book);
+          (document.getElementById('calendar-session-menu') || actions).append(cancel);
         }
       }
       const summary = data.summary;
+      if (data.booking_unavailable) detailBody.append(node('p', data.booking_unavailable, 'muted'));
       if (summary.open <= 0 && data.booking_url) detailBody.append(node("p", "This session is full. No places are available.", "notice warning"));
       const metrics = node("div",undefined,"calendar-detail-metrics");
       function metric(label,value,caption) {
         const item=node("div",undefined,"calendar-detail-metric");
         item.append(node("span",label),node("strong",value),node("small",caption));metrics.append(item);return item;
       }
-      const booked=metric("Booked",`${summary.booked} of ${summary.capacity}`,"seats filled");
+      const booked=metric("Seats",`${summary.booked} of ${summary.capacity}`,`${summary.open} seats open`);
       const progress=node("progress"); progress.max=Math.max(1,summary.capacity);progress.value=summary.booked;
       progress.setAttribute("aria-label","Booked seats");booked.append(progress);
-      metric("Open",summary.open,"seats left");
-      metric("Collected",summary.payments.length ? summary.payments.map(p=>money(p.received,p.order__currency)).join(" + ") : "—",
+      const payments = metric("Payments",summary.payments.length ? summary.payments.map(p=>money(p.received,p.order__currency)).join(" + ") : "—",
         summary.payments.length ? `of ${summary.payments.map(p=>money(p.expected,p.order__currency)).join(" + ")} expected` : "No payments");
-      if (summary.needs_action) metric("Needs action",summary.needs_action,"payment review");
+      if (summary.needs_action) payments.append(node('small', `${summary.needs_action} require payment review`, 'calendar-payment-review'));
       detailBody.append(metrics,node("h3",`${summary.reservation_count} reservation${summary.reservation_count === 1 ? "" : "s"}`));
       if (data.reservations.length) {
         const wrap = node("div", undefined, "calendar-roster"), table = node("table"), head = node("tr");
@@ -130,11 +141,15 @@
         for (const row of data.reservations) {
           const tr = node("tr");
           const customer=node("td"), identity=node("div",undefined,"calendar-customer");
-          identity.append(node("span",row.name));customer.append(identity);tr.append(customer,node("td",`${row.quantity} ${row.quantity === 1 ? "seat" : "seats"}`));
-          const payment=node("td"), status=node("span",row.payment_status,`calendar-payment-status ${row.payment_status === "Paid" ? "paid" : "pending"}`);
-          payment.append(status,node("small",`${money(row.received,row.currency)} received · ${money(Math.max(0,row.total-row.received),row.currency)} balance`,"calendar-payment-amount"));tr.append(payment);
+          const initials = row.name.trim().split(/\s+/).slice(0,2).map(word => word[0]).join('').toUpperCase();
+          const name = node('div'); name.append(node('strong',row.name),node('small',`${row.quantity} ${row.quantity === 1 ? "seat" : "seats"}`));
+          identity.append(node("span", initials, "calendar-avatar"),name);customer.append(identity);tr.append(customer,node("td",`${row.quantity} ${row.quantity === 1 ? "seat" : "seats"}`));
+          const due = Math.max(0,row.total-row.received);
+          const payment=node("td"), status=node("span",due ? `${money(due,row.currency)} due` : row.payment_status,`calendar-payment-status ${row.payment_status === "Paid" ? "paid" : "pending"}`);
+          payment.append(status);tr.append(payment);
           const cell = node("td"), actions = node("div", undefined, "calendar-row-actions"), link = node("a", undefined, "button icon-button"); link.href = detailLink(row.url);link.setAttribute("aria-label",`View reservation for ${row.name}`); link.title = "View reservation";
-          const viewIcon = node("i"); viewIcon.setAttribute("data-lucide", "eye"); viewIcon.setAttribute("aria-hidden", "true"); link.append(viewIcon); actions.append(link); cell.append(actions); tr.append(cell);
+          const viewIcon = node("i"); viewIcon.setAttribute("data-lucide", "eye"); viewIcon.setAttribute("aria-hidden", "true"); link.append(viewIcon); actions.append(link);
+          cell.append(actions); tr.append(cell);
           if (row.edit_url || row.edit_unavailable) {
             const edit = node("button", undefined, "button icon-button"); edit.type = "button"; edit.title = "Edit booking";
             edit.setAttribute("aria-label", `Edit booking for ${row.name}`);
@@ -151,7 +166,7 @@
           if (row.cancel_url) {
             const cancel = node("button", undefined, "button icon-button"); cancel.type = "button";
             cancel.setAttribute("aria-label", `Cancel reservation for ${row.name}`); cancel.title = "Cancel reservation";
-            const icon = node("i"); icon.setAttribute("data-lucide", "calendar-x"); icon.setAttribute("aria-hidden", "true"); cancel.append(icon);
+            const icon = node("i"); icon.setAttribute("data-lucide", "trash-2"); icon.setAttribute("aria-hidden", "true"); cancel.append(icon);
             cancel.addEventListener("click", () => editInCalendar(row.cancel_url, "Cancel reservation")); actions.append(cancel);
           }
           ["Customer", "Participants", "Payment", ""].forEach((label, index) => tr.children[index].setAttribute("data-label", label));
@@ -159,6 +174,13 @@
         }
         wrap.append(table); detailBody.append(wrap);
       } else detailBody.append(node("p","No active reservations."));
+      if ((data.booking_url || data.booking_unavailable) && summary.open > 0) {
+        const book = node("button", `+ ${summary.open} ${summary.open === 1 ? 'seat' : 'seats'} open — add a booking`, "calendar-add-reservation");
+        book.type = "button";
+        book.disabled = !data.booking_url;
+        book.addEventListener("click", () => editInCalendar(data.booking_url, "Add Reservation"));
+        detailBody.append(book);
+      }
       if (data.truncated) detailBody.append(node("p","Showing the first 500 reservations."));
       printButton.disabled = false;
       if (window.lucide) window.lucide.createIcons();
@@ -212,10 +234,12 @@
     }}],
     eventClassNames({event}) {
       const p=event.extendedProps;
+      if (p.kind === 'selection') return ['calendar-pending-slot'];
       return [p.kind==="party" ? "event-party" : p.camp ? "event-camp" : p.seats===0 ? "event-empty" : p.seats>=p.capacity/2 ? "event-full" : "event-partial"];
     },
     eventContent({event,timeText}) {
       const p=event.extendedProps;
+      if (p.kind === 'selection') return {domNodes:[node('strong',timeText)]};
       const bookings = `${p.bookings || 0} booking${p.bookings === 1 ? "" : "s"}`;
       if (range === "week") {
         const size=p.kind === "group" ? p.size : 1;
@@ -230,8 +254,9 @@
       const detail=node("span",`${timeText} · ${p.seats}/${p.capacity} participants${p.published ? "" : " · Draft"}`,"calendar-event-meta");
       return {domNodes:[title,detail]};
     },
-    eventClick:({event}) => openDetail(event),
+    eventClick:({event}) => {if (event.extendedProps.kind !== 'selection') return openDetail(event);},
     eventDidMount({el,event}) {
+      if (event.extendedProps.kind === 'selection') return;
       el.tabIndex=0; el.setAttribute("role","button"); el.setAttribute("aria-label",`${event.title}, ${event.extendedProps.location}, ${event.extendedProps.seats} of ${event.extendedProps.capacity} participants, ${event.extendedProps.bookings || 0} booking${event.extendedProps.bookings === 1 ? "" : "s"}`);
       el.addEventListener("keydown",e=>{if(e.key==="Enter" || e.key===" "){e.preventDefault();openDetail(event);}});
     },
@@ -243,7 +268,7 @@
       // dateStr is the venue wall clock; converting date to UTC would shift it.
       const start = info.dateStr?.slice(0,16);
       if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(start || "")) return;
-      addInCalendar(start, String(info.resource?.id || config.location || ""));
+      showNewChoices(start, String(info.resource?.id || config.location || ""), info.jsEvent);
     },
     dayCellContent({date}) {
       if (range !== "month") return;
@@ -285,13 +310,53 @@
     window.BookingCalendarEditor.open({url, title, onSaved: savedInCalendar});
   }
   const addSession = document.getElementById("calendar-add-session");
-  function addInCalendar(initialStart, locationId = config.location) {
-    const choices = config.offerings.filter(item => item.createUrl && selected.has(item.id) && (!locationId || item.locationId === locationId));
-    choices.push(...(config.parties || []).filter(item => !locationId || item.locationId === locationId));
-    window.BookingCalendarEditor.open({title: "Add booking", choices,
+  let selectedStart, selectedLocation;
+  const newMenu = document.getElementById("calendar-new-menu");
+  function setCreationOptions(fromSlot) {
+    document.querySelectorAll('[data-calendar-new]').forEach(button => {
+      button.hidden = fromSlot && button.dataset.calendarNew === 'reservation';
+    });
+  }
+  function clearSelection() {calendar.removeEventById('calendar-pending-slot');}
+  function placeMenu(x, y) {
+    newMenu.style.left = `${Math.max(12, Math.min(x, window.innerWidth - 352))}px`;
+    newMenu.style.top = `${Math.max(12, Math.min(y, window.innerHeight - 320))}px`;
+  }
+  function showNewChoices(start, locationId, event) {
+    setCreationOptions(true);
+    selectedStart = start;
+    selectedLocation = locationId;
+    clearSelection();
+    const end = new Date(`${start}:00Z`); end.setUTCHours(end.getUTCHours() + 1);
+    const timeHeading = document.getElementById('calendar-new-time');
+    if (timeHeading) {
+      timeHeading.hidden = false;
+      timeHeading.textContent = new Intl.DateTimeFormat(undefined, {weekday:'long', month:'short', day:'numeric', hour:'numeric', minute:'2-digit', timeZone:'UTC'}).format(new Date(`${start}:00Z`));
+    }
+    calendar.addEvent({id:'calendar-pending-slot', start, end:end.toISOString().slice(0,19), resourceIds:locationId ? [locationId] : [], title:'Selected time', extendedProps:{kind:'selection'}});
+    placeMenu(event?.clientX || 24, event?.clientY || 100);
+    // dateClick runs during pointerup. Open after its click/light-dismiss cycle.
+    setTimeout(() => {if (selectedStart === start) newMenu.showPopover();}, 0);
+  }
+  addSession?.addEventListener("click", () => {
+    setCreationOptions(false);
+    clearSelection(); selectedStart = undefined; selectedLocation = config.location;
+    const timeHeading = document.getElementById('calendar-new-time');
+    if (timeHeading) timeHeading.hidden = true;
+    const rect = addSession.getBoundingClientRect(); placeMenu(rect.right - 340, rect.bottom + 8);
+  });
+  newMenu?.addEventListener('toggle', event => {if (event.newState === 'closed') clearSelection();});
+  function addInCalendar(initialStart, locationId = config.location, kind = "reservation") {
+    const choices = config.offerings.filter(item => item.createUrl && selected.has(item.id) && (!locationId || item.locationId === locationId))
+        .map(item => ({...item, createUrl: kind === "session" ? item.sessionUrl : item.createUrl}));
+    window.BookingCalendarEditor.open({title: kind === "session" ? "New session" : "Add Reservation", choices,
       initialStart, onSaved: savedInCalendar});
   }
-  if (addSession) addSession.addEventListener("click", () => addInCalendar());
+  document.querySelectorAll('[data-calendar-new]').forEach(button => button.addEventListener('click', () => {
+    if (button.hidden) return;
+    newMenu.hidePopover();
+    addInCalendar(selectedStart, selectedLocation, button.dataset.calendarNew);
+  }));
   // The bundled calendar exposes overflow content, but no more-link click hook.
   // Capture its native trigger before the library opens the month popover.
   function openOverflow(event) {

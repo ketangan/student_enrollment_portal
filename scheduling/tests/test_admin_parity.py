@@ -20,6 +20,28 @@ from scheduling.tests.test_experience_demo import demo, local, browser, config, 
 pytestmark = pytest.mark.django_db
 
 
+def test_reservation_list_reuses_editor_and_scopes_workshop_choices(client, inventory, second_studio, booking_member):
+    profile = inventory[0]
+    profile.calendar_enabled = True
+    profile.save(update_fields=["calendar_enabled"])
+    client.force_login(booking_member.user)
+    page = client.get(url(profile, "reservations"), {"location": second_studio[1].location_id})
+    assert page.status_code == 200
+    assert page.context["reservation_editor_enabled"]
+    assert len(page.context["reservation_create_choices"]) == 1
+    choice = page.context["reservation_create_choices"][0]
+    assert choice["createUrl"] == reverse("scheduling:staff_workshop_create", kwargs={
+        "school_slug": profile.school.slug, "offering_pk": second_studio[1].pk})
+    assert b'id="calendar-editor"' in page.content
+    assert b'data-calendar-new="reservation"' in page.content
+    assert b'data-calendar-new="session"' not in page.content
+    assert b'scheduling/reservation-list.js' in page.content
+    profile.calendar_enabled = False
+    profile.save(update_fields=["calendar_enabled"])
+    page = client.get(url(profile, "reservations"))
+    assert b'id="reservation-new"' not in page.content
+
+
 @pytest.mark.parametrize("route", ["workspace", "reservations", "workshops", "parties", "camps", "settings", "locations", "access", "integrations"])
 def test_location_is_shared_between_admin_pages(client, inventory, second_studio, booking_member, route):
     profile = inventory[0]
@@ -71,7 +93,9 @@ def test_reservation_search_sort_clear_and_detail_location_switch(client, invent
     assert list(page.context["items"]) == [second]
     assert b'aria-sort="ascending"' in page.content
     assert b'class="dash-student-cell"' in page.content
-    assert b'class="dash-action-btn dash-action-btn--secondary"' in page.content
+    assert b'booking-row-icon' in page.content
+    assert b'title="View reservation"' in page.content
+    assert reverse("scheduling:reservation_detail", kwargs={"school_slug": inventory[0].school.slug, "public_id": second.public_id}).encode() in page.content
     assert ("q", "Second") in page.context["location_query_fields"]
     query = page.context["sort_urls"]["scheduled"]
     descending = client.get(url(inventory[0], "reservations") + query)

@@ -1,3 +1,4 @@
+@import url("../select-controls.css");
 @font-face{font-family:Jakarta;src:url('/static/demo/plushumi/assets/regular.ttf');font-display:swap}
 @font-face{font-family:Jakarta;src:url('/static/demo/plushumi/assets/bold.ttf');font-weight:700;font-display:swap}
 *{box-sizing:border-box}

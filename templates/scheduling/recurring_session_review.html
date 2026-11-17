@@ -1,0 +1,13 @@
+{% if rows %}<section class="recurring-impact" data-session-review>
+<header><h3>{{ rows|length }} session{{ rows|length|pluralize }} affected</h3>{% if conflict_count %}<span class="recurring-conflict-count">{{ conflict_count }} to resolve</span>{% endif %}</header>
+<ul>{% for row in rows %}<li{% if row.conflicts %} class="has-conflict"{% endif %}>
+<div class="recurring-impact-heading"><div><strong>{{ row.before.starts_at|date:'D, M j' }}</strong><small>{{ row.count }} booking{{ row.count|pluralize }} &middot; {{ row.seats }} seat{{ row.seats|pluralize }}</small></div>
+<span>{% if row.conflicts %}Conflict{% elif row.before.starts_at != row.after.starts_at %}Moves to {{ row.after.starts_at|date:'g:i A' }}{% else %}{{ row.after.starts_at|date:'g:i A' }}{% endif %}</span></div>
+{% if row.before.starts_at != row.after.starts_at or row.before.ends_at != row.after.ends_at or row.before.capacity != row.after.capacity %}
+<div class="session-change-highlight"><h3>Your changes</h3>
+{% if row.before.starts_at != row.after.starts_at or row.before.ends_at != row.after.ends_at %}<p><del>{{ row.before.starts_at|date:'g:i A' }} &ndash; {{ row.before.ends_at|date:'g:i A' }}</del> &rarr; <strong>{{ row.after.starts_at|date:'g:i A' }} &ndash; {{ row.after.ends_at|date:'g:i A T' }}</strong></p>{% endif %}
+{% if row.before.capacity != row.after.capacity %}<p>Seats: <del>{{ row.before.capacity }}</del> &rarr; <strong>{{ row.after.capacity }}</strong></p>{% endif %}</div>{% endif %}
+{% for error in row.conflicts %}<p class="recurring-conflict">{{ error }}</p>{% endfor %}
+</li>{% endfor %}</ul>
+{% if recipients %}<h3>Customers ({{ recipients|length }})</h3><div class="recurring-recipients">{% for customer in recipients %}<span title="{{ customer.email }}">{{ customer.name }}</span>{% endfor %}</div>{% endif %}
+</section>{% endif %}

@@ -95,6 +95,15 @@
     update();
   });
   const nav = document.getElementById('booking-nav');
+  document.querySelectorAll('[data-workshop-schedule]').forEach(section => {
+    const mode = section.querySelector('[name="schedule-mode"]');
+    const update = () => section.querySelectorAll('[data-schedule-field]').forEach(row => {
+      row.hidden = !mode.value || (row.dataset.scheduleField === 'repeat' && mode.value !== 'repeat');
+      row.querySelectorAll('input, select').forEach(input => { input.disabled = row.hidden; });
+    });
+    mode.addEventListener('change', update);
+    update();
+  });
   const toggle = document.getElementById('booking-nav-toggle');
   const locationFilter = document.getElementById('dashboard-location-filter');
   const reservationFilters = document.getElementById('reservation-filters');

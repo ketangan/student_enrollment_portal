@@ -46,7 +46,7 @@ def affected(profile, session):
 def revision(session, items):
     return digest({"session": {"start": str(session.starts_at), "end": str(session.ends_at),
         "room": session.room_id, "capacity": session.capacity, "published": session.is_published,
-        "canceled": str(session.canceled_at)}, "bookings": [{"id": item.pk, "state": item.state,
+        "canceled": str(session.canceled_at), "series": str(session.series_id)}, "bookings": [{"id": item.pk, "state": item.state,
         "start": str(item.starts_at), "end": str(item.ends_at), "room": item.room_id,
         "quantity": item.quantity, "net": item.net_received, "total": item.effective_total,
         "payment_pending": item.payment_pending, "refund_pending": item.refund_pending,
@@ -61,9 +61,14 @@ class SessionChangeForm(forms.Form):
         source = WorkshopSessionForm(instance=copy(session), offering=session.offering)
         self.instance = source.instance
         self.fields = source.fields
+        self.fields["starts_at"].label = "Date and time"
+        self.fields["room"].widget = forms.HiddenInput()
         self.initial.update(source.initial)
         self._original_start, self._original_end = source._original_start, source._original_end
         self._original_duration = source._original_duration
+        self.fields["notify_customers"] = forms.ChoiceField(required=False,
+            choices=[("1", "Notify customers"), ("0", "Do not notify customers")], initial="1",
+            widget=forms.HiddenInput)
 
     def clean(self):
         values = clean_session_time(self, super().clean())
@@ -91,12 +96,13 @@ def build_form(user, profile, session, action, data=None):
 
 def preview_rows(items):
     return [{"name": item.workshop_request.purchaser_name, "phone": item.workshop_request.purchaser_phone,
+        "email": item.workshop_request.purchaser_email,
         "quantity": item.quantity,
         "paid": Decimal(item.net_received) / 100, "currency": item.order.currency.upper()} for item in items]
 
 
 @transaction.atomic
-def save(user, slug, pk, action, data, *, preview_only=False):
+def save(user, slug, pk, action, data, *, preview_only=False, detach_from_series=True):
     permission = "setup.edit" if action == "cancel" else "sessions.edit"
     profile, _ = require_location_access(user, slug, permission, capability="workshops")
     SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
@@ -162,7 +168,7 @@ def save(user, slug, pk, action, data, *, preview_only=False):
         from .session_notifications import delivery_enabled
         from .messaging import preview_enabled
         recipients = [i for i in items if i.state == "confirmed" or action == "cancel" and i.net_received > 0]
-        if action == "cancel" and not values.get("email_customers"):
+        if (action == "cancel" and not values.get("email_customers")) or (action == "edit" and values.get("notify_customers") == "0"):
             recipients = []
         email_count = sum(delivery_enabled(i) for i in recipients)
         form.data = form.data.copy()
@@ -187,7 +193,9 @@ def save(user, slug, pk, action, data, *, preview_only=False):
         # Notice signatures must match the UTC values read back by the mail worker.
         candidate.starts_at = candidate.starts_at.astimezone(datetime_timezone.utc)
         candidate.ends_at = candidate.ends_at.astimezone(datetime_timezone.utc)
-        candidate.save(update_fields=["starts_at", "ends_at", "room", "capacity"])
+        if detach_from_series:
+            candidate.series_id = None
+        candidate.save(update_fields=["starts_at", "ends_at", "room", "capacity", "series_id"])
         if time_changed:
             for item in items:
                 item.starts_at, item.ends_at, item.room = candidate.starts_at, candidate.ends_at, candidate.room
@@ -198,7 +206,7 @@ def save(user, slug, pk, action, data, *, preview_only=False):
                 reservations.ensure_capacity(item)
                 item.save(update_fields=["starts_at", "ends_at", "room"])
                 reservations._audit(user, item, "session_moved", before=before, session_change_key=str(key))
-                if item.state == "confirmed":
+                if item.state == "confirmed" and values.get("notify_customers") != "0":
                     from .session_notifications import capture
                     capture(item, "rescheduled", before, key)
     AdminAuditLog.objects.create(actor=user, action="change", model_label="scheduling.session", object_id=str(pk),

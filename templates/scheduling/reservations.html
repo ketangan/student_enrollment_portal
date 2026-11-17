@@ -1,5 +1,6 @@
-{% extends 'scheduling/base.html' %}{% load tz booking_navigation %}
+{% extends 'scheduling/base.html' %}{% load static tz booking_navigation %}
 {% block title %}Reservations{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'scheduling/calendar.css' %}?v=20261116-compact-prep">{% endblock %}
 {% block content %}
 <nav class="booking-quick-filters" aria-label="Reservation quick filters">
   <a class="quick-filter" href="{{ total_url }}"{% if not attention_only and not preparation_only and not balance_only %} aria-current="page"{% endif %}>All <span>{{ total_count }}</span></a>
@@ -16,8 +17,15 @@
     <div class="booking-search-row"><label class="sr-only" for="{{ filter_form.q.id_for_label }}">Customer or workshop</label>{{ filter_form.q }}<button type="submit" class="primary" aria-label="Apply reservation filters" title="Apply filters"><i data-lucide="search" aria-hidden="true"></i></button></div>
     {% include 'scheduling/show_completed_switch.html' %}
     {% if has_filters %}<a href="{% if attention_only %}{{ attention_url }}{% else %}{{ total_url }}{% endif %}">Clear filters</a>{% endif %}
+    {% if reservation_editor_enabled %}
+    <button type="button" class="primary calendar-new-button reservation-new-button" id="reservation-new" popovertarget="reservation-new-menu"><i data-lucide="plus" aria-hidden="true"></i> New <span class="calendar-new-divider"><i data-lucide="chevron-down" aria-hidden="true"></i></span></button>
+    <div id="reservation-new-menu" popover class="calendar-new-menu">
+      <button type="button" data-calendar-new="reservation"><i data-lucide="user-plus" aria-hidden="true"></i><strong>Reservation</strong></button>
+      {% if party_create_choices %}<button type="button" data-calendar-new="party"><i data-lucide="party-popper" aria-hidden="true"></i><strong>Party</strong></button>{% endif %}
+    </div>
+    {% elif party_packages_only and can_edit_sessions %}<a class="button primary reservation-new-button" href="{% url 'scheduling:staff_party_create' school_slug=business.slug %}">New party booking</a>{% endif %}
   </div>{{ filter_form.q.errors }}
-<div class="booking-list-toolbar"><p class="muted" role="status">{{ items.paginator.count }} reservation{{ items.paginator.count|pluralize }}{% if preparation_only %} to prepare{% endif %}</p>{% if party_packages_only and can_edit_sessions %}<a class="button primary" href="{% url 'scheduling:staff_party_create' school_slug=business.slug %}"><i data-lucide="plus" aria-hidden="true"></i> New party booking</a>{% endif %}</div>
+<div class="booking-list-toolbar"><p class="muted" role="status">{{ items.paginator.count }} reservation{{ items.paginator.count|pluralize }}{% if preparation_only %} to prepare{% endif %}</p></div>
 <div class="dash-card reservation-table">
 <div class="dash-table-scroll" role="region" aria-label="Reservations" tabindex="0">
   <table class="dash-table">
@@ -38,7 +46,7 @@
         <td>{% include 'scheduling/reservation_status.html' %}</td>
         <td><a class="prep-link" href="{% url 'scheduling:reservation_preparation' school_slug=business.slug public_id=item.public_id %}"><span class="sr-only">Workshop prep for {{ item.snapshot.name }}: </span>{% include 'scheduling/preparation_badge.html' %}</a></td>
         <td class="number reservation-payment-cell">{% if item.state == 'canceled' %}<strong class="muted">Canceled</strong><span class="reservation-cell-secondary">${{ item.total_amount|floatformat:2 }}</span>{% elif item.balance_amount %}<strong class="payment-due">${{ item.balance_amount|floatformat:2 }} due</strong><span class="reservation-cell-secondary">of ${{ item.total_amount|floatformat:2 }}</span>{% else %}<strong class="payment-paid">{% if item.effective_total %}Paid{% else %}No payment due{% endif %}</strong><span class="reservation-cell-secondary">${{ item.total_amount|floatformat:2 }}</span>{% endif %}</td>
-        <td><a class="dash-action-btn dash-action-btn--secondary" href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.public_id %}" aria-label="View {{ item.snapshot.name }}">View</a></td>
+        <td><a class="dash-action-btn dash-action-btn--secondary booking-row-icon" href="{% url 'scheduling:reservation_detail' school_slug=business.slug public_id=item.public_id %}" aria-label="View {{ item.snapshot.name }}" title="View reservation"><i data-lucide="eye" aria-hidden="true"></i></a></td>
       </tr>
     {% empty %}
       <tr><td colspan="8">{% if has_filters %}No reservations match these filters.{% elif attention_only %}No payments need follow-up.{% else %}No reservations yet.{% endif %}</td></tr>
@@ -48,6 +56,11 @@
 </div>
 </div>
 </form>
+{% if reservation_editor_enabled %}
+{% include 'scheduling/calendar_editor_dialog.html' %}
+{{ reservation_create_choices|json_script:'reservation-create-choices' }}
+{{ party_create_choices|default_if_none:''|json_script:'party-create-choices' }}
+{% endif %}
 {% if items.has_other_pages %}
 <nav class="pagination" aria-label="Reservation pages">
   {% if items.has_previous %}<a href="?page={{ items.previous_page_number }}{% if filters %}&amp;{{ filters }}{% endif %}{% if attention_only %}&amp;attention=1{% endif %}">Previous</a>{% endif %}
@@ -56,3 +69,4 @@
 </nav>
 {% endif %}
 {% endblock %}
+{% block scripts %}<script defer src="{% static 'scheduling/booking-edit-fields.js' %}"></script><script defer src="{% static 'scheduling/party-inquiry.js' %}?v=20261116-party-entry"></script><script defer src="{% static 'scheduling/calendar-editor.js' %}?v=20261116-compact-prep"></script><script defer src="{% static 'scheduling/reservation-list.js' %}"></script>{% endblock %}

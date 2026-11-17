@@ -43,7 +43,8 @@ def return_url(request, profile):
 
 
 def offerings(profile):
-    return Offering.objects.filter(location__in=staff_locations(profile), visit_program__isnull=True).select_related("location")
+    from .setup import records
+    return records(profile, "workshops")
 
 
 def date_window(params):
@@ -191,7 +192,7 @@ def calendar_detail(profile, kind, pk):
             rows.append({"name": item.snapshot.get("name", "Guest"), "quantity": item.quantity,
                 "state": item.get_state_display(), "cancelable": item.state != "completed",
                 "editable": can_edit,
-                "edit_unavailable": unavailable_reason(item) if not can_edit and item.state in {"held", "review"} else "",
+                "edit_unavailable": unavailable_reason(item) if not can_edit else "",
                 "received": item.net_received, "total": item.effective_total,
                 "payment_status": "Paid" if item.net_received >= item.effective_total else "Part paid" if item.net_received > 0 else "Unpaid",
                 "currency": item.order.currency, "url": reverse("scheduling:reservation_detail", kwargs={"school_slug": profile.school.slug, "public_id": item.public_id})})

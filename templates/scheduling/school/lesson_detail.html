@@ -32,7 +32,7 @@
               {% if can_edit_sessions and lesson.state == 'scheduled' %}
                 {% if lesson.starts_at > now %}
                   <a class="dash-action-btn dash-action-btn--secondary" data-inline-edit href="{% url 'scheduling:lesson_change' school_slug=business.slug pk=lesson.pk %}" aria-label="Reschedule lesson on {{ lesson.starts_at|date:'M j' }}" title="Reschedule"><i data-lucide="calendar-clock" aria-hidden="true"></i></a>
-                  <a class="dash-action-btn dash-action-btn--secondary" data-inline-edit href="{% url 'scheduling:lesson_cancel' school_slug=business.slug pk=lesson.pk %}" aria-label="Cancel lesson on {{ lesson.starts_at|date:'M j' }}" title="Cancel booking"><i data-lucide="calendar-x" aria-hidden="true"></i></a>
+                  <a class="dash-action-btn dash-action-btn--secondary" data-inline-edit href="{% url 'scheduling:lesson_cancel' school_slug=business.slug pk=lesson.pk %}" aria-label="Cancel lesson on {{ lesson.starts_at|date:'M j' }}" title="Cancel booking"><i data-lucide="trash-2" aria-hidden="true"></i></a>
                 {% elif attendance_enabled and lesson.ends_at <= now %}
                   <a class="dash-action-btn dash-action-btn--secondary" data-inline-edit href="{% url 'scheduling:lesson_attendance' school_slug=business.slug pk=lesson.pk %}" aria-label="Record attendance" title="Record attendance"><i data-lucide="user-check" aria-hidden="true"></i></a>
                 {% endif %}

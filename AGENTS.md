@@ -61,8 +61,9 @@ These are the project owner's standing requirements for all work in this reposit
 
 - At the start of each new change request, check the preceding background full-suite
   run and address any failures before proceeding with the new implementation.
-- Complete targeted tests and relevant manual UI checks for each change, then start
-  the full suite as a detached background run without waiting for it in that turn.
+- Complete targeted tests and relevant manual UI checks for each iterative change.
+  Do not start a full regression after every change; run the full suite for an
+  agreed release batch before pushing or promoting it.
 - Keep a durable log, completion/exit status, and code revision plus working-tree
   fingerprint for each run. Report full-suite verification as pending until checked;
   never attribute an earlier passing run to newer or concurrently modified code.

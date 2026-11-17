@@ -1,0 +1,2 @@
+<label class="session-notify">{% if notification_field %}{{ notification_field }}{% else %}<input type="checkbox" data-notify-customers{% if form.notify_customers.value != '0' %} checked{% endif %}>{% endif %}Notify customers</label>
+{% if notification_field %}{{ notification_field.errors }}{% endif %}

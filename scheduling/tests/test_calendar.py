@@ -43,6 +43,37 @@ def enable(s):
     s.profile.save(update_fields=["calendar_enabled"])
 
 
+def test_disabled_camps_hide_setup_calendar_and_public_entries_without_deleting(stock):
+    from scheduling.models import Camp
+    from scheduling.setup import records
+    enable(stock)
+    camp = Camp.objects.create(offering=stock.offering, name="Optional camp", price=10, deposit=0)
+    camp.sessions.add(stock.session)
+    assert records(stock.profile, "workshops").filter(pk=stock.offering.pk).exists()
+    stock.profile.capabilities.remove("camps")
+    stock.profile.save(update_fields=["capabilities"])
+    assert not records(stock.profile, "workshops").filter(pk=stock.offering.pk).exists()
+    assert not records(stock.profile, "sessions").filter(pk=stock.session.pk).exists()
+    assert not calendar_events(stock.profile, params(stock))
+    with pytest.raises(Http404):
+        calendar_detail(stock.profile, "session", stock.session.pk)
+    page = stock.client.get(url(stock, "workspace"), {"view": "calendar"})
+    assert b'class="camp"' not in page.content
+    assert Camp.objects.filter(pk=camp.pk).exists()
+    stock.profile.capabilities.append("camps")
+    stock.profile.save(update_fields=["capabilities"])
+    assert calendar_events(stock.profile, params(stock))
+
+
+def test_standalone_session_edit_uses_white_surface_only_outside_dialog(stock):
+    enable(stock)
+    path = url(stock, "session_edit", pk=stock.session.pk)
+    assert b'class="setup-editor-surface session-editor-surface"' in stock.client.get(path).content
+    assert b'class="setup-editor-surface session-editor-surface"' not in stock.client.get(path, HTTP_X_CALENDAR_EDITOR="1").content
+    new_path = url(stock, "session_new", offering_pk=stock.offering.pk)
+    assert b'class="setup-editor-surface session-editor-surface"' in stock.client.get(new_path).content
+
+
 def test_disabled_and_authorized_calendar(stock):
     s=stock
     path=url(s,"calendar_events")
@@ -52,7 +83,12 @@ def test_disabled_and_authorized_calendar(stock):
     response=s.client.get(path,params(s))
     assert response.status_code == 200
     assert response.json()["events"][0]["extendedProps"]["seats"] == 0
-    assert s.client.get(url(s,"workspace"),{"view":"calendar"}).status_code == 200
+    page = s.client.get(url(s,"workspace"),{"view":"calendar"})
+    assert page.status_code == 200
+    assert b'data-calendar-new="session"' in page.content
+    assert b'data-calendar-new="reservation"' in page.content
+    assert b'data-calendar-new="party"' not in page.content
+    assert "parties" not in page.context["calendar_config"]
     s.client.logout()
     assert s.client.get(path,params(s)).status_code == 302
 

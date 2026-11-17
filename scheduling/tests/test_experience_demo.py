@@ -316,7 +316,14 @@ def test_public_unpaid_endpoint_cannot_enable_reservation_intake(demo, browser):
 
 
 def test_camp_dates_cannot_be_booked_as_single_workshops(demo, browser):
-    session = Camp.objects.get(offering__location__profile=demo).sessions.first()
+    assert "camps" not in demo.capabilities
+    assert not Camp.objects.filter(offering__location__profile=demo).exists()
+    source = service.sessions(demo).first()
+    offering = Offering.objects.create(location=source.offering.location, name="Optional camp", is_published=True)
+    session = Session.objects.create(offering=offering, starts_at=source.starts_at,
+        ends_at=source.ends_at, capacity=8, is_published=True)
+    camp = Camp.objects.create(offering=offering, name="Optional camp", price=10, deposit=0)
+    camp.sessions.add(session)
     assert session.pk not in {row["id"] for row in service.session_rows(demo)}
     assert browser.get(url("choose", pk=session.pk)).status_code == 404
     catalog = requests.catalog_for(session.offering)
@@ -794,6 +801,27 @@ def test_seed_refuses_remote(local):
     config.settings.DEBUG = False
     with pytest.raises(CommandError, match="isolated"):
         call_command("seed_booking_experience_demo", SLUG, password="admin")
+
+
+def test_seed_requires_password_before_creating_data(local):
+    with pytest.raises(CommandError, match="password is required"):
+        call_command("seed_booking_experience_demo", SLUG)
+    assert not School.objects.filter(slug=SLUG).exists()
+
+
+def test_seed_optional_camps_are_idempotent_and_scoped(local, monkeypatch):
+    from scheduling.management.commands import seed_booking_experience_demo as command
+    values = config.configuration(SLUG)
+    values = {**values, "capabilities": [*values["capabilities"], "camps"]}
+    monkeypatch.setattr(command, "configuration", lambda slug: values)
+    call_command("seed_booking_experience_demo", SLUG, password="admin")
+    camp = Camp.objects.get(offering__location__profile__school__slug=SLUG)
+    dates = list(camp.sessions.order_by("starts_at").values_list("pk", "starts_at"))
+    assert len(dates) == 3
+    assert dates[1][1] - dates[0][1] == timedelta(days=1)
+    call_command("seed_booking_experience_demo", SLUG, password="admin")
+    assert Camp.objects.count() == 1
+    assert list(camp.sessions.order_by("starts_at").values_list("pk", "starts_at")) == dates
 
 
 @pytest.mark.parametrize("field,value", [("is_demo", False), ("stripe_customer_id", "real"), ("smtp_host", "real"), ("app_fee_stripe_secret_key", "real")])

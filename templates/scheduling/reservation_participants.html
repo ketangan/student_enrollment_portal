@@ -6,7 +6,7 @@
     <table class="dash-table"><thead><tr><th scope="col">Participant</th>{% for column in participant_table.columns %}<th scope="col">{{ column }}</th>{% endfor %}{% if selection_forms %}<th scope="col"><span class="sr-only">Actions</span></th>{% endif %}</tr></thead><tbody>
     {% for person in participant_table.rows %}
     <tr{% if person.pending_id %} id="participant-{{ person.pending_id }}"{% endif %}>
-      <th scope="row"><div class="dash-student-cell">{% if person.name_field %}<label class="sr-only" for="{{ person.name_field.id_for_label }}">Participant name</label>{{ person.name_field }}{{ person.name_field.errors }}{% else %}<strong>{{ person.name }}</strong>{% endif %}</div></th>
+      <th scope="row"><div class="dash-student-cell">{% include 'scheduling/reservation_prepared_checkbox.html' with person=person.preparation %}{% if person.name_field %}<label class="sr-only" for="{{ person.name_field.id_for_label }}">Participant name</label>{{ person.name_field }}{{ person.name_field.errors }}{% else %}<strong>{{ person.name }}</strong>{% endif %}</div></th>
       {% if person.cells %}{% for cell in person.cells %}<td>{% if cell.field %}<label class="sr-only" for="{{ cell.field.id_for_label }}">{{ cell.field.label }} for {{ person.name }}</label>{{ cell.field }}{{ cell.field.errors }}{% else %}{{ cell.value|default:"Not selected" }}{% endif %}</td>{% endfor %}
       {% else %}{% for value in person.values %}<td>{% if value %}{{ value }}{% else %}<span class="muted">Not selected</span>{% endif %}</td>{% endfor %}{% endif %}
       {% if selection_forms %}<td><div class="participant-actions">

@@ -24,9 +24,10 @@ SALT = "scheduling.staff-workshop.v1"
 
 def booking_available(profile, offering):
     from .capabilities import has_capability
+    # Staff intake collects participant choices after reserving seats; public
+    # request and choose-at-studio settings must not disable that workflow.
     return bool(profile.native_reservations_enabled and has_capability(profile, "reservations")
-        and offering.accepts_requests and offering.is_published
-        and offering.allow_deferred_selections and offering.inventory_catalog_id
+        and offering.is_published and offering.inventory_catalog_id
         and offering.price_per_participant is not None)
 
 
@@ -61,11 +62,17 @@ def session_label(session, timezone_name):
 
 def check_room(session, *, exclude=None):
     """Draft sessions may be staff-booked, but may not bypass room conflicts."""
+    window = {"starts_at__lt": session.ends_at, "ends_at__gt": session.starts_at}
+    overlaps = Session.objects.filter(offering_id=session.offering_id, is_published=True,
+        canceled_at__isnull=True, **window).exclude(pk=session.pk)
+    if session.room_id:
+        overlaps = overlaps.filter(room__isnull=True)
+    if overlaps.exists():
+        raise ValidationError("This workshop already has a session at that time without a separate room. Choose another time.")
     if not session.room_id:
         return
     from .lessons import validate_lesson_room
     validate_lesson_room(session.room_id, session.starts_at, session.ends_at)
-    window = {"starts_at__lt": session.ends_at, "ends_at__gt": session.starts_at}
     claims = reservations.active_claims().exclude(pk=exclude)
     room_claims = claims.filter(room_id=session.room_id, **window)
     occurrences = ReservationOccurrence.objects.filter(reservation__in=claims, room_id=session.room_id, **window)

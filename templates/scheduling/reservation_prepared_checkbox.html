@@ -1,0 +1,4 @@
+{% if person %}<form method="post" class="participant-preparation" data-preparation-section="{% if item.party_request_id %}guests{% endif %}" action="{% url 'scheduling:studio_preparation_update' school_slug=business.slug public_id=item.public_id %}">{% csrf_token %}
+<input type="hidden" name="return_to" value="reservation"><input type="hidden" name="edit_revision" value="{{ preparation_form.edit_revision.value }}"><input type="hidden" name="participant" value="{{ person.key }}"><input type="hidden" name="action" value="{% if person.prepared %}unready{% else %}ready{% endif %}">
+{% include 'scheduling/prepared_checkbox.html' with writable=participant_preparation_writable %}
+</form>{% endif %}

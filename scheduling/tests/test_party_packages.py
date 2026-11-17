@@ -573,6 +573,7 @@ def test_inline_editor_alignment_labels_and_duration(client, package, booking_me
     assert response.context["package_form"]["duration_minutes"].value() == 90
     assert b'Price (USD)' in response.content and b'Non-participating guests' not in response.content
     assert b'Party settings' not in response.content
+    assert b'Customers and staff book published packages' not in response.content
     assert b'Enter 0 to collect full payment' not in response.content
     assert b'form="package-edit"' in response.content and b'editing-package' in response.content
 

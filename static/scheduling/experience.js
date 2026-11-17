@@ -60,8 +60,8 @@
       else link.removeAttribute('href');
       $('#availability').textContent = selected ? `${selected.places} places available. Times are local to this studio.` : (days.length ? 'Select a start time.' : 'No upcoming sessions available.');
       const price = rows[0]?.price_cents;
-      $('#workshop-unit-price').textContent = price == null ? '' : `${dollars(price)} / participant`;
-      $('#price-total').textContent = price == null ? '' : `${places} participant${places === 1 ? '' : 's'}: ${dollars(places * price)}`;
+      $('#workshop-unit-price').textContent = price == null ? '' : `${dollars(price)} per person + tax`;
+      $('#price-total').textContent = price == null ? '' : `Subtotal (${places} participant${places === 1 ? '' : 's'}): ${dollars(places * price)}`;
       $('#workshop-name').textContent = rows[0]?.workshop || 'Plushie-making workshop';
       $('#brand-location').textContent = $('#summary-location').textContent = locations.get(Number(studio.value)) || 'Choose a studio';
       $('#summary-session').textContent = selected ? `${dateLabel(day, {weekday: 'short', month: 'short', day: 'numeric'})} at ${selected.time}` : 'Choose your date and time';
@@ -161,7 +161,7 @@
       }));
       $('#add-person').disabled = all.length >= config.limit;
       $('.group-color').hidden = !visual || all.every(deferred);
-      $('#selection-total').textContent = `${all.length} participant${all.length === 1 ? '' : 's'} / ${dollars(all.length*config.price)}`;
+      $('#selection-total').textContent = `Subtotal (${all.length} participant${all.length === 1 ? '' : 's'}): ${dollars(all.length*config.price)} + tax`;
       refresh();
       icons();
     };

@@ -16,7 +16,7 @@
 {% endblock %}
 {% block content %}
 <section class="workshop-materials workshop-payment-summary" aria-label="Workshop payments">
-  <dl><dt>Price per participant</dt><dd>{% if offering.price_per_participant != None %}${{ offering.price_per_participant|floatformat:2 }}{% else %}Not set{% endif %}</dd></dl>
+  <dl><dt>Price per participant</dt><dd>{% if offering.price_per_participant != None %}${{ offering.price_per_participant|floatformat:2 }} + tax{% else %}Not set{% endif %}</dd></dl>
   {% if simplified_school %}<dl><dt>Registration requests</dt><dd>{% if offering.accepts_requests %}Enabled{% else %}Closed{% endif %}</dd></dl>{% else %}<dl><dt>Payment at booking</dt><dd>{% if offering.deposit_per_participant %}${{ offering.deposit_per_participant|floatformat:2 }} deposit per participant{% else %}Full payment{% endif %}</dd></dl>
   {% if offering.deposit_per_participant %}<dl><dt>Remaining balance</dt><dd>Due on the workshop day</dd></dl>{% endif %}{% endif %}
 </section>
@@ -38,7 +38,7 @@
 {% endif %}
 {% endif %}
 <section class="workshop-sessions" aria-labelledby="sessions-heading">
-  <div class="section-heading"><h2 id="sessions-heading">Sessions</h2>{% if can_edit_sessions %}<a class="button primary" href="?edit_session=new#session-new"><i data-lucide="plus" aria-hidden="true"></i> Add session</a>{% endif %}</div>
+  <div class="section-heading"><h2 id="sessions-heading">Sessions</h2>{% if can_edit_sessions %}<div class="actions"><a class="button primary" href="{% if profile.native_reservations_enabled and features.reservations %}{% url 'scheduling:session_new' school_slug=business.slug offering_pk=offering.pk %}{% else %}?edit_session=new#session-new{% endif %}"><i data-lucide="plus" aria-hidden="true"></i> New session</a></div>{% endif %}</div>
   {% timezone offering.location.timezone_name %}
   {% if adding_session %}<div class="session-new-editor" id="session-new">{% include 'scheduling/session_inline_form.html' %}</div>{% endif %}
   <div class="dash-card workshop-session-table"><div class="dash-table-scroll" role="region" aria-label="Workshop sessions" tabindex="0">
@@ -53,7 +53,7 @@
         <td>{{ session.room.name|default:"Unassigned" }}</td><td class="number">{{ session.capacity }}</td>
         <td><span class="status {% if not session.is_published %}draft{% endif %}">{% if session.is_published %}Published{% else %}Draft{% endif %}</span></td>
         <td>{% if can_edit_sessions %}<div class="session-actions">
-          <a class="dash-action-btn dash-action-btn--secondary" href="?edit_session={{ session.pk }}#session-{{ session.pk }}" aria-label="Edit session {{ session.pk }}" title="Edit session" aria-expanded="{% if editing_session.pk == session.pk %}true{% else %}false{% endif %}"><i data-lucide="pencil" aria-hidden="true"></i><span class="sr-only">Edit session</span></a>
+          <a class="dash-action-btn dash-action-btn--secondary" href="{% if profile.native_reservations_enabled and features.reservations %}{% url 'scheduling:session_edit' school_slug=business.slug pk=session.pk %}{% else %}?edit_session={{ session.pk }}#session-{{ session.pk }}{% endif %}" aria-label="Edit session {{ session.pk }}" title="Edit session"><i data-lucide="pencil" aria-hidden="true"></i><span class="sr-only">Edit session</span></a>
           <form method="post" action="{% url 'scheduling:session_publish' school_slug=business.slug pk=session.pk %}">{% csrf_token %}<button class="dash-action-btn dash-action-btn--secondary" name="action" value="{% if session.is_published %}unpublish{% else %}publish{% endif %}" title="{% if session.is_published %}Unpublish session{% else %}Publish session{% endif %}" aria-label="{% if session.is_published %}Unpublish{% else %}Publish{% endif %} session {{ session.pk }}"><i data-lucide="{% if session.is_published %}eye-off{% else %}eye{% endif %}" aria-hidden="true"></i><span class="sr-only">{% if session.is_published %}Unpublish{% else %}Publish{% endif %} session</span></button></form>
         </div>{% endif %}</td>
       </tr>

@@ -2,6 +2,397 @@
 
 Last hosted revision/configuration check: November 14, 2026.
 
+## November 16 Release to Main/Demo
+
+- Owner approved this accumulated calendar, session/recurring editor, reservation,
+  party-form, Studio Prep, pricing-display and shared-control batch for main/demo.
+  Production promotion is NOT approved. Historical "Local, Unpushed" headings
+  below describe iteration checkpoints, superseded by this release entry.
+- Full regression `pontora-regression-20261116-save-label-IIKXFW` PASSED:
+  6,288 application tests (3 skipped), 26 migration tests and 207 JavaScript tests.
+  Migration drift, 97.90% combined Python coverage, every-module coverage gates
+  and JavaScript coverage gates passed. Duration 23m24s; source unchanged.
+- Before release, current source matched tested base `fdb687e047fe7395f7efd0ee404e54fa9adb7db5`
+  and working-tree fingerprint
+  `db76a7b3e07543f8cb2fb809f66bcfa91da36602aa27a16ef4d1158c8b37c06d`.
+  Only this release-status documentation was then updated. Whitespace checks pass.
+- Includes additive nullable `Session.series_id` migration 0061. Existing standalone
+  sessions remain standalone. Shared behavior uses capabilities/settings, not
+  customer-name branches; existing school defaults remain unchanged.
+- Hosted Plushie theme/camp configuration must be verified after deployment;
+  the local scoped settings are not proof of hosted activation. No customer data
+  or local database is included in the push. Unrelated agent worktree excluded.
+- GitHub CI and automatic demo web/maintenance deployment are pending for the
+  resulting commit. Hosted smoke tests and physical Android checks remain pending.
+  Production web and maintenance remain manual and unchanged.
+
+## November 16 Regression Corrections (Local, Unpushed)
+
+- Resolved all seven failures from the setup-spacing regression: updated obsolete
+  preparation disclosure/summary assertions and incomplete shared-template context;
+  recurring tests now exercise live preflight and disabled-save conflict responses.
+- Disabled participant controls now describe readiness rather than advertise a
+  preparation action. Added viewer/completed-state checks for disabled controls
+  and rejected direct writes. Stale series reviews still cannot write or email.
+- All 133 tests in the seven affected modules passed. No scheduling/payment
+  service changes. Fresh full regression logs and revision/fingerprint status:
+  `/private/tmp/pontora-regression-20261116-corrections/`. Full result pending.
+
+## November 16 Setup Spacing (Local, Unpushed)
+
+- Removed the general Parties instruction banner and reduced header spacing;
+  retained package-specific publication warnings.
+- Workshop add/edit surfaces now match the 736px session editor width.
+- Recurring-session Starts and Duration use equal-width grid columns.
+- Verification: 87 targeted party-package and recurring-editor tests passed.
+  Chrome desktop Parties and workshop checks completed; workshop responsive
+  widths checked at 768x1024, 1024x768 and 390x844 with no page overflow.
+  Recurring field sizing was reviewed in CSS; available local sample sessions
+  were standalone, so that specific visual check remains pending. Physical
+  Android verification and a full-suite check of this working tree are pending.
+
+## November 16 Compact Prep and Reservation Entry (Local, Unpushed)
+
+- Replaced calendar-cancel icons with trash icons in calendar session/customer
+  actions and lesson cancellation controls. Accessible cancellation labels and
+  confirmation/refund behavior are unchanged; these are not hard-delete actions.
+- Studio Prep contact headers are compact, with staff alongside contact details
+  when space permits. Party booking and party-package setup forms have tighter
+  spacing while preserving touch targets and responsive field grouping.
+- Workshop Prep now contains a collapsed reservation-details and participants
+  disclosure instead of the aggregate selections summary. Both tabs share one
+  live editor; moving it between tabs avoids duplicate form IDs and preserves
+  unsaved fields. Inline saves refresh the preparation content without losing it.
+- Calendar and Reservations New > Reservation load the first permitted workshop
+  immediately. The top workshop selector reloads the full form for another
+  workshop using the existing protected endpoints and location scope.
+- Verification: 261 targeted backend tests and 45 JavaScript tests passed;
+  `git diff --check` passed. Includes the corrected reservation-list test that
+  failed in the prior background regression. No new full suite or push.
+- Manual Chrome checks: both reservation entry points, changing workshop/session
+  lists, single-copy tab switching, participant inline Save from Prep, compact
+  party/package forms, staff editing and trash icons. Desktop plus 768x1024,
+  1024x768 and 390x844 responsive checks; physical Android/virtual-keyboard
+  verification remains pending.
+
+## November 16 Recurring Session Editor (Local, Unpushed)
+
+- Calendar and Setup reuse one recurring-session editor and the existing atomic
+  session-change service. Scope is one occurrence (detaches its series ID) or
+  this and following future occurrences with the same explicit series ID.
+  Past, canceled, detached and unrelated sessions are excluded.
+- Start time, duration and capacity refresh the affected-session list before Save.
+  All detected conflicts are listed, with a count; Save is disabled and the server
+  rejects the whole batch. No inline conflict resolution or message-preview UI.
+  Signed reviews, stale-booking checks, authorization and retry protection remain.
+- Existing reservation-update emails and payment evidence are retained. The
+  notification toggle defaults on. Notifications still use the existing
+  per-reservation outbox, not a new combined multi-date email format.
+- Verification: 100 targeted backend tests across recurring editor, workshop
+  schedules, session changes and calendar actions; 16 targeted JavaScript tests
+  passed. `git diff --check` passed. No full regression or push in this iteration.
+- Chrome manually checked Setup and Calendar, live scope switching, conflict
+  blocking/recovery and notification-toggle revalidation. Desktop, 768x1024,
+  1024x768 and 390x844 responsive layouts inspected; physical Android testing
+  remains pending. Temporary local conflict fixture removed; no existing
+  customer reservations changed during browser verification.
+- Manual check: open a recurring session from Calendar > Edit or Setup >
+  Workshop > session edit. Select one/following; change time, duration or seats.
+  Verify the impact list updates without saving. Reduce seats below bookings or
+  overlap an occupied room: Save must stay disabled. Resolve separately, reopen,
+  and save. For one occurrence, reopen it and confirm it is now standalone.
+
+## November 16 Calendar Editors (Local, Unpushed)
+
+- Empty-calendar-slot menu now offers Session only; toolbar New retains Session
+  and Reservation. Existing session Add booking remains unchanged. New Session
+  and workshop Setup forms have a shared white editor surface. Desktop Chrome
+  inspected all three changes; 22 calendar JavaScript and 91 setup/schedule tests
+  passed. Physical tablet checks remain pending.
+- Full regression requested after this batch, detached with bounded caffeinate,
+  revision/fingerprint, individual logs and exit status under
+  `/private/tmp/pontora-regression-20261116-final/`. Status is pending until
+  explicitly checked. Previous calendar-actions-final run exited -15 (interrupted),
+  not a passing release check. No push authorized by this iteration.
+- Reservation session choices now disable any destination with fewer available
+  seats than the entered group size, including changes to quantity and week.
+  Uses the existing capacity data excluding this reservation's current claim;
+  server-side capacity/concurrency checks are unchanged. Shared by Add/Edit
+  Reservation in calendar and standalone screens. 32 booking-edit backend tests
+  and 3 picker JavaScript tests passed. Chrome verified 3 seats disables the
+  2-open session, reducing to 2 enables it, and restoring 3 disables it again.
+  No booking saved during verification. No full suite or push.
+- Live session impact review: editing date/time, duration or capacity now refreshes
+  the affected-booking summary through the existing read-only preflight. Its signed
+  review token permits one explicit Save; the server still checks the booking
+  revision, conflicts and exact submitted values. No automatic writes or emails.
+  Removed the "Not saved yet" message. Calendar and standalone session editors
+  reuse the same summary partial and preflight script; cancellation is unchanged.
+  42 targeted session backend tests and 12 JavaScript tests passed, including
+  preview-to-save, retries, altered values, stale responses and conflict handling.
+  Desktop Chrome verified duration 100 -> 110 updates 11:55 AM -> 12:05 PM live,
+  with customer emails and no Save click. Canceled browser check without changing
+  the booking. This revision's tablet/phone checks remain pending; no push.
+- Session review: replaced the shaded contact table with the shared compact
+  customer list (name, email, seats); phone numbers removed from this form.
+  Availability checks now ignore identical input/change events so blur cannot
+  restart validation during a Save click. Review explicitly says not saved yet.
+  Expired login/permission responses are distinguished from uncertain saves.
+  41 session-change backend tests and 11 editor/preflight JavaScript tests passed.
+  Desktop Chrome review and successful unchanged-details save verified locally;
+  no customer times or payments changed. Intermittent uncertain-save report was
+  not reproduced; do not claim that issue fully resolved. Responsive/physical
+  device checks for this specific revision remain pending. No push/full suite.
+- Pricing presentation: customer workshop selection and setup prices explicitly
+  say plus tax; shared staff Add/Edit Reservation summaries show per-person base
+  price, subtotal, tax, adjustments/net payments when applicable, and actual balance.
+  Calendar dialogs and standalone forms use the same summary. Reservation detail
+  and customer confirmation show saved subtotal/tax; existing statements and
+  checkout already separate them. Legacy quotes without reliable tax evidence
+  retain their recorded totals, never today's tax. No price or ledger writes.
+  Chrome desktop, phone 390x844, tablet 768x1024/1024x768 checked; seat controls
+  update the quote and re-enable Save. Physical Android/keyboard testing pending.
+  Targeted staff-workshop, booking-edit, booking-document, deposit and customer
+  experience tests passed, plus 26 JavaScript tests. Explicit regressions cover
+  saved tax after default-price changes, partial payments, and legacy quotes.
+  Full release regression is not claimed for this unpushed iteration.
+- Calendar creation menu now offers Session and Reservation only, for both New
+  and empty-slot clicks. Removed the unused party-creation configuration query;
+  existing party calendar events and creation from Reservations are unchanged.
+  Checked Jasmine's November 11/14 emails: party changes were requested within
+  reservation details, not explicitly party creation from the calendar.
+- Reservation Save timing fix: ignore the duplicate change event fired when an
+  already-quoted seat input loses focus. It previously restarted pricing and
+  disabled Save during the click; changed quantities and failed-quote retries
+  still calculate normally. Added regression assertion for input/quote/blur.
+  Phone and seats now share the customer grid row (stacked on phones).
+  Browser verified a four-seat save, persisted roster entry and $288.60 amount;
+  canceled both temporary verification bookings afterward to restore capacity.
+  Checked desktop and 390x844/768x1024/1024x768 Chrome emulation. Physical-device
+  checks pending. Targeted reservation backend and 14 JavaScript tests run; no
+  full suite or push. Proof: `reservation-phone-seats.jpg` in artifacts.
+
+- Staff reservation availability no longer depends on public request intake or
+  choose-designs-at-studio settings. Those settings remain unchanged; staff use
+  the existing reserve-now/complete-participants workflow. Publication, native
+  reservation capability, catalog, price, capacity and permissions remain gated.
+  Reproduced Cozy Creations' missing actions with both public settings disabled;
+  verified both Add booking buttons return and intake loads four available seats,
+  the $72.15 tax-inclusive quote, and an enabled Save action. No local booking
+  saved. 52 targeted staff-booking/calendar tests passed, including new coverage
+  for all disabled-public-setting combinations and existing capacity concurrency,
+  retry, role and past-session protections. No full suite or push.
+  Proof: `cozy-booking-access.jpg` in the verification artifact folder.
+
+- New session follow-up: date/time, Duration and Seats share the Edit session's
+  three-column proportions; mobile wraps date/time above the numeric inputs.
+  Calendar and Setup use the same field order and compact native Seats input.
+  Publish and Save as draft now include the requested explanatory text in an
+  accessible radio group. 21 targeted calendar tests and four session-control
+  JavaScript tests passed. Checked Setup desktop and Calendar desktop, 390x844,
+  768x1024 and 1024x768 Chrome emulation; changed seats and selected draft without
+  saving test data. Physical Android checks pending. Not pushed; no full suite.
+  Proof: `new-session-three-fields.jpg` in the verification artifact folder.
+
+- New session now shares the combined date/time picker with Edit session, with
+  Duration on the same row in both Calendar and Setup. Removed conflicting
+  calendar-only grid rules. Recurrence still uses the existing schedule writer;
+  submitted wall times are interpreted in the workshop location's timezone.
+  Previously open split-date forms remain accepted. Audited other split controls:
+  recurring date ranges, teacher availability, lesson series/rescheduling and
+  make-up dates remain unchanged; party forms already use combined date/time.
+- Reservation participant edits now explicitly say when a price review has not
+  been saved and label its final action Confirm changes. The session picker opens
+  on the currently selected booking's week instead of concealing its selection.
+  Verified review/confirm/retry behavior for standalone and calendar requests;
+  the user's local reservation was not changed during inspection.
+- Verification: 81 targeted backend tests and 22 targeted JavaScript tests passed;
+  diff whitespace check clean. Manually checked shared creation controls from
+  Setup and Calendar, picker open/close and recurrence controls in Chrome desktop,
+  390x844 phone, 768x1024 and 1024x768 tablet emulation. Physical Android/keyboard
+  checks remain pending. No full-suite run, push or deployment for this iteration.
+  Proof: `new-session-compact.jpg` in the verification artifact folder.
+
+- Picker sizing correction: removed the session-only in-flow expansion. Dialog
+  pickers reuse the standard 320px dropdown, attached inside the modal top layer
+  with viewport-bounded positioning. Editor field sizing no longer stretches the
+  picker inputs. 17 targeted picker/editor JavaScript tests passed; visually checked
+  desktop, phone and tablet portrait, including the reachable Close control.
+  No full regression or push. Proof: `session-standard-picker.jpg`.
+
+- Compact single-row session controls supersede the split Date/Starts layout:
+  reuse the existing date/time picker with small Duration and Capacity number
+  inputs. Calendar and Setup share the three-column row; phones place the date/time
+  above the two numeric fields. Removed the redundant split-date implementation.
+  Existing picker now supports idempotent mounting for loaded session forms; its
+  popup stays in the dialog flow so time/footer controls remain reachable.
+  Verified date/time changes trigger availability checks before Save is enabled.
+  41 targeted session tests and 22 related JavaScript tests passed; desktop,
+  768x1024/1024x768 and 390x844 Chrome emulation checked. Physical-device checks
+  pending. No full regression, data changes, push or deployment.
+  Local proof: `session-single-row.jpg` in the verification artifact folder.
+
+- Session edit alignment/customer follow-up: shared field grid now aligns Starts
+  and Duration at matching 44px heights with tighter spacing. Customer rows show
+  name, email, optional phone and a right-aligned seat count. Uses the existing
+  authorized, preloaded customer records; no extra queries or notification changes.
+  Calendar-specific duplicate layout rules removed; Setup shares the same layout.
+  Targeted verification: 41 session-change tests and four field/preflight JavaScript
+  tests passed. Customer rendering tests cover both standalone and dialog requests,
+  including escaping. Chrome desktop, tablet 768x1024/1024x768 and phone 390x844
+  visually checked; physical Android remains pending. No full regression or push.
+  Local proof: `session-editor-contacts.jpg` in the verification artifact folder.
+
+- Compact typography follow-up: shared booking-admin/editor text is 13px, calendar
+  headings and metrics reduced, and reservation-row View/Edit/Cancel are icon-only
+  with accessible names/tooltips and 44x44 targets. Reservations list View uses the
+  same icon sizing. Cancellation remains cancellation, not permanent deletion.
+  Confirmed the workshop default is $65 BEFORE tax: the configured 11% produces
+  $72.15 per seat and $216.45 for three. No prices or existing bookings changed.
+  Setup and Reservations reuse the shared editors. Manual Setup verification caught
+  and fixed an existing Flatpickr alternate field left behind by the split date/time
+  editor; its picker is now destroyed before replacing the control.
+  Targeted checks: 181 backend tests and 46 JavaScript tests passed; focused coverage
+  is 97.14% for views_booking_edits and 94.12% for views_session_changes. These address
+  the preceding full run's two module-floor failures (application tests and overall
+  coverage had passed). No full run started for this iteration per owner instruction;
+  the final batch still requires full-suite verification before release.
+  Chrome desktop, 768x1024 and 1024x768 tablet emulation, and 390x844 phone reviewed;
+  row actions and reservation edit exercised, standalone Setup/Reservations editors
+  checked. Physical Android, virtual keyboard, and printing remain unverified.
+  Screenshot: `compact-booking-actions.jpg` in the local verification artifact folder.
+  No push or deployment.
+
+- Follow-up correction supersedes the overflow menus below: no three-dot menus in
+  the session popup. Print is a direct header icon; reservation View/Edit/Cancel
+  are visible buttons and session cancellation is a direct footer action.
+  The owner confirmed past sessions must remain closed to new reservations.
+  Their booking controls now remain visible, disabled, with a started/canceled
+  explanation. Noneditable reservations retain disabled Edit and the domain reason.
+  Verified the exact November 14 session (four Edit controls, zero menus), plus
+  active Edit on an upcoming booking. Chrome desktop, phone 390x844, tablets
+  768x1024 and 1024x768 checked; physical Android remains unverified.
+  64 backend and 22 calendar JavaScript tests passed. Prior full regression stopped
+  deliberately with -15 before editing; replacement full run is pending under
+  `calendar-direct-actions-20261116/status.json`. No push or deployment.
+- Latest owner-requested layout restores the wide blue Add booking beside Edit,
+  and the dashed available-seats action beneath the roster. Both reuse the same
+  reservation editor; full-session and permission guards remain. Print is now a
+  direct header icon; the session menu retains cancellation only. Payment reminders
+  remain excluded. Chrome checks: desktop, 390x844, 768x1024, 1024x768; both booking
+  controls exercised. 29 targeted JavaScript tests passed. Actual-device printing
+  and Android remain unverified. Prior full run deliberately stopped with -15
+  before these edits; replacement: `calendar-actions-final-20261116/status.json`.
+- New menu separates Session, Reservation and Party. Empty timed-cell selection
+  uses the same choices and temporarily highlights the selected slot. This
+  supersedes the earlier restriction on calendar recurring-session creation.
+- Setup and Calendar use the same single/repeating session editor. Setup locks
+  the workshop; Calendar permits selecting an authorized workshop. The existing
+  schedule writer remains authoritative. New session creation uses a signed,
+  actor/workshop-bound retry token for one-step creation; conflict checks and
+  transaction locks remain in the shared writer.
+- Single-session edits have date/time fields and default-on customer email
+  notification. Read-only availability checks disable Save until resolved. The
+  transactional save repeats validation. Same-workshop overlaps with an unassigned
+  room are also rejected; distinct explicit rooms remain independent.
+- Reservation intake/edit uses weekly session choices and server-calculated
+  balances. No card collection, customer search or SMS consent was added.
+  Existing payment evidence, confirmation delivery and booking writers are reused.
+- Compact session roster has per-customer action menus and the available-seat
+  reservation action below the roster. Party creation reuses the existing form.
+- Focused verification: the final repeat passed all 143 Python tests after title
+  and date-input hardening. 33 JavaScript tests passed, including
+  availability failures/stale responses and unresolved balance blocking.
+- Chrome manual checks: desktop, 768x1024 portrait, 1024x768 landscape and
+  390x844 phone. Verified creation choices, party entry, roster, conflict error,
+  disabled Save and re-enabling after correction. No live email/payment was sent.
+  Physical Android and virtual-keyboard behavior remain unverified.
+- The first `calendar-editors-20261116` run failed five application tests. Updated
+  shared-form expectations and the Setup return URL; the affected regression
+  files now pass. That earlier run does not verify the current source.
+- Follow-up browser review reproduced and fixed the empty-cell popover being
+  dismissed by the opening click and action-menu labels wrapping vertically.
+  Added seat steppers and notification switch; moved print/cancel into session
+  actions and payment-review information into Payments instead of a third card.
+  Workshop payment reminders are explicitly excluded by the owner. Existing party
+  payment requests are unchanged.
+- Chrome follow-up: desktop 1470x741, portrait 768x1024, landscape 1024x768,
+  phone 390x844. Checked open action menus, seat/balance recalculation, conflicting
+  session blocking and correction, repeat fields, and one-click local draft
+  creation returning to the calendar. A phone footer gap was found and corrected.
+  Synthetic draft added to local workshop 32 on January 25, 2027; no hosted data,
+  real payment or external email was used. Physical Android/keyboard is pending.
+- Fresh full regression is tracked in `calendar-mock-review-20261116/status.json`
+  with revision/fingerprint and sequential database stages. It remains pending
+  until checked. No push or production promotion. Recurring-edit redesign remains
+  intentionally outside this batch, awaiting the next design.
+
+## November 15 Workshop Schedule Creation (Local, Unpushed)
+
+- Supersedes the calendar scope UI described in the two entries below. Add workshop
+  now includes optional One session / Repeating sessions scheduling. The first date
+  determines the weekday; repeat every N weeks (1-26) through an explicit end date,
+  within the existing 180-day creation window. No daily/monthly/perpetual scheduler.
+- Workshop and initial sessions save atomically using the existing recurrence and
+  availability validation. Existing workshop publication remains a deliberate step.
+- Migration 0061 adds a nullable series UUID to sessions. No existing sessions are
+  automatically grouped. Recurring creation in Setup assigns one UUID to its batch.
+- Calendar edit/cancel reuses This session / This and following sessions for linked
+  sessions only. No date/day/current-time filter reconstruction and no recurrence
+  creation link in calendar intake. Booking creation and single cancellation remain.
+- Signed review binds the seed and series identity; stale membership/booking/payment
+  evidence cannot partially apply changes. Existing booking, refund and notification
+  services remain authoritative. Cancel retries are safe after the seed is canceled.
+- 144 targeted Python tests passed, including additive migration preservation,
+  invalid parent forms, atomic conflicts, permission checks, refunds, unchanged
+  prices and automatic rescheduling outbox messages. 14 admin JavaScript tests passed.
+- Chrome manual checks: desktop 1470x797, phone 390x844, tablet 768x1024 and 1024x768.
+  Created local draft workshop 32, sessions Jan 4/11/18 2027 at 10 AM; moved only
+  Jan 11/18 to 11 AM from the calendar review. Verified return to calendar, first
+  session unchanged, mode-dependent fields, 44px controls and no sideways overflow.
+  Physical Android, virtual keyboard and real inbox delivery remain unverified.
+- Previous shared-selects run passed application tests; migration stage intentionally
+  stopped with exit -15 before implementation. Replacement full suite is pending in
+  artifact `workshop-series-20261115/status.json`. No push or production promotion.
+
+## November 15 Shared Form Alignment (Local, Unpushed)
+
+- One shared select stylesheet loaded by dashboard, booking, customer enrollment,
+  public experience and Django admin base styles; embedded lead forms and the
+  standalone demo also include it. Native single-select arrows are inset 12px,
+  with 36px text clearance. Multi-select/listbox behavior remains native, with a
+  forced-colors fallback. Enhanced admin Select2 arrow spacing is also normalized.
+- Fixed workshop checkbox height/alignment and full-width label layout. Asset
+  versions refreshed to prevent old cached styles masking these changes.
+- Add recurring sessions is on the saved workshop detail page next to Add session;
+  the existing successful Add workshop redirect already leads there.
+- 51 focused style-loading/calendar tests passed. Chrome manual checks covered
+  Add workshop controls at desktop, phone 390x844 and tablets 768x1024/1024x768,
+  including dropdown selection, checkbox label and the recurring Setup entry.
+  Not every application page or enhanced admin control was manually inspected.
+- Shared styling affects SBMC/enrollment visually; no workflow/data changes.
+  Full combined regression pending in `shared-selects-20261115/status.json`.
+
+## November 15 Calendar Scope Cleanup (Local, Unpushed)
+
+- Recurring creation now starts in Setup > workshop > Add recurring sessions,
+  reusing the existing form and service. Calendar intake no longer links to it.
+- Edit and cancellation dialogs reuse the existing segmented-control styling for
+  This session / Multiple sessions. Switching scope retains the selected session
+  and action; cancellation never links to editing or recurring creation.
+- No change to recurrence frequencies, selection rules, signed review, pricing,
+  refunds, notifications or school permissions. Setup entry is capability-gated;
+  existing enrollment/SBMC configurations retain their defaults.
+- Focused calendar/session/bulk tests: 81 passed. Chrome checked at desktop
+  1470x797, tablet 768x1024 and 1024x768, phone 390x844; scope targets are 44px.
+  No customer data changed during UI checks. Physical Android remains unverified.
+- Full regression in `calendar-scope-20261115/status.json` was intentionally
+  stopped for the follow-up shared-style request (exit -15, no reported assertion
+  failures). The combined replacement run is recorded above.
+  Do not attribute the preceding release's passing full run to this new change.
+- Prior release fdb687e passed GitHub CI 43686606628 and deployed successfully to
+  demo web and maintenance. Production was not promoted.
+
 ## November 14 Recurring Schedule Batch (Demo Release)
 
 - Re-read Jasmine's November 11 and 14 emails and the October 28 meeting recap.
@@ -809,3 +1200,137 @@ They are not a claim that the release candidate below is already deployed.
   No live payment activation, tenant migration, sample-data publication or new
   customer workflow enablement is part of this release. The combined enrollment
   demo's local database configuration is not automatically copied to hosting.
+## November 16: Session Surfaces and Participant Preparation (Unpushed)
+
+- New/Edit Session standalone pages use the same compact white form surface;
+  calendar dialogs reuse the existing forms without nesting a second surface.
+- Workshop and party reservation detail rows reuse Studio Prep's prepared control
+  and preparation service. Changes save inline, preserve draft notes, require a
+  current revision and selected materials, and remain disabled for read-only staff
+  or consumed/completed bookings. Removed the bulk Mark prepared header action
+  where these participant controls are present.
+- Local Plushie Camps capability removed after verifying zero camp reservations.
+  Existing camp setup/data retained. Setup, calendar, dashboard and public workshop
+  lists hide camp offerings when the capability is absent. Other profiles retain
+  their existing capabilities. Fresh Plushie demo seeds use the YAML capability
+  defaults without Camps; reseeding does not overwrite existing profile settings.
+- Hosted activation pending: inspect Plushie's camp reservations before removing
+  `camps` from its database-backed SchedulingProfile capabilities. Do not delete
+  camp data or disable the capability for SBMC/other schools. If hosted camp
+  commitments exist, review those before hiding their management screens.
+- Previous full run `/private/tmp/pontora-regression-20261116-final/status.json`
+  finished with 6,268 passes, one failure and three skips. Its sole failure was
+  an obsolete exact CSS-class assertion in admin parity; replaced with checks for
+  the icon action, accessible title and correct reservation destination. Targeted
+  admin parity now passes. That failed full run did not reach subsequent stages;
+  no new full regression was started, per the owner's targeted-only instruction.
+- Targeted Python passes: participant preparation, admin parity, calendar, session
+  changes, workshop schedule, setup and booking experience demo. JavaScript:
+  reservation workspace and Studio Prep, 22 passing checks. Browser verification:
+  desktop Chrome, approximately 768x1024 and 1024x768 tablet CSS viewports and
+  390px phone width (accounting for existing browser zoom); form backgrounds,
+  date picker and inline guest preparation toggling. Physical Android remains
+  unverified. No production deployment or push in this batch.
+
+### November 16: Reservation Entry and Prep Contact Layout
+
+- Local, unpushed: Studio Prep shows phone and email links below the customer's
+  name. Missing contact values are omitted; existing readiness/notes behavior is
+  unchanged.
+- Reservations uses the existing calendar editor for New > Reservation and
+  New > Party. Choices respect staff permissions, capabilities and selected
+  location. Calendar's own menu is unchanged. The compact toolbar stays on one
+  row at desktop/tablet widths and wraps on phones.
+- Package-party forms share the compact editor styling on both the standalone
+  page and dialog; existing package, capacity, consent, payment and retry services
+  remain authoritative. Successful dialog saves return to the reservation list.
+- Targeted checks passed: admin parity, Studio Prep, staff workshops, staff parties
+  and package-only bookings; 22 JavaScript checks across editor, reservation fields,
+  Studio Prep and list-menu controller. Updated the old Create booking assertion
+  to expect the new Save label. No full suite started for this targeted-only pass.
+- Manual Chrome: desktop, 768x1024, 1024x768 and 390x844 CSS viewports; menu opening,
+  shared reservation form, party package/time selection, inline validation,
+  reachable customer fields/Cancel/Save, and prep contact wrapping. No real emails
+  or payment transactions sent. Physical Android and hosted verification pending.
+
+### November 16: Session Review, Seat Limits and Scoped Themes
+
+- Local, unpushed: single-session edits highlight changed time, room and capacity
+  with old/new values. Notify customers follows the live change review. Calendar
+  and Setup share the template and existing preflight/save services.
+- Reservation choices display genuinely open seats, while the editable quantity
+  limit includes the reservation's own seats only in its current session. The
+  plus control stops at that limit; moving sessions uses the destination's free
+  seats. Existing server-side capacity checks remain authoritative.
+- `admin_theme_switching_enabled` defaults on for all schools. Set the existing
+  Plushie School's `feature_flags` entry to false during hosted activation,
+  preserving every other flag; this has been applied locally only. No migration
+  or demo loader is needed at runtime. The menu hides theme choices and uses
+  Clean without erasing the user's saved preference for other schools.
+- Prior full run `pontora-regression-20261116-corrections`: 6,284 application
+  tests passed; migrations and overall coverage passed. The module gate failed
+  on demo seeding (88.64%); JavaScript was not reached. Added password-guard and
+  optional-camp idempotency/scoping tests instead of weakening coverage gates.
+  The focused local/hosted seed and reset run passes all 25 tests and reaches
+  100% statement/branch coverage for that module.
+- Verification: 205 focused Python tests, 23 feature-flag checks and 15 focused
+  JavaScript checks passed. Manual Chrome checks covered desktop, tablet portrait
+  768x1024, landscape 1024x768 and phone 390x844. Verified live review, reachable
+  controls, 2-open display with a five-seat edit limit, disabled plus at the cap,
+  and absent Plushie theme choices. No booking changes or emails were submitted.
+  Physical Android/virtual keyboard checks remain pending.
+- Fresh full regression is tracked in
+  `/private/tmp/pontora-regression-20261116-session-limits/status.json`, with logs,
+  exit status, revision and working-tree fingerprint. Treat it as pending until
+  checked; do not promote this batch based on the earlier run.
+
+### November 16: Selected Session While Browsing Weeks
+
+- The shared reservation picker now shows a compact selected-session date/time
+  and seat limit whenever that session is outside the displayed week. Browsing
+  does not change the selection; choosing a different session updates the limit
+  and removes the redundant summary when the selected row is visible.
+- Nine targeted JavaScript tests passed, including week navigation, empty weeks,
+  retained selection and switching from a five-seat limit to eight. Manual Chrome
+  checks covered desktop, 768x1024, 1024x768 and 390x844; physical Android remains
+  pending. Existing Calendar and Reservations callers share the picker.
+- The preceding full run was stopped before editing at the owner's targeted-only
+  request (application exit -15, source unchanged, logs retained under
+  `pontora-regression-20261116-session-limits`). It is interrupted, not a pass.
+  No new regression or push for this change.
+
+### November 16: Workshop-Wide Seat Limit and Editor Consistency
+
+- Supersedes the selected-session stepper cap above: the shared reservation
+  picker permits up to the largest available booking capacity among its workshop's
+  selectable sessions, across weeks. The current reservation's own seats count
+  only toward its current session's editable capacity, not its open-seat label.
+  Sessions that cannot fit the requested group remain disabled, and an unsuitable
+  retained selection blocks Save with a visible explanation. Backend capacity
+  validation remains unchanged.
+- Audited notification controls in single-session changes, recurring edits and
+  bulk schedule/cancellation forms. They reuse one Notify customers partial,
+  positioned after the impact review. Cancellation consent retains its existing
+  explicit choice. Recurring changes now highlight old/new times and capacities.
+- Participant inline fields stay inside the reservation table; tablet layouts
+  move notes below the main workspace. Narrow screens scroll the table locally
+  instead of overflowing the page. Shared Reservation and Workshop Prep rendering
+  uses the same styles.
+- Verification: 146 targeted Python tests and 13 targeted JavaScript checks
+  passed. Manual Chrome checks covered desktop 1440x1000, tablet 768x1024 and
+  1024x768, and phone 390x844, including editable selections, reachable Cancel,
+  page bounds, workshop-wide limits and invalid/valid destination selection.
+  No booking writes or emails were sent. Physical Android remains unverified.
+  Full regression remains interrupted as recorded above; no new full run or push.
+
+### November 16: Full Regression and Staff Save Label
+
+- Full run `pontora-regression-20261116-final-84fgXs` completed in 23m12s with
+  unchanged source. All 6,288 application tests and migration tests passed;
+  aggregate Python coverage was 97.90%, and every-module gates passed.
+  JavaScript failed one stale assertion expecting `Create booking` instead of
+  the intended staff `Save` label. Updated only that expectation; all six party
+  inquiry tests pass, including unchanged customer payment/request labels.
+- Full replacement run logs/status:
+  `/private/tmp/pontora-regression-20261116-save-label-IIKXFW/`.
+  Verification is pending until this exact run completes. No push or deployment.

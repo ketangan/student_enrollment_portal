@@ -13,7 +13,7 @@ from django.utils import timezone
 
 from core.models import AdminAuditLog
 from .access import require_location_access, staff_locations, location_restricted
-from .capabilities import require_capability
+from .capabilities import require_capability, has_capability
 from .editing import protect_edit
 from .forms import LocationForm, OfferingForm, RoomForm, WorkshopSessionForm
 from .models import Location, Offering, PartyPackage, Room, SchedulingProfile, Session
@@ -35,9 +35,10 @@ def records(profile, kind):
     if kind == "rooms":
         return Room.objects.filter(location__in=staff_locations(profile)).select_related("location")
     if kind == "workshops":
-        return Offering.objects.filter(location__in=staff_locations(profile), visit_program__isnull=True).select_related("location")
+        items = Offering.objects.filter(location__in=staff_locations(profile), visit_program__isnull=True).select_related("location")
+        return items if has_capability(profile, "camps") else items.filter(camps__isnull=True)
     if kind == "sessions":
-        return Session.objects.filter(offering__location__in=staff_locations(profile), offering__visit_program__isnull=True,
+        return Session.objects.filter(offering__in=records(profile, "workshops"),
             canceled_at__isnull=True).select_related("offering__location", "room")
     raise Http404("Page not found")
 
@@ -57,7 +58,13 @@ def build_form(profile, kind, data=None, pk=None, offering_pk=None):
             form = WorkshopSessionForm(data, instance=instance, offering=offering)
     else:
         form = FORMS[kind](data, instance=instance, profile=profile)
-    return protect_edit(form, profile)
+    form = protect_edit(form, profile)
+    if kind == "workshops" and not pk and profile.native_reservations_enabled:
+        from .capabilities import has_capability
+        from .workshop_schedule import WorkshopScheduleForm
+        if has_capability(profile, "reservations"):
+            form.schedule_form = WorkshopScheduleForm(data, profile=profile, prefix="schedule")
+    return form
 
 
 def _audit(user, profile, instance, before, action):
@@ -82,6 +89,15 @@ def save_setup(user, school_slug, kind, data, pk=None, offering_pk=None):
     zone = form.instance.offering.location.timezone_name if kind == "sessions" else "UTC"
     with timezone.override(ZoneInfo(zone)):
         if form.is_valid():
+            schedule = getattr(form, "schedule_form", None)
+            if schedule:
+                schedule.offering = form.instance
+                if not schedule.is_valid():
+                    form.add_error(None, "Please correct the schedule below.")
+                    return form
+                if schedule.cleaned_data.get("mode"):
+                    from core.models import School
+                    School.objects.select_for_update().get(pk=profile.school_id)
             try:
                 # ModelForm omits server-owned fields from constraint validation.
                 form.instance.full_clean()
@@ -89,7 +105,20 @@ def save_setup(user, school_slug, kind, data, pk=None, offering_pk=None):
                 for field, errors in exc.message_dict.items():
                     form.add_error(field if field in form.fields else None, errors)
             else:
-                instance = form.save()
+                try:
+                    # Roll back the workshop too if any proposed session conflicts.
+                    with transaction.atomic():
+                        instance = form.save()
+                        if schedule and schedule.cleaned_data.get("mode"):
+                            from .workshop_schedule import creation_plan
+                            sessions = creation_plan(instance, schedule.cleaned_data)
+                            for session in sessions:
+                                session.save()
+                                _audit(user, profile, session, {}, "add")
+                except ValidationError as exc:
+                    form.instance.pk = None
+                    form.add_error(None, exc.messages)
+                    return form
                 if kind == "locations":
                     from .models import Material, StockLevel
                     for material in Material.objects.filter(profile=profile):

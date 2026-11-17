@@ -1,0 +1,5 @@
+<div data-reservation-shared>
+<section class="reservation-section" aria-labelledby="reservation-details"><h2 id="reservation-details">{% if item.party_request_id %}Party details{% else %}Reservation details{% endif %}</h2>
+{% include 'scheduling/reservation_summary.html' %}</section>
+{% if item.party_request_id %}{% include 'scheduling/reservation_guests.html' %}{% else %}{% include 'scheduling/reservation_participants.html' %}{% endif %}
+</div>

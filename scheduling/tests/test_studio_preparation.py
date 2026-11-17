@@ -29,9 +29,15 @@ def query(item, **changes):
 def test_read_only_roster_material_totals_and_constant_queries(stock):
     s = stock
     item = reserve(s); confirm(s, item)
+    item.workshop_request.purchaser_phone = "3105550199"
+    item.workshop_request.purchaser_email = "prep@example.invalid"
+    item.workshop_request.save(update_fields=["purchaser_phone", "purchaser_email"])
     endpoint = url(s, "studio_preparation")
     response = s.client.get(endpoint, query(item))
     assert response.status_code == 200
+    assert b'href="tel:3105550199"' in response.content
+    assert b'href="mailto:prep@example.invalid"' in response.content
+    assert b'class="prep-contact-links"' in response.content
     assert b"Child" in response.content and b"Cat" in response.content and b"Blue" in response.content
     assert response.context["studios"][0]["totals"][0]["quantity"] == 1
     assert b"Still to pull" not in response.content

@@ -3,7 +3,7 @@
     <div class="prep-booking-contact"><div class="prep-booking-title"><a href="{% url 'scheduling:reservation_preparation' school_slug=business.slug public_id=entry.item.public_id %}?prep={{ preparation_return_path|urlencode }}">{{ entry.item.snapshot.name }}</a>
       {% if entry.item.party_request_id %}<span class="prep-party"><i data-lucide="party-popper"></i> Party</span>{% endif %}
       <span>{{ entry.item.snapshot.workshop }} &middot; {{ entry.item.quantity }} maker{{ entry.item.quantity|pluralize }}</span>
-    </div>{% if entry.phone %}<span class="prep-phone"><i data-lucide="phone" aria-hidden="true"></i><span class="sr-only">Phone: </span>{{ entry.phone }}</span>{% endif %}</div>
+    </div><div class="prep-contact-links">{% if entry.phone %}<a href="tel:{{ entry.phone }}"><i data-lucide="phone" aria-hidden="true"></i><span class="sr-only">Phone: </span>{{ entry.phone }}</a>{% endif %}{% if entry.email %}<a href="mailto:{{ entry.email }}"><i data-lucide="mail" aria-hidden="true"></i><span class="sr-only">Email: </span>{{ entry.email }}</a>{% endif %}</div></div>
     {% if entry.staff_form %}
     <form method="post" action="{{ entry.action_url }}" class="prep-action prep-staff-editor">{% csrf_token %}
       <input type="hidden" name="edit_revision" value="{{ entry.revision }}"><input type="hidden" name="action" value="staff">
@@ -20,7 +20,7 @@
   {% for person in entry.prep_rows %}
   <div class="prep-person{% if person.prepared %} person-prepared{% endif %}{% if person.form %} person-editing{% endif %}" id="prep-{{ entry.item.pk }}-{{ person.key }}">
     <form method="post" action="{{ entry.action_url }}" class="prep-action">{% csrf_token %}<input type="hidden" name="edit_revision" value="{{ entry.revision }}"><input type="hidden" name="participant" value="{{ person.key }}"><input type="hidden" name="action" value="{% if person.prepared %}unready{% else %}ready{% endif %}">
-      <button type="submit" class="prep-check" role="checkbox" aria-checked="{{ person.prepared|yesno:'true,false' }}" aria-label="Prepared: {{ person.name }}" {% if not entry.writable or not person.selected %}disabled{% endif %} title="{% if not person.selected %}Choose a design and color first{% elif person.prepared %}Mark not prepared{% else %}Mark prepared{% endif %}"><span>{% if person.prepared %}<i data-lucide="check"></i>{% endif %}</span></button>
+      {% include 'scheduling/prepared_checkbox.html' with writable=entry.writable %}
     </form>
     {% if person.form %}
     <form method="post" action="{{ entry.action_url }}" class="prep-inline prep-action">{% csrf_token %}<input type="hidden" name="edit_revision" value="{{ entry.revision }}"><input type="hidden" name="participant" value="{{ person.key }}"><input type="hidden" name="action" value="edit">

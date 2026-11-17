@@ -89,7 +89,7 @@ test('participant count preserves capacity protection and updates price and book
   p.times.children[0].listeners.click();
   change(p.count, '2');
   assert.equal(p['start-booking'].href, '/experience/session/3/?participants=2');
-  assert.equal(p['price-total'].textContent, '2 participants: $130.00');
+  assert.equal(p['price-total'].textContent, 'Subtotal (2 participants): $130.00');
   change(p.count, '3');
   assert.equal(p.times.children[0].disabled, true);
   assert.equal(p['start-booking'].href, undefined);
@@ -124,15 +124,15 @@ test('empty availability has no enabled workshop or booking link', () => {
 
 test('each workshop supplies its own price, including free workshops', () => {
   const p = page(sessions.map(row => ({...row, price_cents: row.workshop_id === 10 ? 7250 : row.location_id === 2 ? 0 : 8800})));
-  assert.equal(p['workshop-unit-price'].textContent, '$72.50 / participant');
+  assert.equal(p['workshop-unit-price'].textContent, '$72.50 per person + tax');
   change(p.count, '2');
-  assert.equal(p['price-total'].textContent, '2 participants: $145.00');
+  assert.equal(p['price-total'].textContent, 'Subtotal (2 participants): $145.00');
   change(p.workshop, '11');
-  assert.equal(p['workshop-unit-price'].textContent, '$88.00 / participant');
-  assert.equal(p['price-total'].textContent, '2 participants: $176.00');
+  assert.equal(p['workshop-unit-price'].textContent, '$88.00 per person + tax');
+  assert.equal(p['price-total'].textContent, 'Subtotal (2 participants): $176.00');
   change(p.studio, '2');
-  assert.equal(p['workshop-unit-price'].textContent, '$0.00 / participant');
-  assert.equal(p['price-total'].textContent, '2 participants: $0.00');
+  assert.equal(p['workshop-unit-price'].textContent, '$0.00 per person + tax');
+  assert.equal(p['price-total'].textContent, 'Subtotal (2 participants): $0.00');
 });
 
 test('calendar handles leap years, Monday alignment and unavailable dates', () => {
@@ -413,7 +413,7 @@ test('one booking choice defers six participants and preserves their place count
   assert.equal(p['participant-list'].children.length, 6);
   assert.equal(p['group-completeness'].textContent, '6 participants / Choosing designs later');
   assert.equal(p['group-summary-list'].hidden, true);
-  assert.equal(p['selection-total'].textContent, '6 participants / $390.00');
+  assert.equal(p['selection-total'].textContent, 'Subtotal (6 participants): $390.00 + tax');
   assert.ok(p['participant-list'].children.every(person => person.hidden && person.parts['[name$="-selections_deferred"]'].checked));
   p['choose-later'].checked = false; p['choose-now'].listeners.change();
   assert.equal(p['participant-list'].children.filter(person => !person.hidden).length, 1);
@@ -477,7 +477,7 @@ test('group summaries, totals and stock guards stay correct when participants ar
   assert.equal(first.parts['.colors'].children[1].disabled, true);
   p['add-person'].listeners.click();
   assert.equal(p['group-summary-list'].children.length, 2);
-  assert.equal(p['selection-total'].textContent, '2 participants / $130.00');
+  assert.equal(p['selection-total'].textContent, 'Subtotal (2 participants): $130.00 + tax');
   p['group-color'].value = '4'; p['apply-color'].listeners.click();
   assert.match(p['group-color-status'].textContent, /No selections changed/);
   assert.equal(first.fields.Color.value, '3');
@@ -488,5 +488,5 @@ test('group summaries, totals and stock guards stay correct when participants ar
   assert.equal(p['group-summary-list'].children.length, 2);
   second.parts['.remove-person'].listeners.click();
   assert.equal(p['group-summary-list'].children.length, 1);
-  assert.equal(p['selection-total'].textContent, '1 participant / $65.00');
+  assert.equal(p['selection-total'].textContent, 'Subtotal (1 participant): $65.00 + tax');
 });

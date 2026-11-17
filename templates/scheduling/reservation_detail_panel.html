@@ -2,9 +2,7 @@
 {% if item.state == 'review' %}<p role="alert" class="notice error">Payment is recorded, but this reservation is not confirmed. {% if checkout_pending %}Capacity stays held until the open checkout is verified.{% else %}It holds no capacity.{% endif %} Review the payment and availability before promising this booking.</p>{% endif %}
 {% if overpaid %}<p role="alert" class="notice error">Recorded payments exceed this quote. Review the extra payment; no automatic refund has been issued.</p>{% endif %}
 {% if item.state == 'canceled' and amounts.net_cents %}<p role="alert" class="notice error">Canceled with ${{ amounts.net|floatformat:2 }} still received. A cancellation does not by itself return money.</p>{% endif %}
-<section class="reservation-section" aria-labelledby="reservation-details"><h2 id="reservation-details">{% if item.party_request_id %}Party details{% else %}Reservation details{% endif %}</h2>
-{% include 'scheduling/reservation_summary.html' %}</section>
-{% if item.party_request_id %}{% include 'scheduling/reservation_guests.html' %}{% else %}{% include 'scheduling/reservation_participants.html' %}{% endif %}
+<div data-reservation-shared-target="details">{% if reservation_tab != 'preparation' %}{% include 'scheduling/reservation_shared_details.html' %}{% endif %}</div>
 <section class="reservation-payment" aria-labelledby="money-title">
 <header><div class="payment-heading"><h2 id="money-title" tabindex="-1">Payment</h2><span class="payment-state{% if amounts.outstanding_cents %} payment-state-due{% endif %}">{% if item.state == 'canceled' %}Canceled{% elif amounts.outstanding_cents %}Balance due{% elif amounts.refunded_cents and not amounts.net_cents %}Refunded{% else %}Paid in full{% endif %}</span></div>
 {% if item.party_request_id or item.workshop_request_id %}<div class="reservation-payment-actions" aria-label="Booking documents">
@@ -16,6 +14,7 @@
 {% if can_edit_setup and adjustable_refunds %}{% include 'scheduling/reservation_refund_status.html' %}{% endif %}
 {% if can_edit_setup %}{% include 'scheduling/reservation_payment_status.html' %}{% endif %}
 <div class="payment-columns"><div class="payment-balance">
+{% if saved_price_breakdown %}<dl class="payment-totals"><div><dt>Subtotal</dt><dd>{{ saved_price_breakdown.subtotal }}</dd></div><div><dt>Tax</dt><dd>{{ saved_price_breakdown.tax }}</dd></div></dl>{% endif %}
 <span class="muted">Balance due</span><strong class="payment-balance-value">{% if item.state == 'canceled' %}Not due{% else %}${{ amounts.outstanding|floatformat:2 }}{% endif %}</strong>
 <progress aria-label="Payment received" max="{{ amounts.total_cents|default:1 }}" value="{{ amounts.net_cents }}"></progress>
 <p class="muted">${{ amounts.net|floatformat:2 }} of ${{ amounts.total|floatformat:2 }} received</p>

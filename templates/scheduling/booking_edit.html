@@ -1,19 +1,21 @@
 {% extends 'scheduling/base.html' %}{% load static %}
-{% block title %}Edit booking{% endblock %}
+{% block title %}Edit Reservation{% endblock %}
 {% block page_heading %}{% if not calendar_editor %}
 <a class="back-link" href="{{ return_url }}"><i data-lucide="arrow-left" aria-hidden="true"></i>Reservation</a>
-<h1>Edit booking</h1>
+<h1>Edit Reservation</h1>
 {% endif %}{% endblock %}
 {% block content %}
 <section data-calendar-editor>
-{% if calendar_editor %}<h2>Edit booking</h2>{% endif %}
+{% if calendar_editor %}<h2>Edit Reservation</h2>{% endif %}
 <p class="muted">{{ item.snapshot.workshop }}</p>
 {% if can_edit_booking %}
-<form method="post" class="setup-form booking-editor">{% csrf_token %}
+<form method="post" class="setup-form booking-editor"{% if item.workshop_request_id %} data-reservation-fields{% endif %}>{% csrf_token %}
+{% if preview %}<p class="notice" role="status">Changes are not saved yet. Review the updated total below, then confirm.</p>{% endif %}
 {{ form.non_field_errors }}{% for field in form.hidden_fields %}{{ field }}{{ field.errors }}{% endfor %}
 <div class="booking-fields">
-{% for field in form.visible_fields %}{% if field.name != 'remove' %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}
+{% for field in form.visible_fields %}{% if field.name != 'remove' %}{% if not item.workshop_request_id or field.name != 'quantity' %}<div class="form-field"{% if field.name == 'session' %} data-session-select{% endif %}>{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endif %}{% endif %}{% endfor %}
 </div>
+{% if item.workshop_request_id %}{% include 'scheduling/reservation_picker.html' %}<div class="form-field reservation-seats"><label for="{{ form.quantity.id_for_label }}">Seats</label>{{ form.quantity }}{{ form.quantity.errors }}</div>{% include 'scheduling/reservation_price_summary.html' %}{% endif %}
 {% if form.remove %}<fieldset class="booking-removals" data-original-count="{{ form.removal_count }}"><legend>Who is no longer attending?</legend><p data-removal-count></p>{{ form.remove.errors }}{{ form.remove }}</fieldset>{% endif %}
 {% if preview %}<div class="booking-review" data-booking-review>
 <dl class="booking-review-totals" role="status">
@@ -35,7 +37,7 @@
 {% if preview.refunded %}<div><dt>Refunded</dt><dd>{{ preview.currency }} {{ preview.refunded|floatformat:2 }}</dd></div><div><dt>Net received</dt><dd>{{ preview.currency }} {{ preview.money.net|floatformat:2 }}</dd></div>{% endif %}
 </dl></details>
 </div>{% endif %}
-<div class="actions">{% if calendar_editor %}<button type="button" data-calendar-close>Cancel</button>{% else %}<a class="button" href="{{ return_url }}">Cancel</a>{% endif %}<button class="primary" type="submit">{% if preview %}Confirm changes{% else %}Save changes{% endif %}</button></div>
+<div class="actions">{% if calendar_editor %}<button type="button" data-calendar-close>Cancel</button>{% else %}<a class="button" href="{{ return_url }}">Cancel</a>{% endif %}<button class="primary" type="submit">{% if preview %}Confirm changes{% else %}Save{% endif %}</button></div>
 </form>
 {% else %}<p role="status">{{ edit_unavailable }}</p><a class="button" href="{{ return_url }}">View reservation</a>{% endif %}
 </section>

@@ -44,6 +44,54 @@ def test_individual_prep_sets_and_clears_reservation_readiness(stock):
     assert stock.level.on_hand == 5 and item.stock_allocations.get().quantity == 2
 
 
+def test_reservation_checkboxes_share_studio_readiness_and_safe_return(stock):
+    item = reserve(stock, 2)
+    confirm(stock, item)
+    detail = url(stock, "reservation_detail", public_id=item.public_id)
+    page = stock.client.get(detail)
+    assert page.content.count(b'role="checkbox"') == 2
+    assert b'> Mark prepared</button>' not in page.content
+    people = list(item.workshop_request.participants.all())
+    stale = preparation.form_for(item, stock.profile)["edit_revision"].value()
+    response = post(stock, item, people[0].pk, return_to="reservation")
+    assert response.status_code == 302 and response.url == detail
+    page = stock.client.get(detail)
+    assert page.content.count(b'aria-checked="true"') == 1
+    assert page.content.count(b'aria-checked="false"') == 1
+    rejected = post(stock, item, people[1].pk, edit_revision=stale, return_to="reservation")
+    assert rejected.status_code == 302
+    assert b'changed in another window' in stock.client.get(detail).content
+    assert [row["prepared"] for row in rows_for(item)] == [True, False]
+    assert post(stock, item, people[0].pk, "unready", return_to="reservation").status_code == 302
+    item.refresh_from_db()
+    assert not any(row["prepared"] for row in rows_for(item))
+
+
+def test_party_detail_checkboxes_include_unselected_disabled_guests(stock, booking):
+    guest_lists.save_for_staff(stock.user, stock.school.slug, booking.public_id, payload(stock, 1, action="draft"))
+    detail = url(stock, "reservation_detail", public_id=booking.public_id)
+    page = stock.client.get(detail)
+    assert page.content.count(b'role="checkbox"') == booking.quantity
+    assert b'Choose a design and color first' in page.content
+    assert b'> Mark prepared</button>' not in page.content
+    assert post(stock, booking, "0", return_to="reservation").status_code == 302
+    assert b'aria-checked="true"' in stock.client.get(detail).content
+
+
+def test_prep_tab_reuses_one_collapsed_participant_editor(stock):
+    item = reserve(stock, 2)
+    confirm(stock, item)
+    for route, active_tab in (("reservation_detail", "details"), ("reservation_preparation", "preparation")):
+        page = stock.client.get(url(stock, route, public_id=item.public_id))
+        assert page.status_code == 200
+        html = page.content.decode()
+        assert html.count('<div data-reservation-shared>') == 1
+        assert f'data-reservation-shared-target="{active_tab}"><div data-reservation-shared>' in html
+        assert 'data-prep-reservation-details>' in html
+        assert html.count('id="participants-title"') == 1
+        assert html.count('role="checkbox"') == 2
+
+
 def test_partial_party_reserves_and_prepares_only_selected_guests(stock, booking):
     guest_lists.save_for_staff(stock.user, stock.school.slug, booking.public_id, payload(stock, 1, action="draft"))
     booking.refresh_from_db(); booking.party_request.refresh_from_db()
@@ -81,6 +129,39 @@ def test_closed_state_and_csrf(stock, state):
     assert post(stock, item, "extras").status_code == 400
     client = Client(enforce_csrf_checks=True); client.force_login(stock.user)
     assert client.post(url(stock, "studio_preparation_update", public_id=item.public_id), {}).status_code == 403
+
+
+@pytest.mark.parametrize("read_only", ["viewer", "completed"])
+def test_read_only_checkboxes_do_not_offer_preparation_actions(stock, read_only):
+    from html.parser import HTMLParser
+
+    class Checkboxes(HTMLParser):
+        def __init__(self, html):
+            super().__init__()
+            self.controls = []
+            self.feed(html)
+
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            if tag == "button" and attrs.get("role") == "checkbox":
+                self.controls.append(attrs)
+
+    item = reserve(stock); confirm(stock, item)
+    if read_only == "viewer":
+        SchedulingMembership.objects.filter(user=stock.user).update(role="viewer")
+    else:
+        item.state = "completed"
+        item.save(update_fields=["state"])
+    for route in ("reservation_detail", "reservation_preparation"):
+        page = stock.client.get(url(stock, route, public_id=item.public_id))
+        controls = Checkboxes(page.content.decode()).controls
+        assert len(controls) == 1
+        assert "disabled" in controls[0]
+        assert controls[0]["title"] == "Not prepared"
+    person = item.workshop_request.participants.get()
+    assert post(stock, item, person.pk).status_code == (404 if read_only == "viewer" else 400)
+    person.refresh_from_db()
+    assert not rows_for(item)[0]["prepared"]
 
 
 def test_permissions_stock_and_invalid_participant(stock):

@@ -87,7 +87,8 @@ def test_prep_is_one_booking_and_ready_state_is_in_list_and_audit(stock):
     second.workshop_request.participants.update(name="Not this booking")
     target = url(s, "reservation_preparation", public_id=first.public_id)
     response = s.client.get(target)
-    assert b"<dt>Room</dt>" in response.content and b"Not this booking" not in response.content
+    assert b'data-prep-reservation-details' in response.content
+    assert b'id="reservation-details"' in response.content and b"Not this booking" not in response.content
     assert b"Design" in response.content and b"Blue" in response.content and b"Materials" in response.content
     assert b"Pending" in s.client.get(url(s, "reservations")).content
     post = s.client.post(url(s, "preparation_update", public_id=first.public_id), command(s, first, "prepare"))

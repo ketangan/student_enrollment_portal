@@ -217,6 +217,7 @@ class Session(models.Model):
     capacity = models.PositiveIntegerField(validators=CAPACITY_VALIDATORS)
     is_published = models.BooleanField(default=False)
     canceled_at = models.DateTimeField(null=True, blank=True)
+    series_id = models.UUIDField(null=True, blank=True, editable=False, db_index=True)
 
     class Meta:
         ordering = ["starts_at", "pk"]

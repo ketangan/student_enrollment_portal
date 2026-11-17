@@ -2,7 +2,7 @@
 {% block title %}Calendar{% endblock %}
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'vendor/event-calendar/event-calendar.min.css' %}">
-<link rel="stylesheet" href="{% static 'scheduling/calendar.css' %}?v=20261114-party-review">
+<link rel="stylesheet" href="{% static 'scheduling/calendar.css' %}?v=20261116-compact-prep">
 {% endblock %}
 {% block page_heading %}{% endblock %}
 {% block content %}
@@ -26,7 +26,12 @@
     <label class="calendar-check"><input type="checkbox" id="calendar-hide-empty"> Hide empty sessions</label>
     <div class="calendar-segment" role="group" aria-label="Calendar range"><button type="button" data-calendar-range="day">Day</button><button type="button" data-calendar-range="week">Week</button><button type="button" data-calendar-range="month">Month</button></div>
     <div class="calendar-create-actions">
-    {% if can_edit_sessions %}<button type="button" class="primary" id="calendar-add-session"><i data-lucide="plus" aria-hidden="true"></i> Add booking</button>
+    {% if can_edit_sessions %}<button type="button" class="primary calendar-new-button" id="calendar-add-session" popovertarget="calendar-new-menu"><i data-lucide="plus" aria-hidden="true"></i> New <span class="calendar-new-divider"></span><i data-lucide="chevron-down" aria-hidden="true"></i></button>
+    <div id="calendar-new-menu" popover class="calendar-new-menu">
+      <h3 id="calendar-new-time" hidden></h3>
+      <button type="button" data-calendar-new="session"><i data-lucide="calendar-plus" aria-hidden="true"></i><span><strong>Session</strong><small>Open a time customers can book</small></span></button>
+      <button type="button" data-calendar-new="reservation"><i data-lucide="user-plus" aria-hidden="true"></i><span><strong>Reservation</strong><small>Reserve seats for a customer</small></span></button>
+    </div>
     {% endif %}
     </div>
   </div>
@@ -34,18 +39,15 @@
   <p id="calendar-save-status" role="status" aria-live="polite" hidden></p>
   <div id="calendar-error" role="alert" hidden><span></span> <button type="button" id="calendar-retry">Retry</button></div>
   <div class="calendar-viewport"><div id="booking-calendar"></div></div>
-  <div class="calendar-legend"><span class="empty">No bookings</span><span class="partial">Under half full</span><span class="full">Half full or more</span><span class="party">Party</span><span class="camp">Camp</span></div>
+  <div class="calendar-legend"><span class="empty">No bookings</span><span class="partial">Under half full</span><span class="full">Half full or more</span>{% if features.parties %}<span class="party">Party</span>{% endif %}{% if features.camps %}<span class="camp">Camp</span>{% endif %}</div>
 </section>
 <dialog id="calendar-detail" aria-labelledby="calendar-detail-title">
   <header><div><div id="calendar-detail-badges" class="calendar-detail-badges"></div><h2 id="calendar-detail-title">Session</h2></div><div class="calendar-detail-actions"><button type="button" id="calendar-detail-print" aria-label="Print session roster" title="Print session roster" disabled><i data-lucide="printer" aria-hidden="true"></i></button><button type="button" id="calendar-detail-close" aria-label="Close session" title="Close"><i data-lucide="x" aria-hidden="true"></i></button></div></header>
   <div id="calendar-detail-body" aria-live="polite"></div>
+  <div id="calendar-session-menu" class="calendar-session-footer"></div>
 </dialog>
-<dialog id="calendar-editor" aria-labelledby="calendar-editor-title">
-  <header><h2 id="calendar-editor-title">Edit session</h2><button type="button" id="calendar-editor-close" aria-label="Close editor" title="Close"><i data-lucide="x" aria-hidden="true"></i></button></header>
-  <p id="calendar-editor-status" role="status" aria-live="polite"></p>
-  <div id="calendar-editor-body"></div>
-</dialog>
+{% include 'scheduling/calendar_editor_dialog.html' %}
 {{ calendar_config|json_script:'calendar-config' }}
 <noscript><p>JavaScript is required for the calendar. <a href="?view=overview">Open overview</a></p></noscript>
 {% endblock %}
-{% block scripts %}<script defer src="{% static 'vendor/event-calendar/event-calendar.min.js' %}"></script><script defer src="{% static 'scheduling/booking-edit-fields.js' %}"></script><script defer src="{% static 'scheduling/party-inquiry.js' %}?v=20261114-staff-intake"></script><script defer src="{% static 'scheduling/calendar-editor.js' %}?v=20261114-session-review-compact"></script><script defer src="{% static 'scheduling/calendar.js' %}?v=20261114-session-review"></script>{% endblock %}
+{% block scripts %}<script defer src="{% static 'vendor/event-calendar/event-calendar.min.js' %}"></script><script defer src="{% static 'scheduling/booking-edit-fields.js' %}"></script><script defer src="{% static 'scheduling/party-inquiry.js' %}?v=20261116-party-entry"></script><script defer src="{% static 'scheduling/calendar-editor.js' %}?v=20261116-compact-prep"></script><script defer src="{% static 'scheduling/calendar.js' %}?v=20261116-compact-prep"></script>{% endblock %}

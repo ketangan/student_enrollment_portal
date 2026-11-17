@@ -151,3 +151,16 @@ def test_shared_account_menu_and_booking_password_change(client, portals):
         response = client.get(path, HTTP_HOST=host)
         assert "partials/account_menu.html" in [t.name for t in response.templates]
         assert b"Ops Portal" in response.content and b"Django Admin" in response.content
+
+
+def test_theme_switching_is_scoped_to_school_and_defaults_on(client, portals):
+    portals.demo.feature_flags = {"admin_theme_switching_enabled": False}
+    portals.demo.save(update_fields=["feature_flags"])
+    operator = get_user_model().objects.create_superuser("theme-operator", "", "password")
+    client.force_login(operator)
+    demo = client.get(reverse("scheduling:workspace", args=[portals.demo.slug]), HTTP_HOST="demo.example.com")
+    assert b'data-theme-switching="false"' in demo.content
+    assert b'data-dash-theme=' not in demo.content
+    live = client.get(reverse("school_dashboard", args=[portals.live.slug]), HTTP_HOST="app.example.com")
+    assert b'data-theme-switching="true"' in live.content
+    assert b'data-dash-theme="midnight"' in live.content

@@ -15,6 +15,74 @@ from scheduling.tests.test_staff_workshops import intake, create, data, HEADER
 pytestmark = pytest.mark.django_db
 
 
+def test_session_picker_separates_open_seats_from_existing_booking_limit(intake):
+    s = intake
+    s.session.capacity = 8
+    s.session.save(update_fields=["capacity"])
+    item = create(s, data(s, quantity="3"))
+    create(s, data(s, quantity="3", purchaser_email="other@example.invalid"))
+    page = s.client.get(url(s, "staff_booking_edit", public_id=item.public_id))
+    choice = next(row for row in page.context["session_choices"] if row["id"] == str(s.session.pk))
+    assert choice["open"] == 2
+    assert choice["limit"] == 5
+    new = s.client.get(s.path)
+    choice = next(row for row in new.context["session_choices"] if row["id"] == str(s.session.pk))
+    assert choice["open"] == choice["limit"] == 2
+
+
+def test_edit_balance_quote_is_read_only_and_rejects_invalid_quantity(intake):
+    s = intake
+    item = create(s, data(s))
+    path = url(s, "staff_booking_edit", public_id=item.public_id)
+    before = totals(item.order)
+    response = s.client.get(path, {"quote_quantity": "3"})
+    assert response.status_code == 200
+    expected, _, _ = booking_edits.price_for(item, 3)
+    assert response.json()["balance"] == max(0, before["total_cents"] + expected - item.order.total_cents - before["net_cents"])
+    assert response.json()["unit_price"] == 6500
+    assert response.json()["rows"][0] == {"label": "Subtotal", "cents": 19500}
+    assert s.client.get(path, {"quote_quantity": "invalid"}).status_code == 400
+    assert s.client.get(path, {"quote_quantity": "0"}).status_code == 400
+    item.refresh_from_db()
+    assert totals(item.order) == before
+
+
+def test_quote_display_preserves_saved_tax_and_partial_payment(intake):
+    from decimal import Decimal
+    s = intake
+    s.location.default_tax_rate = Decimal("11")
+    s.location.save()
+    item = create(s)
+    record_offline(order=item.order, actor=s.user, key=uuid.uuid4(), kind="payment",
+        amount_cents=5000, reference="Synthetic partial payment")
+    s.location.default_tax_rate = Decimal("20")
+    s.location.save()
+    s.offering.price_per_participant = Decimal("80")
+    s.offering.save()
+    path = url(s, "staff_booking_edit", public_id=item.public_id)
+    for quantity, subtotal, tax in [(2, 13000, 1430), (3, 19500, 2145)]:
+        result = s.client.get(path, {"quote_quantity": quantity}).json()
+        assert result["unit_price"] == 6500
+        assert result["rows"] == [{"label": "Subtotal", "cents": subtotal},
+            {"label": "Tax", "cents": tax}, {"label": "Net payments received", "cents": 5000}]
+        assert result["balance"] == subtotal + tax - 5000
+    detail = s.client.get(url(s, "reservation_detail", public_id=item.public_id))
+    assert detail.context["saved_price_breakdown"] == {"subtotal": "$130.00", "tax": "$14.30"}
+
+
+def test_legacy_quote_display_does_not_invent_tax(intake):
+    s = intake
+    item = create(s)
+    source = item.workshop_request
+    source.session_snapshot.pop("price_breakdown")
+    source.save()
+    result = s.client.get(url(s, "staff_booking_edit", public_id=item.public_id),
+        {"quote_quantity": item.quantity}).json()
+    assert result["unit_price"] is None
+    assert result["rows"] == [{"label": "Total", "cents": item.order.total_cents}]
+
+
+
 def edit_data(s, item, **changes):
     body = QueryDict(mutable=True)
     source = item.workshop_request if item.workshop_request_id else item.party_request
@@ -128,6 +196,28 @@ def test_count_increase_uses_agreed_price_not_changed_default_and_blocks_stale_r
     saved, _, _ = save(s, item, edit_data(s, item, purchaser_name="Changed elsewhere"))
     with pytest.raises(ValidationError, match="booking changed"):
         save(s, saved, values)
+
+
+@pytest.mark.parametrize("headers", [{}, HEADER])
+def test_count_edit_explains_review_then_saves_and_retries_safely(intake, headers):
+    s = intake
+    item = create(s)
+    path = url(s, "staff_booking_edit", public_id=item.public_id)
+    values = edit_data(s, item, quantity="3")
+    response = s.client.post(path, values, **headers)
+    assert b"Changes are not saved yet" in response.content
+    assert b"Confirm changes" in response.content
+    item.refresh_from_db()
+    assert item.quantity == 2
+    values["review_token"] = response.context["form"].data["review_token"]
+    response = s.client.post(path, values, **headers)
+    assert response.status_code == (200 if headers else 302)
+    item.refresh_from_db()
+    assert item.quantity == 3
+    assert item.workshop_request.participants.count() == 3
+    assert totals(item.order)["total_cents"] == 19500
+    assert s.client.post(path, values, **headers).status_code == response.status_code
+    assert item.workshop_request.participants.count() == 3
 
 
 def test_capacity_failure_and_invalid_participant_removal_are_atomic(intake):

@@ -1,10 +1,7 @@
-<dl class="prep-overview{% if contact_phone %} prep-overview--contact{% endif %}">
-  <div><dt>Room</dt><dd>{{ item.room.name|default:"Not assigned" }}</dd></div>
-  <div><dt>Participants</dt><dd>{{ item.quantity }}</dd></div>
-  {% if contact_phone %}<div><dt>Phone</dt><dd>{{ contact_phone }}</dd></div>{% endif %}
-  <div><dt>Selections</dt><dd>{% for group in preparation_selections %}<span class="prep-selection-group">{{ group.label }}: {{ group.value }}</span>{% empty %}Selections pending{% endfor %}</dd></div>
-</dl>
-{% if selection_forms %}<a class="prep-edit-selections" href="{{ booking_navigation.section.tabs.0.url }}#participants-title" data-reservation-switch="details">Edit participant selections</a>{% endif %}
+<details class="reservation-section reservation-summary" data-prep-reservation-details>
+<summary>Reservation details &amp; participants</summary>
+<div data-reservation-shared-target="preparation">{% if reservation_tab == 'preparation' %}{% include 'scheduling/reservation_shared_details.html' %}{% endif %}</div>
+</details>
 {% if item.state != 'confirmed' or item.camp_registration_id or customer_notes %}<section class="reservation-section" aria-labelledby="prep-heading"><h2 id="prep-heading" class="sr-only">Workshop Prep</h2>
 {% if item.state == 'completed' %}<p class="muted">Completed. Materials used are recorded below.</p>
 {% elif item.state != 'confirmed' %}<p class="muted">{% if item.state == 'canceled' %}This reservation is canceled. No preparation is required.{% else %}Preparation is on hold until this reservation is confirmed.{% endif %}</p>{% endif %}

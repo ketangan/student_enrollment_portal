@@ -209,11 +209,14 @@ def booking(request, school_slug, public_id):
         from scheduling.customer_edits import editable
         from django.urls import reverse
         amounts = totals(item.reservation.order)
+        from scheduling.booking_documents import quote_breakdown, money
+        breakdown = quote_breakdown(item.reservation)
         from scheduling import workshop_followup, guest_lists
         followup_token = workshop_followup.token_for(item.reservation) if guest_lists.editable(item.reservation) and item.session.offering.inventory_catalog_id else ""
         return page(request, "booking", profile, config, {"item": item, "people": service.people(item, config),
             "customer_edit_url": reverse("scheduling:customer_edit_booking", kwargs={"school_slug": school_slug, "token": payment_token(item.reservation)}) if editable(item.reservation) else "",
             "followup_token": followup_token,
+            "saved_price_breakdown": {"subtotal": money(breakdown[0]), "tax": money(breakdown[1])} if breakdown is not None else None,
             "total": service.money(amounts["total_cents"]), "error": error, "step": 4,
             "amounts": amounts, "due_now": service.money(amount_due(item.reservation.order)),
             "due_later": service.money(max(0, amounts["outstanding_cents"] - amount_due(item.reservation.order))),

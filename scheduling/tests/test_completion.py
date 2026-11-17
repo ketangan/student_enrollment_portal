@@ -172,7 +172,7 @@ def test_details_and_prep_share_participants_and_summary_without_studio_in_mater
     detail = s.client.get(url(s, "reservation_detail", public_id=item.public_id))
     prep = s.client.get(url(s, "reservation_preparation", public_id=item.public_id))
     for page in (detail, prep):
-        values = {key: page.context[key] for key in ("item", "contact_email", "reservation_location", "participant_table", "selection_forms")}
+        values = {key: page.context[key] for key in ("item", "contact_email", "reservation_location", "participant_table", "selection_forms", "business", "preparation_form", "participant_preparation_writable", "csrf_token")}
         for partial in ("reservation_summary", "reservation_participants"):
             rendered = render_to_string(f"scheduling/{partial}.html", values).encode()
             assert rendered in page.content

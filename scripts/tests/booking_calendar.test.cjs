@@ -6,7 +6,9 @@ const filename = require('node:path').resolve('static/scheduling/calendar.js');
 const source = fs.readFileSync(filename, 'utf8');
 
 function element(tag = 'div') {
-  return {tag, children: [], listeners: {}, attrs: {}, dataset: {}, textContent: '', clientWidth: 1200,
+  return {tag, children: [], listeners: {}, attrs: {}, dataset: {}, style: {}, textContent: '', clientWidth: 1200,
+    getBoundingClientRect() {return {right:1000,bottom:100};},
+    showPopover() {this.open=true;}, hidePopover() {this.open=false;},
     addEventListener(name, fn) {this.listeners[name] = fn;},
     append(...children) {this.children.push(...children);},
     replaceChildren(...children) {this.children = children;},
@@ -20,11 +22,10 @@ function page({focused=false, form=false, editable=false, search='?view=calendar
   const ids = ['booking-calendar', 'calendar-config', 'calendar-error', 'calendar-count',
     'calendar-hide-empty', 'calendar-detail', 'calendar-detail-body', 'calendar-detail-title',
     'calendar-detail-close', 'calendar-range', 'calendar-offerings', 'calendar-retry',
-    'calendar-unpaid', 'calendar-balances', 'calendar-empty', 'calendar-detail-badges', 'calendar-detail-print', 'calendar-save-status'];
+    'calendar-unpaid', 'calendar-balances', 'calendar-empty', 'calendar-detail-badges', 'calendar-detail-print', 'calendar-save-status', 'calendar-new-menu'];
   const nodes = Object.fromEntries(ids.map(id => [id, element()]));
   if (editable) {
     nodes['calendar-add-session'] = element('button');
-    nodes['calendar-add-party'] = Object.assign(element('a'), {href: '/parties/new/'});
   }
   nodes['calendar-error'].append(element('span'));
   if (form) {
@@ -36,31 +37,35 @@ function page({focused=false, form=false, editable=false, search='?view=calendar
   const ranges = ['day','week','month'].map(value => Object.assign(element('button'),{dataset:{calendarRange:value}}));
   const actions = ['prev','next','today'].map(value => Object.assign(element('button'),{dataset:{calendarAction:value}}));
   const filters = ['all','none'].map(value => Object.assign(element('button'),{dataset:{calendarFilter:value}}));
-  const requests = [];
+  const newChoices = ['session','reservation'].map(value => Object.assign(element('button'),{dataset:{calendarNew:value}}));
+  const requests = [], timers = [];
   const opened = [], editors = [];
   let options, refetches=0, prints=0;
   const location = {href:`http://localhost/bookings/test/${search}`,origin:'http://localhost',search,assign(url){this.href=String(url);}};
   const calendar = {setOption(key,value) {options[key]=value;},getOption(key) {return key==='date'?new Date(options.date):options[key];},
+    addEvent(event) {this.selection=event;}, removeEventById() {this.selection=null;},
     refetchEvents() {refetches++;},next() {this.nextCalled=true;},prev() {this.prevCalled=true;}};
   const document = {getElementById:id=>nodes[id] || null,createElement:element,
     querySelectorAll(selector) {
       if(selector==='[data-calendar-range]')return ranges;
       if(selector==='[data-calendar-action]')return actions;
       if(selector==='[data-calendar-filter]')return filters;
+      if(selector==='[data-calendar-new]')return newChoices;
       if(selector==='#calendar-offerings input')return nodes['calendar-offerings'].children.map(label=>label.children[0]);
       return [];
     }};
   vm.runInNewContext(source,{document,location,URL,URLSearchParams,AbortController,Intl,window:{BookingCalendarEditor:{open(options){editors.push(options);}},print(){prints++;},open(...args){opened.push(args);}},
-    history:{replaceState(_a,_b,url){location.href=String(url);}},queueMicrotask,
+    history:{replaceState(_a,_b,url){location.href=String(url);}},queueMicrotask,setTimeout:fn=>timers.push(fn),
     fetch:(url,opts)=>new Promise((resolve,reject)=>requests.push({url,opts,resolve,reject})),
     EventCalendar:{create(_root,opts){options=opts;return calendar;}}}, {filename});
-  return {nodes,ranges,actions,filters,requests,calendar,location,opened,editors,get prints(){return prints;},get options(){return options;},get refetches(){return refetches;}};
+  return {nodes,ranges,actions,filters,newChoices,requests,timers,calendar,location,opened,editors,get prints(){return prints;},get options(){return options;},get refetches(){return refetches;}};
 }
 
 test('calendar writes use permission-filtered endpoints and preserve calendar context', async () => {
   const p = page({editable: true});
   assert.equal(p.options.slotEventOverlap, false);
   p.nodes['calendar-add-session'].listeners.click();
+  p.newChoices[1].listeners.click();
   assert.equal(p.editors[0].choices.length, 1);
   assert.equal(p.editors[0].choices[0].createUrl, '/sessions/new/');
   p.nodes['calendar-hide-empty'].checked = true;
@@ -74,13 +79,20 @@ test('calendar writes use permission-filtered endpoints and preserve calendar co
   await pending;
   const all = item => [item, ...item.children.flatMap(all)];
   const controls = all(p.nodes['calendar-detail-body']);
-  controls.find(item => item.tag === 'button' && item.children.some(child => child.textContent === 'Edit session')).listeners.click();
+  const rowActions = controls.filter(item => /^(View reservation|Edit booking|Cancel reservation) for Guest$/.test(item.attrs['aria-label'] || ''));
+  assert.equal(rowActions.length, 3);
+  rowActions.forEach(action => {
+    assert.equal(action.textContent, '');
+    assert.equal(action.children.length, 1);
+    assert.notEqual(action.children[0].tag, 'span');
+  });
+  controls.find(item => item.attrs['aria-label'] === 'Edit session').listeners.click();
   assert.equal(p.editors[1].url, '/session/edit/'); assert.equal(p.nodes['calendar-detail'].open, false);
   controls.find(item => item.attrs['aria-label'] === 'Cancel reservation for Guest').listeners.click();
   assert.equal(p.editors[2].url, '/reservation/cancel/');
   const before = p.refetches;
   p.editors[2].onSaved(); assert.equal(p.refetches, before + 1);
-  controls.find(item => item.tag === 'button' && item.textContent === 'Add booking').listeners.click();
+  controls.find(item => item.tag === 'button' && item.textContent.includes('seats open')).listeners.click();
   assert.equal(p.editors[3].url, '/booking/create/');
   controls.find(item => item.attrs['aria-label'] === 'Edit booking for Guest').listeners.click();
   assert.equal(p.editors[4].url, '/reservation/edit/');
@@ -88,6 +100,29 @@ test('calendar writes use permission-filtered endpoints and preserve calendar co
   assert.equal(p.nodes['calendar-hide-empty'].checked, false);
   controls.find(item => item.tag === 'button' && item.children.some(child => child.textContent === 'Cancel session')).listeners.click();
   assert.equal(p.editors[5].url, '/session/cancel/');
+  const topBooking = controls.find(item => item.children.some(child => child.textContent === 'Add booking'));
+  assert.equal(topBooking.disabled, false);
+  topBooking.listeners.click();
+  assert.equal(p.editors[6].url, '/booking/create/');
+  assert.equal(p.editors[6].title, 'Add Reservation');
+});
+
+test('past sessions retain disabled booking controls with an explicit reason and direct reservation actions', async () => {
+  const p=page({editable:true});
+  const pending=p.options.eventClick({event:{title:'Past session',extendedProps:{detailUrl:'/details/'}}});
+  p.requests[0].resolve({ok:true,json:async()=>({title:'Past session',time:'Saturday',location:'Studio',
+    edit_url:'/session/edit/',booking_unavailable:'This session has already started.',summary:detailSummary,
+    reservations:[{name:'Guest',quantity:1,payment_status:'Paid',received:100,total:100,currency:'usd',
+      url:'/reservation/',edit_url:'/reservation/edit/',cancel_url:'/reservation/cancel/'}]})});
+  await pending;
+  const all=item=>[item,...item.children.flatMap(all)];
+  const controls=all(p.nodes['calendar-detail-body']);
+  assert.equal(controls.filter(item=>item.tag==='details').length,0);
+  assert(controls.some(item=>item.textContent==='This session has already started.'));
+  const top=controls.find(item=>item.children.some(child=>child.textContent==='Add booking'));
+  const bottom=controls.find(item=>item.tag==='button'&&item.textContent.includes('seats open'));
+  assert.equal(top.disabled,true);assert.equal(bottom.disabled,true);
+  assert(controls.some(item=>item.attrs['aria-label']==='Edit booking for Guest'));
 });
 
 test('saved customer bookings refresh the calendar without navigating away', () => {
@@ -95,6 +130,7 @@ test('saved customer bookings refresh the calendar without navigating away', () 
   const original = p.location.href;
   const before = p.refetches;
   p.nodes['calendar-add-session'].listeners.click();
+  p.newChoices[1].listeners.click();
   p.editors[0].onSaved({reservation_url:'/reservation/new/'});
   assert.equal(p.location.href, original);
   assert.equal(p.refetches, before + 1);
@@ -123,22 +159,37 @@ test('empty timed cells open the shared editor with venue wall time and location
   for (const range of ['day', 'week']) {
     const p = page({editable:true, search:`?range=${range}`});
     p.options.dateClick({date:new Date('2026-12-14T22:30:00Z'),dateStr:'2026-12-14T14:30:00',allDay:false,resource:{id:2}});
+    assert.equal(p.editors.length, 0);
+    assert.equal(p.calendar.selection.start, '2026-12-14T14:30');
+    assert.notEqual(p.nodes['calendar-new-menu'].open, true, 'Do not open during pointerup light dismissal.');
+    p.timers.shift()();
+    assert.equal(p.nodes['calendar-new-menu'].open, true);
+    assert.equal(p.newChoices[1].hidden, true);
+    p.newChoices[1].listeners.click();
+    assert.equal(p.editors.length, 0);
+    p.newChoices[0].listeners.click();
     assert.equal(p.editors.length, 1);
     assert.equal(p.editors[0].initialStart, '2026-12-14T14:30');
     assert.equal(p.editors[0].choices.length, 1);
     assert.equal(p.editors[0].choices[0].locationId, '2');
     assert.equal(p.options.snapDuration, '00:30:00');
     p.options.dateClick({dateStr:'2026-12-14T14:30:00',resource:{id:'another-location'}});
+    p.newChoices[0].listeners.click();
     assert.equal(p.editors[1].choices.length, 0);
     p.options.dateClick({dateStr:'invalid'}); assert.equal(p.editors.length, 2);
   }
   const selectedLocation = page({editable:true, focused:true});
   selectedLocation.options.dateClick({dateStr:'2026-12-14T14:30:00'});
+  selectedLocation.newChoices[0].listeners.click();
   assert.equal(selectedLocation.editors[0].choices.length, 0, 'Never offer a different location.');
   const all = page({editable:true}); all.options.dateClick({dateStr:'2026-12-14T14:30:00'});
+  all.newChoices[0].listeners.click();
   assert.equal(all.editors[0].choices.length, 1);
   all.filters[1].listeners.click(); all.options.dateClick({dateStr:'2026-12-14T14:30:00'});
+  all.newChoices[0].listeners.click();
   assert.equal(all.editors[1].choices.length, 0);
+  all.nodes['calendar-add-session'].listeners.click();
+  assert.equal(all.newChoices[1].hidden, false, 'Toolbar New still offers reservations.');
 });
 
 test('month and read-only calendar clicks navigate, never open a writer', () => {
@@ -167,6 +218,8 @@ test('weekly prep print lives outside Calendar; session roster printing remains'
   const template = fs.readFileSync('templates/scheduling/calendar.html', 'utf8');
   assert.ok(!template.includes('calendar-prep-print'));
   assert.ok(template.includes('calendar-detail-print'));
+  assert.ok(!template.includes('<details class="calendar-reservation-menu">'));
+  assert.ok(!template.includes('>Print roster</button>'));
   assert.doesNotThrow(() => page());
 });
 const summary = {unpaid:1,balance:2,empty:3};
@@ -271,9 +324,9 @@ test('session details render verified totals and existing reservation links',asy
   assert.equal(p.nodes['calendar-detail-title'].textContent,'Workshop');
   const table=p.nodes['calendar-detail-body'].children[4].children[0];
   const row=table.children[1].children[0];
-  assert.equal(row.children[0].children[0].children.length,1);
-  assert.equal(row.children[0].children[0].children[0].textContent,'<img>');
-  assert.match(row.children[2].children[1].textContent,/\$40.00 balance/);
+  assert.equal(row.children[0].children[0].children.length,2);
+  assert.equal(row.children[0].children[0].children[1].children[0].textContent,'<img>');
+  assert.match(row.children[2].children[0].textContent,/\$40.00 due/);
   assert.deepEqual(Array.from(row.children, cell => cell.attrs['data-label']), ['Customer', 'Participants', 'Payment', '']);
   assert.equal(row.children[3].children[0].children[0].attrs['aria-label'], 'View reservation for <img>');
   const reservationLink = new URL(row.children[3].children[0].children[0].href, 'http://localhost');

@@ -37,7 +37,8 @@ def create(request, school_slug, offering_pk):
                 start = field.clean(initial["starts_at"])
                 matching = offering.sessions.filter(starts_at=start, starts_at__gt=timezone.now(), camps__isnull=True).first()
                 initial["session"] = matching.pk if matching else ""
-                new = matching is None
+                # An empty calendar click must not silently create availability.
+                new = request.GET.get("new") == "1"
             except ValidationError:
                 initial["starts_at"] = ""
         fixed = int(initial["session"]) if initial["session"] else None
@@ -53,6 +54,19 @@ def create(request, school_slug, offering_pk):
                 pass
         form = staff_workshops.StaffWorkshopForm(request.POST if request.method == "POST" else None,
             profile=profile, offering=offering, initial=initial, new=new, fixed_session=fixed)
+        if request.method == "GET" and "quote_quantity" in request.GET:
+            from . import reservations
+            try:
+                quantity = form.fields["quantity"].clean(request.GET["quote_quantity"])
+                unit = reservations.workshop_unit_price(offering)
+                total, _ = reservations.workshop_quote(offering, unit, quantity)
+                breakdown = reservations.workshop_price_breakdown(offering, unit, quantity)
+                from .booking_documents import pricing_rows
+                return JsonResponse({"balance": total, "currency": "usd", "unit_price": unit,
+                    "quantity": quantity, "rows": pricing_rows(
+                        (breakdown["subtotal_cents"], breakdown["tax_cents"]), total=total)})
+            except ValidationError as exc:
+                return JsonResponse({"error": " ".join(exc.messages)}, status=400)
         if request.method == "POST":
             try:
                 item, form = staff_workshops.create(request.user, school_slug, offering_pk, request.POST)
@@ -72,5 +86,7 @@ def create(request, school_slug, offering_pk):
         context = _context(request, profile, role, "overview")
         context.update(form=form, offering=offering,
             calendar_editor=request.headers.get("X-Calendar-Editor") == "1")
+        from .session_picker import choices
+        context.update(session_choices=choices(form, offering), picker_today=timezone.localdate().isoformat())
         return render(request, "scheduling/staff_workshop_form.html", context,
             status=400 if request.method == "POST" else 200)

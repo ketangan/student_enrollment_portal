@@ -20,7 +20,7 @@ function element() {
   };
 }
 
-function page({saved = null, blocked = false, chooser = false, noAccount = false, dashboard = false, reservationFilters = null, icons = false, payment = null, dialog = null, trigger = null, terminal = null, setupDialog = null, copy = null, clipboard = null, print = null} = {}) {
+function page({saved = null, blocked = false, chooser = false, noAccount = false, dashboard = false, reservationFilters = null, icons = false, payment = null, dialog = null, trigger = null, terminal = null, setupDialog = null, copy = null, clipboard = null, print = null, schedule = null} = {}) {
   const document = element();
   document.body = element();
   const summary = element();
@@ -39,6 +39,7 @@ function page({saved = null, blocked = false, chooser = false, noAccount = false
   document.getElementById = id => nodes[id] || null;
   if (dialog) nodes['payment-dialog'] = dialog;
   document.querySelectorAll = selector => {
+    if (selector === '[data-workshop-schedule]') return schedule ? [schedule] : [];
     if (selector === '[data-copy-link]') return copy ? [copy] : [];
     if (selector === '[data-setup-dialog]') return setupDialog ? [setupDialog] : [];
     if (selector === '[data-terminal-payment]') return terminal ? [terminal] : [];
@@ -60,6 +61,24 @@ function page({saved = null, blocked = false, chooser = false, noAccount = false
   vm.runInNewContext(source, {document, URL, navigator: {clipboard}, window: {matchMedia: () => media, lucide, location, print, setTimeout, clearTimeout}, localStorage: storage}, {filename});
   return {document, nodes, media, storage, summary, location, timers};
 }
+
+test('workshop schedule only submits fields for the selected mode', () => {
+  const mode = element(), section = element();
+  const common = element(), repeat = element();
+  common.dataset.scheduleField = 'any'; repeat.dataset.scheduleField = 'repeat';
+  const commonInput = {}, repeatInput = {};
+  common.querySelectorAll = () => [commonInput]; repeat.querySelectorAll = () => [repeatInput];
+  section.querySelector = () => mode; section.querySelectorAll = () => [common, repeat];
+  page({schedule:section});
+  assert.equal(common.hidden, true); assert.equal(repeatInput.disabled, true);
+  mode.value = 'once'; mode.listeners.change();
+  assert.equal(common.hidden, false); assert.equal(commonInput.disabled, false);
+  assert.equal(repeat.hidden, true);
+  mode.value = 'repeat'; mode.listeners.change();
+  assert.equal(repeat.hidden, false); assert.equal(repeatInput.disabled, false);
+  mode.value = ''; mode.listeners.change();
+  assert.equal(commonInput.disabled, true);
+});
 
 test('preparation print button uses the browser print dialog', () => {
   let calls = 0;

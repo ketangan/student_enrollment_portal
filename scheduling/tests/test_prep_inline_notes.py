@@ -30,7 +30,7 @@ def test_inline_notes_phone_and_detail_share_records(stock, booking, kind):
     target = url(stock, "studio_preparation_update", public_id=item.public_id)
     page = stock.client.get(url(stock, "studio_preparation"), query(item, note=f"{item.public_id}:new"))
     assert b'+1 (310) 555-0100' in page.content
-    assert b'href="tel:' not in page.content
+    assert b'href="tel:' in page.content
     assert b'Add internal note</label>' in page.content
     payload = data(item, stock.profile, "Extra seating <script>bad()</script>")
     for _ in range(2):
@@ -54,7 +54,8 @@ def test_inline_notes_phone_and_detail_share_records(stock, booking, kind):
     assert b"+1 (310) 555-0100" in stock.client.get(url(stock, "reservations"), {"show_completed": "true"}).content
     assert b"+1 (310) 555-0100" in stock.client.get(url(stock, "studio_preparation"), query(item, print="1")).content
     prep = stock.client.get(url(stock, "reservation_preparation", public_id=item.public_id))
-    assert b'class="prep-overview prep-overview--contact"' in prep.content
+    assert b'data-prep-reservation-details' in prep.content
+    assert b'class="prep-overview' not in prep.content
     assert b'<dt>Phone</dt><dd>+1 (310) 555-0100</dd>' in prep.content
     if kind == "workshop":
         request_page = stock.client.get(url(stock, "request_detail", public_id=source.public_id))

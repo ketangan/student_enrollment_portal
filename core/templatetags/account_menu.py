@@ -23,6 +23,8 @@ def account_menu(context):
             links.append({"url": customer_demo_url(context["profile"]), "label": "Customer demo"})
     elif school and not context.get("billing_only"):
         password_url = reverse("school_password_change", kwargs={"school_slug": school.slug})
+    theme_school = business or school
     return {"request": request, "csrf_token": context.get("csrf_token"),
+        "theme_switching_enabled": theme_school.features.admin_theme_switching_enabled if theme_school else True,
         "initial": (request.user.get_full_name() or request.user.get_username())[:1].upper(),
         "password_url": password_url, "workspace_links": links}

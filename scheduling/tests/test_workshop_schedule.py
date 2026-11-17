@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from threading import Barrier
+import uuid
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -225,14 +226,72 @@ def test_other_days_times_and_locations_are_excluded(notifications):
 @pytest.mark.parametrize("has_booking", [False, True])
 def test_empty_and_booked_session_editors_expose_same_batch_entry(notifications, has_booking):
     s = notifications
+    s.session.series_id = uuid.uuid4()
+    s.session.save()
     if has_booking:
         booked(s)
     page = s.client.get(url(s, "session_edit", pk=s.session.pk), **HEADER)
     assert page.status_code == 200
-    assert b"Change multiple sessions" in page.content and b"Repeat session" in page.content
-    repeated = s.client.get(path(s, "create"), {"session": s.session.pk}, **HEADER)
+    assert b'This session becomes standalone' in page.content and b'and every session after it' in page.content
+    assert path(s, 'create').encode() not in page.content
+    repeated = s.client.get(path(s, "create"), {"session": s.session.pk})
     assert repeated.context["form"]["first_date"].value() == timezone.localtime(s.session.starts_at,
         ZoneInfo(s.location.timezone_name)).date() + timedelta(days=7)
+
+
+def test_setup_uses_shared_session_editor(notifications):
+    s = notifications
+    setup = s.client.get(url(s, 'workshop_detail', pk=s.offering.pk))
+    assert b'New session' in setup.content
+    assert url(s, 'session_new', offering_pk=s.offering.pk).encode() in setup.content
+    page = s.client.get(url(s, 'session_new', offering_pk=s.offering.pk))
+    assert page.status_code == 200
+    assert 'mode' in page.context['form'].fields
+    intake = s.client.get(url(s, 'staff_workshop_create', offering_pk=s.offering.pk), {'new': 1}, **HEADER)
+    assert intake.status_code == 200
+    assert path(s, 'create').encode() not in intake.content
+    s.profile.native_reservations_enabled = False
+    s.profile.save()
+    assert b'Add recurring sessions' not in s.client.get(url(s, 'workshop_detail', pk=s.offering.pk)).content
+
+
+@pytest.mark.parametrize('mode,visibility,count', [('once','published',1),('repeat','draft',2)])
+def test_shared_session_creation_single_recurring_and_visibility(notifications, mode, visibility, count):
+    s = notifications
+    endpoint = url(s, 'session_new', offering_pk=s.offering.pk)
+    values = {**data_for(s, 'create'), 'mode': mode, 'visibility': visibility}
+    first = s.client.post(endpoint, values, **HEADER)
+    assert first.status_code == 200, first.context['form'].errors
+    assert len(first.context['rows']) == count
+    values['preview_token'] = first.context['form']['preview_token'].value()
+    second = s.client.post(endpoint, values, **HEADER)
+    assert second.json() == {'saved': True, 'session_created': True}
+    created = s.offering.sessions.exclude(pk=s.session.pk)
+    assert created.count() == count
+    assert set(created.values_list('is_published', flat=True)) == {visibility == 'published'}
+    assert s.client.post(endpoint, values, **HEADER).json()['saved']
+    assert created.count() == count
+
+
+@pytest.mark.parametrize('action', ['cancel'])
+def test_session_scope_preserves_action_and_has_no_creation_link(notifications, action):
+    from django.test import SimpleTestCase
+    s = notifications
+    s.session.series_id = uuid.uuid4()
+    s.session.save()
+    booked(s)
+    single = s.client.get(url(s, 'session_cancel' if action == 'cancel' else 'session_edit', pk=s.session.pk), **HEADER)
+    assert single.status_code == 200
+    single_url = url(s, 'session_cancel' if action == 'cancel' else 'session_edit', pk=s.session.pk)
+    multiple_url = path(s, action) + f'?session={s.session.pk}'
+    check = SimpleTestCase().assertInHTML
+    check(f'<a data-calendar-load aria-current="page" href="{single_url}">This session</a>', single.content.decode())
+    check(f'<a data-calendar-load href="{multiple_url}">This and following sessions</a>', single.content.decode())
+    multiple = s.client.get(multiple_url, **HEADER)
+    assert multiple.status_code == 200
+    check(f'<a data-calendar-load aria-current="page" href="{multiple_url}">This and following sessions</a>', multiple.content.decode())
+    check(f'<a data-calendar-load href="{single_url}">This session</a>', multiple.content.decode())
+    assert path(s, 'create').encode() not in multiple.content
 
 
 def test_already_used_child_review_is_a_clear_error_not_a_partial_batch(notifications):

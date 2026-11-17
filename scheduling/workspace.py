@@ -46,7 +46,8 @@ def overview(profile, *, location=None):
     if not location_restricted(profile):
         step("Add a location", staff_locations(profile).exists(), "locations")
     if has_capability(profile, "workshops"):
-        offerings = Offering.objects.filter(location__in=staff_locations(profile), visit_program__isnull=True)
+        from .setup import records
+        offerings = records(profile, "workshops")
         step("Add a workshop", offerings.exists(), "workshops")
         step("Publish a future session", Session.objects.filter(offering__in=offerings,
             offering__is_published=True, is_published=True, starts_at__gt=now).exists(), "workshops")

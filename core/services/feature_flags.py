@@ -42,6 +42,7 @@ _FEATURE_MIN_PLAN: dict[str, str] = {
     "status_enabled": PLAN_TRIAL,
     "csv_export_enabled": PLAN_TRIAL,
     "audit_log_enabled": PLAN_TRIAL,
+    "admin_theme_switching_enabled": PLAN_TRIAL,
     # starter tier
     "reports_enabled": PLAN_STARTER,
     "email_notifications_enabled": PLAN_STARTER,

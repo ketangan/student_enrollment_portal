@@ -1,0 +1,6 @@
+<div data-reservation-picker data-today="{{ picker_today }}">
+{{ session_choices|json_script:"reservation-session-choices" }}
+<div class="reservation-week"><h3>Session</h3><div><button type="button" data-week="-1" aria-label="Previous week"><i data-lucide="chevron-left" aria-hidden="true"></i></button><span data-week-label></span><button type="button" data-week="1" aria-label="Next week"><i data-lucide="chevron-right" aria-hidden="true"></i></button></div></div>
+<p class="reservation-selected-summary" data-selected-session hidden aria-live="polite"></p>
+<div data-session-options></div>
+</div>

@@ -11,6 +11,7 @@ from django.utils import timezone
 from core.models import School, SchoolAdminMembership
 from scheduling.experience_demo.config import configuration
 from scheduling.experience_demo import config as demo_config
+from scheduling.capabilities import validate_capabilities, has_capability
 from scheduling.models import Camp, ChoiceGroup, ChoiceOption, Location, Offering, Room, SchedulingMembership, SchedulingProfile, Session
 
 
@@ -43,7 +44,8 @@ class Command(BaseCommand):
             raise CommandError("A local demo password is required.")
         slug, config = options["slug"], configuration(options["slug"])
         school = saved(School, slug=slug, defaults={"display_name": config["name"], "is_demo": True,
-            "feature_flags": {"booking_experience_demo": True, "email_notifications_enabled": False, "ai_summary_enabled": False}})
+            "feature_flags": {"booking_experience_demo": True, "email_notifications_enabled": False, "ai_summary_enabled": False,
+                "admin_theme_switching_enabled": config.get("admin_theme_switching_enabled", True)}})
         if (not school.is_demo or school.stripe_customer_id or school.stripe_subscription_id
                 or school.smtp_host or school.app_fee_stripe_secret_key
                 or school.feature_flags.get("booking_experience_demo") is not True):
@@ -62,8 +64,10 @@ class Command(BaseCommand):
             user.is_active = user.is_staff = True
             user.set_password(options["password"])
             user.save(update_fields=["password", "is_active", "is_staff"])
+        capabilities = config.get("capabilities", ["workshops", "parties", "camps", "reservations", "integrations"])
+        validate_capabilities(capabilities)
         profile, profile_created = SchedulingProfile.objects.get_or_create(school=school, defaults={"enabled": True,
-            "capabilities": ["workshops", "parties", "camps", "reservations", "integrations"], "native_reservations_enabled": True})
+            "capabilities": capabilities, "native_reservations_enabled": True})
         saved(SchedulingMembership, profile=profile, user=user, defaults={"role": "owner"})
         if options["reset"]:
             from scheduling.experience_demo.reset import reset_demo
@@ -94,7 +98,7 @@ class Command(BaseCommand):
                         start = datetime.combine(first+timedelta(days=days), time(hour), ZoneInfo(place["zone"]))
                         saved(Session, offering=offering, starts_at=start, defaults={"ends_at": start+timedelta(hours=2),
                             "room": room, "capacity": 12, "is_published": True})
-            if position == 0:
+            if position == 0 and has_capability(profile, "camps"):
                 camp_offering = saved(Offering, location=location, name="Creative plushie camp", defaults={"is_published": True})
                 camp, created = Camp.objects.get_or_create(offering=camp_offering, name="Three-day creative camp",
                     defaults={"price": "195.00", "deposit": "0.00", "online": False, "is_open": True})
