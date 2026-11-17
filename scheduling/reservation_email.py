@@ -26,7 +26,7 @@ from .models import SchedulingProfile
 
 SALT = "scheduling.manual-email.v1"
 LINK_SALT = "scheduling.manual-email-link.v1"
-MANUAL_KINDS = ("manual", "manual_payment", "manual_guests")
+MANUAL_KINDS = ("manual", "manual_payment", "manual_guests", "manual_guide", "manual_links")
 
 
 def demo_delivery_enabled(profile):
@@ -54,7 +54,7 @@ def external_delivery_allowed(item):
 def templates_for(item):
     kind = "party" if item.party_request_id else "workshop"
     return SchoolEmailTemplate.objects.filter(school=item.profile.school, purpose="bookings",
-        is_active=True, booking_kind__in=["both", kind]).order_by("name", "pk")
+        is_active=True, booking_event="", booking_kind__in=["both", kind]).order_by("name", "pk")
 
 
 def variables(item):
@@ -63,11 +63,18 @@ def variables(item):
     email = source.organizer_email if item.party_request_id else source.purchaser_email
     when = timezone.localtime(item.starts_at, ZoneInfo(item.snapshot.get("timezone", "UTC")))
     location = source.offering.location if item.party_request_id else source.session.offering.location
-    return {"full_name": name, "first_name": name.split()[0] if name.split() else "",
+    offering = source.offering if item.party_request_id else source.session.offering
+    ends = timezone.localtime(item.ends_at, when.tzinfo)
+    return {"customer_name": name, "business_name": item.profile.email_brand_name or item.profile.school.display_name or item.profile.school.slug,
+        "full_name": name, "first_name": name.split()[0] if name.split() else "",
         "email": email, "program": item.snapshot.get("workshop", ""), "status": item.get_state_display(),
         "school_name": item.profile.school.display_name or item.profile.school.slug,
         "booking_date": when.strftime("%a, %b %d, %Y"), "booking_time": when.strftime("%I:%M %p %Z"),
-        "location": location.name, "participant_count": item.quantity}
+        "location": location.name, "participant_count": item.quantity,
+        "package_name": item.snapshot.get('party_package', {}).get('name') or offering.name,
+        "starts_at": when.strftime('%b %d, %Y, %I:%M %p %Z'),
+        "ends_at": ends.strftime('%b %d, %Y, %I:%M %p %Z'),
+        "room": item.room.name if item.room_id else ''}
 
 
 def customer_link(item, kind):
@@ -75,6 +82,10 @@ def customer_link(item, kind):
     school = item.profile.school
     reverse = demo_reverse if school.is_demo else app_reverse
     kwargs = {"school_slug": school.slug}
+    if kind == 'guide' and item.profile.enabled and item.profile.design_guides.exists():
+        return {'kind': kind, 'url': reverse('scheduling:design_guide', kwargs=kwargs),
+            'label': 'Design guide (PDF)', 'hint': 'Includes the design guide.',
+            'signature': digest({'profile': item.profile_id, 'kind': kind})}
     if kind == "payment":
         try:
             validate_booking_checkout(item)
@@ -105,13 +116,23 @@ def customer_link(item, kind):
 
 def draft_options(item):
     values = variables(item)
-    links = {kind: customer_link(item, kind) for kind in ("payment", "guests")}
+    links = {kind: customer_link(item, kind) for kind in ("payment", "guests", "guide")}
     options = {"": {"name": "Blank message", "subject": "", "body": "", "link": None}}
     for template in templates_for(item):
         link = links.get(template.booking_link)
+        unavailable = template.booking_link != 'none' and not link
+        if item.profile.branded_booking_email:
+            from .booking_email_templates import selected_links
+            selected = selected_links(template)
+            actions = [links[kind] for kind in selected if links[kind]]
+            unavailable = any(not links[kind] for kind in selected)
+            link = {'kind': 'links', 'actions': actions,
+                'signature': digest([(a['kind'], a['signature']) for a in actions]),
+                'hint': ', '.join(a['label'] for a in actions)} if actions else None
         options[str(template.pk)] = {"name": template.name, "subject": render_tokens(template.subject, values),
+            "heading": render_tokens(template.heading, values),
             "body": clean_html(render_tokens(template.body, values, html=True)), "link": link,
-            "unavailable": template.booking_link != "none" and not link}
+            "unavailable": unavailable}
     return options
 
 
@@ -146,7 +167,7 @@ class ComposeForm(forms.Form):
     def clean_template(self):
         key = self.cleaned_data["template"]
         if self.options[key].get("unavailable"):
-            raise ValidationError("This template's payment or guest-details button is unavailable for this reservation. Choose another template.")
+            raise ValidationError("One or more selected email links are unavailable for this reservation. Choose another template.")
         return key
 
     def clean_subject(self):
@@ -198,7 +219,12 @@ def deliverable(message, item):
         get_staff_reservation(profile, item.public_id, exclude_visits=True)
     except Http404:
         return False
-    if message.notice_kind in {"manual_payment", "manual_guests"}:
+    if message.notice_kind == 'manual_links':
+        actions = message.email_layout.get('actions', [])
+        current = [customer_link(item, a['kind']) for a in actions]
+        return bool(current and all(current) and message.notice_signature ==
+            digest([(a['kind'], a['signature']) for a in current]))
+    if message.notice_kind in {"manual_payment", "manual_guests", "manual_guide"}:
         link = customer_link(item, message.notice_kind.removeprefix("manual_"))
         return bool(link and message.notice_signature == link["signature"])
     return True
@@ -237,13 +263,16 @@ def send(user, slug, public_id, data):
         except (signing.BadSignature, KeyError, ValueError, TypeError):
             form.add_error(None, "The included link or payment amount changed. Review the link below before sending again.")
             return form, None
-        body += f'<p><a class="booking-email-action" href="{escape(supplied["url"])}">{escape(link["label"])}</a></p>'
+        if link['kind'] != 'links':
+            css = '' if link['kind'] == 'guide' else ' class="booking-email-action"'
+            body += f'<p><a{css} href="{escape(supplied["url"])}">{escape(link["label"])}</a></p>'
     live = external_delivery_allowed(item)
     if not live and not (settings.DEBUG and item.order.environment == "test"):
         form.add_error(None, "Email delivery is disabled for this workspace. Check Guest communication settings.")
         return form, None
     try:
         from . import booking_documents
+        from .booking_email_templates import brand
         from .message_models import BookingMessage
         event_key = f"manual:{item.public_id}:{key}"
         existing = BookingMessage.objects.filter(profile=profile, event_key=event_key).first()
@@ -255,7 +284,10 @@ def send(user, slug, public_id, data):
                         else booking_documents.snapshot(item, kind))
         message = messaging.capture(profile, event_key=event_key, group_key=f"manual:{key}",
             recipient=form.cleaned_data["recipient"], subject=form.cleaned_data["subject"], body=body,
-            document_snapshot=document)
+            document_snapshot=document, email_layout=(existing.email_layout if existing else
+                {**brand(profile), "heading": form.options[form.cleaned_data["template"]].get("heading", ""),
+                    "actions": link.get('actions', []) if link else []}
+                if profile.branded_booking_email else None))
     except ValidationError as exc:
         form.add_error(None, exc)
         return form, None

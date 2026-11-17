@@ -1,8 +1,29 @@
 {% extends 'scheduling/base.html' %}
 {% load static %}
 {% block title %}Email settings{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'scheduling/email-settings.css' %}?v=20261030-templates">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'scheduling/email-settings.css' %}?v=20261117-links">{% endblock %}
 {% block content %}
+<nav class="email-tabs" aria-label="Email settings">
+  <a href="?tab=templates" {% if email_tab == 'templates' %}aria-current="page"{% endif %}>Templates</a>
+  <a href="?tab=branding" {% if email_tab == 'branding' %}aria-current="page"{% endif %}>Branding</a>
+  <a href="?tab=delivery" {% if email_tab == 'delivery' %}aria-current="page"{% endif %}>Delivery</a>
+</nav>
+{% if email_tab == 'branding' %}
+<section class="email-settings-section"><h2>Booking email branding</h2>
+<div class="email-brand-layout" data-email-preview>
+  <form method="post" class="setup-form email-brand-form" data-preview-action="preview_brand">{% csrf_token %}
+    {{ brand_form.non_field_errors }}
+    <label class="email-tls">{{ brand_form.branded_booking_email }}{{ brand_form.branded_booking_email.label }}</label>
+    {% for field in brand_form %}{% if field.name != 'branded_booking_email' %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.name == 'email_brand_color' %}<div class="email-color-swatches" role="group" aria-label="Brand color">
+      <button type="button" data-email-color="#ff8a92" style="--swatch:#ff8a92" aria-label="Pink" title="Pink" aria-pressed="{% if field.value == '#ff8a92' %}true{% else %}false{% endif %}"></button>
+      <button type="button" data-email-color="#2563eb" style="--swatch:#2563eb" aria-label="Blue" title="Blue" aria-pressed="{% if field.value == '#2563eb' %}true{% else %}false{% endif %}"></button>
+      {% if field.value != '#ff8a92' and field.value != '#2563eb' %}<button type="button" data-email-color="{{ field.value }}" style="--swatch:{{ field.value }}" aria-label="Current color" title="Current color" aria-pressed="true"></button>{% endif %}
+    </div>{% endif %}</div>{% endif %}{% endfor %}
+    <button type="submit" class="primary" name="action" value="save_brand">Save branding</button>
+  </form>
+  {% include 'scheduling/email_preview.html' with preview=brand_preview %}
+</div></section>
+{% elif email_tab == 'delivery' %}
 <section class="email-settings-section" aria-labelledby="email-delivery-heading">
   <div class="section-heading"><h2 id="email-delivery-heading">Email delivery</h2><span class="muted">{% if custom_delivery %}Custom SMTP{% else %}Default email service{% endif %}</span></div>
   <p class="muted">Shared with Enrollment. Changes apply to both.</p>
@@ -22,13 +43,37 @@
     <form method="post">{% csrf_token %}<input type="hidden" name="action" value="clear"><button type="submit">Use default service</button></form>
   </details>{% endif %}
 </section>
+{% else %}
+{% if profile.branded_booking_email %}
+<section class="email-settings-section email-template-workspace" aria-label="Booking email templates">
+  <nav class="email-template-list" aria-label="Templates">
+    <h2>Templates</h2>
+    {% for template in email_templates %}<a href="?tab=templates&amp;template={{ template.pk }}" {% if selected_template.pk == template.pk %}aria-current="page"{% endif %}>{{ template.name }}</a>{% endfor %}
+    <a href="?tab=templates&amp;template=new"><i data-lucide="plus" aria-hidden="true"></i>Add template</a>
+  </nav>
+  {% if template_form %}{% include 'scheduling/email_template_inline.html' %}{% else %}<p>No booking email templates yet.</p>{% endif %}
+</section>
+{% else %}
 <section class="email-settings-section" aria-labelledby="email-templates-heading">
   <div class="section-heading"><h2 id="email-templates-heading">Booking email templates</h2><a class="button primary" href="{% url 'scheduling:email_template_new' school_slug=profile.school.slug %}"><i data-lucide="plus" aria-hidden="true"></i>Add template</a></div>
   <div class="table-wrap" role="region" aria-label="Booking email templates" tabindex="0">
     <table><thead><tr><th>Name</th><th class="email-template-scope">Available for</th><th class="email-template-subject">Subject</th><th>Included button</th><th class="email-template-status">Status</th><th><span class="sr-only">Edit</span></th></tr></thead><tbody>
-      {% for template in email_templates %}<tr><td><strong>{{ template.name }}</strong><span class="email-template-scope-mobile muted">{{ template.get_booking_kind_display }}<br>{% if template.is_active %}Active{% else %}Inactive{% endif %}</span></td><td class="email-template-scope">{{ template.get_booking_kind_display }}</td><td class="email-template-subject">{{ template.subject }}</td><td>{% if template.booking_link == 'payment' %}Payment{% elif template.booking_link == 'guests' %}Guest details{% else %}None{% endif %}</td><td class="email-template-status">{% if template.is_active %}Active{% else %}Inactive{% endif %}</td><td><a class="button icon-button" title="Edit {{ template.name }}" aria-label="Edit {{ template.name }}" href="{% url 'scheduling:email_template_edit' school_slug=profile.school.slug pk=template.pk %}"><i data-lucide="pencil" aria-hidden="true"></i></a></td></tr>
+      {% for template in email_templates %}
+      <tr>
+        <td><strong>{{ template.name }}</strong>{% if template.booking_event %}<small class="email-trigger muted">Automatic</small>{% endif %}
+          <span class="email-template-scope-mobile muted">{{ template.get_booking_kind_display }}<br>{% include 'scheduling/email_template_status.html' %}</span>
+        </td>
+        <td class="email-template-scope">{{ template.get_booking_kind_display }}</td>
+        <td class="email-template-subject">{{ template.subject }}</td>
+        <td>{% if template.booking_link == 'payment' %}Payment{% elif template.booking_link == 'guests' %}Guest details{% else %}None{% endif %}</td>
+        <td class="email-template-status">{% include 'scheduling/email_template_status.html' %}</td>
+        <td><a class="button icon-button" title="Edit {{ template.name }}" aria-label="Edit {{ template.name }}" href="{% url 'scheduling:email_template_edit' school_slug=profile.school.slug pk=template.pk %}"><i data-lucide="pencil" aria-hidden="true"></i></a></td>
+      </tr>
       {% empty %}<tr><td colspan="6">No booking email templates yet.</td></tr>{% endfor %}
     </tbody></table>
   </div>
 </section>
+{% endif %}
+{% endif %}
 {% endblock %}
+{% block scripts %}<script defer src="{% static 'admin/email-template-tokens.js' %}?v=20261117-inline"></script><script defer src="{% static 'scheduling/email-editor.js' %}?v=20261117-inline"></script><script defer src="{% static 'scheduling/email-preview.js' %}?v=20261117-inline"></script>{% endblock %}

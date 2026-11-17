@@ -66,6 +66,7 @@
     sync();
   });
   window.EmailTemplateTokens.attach({editor, subject, buttons: form.querySelectorAll('[data-token]'),
+    inputs: Array.from(form.querySelectorAll('[name="heading"]')),
     changed: () => { dirty = true; sync(); }});
   const read = id => JSON.parse(document.getElementById(id)?.textContent || '{}');
   const options = read('email-options');

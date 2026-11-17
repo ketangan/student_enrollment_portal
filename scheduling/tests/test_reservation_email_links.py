@@ -215,7 +215,7 @@ def test_confirmation_does_not_silently_drop_a_closed_guest_link(stock, booking)
     booking.prepared_at = timezone.now()
     booking.save()
     response = stock.client.post(url(stock, booking), payload)
-    assert response.status_code == 400 and b'button is unavailable' in response.content
+    assert response.status_code == 400 and b'email links are unavailable' in response.content
     assert not BookingMessage.objects.exists()
 
 

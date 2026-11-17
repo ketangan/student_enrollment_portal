@@ -28,6 +28,11 @@ class SchedulingProfile(models.Model):
     message_preview_enabled = models.BooleanField(default=False)
     party_notifications_enabled = models.BooleanField(default=False)
     workshop_notifications_enabled = models.BooleanField(default=False)
+    branded_booking_email = models.BooleanField(default=False)
+    email_brand_name = models.CharField(max_length=120, blank=True)
+    email_brand_color = models.CharField(max_length=7, default="#2563eb",
+        validators=[RegexValidator(r"^#[0-9a-fA-F]{6}$", "Choose a six-digit hex color.")])
+    email_signoff = models.TextField(max_length=1000, blank=True)
     demo_notifications_since = models.DateTimeField(default=timezone.now, editable=False)
     calendar_enabled = models.BooleanField(default=False)
     default_dashboard_view = models.CharField(max_length=8, default="overview",

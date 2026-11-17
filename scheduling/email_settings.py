@@ -3,10 +3,12 @@ from django import forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.http import HttpResponseBadRequest
+from django.db.models import Q
+from django.http import Http404, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
+from django.urls import reverse
 
 from core.admin.audit import log_admin_audit
 from core.models import School, SchoolEmailTemplate
@@ -15,6 +17,20 @@ from core.services.email_content import BOOKING_TOKENS, TOKENS, TOKEN, validate_
 from .access import require_access
 from .models import SchedulingProfile
 from .views import _context
+from . import booking_email_templates as booking_templates
+
+BOOKING_EDITOR_TOKENS = tuple(({'school_name': 'business_name', 'full_name': 'customer_name'}.get(key, key), label)
+    for key, label in BOOKING_TOKENS) + booking_templates.DETAIL_TOKENS
+
+
+class BookingBrandForm(forms.ModelForm):
+    class Meta:
+        model = SchedulingProfile
+        fields = ("branded_booking_email", "email_brand_name", "email_brand_color", "email_signoff")
+        labels = {"branded_booking_email": "Use branded booking emails", "email_brand_name": "Studio name",
+            "email_brand_color": "Brand color", "email_signoff": "Sign-off"}
+        widgets = {"email_brand_color": forms.HiddenInput(),
+            "email_signoff": forms.Textarea(attrs={"rows": 3})}
 
 
 class SchoolEmailSettingsForm(forms.ModelForm):
@@ -43,61 +59,141 @@ def settings(request, school_slug):
     get_object_or_404(scope_schools(SchedulingProfile.objects.all(), request, "school__"), pk=profile.pk)
     school = profile.school
     form = SchoolEmailSettingsForm(instance=school)
+    brand_form = BookingBrandForm(instance=profile)
+    tab = request.GET.get("tab", "templates")
     if request.method == "POST":
         action = request.POST.get("action")
-        if action not in {"save", "clear"}:
+        if action in {"save_brand", "preview_brand"}:
+            brand_form = BookingBrandForm(request.POST, instance=profile)
+            tab = "branding"
+            if brand_form.is_valid():
+                if action == "preview_brand":
+                    return JsonResponse(booking_templates.brand_preview(profile))
+                with transaction.atomic():
+                    SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
+                    require_access(request.user, school_slug, "setup.edit", capability="workshops")
+                    profile.save(update_fields=BookingBrandForm.Meta.fields)
+                    if profile.branded_booking_email:
+                        booking_templates.seed_defaults(profile)
+                    log_admin_audit(request=request, action="change", obj=profile, changes={},
+                        extra={"name": "booking_email_branding_updated"})
+                messages.success(request, "Booking email branding saved.")
+                return redirect(request.path + "?tab=branding")
+            if action == "preview_brand":
+                return JsonResponse({"errors": brand_form.errors}, status=400)
+        elif action not in {"save", "clear"}:
             return HttpResponseBadRequest("Choose a valid email settings action.")
-        with transaction.atomic():
-            school = School.objects.select_for_update().get(pk=school.pk)
-            require_access(request.user, school_slug, "setup.edit", capability="workshops")
-            if action == "clear":
-                school.smtp_host = school.smtp_username = school.smtp_password = school.smtp_from_email = ""
-                school.smtp_port = None
-                school.smtp_use_tls = True
-            else:
-                form = SchoolEmailSettingsForm(request.POST, instance=school)
-                if form.is_valid():
-                    school = form.save(commit=False)
-            if action == "clear" or not form.errors:
-                school.save(update_fields=SchoolEmailSettingsForm.Meta.fields)
-                log_admin_audit(request=request, action="action", obj=school, changes={},
-                    extra={"name": "clear_smtp" if action == "clear" else "update_smtp"})
-                messages.success(request, "Email settings saved." if action == "save" else "Default email service restored.")
-                return redirect(request.path)
+        if action in {"save", "clear"}:
+            tab = "delivery"
+            with transaction.atomic():
+                school = School.objects.select_for_update().get(pk=school.pk)
+                require_access(request.user, school_slug, "setup.edit", capability="workshops")
+                if action == "clear":
+                    school.smtp_host = school.smtp_username = school.smtp_password = school.smtp_from_email = ""
+                    school.smtp_port = None
+                    school.smtp_use_tls = True
+                else:
+                    form = SchoolEmailSettingsForm(request.POST, instance=school)
+                    if form.is_valid():
+                        school = form.save(commit=False)
+                if action == "clear" or not form.errors:
+                    school.save(update_fields=SchoolEmailSettingsForm.Meta.fields)
+                    log_admin_audit(request=request, action="action", obj=school, changes={},
+                        extra={"name": "clear_smtp" if action == "clear" else "update_smtp"})
+                    messages.success(request, "Email settings saved." if action == "save" else "Default email service restored.")
+                    return redirect(request.path + "?tab=delivery")
     context = _context(request, profile, role, "email_settings")
     context["dashboard_location_form"] = None
     context.update(email_form=form, custom_delivery=bool(profile.school.smtp_host),
+                   brand_form=brand_form, email_tab=tab,
+                   brand_preview=booking_templates.brand_preview(profile),
                    email_templates=SchoolEmailTemplate.objects.filter(school=profile.school, purpose="bookings").order_by("name", "pk"))
-    return render(request, "scheduling/email_settings.html", context, status=400 if form.errors else 200)
+    if tab == 'templates' and profile.branded_booking_email:
+        template_context(context, profile, request.GET.get('template'))
+    return render(request, "scheduling/email_settings.html", context, status=400 if form.errors or brand_form.errors else 200)
 
 
 class BookingTemplateForm(forms.ModelForm):
+    booking_links = forms.MultipleChoiceField(label='Email links', required=False,
+        choices=booking_templates.LINK_CHOICES, widget=forms.CheckboxSelectMultiple)
     subject = forms.CharField(max_length=200)
     body = forms.CharField(label="Message", max_length=20000, widget=forms.Textarea(attrs={"rows": 10}))
 
     class Meta:
         model = SchoolEmailTemplate
-        fields = ("name", "booking_kind", "booking_link", "subject", "body", "is_active")
+        fields = ("name", "booking_kind", "booking_link", "subject", "heading", "body", "is_active", "booking_links")
         labels = {"booking_kind": "Available for", "booking_link": "Included button", "is_active": "Active"}
 
     def __init__(self, *args, **kwargs):
+        branded = kwargs.pop("branded", False)
+        preview = kwargs.pop('preview', False)
         super().__init__(*args, **kwargs)
+        self.branded = branded
+        if branded:
+            self.initial['body'] = booking_templates.editable_body(self.instance)
+            self.initial['booking_links'] = booking_templates.selected_links(self.instance)
+            for name in ('subject', 'heading', 'body'):
+                self.initial[name] = (self.initial.get(name) or '').replace('{{school_name}}', '{{business_name}}').replace('{{full_name}}', '{{customer_name}}')
+        if not branded:
+            self.fields.pop("heading")
+            self.fields.pop('booking_links')
+        if self.instance.booking_event:
+            self.fields["booking_kind"].disabled = self.fields["booking_link"].disabled = True
+            if branded:
+                self.fields['is_active'].initial = True
+                self.initial['is_active'] = True
+                self.fields['is_active'].disabled = True
+                self.fields['is_active'].widget = forms.HiddenInput()
+        if preview:
+            for field in ('name', 'subject', 'body'):
+                self.fields[field].required = False
         self.fields["booking_link"].required = False
         self.fields["booking_link"].choices = [("none", "None"), ("payment", "Payment"),
-            ("guests", "Guest details / participant selections")]
+            ("guests", "Guest details / participant selections"), ("guide", "Design guide (PDF)")]
 
     def clean_booking_link(self):
         return self.cleaned_data["booking_link"] or "none"
 
     def clean_body(self):
+        if not self.fields['body'].required and not self.cleaned_data['body'].strip():
+            return ''
         return validate_body(self.cleaned_data["body"])
 
     def clean(self):
         data = super().clean()
-        for field in ("subject", "body"):
-            if any(token not in TOKENS for token in TOKEN.findall(data.get(field, ""))):
-                self.add_error(field, "Use the available auto-filled tokens.")
+        for field in ("subject", "heading", "body"):
+            if any(token not in (*TOKENS, 'customer_name', 'business_name', *(key for key, _ in booking_templates.DETAIL_TOKENS)) for token in TOKEN.findall(data.get(field, ""))):
+                self.add_error(field, "Choose a supported field from Insert details.")
+        if "\r" in data.get("subject", "") or "\n" in data.get("subject", ""):
+            self.add_error("subject", "Enter a single-line subject.")
         return data
+
+    def _post_clean(self):
+        if self.branded:
+            self.instance.booking_details_in_body = True
+        super()._post_clean()
+
+
+def template_context(context, profile, selected=None, form=None):
+    templates = SchoolEmailTemplate.objects.filter(school=profile.school, purpose='bookings').filter(
+        Q(is_active=True) | ~Q(booking_event='')).order_by('name', 'pk')
+    if form is not None:
+        template = form.instance
+    elif selected == 'new':
+        template = SchoolEmailTemplate(school=profile.school, purpose='bookings')
+    elif selected:
+        if not str(selected).isdigit():
+            raise Http404
+        template = get_object_or_404(SchoolEmailTemplate, pk=selected, school=profile.school, purpose='bookings')
+    else:
+        template = templates.first()
+    context.update(email_tab='templates', email_templates=templates)
+    if template is not None:
+        context.update(template_form=form or BookingTemplateForm(instance=template, branded=True),
+            selected_template=template, template_tokens=BOOKING_EDITOR_TOKENS,
+            template_preview=booking_templates.preview(profile, template),
+            template_action=reverse('scheduling:email_template_edit', kwargs={'school_slug': profile.school.slug, 'pk': template.pk})
+                if template.pk else reverse('scheduling:email_template_new', kwargs={'school_slug': profile.school.slug}))
 
 
 @never_cache
@@ -107,16 +203,30 @@ def template_edit(request, school_slug, pk=None):
     profile, role = require_access(request.user, school_slug, "setup.edit", capability="workshops")
     get_object_or_404(scope_schools(SchedulingProfile.objects.all(), request, "school__"), pk=profile.pk)
     template = get_object_or_404(SchoolEmailTemplate, pk=pk, school=profile.school, purpose="bookings") if pk else SchoolEmailTemplate(school=profile.school, purpose="bookings")
-    if request.method == "POST" and request.POST.get("action", "save") != "save":
+    action = request.POST.get("action", "save")
+    if request.method == "POST" and action not in {"save", "preview"}:
         return HttpResponseBadRequest("Choose a valid template action.")
-    form = BookingTemplateForm(request.POST if request.method == "POST" else None, instance=template)
+    form = BookingTemplateForm(request.POST if request.method == "POST" else None, instance=template,
+        branded=profile.branded_booking_email, preview=action == 'preview')
+    if request.method == "POST" and action == "preview":
+        if not profile.branded_booking_email:
+            return HttpResponseBadRequest("Enable booking email branding before previewing.")
+        if not form.is_valid():
+            return JsonResponse({"errors": form.errors}, status=400)
+        return JsonResponse(booking_templates.preview(profile, form.instance))
     if request.method == "POST" and form.is_valid():
         form.save()
         log_admin_audit(request=request, action="change" if pk else "add", obj=template, changes={},
             extra={"name": "email_template_updated" if pk else "email_template_created", "template_name": template.name})
         messages.success(request, "Email template saved.")
-        return redirect("scheduling:email_settings", school_slug=school_slug)
+        path = reverse('scheduling:email_settings', kwargs={'school_slug': school_slug})
+        return redirect(path + f'?tab=templates&template={template.pk}' if profile.branded_booking_email else path)
     context = _context(request, profile, role, "email_settings")
-    context.update(template_form=form, dashboard_location_form=None, template_tokens=BOOKING_TOKENS,
+    context.update(template_form=form, dashboard_location_form=None, template_tokens=BOOKING_EDITOR_TOKENS if profile.branded_booking_email else BOOKING_TOKENS,
+        automatic_template=bool(template.booking_event), template_event=template.get_booking_event_display(),
+        template_preview=booking_templates.preview(profile, template),
         template_heading="Edit email template" if pk else "Add email template")
+    if profile.branded_booking_email:
+        template_context(context, profile, form=form)
+        return render(request, 'scheduling/email_settings.html', context, status=400 if form.errors else 200)
     return render(request, "scheduling/email_template_form.html", context, status=400 if form.errors else 200)

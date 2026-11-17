@@ -522,7 +522,17 @@ class SchoolEmailTemplate(models.Model):
     school     = models.ForeignKey(School, on_delete=models.CASCADE, related_name="email_templates")
     purpose = models.CharField(max_length=16, choices=[("enrollment", "Enrollment"), ("bookings", "Bookings")], default="enrollment")
     booking_kind = models.CharField(max_length=16, choices=[("both", "Parties and workshops"), ("party", "Parties"), ("workshop", "Workshops")], default="both")
-    booking_link = models.CharField(max_length=16, choices=[("none", "No link"), ("payment", "Payment link"), ("guests", "Guest details / selections link")], default="none")
+    booking_link = models.CharField(max_length=16, choices=[("none", "No link"), ("payment", "Payment link"), ("guests", "Guest details / selections link"), ("guide", "Design guide (PDF)")], default="none")
+    booking_event = models.CharField(max_length=32, blank=True, default="", choices=[
+        ("", "Staff-composed email"), ("party_confirmation", "Party confirmation"),
+        ("party_reminder", "Guest-selection reminder"), ("workshop_confirmation", "Workshop confirmation"),
+        ("payment_request", "Party payment request"), ("rescheduled", "Workshop schedule update"),
+        ("canceled", "Workshop cancellation")])
+    heading = models.CharField(max_length=160, blank=True)
+    booking_action_enabled = models.BooleanField(default=True)
+    booking_guide_enabled = models.BooleanField(default=True)
+    booking_links = models.JSONField(null=True, blank=True, default=None)
+    booking_details_in_body = models.BooleanField(default=False)
     name       = models.CharField(max_length=120)
     subject    = models.CharField(max_length=255)
     body       = models.TextField()
@@ -532,6 +542,9 @@ class SchoolEmailTemplate(models.Model):
 
     class Meta:
         ordering = ["name"]
+        constraints = [models.UniqueConstraint(fields=["school", "booking_event"],
+            condition=models.Q(purpose="bookings") & ~models.Q(booking_event=""),
+            name="school_booking_event_unique")]
 
     def __str__(self) -> str:
         return f"{self.school.slug} / {self.name}"

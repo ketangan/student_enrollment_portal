@@ -155,8 +155,13 @@ def audit_page(item, raw_page):
         add(stamp, key, title, f"To: {message.recipient} / Subject: {message.subject}", actor)
         if message.document_snapshot:
             rows[-1]["detail"] += f' / Attachment: {message.document_snapshot["title"]} (PDF)'
-        rows[-1].update(email_body=clean_html(message.body, links=False) if message.is_html else message.body,
-            email_html=message.is_html)
+        if message.email_layout:
+            from .booking_email_templates import presentation
+            body, _ = presentation(clean_html(message.body, links=False), {**message.email_layout, "actions": []})
+            rows[-1].update(email_body=body, email_html=False)
+        else:
+            rows[-1].update(email_body=clean_html(message.body, links=False) if message.is_html else message.body,
+                email_html=message.is_html)
 
     emails = BookingMessage.objects.filter(profile_id=item.profile_id, reservation=item).select_related("created_by")
     for message in emails.order_by("-created_at", "-pk")[:end + 1]:

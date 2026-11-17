@@ -33,11 +33,13 @@ def require_preview():
 
 
 @transaction.atomic
-def capture(profile, *, event_key, group_key, recipient, subject, body, document_snapshot=None):
+def capture(profile, *, event_key, group_key, recipient, subject, body, document_snapshot=None, email_layout=None):
     profile = SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
     payload = dict(group_key=group_key, recipient=recipient, subject=subject, body=body)
     if document_snapshot:
         payload["document_snapshot"] = document_snapshot
+    if email_layout:
+        payload["email_layout"] = email_layout
     fingerprint = digest(payload)
     existing = BookingMessage.objects.filter(profile=profile, event_key=event_key).first()
     if existing:
@@ -45,6 +47,7 @@ def capture(profile, *, event_key, group_key, recipient, subject, body, document
             raise ValidationError("This message event already exists with different contents.")
         return existing
     message = BookingMessage(profile=profile, event_key=event_key, **payload, payload_digest=fingerprint,
+        is_html=bool(email_layout),
         state="queued" if profile.message_preview_enabled and preview_enabled() else "draft")
     message.full_clean()
     message.save()
@@ -158,17 +161,14 @@ def local_transport(message, outcome):
     connection = get_school_email_connection()
     if type(connection) is not EmailBackend:
         raise RuntimeError("Local backend required")
-    email = EmailMessage(subject=message.subject, body=message.body,
+    from .booking_email_templates import make_email
+    email = make_email(message, EmailMessage,
         from_email="Pontora Preview <booking-preview@example.invalid>", to=[message.recipient],
         headers={"Message-ID": f"<booking-{message.public_id}@preview.invalid>"}, connection=connection)
     from .party_notifications import attach_guide
     attach_guide(email, message)
     from .booking_documents import attach
     attach(email, message)
-    if message.is_html:
-        from core.services.email_content import transport_html
-        email.body = transport_html(message.body)
-        email.content_subtype = "html"
     sent = email.send(fail_silently=False)
     if sent != 1:
         raise NotAccepted

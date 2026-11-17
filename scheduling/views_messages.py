@@ -96,6 +96,9 @@ def detail(request, school_slug, public_id):
         or enrollment_access(request.user, profile, owner=True))
     context.update(item=message, attempts=message.delivery_attempts.all(), error=error, blocker=blocker)
     context["message_body"] = message.body if not private_link or may_open else "Private access link hidden. Only the authorized owner can inspect this local email."
+    if message.email_layout and (not private_link or may_open):
+        from .booking_email_templates import presentation
+        context["message_body"] = presentation(message.body, message.email_layout)[0]
     return render(request, "scheduling/message_detail.html", context, status=400 if error else 200)
 
 

@@ -56,9 +56,11 @@ def capture(item, kind, before, key, *, refund_requested=False, customer_message
     if school.is_demo:
         lines.extend(["", "This is a test booking, not a real reservation."])
     subject = f"{'[Demo] ' if school.is_demo else ''}{school.display_name or school.slug}: {title}"[:200]
+    from .booking_email_templates import payload
     message = messaging.capture(item.profile, event_key=event_key,
         group_key=f"workshop:{item.public_id}:confirmation", recipient=source.purchaser_email,
-        subject=subject, body="\n".join(lines))
+        **payload(item, kind, subject, "\n".join(lines), before=before,
+            refund_requested=refund_requested, customer_message=customer_message))
     message.reservation, message.notice_kind, message.notice_signature = item, kind, stamp
     if delivery_enabled(item):
         message.state = "queued"

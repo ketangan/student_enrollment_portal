@@ -1,0 +1,21 @@
+<div class="email-brand-layout" data-email-preview>
+  <form method="post" action="{{ template_action }}" class="setup-form email-template-form" data-email-form data-preview-action="preview">
+    {% csrf_token %}{{ template_form.non_field_errors }}
+    <h2>{% if selected_template.pk %}{{ selected_template.name }}{% else %}Add template{% endif %}</h2>
+    <div class="form-field">{{ template_form.name.label_tag }}{{ template_form.name }}{{ template_form.name.errors }}</div>
+    {% if not selected_template.booking_event %}<div class="email-settings-fields">
+      <div class="form-field">{{ template_form.booking_kind.label_tag }}{{ template_form.booking_kind }}{{ template_form.booking_kind.errors }}</div>
+    </div>{% endif %}
+    <div class="form-field">{{ template_form.subject.label_tag }}{{ template_form.subject }}{{ template_form.subject.errors }}</div>
+    <div class="form-field">{{ template_form.heading.label_tag }}{{ template_form.heading }}{{ template_form.heading.errors }}</div>
+    {% include 'scheduling/email_editor.html' with body_field=template_form.body %}
+    <fieldset class="email-button-options"><legend>Email links</legend>
+      {% for option in template_form.booking_links %}<label class="email-tls">{{ option.tag }}{{ option.choice_label }}</label>{% endfor %}
+      {{ template_form.booking_links.errors }}
+    </fieldset>
+    <aside class="email-template-tokens" aria-label="Insert details">{% include 'school_admin/includes/email_tokens.html' with tokens=template_tokens compact=True %}</aside>
+    {% if selected_template.booking_event %}{{ template_form.is_active }}{% else %}<label class="email-tls">{{ template_form.is_active }}{{ template_form.is_active.label }}</label>{% endif %}
+    <div class="email-actions"><a class="button" href="?tab=templates&amp;template={{ selected_template.pk|default:'new' }}">Cancel</a><button type="submit" class="primary" name="action" value="save">Save template</button></div>
+  </form>
+  {% include 'scheduling/email_preview.html' with preview=template_preview %}
+</div>

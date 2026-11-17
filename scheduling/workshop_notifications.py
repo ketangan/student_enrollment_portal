@@ -39,9 +39,10 @@ def capture(item):
     if BookingMessage.objects.filter(profile=item.profile, event_key=key).exists():
         return
     subject, body = contents(item)
+    from .booking_email_templates import payload
     message = messaging.capture(item.profile, event_key=key,
         group_key=f"workshop:{item.public_id}:confirmation", recipient=item.workshop_request.purchaser_email,
-        subject=subject, body=body)
+        **payload(item, "workshop_confirmation", subject, body))
     message.reservation, message.notice_kind, message.notice_signature = item, "confirmation", stamp
     from .party_notifications import live_enabled
     from .reservation_email import demo_confirmation_allowed

@@ -49,7 +49,7 @@ def test_unavailable_button_is_visible_but_disabled_and_forged_post_rejected(sto
     assert page.context["email_options"][key]["unavailable"]
     assert f'value="{key}" disabled'.encode() in page.content
     response = stock.client.post(url(stock, booking), data(stock, booking, template=key))
-    assert response.status_code == 400 and b"button is unavailable" in response.content
+    assert response.status_code == 400 and b"email links are unavailable" in response.content
 
 
 def test_explicit_standard_setup_is_school_scoped_additive_and_preserves_enrollment(stock):

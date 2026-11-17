@@ -41,8 +41,9 @@ def test_operator_can_enable_and_grant_access_with_audit(client, booking_profile
     client.force_login(operator)
     url = reverse("admin:scheduling_schedulingprofile_change", args=[booking_profile.pk])
     assert client.get(url).status_code == 200
-    response = client.post(url, {"school": booking_profile.school_id, "enabled": "on", "_save": "Save"})
-    assert response.status_code == 302
+    response = client.post(url, {"school": booking_profile.school_id, "enabled": "on",
+        "email_brand_color": booking_profile.email_brand_color, "_save": "Save"})
+    assert response.status_code == 302, response.context["adminform"].form.errors
     booking_profile.refresh_from_db()
     assert booking_profile.enabled is True
     response = client.post(reverse("admin:scheduling_schedulingmembership_add"), {

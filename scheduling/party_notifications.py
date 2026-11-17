@@ -55,8 +55,8 @@ def needs_guests(item):
 def deliverable(message):
     item = Reservation.objects.select_related("profile__school", "party_request").get(pk=message.reservation_id)
     from . import payment_requests
-    if message.notice_kind in {"manual", "manual_payment", "manual_guests"}:
-        from .reservation_email import deliverable as manual_deliverable
+    from .reservation_email import MANUAL_KINDS, deliverable as manual_deliverable
+    if message.notice_kind in MANUAL_KINDS:
         return manual_deliverable(message, item)
     if message.notice_kind == "payment_request":
         return payment_requests.deliverable(message, item)
@@ -128,8 +128,9 @@ def capture_for_reservation(pk):
         if existing:
             return existing
         subject, body = contents(item, kind)
+        from .booking_email_templates import payload
         message = messaging.capture(profile, event_key=event_key, group_key=f"party:{item.public_id}:{kind}",
-            recipient=item.party_request.organizer_email, subject=subject, body=body)
+            recipient=item.party_request.organizer_email, **payload(item, "party_" + kind, subject, body))
         message.reservation, message.notice_kind, message.notice_signature = item, kind, stamp
         from .reservation_email import demo_confirmation_allowed
         if (live_enabled(profile) and item.order.environment == "live"
@@ -170,17 +171,14 @@ def process(profile_id, limit=20):
             if connection.__class__.__module__ in {"django.core.mail.backends.console", "django.core.mail.backends.locmem",
                                                    "django.core.mail.backends.dummy", "django.core.mail.backends.filebased"}:
                 raise RuntimeError("External mail backend required")
-            email = EmailMessage(subject=message.subject, body=message.body,
+            from .booking_email_templates import make_email
+            email = make_email(message, EmailMessage,
                 from_email=profile.school.smtp_from_email or settings.DEFAULT_FROM_EMAIL,
                 to=[message.recipient], headers={"Message-ID": f"<booking-{message.public_id}@mypontora.com>"},
                 connection=connection)
             attach_guide(email, message)
             from .booking_documents import attach
             attach(email, message)
-            if message.is_html:
-                from core.services.email_content import transport_html
-                email.body = transport_html(message.body)
-                email.content_subtype = "html"
             accepted = email.send(fail_silently=False)
             result = "sent" if accepted == 1 else "retry"
         except messaging.NotAccepted:

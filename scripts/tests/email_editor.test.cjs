@@ -8,6 +8,7 @@ const tokensSource = fs.readFileSync('static/admin/email-template-tokens.js', 'u
 function element(extra = {}) {
   return {listeners: {}, attributes: {}, value: '', hidden: true, textContent: '', innerHTML: '',
     addEventListener(name, fn) { const previous = this.listeners[name]; this.listeners[name] = previous ? (...args) => { previous(...args); fn(...args); } : fn; },
+    dispatchEvent(event) { this.listeners[event.type]?.(event); },
     setAttribute(name, value) { this.attributes[name] = value; },
     focus() { this.focused = true; this.listeners.focus?.(); },
     ...extra};
@@ -20,6 +21,8 @@ function page({empty = false, template = false, saved = false} = {}) {
   const label = {};
   const subject = element({selectionStart: 0, selectionEnd: 0,
     setRangeText(text) { this.value += text; }});
+  const heading = element({selectionStart: 0, selectionEnd: 0,
+    setRangeText(text) { this.value += text; }});
   const selector = template ? null : element();
   const token = element({dataset: {token: 'first_name'}});
   const linkToken = template ? null : element();
@@ -28,7 +31,8 @@ function page({empty = false, template = false, saved = false} = {}) {
     '[role="toolbar"]': toolbar, label}[selector])};
   const form = element({querySelector: name => ({'[data-email-editor]': wrapper, '[name="subject"]': subject,
     '[name="template"]': selector, '[name="link_token"]': linkToken,
-    '[data-email-link-note]': linkNote, '[data-email-link-hint]': linkHint}[name]), querySelectorAll: () => [token]});
+    '[data-email-link-note]': linkNote, '[data-email-link-hint]': linkHint}[name]),
+    querySelectorAll: name => name === '[name="heading"]' ? [heading] : [token]});
   const payload = {subject: 'Welcome', body: '<p>Ready</p>', link_token: 'signed-link', link_hint: 'Adds a guest details button.'};
   const range = {commonAncestorContainer: editor, cloneRange() { return this; },
     selectNodeContents() {}, collapse() {}, deleteContents() {}, insertNode(node) { editor.innerHTML += node.textContent; }};
@@ -42,10 +46,10 @@ function page({empty = false, template = false, saved = false} = {}) {
     getElementById: id => template ? null : ({textContent: JSON.stringify({'': {subject:'',body:''}, '1': payload,
       '2': {subject: 'Visit update', body: '<p>Please review the changes.</p>'}})}),
     execCommand(command, _, value) { commands.push({command, value}); if (command === 'insertText') editor.innerHTML += value; }});
-  const context = vm.createContext({document, window});
+  const context = vm.createContext({document, window, Event});
   vm.runInContext(tokensSource, context, {filename: 'static/admin/email-template-tokens.js'});
   vm.runInContext(source, context, {filename: 'static/scheduling/email-editor.js'});
-  return {form, textarea, editor, subject, selector, token, toolbar, linkToken, linkNote, linkHint,
+  return {form, textarea, editor, subject, heading, selector, token, toolbar, linkToken, linkNote, linkHint,
     selection, commands, alerts, document, window};
 }
 const click = (element, button) => element.listeners.click({target: {closest: () => button}});
@@ -151,6 +155,13 @@ test('reservation tokens insert into focused subject or message', () => {
   p.document.listeners.selectionchange();
   p.token.listeners.click();
   assert.equal(p.editor.innerHTML, '{{first_name}}{{first_name}}{{first_name}}');
+});
+
+test('booking heading tokens use the focused input without changing the message', () => {
+  const p = page({template: true});
+  p.heading.focus(); p.token.listeners.click();
+  assert.equal(p.heading.value, '{{first_name}}');
+  assert.equal(p.editor.innerHTML, '');
 });
 
 test('shared Enrollment token insertion works without a booking form or change callback', () => {

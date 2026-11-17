@@ -1,4 +1,41 @@
 .email-settings-section { padding: 24px 0; border-bottom: 1px solid #e2e5e9; }
+.email-tabs { display: flex; gap: 24px; border-bottom: 1px solid #e2e5e9; margin-bottom: 24px; }
+.email-tabs a { padding: 12px 4px; min-height: 44px; box-sizing: border-box; text-decoration: none; }
+.email-tabs [aria-current="page"] { border-bottom: 2px solid #2563eb; font-weight: 600; }
+.email-brand-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, .85fr); gap: 32px; align-items: start; }
+.email-brand-layout > * { min-width: 0; }
+.booking-admin .email-brand-layout .setup-form { width: 100%; max-width: none; margin: 0; }
+.email-brand-layout .email-template-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.email-brand-layout .email-template-tokens { border: 0; padding: 0; }
+.email-brand-layout .email-template-tokens .email-token-reference { display: flex; flex-wrap: wrap; gap: 8px; }
+.email-brand-layout .email-template-tokens h3 { width: 100%; }
+.email-brand-form .form-field { margin: 0 0 20px; }
+.booking-admin .email-brand-form input:not([type="checkbox"]), .booking-admin .email-brand-form textarea { width: 100%; box-sizing: border-box; min-height: 44px; }
+.booking-admin .email-brand-form input[type="color"] { width: 64px; padding: 4px; }
+.email-preview-panel { border: 1px solid #e2e5e9; border-radius: 8px; background: #fff; padding: 16px; }
+.email-preview-panel iframe { width: 100%; height: 650px; border: 0; background: #f5f6f8; }
+.email-preview-subject { font-size: 14px; overflow-wrap: anywhere; }
+.email-preview-status { font-size: 13px; color: #b42318; }
+.email-preview-status:empty { display: none; }
+.email-trigger { display: block; margin-top: 6px; }
+.email-template-workspace { display:grid; grid-template-columns:190px minmax(0,1fr); gap:24px; }
+.email-template-list { display:flex; flex-direction:column; gap:4px; }
+.email-template-list a { display:flex; align-items:center; gap:8px; padding:10px 12px; min-height:44px; box-sizing:border-box; border-radius:6px; text-decoration:none; color:inherit; }
+.email-template-list [aria-current="page"] { background:#eaf0ff; color:#1d4ed8; font-weight:600; }
+.email-template-workspace .email-brand-layout { gap:24px; grid-template-columns:minmax(0,1fr) minmax(300px,.85fr); }
+.email-template-workspace h2 { margin:0 0 16px; font-size:16px; }
+.email-color-swatches { display:flex; gap:8px; margin-top:8px; }
+.email-button-options { border:0; padding:0; margin:16px 0; display:flex; flex-wrap:wrap; gap:12px 20px; }
+.email-button-options legend { font-size:13px; font-weight:600; margin-bottom:8px; }
+.email-color-swatches button[aria-pressed="true"] { outline:2px solid #111827; outline-offset:3px; }
+.email-template-tokens .email-token-compact { display:flex; flex-wrap:wrap; gap:6px; }
+.email-token-compact h3 { flex-basis:100%; }
+.email-token-compact > div { margin:0 !important; }
+.email-token-compact button { font-family:inherit !important; font-size:12px !important; min-height:44px; }
+.booking-admin .email-color-swatches button { width:44px; height:44px; padding:6px; border:1px solid #d8dde5; background:var(--swatch); border-radius:6px; }
+@media(max-width:1200px) { .email-template-workspace .email-brand-layout { grid-template-columns:minmax(0,1fr); } }
+@media(max-width:650px) { .email-template-workspace { grid-template-columns:minmax(0,1fr); } .email-template-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); } .email-template-list h2 { grid-column:1/-1; } }
+@media (max-width: 1000px) { .email-brand-layout { grid-template-columns: minmax(0, 1fr); } }
 .email-settings-section:first-child { padding-top: 0; }
 .booking-admin .email-settings-form { max-width: 720px; margin-top: 24px; }
 .email-settings-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; }
@@ -6,6 +43,7 @@
 .booking-admin .email-settings-fields input { width: 100%; min-height: 44px; box-sizing: border-box; }
 .email-settings-fields .field-help { margin: 6px 0 0; font-size: 13px; }
 .email-tls { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 16px 0; }
+.booking-admin .email-button-options .email-tls { margin: 0; font-weight: 400; }
 .booking-admin .email-tls input { width: 20px; height: 20px; }
 .booking-admin .email-settings-section button { min-height: 44px; }
 .email-default { margin-top: 24px; }

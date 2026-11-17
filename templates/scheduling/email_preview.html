@@ -1,0 +1,6 @@
+<aside class="email-preview-panel" aria-label="Email preview">
+  <div class="section-heading"><h3>Preview</h3></div>
+  <p class="email-preview-subject" data-preview-subject>{{ preview.subject }}</p>
+  <p class="email-preview-status" role="status" data-preview-status></p>
+  <iframe title="Booking email preview" sandbox="" srcdoc="{{ preview.html|force_escape }}" data-preview-frame></iframe>
+</aside>

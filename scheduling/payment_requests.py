@@ -99,9 +99,10 @@ def send(user, slug, public_id, token):
     if not live and not (settings.DEBUG and item.order.environment == "test"):
         raise ValidationError("Customer email delivery is not enabled for this workspace.")
     subject, body = contents(item)
+    from .booking_email_templates import payload
     message = messaging.capture(profile, event_key=event_key,
         group_key=f"payment-request:{item.public_id}", recipient=item.party_request.organizer_email,
-        subject=subject, body=body)
+        **payload(item, "payment_request", subject, body))
     message.reservation, message.notice_kind, message.notice_signature = item, "payment_request", signature(item)
     if live:
         message.state = "queued"

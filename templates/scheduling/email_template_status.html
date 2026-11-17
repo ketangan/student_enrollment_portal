@@ -1,0 +1,1 @@
+{% if template.booking_event and not profile.branded_booking_email %}Default wording{% elif template.is_active %}Active{% elif template.booking_event %}Default wording{% else %}Inactive{% endif %}

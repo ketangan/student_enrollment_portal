@@ -2,6 +2,40 @@
 
 Last hosted revision/configuration check: November 17, 2026 (PST).
 
+## Pending: Configurable Branded Booking Emails
+
+- Follow-up: template editing, tags and preview now remain together on the Templates
+  tab; Branding and Delivery are separate tabs. Removed branded demo prefixes and
+  test footers without changing delivery safeguards. Local Plushie accent set to
+  existing website pink `#ff8a92`; six old sample/manual templates (IDs 1-6) archived,
+  not deleted. Apply the corresponding scoped settings cleanup deliberately on
+  demo after deployment; do not bulk archive other schools' templates.
+- Main/demo release authorized November 17; production is not approved.
+- Full release regression `pontora-regression-20261117-email-release` passed with
+  unchanged source: 6,349 application tests, 26 migration tests, 214 JavaScript
+  tests; Python coverage 97.81%, all measured module gates passed. Two stale test
+  expectations from the first run were corrected (admin color POST and multi-link
+  validation wording). Hosted deployment and activation verification are pending.
+- School-scoped opt-in branding and live previews reuse existing template editing,
+  tags, message queue, SMTP transport, attachments and delivery safeguards. Six
+  automatic booking messages become editable defaults without replacing manual
+  templates. Enrollment/SBMC rendering remains unchanged with branding off.
+- Follow-up cleanup: fixed automatic-template controls hidden; saved wording applies
+  directly; compact Insert details; incomplete previews no longer raise missing-field
+  errors. Design-guide preview/button restored using existing upload/link services.
+- Per-template automatic action/PDF checkboxes now drive both rendering and preview.
+  Preview links cannot navigate its sandbox; Branding uses a neutral sample.
+  Booking tag buttons show literal tokens, using customer_name/business_name aliases
+  while preserving old templates and enrollment tag behavior.
+- Follow-up: Branding switch changes preview; all branded templates offer three
+  independent links, with PDF as a text link. Booking details are editable formatted
+  message tags. Multi-link staff emails retain signed reservation binding, balance
+  checks and idempotent delivery. Legacy enrollment rendering is unchanged.
+- Additive migrations: core 0070-0073 and scheduling 0062. Local Plushie preview enabled;
+  hosted activation must be deliberate. See [setup and rollback](branded-booking-emails.md).
+- Targeted backend and JavaScript checks plus responsive browser review are recorded
+  in the local verification log. Real-inbox verification remains a production gate.
+
 ## November 17 Booking Control Release
 
 - Session and recurring-session live previews show Notify customers only when
@@ -23,8 +57,17 @@ Last hosted revision/configuration check: November 17, 2026 (PST).
   migration tests, all JavaScript tests and coverage gates; Python coverage
   97.91%. Source fingerprint matched before release:
   `588dc1c121f9041f8ef585e48359866ad63a089f5f659a989986cae1e95534ff`.
-  Only this release record was updated after the run. Demo deployment verification
-  pending; production promotion is not authorized by this release.
+  Only this release record was updated after the run.
+- Released as `f2365e0580d50fffbfa99ac1142a08436825025b`; GitHub CI
+  `44155577275` passed all three jobs. Render demo web and maintenance both
+  deployed this revision automatically; web deployment took 1m31s. The scheduled
+  maintenance run at 11:25 PST succeeded (47.5s).
+- Hosted Chrome checks passed: notification absent initially, visible after a
+  duration change and hidden after reverting; existing reservation stepper capped
+  at 12 for its current session and 7 when another session was selected; Studio
+  Prep view and inline editor omitted age. Canceled all unsaved edits; no customer
+  bookings changed or emails sent. Production was not promoted. This deployment
+  evidence was recorded locally after the release commit.
 - Targeted checks passed: 70 Python tests across Studio Prep, participant
   preparation and reservation list controls; 14 JavaScript tests across session
   preflight, reservation fields and session fields. `git diff --check` passed.
