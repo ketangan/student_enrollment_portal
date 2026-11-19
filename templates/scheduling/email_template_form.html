@@ -1,6 +1,6 @@
 {% extends 'scheduling/base.html' %}{% load static %}
 {% block title %}{{ template_heading }}{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'scheduling/email-settings.css' %}?v=20261117-links">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'scheduling/email-settings.css' %}?v=20261119-test-send">{% endblock %}
 {% block content %}
 <section class="email-settings-section"><h2>{{ template_heading }}</h2>
 {% if automatic_template %}<p class="muted">{{ template_event }}</p>{% endif %}
@@ -14,9 +14,10 @@
 {% include 'scheduling/email_editor.html' with body_field=template_form.body %}
 <label class="email-tls">{{ template_form.is_active }}{{ template_form.is_active.label }}</label>
 <div class="email-actions"><a class="button" href="{% url 'scheduling:email_settings' school_slug=profile.school.slug %}">Cancel</a><button type="submit" class="primary" name="action" value="save">Save template</button></div>
+{% include 'scheduling/email_test_control.html' %}
 </div><aside class="email-template-tokens" aria-label="Auto-filled tokens">{% include 'school_admin/includes/email_tokens.html' with tokens=template_tokens %}</aside></div>
 </form>
 {% if profile.branded_booking_email %}{% include 'scheduling/email_preview.html' with preview=template_preview %}{% endif %}
 </div></section>
 {% endblock %}
-{% block scripts %}<script defer src="{% static 'admin/email-template-tokens.js' %}?v=20261117-brand"></script><script defer src="{% static 'scheduling/email-editor.js' %}?v=20261117-brand"></script><script defer src="{% static 'scheduling/email-preview.js' %}?v=20261117-brand"></script>{% endblock %}
+{% block scripts %}<script defer src="{% static 'admin/email-template-tokens.js' %}?v=20261117-brand"></script><script defer src="{% static 'scheduling/email-editor.js' %}?v=20261119-test-send"></script><script defer src="{% static 'scheduling/email-preview.js' %}?v=20261119-mode"></script>{% endblock %}

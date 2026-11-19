@@ -1,8 +1,180 @@
 # Release Tracker
 
-Last hosted revision/configuration check: November 17, 2026 (PST).
+### November 19: Email Settings and Customer Footer Demo Release
 
-## Pending: Configurable Branded Booking Emails
+- Approved for main/demo push. Production remains unapproved; existing production
+  readiness blockers below still apply. Hosted CI/deployment and demo verification
+  are pending and will be checked separately at the owner's request.
+- Full regression passed: 6,366 application tests, 26 migration tests, 3 skipped,
+  and 219 JavaScript tests. Python coverage 97.81%; migration drift, coverage
+  gates and `git diff --check` passed.
+- Evidence: `/private/tmp/pontora-regression-20261119-attribution/status.json`;
+  tested fingerprint `57bd8c1f3cbe27858ab5f91b2f4e37cfdd5d232195162dedab04ad34077aaf78`.
+  Rechecked against the working tree immediately before release; only this
+  documentation entry was subsequently added. Unrelated nested worktree excluded.
+
+### November 19: Customer Footer Attribution and Release Regression
+
+- Replaced the shared customer workshop/party footer attribution with a small
+  `Powered by Pontora` link to `https://mypontora.com/`. Opens separately without
+  navigating away from a booking. Existing enrollment/admin screens unchanged.
+- Operator configuration: set
+  `scheduling.customer_experience.show_powered_by: false` in the school's existing
+  configuration to hide it; omitted/true displays the attribution.
+- Six targeted rendering tests passed for workshop/party and on/off/default.
+  Local Chrome footer/link inspected; responsive visibility checked at 768x1024
+  and 1024x768. Physical-device verification remains pending.
+- Requested detached full regression: logs, revision, fingerprint and exit status
+  in `/private/tmp/pontora-regression-20261119-attribution/`. Pending until checked.
+  Bounded sleep prevention attached. Do not push until this final batch passes.
+
+### November 19: Branding Field Verification
+
+- Local only; no deployment. Fresh-page pink/blue updates worked during manual
+  reproduction, so the reported color failure has no confirmed root cause.
+  Bumped the preview script version to avoid retaining the older toggle code.
+- Fixed Branding's unbranded preview using a separate bare HTML renderer: it now
+  uses the delivery renderer, retaining the sign-off and regular email typography.
+- Verified color, studio name, multiline sign-off, mode toggle, save/reload and
+  unsaved preview behavior in local Chrome. Restored original pink/name/sign-off
+  and enabled branding. Checked desktop, 768x1024, 1024x768 and 390x844 emulation;
+  physical Android/virtual-keyboard verification remains pending.
+- Prior full regression passed: 6,356 application tests, 26 migration tests,
+  3 skipped; JavaScript and coverage gates passed, Python coverage 97.80%.
+  Evidence: `/private/tmp/pontora-regression-20261119-email-toolbar/status.json`.
+- This correction passed 165 targeted Python tests and 17 JavaScript tests;
+  evidence `/private/tmp/pontora-email-test-delivery-status.json`, fingerprint
+  `8a361c03baad3c14ad6a3ddbe35ae4ed3041d14d9a64b8be34f8499ed41734a1`.
+  Full-suite verification of this newer correction remains pending before release.
+
+### November 19: Persistent Email Toggle and Requested Regression
+
+- Kept Use branding visible across Templates, Branding and Delivery. Branding
+  form preview/save follows the toggle without retaining the old hidden value.
+  Manually verified the control on all three tabs; added cross-tab coverage.
+- Full regression requested, with durable status/logs and source fingerprint in
+  `/private/tmp/pontora-regression-20261119-email-toolbar/`. Results pending;
+  no push or production deployment authorized by this run.
+
+### November 19: Compact Email Toolbar (Local Only)
+
+- Branding toggle now shares the email tabs row, wrapping on phones. Removed
+  success messages; saving and failure feedback remain. No delivery logic changed.
+- Re-ran 161 Python and 17 JavaScript targeted checks, all passed, plus diff check.
+  Record: `/private/tmp/pontora-email-test-delivery-status.json`; fingerprint
+  `0ae611cad6343d1e6b61b5d8af044c34e1eac54faf5cd89068ba587d7e064ce9`
+  before this documentation-only entry. No full regression or deployment.
+- Manually verified toggle off/on and compact Chrome layouts at desktop,
+  390x844, 768x1024 and 1024x768. Restored original enabled setting. Physical
+  Android and inbox delivery not verified in this iteration.
+
+### November 19: Booking Email Compose Cleanup (Local Only)
+
+- Moved the school-wide branding toggle to Templates, with immediate persistence
+  and preview refresh. Branding retains color/name/sign-off settings.
+- Reused the shared token insertion helper in a grouped Insert field menu. Replaced
+  link checkboxes with three toggle rows and moved test delivery under the preview.
+  Unbranded rich text retains neutral action buttons and an underlined PDF link.
+- Targeted verification: 161 Python tests and 17 JavaScript tests passed;
+  diff whitespace check passed. Run record:
+  `/private/tmp/pontora-email-test-delivery-status.json`, revision `ff08924`,
+  working-tree fingerprint `b30d0c693ebae1cc329901b33fcad382006d49d4b968c0a2ec0bf2991cc3cff3`
+  (before this documentation-only entry).
+- Manually checked Chrome desktop, 390x844 phone, 768x1024 and 1024x768 tablet
+  emulation: branding on/off, persistence across tabs, all three link options,
+  field insertion, and local test capture. Test edits discarded; original branding
+  setting restored. Physical Android and real inbox delivery were not tested.
+- No deployment or full regression for this iteration. Existing production
+  readiness blockers remain unchanged.
+
+Last hosted revision/configuration check: November 18, 2026 (PST).
+
+## November 19 Booking Email Verification and Test Delivery: LOCAL
+
+- Follow-up correction: initial manual coverage missed unchecking branding and
+  navigating away without Save branding. That only changed the unsaved preview.
+  The mode switch now persists immediately, independently of other unsaved brand
+  fields; email-tab navigation waits for its save and stays put on failure.
+  Configured booking templates retain the same editor with branding off.
+- Added persistence, preview-after-navigation, independent-setting, delayed-save
+  and failed-save tests. Latest targeted run: 161 Python and 16 JavaScript tests
+  passed, diff check passed, unchanged fingerprint
+  d86c039df02e1e3e1432eabb48691d671f30164ae75b06e3a4941b664ac9e7be.
+  The evidence paths below now contain this replacement run. Manually reproduced
+  the original failure and verified off -> Templates -> reload and on -> Templates
+  in Chrome. Restored local branding to on. Proof:
+  /private/tmp/pontora-branding-off-templates.jpg. No hosted changes.
+
+- Checked branding uses the configured color/layout; unchecked now retains saved
+  automatic-template wording and rich text without a branded wrapper. Schools
+  without configured automatic templates retain their existing fallback. No SBMC
+  enrollment templates, configuration or sending workflow changed.
+- Added Send test email to the booking template editor, using current unsaved
+  wording, sample details, selected links and existing school delivery settings.
+  Sample links are intentionally inactive; real booking-link behavior must be
+  exercised with a demo reservation. Explicit samples have a [Test] subject and
+  do not create bookings, payment links or queued customer notifications.
+- Verified 160 targeted Python tests and 14 JavaScript tests; diff check passed.
+  Revision ff08924 plus working-tree fingerprint
+  e310bd6fa3069ae281039b050d1ebfa90d64653f643fe3e2eeaa94fd9223c17d was unchanged
+  during the run. This release-record addition came after the tests.
+  Evidence: /private/tmp/pontora-email-test-delivery.log,
+  /private/tmp/pontora-email-test-delivery.xml and
+  /private/tmp/pontora-email-test-delivery-status.json.
+- Manual Chrome verification: desktop, phone 390x844, tablet 768x1024 and
+  1024x768; branding on/off and color preview, all three selected links, test-send
+  completion without navigation, and invalid-recipient feedback. Local delivery
+  is captured, not sent to an inbox. Physical Android and real inbox rendering
+  remain pending. Screenshot: /private/tmp/pontora-test-email-control.jpg.
+- No push/deployment or full regression in this iteration. The production
+  migration compatibility blocker below remains unresolved.
+
+## November 18 Production Readiness Review: BLOCKED
+
+- No production deployment or configuration changes authorized/performed. Render
+  production web and maintenance both still run
+  `6ebf7fe08bb3e0ba9c459c3a34380d7e5bcc547c`. Candidate is
+  `ff08924a72be3bc5e5448cb9b075260912a43d2c`; its GitHub CI run
+  `44190871292` passed. Reviewed the eight intervening commits and migration chain.
+- **Promotion blocker:** new non-null email-template columns have application
+  defaults but no persistent database defaults. After core 0070, the production
+  0068 ORM cannot insert a SchoolEmailTemplate: PostgreSQL rejects a null
+  `booking_event`. Reproduced against the local test database using historical
+  migration model state, not production data. This affects overlapping old/new
+  processes during deployment and code rollback after migrations. Audit the same
+  pattern in core 0072/0073 and scheduling 0062. Add compatible database defaults
+  or another backward-compatible expansion strategy, then test old and new
+  writers before approving the exact replacement revision.
+- Reproducer: `/private/tmp/test_pontora_release_compatibility.py` (one failing
+  compatibility test). New-code SBMC-focused checks passed: 553 tests across 17
+  modules covering enrollment, leads, submissions, permissions, tokens, themes,
+  billing, payment notifications and environment isolation. Durable run record:
+  `/private/tmp/pontora-sbmc-readiness/status.json`, with log, revision and unchanged
+  source fingerprint. The earlier full release run also passed; neither pass
+  covers the newly reproduced old-writer compatibility failure. The reported
+  97.81% coverage applies to measured modules, not the entire repository.
+- Browser checks: production dashboard, submission/lead pages, settings and
+  public enrollment inspected read-only. Candidate local SBMC navigation,
+  dashboard, leads, submission detail/edit form, follow-up set/clear, settings,
+  template token insertion and public forms inspected in Chrome. Desktop,
+  768x1024 portrait, 1024x768 landscape and 390x844 phone were exercised across
+  these checks, not every page at every size. No real emails or charges sent.
+- Additional UI finding: the shared enrollment template editor overflows by
+  16px at 390px width (406px document width); its form uses a 340px minimum width
+  plus padding. Existing small toolbar/status controls also need a touch-target
+  review. Tablet editor and subject token insertion worked. Physical Android,
+  virtual keyboard and real-inbox delivery remain unverified.
+- Local preview SBMC was not a production-equivalent fixture: it lacked programs,
+  recipients and templates. Added synthetic local review records/programs only;
+  its instrument selector still needs configuration parity before claiming a
+  complete manual enrollment/edit round-trip. Automated SBMC flow checks passed.
+  Local SBMC passwords were reset with owner approval; live credentials unchanged.
+- Production maintenance has recent successful runs and remains on its existing
+  command without `--include-live-recovery`. Enabling live Square recovery remains
+  a separate Plushie activation gate, not evidence that SBMC is broken.
+
+
+## Demo Released: Configurable Branded Booking Emails
 
 - Follow-up: template editing, tags and preview now remain together on the Templates
   tab; Branding and Delivery are separate tabs. Removed branded demo prefixes and
@@ -15,7 +187,21 @@ Last hosted revision/configuration check: November 17, 2026 (PST).
   unchanged source: 6,349 application tests, 26 migration tests, 214 JavaScript
   tests; Python coverage 97.81%, all measured module gates passed. Two stale test
   expectations from the first run were corrected (admin color POST and multi-link
-  validation wording). Hosted deployment and activation verification are pending.
+  validation wording).
+- Released as `ff08924a72be3bc5e5448cb9b075260912a43d2c`; GitHub CI
+  `44190871292` passed. Render demo web and maintenance deployed this revision;
+  web deployment took 1m24s. Production was not promoted.
+- Hosted Chrome verification passed for branding on/off preview, three independent
+  email links (all selected and all removed), editable formatted booking details,
+  saved/reloaded template settings, new-template initial validation and Delivery.
+  Enabled pink branding only for Plushie's demo profile and archived its three
+  old manual samples (IDs 11, 12, 13), preserving six automatic templates. Restored
+  party confirmation to guest details plus PDF, without a payment button.
+- Hosted desktop viewport was 1470px wide. Requested viewport overrides did not
+  apply, so no hosted tablet/phone verification is claimed. Physical Android and
+  real-inbox delivery remain pending; no customer emails or payments were sent.
+  Evidence: `/private/tmp/pontora-demo-email-verified.jpg`. This hosted acceptance
+  record was added locally after the release commit.
 - School-scoped opt-in branding and live previews reuse existing template editing,
   tags, message queue, SMTP transport, attachments and delivery safeguards. Six
   automatic booking messages become editable defaults without replacing manual

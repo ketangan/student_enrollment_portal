@@ -54,6 +54,39 @@
 .booking-admin .email-settings-section .icon-button { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
 .email-template-scope-mobile { display: none; }
 .email-template-form { max-width: 1100px; }
+.email-settings-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 24px; border-bottom:1px solid #e2e5e9; margin-bottom:20px; }
+.email-settings-toolbar .email-tabs { margin-bottom:0; border-bottom:0; }
+.email-mode-control { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:8px 16px; margin:0; padding:0; }
+.email-mode-control > label { display:flex; align-items:center; gap:16px; font-weight:600; }
+.email-mode-control small { display:block; font-weight:400; color:#667085; }
+.email-mode-control p { font-size:13px; color:#b42318; margin:0; max-width:320px; }
+.email-mode-control p:empty { display:none; }
+.email-switch { position:relative; display:inline-flex; align-items:center; width:48px; height:44px; flex:0 0 48px; }
+.booking-admin .email-switch input { position:absolute; inset:0; width:48px; height:44px; margin:0; opacity:0; cursor:pointer; z-index:1; }
+.email-switch > span { width:44px; height:26px; border-radius:20px; background:#98a2b3; position:relative; }
+.email-switch > span::after { content:''; position:absolute; height:20px; width:20px; background:#fff; border-radius:50%; top:3px; left:3px; }
+.email-switch input:checked + span { background:#2563eb; }
+.email-switch input:checked + span::after { left:21px; }
+.email-switch input:focus-visible + span { outline:2px solid #2563eb; outline-offset:3px; }
+.email-switch input:disabled + span { opacity:.5; }
+.email-link-options { border:0; padding:0; margin:20px 0; min-width:0; }
+.email-link-options legend { font-size:15px; font-weight:600; margin-bottom:8px; }
+.email-link-option { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid #e2e5e9; }
+.email-link-option > span:first-child { flex:1; min-width:0; }
+.email-link-kind { color:#667085; font-size:12px; background:#f3f4f6; padding:3px 7px; border-radius:4px; }
+.email-preview-test { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; padding-top:16px; margin-top:16px; border-top:1px solid #e2e5e9; }
+.email-preview-test p { grid-column:1/-1; font-size:13px; margin:0; }
+.email-preview-test p:empty { display:none; }
+.email-insert-fields { margin-left:auto; position:relative; min-width:0; }
+.email-insert-fields summary { display:flex; align-items:center; justify-content:center; gap:6px; min-height:44px; padding:0 8px; cursor:pointer; color:#1d4ed8; font-size:13px; font-weight:600; }
+.email-insert-fields summary::-webkit-details-marker { display:none; }
+.email-field-menu { position:absolute; right:0; top:100%; width:min(370px,75vw); max-height:360px; overflow-y:auto; z-index:10; background:white; border:1px solid #d8dde5; border-radius:8px; box-shadow:0 8px 24px #0002; padding:8px; }
+.email-field-group { padding:12px 8px 4px; font-size:12px; color:#667085; font-weight:600; text-transform:uppercase; }
+.booking-admin .email-field-menu button { display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%; height:auto; min-height:44px; padding:8px; border:0; background:white; text-align:left; font-size:13px; }
+.email-field-menu button:hover, .email-field-menu button:focus-visible { background:#eef4ff; }
+.email-field-menu code { color:#667085; font-size:11px; overflow-wrap:anywhere; }
+.email-test-control { margin-top: 16px; }
+.email-test-control > summary { min-height: 44px; padding: 12px 0; box-sizing: border-box; cursor: pointer; font-weight: 600; }
 .email-template-layout { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 28px; align-items: start; }
 .email-template-fields { min-width: 0; }
 .email-template-tokens { border-left: 1px solid #e2e5e9; padding-left: 20px; }

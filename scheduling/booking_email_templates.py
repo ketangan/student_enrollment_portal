@@ -142,11 +142,13 @@ def facts(item, event, *, before=None, refund_requested=False, customer_message=
 
 
 def payload(item, event, subject, body, **context):
-    if not item.profile.branded_booking_email:
-        return {"subject": subject, "body": body}
     from .reservation_email import variables
     template = SchoolEmailTemplate.objects.filter(school=item.profile.school, purpose="bookings",
-        booking_event=event, is_active=True).first() or default_template(item.profile.school, event)
+        booking_event=event, is_active=True).first()
+    if template is None:
+        if not item.profile.branded_booking_email:
+            return {"subject": subject, "body": body}
+        template = default_template(item.profile.school, event)
     from .reservation_email import customer_link
     details = facts(item, event, **context)
     event_actions = {action['kind']: action for action in details['actions']}
@@ -168,7 +170,8 @@ def render_payload(profile, template, values, details):
             if label not in {'Package', 'Workshop', 'Location', 'Room', 'Starts', 'Ends', 'Participants'}]
     subject = render_tokens(template.subject, values).replace("\r", " ").replace("\n", " ")
     return {"subject": subject[:200], "body": clean_html(render_tokens(editable_body(template), values, html=True)),
-        "email_layout": {**brand(profile), "heading": render_tokens(template.heading, values), **details}}
+        "email_layout": {**brand(profile), "branded": profile.branded_booking_email,
+            "heading": render_tokens(template.heading, values), **details}}
 
 
 def presentation(body, layout, *, preview=False):
@@ -185,10 +188,12 @@ def presentation(body, layout, *, preview=False):
     safe_body = transport_html(body)
     if preview:
         safe_body = clean_html(body, links=False)
-    html = render_to_string("scheduling/email/branded.html", {"email": layout, "body": safe_body, "preview": preview})
+    branded = layout.get('branded', True)
+    html = render_to_string("scheduling/email/branded.html" if branded else "scheduling/email/rich_text.html",
+        {"email": layout, "body": safe_body, "preview": preview})
     # Explicit separators preserve paragraph/list structure in plain-text clients.
     plain = unescape(strip_tags(re.sub(r"</(?:p|div|li)>|<br\s*/?>", "\n", clean_html(body))))
-    text = "\n\n".join(filter(None, [layout.get("brand"), layout.get("heading"), plain,
+    text = "\n\n".join(filter(None, [layout.get("brand") if branded else '', layout.get("heading"), plain,
         "\n".join(f"{label}: {value}" for label, value in layout.get("details", [])),
         "\n\n".join(layout.get("paragraphs", [])),
         "\n".join(f"{a['label']}: {a['url']}" for a in layout["actions"]), layout.get("signoff")]))
@@ -234,6 +239,5 @@ def preview(profile, template):
 
 def brand_preview(profile):
     body = '<p>Hi Maya,</p><p>Your email message appears here.</p>'
-    if not profile.branded_booking_email:
-        return {'subject': '', 'html': '<!doctype html><html><body>' + body + '</body></html>'}
-    return {'subject': '', 'html': presentation(body, brand(profile), preview=True)[1]}
+    layout = {**brand(profile), 'branded': profile.branded_booking_email}
+    return {'subject': '', 'html': presentation(body, layout, preview=True)[1]}

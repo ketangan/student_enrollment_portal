@@ -68,6 +68,14 @@
   window.EmailTemplateTokens.attach({editor, subject, buttons: form.querySelectorAll('[data-token]'),
     inputs: Array.from(form.querySelectorAll('[name="heading"]')),
     changed: () => { dirty = true; sync(); }});
+  form.querySelectorAll('.email-insert-fields').forEach(menu => {
+    menu.addEventListener('click', event => {
+      if (event.target.closest('[data-token]')) menu.open = false;
+    });
+    menu.addEventListener('keydown', event => {
+      if (event.key === 'Escape') { menu.open = false; menu.querySelector('summary').focus(); }
+    });
+  });
   const read = id => JSON.parse(document.getElementById(id)?.textContent || '{}');
   const options = read('email-options');
   const updateLink = value => {
@@ -93,12 +101,35 @@
     if (apply(options[selector.value])) selectedTemplate = selector.value;
     else selector.value = selectedTemplate;
   });
-  form.addEventListener('submit', event => {
+  form.addEventListener('submit', async event => {
     sync();
     if (!editor.textContent.trim() || textarea.value.length > 20000) {
       event.preventDefault();
       window.alert('Enter a message under 20,000 characters.');
       editor.focus();
+      return;
+    }
+    if (event.submitter?.value === 'send_test') {
+      event.preventDefault();
+      const button = event.submitter;
+      const status = form.querySelector('[data-test-email-status]');
+      const data = new FormData(form);
+      data.set('action', 'send_test');
+      button.disabled = true;
+      status.textContent = 'Sending test email...';
+      try {
+        const response = await fetch(form.getAttribute('action') || location.href, {
+          method: 'POST', body: data, credentials: 'same-origin'
+        });
+        const result = await response.json();
+        const labels = {test_recipient:'Email address', name:'Name', subject:'Subject', body:'Message'};
+        status.textContent = result.message || result.error || Object.entries(result.errors || {}).map(
+          ([field, errors]) => `${labels[field] || field}: ${errors.join(' ')}`).join(' ') || 'Could not confirm delivery.';
+      } catch (_) {
+        status.textContent = 'Delivery could not be confirmed. Check your inbox before retrying.';
+      } finally {
+        button.disabled = false;
+      }
     }
   });
 })();

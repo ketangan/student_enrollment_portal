@@ -14,7 +14,7 @@ function element(extra = {}) {
     ...extra};
 }
 
-function page({empty = false, template = false, saved = false} = {}) {
+function page({empty = false, template = false, saved = false, response = {message:'Test accepted'}, reject = false} = {}) {
   const textarea = element({value: saved ? '<p>Draft</p>' : ''});
   const editor = element({contains: node => node === editor});
   const toolbar = element();
@@ -25,14 +25,17 @@ function page({empty = false, template = false, saved = false} = {}) {
     setRangeText(text) { this.value += text; }});
   const selector = template ? null : element();
   const token = element({dataset: {token: 'first_name'}});
+  const menuSummary = element();
+  const menu = element({open: true, querySelector: () => menuSummary});
   const linkToken = template ? null : element();
-  const linkNote = element(), linkHint = element();
+  const linkNote = element(), linkHint = element(), testStatus = element();
   const wrapper = {querySelector: selector => ({textarea, '[contenteditable]': editor,
     '[role="toolbar"]': toolbar, label}[selector])};
   const form = element({querySelector: name => ({'[data-email-editor]': wrapper, '[name="subject"]': subject,
     '[name="template"]': selector, '[name="link_token"]': linkToken,
-    '[data-email-link-note]': linkNote, '[data-email-link-hint]': linkHint}[name]),
-    querySelectorAll: name => name === '[name="heading"]' ? [heading] : [token]});
+    '[data-email-link-note]': linkNote, '[data-email-link-hint]': linkHint,
+    '[data-test-email-status]': testStatus}[name]), getAttribute: () => '/template/',
+    querySelectorAll: name => ({'[name="heading"]': [heading], '[data-token]': [token], '.email-insert-fields': [menu]}[name] || [])});
   const payload = {subject: 'Welcome', body: '<p>Ready</p>', link_token: 'signed-link', link_hint: 'Adds a guest details button.'};
   const range = {commonAncestorContainer: editor, cloneRange() { return this; },
     selectNodeContents() {}, collapse() {}, deleteContents() {}, insertNode(node) { editor.innerHTML += node.textContent; }};
@@ -46,13 +49,28 @@ function page({empty = false, template = false, saved = false} = {}) {
     getElementById: id => template ? null : ({textContent: JSON.stringify({'': {subject:'',body:''}, '1': payload,
       '2': {subject: 'Visit update', body: '<p>Please review the changes.</p>'}})}),
     execCommand(command, _, value) { commands.push({command, value}); if (command === 'insertText') editor.innerHTML += value; }});
-  const context = vm.createContext({document, window, Event});
+  const requests = [];
+  const context = vm.createContext({document, window, Event,
+    FormData: class extends Map { constructor() { super(); } },
+    fetch: async (url, options) => { requests.push({url, options});
+      if (reject) throw new Error('network');
+      return {json: async () => response}; }});
   vm.runInContext(tokensSource, context, {filename: 'static/admin/email-template-tokens.js'});
   vm.runInContext(source, context, {filename: 'static/scheduling/email-editor.js'});
   return {form, textarea, editor, subject, heading, selector, token, toolbar, linkToken, linkNote, linkHint,
-    selection, commands, alerts, document, window};
+    selection, commands, alerts, document, window, testStatus, requests, menu, menuSummary};
 }
 const click = (element, button) => element.listeners.click({target: {closest: () => button}});
+
+test('insert field menu closes after selection and returns focus on Escape', () => {
+  const p = page({template: true});
+  click(p.menu, p.token);
+  assert.equal(p.menu.open, false);
+  p.menu.open = true;
+  p.menu.listeners.keydown({key: 'Escape'});
+  assert.equal(p.menu.open, false);
+  assert.equal(p.menuSummary.focused, true);
+});
 
 test('no editor is a no-op; server-sanitized draft is restored', () => {
   page({empty: true});
@@ -188,4 +206,28 @@ test('submission syncs rich text; blank and oversized messages stay in the form'
   p.editor.innerHTML = 'x'.repeat(20001);
   p.form.listeners.submit(event);
   assert.equal(prevented, 2);
+});
+
+test('test send stays in editor, sends current draft once and reports result', async () => {
+  const p = page({template:true});
+  p.editor.textContent = 'New draft'; p.editor.innerHTML = '<b>New draft</b>';
+  const button = {value:'send_test'};
+  let prevented = false;
+  await p.form.listeners.submit({submitter:button, preventDefault() { prevented = true; }});
+  assert.ok(prevented);
+  assert.equal(p.requests.length, 1);
+  assert.equal(p.requests[0].options.body.get('action'), 'send_test');
+  assert.equal(p.textarea.value, '<b>New draft</b>');
+  assert.equal(p.testStatus.textContent, 'Test accepted');
+  assert.equal(button.disabled, false);
+});
+
+test('test send explains validation and uncertain delivery without retrying', async () => {
+  for (const options of [{response:{errors:{test_recipient:['Enter a valid email address.']}}}, {reject:true}]) {
+    const p = page(options);
+    p.editor.textContent = 'Hello';
+    await p.form.listeners.submit({submitter:{value:'send_test'}, preventDefault() {}});
+    assert.equal(p.requests.length, 1);
+    assert.match(p.testStatus.textContent, options.reject ? /could not be confirmed/ : /Email address:/);
+  }
 });

@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><body style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#17202e;background:#fff;margin:0;padding:16px">
+{% if email.heading %}<h2>{{ email.heading }}</h2>{% endif %}
+{{ body|safe }}
+{% for label, value in email.details %}<p><strong>{{ label }}:</strong> {{ value }}</p>{% endfor %}
+{% for paragraph in email.paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+{% for action in email.actions %}<p><a {% if not preview %}href="{{ action.url }}"{% endif %} {% if action.kind == 'guide' %}style="color:#42526b;text-decoration:underline"{% else %}style="display:inline-block;padding:10px 16px;border:1px solid #cbd5e1;border-radius:6px;color:#17202e;font-weight:bold;text-decoration:none"{% endif %}>{{ action.label }}</a></p>{% endfor %}
+{% if email.signoff %}<p>{{ email.signoff|linebreaksbr }}</p>{% endif %}
+</body></html>

@@ -3,4 +3,10 @@
   <p class="email-preview-subject" data-preview-subject>{{ preview.subject }}</p>
   <p class="email-preview-status" role="status" data-preview-status></p>
   <iframe title="Booking email preview" sandbox="" srcdoc="{{ preview.html|force_escape }}" data-preview-frame></iframe>
+  {% if test_control %}<div class="email-preview-test">
+    <label class="sr-only" for="test-recipient">Email address</label>
+    <input type="email" id="test-recipient" name="test_recipient" placeholder="Email address" autocomplete="email">
+    <button type="submit" name="action" value="send_test" formnovalidate>Send test</button>
+    <p data-test-email-status role="status" aria-live="polite"></p>
+  </div>{% endif %}
 </aside>

@@ -5,6 +5,14 @@
 <button type="button" data-command="italic" aria-label="Italic" title="Italic"><i data-lucide="italic" aria-hidden="true"></i></button>
 <button type="button" data-command="underline" aria-label="Underline" title="Underline"><i data-lucide="underline" aria-hidden="true"></i></button>
 <button type="button" data-command="createLink" aria-label="Add link" title="Add link"><i data-lucide="link" aria-hidden="true"></i></button>
+{% if insert_fields %}<details class="email-insert-fields">
+  <summary><i data-lucide="braces" aria-hidden="true"></i>Insert field<i data-lucide="chevron-down" aria-hidden="true"></i></summary>
+  <div class="email-field-menu">
+    {% for group, fields in template_token_groups %}<div class="email-field-group">{{ group }}</div>
+      {% for token, label in fields %}<button type="button" data-token="{{ token }}" title="Insert {% templatetag openvariable %}{{ token }}{% templatetag closevariable %}"><span>{{ label }}</span><code>{{ token }}</code></button>{% endfor %}
+    {% endfor %}
+  </div>
+</details>{% endif %}
 </div>
 <textarea id="{{ body_field.id_for_label }}" name="{{ body_field.html_name }}" rows="10" maxlength="20000" required>{{ body_field.value|default_if_none:''|sanitize_email }}</textarea>{{ body_field.errors }}
 <div class="email-rich-editor" hidden contenteditable="true" role="textbox" aria-label="Message" aria-multiline="true"></div>

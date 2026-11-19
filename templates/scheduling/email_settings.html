@@ -1,19 +1,25 @@
 {% extends 'scheduling/base.html' %}
 {% load static %}
 {% block title %}Email settings{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'scheduling/email-settings.css' %}?v=20261117-links">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'scheduling/email-settings.css' %}?v=20261119-compact">{% endblock %}
 {% block content %}
+<div class="email-settings-toolbar">
 <nav class="email-tabs" aria-label="Email settings">
   <a href="?tab=templates" {% if email_tab == 'templates' %}aria-current="page"{% endif %}>Templates</a>
   <a href="?tab=branding" {% if email_tab == 'branding' %}aria-current="page"{% endif %}>Branding</a>
   <a href="?tab=delivery" {% if email_tab == 'delivery' %}aria-current="page"{% endif %}>Delivery</a>
 </nav>
+<form method="post" action="{% url 'scheduling:email_settings' school_slug=profile.school.slug %}" class="email-mode-control" data-brand-mode-form>{% csrf_token %}
+  <label><span>Use branding <small>All booking emails</small></span><span class="email-switch"><input type="checkbox" name="branded_booking_email" {% if profile.branded_booking_email %}checked{% endif %}><span aria-hidden="true"></span></span></label>
+  <p data-brand-mode-status role="status" aria-live="polite"></p>
+</form>
+</div>
 {% if email_tab == 'branding' %}
 <section class="email-settings-section"><h2>Booking email branding</h2>
 <div class="email-brand-layout" data-email-preview>
   <form method="post" class="setup-form email-brand-form" data-preview-action="preview_brand">{% csrf_token %}
     {{ brand_form.non_field_errors }}
-    <label class="email-tls">{{ brand_form.branded_booking_email }}{{ brand_form.branded_booking_email.label }}</label>
+    <input type="hidden" name="branded_booking_email" value="on" {% if not profile.branded_booking_email %}disabled{% endif %}>
     {% for field in brand_form %}{% if field.name != 'branded_booking_email' %}<div class="form-field">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.name == 'email_brand_color' %}<div class="email-color-swatches" role="group" aria-label="Brand color">
       <button type="button" data-email-color="#ff8a92" style="--swatch:#ff8a92" aria-label="Pink" title="Pink" aria-pressed="{% if field.value == '#ff8a92' %}true{% else %}false{% endif %}"></button>
       <button type="button" data-email-color="#2563eb" style="--swatch:#2563eb" aria-label="Blue" title="Blue" aria-pressed="{% if field.value == '#2563eb' %}true{% else %}false{% endif %}"></button>
@@ -44,7 +50,7 @@
   </details>{% endif %}
 </section>
 {% else %}
-{% if profile.branded_booking_email %}
+{% if template_workspace %}
 <section class="email-settings-section email-template-workspace" aria-label="Booking email templates">
   <nav class="email-template-list" aria-label="Templates">
     <h2>Templates</h2>
@@ -76,4 +82,4 @@
 {% endif %}
 {% endif %}
 {% endblock %}
-{% block scripts %}<script defer src="{% static 'admin/email-template-tokens.js' %}?v=20261117-inline"></script><script defer src="{% static 'scheduling/email-editor.js' %}?v=20261117-inline"></script><script defer src="{% static 'scheduling/email-preview.js' %}?v=20261117-inline"></script>{% endblock %}
+{% block scripts %}<script defer src="{% static 'admin/email-template-tokens.js' %}?v=20261117-inline"></script><script defer src="{% static 'scheduling/email-editor.js' %}?v=20261119-compose"></script><script defer src="{% static 'scheduling/email-preview.js' %}?v=20261119-brand-fields"></script>{% endblock %}

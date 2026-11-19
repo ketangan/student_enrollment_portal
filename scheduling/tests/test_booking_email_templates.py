@@ -150,6 +150,35 @@ def test_brand_save_seeds_and_preview_does_not_write_or_send(stock, mailoutbox):
     assert not mailoutbox and not BookingMessage.objects.exists()
 
 
+@pytest.mark.parametrize('branded', [True, False])
+@pytest.mark.parametrize('color', ['#ff8a92', '#2563eb'])
+def test_brand_fields_preview_save_and_reload(stock, mailoutbox, branded, color):
+    path = reverse('scheduling:email_settings', kwargs={'school_slug': stock.school.slug})
+    original = (stock.profile.email_brand_name, stock.profile.email_brand_color, stock.profile.email_signoff)
+    data = {'action': 'preview_brand', 'email_brand_name': 'Studio & friends',
+        'email_brand_color': color, 'email_signoff': 'See you soon!\nThe team'}
+    if branded:
+        data['branded_booking_email'] = 'on'
+    response = stock.client.post(path, data)
+    assert response.status_code == 200
+    html = response.json()['html']
+    assert ('background:' + color in html) == branded
+    assert ('Studio &amp; friends' in html) == branded
+    assert 'See you soon!<br>The team' in html
+    stock.profile.refresh_from_db()
+    assert (stock.profile.email_brand_name, stock.profile.email_brand_color, stock.profile.email_signoff) == original
+    data['action'] = 'save_brand'
+    assert stock.client.post(path, data).status_code == 302
+    stock.profile.refresh_from_db()
+    assert stock.profile.branded_booking_email == branded
+    assert stock.profile.email_brand_color == color
+    assert stock.profile.email_brand_name == 'Studio & friends'
+    assert stock.profile.email_signoff == data['email_signoff']
+    response = stock.client.get(path + '?tab=branding')
+    assert response.context['brand_preview']['html'] == html
+    assert not mailoutbox and not BookingMessage.objects.exists()
+
+
 def test_template_preview_retains_tokens_and_binding_without_saving(stock, mailoutbox):
     activate(stock)
     template = SchoolEmailTemplate.objects.get(school=stock.school, booking_event='party_confirmation')
@@ -192,7 +221,7 @@ def test_pink_brand_uses_readable_text_and_no_demo_copy(stock):
     stock.school.is_demo = True
     stock.school.save()
     stock.profile.email_brand_color = '#ff8a92'
-    form = BookingBrandForm({'email_brand_color': '#ff8a92'}, instance=stock.profile)
+    form = BookingBrandForm({'email_brand_color': '#ff8a92', 'branded_booking_email': 'on'}, instance=stock.profile)
     assert form.is_valid()
     result = emails.preview(stock.profile, emails.default_template(stock.school, 'party_confirmation'))
     assert '[Demo]' not in result['subject']
@@ -227,7 +256,7 @@ def test_automatic_editor_hides_fixed_controls(stock):
     response = stock.client.get(path)
     assert b'Available for:' not in response.content
     assert b'Use custom wording' not in response.content
-    assert b'Insert details' in response.content
+    assert b'Insert field' in response.content
     assert b'Auto-filled Tokens' not in response.content
     assert b'data-token="first_name"' in response.content
 

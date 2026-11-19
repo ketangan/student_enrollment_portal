@@ -1,5 +1,52 @@
 /* Preview uses the same renderer as delivery, without saving or sending. */
 (() => {
+  document.querySelectorAll('[data-brand-mode-form]').forEach(form => {
+    const toggle = form.querySelector('[name="branded_booking_email"]');
+    const status = form.querySelector('[data-brand-mode-status]');
+    let pending = null;
+    toggle.addEventListener('change', () => {
+      const checked = toggle.checked;
+      const data = new FormData(form);
+      data.set('action', 'save_brand_mode');
+      data.set('branded_booking_email', String(checked));
+      toggle.disabled = true;
+      status.textContent = 'Saving email style...';
+      pending = (async () => {
+        try {
+          const response = await fetch(form.getAttribute('action') || location.href, {
+            method:'POST', body:data, credentials:'same-origin', keepalive:true
+          });
+          const result = await response.json();
+          if (!response.ok || result.branded !== checked) throw new Error('Save failed');
+          status.textContent = '';
+          document.querySelectorAll('[data-email-preview] form').forEach(editorForm => {
+            const mode = editorForm.querySelector('[name="branded_booking_email"]');
+            if (mode && mode.type === 'hidden') mode.disabled = !checked;
+            editorForm.dispatchEvent(new Event('input', {bubbles:true}));
+          });
+          return true;
+        } catch (_) {
+          toggle.checked = !checked;
+          status.textContent = 'Could not confirm the email style change. Refresh before trying again.';
+          toggle.dispatchEvent(new Event('input', {bubbles:true}));
+          return false;
+        } finally {
+          toggle.disabled = false;
+          pending = null;
+        }
+      })();
+    });
+    document.querySelectorAll('.email-tabs a, .email-template-list a').forEach(link => {
+      link.addEventListener('click', async event => {
+        if (!pending) return;
+        event.preventDefault();
+        if (await pending) location.assign(link.href);
+      });
+    });
+    form.addEventListener('submit', event => {
+      if (pending) event.preventDefault();
+    });
+  });
   document.querySelectorAll('[data-email-color]').forEach(button => {
     button.addEventListener('click', () => {
       const input = button.closest('form').querySelector('[name="email_brand_color"]');
@@ -24,6 +71,11 @@
         controller = new AbortController();
         const data = new FormData(form);
         data.set('action', form.dataset.previewAction);
+        const branding = form.querySelector('[name="branded_booking_email"]');
+        if (branding && branding.type === 'checkbox') {
+          if (branding.checked) data.set('branded_booking_email', 'on');
+          else data.delete('branded_booking_email');
+        }
         try {
           const response = await fetch(form.getAttribute('action') || location.href, {
             method: 'POST', body: data, credentials: 'same-origin', signal: controller.signal

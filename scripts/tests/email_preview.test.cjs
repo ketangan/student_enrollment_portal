@@ -50,3 +50,27 @@ test('stale responses never overwrite newer edits and invalid input keeps the la
   p.pending[2]({ok:false,json:async () => ({errors:{subject:['Enter a subject.']}})}); await invalid;
   assert.equal(p.frame.srcdoc, 'new'); assert.equal(p.status.textContent, 'Subject: Enter a subject.');
 });
+
+for (const succeeds of [true, false]) test(`branding navigation waits for save (${succeeds})`, async () => {
+  const handlers = {}, status = {}, calls = [];
+  let finish, navigate, prevented = false;
+  const toggle = {checked:false, addEventListener:(_,fn) => {handlers.change=fn;}, dispatchEvent:()=>{}};
+  const form = {querySelector:s => s.includes('branded_booking_email') ? toggle : status,
+    getAttribute:()=>null, addEventListener:()=>{}};
+  const link = {href:'/templates', addEventListener:(_,fn)=>{handlers.click=fn;}};
+  vm.runInNewContext(source, {document:{querySelectorAll:s => s==='[data-brand-mode-form]' ? [form] : s==='.email-tabs a, .email-template-list a' ? [link] : []},
+    FormData:class {set(k,v){this[k]=v;}}, Event,
+    location:{href:'/branding',assign:url=>{navigate=url;}},
+    fetch:(_,options)=>{calls.push(options);return new Promise(resolve=>{finish=resolve;});}});
+  handlers.change();
+  const click = handlers.click({preventDefault:()=>{prevented=true;}});
+  assert.equal(prevented,true); assert.equal(navigate,undefined);
+  assert.equal(calls[0].body.action,'save_brand_mode');
+  assert.equal(calls[0].body.branded_booking_email,'false');
+  finish({ok:succeeds,json:async()=>({branded:false})}); await click;
+  assert.equal(navigate,succeeds ? '/templates' : undefined);
+  assert.equal(toggle.disabled,false);
+  assert.equal(toggle.checked,!succeeds);
+  if (succeeds) assert.equal(status.textContent, '');
+  else assert.match(status.textContent, /Could not confirm/);
+});

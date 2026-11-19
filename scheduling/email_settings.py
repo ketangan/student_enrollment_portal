@@ -1,5 +1,9 @@
 """Bookings access to the school email configuration shared with Enrollment."""
 from django import forms
+from django.conf import settings as django_settings
+from django.core.cache import cache
+from django.core.mail import EmailMultiAlternatives
+from django.utils.html import strip_tags
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
@@ -14,6 +18,7 @@ from core.admin.audit import log_admin_audit
 from core.models import School, SchoolEmailTemplate
 from core.services.portal_environment import scope_schools
 from core.services.email_content import BOOKING_TOKENS, TOKENS, TOKEN, validate_body
+from core.services.notifications import get_school_email_connection
 from .access import require_access
 from .models import SchedulingProfile
 from .views import _context
@@ -51,6 +56,11 @@ class SchoolEmailSettingsForm(forms.ModelForm):
         return self.cleaned_data["smtp_password"] or self.instance.smtp_password
 
 
+def uses_template_workspace(profile):
+    return profile.branded_booking_email or SchoolEmailTemplate.objects.filter(
+        school=profile.school, purpose='bookings').exclude(booking_event='').exists()
+
+
 @never_cache
 @login_required
 @require_http_methods(["GET", "POST"])
@@ -63,6 +73,19 @@ def settings(request, school_slug):
     tab = request.GET.get("tab", "templates")
     if request.method == "POST":
         action = request.POST.get("action")
+        if action == 'save_brand_mode':
+            mode = request.POST.get('branded_booking_email')
+            if mode not in {'true', 'false'}:
+                return JsonResponse({'error': 'Choose a valid branding mode.'}, status=400)
+            with transaction.atomic():
+                profile = SchedulingProfile.objects.select_for_update().get(pk=profile.pk)
+                profile.branded_booking_email = mode == 'true'
+                profile.save(update_fields=['branded_booking_email'])
+                if profile.branded_booking_email:
+                    booking_templates.seed_defaults(profile)
+                log_admin_audit(request=request, action='change', obj=profile, changes={},
+                    extra={'name': 'booking_email_branding_mode_updated'})
+            return JsonResponse({'branded': profile.branded_booking_email})
         if action in {"save_brand", "preview_brand"}:
             brand_form = BookingBrandForm(request.POST, instance=profile)
             tab = "branding"
@@ -108,7 +131,7 @@ def settings(request, school_slug):
                    brand_form=brand_form, email_tab=tab,
                    brand_preview=booking_templates.brand_preview(profile),
                    email_templates=SchoolEmailTemplate.objects.filter(school=profile.school, purpose="bookings").order_by("name", "pk"))
-    if tab == 'templates' and profile.branded_booking_email:
+    if tab == 'templates' and uses_template_workspace(profile):
         template_context(context, profile, request.GET.get('template'))
     return render(request, "scheduling/email_settings.html", context, status=400 if form.errors or brand_form.errors else 200)
 
@@ -187,7 +210,13 @@ def template_context(context, profile, selected=None, form=None):
         template = get_object_or_404(SchoolEmailTemplate, pk=selected, school=profile.school, purpose='bookings')
     else:
         template = templates.first()
-    context.update(email_tab='templates', email_templates=templates)
+    context.update(email_tab='templates', email_templates=templates, template_workspace=True)
+    groups = [('Customer', {'customer_name', 'first_name', 'email'}),
+        ('Booking', {'program', 'package_name', 'participant_count', 'status'}),
+        ('When & where', {'booking_date', 'booking_time', 'starts_at', 'ends_at', 'location', 'room'}),
+        ('Business', {'business_name'})]
+    context['template_token_groups'] = [(label, [(key, title) for key, title in BOOKING_EDITOR_TOKENS if key in keys])
+        for label, keys in groups]
     if template is not None:
         context.update(template_form=form or BookingTemplateForm(instance=template, branded=True),
             selected_template=template, template_tokens=BOOKING_EDITOR_TOKENS,
@@ -203,13 +232,16 @@ def template_edit(request, school_slug, pk=None):
     profile, role = require_access(request.user, school_slug, "setup.edit", capability="workshops")
     get_object_or_404(scope_schools(SchedulingProfile.objects.all(), request, "school__"), pk=profile.pk)
     template = get_object_or_404(SchoolEmailTemplate, pk=pk, school=profile.school, purpose="bookings") if pk else SchoolEmailTemplate(school=profile.school, purpose="bookings")
+    workspace = uses_template_workspace(profile)
     action = request.POST.get("action", "save")
-    if request.method == "POST" and action not in {"save", "preview"}:
+    if request.method == "POST" and action not in {"save", "preview", "send_test"}:
         return HttpResponseBadRequest("Choose a valid template action.")
     form = BookingTemplateForm(request.POST if request.method == "POST" else None, instance=template,
-        branded=profile.branded_booking_email, preview=action == 'preview')
+        branded=workspace, preview=action == 'preview')
+    if request.method == 'POST' and action == 'send_test':
+        return send_template_test(request, profile, form)
     if request.method == "POST" and action == "preview":
-        if not profile.branded_booking_email:
+        if not workspace:
             return HttpResponseBadRequest("Enable booking email branding before previewing.")
         if not form.is_valid():
             return JsonResponse({"errors": form.errors}, status=400)
@@ -220,13 +252,47 @@ def template_edit(request, school_slug, pk=None):
             extra={"name": "email_template_updated" if pk else "email_template_created", "template_name": template.name})
         messages.success(request, "Email template saved.")
         path = reverse('scheduling:email_settings', kwargs={'school_slug': school_slug})
-        return redirect(path + f'?tab=templates&template={template.pk}' if profile.branded_booking_email else path)
+        return redirect(path + f'?tab=templates&template={template.pk}' if workspace else path)
     context = _context(request, profile, role, "email_settings")
     context.update(template_form=form, dashboard_location_form=None, template_tokens=BOOKING_EDITOR_TOKENS if profile.branded_booking_email else BOOKING_TOKENS,
         automatic_template=bool(template.booking_event), template_event=template.get_booking_event_display(),
         template_preview=booking_templates.preview(profile, template),
         template_heading="Edit email template" if pk else "Add email template")
-    if profile.branded_booking_email:
+    if workspace:
         template_context(context, profile, form=form)
         return render(request, 'scheduling/email_settings.html', context, status=400 if form.errors else 200)
     return render(request, "scheduling/email_template_form.html", context, status=400 if form.errors else 200)
+
+
+def send_template_test(request, profile, form):
+    """Explicit staff-only sample delivery; never resolve real reservation links."""
+    valid = form.is_valid()
+    try:
+        recipient = forms.EmailField(max_length=254).clean(request.POST.get('test_recipient', ''))
+    except forms.ValidationError as exc:
+        return JsonResponse({'errors': {'test_recipient': exc.messages}}, status=400)
+    if not valid:
+        return JsonResponse({'errors': form.errors}, status=400)
+    key = f'booking-template-test:{profile.pk}:{request.user.pk}'
+    if not cache.add(key, True, timeout=30):
+        return JsonResponse({'error': 'Please wait 30 seconds before sending another test.'}, status=429)
+    preview = booking_templates.preview(profile, form.instance)
+    note = 'Test email with sample details. Links are inactive; use a demo reservation to test booking actions.'
+    try:
+        email = EmailMultiAlternatives(subject='[Test] ' + preview['subject'],
+            body=note + '\n\n' + strip_tags(preview['html']),
+            from_email=profile.school.smtp_from_email or django_settings.DEFAULT_FROM_EMAIL,
+            to=[recipient], connection=get_school_email_connection(profile.school))
+        email.attach_alternative(preview['html'].replace('</body>', '<p>' + note + '</p></body>'), 'text/html')
+        accepted = email.send(fail_silently=False)
+    except Exception:
+        return JsonResponse({'error': 'Delivery could not be confirmed. Check your inbox and delivery settings before retrying.'}, status=502)
+    if accepted != 1:
+        return JsonResponse({'error': 'The mail service did not accept the test email. Check delivery settings.'}, status=502)
+    log_admin_audit(request=request, action='action', obj=profile, changes={},
+        extra={'name': 'booking_template_test_sent', 'template_id': form.instance.pk})
+    local = email.connection.__class__.__module__ in {
+        'django.core.mail.backends.locmem', 'django.core.mail.backends.console',
+        'django.core.mail.backends.filebased', 'django.core.mail.backends.dummy'}
+    return JsonResponse({'message': 'Test captured locally; no email was sent to an inbox.' if local
+        else 'Test email accepted by the mail service. Check your inbox.'})
